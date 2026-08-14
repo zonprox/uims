@@ -68,11 +68,12 @@ pnpm db:migrate
 # Seed the database
 pnpm db:seed
 
-# Start development servers
+# Start development servers with Hot Reload
 pnpm dev
 ```
 
-The API will be available at `http://localhost:3000` and the web app at `http://localhost:5173`.
+- API with live reload: `http://localhost:3002` (Swagger at `http://localhost:3002/api/v1/docs`)
+- Web app with Vite HMR: `http://localhost:5679`
 
 ### Default Credentials
 
@@ -80,10 +81,23 @@ The API will be available at `http://localhost:3000` and the web app at `http://
 |:------|:---------|:-----|
 | admin@uims.local | Admin@2026 | Super Admin |
 
-### Docker Deployment
+### Docker Development (Hot Reload enabled)
 
 ```bash
-# Build and start all services
+# Start all services with hot reload & volume mounts
+pnpm docker:dev
+
+# View logs
+pnpm docker:dev:logs
+
+# Stop development containers
+pnpm docker:dev:down
+```
+
+### Docker Production Deployment
+
+```bash
+# Build and start all production services
 docker compose up -d --build
 
 # View logs
@@ -115,21 +129,23 @@ uims/
 
 | Command | Description |
 |:--------|:------------|
-| `pnpm dev` | Start all dev servers |
-| `pnpm dev:api` | Start API server only |
-| `pnpm dev:web` | Start web app only |
+| `pnpm dev` | Start all dev servers (Hot Reload enabled) |
+| `pnpm dev:api` | Start API server only (watch mode) |
+| `pnpm dev:web` | Start web app only (Vite HMR) |
 | `pnpm build` | Build all packages and apps |
 | `pnpm lint` | Lint all packages |
 | `pnpm test` | Run all tests |
 | `pnpm db:migrate` | Run database migrations |
 | `pnpm db:seed` | Seed the database |
 | `pnpm db:studio` | Open Prisma Studio |
-| `pnpm docker:up` | Start Docker services |
-| `pnpm docker:down` | Stop Docker services |
+| `pnpm docker:dev` | Start Docker dev stack with Hot Reload & volume mounts |
+| `pnpm docker:dev:down` | Stop Docker dev stack |
+| `pnpm docker:up` | Start Docker production services |
+| `pnpm docker:down` | Stop Docker production services |
 
 ## API Documentation
 
-Swagger/OpenAPI docs are available at `http://localhost:3000/api/docs` when the API server is running.
+Swagger/OpenAPI docs are available at `http://localhost:3002/api/v1/docs` when the API server is running.
 
 ## License
 
