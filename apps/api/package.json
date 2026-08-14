@@ -1,0 +1,62 @@
+{
+  "name": "@uims/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main",
+    "start:prod": "node dist/main",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@nestjs/throttler": "^6.0.0",
+    "@nestjs/websockets": "^11.0.0",
+    "@nestjs/platform-socket.io": "^11.0.0",
+    "@nestjs/bullmq": "^11.0.0",
+    "@prisma/client": "^7.0.0",
+    "@uims/shared-types": "workspace:*",
+    "@uims/shared-validators": "workspace:*",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^6.0.0",
+    "class-transformer": "^0.5.0",
+    "class-validator": "^0.14.0",
+    "compression": "^1.7.0",
+    "cookie-parser": "^1.4.0",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.0.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.0",
+    "pino": "^9.0.0",
+    "pino-http": "^10.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@types/bcrypt": "^5.0.0",
+    "@types/compression": "^1.7.0",
+    "@types/cookie-parser": "^1.4.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/passport-jwt": "^4.0.0",
+    "prisma": "^7.0.0",
+    "typescript": "^7.0.0",
+    "vitest": "^4.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  }
+}

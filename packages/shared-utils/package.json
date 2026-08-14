@@ -1,0 +1,25 @@
+{
+  "name": "@uims/shared-utils",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --dts --format esm",
+    "dev": "tsdown src/index.ts --dts --format esm --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.10"
+  },
+  "devDependencies": {
+    "tsdown": "latest",
+    "typescript": "^7.0.0"
+  }
+}

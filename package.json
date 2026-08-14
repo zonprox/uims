@@ -1,0 +1,37 @@
+{
+  "name": "uims",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UIMS — Unified IT Management System",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@uims/api",
+    "dev:web": "turbo run dev --filter=@uims/web",
+    "build": "turbo run build",
+    "build:api": "turbo run build --filter=@uims/api",
+    "build:web": "turbo run build --filter=@uims/web",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "biome format --write .",
+    "format:check": "biome check .",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "db:generate": "pnpm --filter @uims/api prisma generate",
+    "db:migrate": "pnpm --filter @uims/api prisma migrate dev",
+    "db:migrate:prod": "pnpm --filter @uims/api prisma migrate deploy",
+    "db:seed": "pnpm --filter @uims/api prisma db seed",
+    "db:studio": "pnpm --filter @uims/api prisma studio",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:build": "docker compose build",
+    "docker:logs": "docker compose logs -f",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "prepare": "echo 'Ready'"
+  }
+}
