@@ -1,4 +1,68 @@
-# Ant Design Component Documentation
+# UIMS — AI Agent Memory & Development Guide
+
+> **UIMS (Unified IT Management System)** — Enterprise-grade Centralized IT Operations Platform (Best Practice 2026).
+
+---
+
+## 1. System Overview & Architecture
+
+- **Architecture**: Modular Monolith, REST API, Single-Page Application (SPA), Containerized via Docker Compose.
+- **Language Policy**: 100% English across all UI, API responses, code, comments, documentation, and commit messages.
+- **Package Manager & Workspace**: `pnpm` workspaces (v11.21+) + Turborepo (v2.10+).
+
+### Monorepo Structure:
+- `apps/api`: NestJS 11 + Prisma 7 ORM + PostgreSQL 17 + Redis 8 + BullMQ.
+- `apps/web`: React 19 + Ant Design 6.6+ + Vite 8 + Zustand 5 + TanStack Query 5.
+- `packages/shared-types`: Common TypeScript entities, DTOs, Enums, and API Response envelopes.
+- `packages/shared-validators`: Shared runtime Zod schemas.
+- `packages/shared-utils`: String, format, date, and validation utilities.
+- `docker/`: Nginx proxy configuration, Postgres initialization scripts, multi-stage Dockerfiles.
+
+---
+
+## 2. Docker & Infrastructure Ports
+
+| Service | Container Name | Internal Port | Host / Exposed Port | Notes |
+|:---|:---|:---|:---|:---|
+| **Web UI (Nginx SPA)** | `uims-web` | `80` | `8082` | Proxies `/api/` to `uims-api:3000` |
+| **API Backend (NestJS)** | `uims-api` | `3000` | `3002` | Health endpoint: `/api/v1/health` |
+| **PostgreSQL** | `uims-postgres` | `5432` | `5433` | User: `uims`, DB: `uims_db` |
+| **Redis** | `uims-redis` | `6379` | `6381` | Cache, sessions, queue |
+| **MeiliSearch** | `uims-meilisearch` | `7700` | `7700` | Full-text search engine |
+| **SeaweedFS Filer** | `uims-seaweedfs-filer` | `8333` / `8888` | `8333` / `8888` | S3-compatible Object Storage |
+| **SeaweedFS Master** | `uims-seaweedfs-master` | `9333` | `9333` | Storage cluster coordination |
+| **SeaweedFS Volume** | `uims-seaweedfs-volume` | `8080` | `8080` | File volume storage |
+
+---
+
+## 3. Public Access & Cloudflare Tunnel (Best Practice 2026)
+
+Instead of exposing raw ports or using self-signed HTTPS (which triggers browser security warnings), UIMS utilizes **Cloudflare Tunnel (`cloudflared` Quick Tunnel on `trycloudflare.com`)**:
+
+### Cloudflare Tunnel Advantages:
+- **Zero Configuration HTTPS**: Valid SSL/TLS certificate issued and managed automatically by Cloudflare edge.
+- **No Inbound Port Opening**: Traffic tunnels through outbound QUIC/HTTP2 connections.
+- **Single Public Entry Point**: Tunnels to `http://localhost:8082` (where Nginx serves both Web SPA and reverse-proxies `/api/` to the NestJS API).
+
+### How to Run Cloudflare Tunnel:
+```bash
+# ARM64 / Linux Quick Tunnel
+/tmp/cloudflared tunnel --url http://localhost:8082 --no-autoupdate 2>&1
+```
+
+---
+
+## 4. UI & Frontend Guidelines (Ant Design v6 Standards)
+
+- **Dynamic Theme & Feedback**: Always use `const { message, modal, notification } = App.useApp();` instead of static `message.xxx()` to consume dynamic theme context properly without console warnings.
+- **Semantic Styles**:
+  - `Statistic`: Use `styles={{ content: { ... } }}` instead of deprecated `valueStyle`.
+  - `Card`: Use `styles={{ body: { ... } }}` instead of deprecated `bodyStyle`.
+- **Form Controls**: Use Ant Design Form with Zod validation adapters for unified validation.
+
+---
+
+# Ant Design Component Documentation (Full Reference)
 
 This file contains aggregated content from all component docs.
 
