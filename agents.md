@@ -24,9 +24,8 @@
 
 | Service | Container Name | Internal Port | Host / Exposed Port | Notes |
 |:---|:---|:---|:---|:---|
-| **Web UI (Nginx SPA)** | `uims-web` | `80` | `5679` | Proxies `/api/` to `uims-api:3000` |
+| **Web UI (Nginx HTTPS)** | `uims-web` | `443` (SSL) / `80` | `5679` | Serves SPA + Proxies `/api/` over HTTPS |
 | **API Backend (NestJS)** | `uims-api` | `3000` | `3002` | Health endpoint: `/api/v1/health` |
-| **Public HTTPS Tunnel** | `uims-tunnel` | `N/A` | `Public HTTPS` | Cloudflare Quick Tunnel (`trycloudflare.com`) |
 | **PostgreSQL** | `uims-postgres` | `5432` | `5433` | User: `uims`, DB: `uims_db` |
 | **Redis** | `uims-redis` | `6379` | `6381` | Cache, sessions, queue |
 | **MeiliSearch** | `uims-meilisearch` | `7700` | `7700` | Full-text search engine |
@@ -36,21 +35,15 @@
 
 ---
 
-## 3. Public Access & Cloudflare Tunnel (Best Practice 2026)
+## 3. Direct Public HTTPS Access on Port 5679
 
-Instead of exposing raw ports or using self-signed HTTPS (which triggers browser security warnings), UIMS utilizes **Cloudflare Tunnel (`cloudflared` Quick Tunnel on `trycloudflare.com`)** integrated directly into `docker-compose.yml`:
+UIMS serves direct native **HTTPS with TLS 1.2 / TLS 1.3** on public port **5679** through Nginx:
 
-### Cloudflare Tunnel Advantages:
-- **Zero Configuration HTTPS**: Valid SSL/TLS certificate issued and managed automatically by Cloudflare edge.
-- **No Inbound Port Opening**: Traffic tunnels through outbound QUIC/HTTP2 connections.
-- **Single Public Entry Point**: Tunnels directly to `http://web:80` (where Nginx serves both Web SPA and reverse-proxies `/api/` to the NestJS API).
-- **Containerized in Docker Compose**: Automatically managed via service `tunnel` (`cloudflare/cloudflared:latest`).
-
-### How to Check / Run Cloudflare Tunnel:
-```bash
-# Check current public tunnel URL from docker container
-docker logs uims-tunnel 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1
-```
+### HTTPS Architecture:
+- **Direct SSL Termination**: Handled by containerized Nginx with certificates in `docker/nginx/ssl`.
+- **Single Public Port**: Port `5679` serves both the React Web Application and reverse-proxies `/api/` requests to the NestJS backend with `X-Forwarded-Proto https`.
+- **HTTP2 Enabled**: Fast multiplexing and optimized asset transfer.
+- **Access URL**: `https://<server-ip-or-domain>:5679` or `https://localhost:5679`
 
 ---
 
