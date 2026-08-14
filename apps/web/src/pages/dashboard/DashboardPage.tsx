@@ -26,17 +26,17 @@ export default function DashboardPage() {
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} md={6}>
           <Card>
-            <Statistic title="Total Assets" value={1240} prefix={<LaptopOutlined />} valueStyle={{ color: '#1677ff' }} />
+            <Statistic title="Total Assets" value={1240} prefix={<LaptopOutlined />} styles={{ content: { color: '#1677ff' } }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Card>
-            <Statistic title="Active Licenses" value={86} prefix={<SafetyCertificateOutlined />} valueStyle={{ color: '#52c41a' }} />
+            <Statistic title="Active Licenses" value={86} prefix={<SafetyCertificateOutlined />} styles={{ content: { color: '#52c41a' } }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Card>
-            <Statistic title="Open Tickets" value={42} prefix={<CustomerServiceOutlined />} valueStyle={{ color: '#faad14' }} />
+            <Statistic title="Open Tickets" value={42} prefix={<CustomerServiceOutlined />} styles={{ content: { color: '#faad14' } }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
@@ -48,7 +48,7 @@ export default function DashboardPage() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={16}>
-          <Card title="Recent Activity" bodyStyle={{ padding: 0 }}>
+          <Card title="Recent Activity" styles={{ body: { padding: 0 } }}>
             <Table columns={columns} dataSource={data} pagination={false} />
           </Card>
         </Col>
