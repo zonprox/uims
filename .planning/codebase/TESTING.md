@@ -2,157 +2,54 @@
 
 **Analysis Date:** 2026-08-14
 
-## Test Framework
+## Framework & Tooling
+- **Test Runner**: Vitest (`vitest.config.ts`/`vitest.config.mts`) is used uniformly across the monorepo.
+  - The backend (`apps/api`) runs in a `node` environment.
+  - The frontend (`apps/web`) uses the `happy-dom` environment.
+- **Commands**: Tests can be triggered from the root via `turbo run test`. The backend and frontend execute their local tests using Vitest.
 
-**Runner:**
-- Vitest 4.1.10 - Uniform test runner configured across all workspaces
-- Frontend DOM environment: `happy-dom` 20.11.2 (in `apps/web/vitest.config.ts`)
-- Backend environment: Node.js environment (in `apps/api/vitest.config.mts`)
+## Test File Structure
+- Test files should be strictly co-located with their implementation files.
+- **Backend**: Use the `.spec.ts` suffix (e.g., `apps/api/src/modules/assets/assets.service.spec.ts`).
+- **Frontend**: Use the `.test.ts` or `.test.tsx` suffix (e.g., `apps/web/src/stores/auth.store.test.ts`).
 
-**Assertion Library:**
-- Vitest built-in assertions (`expect`, `toBe`, `toEqual`, `toBeDefined`, `toBeNull`, `toThrowError`)
-
-**Run Commands:**
-```bash
-# Run entire test suite across monorepo
-pnpm test
-
-# Run tests in specific package / app
-pnpm --filter @uims/api test
-pnpm --filter @uims/web test
-pnpm --filter @uims/shared-validators test
-pnpm --filter @uims/shared-utils test
-
-# Watch mode
-pnpm --filter @uims/web test:watch
-pnpm --filter @uims/api test:watch
-
-# End-to-end testing
-pnpm test:e2e
-```
-
-## Test File Organization
-
-**Location:**
-- Unit & integration tests are co-located alongside target source code or in adjacent spec files.
-- `apps/api/src/**/*.spec.ts` for NestJS controllers, filters, and services.
-- `apps/web/src/**/*.test.ts` or `*.test.tsx` for React hooks, stores, and utilities.
-- `packages/shared-*/**/*.test.ts` for shared library tests.
-
-**Structure:**
-```
-apps/
-  api/
-    src/
-      common/filters/
-        http-exception.filter.ts
-        http-exception.filter.spec.ts
-      modules/health/
-        health.controller.ts
-        health.controller.spec.ts
-  web/
-    src/
-      stores/
-        auth.store.ts
-        auth.store.test.ts
-        theme.store.ts
-        theme.store.test.ts
-packages/
-  shared-utils/
-    src/
-      format.ts
-      format.test.ts
-  shared-validators/
-    src/
-      common.validator.ts
-      common.validator.test.ts
-```
-
-## Test Structure
-
-**Suite Organization:**
-```typescript
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-
-describe('SharedUtils.format', () => {
-  describe('formatBytes', () => {
-    it('should format bytes into human-readable units correctly', () => {
-      expect(formatBytes(1024)).toBe('1 KB');
-      expect(formatBytes(1048576)).toBe('1 MB');
-    });
-  });
-});
-```
-
-**NestJS Controller / Filter Test Pattern:**
-```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { HttpExceptionFilter } from './http-exception.filter';
-
-describe('HttpExceptionFilter', () => {
-  let filter: HttpExceptionFilter;
+## Mocking & Testing Patterns
+### Backend Services (apps/api)
+- **Direct Instantiation**: The backend bypasses the NestJS testing utility (`Test.createTestingModule`). Instead, services are instantiated directly with their mocked dependencies. This approach drastically speeds up test execution and limits framework overhead.
+  ```typescript
+  // Pattern example
+  let service: AssetsService;
+  let mockPrisma: any;
 
   beforeEach(() => {
-    filter = new HttpExceptionFilter();
+    mockPrisma = {
+      $transaction: vi.fn(async (cb) => cb(mockPrisma)),
+      asset: { create: vi.fn(), findMany: vi.fn() },
+    };
+    service = new AssetsService(mockPrisma);
+  });
+  ```
+- **Prisma Transactions**: As shown above, `$transaction` is mocked by providing a callback that immediately passes back the mocked Prisma object to ensure inner queries map correctly to the mocked repository methods.
+- **Assertions**: Standard Vitest assertions (`expect`, `toHaveBeenCalledWith`, `mockResolvedValueOnce`) are used to validate business logic and repository interactions.
+
+### Frontend Logic (apps/web)
+- **State Store Testing**: Zustand stores are tested by resetting state in `beforeEach` via `store.setState()`, calling store methods, and asserting on `store.getState()`.
+  ```typescript
+  // Pattern example
+  beforeEach(() => {
+    useAuthStore.setState({ user: null, token: null });
   });
 
-  it('should be defined', () => {
-    expect(filter).toBeDefined();
+  it('should login and set state', () => {
+    useAuthStore.getState().login('token', mockUser);
+    expect(useAuthStore.getState().isAuthenticated()).toBe(true);
   });
-});
-```
+  ```
+- **Component Testing**: The frontend suite primarily focuses on business logic (services, API layers, stores). There are currently no unit tests for React components (`.test.tsx` files). Stick to testing core logic unless specifically prompted to build component tests.
 
-## Mocking
+## Coverage & Execution
+- **Pass With No Tests**: The configuration permits passing test runs even if no tests exist (`passWithNoTests: true`).
+- **E2E Testing**: E2E infrastructure leans on Playwright (`@playwright/test` is in the root `package.json` dependencies, with a `test:e2e` script defined). E2E suites are slated to cover critical integration flows, although unit tests remain the priority for new business logic.
 
-**Framework:**
-- Vitest built-in mock utilities (`vi.fn()`, `vi.spyOn()`, `vi.mock()`).
-
-**Patterns:**
-- Mocking external services (e.g. `authService` in `auth.store.test.ts`):
-```typescript
-import { vi } from 'vitest';
-import { authService } from '../services/auth.service';
-
-vi.mock('../services/auth.service', () => ({
-  authService: {
-    logout: vi.fn(),
-  },
-}));
-```
-- Mocking database / ORM access: In unit tests, inject mock PrismaService objects with jest/vitest spy functions to prevent direct database connections.
-
-## Fixtures and Factories
-
-**Test Data Helpers:**
-- Define mock user payloads and fixture records inline or in dedicated test helper files.
-- Sample user fixtures for store testing:
-```typescript
-const mockUser = {
-  id: 'user-1',
-  email: 'admin@acme.corp',
-  name: 'Admin User',
-  role: 'Super Admin',
-};
-```
-
-## Coverage
-
-**Requirements:**
-- Coverage output configured via Turborepo task pipeline (`outputs: ["coverage/**"]`).
-- Focus areas: Shared validation schemas, core business calculations, security filters, state management stores.
-
-## Test Types
-
-**Unit Tests:**
-- Fast tests for isolated pure functions, validators, Zustand state stores, and utility modules. Execution time < 100ms per file.
-
-**Integration Tests:**
-- NestJS controller and filter testing with simulated Nest execution contexts.
-
-**E2E Tests:**
-- Playwright test harness (`@playwright/test`) configured in root for end-to-end UI and authentication workflows (`scripts/test-login.mjs`, `scripts/test-responsive.mjs`).
-
----
-
-*Testing analysis: 2026-08-14*
-*Update when test patterns change*
+*Codebase testing patterns analysis: 2026-08-14*
+<!-- refreshed: 2026-08-14 -->

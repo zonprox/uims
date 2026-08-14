@@ -1,93 +1,54 @@
-# Technology Stack
+# UIMS Technology Stack
 
 **Analysis Date:** 2026-08-14
 
-## Languages
+This document outlines the core technology stack, languages, frameworks, and configuration for the Unified IT Management System (UIMS) monorepo.
 
-**Primary:**
-- TypeScript 5.9.3 / 7.0.2 - All backend (`apps/api`), frontend (`apps/web`), and shared packages (`packages/*`)
+## 1. Monorepo & Tooling
+- **Package Manager:** `pnpm` (v11.21.0)
+- **Monorepo Tool:** Turborepo (v2.10.9)
+- **Languages:** TypeScript (v5.9 / v7.0.2 in web), Node.js (>=22.0.0)
+- **Linting & Formatting:** Biome (Root level), ESLint (Workspaces)
+- **E2E Testing:** Playwright (v1.50)
 
-**Secondary:**
-- SQL - PostgreSQL init scripts and Prisma migrations (`docker/postgres/init.sql`, `apps/api/prisma/migrations/`)
-- JavaScript (Node.js ESM/CJS) - Build tools, ESLint configs, helper scripts (`scripts/*.mjs`, `packages/eslint-config/index.js`)
-- HTML5 / CSS3 - Web shell and global CSS tokens (`apps/web/index.html`, `apps/web/src/styles/global.css`)
-- YAML - Docker Compose definitions (`docker-compose.yml`, `docker-compose.dev.yml`), pnpm workspace (`pnpm-workspace.yaml`), CI workflows
+## 2. Backend API (`apps/api`)
+The backend is built as a highly structured modular monolith.
 
-## Runtime
+- **Core Framework:** NestJS (v11.1)
+- **Database ORM:** Prisma (v7.9) with PostgreSQL Adapter (`@prisma/adapter-pg`)
+- **Background Jobs & Queues:** BullMQ (v6.1) backed by Redis (`@nestjs/bullmq`)
+- **Real-time / WebSockets:** Socket.io (`@nestjs/platform-socket.io`, `@nestjs/websockets`)
+- **Authentication:** Passport.js (`@nestjs/passport`), JWT (`@nestjs/jwt`), Bcrypt
+- **Validation:** Zod (v3.25), `class-validator`, `class-transformer`
+- **Logging:** Pino (`pino-http`)
+- **Security:** Helmet, Cookie Parser, Compression
+- **Testing:** Vitest
 
-**Environment:**
-- Node.js >= 22.0.0 (LTS)
-- Browser runtime (Modern evergreen browsers supporting ES2022+ and Web Storage API)
+## 3. Frontend Web (`apps/web`)
+The frontend is a Single Page Application (SPA) designed for IT administrators.
 
-**Package Manager:**
-- pnpm 11.21.0 in workspace monorepo layout
-- Lockfile: `pnpm-lock.yaml` present and enforced
+- **Core Framework:** React (v19.2) built with Vite (v8.2)
+- **State Management:** 
+  - Server State: React Query / `@tanstack/react-query` (v5.101)
+  - Client State: Zustand (v5.0)
+- **UI & Component Library:** Ant Design (v6.6), `@ant-design/pro-components`
+- **Icons:** `@ant-design/icons`
+- **Routing:** React Router (v8.3)
+- **Date/Time Formatting:** Dayjs (v1.11)
+- **HTTP Client:** Axios (v1.19)
+- **Testing:** Vitest with Happy-DOM
 
-## Frameworks
+## 4. Shared Packages (`packages/`)
+- `@uims/eslint-config`: Shared ESLint rules.
+- `@uims/shared-types`: Common TypeScript interfaces and DTOs.
+- `@uims/shared-utils`: Common utility functions.
+- `@uims/shared-validators`: Shared Zod/class-validator schemas.
 
-**Core:**
-- NestJS 11.1.29 (`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`) - Enterprise modular backend framework for `apps/api`
-- React 19.2.8 (`react`, `react-dom`) - UI library for `apps/web`
-- React Router 8.3.0 (`react-router`) - Client-side SPA routing and navigation
-- Ant Design 6.6.0 (`antd`, `@ant-design/pro-components`, `@ant-design/icons`) - Enterprise UI design system and components
-
-**Testing:**
-- Vitest 4.1.10 - Fast unit and integration test runner across all monorepo workspaces (`apps/api`, `apps/web`, `packages/shared-validators`, `packages/shared-utils`)
-- happy-dom 20.11.2 - Lightweight DOM implementation for frontend React component unit tests
-- Playwright 1.50.0 (`@playwright/test`) - End-to-end browser automation and testing harness
-
-**Build/Dev:**
-- Turborepo 2.10.9 (`turbo`) - High-performance build system and monorepo task orchestrator
-- Vite 8.2.1 (`@vitejs/plugin-react`) - Next-generation frontend bundler and HMR dev server
-- tsdown 0.22.14 (powered by Rolldown 1.2.4) - Ultra-fast library bundler for shared packages (`packages/shared-types`, `packages/shared-validators`, `packages/shared-utils`)
-- Biome 2.5.8 (`@biomejs/biome`) - High-speed formatter and linter
-- ESLint 10.8.1 (`typescript-eslint`) - Static TypeScript linting and code quality analysis
-
-## Key Dependencies
-
-**Critical:**
-- Prisma ORM 7.9.1 (`@prisma/client`, `@prisma/adapter-pg`, `prisma`) - Type-safe database ORM and migrations
-- Zustand 5.0.15 (`zustand`, `zustand/middleware`) - Lightweight client-side state management with persistence
-- TanStack Query 5.101.4 (`@tanstack/react-query`) - Server state caching, asynchronous query synchronization
-- Zod 3.25.76 (`zod`) - Schema declaration and validation across frontend and backend boundaries
-- BullMQ 6.1.1 (`bullmq`, `@nestjs/bullmq`) - Redis-backed job queue for background tasks and asynchronous processing
-
-**Infrastructure & Security:**
-- ioredis 6.0.0 (`ioredis`) - Redis client for caching, rate limiting, and queues
-- pg 8.13.3 (`pg`) - PostgreSQL database driver
-- passport-jwt 4.0.1 & @nestjs/jwt 11.0.2 - JWT authentication strategy and token management
-- bcrypt 6.0.0 (`bcrypt`) - Cryptographic hashing for user credentials
-- helmet 8.3.0 (`helmet`) & compression 1.8.1 - HTTP security headers and response compression
-- pino 10.3.1 (`pino`, `pino-http`) - Low-overhead structured JSON logging
-- @nestjs/swagger 11.4.6 (`@nestjs/swagger`) - OpenAPI (Swagger) documentation generator
-
-## Configuration
-
-**Environment:**
-- `.env` file at root loaded via dotenv / Docker Compose
-- `.env.example` template with full defaults for all services
-- Backend configuration validated and centralized via `apps/api/src/config/app.config.ts`
-
-**Build:**
-- `turbo.json` - Pipeline dependency graph (`build`, `dev`, `lint`, `test`, `test:e2e`)
-- `pnpm-workspace.yaml` - Monorepo package boundaries (`apps/*`, `packages/*`)
-- `biome.json` - Formatting and linting rules
-- `tsconfig.json` across workspaces for TypeScript compilation
-
-## Platform Requirements
-
-**Development:**
-- Linux, macOS, or Windows WSL2
-- Node.js >= 22.0.0 and pnpm >= 11.0.0
-- Docker & Docker Compose v2 for local services (PostgreSQL 17, Redis 8, Meilisearch, SeaweedFS)
-
-**Production:**
-- Multi-container Docker deployment (`docker-compose.yml`)
-- Nginx reverse proxy with SSL termination (`docker/nginx/nginx.conf`)
-- Node.js alpine container for API (`apps/api/Dockerfile`)
-- Nginx static asset container for Web SPA (`apps/web/Dockerfile`)
+## 5. Infrastructure & Configuration
+- **Docker:** `docker-compose.yml` and `docker-compose.dev.yml` provide local dev and production-ready containers.
+- **Environment Management:** Driven by `.env` (refer to `.env.example`).
+  - Web uses Vite's `VITE_` prefixed variables (`VITE_API_URL`).
+  - API uses NestJS `ConfigModule` reading from the environment.
 
 ---
-
-*Stack analysis: 2026-08-14*
-*Update after major dependency changes*
+*UIMS System Documentation - Generated analysis: 2026-08-14*
