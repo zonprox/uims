@@ -44,7 +44,7 @@ export default function MainLayout() {
     { key: '/settings', icon: <SettingOutlined />, label: 'Settings' },
   ];
 
-  const userMenuItems = [
+  const userMenuItems: import('antd').MenuProps['items'] = [
     { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
     { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
     { type: 'divider' },

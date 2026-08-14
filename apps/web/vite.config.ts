@@ -6,13 +6,15 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   server: {
+    allowedHosts: true,
+    cors: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3002',
         changeOrigin: true,
       },
     },
@@ -20,13 +22,5 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router', 'antd'],
-          procomponents: ['@ant-design/pro-components'],
-        },
-      },
-    },
   },
 });

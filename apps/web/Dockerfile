@@ -1,25 +1,25 @@
-# Build stage
-FROM node:24-alpine AS build
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy workspace config (assuming mono-repo context if needed, otherwise just copy web)
-# Adjust these copies based on actual context if running from root
-COPY package.json .
-COPY apps/web/package.json apps/web/
-# etc. Or simply for standalone:
+RUN npm install -g pnpm@11.21.0
 
-COPY package.json yarn.lock* pnpm-lock.yaml* package-lock.json* ./
-RUN npm install
+# Copy workspace files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json ./
+COPY packages/ ./packages/
+COPY apps/web/ ./apps/web/
 
-COPY . .
-RUN npm run build
+# Install workspace dependencies and build web SPA
+RUN pnpm install
 
-# Serve stage
-FROM nginx:alpine
+WORKDIR /app/apps/web
+RUN pnpm run build
 
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Web server stage with Nginx
+FROM nginx:alpine AS runner
+
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+COPY docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

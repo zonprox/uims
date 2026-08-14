@@ -1,19 +1,39 @@
-FROM node:24-alpine AS deps
-WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm && pnpm install
+FROM node:22-alpine AS builder
 
-FROM node:24-alpine AS build
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm install -g pnpm && pnpm run build
 
-FROM node:24-alpine AS production
+RUN npm install -g pnpm@11.21.0
+
+# Copy workspace files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json ./
+COPY packages/ ./packages/
+COPY apps/api/ ./apps/api/
+
+# Install all workspace dependencies
+RUN pnpm install
+
+# Generate Prisma Client and build API
+WORKDIR /app/apps/api
+RUN npx prisma generate
+RUN pnpm run build
+
+# Production runtime stage
+FROM node:22-alpine AS runner
+
 WORKDIR /app
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
-COPY package.json ./
+
+ENV NODE_ENV=production
+
+# Copy node_modules and built assets
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+
+WORKDIR /app/apps/api
 
 EXPOSE 3000
+
 CMD ["node", "dist/main"]

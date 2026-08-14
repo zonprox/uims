@@ -3,8 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import * as compression from 'compression';
-import * as cookieParser from 'cookie-parser';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
@@ -31,7 +31,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/v1/docs', app, document);
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.APP_PORT || 3000;
   await app.listen(port);
   console.log(`Application is running on port ${port}`);
 }
