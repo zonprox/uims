@@ -1,21 +1,21 @@
-import { Layout, Menu, Dropdown, Avatar, Button } from 'antd';
 import {
-  DashboardOutlined,
-  LaptopOutlined,
-  SafetyCertificateOutlined,
-  TeamOutlined,
-  MailOutlined,
-  GlobalOutlined,
-  DatabaseOutlined,
-  CustomerServiceOutlined,
   AuditOutlined,
   BarChartOutlined,
-  SettingOutlined,
-  UserOutlined,
-  LogoutOutlined,
   BellOutlined,
+  CustomerServiceOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
+  GlobalOutlined,
+  LaptopOutlined,
+  LogoutOutlined,
+  MailOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
-import { Outlet, useNavigate, useLocation } from 'react-router';
+import { Avatar, Button, Dropdown, Layout, Menu } from 'antd';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useAuthStore } from '../stores/auth.store';
 
 const { Header, Sider, Content, Footer } = Layout;
@@ -54,7 +54,19 @@ export default function MainLayout() {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider breakpoint="lg" collapsedWidth="80" theme="dark">
-        <div style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold' }}>
+        <div
+          style={{
+            height: 32,
+            margin: 16,
+            background: 'rgba(255, 255, 255, 0.2)',
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontWeight: 'bold',
+          }}
+        >
           UIMS
         </div>
         <Menu
@@ -66,7 +78,16 @@ export default function MainLayout() {
         />
       </Sider>
       <Layout>
-        <Header style={{ padding: '0 24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', borderBottom: '1px solid #f0f0f0' }}>
+        <Header
+          style={{
+            padding: '0 24px',
+            background: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            borderBottom: '1px solid #f0f0f0',
+          }}
+        >
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             <Button type="text" icon={<BellOutlined />} />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">

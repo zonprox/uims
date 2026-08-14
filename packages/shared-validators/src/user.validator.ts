@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { UserStatus } from '@uims/shared-types';
+import { z } from 'zod';
 import { emailSchema, uuidSchema } from './common.validator';
 
 export const createUserSchema = z.object({

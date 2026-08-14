@@ -1,5 +1,5 @@
-import { createBrowserRouter } from 'react-router';
 import { lazy, Suspense } from 'react';
+import { createBrowserRouter } from 'react-router';
 import AuthLayout from '../layouts/AuthLayout';
 import MainLayout from '../layouts/MainLayout';
 

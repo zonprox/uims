@@ -5,17 +5,16 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
-  "organizeImports": {
-    "enabled": true
-  },
+  "assist": { "actions": { "source": { "organizeImports": "off" } } },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "complexity": {
         "noExcessiveCognitiveComplexity": "warn"
       },
       "style": {
+        "useImportType": "off",
         "noNonNullAssertion": "warn",
         "useConsistentArrayType": {
           "level": "warn",
@@ -35,6 +34,9 @@
     "lineEnding": "lf"
   },
   "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    },
     "formatter": {
       "quoteStyle": "single",
       "trailingCommas": "all",
@@ -47,14 +49,15 @@
     }
   },
   "files": {
-    "ignore": [
-      "node_modules",
-      "dist",
-      "build",
-      ".turbo",
-      "coverage",
-      "*.generated.*",
-      "prisma/migrations"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/.turbo",
+      "!**/coverage",
+      "!**/*.generated.*",
+      "!**/prisma/migrations"
     ]
   }
 }

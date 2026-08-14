@@ -1,7 +1,7 @@
-import { Progress, Tag, Button } from 'antd';
-import { ProTable, ProColumns } from '@ant-design/pro-components';
-import PageContainer from '../../components/PageContainer';
 import { PlusOutlined } from '@ant-design/icons';
+import { type ProColumns, ProTable } from '@ant-design/pro-components';
+import { Button, Progress, Tag } from 'antd';
+import PageContainer from '../../components/PageContainer';
 
 interface License {
   id: string;
@@ -19,38 +19,70 @@ export default function LicensesPage() {
     { title: 'Name', dataIndex: 'name', key: 'name' },
     { title: 'Vendor', dataIndex: 'vendor', key: 'vendor' },
     { title: 'Type', dataIndex: 'type', key: 'type' },
-    { 
-      title: 'Seats (Used / Total)', 
+    {
+      title: 'Seats (Used / Total)',
       key: 'seats',
       render: (_, record) => (
         <div style={{ width: 150 }}>
-          <Progress percent={Math.round((record.usedSeats / record.totalSeats) * 100)} size="small" />
-          <div style={{ fontSize: '12px', color: '#888' }}>{record.usedSeats} / {record.totalSeats}</div>
+          <Progress
+            percent={Math.round((record.usedSeats / record.totalSeats) * 100)}
+            size="small"
+          />
+          <div style={{ fontSize: '12px', color: '#888' }}>
+            {record.usedSeats} / {record.totalSeats}
+          </div>
         </div>
-      )
+      ),
     },
     { title: 'Expiry Date', dataIndex: 'expiryDate', key: 'expiryDate', valueType: 'date' },
-    { 
-      title: 'Status', 
-      dataIndex: 'status', 
+    {
+      title: 'Status',
+      dataIndex: 'status',
       key: 'status',
-      render: (_, record) => <Tag color={record.status === 'Active' ? 'success' : 'error'}>{record.status}</Tag>
+      render: (_, record) => (
+        <Tag color={record.status === 'Active' ? 'success' : 'error'}>{record.status}</Tag>
+      ),
     },
     {
       title: 'Actions',
       valueType: 'option',
       key: 'option',
-      render: () => [<a key="manage">Manage</a>],
+      render: () => [
+        <Button type="link" size="small" key="manage">
+          Manage
+        </Button>,
+      ],
     },
   ];
 
   const dataSource: License[] = [
-    { id: '1', name: 'Office 365 E3', vendor: 'Microsoft', type: 'Subscription', totalSeats: 100, usedSeats: 85, expiryDate: '2024-12-31', status: 'Active' },
-    { id: '2', name: 'Creative Cloud All Apps', vendor: 'Adobe', type: 'Subscription', totalSeats: 20, usedSeats: 19, expiryDate: '2024-05-15', status: 'Active' },
+    {
+      id: '1',
+      name: 'Office 365 E3',
+      vendor: 'Microsoft',
+      type: 'Subscription',
+      totalSeats: 100,
+      usedSeats: 85,
+      expiryDate: '2024-12-31',
+      status: 'Active',
+    },
+    {
+      id: '2',
+      name: 'Creative Cloud All Apps',
+      vendor: 'Adobe',
+      type: 'Subscription',
+      totalSeats: 20,
+      usedSeats: 19,
+      expiryDate: '2024-05-15',
+      status: 'Active',
+    },
   ];
 
   return (
-    <PageContainer title="License Management" breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Licenses' }]}>
+    <PageContainer
+      title="License Management"
+      breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Licenses' }]}
+    >
       <ProTable<License>
         columns={columns}
         dataSource={dataSource}

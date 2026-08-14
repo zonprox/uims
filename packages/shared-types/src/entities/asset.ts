@@ -1,4 +1,4 @@
-import { Location } from './common';
+import type { Location } from './common';
 
 export enum AssetStatus {
   AVAILABLE = 'AVAILABLE',

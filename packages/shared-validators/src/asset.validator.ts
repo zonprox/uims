@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import { AssetStatus } from '@uims/shared-types';
-import { uuidSchema, dateSchema } from './common.validator';
+import { z } from 'zod';
+import { dateSchema, uuidSchema } from './common.validator';
 
 export const createAssetSchema = z.object({
   name: z.string().min(1, 'Asset name is required').max(100),

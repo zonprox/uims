@@ -1,7 +1,7 @@
-import { ProTable, ProColumns } from '@ant-design/pro-components';
-import PageContainer from '../../components/PageContainer';
-import { Button } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
+import { type ProColumns, ProTable } from '@ant-design/pro-components';
+import { Button } from 'antd';
+import PageContainer from '../../components/PageContainer';
 
 interface AuditLog {
   id: string;
@@ -22,12 +22,29 @@ export default function AuditPage() {
   ];
 
   const dataSource: AuditLog[] = [
-    { id: '1', timestamp: '2023-10-27T10:05:00Z', user: 'admin@company.com', action: 'CREATE', entity: 'Asset L-1024', details: 'Added new MacBook Pro M2 to inventory.' },
-    { id: '2', timestamp: '2023-10-27T09:12:00Z', user: 'system', action: 'UPDATE', entity: 'License O365', details: 'Automated sync: updated used seats count.' },
+    {
+      id: '1',
+      timestamp: '2023-10-27T10:05:00Z',
+      user: 'admin@company.com',
+      action: 'CREATE',
+      entity: 'Asset L-1024',
+      details: 'Added new MacBook Pro M2 to inventory.',
+    },
+    {
+      id: '2',
+      timestamp: '2023-10-27T09:12:00Z',
+      user: 'system',
+      action: 'UPDATE',
+      entity: 'License O365',
+      details: 'Automated sync: updated used seats count.',
+    },
   ];
 
   return (
-    <PageContainer title="Audit & Compliance" breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Audit Logs' }]}>
+    <PageContainer
+      title="Audit & Compliance"
+      breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Audit Logs' }]}
+    >
       <ProTable<AuditLog>
         columns={columns}
         dataSource={dataSource}

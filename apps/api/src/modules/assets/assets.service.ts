@@ -17,7 +17,9 @@ export class AssetsService {
 
   async findOne(id: string) {
     const asset = await this.prisma.asset.findUnique({ where: { id } });
-    if (!asset) throw new NotFoundException('Asset not found');
+    if (!asset) {
+      throw new NotFoundException(`Asset with ID ${id} not found`);
+    }
     return asset;
   }
 

@@ -5,7 +5,7 @@ WORKDIR /app
 RUN npm install -g pnpm@11.21.0
 
 # Copy workspace files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json biome.json ./
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
 
@@ -14,7 +14,7 @@ RUN pnpm install
 
 # Generate Prisma Client and build API
 WORKDIR /app/apps/api
-RUN npx prisma generate
+RUN pnpm run prisma:generate
 RUN pnpm run build
 
 # Production runtime stage
@@ -31,6 +31,7 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 
 WORKDIR /app/apps/api
 

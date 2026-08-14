@@ -8,3 +8,5 @@ allowBuilds:
   bcrypt: true
   msgpackr-extract: true
   prisma: true
+minimumReleaseAgeExclude:
+  - bullmq@6.1.1

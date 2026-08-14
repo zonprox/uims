@@ -17,7 +17,9 @@ export class LicensesService {
 
   async findOne(id: string) {
     const license = await this.prisma.license.findUnique({ where: { id } });
-    if (!license) throw new NotFoundException('License not found');
+    if (!license) {
+      throw new NotFoundException(`License with ID ${id} not found`);
+    }
     return license;
   }
 

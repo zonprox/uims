@@ -1,7 +1,7 @@
-import { Tabs, Tag, Button } from 'antd';
-import { ProTable, ProColumns } from '@ant-design/pro-components';
-import PageContainer from '../../components/PageContainer';
 import { PlusOutlined } from '@ant-design/icons';
+import { type ProColumns, ProTable } from '@ant-design/pro-components';
+import { Button, Tabs, Tag } from 'antd';
+import PageContainer from '../../components/PageContainer';
 
 interface User {
   id: string;
@@ -16,23 +16,44 @@ export default function DirectoryPage() {
     { title: 'Name', dataIndex: 'name', key: 'name' },
     { title: 'Email', dataIndex: 'email', key: 'email' },
     { title: 'Department', dataIndex: 'department', key: 'department' },
-    { 
-      title: 'Status', 
-      dataIndex: 'status', 
+    {
+      title: 'Status',
+      dataIndex: 'status',
       key: 'status',
-      render: (_, record) => <Tag color={record.status === 'Active' ? 'success' : 'default'}>{record.status}</Tag>
+      render: (_, record) => (
+        <Tag color={record.status === 'Active' ? 'success' : 'default'}>{record.status}</Tag>
+      ),
     },
     {
       title: 'Actions',
       valueType: 'option',
       key: 'option',
-      render: () => [<a key="edit">Edit</a>, <a key="reset">Reset Password</a>],
+      render: () => [
+        <Button type="link" size="small" key="edit">
+          Edit
+        </Button>,
+        <Button type="link" size="small" key="reset">
+          Reset Password
+        </Button>,
+      ],
     },
   ];
 
   const userData: User[] = [
-    { id: '1', name: 'Alice Smith', email: 'alice@example.com', department: 'Engineering', status: 'Active' },
-    { id: '2', name: 'Bob Jones', email: 'bob@example.com', department: 'Sales', status: 'Inactive' },
+    {
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      department: 'Engineering',
+      status: 'Active',
+    },
+    {
+      id: '2',
+      name: 'Bob Jones',
+      email: 'bob@example.com',
+      department: 'Sales',
+      status: 'Inactive',
+    },
   ];
 
   const items = [
@@ -62,7 +83,10 @@ export default function DirectoryPage() {
   ];
 
   return (
-    <PageContainer title="Directory Services" breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Directory' }]}>
+    <PageContainer
+      title="Directory Services"
+      breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Directory' }]}
+    >
       <Tabs defaultActiveKey="users" items={items} />
     </PageContainer>
   );

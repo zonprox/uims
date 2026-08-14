@@ -1,5 +1,5 @@
+import { LicenseStatus, LicenseType } from '@uims/shared-types';
 import { z } from 'zod';
-import { LicenseType, LicenseStatus } from '@uims/shared-types';
 import { dateSchema } from './common.validator';
 
 export const createLicenseSchema = z.object({

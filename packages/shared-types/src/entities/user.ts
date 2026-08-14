@@ -1,4 +1,4 @@
-import { Role } from './role';
+import type { Role } from './role';
 
 export enum UserStatus {
   ACTIVE = 'ACTIVE',

@@ -1,7 +1,7 @@
-import { applyDecorators } from '@nestjs/common';
+import { applyDecorators, type Type } from '@nestjs/common';
 import { ApiOkResponse, getSchemaPath } from '@nestjs/swagger';
 
-export const ApiPaginatedResponse = <TModel extends Function>(model: TModel) => {
+export const ApiPaginatedResponse = <TModel extends Type<unknown>>(model: TModel) => {
   return applyDecorators(
     ApiOkResponse({
       schema: {
@@ -18,8 +18,8 @@ export const ApiPaginatedResponse = <TModel extends Function>(model: TModel) => 
                   total: { type: 'number' },
                   page: { type: 'number' },
                   limit: { type: 'number' },
-                }
-              }
+                },
+              },
             },
           },
         ],

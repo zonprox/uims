@@ -1,4 +1,4 @@
-import { Tabs, Form, Input, Button, Switch, Divider } from 'antd';
+import { Button, Divider, Form, Input, Switch, Tabs } from 'antd';
 import PageContainer from '../../components/PageContainer';
 
 export default function SettingsPage() {
@@ -35,7 +35,10 @@ export default function SettingsPage() {
   ];
 
   return (
-    <PageContainer title="System Settings" breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Settings' }]}>
+    <PageContainer
+      title="System Settings"
+      breadcrumbs={[{ title: 'Home', path: '/' }, { title: 'Settings' }]}
+    >
       <Tabs defaultActiveKey="general" items={items} />
     </PageContainer>
   );

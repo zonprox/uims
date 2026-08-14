@@ -13,13 +13,15 @@
   "scripts": {
     "build": "tsdown src/index.ts --dts --format esm",
     "dev": "tsdown src/index.ts --dts --format esm --watch",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "dayjs": "^1.11.10"
+    "dayjs": "^1.11.21"
   },
   "devDependencies": {
-    "tsdown": "latest",
-    "typescript": "^7.0.0"
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ConfigProvider, App as AntApp } from 'antd';
+import { App as AntApp, ConfigProvider } from 'antd';
 import { RouterProvider } from 'react-router';
 import { queryClient } from './query-client';
 import { router } from './router';

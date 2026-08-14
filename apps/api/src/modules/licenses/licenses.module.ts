@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { LicensesService } from './licenses.service';
 import { LicensesController } from './licenses.controller';
+import { LicensesService } from './licenses.service';
 
 @Module({
   providers: [LicensesService],
-  controllers: [LicensesController]
+  controllers: [LicensesController],
 })
 export class LicensesModule {}

@@ -13,13 +13,16 @@
   "scripts": {
     "build": "tsdown src/index.ts --dts --format esm",
     "dev": "tsdown src/index.ts --dts --format esm --watch",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "@uims/shared-types": "workspace:*",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "tsdown": "latest",
-    "typescript": "^7.0.0"
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }
