@@ -5,61 +5,97 @@
 ## Naming Patterns
 
 **Files:**
-- **Backend (API):** kebab-case with type suffix (e.g., `users.controller.ts`, `app.module.ts`, `http-exception.filter.ts`).
-- **Frontend (Web):** PascalCase for React components (e.g., `CommandPalette.tsx`, `PageContainer.tsx`). kebab-case for stores and utils (e.g., `auth.store.ts`).
+- Backend components: `kebab-case.module.ts`, `kebab-case.service.ts`, `kebab-case.controller.ts`, `kebab-case.dto.ts`
+- Frontend components & views: `PascalCase.tsx` (`MainLayout.tsx`, `AssetsPage.tsx`, `PageContainer.tsx`)
+- Shared library modules: `kebab-case.validator.ts`, `format.ts`, `index.ts`
+- Test files: `*.spec.ts` for NestJS backend tests, `*.test.ts` or `*.test.tsx` for shared/web packages
 
-**Functions:**
-- camelCase (e.g., `findAll`, `bootstrap`).
+**Functions & Methods:**
+- camelCase for all standard functions and class methods (`findAll`, `createIp`, `formatAsset`, `toggleMode`)
+- React hook functions: prefixed with `use` (`useAuth`, `useThemeStore`, `useBreakpoint`)
+- Event handler functions: prefixed with `handle` (`handleOpenEditModal`, `handleDeleteAsset`, `handleLogout`)
 
-**Variables:**
-- camelCase. Unused variables prefixed with `_` (e.g., `_pagination`).
+**Variables & Constants:**
+- Variables and class fields: `camelCase` (`assetTag`, `totalSeats`, `assignedToId`)
+- Global configuration constants and enums: `UPPER_SNAKE_CASE` (`DEFAULT_PAGE_SIZE`, `JWT_SECRET`, `AssetStatus.IN_USE`)
 
-**Types:**
-- PascalCase for Classes, Interfaces, and DTOs (e.g., `CreateUserDto`, `JwtAuthGuard`).
+**Types & Classes:**
+- Classes, interfaces, type aliases: `PascalCase` (`AssetsService`, `MainLayoutProps`, `CreateAssetDto`, `UserStatus`)
+- No Hungarian notation / `I` prefix for interfaces (`User`, not `IUser`)
 
 ## Code Style
 
 **Formatting:**
-- **Tool used:** Biome (`biome format --write .`)
-- **Key settings:** 2 spaces indent, 100 character line width, single quotes, trailing commas, and required semicolons (`biome.json`).
+- Formatter: Biome (`biome.json`) as root fast formatter + Prettier compatibility
+- Indentation: 2 spaces
+- Quotes: Single quotes for JavaScript / TypeScript strings (`'single'`)
+- Semicolons: Always required
+- Line length: 100 characters max limit
+- Trailing commas: `all` for multiline objects/arrays
 
 **Linting:**
-- **Tool used:** Biome (`biome check .`) and ESLint (`@uims/eslint-config`) via `turbo run lint`.
-- **Key rules:**
-  - Warnings on excessive cognitive complexity and `any` types.
-  - Errors on unused variables unless prefixed with an underscore (`^_`).
-  - Prettier config used within ESLint to disable conflicting formatting rules.
+- Linters: Biome + ESLint (`packages/eslint-config/index.js`) using `@typescript-eslint` recommended rules
+- Unused variables: Ignored if prefixed with underscore `_` (`argsIgnorePattern: '^_'`)
+- Explicit return types: Recommended on public service APIs, optional on internal handlers
 
 ## Import Organization
 
 **Order:**
-1. Third-party packages and external libraries (e.g., `@nestjs/common`, `bcrypt`, `react`).
-2. Internal/relative imports (e.g., `../../common/dto/pagination.dto`).
+1. Node.js built-ins and core framework packages (`@nestjs/*`, `react`, `react-router`, `antd`, `@ant-design/*`)
+2. Third-party library packages (`axios`, `zod`, `dayjs`, `pino`, `zustand`, `bcrypt`)
+3. Workspace package imports (`@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`)
+4. Internal absolute / relative project imports (`../services/api`, `../../database/prisma.service`)
+5. Type imports (`import type { MenuProps } from 'antd'`)
 
-**Path Aliases:**
-- **Web:** Uses `@/*` mapped to `./src/*` (configured in `apps/web/tsconfig.json` and `vite.config.ts`).
-- **API:** Primarily uses relative imports without aliases.
+**Grouping:**
+- Clean single-line separation between external library imports and internal relative modules.
+- Named imports sorted and grouped cleanly.
 
 ## Error Handling
-- **API:** Centralized through NestJS global exception filters (`HttpExceptionFilter` and `PrismaExceptionFilter` mapped in `main.ts`).
-- Built-in NestJS exceptions used for HTTP errors (`NotFoundException`, `ConflictException`).
-- Payload validation enforced globally via `ValidationPipe` and `class-validator` DTOs.
+
+**Backend Strategy:**
+- Throw standard NestJS exceptions (`NotFoundException`, `UnauthorizedException`, `BadRequestException`, `ForbiddenException`).
+- Catch and transform uncaught exceptions at the HTTP perimeter via `HttpExceptionFilter` (`apps/api/src/common/filters/http-exception.filter.ts`).
+- Catch Prisma database constraint failures via `PrismaExceptionFilter` (`apps/api/src/common/filters/prisma-exception.filter.ts`).
+- Never allow unhandled promise rejections or raw database error stack traces to leak to the client.
+
+**Frontend Strategy:**
+- Axios response interceptor (`apps/web/src/services/api.ts`) captures 401 Unauthorized responses to clear token storage and redirect to `/login`.
+- Ant Design `message.error()` and `App.useApp().modal` used for human-readable error banners and confirmation alerts.
+- Form validation errors displayed directly under relevant inputs via Ant Design `Form.Item` help text.
 
 ## Logging
-- Backend uses `pino` and `pino-http` for structured logging.
-- NestJS app initialization buffers logs until the custom logger is fully instantiated (`bufferLogs: true`).
 
-## Comments
-- JSDoc/TSDoc is not strictly enforced, but Swagger decorators (`@ApiOperation`, `@ApiProperty`) double as documentation on DTOs and Controllers.
+**Framework:**
+- Backend: Structured JSON logging via Pino (`pino` and `pino-http`) in `apps/api`.
+- Frontend: Dev-time console warnings only; silent in production builds.
 
-## Function Design
-- Controllers strictly delegate logic to Services.
-- Services utilize async/await for asynchronous operations (especially database interactions via Prisma).
+**Patterns:**
+- Log error context with relevant entity identifiers before throwing.
+- Avoid logging sensitive credentials (passwords, tokens, raw secret keys).
 
-## Module Design
-- NestJS modules are organized by domain/feature (e.g., `apps/api/src/modules/users/`).
-- Separation of concerns: DTOs, controllers, and services are split into dedicated files within the module.
+## Comments & Documentation
+
+**When to Comment:**
+- Explain domain-specific rules (e.g. status mapping transitions, seat allocation formulas, SLA countdown math).
+- Document complex queries or multi-step database operations.
+- Avoid redundant comments that simply repeat method names.
+
+**Swagger / OpenAPI Annotations:**
+- Use `@ApiTags()`, `@ApiOperation({ summary })`, `@ApiBearerAuth()`, and `@ApiPaginatedResponse()` on NestJS controller methods.
+
+## Function & Module Design
+
+**Function Design:**
+- Keep single-purpose methods under 50 lines.
+- Extract complex payload formatting and transformation logic into private helper methods (`formatAsset`, `formatTicket`, `formatMailbox`).
+- Validate incoming arguments using Zod schemas or NestJS validation pipes before executing business logic.
+
+**Module Design:**
+- Clean separation between Controller (HTTP routing/input parsing) and Service (business logic and DB access).
+- Barrel export pattern (`index.ts`) used across shared packages (`packages/shared-*`) for clean consumer imports.
 
 ---
 
 *Convention analysis: 2026-08-14*
+*Update when patterns change*

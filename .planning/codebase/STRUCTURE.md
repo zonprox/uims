@@ -5,78 +5,161 @@
 ## Directory Layout
 
 ```
-/home/user/projects/uims/
-├── .planning/                  # Planning and architecture documents
+uims/
 ├── apps/
-│   ├── api/                    # NestJS Backend Application
-│   │   ├── prisma/             # Database schema, migrations, and seeds
-│   │   └── src/
-│   │       ├── common/         # Global filters, interceptors, and decorators
-│   │       ├── config/         # Environment and application configuration
-│   │       ├── database/       # Prisma service and module setup
-│   │       ├── modules/        # Domain-driven feature modules (assets, auth, etc.)
-│   │       ├── app.module.ts   # Root application module
-│   │       └── main.ts         # Backend entry point
-│   └── web/                    # React + Vite Frontend Application
-│       ├── src/
-│       │   ├── app/            # App initialization, routing, and React Query setup
-│       │   ├── components/     # Reusable UI components (e.g., PageContainer)
-│       │   ├── hooks/          # Custom React hooks (e.g., useAuth)
-│       │   ├── layouts/        # Page layouts (e.g., MainLayout, AuthLayout)
-│       │   ├── pages/          # Route-level components grouped by feature
-│       │   ├── services/       # API integration functions and Axios setup
-│       │   ├── stores/         # Zustand global state stores
-│       │   ├── styles/         # Global CSS styles
-│       │   ├── utils/          # Frontend utility functions
-│       │   └── main.tsx        # Frontend entry point
-├── packages/
-│   ├── eslint-config/          # Shared ESLint configuration
-│   ├── shared-types/           # Shared TypeScript interfaces and enums (DTOs, entities)
-│   ├── shared-utils/           # Shared helper functions
-│   └── shared-validators/      # Shared Zod validation schemas
-├── biome.json                  # Biome configuration for formatting/linting
-├── docker/                     # Docker configurations and setup files
-├── package.json                # Root monorepo configuration
-├── pnpm-workspace.yaml         # PNPM workspace definition
-└── turbo.json                  # Turborepo task pipeline configuration
+│   ├── api/                     # NestJS backend application
+│   │   ├── prisma/              # Prisma schema, migrations, and seed script
+│   │   └── src/                 # Application source code
+│   │       ├── common/          # Shared decorators, filters, guards, interceptors, pipes
+│   │       ├── config/          # Centralized configuration modules
+│   │       ├── database/        # Prisma service and database module
+│   │       ├── modules/         # 14 feature domain modules
+│   │       ├── app.module.ts    # Root NestJS application module
+│   │       └── main.ts          # Server entry point and middleware configuration
+│   └── web/                     # React 19 + Ant Design 6 SPA frontend
+│       ├── public/              # Static assets and icons
+│       └── src/                 # Frontend source code
+│           ├── app/             # Router, theme configuration, QueryClient setup
+│           ├── components/      # Shared layout components (PageContainer, CommandPalette, etc.)
+│           ├── hooks/           # Custom React hooks (useAuth)
+│           ├── layouts/         # Layout shells (MainLayout, AuthLayout)
+│           ├── pages/           # 12 domain page components (Dashboard, Assets, Licenses, etc.)
+│           ├── services/        # Axios API client and domain service wrappers
+│           ├── stores/          # Zustand persistent state stores (auth, theme)
+│           ├── styles/          # Global CSS tokens and resets
+│           ├── utils/           # Frontend constants and helpers
+│           └── main.tsx         # Web application entry point
+├── docker/                      # Container infrastructure definitions
+│   ├── nginx/                   # Nginx reverse proxy configuration & SSL certs
+│   └── postgres/                # PostgreSQL initialization scripts
+├── packages/                    # Monorepo shared packages
+│   ├── eslint-config/           # Shared ESLint configuration
+│   ├── shared-types/            # TypeScript entity types, DTOs, and enums
+│   ├── shared-utils/            # Shared formatting and string utilities
+│   └── shared-validators/       # Shared Zod validation schemas
+├── scripts/                     # Operational, test, and migration scripts
+├── .planning/                   # GSD planning, milestone tracking, and codebase maps
+│   └── codebase/                # 7 structured codebase documentation files
+├── docker-compose.yml           # Production Docker multi-container stack
+├── docker-compose.dev.yml       # Development Docker override stack
+├── package.json                 # Root monorepo workspace manifest
+├── pnpm-workspace.yaml          # pnpm workspace definition
+├── turbo.json                   # Turborepo task pipeline configuration
+└── biome.json                   # Biome formatting and linting rules
 ```
 
 ## Directory Purposes
 
-- **`apps/api/`**: The core backend system for the Unified IT Management System (UIMS). Handles data persistence, authentication, and background jobs.
-- **`apps/web/`**: The frontend UI for users to interact with UIMS features like assets, tickets, and network inventory.
-- **`packages/shared-*/`**: Extracted domain logic, types, and schemas to enforce a single source of truth between API and Web clients.
+**`apps/api/`:**
+- Purpose: Enterprise backend REST API and background worker runtime.
+- Contains: NestJS modules, controllers, services, database models, and validation logic.
+- Key files: `apps/api/src/main.ts`, `apps/api/src/app.module.ts`, `apps/api/prisma/schema.prisma`, `apps/api/prisma/seed.ts`.
+- Subdirectories:
+  - `src/common/`: Shared HTTP exception filters, Prisma exception filters, JWT/Role guards, response interceptors.
+  - `src/database/`: `PrismaService` connection lifecycle management.
+  - `src/modules/`: 14 domain modules (`assets`, `audit`, `auth`, `dashboard`, `directory`, `email`, `health`, `inventory`, `licenses`, `network`, `reports`, `settings`, `tickets`, `users`).
+
+**`apps/web/`:**
+- Purpose: Enterprise Single Page Application frontend interface.
+- Contains: React 19 components, Ant Design layouts, Zustand stores, and Axios services.
+- Key files: `apps/web/src/main.tsx`, `apps/web/src/app/router.tsx`, `apps/web/src/app/theme.ts`, `apps/web/src/layouts/MainLayout.tsx`.
+- Subdirectories:
+  - `src/pages/`: Feature views (`assets/AssetsPage.tsx`, `dashboard/DashboardPage.tsx`, `tickets/TicketsPage.tsx`, etc.).
+  - `src/components/`: Reusable containers (`PageContainer.tsx`, `CommandPalette.tsx`, `NotificationDrawer.tsx`).
+  - `src/services/`: HTTP communication adapters (`api.ts`, `assets.service.ts`, `auth.service.ts`, etc.).
+  - `src/stores/`: Zustand state (`auth.store.ts`, `theme.store.ts`).
+
+**`packages/shared-types/`:**
+- Purpose: Universal TypeScript interfaces, enums, and types shared across apps.
+- Key files: `packages/shared-types/src/index.ts`, `packages/shared-types/src/enums/`, `packages/shared-types/src/entities/`, `packages/shared-types/src/dto/`.
+
+**`packages/shared-validators/`:**
+- Purpose: Universal Zod validation schemas matching shared data models.
+- Key files: `packages/shared-validators/src/index.ts`, `packages/shared-validators/src/*.validator.ts`.
+
+**`packages/shared-utils/`:**
+- Purpose: Universal formatting (bytes, currency, dates) and string utility functions.
+- Key files: `packages/shared-utils/src/format.ts`, `packages/shared-utils/src/string.ts`, `packages/shared-utils/src/validation.ts`.
+
+**`docker/`:**
+- Purpose: Infrastructure orchestration configurations.
+- Contains: Nginx reverse proxy configuration (`docker/nginx/nginx.conf`) and Postgres DB init (`docker/postgres/init.sql`).
 
 ## Key File Locations
 
-- **Database Schema**: `apps/api/prisma/schema.prisma` - The central definition of all database entities and relationships.
-- **Backend Entry**: `apps/api/src/main.ts` - Where the NestJS server is configured and started.
-- **Frontend Entry**: `apps/web/src/main.tsx` - Where React is mounted to the DOM.
-- **Frontend Routing**: `apps/web/src/app/router.tsx` (assumed from `App.tsx` imports) - Defines the page routing structure.
-- **Global Types**: `packages/shared-types/src/index.ts` - Exports shared DTOs and entity shapes.
+**Entry Points:**
+- `apps/api/src/main.ts`: Backend server bootstrap and global middleware setup.
+- `apps/web/src/main.tsx`: Frontend React root rendering and provider setup.
+- `apps/api/prisma/seed.ts`: Initial database seeder for admin accounts and master data.
+
+**Configuration:**
+- `package.json`: Root monorepo scripts and workspace devDependencies.
+- `pnpm-workspace.yaml`: Monorepo package glob paths.
+- `turbo.json`: Task cache pipelines and execution topologies.
+- `biome.json`: Root formatting and linting configuration.
+- `docker-compose.yml`: Multi-service container orchestration.
+- `apps/api/src/config/app.config.ts`: Backend environment variable resolver.
+- `apps/web/vite.config.ts`: Frontend bundler config and proxy setup.
+
+**Core Logic:**
+- `apps/api/prisma/schema.prisma`: Single source of truth for database schema.
+- `apps/api/src/modules/`: Backend business services and controllers.
+- `apps/web/src/pages/`: Frontend view controllers and table interfaces.
+
+**Testing:**
+- `apps/api/vitest.config.mts`: Backend test runner configuration.
+- `apps/web/vitest.config.ts`: Frontend test runner configuration with happy-dom.
+- `packages/shared-validators/src/*.test.ts`: Validator unit tests.
+- `packages/shared-utils/src/*.test.ts`: Utility function unit tests.
+- `apps/web/src/stores/*.test.ts`: Zustand store state transition tests.
 
 ## Naming Conventions
 
-- **Modules/Services**: Use `kebab-case` for file names (e.g., `assets.service.ts`, `assets.controller.ts`).
-- **React Components**: Use `PascalCase` for component files and folders when appropriate (e.g., `CommandPalette.tsx`, `PageContainer.tsx`).
-- **React Pages**: Page files are typically suffixed with `Page` (e.g., `AssetsPage.tsx`, `NotFoundPage.tsx`).
-- **State Stores**: Suffixed with `.store.ts` (e.g., `theme.store.ts`).
-- **Test Files**: Suffixed with `.test.ts` (e.g., `auth.store.test.ts`).
+**Files:**
+- Backend modules: `kebab-case.module.ts`, `kebab-case.service.ts`, `kebab-case.controller.ts`.
+- Backend decorators/filters/pipes: `kebab-case.decorator.ts`, `kebab-case.filter.ts`, `kebab-case.pipe.ts`.
+- Frontend components & pages: `PascalCase.tsx` (`PageContainer.tsx`, `AssetsPage.tsx`, `MainLayout.tsx`).
+- Frontend services & stores: `camelCase.service.ts` or `kebab-case.service.ts`, `name.store.ts`.
+- Test files: `*.spec.ts` for backend tests, `*.test.ts` or `*.test.tsx` for frontend/shared package tests.
+
+**Directories:**
+- Feature directories: `kebab-case` or lowercase plural/singular (e.g. `assets`, `shared-validators`, `network`).
 
 ## Where to Add New Code
 
-- **New Database Entity**: Add the model to `apps/api/prisma/schema.prisma`, run `pnpm prisma generate`, and create a corresponding module in `apps/api/src/modules/`.
-- **New Shared Type/Validator**: Add to `packages/shared-types/src/` and `packages/shared-validators/src/`. Update `index.ts` to export it.
-- **New API Route**: Create a new controller in `apps/api/src/modules/<feature>/<feature>.controller.ts` and document with Swagger decorators.
-- **New Frontend View**: Create a new folder under `apps/web/src/pages/`, add your `<Feature>Page.tsx`, and add it to the router in `apps/web/src/app/router.ts`.
-- **New Global State**: Create a new slice/store in `apps/web/src/stores/` using Zustand.
+**New Backend Domain Feature (e.g. Vendors Module):**
+- Module definition: `apps/api/src/modules/vendors/vendors.module.ts`
+- Controller: `apps/api/src/modules/vendors/vendors.controller.ts`
+- Service: `apps/api/src/modules/vendors/vendors.service.ts`
+- DTOs / Schemas: `packages/shared-types/src/dto/vendors.dto.ts` and `packages/shared-validators/src/vendors.validator.ts`
+- Register in: `apps/api/src/app.module.ts`
+
+**New Frontend Page / View:**
+- Page component: `apps/web/src/pages/{feature}/{Feature}Page.tsx`
+- Service client: `apps/web/src/services/{feature}.service.ts`
+- Route definition: Register route in `apps/web/src/app/router.tsx`
+- Navigation menu item: Add sidebar entry in `apps/web/src/layouts/MainLayout.tsx`
+
+**New Shared Utility / Helper:**
+- Implementation: `packages/shared-utils/src/{helper}.ts`
+- Export: Re-export from `packages/shared-utils/src/index.ts`
+- Unit tests: `packages/shared-utils/src/{helper}.test.ts`
 
 ## Special Directories
 
-- **`.turbo/`**: Turborepo cache directory. Should be ignored in version control.
-- **`apps/api/dist/` & `apps/web/dist/`**: Compiled build outputs.
-- **`packages/*/dist/`**: Built versions of shared packages.
+**`.planning/`:**
+- Purpose: Project roadmap, phase execution logs, and architecture documentation.
+- Committed: Yes.
+
+**`apps/api/prisma/migrations/`:**
+- Purpose: Versioned SQL migrations generated by Prisma CLI.
+- Committed: Yes.
+
+**`dist/` & `.turbo/`:**
+- Purpose: Build outputs and Turborepo execution caches.
+- Committed: No (in `.gitignore`).
 
 ---
 
 *Structure analysis: 2026-08-14*
+*Update when directory structure changes*

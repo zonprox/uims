@@ -5,43 +5,154 @@
 ## Test Framework
 
 **Runner:**
-- **Framework:** Vitest (`^4.1.10`)
-- Integrates with `@nestjs/testing` for backend module/DI mocking and DOM testing libraries for the frontend.
+- Vitest 4.1.10 - Uniform test runner configured across all workspaces
+- Frontend DOM environment: `happy-dom` 20.11.2 (in `apps/web/vitest.config.ts`)
+- Backend environment: Node.js environment (in `apps/api/vitest.config.mts`)
+
+**Assertion Library:**
+- Vitest built-in assertions (`expect`, `toBe`, `toEqual`, `toBeDefined`, `toBeNull`, `toThrowError`)
 
 **Run Commands:**
-- `turbo run test`: Runs `vitest run` across the monorepo.
-- `turbo run test:watch`: Runs `vitest` in watch mode.
-- `turbo run test:e2e`: Triggers E2E tests workspace-wide.
+```bash
+# Run entire test suite across monorepo
+pnpm test
+
+# Run tests in specific package / app
+pnpm --filter @uims/api test
+pnpm --filter @uims/web test
+pnpm --filter @uims/shared-validators test
+pnpm --filter @uims/shared-utils test
+
+# Watch mode
+pnpm --filter @uims/web test:watch
+pnpm --filter @uims/api test:watch
+
+# End-to-end testing
+pnpm test:e2e
+```
 
 ## Test File Organization
-- Tests are colocated with the source files they verify.
-- **Backend (API):** Uses the `*.spec.ts` naming convention (e.g., `health.controller.spec.ts`).
-- **Frontend/Shared:** Uses the `*.test.ts` naming convention (e.g., `auth.store.test.ts`, `format.test.ts`).
+
+**Location:**
+- Unit & integration tests are co-located alongside target source code or in adjacent spec files.
+- `apps/api/src/**/*.spec.ts` for NestJS controllers, filters, and services.
+- `apps/web/src/**/*.test.ts` or `*.test.tsx` for React hooks, stores, and utilities.
+- `packages/shared-*/**/*.test.ts` for shared library tests.
+
+**Structure:**
+```
+apps/
+  api/
+    src/
+      common/filters/
+        http-exception.filter.ts
+        http-exception.filter.spec.ts
+      modules/health/
+        health.controller.ts
+        health.controller.spec.ts
+  web/
+    src/
+      stores/
+        auth.store.ts
+        auth.store.test.ts
+        theme.store.ts
+        theme.store.test.ts
+packages/
+  shared-utils/
+    src/
+      format.ts
+      format.test.ts
+  shared-validators/
+    src/
+      common.validator.ts
+      common.validator.test.ts
+```
 
 ## Test Structure
-- Organized using standard BDD blocks: `describe()`, `beforeEach()`, and `it()`.
-- Global test functions are enabled via Vitest config (`globals: true`), reducing import overhead.
-- Frontend tests run in the `happy-dom` environment (configured in `apps/web/vitest.config.ts`).
+
+**Suite Organization:**
+```typescript
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+describe('SharedUtils.format', () => {
+  describe('formatBytes', () => {
+    it('should format bytes into human-readable units correctly', () => {
+      expect(formatBytes(1024)).toBe('1 KB');
+      expect(formatBytes(1048576)).toBe('1 MB');
+    });
+  });
+});
+```
+
+**NestJS Controller / Filter Test Pattern:**
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { HttpExceptionFilter } from './http-exception.filter';
+
+describe('HttpExceptionFilter', () => {
+  let filter: HttpExceptionFilter;
+
+  beforeEach(() => {
+    filter = new HttpExceptionFilter();
+  });
+
+  it('should be defined', () => {
+    expect(filter).toBeDefined();
+  });
+});
+```
 
 ## Mocking
-- Uses Vitest's built-in mocking (`vi.fn()`, `vi.mock()`).
-- In API tests, framework-specific interfaces (like Express Request/Response) are mocked manually with `vi.fn()` (e.g., `http-exception.filter.spec.ts`).
-- NestJS dependency injection is utilized for providing mock services to controllers.
+
+**Framework:**
+- Vitest built-in mock utilities (`vi.fn()`, `vi.spyOn()`, `vi.mock()`).
+
+**Patterns:**
+- Mocking external services (e.g. `authService` in `auth.store.test.ts`):
+```typescript
+import { vi } from 'vitest';
+import { authService } from '../services/auth.service';
+
+vi.mock('../services/auth.service', () => ({
+  authService: {
+    logout: vi.fn(),
+  },
+}));
+```
+- Mocking database / ORM access: In unit tests, inject mock PrismaService objects with jest/vitest spy functions to prevent direct database connections.
 
 ## Fixtures and Factories
-- Minimal reliance on centralized factories. Mock data is generally declared inline within the test files (e.g., `mockUser` in store tests).
+
+**Test Data Helpers:**
+- Define mock user payloads and fixture records inline or in dedicated test helper files.
+- Sample user fixtures for store testing:
+```typescript
+const mockUser = {
+  id: 'user-1',
+  email: 'admin@acme.corp',
+  name: 'Admin User',
+  role: 'Super Admin',
+};
+```
 
 ## Coverage
-- No explicit coverage threshold configuration detected in `package.json`. Coverage generation relies on Vitest's default capabilities (e.g., running `vitest run --coverage`).
+
+**Requirements:**
+- Coverage output configured via Turborepo task pipeline (`outputs: ["coverage/**"]`).
+- Focus areas: Shared validation schemas, core business calculations, security filters, state management stores.
 
 ## Test Types
-- **Unit Tests:** High density of unit tests for utilities (`shared-utils`), validators (`shared-validators`), Zustand stores (`auth.store.test.ts`), and NestJS controllers/filters.
-- **E2E Tests:** Configured at the workspace level, typically orchestrated by Turbo to test integrated apps.
 
-## Common Patterns
-- **Store Testing:** Zustand stores are tested by resetting state in `beforeEach` (`useAuthStore.setState({...})`) and verifying state transitions after calling actions.
-- **Filter Testing:** NestJS filters are tested by mocking the ExecutionContext host and verifying that the correct JSON payload and HTTP status code are sent to the response object.
+**Unit Tests:**
+- Fast tests for isolated pure functions, validators, Zustand state stores, and utility modules. Execution time < 100ms per file.
+
+**Integration Tests:**
+- NestJS controller and filter testing with simulated Nest execution contexts.
+
+**E2E Tests:**
+- Playwright test harness (`@playwright/test`) configured in root for end-to-end UI and authentication workflows (`scripts/test-login.mjs`, `scripts/test-responsive.mjs`).
 
 ---
 
 *Testing analysis: 2026-08-14*
+*Update when test patterns change*

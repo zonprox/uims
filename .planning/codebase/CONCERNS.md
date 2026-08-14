@@ -4,71 +4,102 @@
 
 ## Tech Debt
 
-**Frontend Mock Data / Missing Backend Integration:**
-- Issue: Multiple frontend pages feature elaborate mock data instead of real API calls.
-- Files: `apps/web/src/pages/tickets/TicketsPage.tsx`, `apps/web/src/pages/directory/DirectoryPage.tsx`
-- Impact: Users interact with hardcoded UIs that do not save data, leading to a disconnected user experience and a false sense of completeness.
-- Fix approach: Implement functional `axios` service calls matching the intended API contract, and map them to real backend controllers.
+**Loose Typing and `any` Usage in Backend Services:**
+- Issue: Several NestJS services (e.g. `apps/api/src/modules/assets/assets.service.ts`, `apps/api/src/modules/tickets/tickets.service.ts`, `apps/api/src/modules/email/email.service.ts`) accept `data: any` and return `any` instead of enforcing strict types from `@uims/shared-types` or DTO classes.
+- Files: `apps/api/src/modules/assets/assets.service.ts`, `apps/api/src/modules/tickets/tickets.service.ts`, `apps/api/src/modules/licenses/licenses.service.ts`.
+- Why: Rapid scaffolding and initial prototyping phase.
+- Impact: Compiler cannot catch property mismatches between frontend payloads and database columns at compile time.
+- Fix approach: Refactor service signatures to use strictly typed DTOs and Zod validation pipes (`packages/shared-validators`).
 
-**Type Safety Bypassed in API:**
-- Issue: DTOs are forcefully cast to `any` before being passed to Prisma `create` and `update` calls.
-- Files: `apps/api/src/modules/assets/assets.service.ts`, `apps/api/src/modules/licenses/licenses.service.ts`
-- Impact: Bypasses Prisma's type checking, potentially inserting invalid fields or causing runtime database errors.
-- Fix approach: Remove `as any` and properly map DTOs to the types expected by the Prisma client.
+**Implicit In-Line Status String Mapping:**
+- Issue: Manual string mapping for status enums (e.g. mapping `"Active"` -> `"IN_USE"`, `"In Repair"` -> `"MAINTENANCE"`, `"In Storage"` -> `"AVAILABLE"`) is duplicated inside individual service methods.
+- Files: `apps/api/src/modules/assets/assets.service.ts`, `apps/api/src/modules/tickets/tickets.service.ts`, `apps/api/src/modules/licenses/licenses.service.ts`.
+- Why: Accommodating legacy UI string labels alongside PostgreSQL Prisma enum values.
+- Impact: Inconsistencies across modules and risk of runtime mapping misses when new status states are introduced.
+- Fix approach: Centralize enum transformation utilities in `packages/shared-utils/src/validation.ts` or enforce direct enum usage from `@uims/shared-types`.
+
+**Ad-Hoc Entity Creation Without Database Transactions:**
+- Issue: `AssetsService.create` looks up `AssetCategory` and `Location` by name, creating them on-the-fly if missing, without wrapping the sequence in a Prisma `$transaction`.
+- Files: `apps/api/src/modules/assets/assets.service.ts` (lines 8-35).
+- Why: Permissive bulk import and UI ease of use.
+- Impact: Concurrent asset creation with identical new category/location names can cause race conditions or duplicate record creation.
+- Fix approach: Wrap category resolution, location resolution, and asset creation in `this.prisma.$transaction(...)`.
 
 ## Known Bugs
 
-**Unpaginated Collection Responses:**
-- Symptoms: `GET /users`, `GET /assets`, and `GET /licenses` endpoints ignore the `PaginationDto` queries and fetch all records.
-- Files: `apps/api/src/modules/users/users.controller.ts`, `apps/api/src/modules/assets/assets.service.ts`
-- Trigger: Send a request with `?limit=10&page=1` query parameters.
-- Workaround: Client has to handle pagination in-memory.
-- Fix approach: Destructure `take` and `skip` from `PaginationDto` and apply them to the Prisma `findMany` queries.
+**Client-Side 401 Infinite Loop Risk on Expired Refresh Token:**
+- Symptoms: If an expired refresh token request itself returns a 401 error, the Axios response interceptor might trigger multiple recursive login redirects.
+- Files: `apps/web/src/services/api.ts` (lines 24-36).
+- Trigger: Network failure or expired refresh token during token refresh attempt.
+- Workaround: `originalRequest._retry = true` flag exists, but explicit cancellation is recommended.
+- Root cause: Missing unified refresh token mutex lock to queue simultaneous 401 requests.
+- Fix: Implement request queuing with a refresh token promise lock in `apps/web/src/services/api.ts`.
 
 ## Security Considerations
 
-**Insecure Refresh Token Logic:**
-- Risk: The `refresh` method in `AuthService` accepts a `user` payload and mints a new `accessToken` without actually checking an existing, valid `refreshToken` from the database or secure cookie.
-- Files: `apps/api/src/modules/auth/auth.service.ts`
-- Current mitigation: None.
-- Recommendations: Implement proper refresh token rotation. Store refresh token hashes in the database and issue them via `HttpOnly` cookies. Validate the token before issuing a new `accessToken`.
+**JWT Token Storage in `localStorage`:**
+- Risk: JWT bearer tokens stored in browser `localStorage` (`apps/web/src/stores/auth.store.ts`) are accessible via JavaScript and vulnerable to Cross-Site Scripting (XSS).
+- Files: `apps/web/src/stores/auth.store.ts`, `apps/web/src/services/api.ts`.
+- Current mitigation: Basic input sanitization and Ant Design XSS protection.
+- Recommendations: Migrate access and refresh tokens to secure, `httpOnly`, `SameSite=Strict` cookies handled via `cookie-parser` on backend routes.
 
-**Hardcoded Fallback JWT Secret:**
-- Risk: If `JWT_SECRET` is missing in the environment, the application falls back to `'secret'`, exposing the system to trivial token forgery in production.
-- Files: `apps/api/src/modules/auth/auth.module.ts`
-- Current mitigation: Relying on the deployment environment to set `JWT_SECRET`.
-- Recommendations: Remove the fallback and throw a fatal configuration error if `JWT_SECRET` is missing at boot.
+**Rate Limiting on Authentication Endpoints:**
+- Risk: `POST /api/v1/auth/login` currently has basic throttler configuration that should be tightly restricted to prevent brute-force attacks.
+- Files: `apps/api/src/modules/auth/auth.controller.ts`, `apps/api/src/app.module.ts`.
+- Current mitigation: Standard `@nestjs/throttler` defaults.
+- Recommendations: Apply `@Throttle({ default: { limit: 5, ttl: 60000 } })` specifically to login and token refresh routes.
 
 ## Performance Bottlenecks
 
-**Unbounded Database Queries:**
-- Problem: The API does not implement pagination or limits for collection endpoints.
-- Files: `apps/api/src/modules/users/users.service.ts`, `apps/api/src/modules/assets/assets.service.ts`
-- Cause: `this.prisma.[model].findMany()` is called without `take` or `skip`.
-- Improvement path: Wire up the `PaginationDto` variables to Prisma query configurations, and return standard paginated wrappers.
+**Unbounded `findMany()` Queries in Listing Endpoints:**
+- Problem: Several listing methods in backend services query tables without mandatory pagination limits (`take` / `skip`).
+- Files: `apps/api/src/modules/assets/assets.service.ts` (lines 67-104), `apps/api/src/modules/licenses/licenses.service.ts`.
+- Measurement: Fast with seed data (<20ms), but response payload sizes and latency will degrade with >10,000 entities.
+- Cause: Missing default pagination bounds in queries when no pagination query parameters are supplied.
+- Improvement path: Enforce default pagination limits (e.g. `take: query?.pageSize || 50`) and utilize `ApiPaginatedResponse` across all service find queries.
 
 ## Fragile Areas
 
-**Core Business Logic Uncovered by Tests:**
-- Files: `apps/api/src/modules/auth/auth.service.ts`, `apps/api/src/modules/users/users.service.ts`
-- Why fragile: Critical authentication, hashing, and user creation logic is not tested. Refactoring these services might introduce silent regressions.
-- Safe modification: Write unit tests covering JWT signing, password hashing, and conflict exceptions before refactoring.
-- Test coverage: Almost 0% for API services. Only a filter and a health controller have tests.
+**Custom UI Design Token & Responsive Breakpoint Synchronization:**
+- Files: `apps/web/src/layouts/MainLayout.tsx`, `apps/web/src/app/theme.ts`.
+- Why fragile: The application supports mobile drawer navigation, responsive table containers, dark/light themes, and custom compact spacing. Hardcoded inline breakpoint checks mixed with Ant Design `Grid.useBreakpoint()` can lead to layout shifts if theme tokens are changed.
+- Safe modification: Test across mobile (375px), tablet (768px), and desktop (1440px) viewports whenever modifying layout shells or navigation bars.
 
 ## Scaling Limits
-- The database schema is fully relational on PostgreSQL. Due to unbounded queries (lack of pagination), memory exhaustion could occur at scale for endpoints returning all users or assets.
-- Lack of Redis or caching for frequent reads (e.g., configurations, session validation).
+
+**PostgreSQL Connection Pool & Redis Memory Limit:**
+- Current capacity: Single PostgreSQL instance with default connection pool and Redis configured with 256MB memory cap in `docker-compose.yml`.
+- Limit: ~500 concurrent active enterprise administrators before connection pool exhaustion.
+- Scaling path: Configure PgBouncer connection pooling, increase Redis LRU cache allocation, and enable Meilisearch indexing for search workloads.
 
 ## Dependencies at Risk
-- Basic generic dependencies configured, but keeping track of Prisma client performance and potential connection pool exhaustion will be important as features grow.
+
+**TypeScript 7.0 Alpha / Experimental Options:**
+- Risk: Shared packages (`packages/shared-types`, `packages/shared-validators`) build with TypeScript `^7.0.2` which triggers experimental compiler warnings during `tsdown` builds.
+- Impact: Potential compiler behavior variance across minor updates.
+- Migration plan: Pin TypeScript version to stable 5.9.x across all workspace packages until 7.0 reaches stable LTS.
 
 ## Missing Critical Features
-- **Unimplemented Schema Entities:** The Prisma schema defines models for `Ticket`, `IPAddress`, `DirectoryUser`, `Location`, and `EmailAccount`. However, there are **no corresponding API modules** implemented for them, leaving the database completely disconnected from the functional requirements represented in the UI.
+
+**Full-Text Search Engine Integration with Meilisearch:**
+- Problem: Meilisearch container is configured in Docker Compose (`docker-compose.yml`), but automatic database change event indexing to Meilisearch is not yet integrated into backend domain services.
+- Blocks: Instant fuzzy global search across assets, tickets, and directory users in `CommandPalette.tsx`.
+- Implementation complexity: Medium (implement Prisma middleware or BullMQ queue job to sync entity mutations to Meilisearch indices).
 
 ## Test Coverage Gaps
-- **Backend:** Only 2 test files exist (`http-exception.filter.spec.ts` and `health.controller.spec.ts`). All critical services (Auth, Users, Assets, Licenses) lack unit and integration tests.
-- **Frontend:** Only 2 test files exist (`auth.store.test.ts`, `theme.store.test.ts`). Components, Pages, and custom hooks have no test coverage.
+
+**Backend Domain Services Unit Tests:**
+- What's not tested: Core business logic in `AssetsService`, `TicketsService`, `LicensesService`, `DirectoryService`, `NetworkService`.
+- Risk: Regression bugs during refactoring or schema migrations.
+- Priority: High.
+- Difficulty to test: Low/Medium (write Vitest unit tests with mocked `PrismaService`).
+
+**End-to-End Authentication and Form Validation Workflows:**
+- What's not tested: Comprehensive automated Playwright UI tests for asset checkout, ticket assignment, and license allocation.
+- Priority: Medium.
+- Difficulty to test: Medium (requires test database seed fixture in CI environment).
 
 ---
 
 *Concerns audit: 2026-08-14*
+*Update as issues are fixed or new ones discovered*
