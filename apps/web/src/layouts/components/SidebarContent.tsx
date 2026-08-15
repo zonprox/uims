@@ -50,6 +50,7 @@ export const SidebarContent: React.FC<SidebarContentProps> = React.memo(
         <Menu
           theme="dark"
           mode="inline"
+          inlineCollapsed={collapsed && !inDrawer}
           selectedKeys={[pathname]}
           items={menuItems}
           onClick={({ key }) => {

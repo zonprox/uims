@@ -16,7 +16,8 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = React.memo(
     const { health, isLoading, isRefreshing, isOnline, lastChecked, error, refresh } =
       useSystemHealth({ intervalMs: 10000 });
 
-    const status = !isOnline || error ? 'error' : (health?.status ?? (isLoading ? 'loading' : 'ok'));
+    const status =
+      !isOnline || error ? 'error' : (health?.status ?? (isLoading ? 'loading' : 'ok'));
 
     const statusColor =
       status === 'ok'
@@ -158,10 +159,12 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = React.memo(
     return (
       <div
         style={{
-          padding: collapsed && !inDrawer ? '10px 8px' : '10px 12px',
+          padding: collapsed && !inDrawer ? '10px 0' : '10px 12px',
           borderTop: '1px solid rgba(255, 255, 255, 0.08)',
           backgroundColor: '#090d14',
           flexShrink: 0,
+          display: 'flex',
+          justifyContent: collapsed && !inDrawer ? 'center' : 'stretch',
         }}
       >
         <Popover
@@ -183,6 +186,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = React.memo(
             <div
               onClick={() => onNavigate?.('/settings')}
               style={{
+                width: '100%',
                 padding: '6px 10px',
                 borderRadius: 6,
                 backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -237,11 +241,12 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = React.memo(
             <div
               onClick={() => onNavigate?.('/settings')}
               style={{
+                width: 44,
+                height: 38,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '6px 0',
-                borderRadius: 6,
+                borderRadius: 8,
                 backgroundColor: 'rgba(255, 255, 255, 0.03)',
                 border: '1px solid rgba(255, 255, 255, 0.06)',
                 cursor: 'pointer',
@@ -257,7 +262,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = React.memo(
               }}
             >
               <Badge dot status={badgeStatus} offset={[-2, 2]}>
-                <CloudServerOutlined style={{ color: statusColor, fontSize: 14 }} />
+                <CloudServerOutlined style={{ color: statusColor, fontSize: 15 }} />
               </Badge>
             </div>
           )}

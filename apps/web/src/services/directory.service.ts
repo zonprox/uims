@@ -3,14 +3,20 @@ import { api } from './api';
 export interface DirectoryUser {
   id: string;
   name: string;
+  username: string;
   email: string;
   jobTitle: string;
   department: string;
-  role: 'Super Admin' | 'IT Specialist' | 'Developer' | 'Manager' | 'Employee';
-  status: 'Active' | 'Suspended' | 'Inactive';
+  role: 'Super Admin' | 'IT Specialist' | 'Developer' | 'Manager' | 'Employee' | string;
+  status: 'Active' | 'Suspended' | 'Inactive' | string;
+  source?: 'LOCAL' | 'LDAP' | 'AZURE_AD' | string;
   twoFactorEnabled?: boolean;
   phone: string;
   location: string;
+
+  // Initial Password (AD Domain Logon)
+  adInitialPassword?: string;
+
   assignedAssetsCount: number;
   assignedLicensesCount: number;
   lastLogin: string;
@@ -23,6 +29,7 @@ export interface DirectoryGroup {
   memberCount: number;
   scope: string;
   managedBy: string;
+  description?: string;
 }
 
 export interface DirectoryStats {

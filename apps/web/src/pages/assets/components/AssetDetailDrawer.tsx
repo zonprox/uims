@@ -1,5 +1,16 @@
 import { EditOutlined, LaptopOutlined, QrcodeOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, Descriptions, Drawer, Flex, QRCode, Tabs, Tag, Typography } from 'antd';
+import {
+  Avatar,
+  Button,
+  Card,
+  Descriptions,
+  Drawer,
+  Flex,
+  QRCode,
+  Tabs,
+  Tag,
+  Typography,
+} from 'antd';
 import React from 'react';
 import type { Asset } from '../../../services/assets.service';
 
@@ -169,9 +180,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     <div style={{ marginTop: 6, fontWeight: 700, fontSize: 15, color: '#000' }}>
                       {selectedAsset.tag}
                     </div>
-                    <div style={{ fontSize: 11, color: '#666' }}>
-                      {selectedAsset.serialNumber}
-                    </div>
+                    <div style={{ fontSize: 11, color: '#666' }}>{selectedAsset.serialNumber}</div>
                   </div>
                   <Button icon={<QrcodeOutlined />} onClick={() => window.print()}>
                     Print Barcode Label

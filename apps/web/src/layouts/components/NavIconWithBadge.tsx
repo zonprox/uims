@@ -30,6 +30,8 @@ export const NavIconWithBadge: React.FC<NavIconWithBadgeProps> = React.memo(
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
+            width: isCollapsed ? 20 : undefined,
+            height: isCollapsed ? 20 : undefined,
             ...style,
           }}
         >

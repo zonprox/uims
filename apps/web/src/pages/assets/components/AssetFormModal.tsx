@@ -165,10 +165,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
         </Row>
 
         <Form.Item label="Internal Notes & Accessories" name="notes">
-          <Input.TextArea
-            rows={2}
-            placeholder="Add deployment details or dock serial number..."
-          />
+          <Input.TextArea rows={2} placeholder="Add deployment details or dock serial number..." />
         </Form.Item>
       </Form>
     </Modal>

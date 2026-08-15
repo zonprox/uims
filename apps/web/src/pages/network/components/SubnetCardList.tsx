@@ -30,10 +30,7 @@ export const SubnetCardList: React.FC<SubnetCardListProps> = React.memo(({ subne
             <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
               {subnet.name}
             </Text>
-            <Text
-              type="secondary"
-              style={{ fontSize: 11.5, display: 'block', marginBottom: 8 }}
-            >
+            <Text type="secondary" style={{ fontSize: 11.5, display: 'block', marginBottom: 8 }}>
               Gateway: {subnet.gateway} • {subnet.location}
             </Text>
             <Flex justify="space-between" style={{ fontSize: 11.5, marginBottom: 2 }}>
@@ -42,12 +39,7 @@ export const SubnetCardList: React.FC<SubnetCardListProps> = React.memo(({ subne
               </Text>
               <Text type="secondary">{percent}%</Text>
             </Flex>
-            <Progress
-              percent={percent}
-              strokeColor={strokeColor}
-              size="small"
-              showInfo={false}
-            />
+            <Progress percent={percent} strokeColor={strokeColor} size="small" showInfo={false} />
           </Card>
         </Col>
       );

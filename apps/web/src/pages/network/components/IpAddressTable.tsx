@@ -174,7 +174,13 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
                 okType="danger"
               >
                 <Tooltip title="Release">
-                  <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
+                  <Button
+                    type="text"
+                    shape="circle"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                  />
                 </Tooltip>
               </Popconfirm>
             </Space>

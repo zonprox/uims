@@ -9,6 +9,8 @@ const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
 const LicensesPage = lazy(() => import('../pages/licenses/LicensesPage'));
 const DirectoryPage = lazy(() => import('../pages/directory/DirectoryPage'));
+const OrganizationPage = lazy(() => import('../pages/organization/OrganizationPage'));
+const UsersPage = lazy(() => import('../pages/users/UsersPage'));
 const NetworkPage = lazy(() => import('../pages/network/NetworkPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
 const AuditPage = lazy(() => import('../pages/audit/AuditPage'));
@@ -59,8 +61,30 @@ export const router = createBrowserRouter([
           {
             path: 'directory',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Asset Custodians & Directory..." />}>
+              <Suspense
+                fallback={<PageLoader tip="Loading Active Directory & Domain Accounts..." />}
+              >
                 <DirectoryPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'organization',
+            element: (
+              <Suspense
+                fallback={<PageLoader tip="Loading Enterprise Organization Structure..." />}
+              >
+                <OrganizationPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'users',
+            element: (
+              <Suspense
+                fallback={<PageLoader tip="Loading System Login Users & Access Accounts..." />}
+              >
+                <UsersPage />
               </Suspense>
             ),
           },

@@ -8,8 +8,10 @@ import { healthService } from './health.service';
 import { inventoryService } from './inventory.service';
 import { licensesService } from './licenses.service';
 import { networkService } from './network.service';
+import { organizationService } from './organization.service';
 import { reportsService } from './reports.service';
 import { settingsService } from './settings.service';
+import { usersService } from './users.service';
 
 vi.mock('./api', () => ({
   api: {
@@ -180,6 +182,81 @@ describe('Frontend Service Clients', () => {
       });
       expect(suites).toHaveLength(1);
       expect(scheduled.id).toBe('rep-2');
+    });
+  });
+
+  describe('organizationService', () => {
+    it('should fetch organization hierarchy tree and stats', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: { data: { totalOrganizations: 3, totalDepartments: 7 } },
+      });
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: { data: [{ key: 'org-1', title: 'Acme Corp' }] },
+      });
+
+      const stats = await organizationService.getStats();
+      const tree = await organizationService.getTree();
+
+      expect(api.get).toHaveBeenCalledWith('/organizations/stats');
+      expect(api.get).toHaveBeenCalledWith('/organizations/tree');
+      expect(stats.totalOrganizations).toBe(3);
+      expect(tree).toHaveLength(1);
+    });
+
+    it('should create department', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({
+        data: { data: { id: 'dept-1', name: 'Engineering', code: 'ENG' } },
+      });
+
+      const dept = await organizationService.createDepartment({
+        name: 'Engineering',
+        code: 'ENG',
+      });
+
+      expect(api.post).toHaveBeenCalledWith('/departments', {
+        name: 'Engineering',
+        code: 'ENG',
+      });
+      expect(dept.id).toBe('dept-1');
+    });
+  });
+
+  describe('usersService', () => {
+    it('should fetch users list and stats', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: { data: { totalUsers: 10, activeUsers: 8 } },
+      });
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: {
+          data: {
+            items: [{ id: 'u1', email: 'admin@uims.local' }],
+            total: 1,
+            page: 1,
+            pageSize: 10,
+            totalPages: 1,
+          },
+        },
+      });
+
+      const stats = await usersService.getStats();
+      const users = await usersService.getUsers({ search: 'admin' });
+
+      expect(api.get).toHaveBeenCalledWith('/users/stats/summary');
+      expect(api.get).toHaveBeenCalledWith('/users', { params: { search: 'admin' } });
+      expect(stats.totalUsers).toBe(10);
+      expect(users.items).toHaveLength(1);
+    });
+
+    it('should reset user password', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({
+        data: { data: { success: true, message: 'Password reset successfully' } },
+      });
+
+      const res = await usersService.resetPassword('u1', 'NewPassword123');
+      expect(api.post).toHaveBeenCalledWith('/users/u1/reset-password', {
+        password: 'NewPassword123',
+      });
+      expect(res.success).toBe(true);
     });
   });
 

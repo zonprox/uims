@@ -1,9 +1,4 @@
-import {
-  DeleteOutlined,
-  EditOutlined,
-  EyeOutlined,
-  QrcodeOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, QrcodeOutlined } from '@ant-design/icons';
 import { Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
@@ -21,14 +16,7 @@ export interface AssetTableProps {
 }
 
 export const AssetTable: React.FC<AssetTableProps> = React.memo(
-  ({
-    assets,
-    loading,
-    onShowDetails,
-    onShowQr,
-    onOpenEditModal,
-    onDeleteAsset,
-  }) => {
+  ({ assets, loading, onShowDetails, onShowQr, onOpenEditModal, onDeleteAsset }) => {
     const columns = useMemo(
       () => [
         {
@@ -84,7 +72,9 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Assigned User',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
-          render: (user: string) => <Text style={{ fontSize: 13 }}>{user || 'Unassigned Pool'}</Text>,
+          render: (user: string) => (
+            <Text style={{ fontSize: 13 }}>{user || 'Unassigned Pool'}</Text>
+          ),
         },
         {
           title: 'Location',
@@ -103,7 +93,10 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
               <div>
                 <Text style={{ fontSize: 12 }}>{date}</Text>
                 {isExpiringSoon && (
-                  <Tag color="warning" style={{ display: 'inline-block', marginTop: 2, fontSize: 10 }}>
+                  <Tag
+                    color="warning"
+                    style={{ display: 'inline-block', marginTop: 2, fontSize: 10 }}
+                  >
                     Expiring
                   </Tag>
                 )}
@@ -151,7 +144,13 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 okType="danger"
               >
                 <Tooltip title="Delete">
-                  <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
+                  <Button
+                    type="text"
+                    shape="circle"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                  />
                 </Tooltip>
               </Popconfirm>
             </Space>

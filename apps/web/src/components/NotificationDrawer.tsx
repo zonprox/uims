@@ -197,7 +197,7 @@ export default function NotificationDrawer({
 
       {loading && notifications.length === 0 ? (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
-          <Spin size="default" />
+          <Spin size="medium" />
         </div>
       ) : filteredNotifications.length === 0 ? (
         <Empty

@@ -138,14 +138,15 @@ code,
   font-weight: 500;
 }
 
-.ant-layout-sider .ant-menu-dark .ant-menu-item,
+/* Sider & Drawer Menu Items (Expanded) */
+.ant-layout-sider:not(.ant-layout-sider-collapsed) .ant-menu-dark .ant-menu-item,
 .ant-drawer .ant-menu-dark .ant-menu-item {
   margin-inline: 8px;
   width: calc(100% - 16px);
   border-radius: 6px;
   height: 38px;
   line-height: 38px;
-  padding-inline: 10px;
+  padding-inline: 10px !important;
   display: flex;
   align-items: center;
   transition:
@@ -153,21 +154,27 @@ code,
     color 0.15s ease;
 }
 
-.ant-layout-sider .ant-menu-dark .ant-menu-item > .ant-menu-item-icon,
+.ant-layout-sider:not(.ant-layout-sider-collapsed)
+  .ant-menu-dark
+  .ant-menu-item
+  > .ant-menu-item-icon,
 .ant-drawer .ant-menu-dark .ant-menu-item > .ant-menu-item-icon {
-  margin-inline-end: 8px;
-  margin-inline-start: 0;
+  margin-inline-end: 10px !important;
+  margin-inline-start: 0 !important;
   font-size: 15px;
-  min-width: 16px;
-  width: 16px;
-  height: 16px;
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.ant-layout-sider .ant-menu-dark .ant-menu-item > .ant-menu-title-content,
+.ant-layout-sider:not(.ant-layout-sider-collapsed)
+  .ant-menu-dark
+  .ant-menu-item
+  > .ant-menu-title-content,
 .ant-drawer .ant-menu-dark .ant-menu-item > .ant-menu-title-content {
   flex: 1 1 auto;
   min-width: 0;
@@ -194,22 +201,74 @@ code,
   margin: 6px 12px;
 }
 
-.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item {
-  margin-inline: 12px;
-  width: calc(100% - 24px);
-  padding-inline: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
+/* Sider Menu in Collapsed State (Width 80px, Centered Icons) */
+.ant-layout-sider-collapsed .ant-menu-dark,
+.ant-menu-inline-collapsed {
+  width: 100% !important;
 }
 
-.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item > .ant-menu-item-icon {
-  margin-inline-end: 0;
-  margin-inline-start: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item,
+.ant-menu-inline-collapsed > .ant-menu-item,
+.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title {
+  width: 44px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  margin: 4px auto !important;
+  padding: 0 !important;
+  padding-inline: 0 !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  overflow: visible !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item > .ant-menu-item-icon,
+.ant-menu-inline-collapsed > .ant-menu-item > .ant-menu-item-icon,
+.ant-menu-inline-collapsed > .ant-menu-item > .anticon,
+.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title > .ant-menu-item-icon,
+.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title > .anticon {
+  margin: 0 !important;
+  margin-inline-end: 0 !important;
+  margin-inline-start: 0 !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+  min-width: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item > .ant-menu-title-content,
+.ant-menu-inline-collapsed > .ant-menu-item > .ant-menu-title-content,
+.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title > .ant-menu-title-content {
+  display: none !important;
+  width: 0 !important;
+  max-width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 0 0 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item-group-title,
+.ant-menu-inline-collapsed > .ant-menu-item-group > .ant-menu-item-group-title {
+  display: none !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item-divider,
+.ant-menu-inline-collapsed > .ant-menu-item-divider {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  margin: 8px 18px !important;
+  width: calc(100% - 36px) !important;
 }
 
 /* Ensure all standalone and indicator badges are never clipped */

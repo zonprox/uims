@@ -16,17 +16,17 @@ describe('menuConfig', () => {
     // Call first item click
     const firstItem = items?.[0] as { onClick?: () => void };
     firstItem?.onClick?.();
-    expect(setActiveOrg).toHaveBeenCalledWith('Acme Enterprise HQ (US-East)');
+    expect(setActiveOrg).toHaveBeenCalledWith('Acme Enterprise Global HQ');
   });
 
   it('should generate quick create menu items and navigate', () => {
     const navigate = vi.fn();
     const items = getQuickCreateMenu(navigate);
-    expect(items?.length).toBe(4);
+    expect(items?.length).toBe(5);
 
-    const assetItem = items?.[0] as { onClick?: () => void };
-    assetItem?.onClick?.();
-    expect(navigate).toHaveBeenCalledWith('/assets');
+    const firstItem = items?.[0] as { onClick?: () => void };
+    firstItem?.onClick?.();
+    expect(navigate).toHaveBeenCalledWith('/users');
   });
 
   it('should generate user menu items and handle logout', () => {
@@ -39,9 +39,9 @@ describe('menuConfig', () => {
     );
 
     expect(items).toBeDefined();
-    const logoutItem = items?.find(
-      (item) => (item as { key?: string })?.key === 'logout',
-    ) as { onClick?: () => void };
+    const logoutItem = items?.find((item) => (item as { key?: string })?.key === 'logout') as {
+      onClick?: () => void;
+    };
     logoutItem?.onClick?.();
     expect(handleLogout).toHaveBeenCalled();
   });

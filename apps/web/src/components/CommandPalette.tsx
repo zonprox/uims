@@ -1,4 +1,5 @@
 import {
+  ApartmentOutlined,
   AuditOutlined,
   BarChartOutlined,
   DatabaseOutlined,
@@ -67,12 +68,29 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     description: 'IPAM, subnets, VLANs, and hardware network reservations',
   },
   {
+    key: 'organization',
+    title: 'Organization Structure',
+    category: 'Organization',
+    path: '/organization',
+    icon: <ApartmentOutlined />,
+    description: 'Corporate entities, facilities, hierarchical departments, and job titles',
+  },
+  {
+    key: 'users',
+    title: 'System Login Users',
+    category: 'Access',
+    path: '/users',
+    icon: <TeamOutlined />,
+    description: 'Manage console login users, RBAC roles, security status, and reset credentials',
+  },
+  {
     key: 'directory',
-    title: 'Asset Custodians',
-    category: 'Custodians',
+    title: 'Active Directory & Domain Accounts',
+    category: 'Directory',
     path: '/directory',
     icon: <TeamOutlined />,
-    description: 'Employee directory and allocated equipment tracking',
+    description:
+      'Domain controller users, initial Active Directory credentials, and custodian records',
   },
   {
     key: 'reports',

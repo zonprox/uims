@@ -1,4 +1,5 @@
 import {
+  ApartmentOutlined,
   AuditOutlined,
   BarChartOutlined,
   DashboardOutlined,
@@ -9,6 +10,7 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Flex, type MenuProps, Tag, Typography } from 'antd';
 import React from 'react';
@@ -25,48 +27,60 @@ export function getOrgMenuItems(setActiveOrg: (org: string) => void): MenuProps[
       label: (
         <Flex vertical style={{ padding: '2px 0' }}>
           <Text strong style={{ fontSize: 12.5 }}>
-            Acme Enterprise HQ (US-East)
+            Acme Enterprise Global HQ
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Production • AWS us-east-1
+            Production • New York, NY
           </Text>
         </Flex>
       ),
-      onClick: () => setActiveOrg('Acme Enterprise HQ (US-East)'),
+      onClick: () => setActiveOrg('Acme Enterprise Global HQ'),
     },
     {
       key: 'org-2',
       label: (
         <Flex vertical style={{ padding: '2px 0' }}>
           <Text strong style={{ fontSize: 12.5 }}>
-            Acme EMEA Region (Frankfurt)
+            Acme EMEA Regional Operations
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Production • AWS eu-central-1
+            Production • London, UK
           </Text>
         </Flex>
       ),
-      onClick: () => setActiveOrg('Acme EMEA Region (Frankfurt)'),
+      onClick: () => setActiveOrg('Acme EMEA Regional Operations'),
     },
     {
       key: 'org-3',
       label: (
         <Flex vertical style={{ padding: '2px 0' }}>
           <Text strong style={{ fontSize: 12.5 }}>
-            Staging / Sandbox Cluster
+            Acme APAC Regional Hub
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Testbed • Isolated VPC
+            Production • Singapore
           </Text>
         </Flex>
       ),
-      onClick: () => setActiveOrg('Staging / Sandbox Cluster'),
+      onClick: () => setActiveOrg('Acme APAC Regional Hub'),
     },
   ];
 }
 
 export function getQuickCreateMenu(navigate: (path: string) => void): MenuProps['items'] {
   return [
+    {
+      key: 'new-user',
+      icon: <UserOutlined style={{ color: '#1677ff' }} />,
+      label: 'New System Login User',
+      onClick: () => navigate('/users'),
+    },
+    {
+      key: 'new-dept',
+      icon: <ApartmentOutlined style={{ color: '#722ed1' }} />,
+      label: 'New Organization Dept',
+      onClick: () => navigate('/organization'),
+    },
     {
       key: 'new-asset',
       icon: <LaptopOutlined style={{ color: '#1677ff' }} />,
@@ -78,12 +92,6 @@ export function getQuickCreateMenu(navigate: (path: string) => void): MenuProps[
       icon: <DatabaseOutlined style={{ color: '#f59e0b' }} />,
       label: 'Manage Spare Stock',
       onClick: () => navigate('/inventory'),
-    },
-    {
-      key: 'new-user',
-      icon: <TeamOutlined style={{ color: '#10b981' }} />,
-      label: 'Onboard Asset Custodian',
-      onClick: () => navigate('/directory'),
     },
     {
       key: 'new-license',
@@ -118,6 +126,18 @@ export function getUserMenuItems(
       ),
     },
     { type: 'divider' },
+    {
+      key: 'manage-users',
+      icon: <UserOutlined />,
+      label: 'System Login Users',
+      onClick: () => navigate('/users'),
+    },
+    {
+      key: 'org-structure',
+      icon: <ApartmentOutlined />,
+      label: 'Organization Structure',
+      onClick: () => navigate('/organization'),
+    },
     {
       key: 'settings',
       icon: <SettingOutlined />,
@@ -157,6 +177,44 @@ export function getNavMenuItems(
       icon: <NavIconWithBadge icon={<DashboardOutlined />} isCollapsed={isCollapsedDesktop} />,
       label: 'Operations Center',
       title: 'Operations Center',
+    },
+    { type: 'divider' },
+    {
+      key: 'group-org',
+      type: 'group',
+      label: showLabels ? (
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            color: 'rgba(255,255,255,0.4)',
+            textTransform: 'uppercase',
+          }}
+        >
+          ORGANIZATION & ACCESS
+        </span>
+      ) : undefined,
+      children: [
+        {
+          key: '/organization',
+          icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
+          label: 'Org Structure & Depts',
+          title: 'Org Structure & Depts',
+        },
+        {
+          key: '/users',
+          icon: <NavIconWithBadge icon={<UserOutlined />} isCollapsed={isCollapsedDesktop} />,
+          label: 'System Login Users',
+          title: 'System Login Users',
+        },
+        {
+          key: '/directory',
+          icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
+          label: 'Active Directory',
+          title: 'Active Directory & Domain Accounts',
+        },
+      ],
     },
     { type: 'divider' },
     {
@@ -258,32 +316,6 @@ export function getNavMenuItems(
           icon: <NavIconWithBadge icon={<GlobalOutlined />} isCollapsed={isCollapsedDesktop} />,
           label: 'Network & IPAM',
           title: 'Network & IPAM',
-        },
-      ],
-    },
-    { type: 'divider' },
-    {
-      key: 'group-ops',
-      type: 'group',
-      label: showLabels ? (
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            color: 'rgba(255,255,255,0.4)',
-            textTransform: 'uppercase',
-          }}
-        >
-          CUSTODIANS & DIRECTORY
-        </span>
-      ) : undefined,
-      children: [
-        {
-          key: '/directory',
-          icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-          label: 'Asset Custodians',
-          title: 'Asset Custodians',
         },
       ],
     },
