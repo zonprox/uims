@@ -60,6 +60,21 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Enterprise English Standard Policy
+
+**100% Professional Enterprise English Mandatory.**
+
+- All user-facing UI labels, descriptions, alert messages, toasts/notifications, table columns, modal titles, placeholder text, code identifiers, comments, documentation, test descriptions, API payloads, error messages, and git commits MUST be in clear, standardized Enterprise English.
+- No non-English or mixed language text in source code, UI strings, comments, DTOs, seeds, or logs.
+
+## 6. Ant Design v6+ UI/UX Guidelines
+
+- Always consume dynamic theme context via `App.useApp()` (`const { message, modal, notification } = App.useApp();`).
+- Use semantic token styling with `styles={{ body: ... }}` / `styles={{ content: ... }}` rather than deprecated `bodyStyle` / `valueStyle`.
+- Use `<PageContainer>` for all views to maintain consistent breadcrumbs, KPI statistics, search controls, and primary action buttons.
+- Keep table density high and information readable with dedicated quick actions (e.g., 1-click credential/email copying, status tags, responsive drawers).
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
