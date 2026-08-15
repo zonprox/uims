@@ -5,7 +5,6 @@ import { AssetsService } from './assets.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 
-
 @ApiTags('assets')
 @Controller('assets')
 export class AssetsController {

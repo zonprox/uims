@@ -5,7 +5,6 @@ import { CreateLicenseDto } from './dto/create-license.dto';
 import { UpdateLicenseDto } from './dto/update-license.dto';
 import { LicensesService } from './licenses.service';
 
-
 @ApiTags('licenses')
 @Controller('licenses')
 export class LicensesController {

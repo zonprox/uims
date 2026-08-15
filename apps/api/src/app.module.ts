@@ -16,6 +16,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { LicensesModule } from './modules/licenses/licenses.module';
 import { NetworkModule } from './modules/network/network.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
 import { SettingsModule } from './modules/settings/settings.module';
@@ -28,6 +29,7 @@ import { UsersModule } from './modules/users/users.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    OrganizationModule,
     AssetsModule,
     LicensesModule,
     InventoryModule,

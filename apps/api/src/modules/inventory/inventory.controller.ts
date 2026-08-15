@@ -6,7 +6,6 @@ import { RestockInventoryDto } from './dto/restock-inventory.dto';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto';
 import { InventoryService } from './inventory.service';
 
-
 @ApiTags('inventory')
 @Controller('inventory')
 export class InventoryController {
@@ -54,4 +53,3 @@ export class InventoryController {
     return this.inventoryService.restock(id, body.quantity || 10);
   }
 }
-

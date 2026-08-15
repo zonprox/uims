@@ -37,4 +37,3 @@ async function bootstrap() {
   logger.log(`Application is running on port ${port}`);
 }
 bootstrap();
-

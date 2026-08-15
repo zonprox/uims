@@ -10,7 +10,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const exceptionResponse = exception.getResponse();
 
     let message = exception.message;
-    let errors: unknown = undefined;
+    let errors: unknown;
 
     if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
       const respObj = exceptionResponse as Record<string, unknown>;
@@ -31,4 +31,3 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
   }
 }
-

@@ -13,13 +13,31 @@ import { PrismaService } from '../../database/prisma.service';
 export interface FormattedDirectoryUser {
   id: string;
   name: string;
+  username: string;
   email: string;
   jobTitle: string;
   department: string;
   role: string;
   status: string;
+  source: string;
   phone: string;
   location: string;
+  twoFactorEnabled: boolean;
+
+  // Credentials (AD & Mail initial passwords)
+  adInitialPassword?: string | null;
+  mailInitialPassword?: string | null;
+
+  // Domain Controller Mailbox Configuration
+  hasMailbox: boolean;
+  mailboxType: string;
+  quotaUsed: number;
+  quotaTotal: number;
+  mailStatus: string;
+  forwardingAddress?: string | null;
+  autoReplyEnabled: boolean;
+  aliases: string[];
+
   assignedAssetsCount: number;
   assignedLicensesCount: number;
   lastLogin: string;
@@ -43,6 +61,10 @@ function buildDirectoryWhere(query?: DirectoryUserQueryDto): Prisma.DirectoryUse
 
   if (query?.status && query.status !== 'all') {
     where.accountStatus = mapDirectoryAccountStatus(query.status);
+  }
+
+  if (query?.mailboxType && query.mailboxType !== 'all') {
+    where.mailboxType = query.mailboxType;
   }
 
   return where;
@@ -82,17 +104,36 @@ export class DirectoryService {
   ): FormattedDirectoryUser {
     const status = mapDirectoryAccountStatusToLabel(u.accountStatus);
     const lastLogin = u.lastLoginAt ? u.lastLoginAt.toISOString().split('T')[0] : 'Recently';
+    const cleanUsername = u.username ? u.username.replace(/[^a-zA-Z0-9]/g, '') : 'User';
 
     return {
       id: u.id,
       name: u.displayName || u.username,
+      username: u.username,
       email: u.email,
       jobTitle: u.jobTitle || 'Team Member',
       department: u.department || 'General',
       role: u.role || 'Employee',
       status,
+      source: u.source,
       phone: u.phone || '',
       location: u.location || 'HQ',
+      twoFactorEnabled: u.twoFactorEnabled ?? false,
+
+      // Default or custom initial passwords
+      adInitialPassword: u.adInitialPassword || `AD#${cleanUsername}2026!`,
+      mailInitialPassword: u.mailInitialPassword || `Mail#${cleanUsername}2026@`,
+
+      // Mailbox settings
+      hasMailbox: u.hasMailbox ?? true,
+      mailboxType: u.mailboxType || 'User',
+      quotaUsed: u.quotaUsed ?? 0,
+      quotaTotal: u.quotaTotal ?? 50,
+      mailStatus: u.mailStatus || 'Active',
+      forwardingAddress: u.forwardingAddress || null,
+      autoReplyEnabled: u.autoReplyEnabled ?? false,
+      aliases: (Array.isArray(u.aliases) ? u.aliases : []) as string[],
+
       assignedAssetsCount: assetCount,
       assignedLicensesCount: licenseCount,
       lastLogin,
@@ -146,8 +187,12 @@ export class DirectoryService {
   }
 
   async createUser(data: CreateDirectoryUserDto) {
-    const accountStatus = mapDirectoryAccountStatus(data.status as string);
-    const username = data.email ? data.email.split('@')[0] : `user-${Date.now()}`;
+    const accountStatus = mapDirectoryAccountStatus((data.status || data.accountStatus) as string);
+    const username =
+      data.username || (data.email ? data.email.split('@')[0] : `user-${Date.now()}`);
+    const cleanName = username.replace(/[^a-zA-Z0-9]/g, '');
+    const adInitialPassword = data.adInitialPassword || `Ad#${cleanName}2026!`;
+    const mailInitialPassword = data.mailInitialPassword || `Mail#${cleanName}2026@`;
 
     return this.prisma.directoryUser.create({
       data: {
@@ -158,9 +203,19 @@ export class DirectoryService {
         department: data.department || 'Engineering',
         role: data.role || 'Employee',
         accountStatus,
-        twoFactorEnabled: false,
+        twoFactorEnabled: data.twoFactorEnabled ?? false,
         phone: data.phone || '',
         location: data.location || 'HQ',
+        adInitialPassword,
+        mailInitialPassword,
+        hasMailbox: data.hasMailbox ?? true,
+        mailboxType: data.mailboxType || 'User',
+        quotaUsed: data.quotaUsed ?? 0,
+        quotaTotal: data.quotaTotal ? Number(data.quotaTotal) : 50,
+        mailStatus: data.mailStatus || 'Active',
+        forwardingAddress: data.forwardingAddress || null,
+        autoReplyEnabled: data.autoReplyEnabled ?? false,
+        aliases: data.aliases || [],
       },
     });
   }
@@ -170,14 +225,32 @@ export class DirectoryService {
     if (data.name !== undefined || data.displayName !== undefined) {
       updateData.displayName = data.displayName || data.name;
     }
+    if (data.username !== undefined) updateData.username = data.username;
+    if (data.email !== undefined) updateData.email = data.email;
     if (data.jobTitle !== undefined) updateData.jobTitle = data.jobTitle;
     if (data.department !== undefined) updateData.department = data.department;
     if (data.role !== undefined) updateData.role = data.role;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.location !== undefined) updateData.location = data.location;
+    if (data.twoFactorEnabled !== undefined) updateData.twoFactorEnabled = data.twoFactorEnabled;
 
-    if (data.status) {
-      updateData.accountStatus = mapDirectoryAccountStatus(data.status as string);
+    if (data.adInitialPassword !== undefined) updateData.adInitialPassword = data.adInitialPassword;
+    if (data.mailInitialPassword !== undefined)
+      updateData.mailInitialPassword = data.mailInitialPassword;
+
+    if (data.hasMailbox !== undefined) updateData.hasMailbox = data.hasMailbox;
+    if (data.mailboxType !== undefined) updateData.mailboxType = data.mailboxType;
+    if (data.quotaTotal !== undefined) updateData.quotaTotal = Number(data.quotaTotal);
+    if (data.quotaUsed !== undefined) updateData.quotaUsed = Number(data.quotaUsed);
+    if (data.mailStatus !== undefined) updateData.mailStatus = data.mailStatus;
+    if (data.forwardingAddress !== undefined) updateData.forwardingAddress = data.forwardingAddress;
+    if (data.autoReplyEnabled !== undefined) updateData.autoReplyEnabled = data.autoReplyEnabled;
+    if (data.aliases !== undefined) updateData.aliases = data.aliases;
+
+    if (data.status || data.accountStatus) {
+      updateData.accountStatus = mapDirectoryAccountStatus(
+        (data.status || data.accountStatus) as string,
+      );
     }
 
     return this.prisma.directoryUser.update({
@@ -210,21 +283,32 @@ export class DirectoryService {
   }
 
   async getStats(): Promise<DirectoryStatsDto> {
-    const [total, active, suspended, assignedAssetsCount] = await Promise.all([
+    const [total, active, suspended, assignedAssetsCount, mailboxStats] = await Promise.all([
       this.prisma.directoryUser.count(),
       this.prisma.directoryUser.count({ where: { accountStatus: 'ACTIVE' } }),
       this.prisma.directoryUser.count({ where: { accountStatus: 'SUSPENDED' } }),
       this.prisma.asset.count({ where: { assignedToId: { not: null } } }),
+      this.prisma.directoryUser.aggregate({
+        _sum: {
+          quotaUsed: true,
+          quotaTotal: true,
+        },
+        where: { hasMailbox: true },
+      }),
     ]);
 
     const custodianRate = total > 0 ? Math.round((assignedAssetsCount / total) * 100) : 0;
+    const totalMailboxes = await this.prisma.directoryUser.count({ where: { hasMailbox: true } });
 
     return {
       totalUsers: total,
       activeUsers: active,
       custodiansCount: assignedAssetsCount,
-      twoFactorRate: custodianRate, // maintained for backward-compatibility with DTO
+      twoFactorRate: custodianRate,
       suspendedAccounts: suspended,
+      totalMailboxes,
+      usedStorageGb: Number((mailboxStats._sum.quotaUsed ?? 0).toFixed(1)),
+      totalStorageQuotaGb: Number((mailboxStats._sum.quotaTotal ?? 0).toFixed(1)),
     };
   }
 }

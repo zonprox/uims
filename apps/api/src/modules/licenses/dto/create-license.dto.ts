@@ -38,4 +38,3 @@ export class CreateLicenseDto {
   @IsString()
   notes?: string;
 }
-

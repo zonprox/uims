@@ -6,7 +6,6 @@ import { CreateDirectoryUserDto } from './dto/create-directory-user.dto';
 import { UpdateDirectoryUserDto } from './dto/update-directory-user.dto';
 import { DirectoryService } from './directory.service';
 
-
 @ApiTags('directory')
 @Controller('directory')
 export class DirectoryController {

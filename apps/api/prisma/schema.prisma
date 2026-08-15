@@ -71,13 +71,21 @@ model User {
   status       UserStatus @default(ACTIVE)
   avatar       String?
   phone        String?
-  department   String?
-  location     String?
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  department     String?
+  location       String?
+  departmentId   String?
+  positionId     String?
+  organizationId String?
+  locationId     String?
+  lastLoginAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   role               Role?               @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  departmentRel      Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  positionRel        Position?           @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  locationRel        Location?           @relation(fields: [locationId], references: [id], onDelete: SetNull)
   assignedAssets     Asset[]             @relation("AssignedAssets")
   licenseAssignments LicenseAssignment[]
   auditLogs          AuditLog[]
@@ -227,22 +235,37 @@ model LicenseAssignment {
 }
 
 model DirectoryUser {
-  id               String          @id @default(uuid())
-  username         String          @unique
-  email            String          @unique
-  displayName      String?
-  jobTitle         String?
-  department       String?
-  role             String?         @default("Employee")
-  phone            String?
-  location         String?
-  twoFactorEnabled Boolean         @default(false)
-  accountStatus    AccountStatus   @default(ACTIVE)
-  source           DirectorySource @default(LOCAL)
-  externalId       String?
-  lastLoginAt      DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id                  String          @id @default(uuid())
+  username            String          @unique
+  email               String          @unique
+  displayName         String?
+  jobTitle            String?
+  department          String?
+  role                String?         @default("Employee")
+  phone               String?
+  location            String?
+  twoFactorEnabled    Boolean         @default(false)
+  accountStatus       AccountStatus   @default(ACTIVE)
+  source              DirectorySource @default(LOCAL)
+  externalId          String?
+
+  // Initial Credentials (AD & Mail)
+  adInitialPassword   String?
+  mailInitialPassword String?
+
+  // Domain Controller Mailbox Configuration
+  hasMailbox          Boolean         @default(true)
+  mailboxType         String?         @default("User")
+  quotaUsed           Float           @default(0)
+  quotaTotal          Float           @default(50)
+  mailStatus          String?         @default("Active")
+  forwardingAddress   String?
+  autoReplyEnabled    Boolean         @default(false)
+  aliases             Json?
+
+  lastLoginAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   memberships DirectoryMembership[]
 
@@ -409,16 +432,81 @@ model ReportSchedule {
 }
 
 model Location {
-  id        String   @id @default(uuid())
-  name      String
-  building  String?
-  floor     String?
-  room      String?
-  address   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String        @id @default(uuid())
+  name           String
+  code           String?
+  building       String?
+  floor          String?
+  room           String?
+  address        String?
+  type           String?       @default("Branch Office")
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   assets Asset[]
+  users  User[]
+
+  @@index([organizationId])
+}
+
+model Organization {
+  id          String       @id @default(uuid())
+  name        String
+  code        String       @unique
+  taxId       String?
+  email       String?
+  phone       String?
+  address     String?
+  website     String?
+  status      String       @default("ACTIVE")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  departments Department[]
+  locations   Location[]
+  users       User[]
+}
+
+model Department {
+  id             String       @id @default(uuid())
+  name           String
+  code           String       @unique
+  description    String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  parentId       String?
+  parent         Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Department[] @relation("DepartmentHierarchy")
+  managerName    String?
+  managerEmail   String?
+  status         String       @default("ACTIVE")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  positions      Position[]
+  users          User[]
+
+  @@index([organizationId])
+  @@index([parentId])
+}
+
+model Position {
+  id           String      @id @default(uuid())
+  title        String
+  code         String      @unique
+  description  String?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  level        String?     @default("Mid")
+  status       String      @default("ACTIVE")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  users        User[]
+
+  @@index([departmentId])
 }
 
 model Vendor {

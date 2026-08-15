@@ -120,8 +120,7 @@ export class ReportsService {
     ]);
 
     const totalSaaS = licenses.reduce((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0);
-    const inUsePercent =
-      totalAssets > 0 ? ((inUseAssets / totalAssets) * 100).toFixed(1) : '98.2';
+    const inUsePercent = totalAssets > 0 ? ((inUseAssets / totalAssets) * 100).toFixed(1) : '98.2';
 
     return {
       scheduledReports: `${Math.max(1, schedules)} Active`,

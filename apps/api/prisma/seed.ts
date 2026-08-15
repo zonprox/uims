@@ -7,6 +7,7 @@ import { seedInventory } from './seeders/inventory.seeder';
 import { seedLicenses } from './seeders/licenses.seeder';
 import { seedNetwork } from './seeders/network.seeder';
 import { seedNotifications } from './seeders/notifications.seeder';
+import { seedOrganizations } from './seeders/organization.seeder';
 import { seedRolesAndUsers } from './seeders/roles-users.seeder';
 import { seedSettingsAndReports } from './seeders/settings-reports.seeder';
 import { seedTaxonomy } from './seeders/taxonomy.seeder';
@@ -33,6 +34,9 @@ async function clearDatabase(client: PrismaClient) {
   await client.asset.deleteMany();
   await client.license.deleteMany();
   await client.reportSchedule.deleteMany();
+  await client.position.deleteMany();
+  await client.department.deleteMany();
+  await client.organization.deleteMany();
 }
 
 async function main() {
@@ -42,48 +46,54 @@ async function main() {
   // 1. Clear database
   await clearDatabase(prisma);
 
-  // 2. Roles and Users
-  console.log('👤 Seeding Roles and System Users...');
-  const usersResult = await seedRolesAndUsers(prisma);
-
-  // 3. Taxonomy (Locations and Asset Categories)
+  // 2. Taxonomy (Locations and Asset Categories)
   console.log('🏢 Seeding Locations and Asset Categories...');
   const taxonomyResult = await seedTaxonomy(prisma);
 
-  // 4. Hardware Assets
+  // 3. Enterprise Organizations & Departments
+  console.log('🏛️ Seeding Organizations, Departments and Positions...');
+  await seedOrganizations(prisma);
+
+  // 4. Roles and Users
+  console.log('👤 Seeding Roles and System Users...');
+  const usersResult = await seedRolesAndUsers(prisma);
+
+  // 5. Hardware Assets
   console.log('💻 Seeding Hardware Assets Fleet...');
   await seedAssets(prisma, taxonomyResult, usersResult);
 
-  // 5. Software Licenses and Assignments
+  // 6. Software Licenses and Assignments
   console.log('📄 Seeding Software Licenses and User Assignments...');
   await seedLicenses(prisma, usersResult);
 
-  // 6. Inventory Items
+  // 7. Inventory Items
   console.log('📦 Seeding Hardware Stockroom Inventory...');
   await seedInventory(prisma);
 
-  // 7. Directory Users, Groups and Emails
+  // 8. Directory Users, Groups and Emails
   console.log('👥 Seeding Directory Users, Groups & Mailboxes...');
   await seedDirectory(prisma);
 
-  // 8. Subnets and IP Allocations
+  // 9. Subnets and IP Allocations
   console.log('🌐 Seeding Network Subnets & IPAM Allocations...');
   await seedNetwork(prisma);
 
-  // 9. Audit Logs
+  // 10. Audit Logs
   console.log('🔒 Seeding Enterprise Governance & Audit Logs...');
   await seedAudit(prisma);
 
-  // 10. System Notifications
+  // 11. System Notifications
   console.log('🔔 Seeding System Notifications & Telemetry Alerts...');
   await seedNotifications(prisma, usersResult);
 
-  // 11. Settings and Report Schedules
+  // 12. Settings and Report Schedules
   console.log('⚙️ Seeding System Preferences & Report Schedules...');
   await seedSettingsAndReports(prisma);
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-  console.log(`✅ Enterprise Seed completed successfully in ${duration}s (100% modular architecture).`);
+  console.log(
+    `✅ Enterprise Seed completed successfully in ${duration}s (100% modular architecture).`,
+  );
 }
 
 main()

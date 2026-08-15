@@ -15,6 +15,7 @@ describe('DirectoryService', () => {
         update: vi.fn(),
         delete: vi.fn(),
         count: vi.fn(),
+        aggregate: vi.fn(),
       },
       directoryGroup: {
         findMany: vi.fn(),
@@ -35,7 +36,7 @@ describe('DirectoryService', () => {
   });
 
   describe('createUser', () => {
-    it('should create directory user with active status', async () => {
+    it('should create directory user with active status and default passwords', async () => {
       mockPrisma.directoryUser.create.mockResolvedValue({
         id: 'dir-1',
         username: 'john.doe',
@@ -44,6 +45,8 @@ describe('DirectoryService', () => {
         jobTitle: 'Software Engineer',
         department: 'Engineering',
         accountStatus: AccountStatus.ACTIVE,
+        adInitialPassword: 'Ad#johndoe2026!',
+        mailInitialPassword: 'Mail#johndoe2026@',
       });
 
       const user = await service.createUser({
@@ -60,7 +63,7 @@ describe('DirectoryService', () => {
   });
 
   describe('findAllUsers', () => {
-    it('should map users with assigned assets and licenses count', async () => {
+    it('should map users with assigned assets, licenses count, and mailbox info', async () => {
       mockPrisma.directoryUser.findMany.mockResolvedValue([
         {
           id: 'dir-1',
@@ -68,6 +71,13 @@ describe('DirectoryService', () => {
           email: 'john.doe@company.com',
           displayName: 'John Doe',
           accountStatus: 'ACTIVE',
+          adInitialPassword: 'Ad#johndoe2026!',
+          mailInitialPassword: 'Mail#johndoe2026@',
+          hasMailbox: true,
+          mailboxType: 'User',
+          quotaUsed: 10,
+          quotaTotal: 50,
+          aliases: ['jdoe@company.com'],
         },
       ]);
 
@@ -86,16 +96,27 @@ describe('DirectoryService', () => {
       expect(users[0].assignedAssetsCount).toBe(1);
       expect(users[0].assignedLicensesCount).toBe(2);
       expect(users[0].status).toBe('Active');
+      expect(users[0].adInitialPassword).toBe('Ad#johndoe2026!');
+      expect(users[0].mailInitialPassword).toBe('Mail#johndoe2026@');
+      expect(users[0].hasMailbox).toBe(true);
+      expect(users[0].aliases).toEqual(['jdoe@company.com']);
     });
   });
 
   describe('getStats', () => {
-    it('should calculate directory custodian metrics', async () => {
+    it('should calculate directory custodian and mailbox metrics', async () => {
       mockPrisma.directoryUser.count
         .mockResolvedValueOnce(4) // total
         .mockResolvedValueOnce(3) // active
-        .mockResolvedValueOnce(1); // suspended
+        .mockResolvedValueOnce(1) // suspended
+        .mockResolvedValueOnce(3); // totalMailboxes
       (mockPrisma.asset as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(2); // assignedAssetsCount
+      mockPrisma.directoryUser.aggregate.mockResolvedValueOnce({
+        _sum: {
+          quotaUsed: 45.5,
+          quotaTotal: 200,
+        },
+      });
 
       const stats = await service.getStats();
 
@@ -104,6 +125,9 @@ describe('DirectoryService', () => {
       expect(stats.custodiansCount).toBe(2);
       expect(stats.twoFactorRate).toBe(50); // 2/4 = 50%
       expect(stats.suspendedAccounts).toBe(1);
+      expect(stats.totalMailboxes).toBe(3);
+      expect(stats.usedStorageGb).toBe(45.5);
+      expect(stats.totalStorageQuotaGb).toBe(200);
     });
   });
 });

@@ -6,7 +6,6 @@ import { CreateSubnetDto } from './dto/create-subnet.dto';
 import { UpdateIPAddressDto } from './dto/update-ip.dto';
 import { NetworkService } from './network.service';
 
-
 @ApiTags('network')
 @Controller('network')
 export class NetworkController {
