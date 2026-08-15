@@ -1,9 +1,9 @@
 import {
-  CheckCircleOutlined,
   DollarOutlined,
   EditOutlined,
   FilterOutlined,
   PlusOutlined,
+  ReloadOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
   UserDeleteOutlined,
@@ -13,18 +13,16 @@ import {
 import {
   App,
   Avatar,
-  Badge,
   Button,
   Card,
   Col,
   DatePicker,
-  Divider,
   Drawer,
+  Empty,
   Flex,
   Form,
   Input,
   InputNumber,
-  List,
   Modal,
   Popconfirm,
   Progress,
@@ -38,215 +36,77 @@ import {
   Typography,
 } from 'antd';
 import dayjs from 'dayjs';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import { type License, type LicenseStats, licensesService } from '../../services/licenses.service';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Title } = Typography;
 const { Option } = Select;
-
-export interface AssignedUser {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  assignedDate: string;
-}
-
-export interface License {
-  id: string;
-  name: string;
-  vendor: string;
-  type: 'Subscription' | 'Perpetual' | 'Volume' | 'OEM';
-  totalSeats: number;
-  usedSeats: number;
-  costPerSeat: number;
-  expiryDate: string;
-  licenseKey: string;
-  status: 'Active' | 'Expiring' | 'Expired';
-  autoRenew: boolean;
-  assignedUsers: AssignedUser[];
-  notes?: string;
-}
-
-const INITIAL_LICENSES: License[] = [
-  {
-    id: '1',
-    name: 'Microsoft 365 E5 Enterprise',
-    vendor: 'Microsoft',
-    type: 'Subscription',
-    totalSeats: 150,
-    usedSeats: 142,
-    costPerSeat: 456,
-    expiryDate: '2024-12-31',
-    licenseKey: 'MS-E5-9921-8834-KKL9',
-    status: 'Active',
-    autoRenew: true,
-    assignedUsers: [
-      {
-        id: 'u1',
-        name: 'Alex Johnson',
-        email: 'alex@company.com',
-        department: 'Executive',
-        assignedDate: '2023-01-01',
-      },
-      {
-        id: 'u2',
-        name: 'Sarah Chen',
-        email: 'sarah@company.com',
-        department: 'IT',
-        assignedDate: '2023-01-01',
-      },
-      {
-        id: 'u3',
-        name: 'Marcus Vance',
-        email: 'marcus@company.com',
-        department: 'Design',
-        assignedDate: '2023-02-15',
-      },
-    ],
-    notes: 'Includes Advanced Threat Protection & Cloud App Security.',
-  },
-  {
-    id: '2',
-    name: 'Adobe Creative Cloud All Apps',
-    vendor: 'Adobe',
-    type: 'Subscription',
-    totalSeats: 25,
-    usedSeats: 24,
-    costPerSeat: 780,
-    expiryDate: '2024-05-15',
-    licenseKey: 'ADB-CC-8392-1102-LKLM',
-    status: 'Expiring',
-    autoRenew: false,
-    assignedUsers: [
-      {
-        id: 'u3',
-        name: 'Marcus Vance',
-        email: 'marcus@company.com',
-        department: 'Design',
-        assignedDate: '2023-05-15',
-      },
-      {
-        id: 'u4',
-        name: 'Elena Rostova',
-        email: 'elena@company.com',
-        department: 'Marketing',
-        assignedDate: '2023-06-01',
-      },
-    ],
-    notes: 'Renew via Adobe VIP enterprise reseller contract.',
-  },
-  {
-    id: '3',
-    name: 'JetBrains All Products Pack',
-    vendor: 'JetBrains',
-    type: 'Subscription',
-    totalSeats: 40,
-    usedSeats: 32,
-    costPerSeat: 249,
-    expiryDate: '2025-02-28',
-    licenseKey: 'JB-ALL-7731-9941-PPX1',
-    status: 'Active',
-    autoRenew: true,
-    assignedUsers: [
-      {
-        id: 'u5',
-        name: 'David Kim',
-        email: 'david.kim@company.com',
-        department: 'Backend Eng',
-        assignedDate: '2023-03-01',
-      },
-      {
-        id: 'u6',
-        name: 'Linda Watson',
-        email: 'linda.w@company.com',
-        department: 'Frontend Eng',
-        assignedDate: '2023-03-10',
-      },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Figma Enterprise Workspace',
-    vendor: 'Figma',
-    type: 'Subscription',
-    totalSeats: 30,
-    usedSeats: 28,
-    costPerSeat: 540,
-    expiryDate: '2024-11-30',
-    licenseKey: 'FIG-ENT-1192-3381-YYE4',
-    status: 'Active',
-    autoRenew: true,
-    assignedUsers: [
-      {
-        id: 'u3',
-        name: 'Marcus Vance',
-        email: 'marcus@company.com',
-        department: 'Design',
-        assignedDate: '2023-01-10',
-      },
-    ],
-  },
-  {
-    id: '5',
-    name: 'VMware vSphere Enterprise Plus',
-    vendor: 'Broadcom / VMware',
-    type: 'Perpetual',
-    totalSeats: 8,
-    usedSeats: 8,
-    costPerSeat: 3500,
-    expiryDate: '2026-08-01',
-    licenseKey: 'VMW-VSP-4491-0021-HH82',
-    status: 'Active',
-    autoRenew: false,
-    assignedUsers: [
-      {
-        id: 'u2',
-        name: 'IT Infrastructure Core',
-        email: 'infra-team@company.com',
-        department: 'IT Ops',
-        assignedDate: '2022-08-01',
-      },
-    ],
-  },
-];
 
 export default function LicensesPage() {
   const { message } = App.useApp();
-  const [licenses, setLicenses] = useState<License[]>(INITIAL_LICENSES);
+  const [licenses, setLicenses] = useState<Array<License>>([]);
+  const [stats, setStats] = useState<LicenseStats>({
+    total: 0,
+    annualSpend: 0,
+    utilization: 0,
+    expiringCount: 0,
+  });
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [vendorFilter, setVendorFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   // Modals & Drawers
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalSubmitting, setModalSubmitting] = useState(false);
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [seatsDrawerOpen, setSeatsDrawerOpen] = useState(false);
   const [selectedLicense, setSelectedLicense] = useState<License | null>(null);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [assigningSeat, setAssigningSeat] = useState(false);
 
   const [form] = Form.useForm();
 
-  // Calculations
-  const totalAnnualSpend = licenses.reduce((sum, lic) => sum + lic.usedSeats * lic.costPerSeat, 0);
-  const totalSeatsAll = licenses.reduce((sum, lic) => sum + lic.totalSeats, 0);
-  const totalUsedSeatsAll = licenses.reduce((sum, lic) => sum + lic.usedSeats, 0);
-  const overallUtilization =
-    totalSeatsAll > 0 ? Math.round((totalUsedSeatsAll / totalSeatsAll) * 100) : 0;
-  const expiringCount = licenses.filter((lic) => lic.status === 'Expiring').length;
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [list, statsData] = await Promise.all([
+        licensesService.getLicenses({
+          search: searchQuery || undefined,
+          vendor: vendorFilter !== 'all' ? vendorFilter : undefined,
+          type: typeFilter !== 'all' ? typeFilter : undefined,
+        }),
+        licensesService.getStats().catch(() => null),
+      ]);
+      setLicenses(list);
+      if (statsData) {
+        setStats(statsData);
+      } else {
+        const totalSpend = list.reduce((sum, l) => sum + l.usedSeats * l.costPerSeat, 0);
+        const totalSeats = list.reduce((sum, l) => sum + l.totalSeats, 0);
+        const usedSeats = list.reduce((sum, l) => sum + l.usedSeats, 0);
+        const overallUtilization = totalSeats > 0 ? Math.round((usedSeats / totalSeats) * 100) : 0;
+        const expiringCount = list.filter((l) => l.status === 'Expiring').length;
+        setStats({
+          total: list.length,
+          annualSpend: totalSpend,
+          utilization: overallUtilization,
+          expiringCount,
+        });
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to load software licenses.');
+    } finally {
+      setLoading(false);
+    }
+  }, [message, searchQuery, typeFilter, vendorFilter]);
 
-  const filteredLicenses = licenses.filter((lic) => {
-    const matchesSearch =
-      lic.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lic.vendor.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lic.licenseKey.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesVendor = vendorFilter === 'all' || lic.vendor === vendorFilter;
-    const matchesType = typeFilter === 'all' || lic.type === typeFilter;
-
-    return matchesSearch && matchesVendor && matchesType;
-  });
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleOpenCreateModal = () => {
     setEditingLicense(null);
@@ -273,39 +133,49 @@ export default function LicensesPage() {
   const handleSaveLicense = async () => {
     try {
       const values = await form.validateFields();
-      const formattedLicense: License = {
-        id: editingLicense ? editingLicense.id : String(Date.now()),
+      setModalSubmitting(true);
+
+      const payload = {
         name: values.name,
         vendor: values.vendor,
         type: values.type,
-        totalSeats: values.totalSeats,
-        usedSeats: editingLicense ? editingLicense.usedSeats : 0,
-        costPerSeat: values.costPerSeat || 0,
-        expiryDate: values.expiryDate ? values.expiryDate.format('YYYY-MM-DD') : '',
+        totalSeats: Number(values.totalSeats),
+        costPerSeat: Number(values.costPerSeat || 0),
+        expiryDate: values.expiryDate ? values.expiryDate.format('YYYY-MM-DD') : undefined,
         licenseKey: values.licenseKey || 'N/A',
         status: values.status || 'Active',
         autoRenew: values.autoRenew ?? true,
-        assignedUsers: editingLicense ? editingLicense.assignedUsers : [],
         notes: values.notes,
       };
 
       if (editingLicense) {
-        setLicenses((prev) => prev.map((l) => (l.id === editingLicense.id ? formattedLicense : l)));
-        message.success(`License "${formattedLicense.name}" updated successfully.`);
+        await licensesService.updateLicense(editingLicense.id, payload);
+        message.success(`License "${payload.name}" updated successfully.`);
       } else {
-        setLicenses((prev) => [formattedLicense, ...prev]);
-        message.success(`License "${formattedLicense.name}" created.`);
+        await licensesService.createLicense(payload);
+        message.success(`License "${payload.name}" created.`);
       }
 
       setModalOpen(false);
-    } catch (err) {
+      loadData();
+    } catch (err: unknown) {
       console.error(err);
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || 'Failed to save license.');
+    } finally {
+      setModalSubmitting(false);
     }
   };
 
-  const handleDeleteLicense = (id: string) => {
-    setLicenses((prev) => prev.filter((l) => l.id !== id));
-    message.success('License removed.');
+  const handleDeleteLicense = async (id: string) => {
+    try {
+      await licensesService.deleteLicense(id);
+      message.success('License removed.');
+      loadData();
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to delete license.');
+    }
   };
 
   const handleOpenSeatsDrawer = (license: License) => {
@@ -313,7 +183,7 @@ export default function LicensesPage() {
     setSeatsDrawerOpen(true);
   };
 
-  const handleAssignUser = () => {
+  const handleAssignUser = async () => {
     if (!newUserName || !newUserEmail || !selectedLicense) {
       message.warning('Please enter user name and email.');
       return;
@@ -323,39 +193,42 @@ export default function LicensesPage() {
       return;
     }
 
-    const newUser: AssignedUser = {
-      id: String(Date.now()),
-      name: newUserName,
-      email: newUserEmail,
-      department: 'Engineering',
-      assignedDate: dayjs().format('YYYY-MM-DD'),
-    };
+    setAssigningSeat(true);
+    try {
+      await licensesService.assignUser(selectedLicense.id, {
+        name: newUserName,
+        email: newUserEmail,
+        department: 'Engineering',
+      });
+      message.success(`Seat allocated to ${newUserName}`);
+      setNewUserName('');
+      setNewUserEmail('');
 
-    const updatedLicense: License = {
-      ...selectedLicense,
-      usedSeats: selectedLicense.usedSeats + 1,
-      assignedUsers: [newUser, ...selectedLicense.assignedUsers],
-    };
-
-    setSelectedLicense(updatedLicense);
-    setLicenses((prev) => prev.map((l) => (l.id === selectedLicense.id ? updatedLicense : l)));
-    setNewUserName('');
-    setNewUserEmail('');
-    message.success(`Seat allocated to ${newUser.name}`);
+      // Reload fresh license details
+      const freshLicense = await licensesService.getLicense(selectedLicense.id);
+      setSelectedLicense(freshLicense);
+      loadData();
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to allocate seat.');
+    } finally {
+      setAssigningSeat(false);
+    }
   };
 
-  const handleRevokeSeat = (userId: string) => {
+  const handleRevokeSeat = async (assignmentId: string) => {
     if (!selectedLicense) return;
-    const updatedUsers = selectedLicense.assignedUsers.filter((u) => u.id !== userId);
-    const updatedLicense: License = {
-      ...selectedLicense,
-      usedSeats: Math.max(0, selectedLicense.usedSeats - 1),
-      assignedUsers: updatedUsers,
-    };
+    try {
+      await licensesService.revokeUser(selectedLicense.id, assignmentId);
+      message.info('Seat revoked and returned to pool.');
 
-    setSelectedLicense(updatedLicense);
-    setLicenses((prev) => prev.map((l) => (l.id === selectedLicense.id ? updatedLicense : l)));
-    message.info('Seat revoked and returned to pool.');
+      const freshLicense = await licensesService.getLicense(selectedLicense.id);
+      setSelectedLicense(freshLicense);
+      loadData();
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to revoke seat.');
+    }
   };
 
   const columns = [
@@ -372,33 +245,42 @@ export default function LicensesPage() {
           >
             {name}
           </Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-            {record.vendor} • <span style={{ fontFamily: 'monospace' }}>{record.licenseKey}</span>
+          <Text type="secondary" style={{ display: 'block', fontSize: 11.5 }}>
+            {record.vendor} • {record.type}
           </Text>
         </div>
       ),
     },
     {
-      title: 'License Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type: string) => (
-        <Tag color={type === 'Subscription' ? 'blue' : 'purple'}>{type}</Tag>
+      title: 'License Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag
+          color={status === 'Active' ? 'success' : status === 'Expiring' ? 'warning' : 'default'}
+        >
+          {status}
+        </Tag>
       ),
     },
     {
       title: 'Seat Utilization',
       key: 'seats',
-      width: 200,
-      render: (_: any, record: License) => {
-        const percent = Math.round((record.usedSeats / record.totalSeats) * 100);
-        let strokeColor = '#52c41a';
-        if (percent > 90) strokeColor = '#ff4d4f';
-        else if (percent > 75) strokeColor = '#faad14';
+      width: 190,
+      render: (_: unknown, record: License) => {
+        const percent =
+          record.totalSeats > 0 ? Math.round((record.usedSeats / record.totalSeats) * 100) : 0;
+        let strokeColor = '#10b981';
+        if (percent > 90) strokeColor = '#ef4444';
+        else if (percent > 75) strokeColor = '#f59e0b';
 
         return (
           <div>
-            <Flex justify="space-between" align="center" style={{ fontSize: 12, marginBottom: 2 }}>
+            <Flex
+              justify="space-between"
+              align="center"
+              style={{ fontSize: 11.5, marginBottom: 2 }}
+            >
               <Text strong>
                 {record.usedSeats} / {record.totalSeats} seats
               </Text>
@@ -406,7 +288,7 @@ export default function LicensesPage() {
             </Flex>
             <Progress percent={percent} strokeColor={strokeColor} size="small" showInfo={false} />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              {record.totalSeats - record.usedSeats} seats available
+              {Math.max(0, record.totalSeats - record.usedSeats)} seats free
             </Text>
           </div>
         );
@@ -415,33 +297,39 @@ export default function LicensesPage() {
     {
       title: 'Annual Spend',
       key: 'cost',
-      render: (_: any, record: License) => (
+      render: (_: unknown, record: License) => (
         <div>
           <Text strong style={{ fontSize: 13 }}>
-            ${(record.usedSeats * record.costPerSeat).toLocaleString()}/yr
+            ${((record.usedSeats || 0) * (record.costPerSeat || 0)).toLocaleString()}/yr
           </Text>
           <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-            ${record.costPerSeat}/seat/yr
+            ${record.costPerSeat || 0}/seat
           </Text>
         </div>
       ),
     },
     {
-      title: 'Expiration & Renewal',
+      title: 'Expiry & Renewal',
       dataIndex: 'expiryDate',
       key: 'expiryDate',
       render: (expiryDate: string, record: License) => {
-        const diff = dayjs(expiryDate).diff(dayjs(), 'day');
+        const diff = expiryDate ? dayjs(expiryDate).diff(dayjs(), 'day') : 999;
         return (
           <div>
-            <Text style={{ fontSize: 13 }}>{expiryDate}</Text>
+            <Text style={{ fontSize: 12.5 }}>{expiryDate || 'N/A'}</Text>
             <div style={{ marginTop: 2 }}>
               {diff < 30 ? (
-                <Tag color="error">Expires in {diff}d</Tag>
+                <Tag color="error" style={{ fontSize: 10 }}>
+                  Expires in {diff}d
+                </Tag>
               ) : record.autoRenew ? (
-                <Tag color="success">Auto-Renew ON</Tag>
+                <Tag color="success" style={{ fontSize: 10 }}>
+                  Auto-Renew
+                </Tag>
               ) : (
-                <Tag color="default">Manual</Tag>
+                <Tag color="default" style={{ fontSize: 10 }}>
+                  Manual
+                </Tag>
               )}
             </div>
           </div>
@@ -451,7 +339,7 @@ export default function LicensesPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: License) => (
+      render: (_: unknown, record: License) => (
         <Space size="small">
           <Button
             size="small"
@@ -460,25 +348,32 @@ export default function LicensesPage() {
             icon={<TeamOutlined />}
             onClick={() => handleOpenSeatsDrawer(record)}
           >
-            Manage Seats
+            Seats
           </Button>
           <Tooltip title="Edit License">
             <Button
               type="text"
               shape="circle"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => handleOpenEditModal(record)}
             />
           </Tooltip>
           <Popconfirm
             title="Delete this license?"
-            description="Are you sure you want to remove this software license record?"
+            description="Remove this software license record?"
             onConfirm={() => handleDeleteLicense(record.id)}
             okText="Delete"
             okType="danger"
           >
             <Tooltip title="Delete">
-              <Button type="text" shape="circle" danger icon={<UserDeleteOutlined />} />
+              <Button
+                type="text"
+                shape="circle"
+                size="small"
+                danger
+                icon={<UserDeleteOutlined />}
+              />
             </Tooltip>
           </Popconfirm>
         </Space>
@@ -494,53 +389,58 @@ export default function LicensesPage() {
       stats={[
         {
           title: 'Total Subscriptions',
-          value: licenses.length,
+          value: stats.total,
           prefix: <SafetyCertificateOutlined />,
           color: '#1677ff',
         },
         {
           title: 'Total Annual Spend',
-          value: `$${totalAnnualSpend.toLocaleString()}`,
+          value: `$${stats.annualSpend.toLocaleString()}`,
           prefix: <DollarOutlined />,
-          color: '#52c41a',
+          color: '#10b981',
         },
         {
           title: 'Seat Utilization',
-          value: `${overallUtilization}%`,
+          value: `${stats.utilization}%`,
           prefix: <TeamOutlined />,
-          color: '#722ed1',
+          color: '#6366f1',
         },
         {
           title: 'Expiring (<30 Days)',
-          value: expiringCount,
+          value: stats.expiringCount,
           prefix: <WarningOutlined />,
-          color: expiringCount > 0 ? '#ff4d4f' : '#8c8c8c',
+          color: stats.expiringCount > 0 ? '#ef4444' : '#94a3b8',
         },
       ]}
       extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
-          Add Software License
-        </Button>
+        <Flex gap={8}>
+          <Tooltip title="Reload from server">
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+          </Tooltip>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
+            Add Software License
+          </Button>
+        </Flex>
       }
     >
-      <Card styles={{ body: { padding: '20px 24px' } }}>
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
         {/* Search & Filter Toolbar */}
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
+        <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} md={10}>
             <Input
-              placeholder="Search software by title, vendor, or contract key..."
-              prefix={<FilterOutlined style={{ color: '#8c8c8c' }} />}
+              placeholder="Search software by name, vendor, contract key..."
+              prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               allowClear
             />
           </Col>
           <Col xs={24} md={14}>
-            <Flex gap={12} justify="flex-end" wrap>
+            <Flex gap={10} justify="flex-end" wrap>
               <Select
                 value={vendorFilter}
                 onChange={setVendorFilter}
-                style={{ width: 150 }}
+                style={{ width: 140 }}
                 placeholder="Vendor"
               >
                 <Option value="all">All Vendors</Option>
@@ -554,7 +454,7 @@ export default function LicensesPage() {
               <Select
                 value={typeFilter}
                 onChange={setTypeFilter}
-                style={{ width: 140 }}
+                style={{ width: 130 }}
                 placeholder="Type"
               >
                 <Option value="all">All Types</Option>
@@ -578,14 +478,14 @@ export default function LicensesPage() {
           </Col>
         </Row>
 
-        <Divider style={{ margin: '16px 0' }} />
-
         {/* License Table */}
         <Table
           columns={columns}
-          dataSource={filteredLicenses}
+          dataSource={licenses}
           rowKey="id"
-          pagination={{ pageSize: 8 }}
+          loading={loading}
+          scroll={{ x: 'max-content' }}
+          pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} licenses` }}
         />
       </Card>
 
@@ -595,11 +495,12 @@ export default function LicensesPage() {
         open={modalOpen}
         onOk={handleSaveLicense}
         onCancel={() => setModalOpen(false)}
-        width={680}
+        confirmLoading={modalSubmitting}
+        width={640}
         okText={editingLicense ? 'Save Changes' : 'Create License'}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Row gutter={16}>
+        <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
+          <Row gutter={14}>
             <Col span={14}>
               <Form.Item
                 label="Software Name"
@@ -616,7 +517,7 @@ export default function LicensesPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={8}>
               <Form.Item label="License Type" name="type" rules={[{ required: true }]}>
                 <Select>
@@ -639,7 +540,7 @@ export default function LicensesPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="License Key / Contract ID" name="licenseKey">
                 <Input placeholder="e.g. MS-E5-9921-8834-KKL9" />
@@ -652,7 +553,7 @@ export default function LicensesPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Status" name="status">
                 <Select>
@@ -669,10 +570,10 @@ export default function LicensesPage() {
             </Col>
           </Row>
 
-          <Form.Item label="Notes & Reseller Contract Details" name="notes">
+          <Form.Item label="Notes & Contract Details" name="notes">
             <Input.TextArea
               rows={2}
-              placeholder="Add procurement contract ID, VIP number, or support contact..."
+              placeholder="Add contract ID, reseller or VIP agreement notes..."
             />
           </Form.Item>
         </Form>
@@ -683,7 +584,7 @@ export default function LicensesPage() {
         <Drawer
           title={
             <div>
-              <Title level={5} style={{ margin: 0 }}>
+              <Title level={5} style={{ margin: 0, fontSize: 14 }}>
                 {selectedLicense.name} — Seats
               </Title>
               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -691,13 +592,13 @@ export default function LicensesPage() {
               </Text>
             </div>
           }
-          width={520}
+          size={480}
           open={seatsDrawerOpen}
           onClose={() => setSeatsDrawerOpen(false)}
         >
           {/* Quick Assign Form */}
-          <Card size="small" title="Assign Seat to User" style={{ marginBottom: 20 }}>
-            <Flex vertical gap={10}>
+          <Card size="small" title="Assign Seat to User" style={{ marginBottom: 16 }}>
+            <Flex vertical gap={8}>
               <Input
                 placeholder="Employee Name (e.g. David Kim)"
                 prefix={<UserOutlined />}
@@ -709,26 +610,65 @@ export default function LicensesPage() {
                 value={newUserEmail}
                 onChange={(e) => setNewUserEmail(e.target.value)}
               />
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAssignUser}>
+              <Button
+                type="primary"
+                size="small"
+                icon={<PlusOutlined />}
+                loading={assigningSeat}
+                onClick={handleAssignUser}
+              >
                 Allocate Seat
               </Button>
             </Flex>
           </Card>
 
           {/* Assigned Users List */}
-          <Title level={5}>
-            Active Assigned Employees ({selectedLicense.assignedUsers.length})
+          <Title level={5} style={{ fontSize: 13.5 }}>
+            Active Assigned Employees ({selectedLicense.assignedUsers?.length || 0})
           </Title>
-          <List
-            dataSource={selectedLicense.assignedUsers}
-            locale={{ emptyText: 'No employees currently assigned to this license.' }}
-            renderItem={(user) => (
-              <List.Item
-                actions={[
+          {!selectedLicense.assignedUsers || selectedLicense.assignedUsers.length === 0 ? (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No employees currently assigned to this license."
+              style={{ margin: '24px 0' }}
+            />
+          ) : (
+            <Flex vertical gap={8}>
+              {selectedLicense.assignedUsers.map((user) => (
+                <Flex
+                  key={user.id}
+                  justify="space-between"
+                  align="center"
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #f0f0f0',
+                    backgroundColor: '#fafafa',
+                  }}
+                >
+                  <Flex align="center" gap={10}>
+                    <Avatar
+                      icon={<UserOutlined />}
+                      style={{ backgroundColor: '#1677ff', fontSize: 11 }}
+                      size="small"
+                    />
+                    <div>
+                      <div>
+                        <Text strong style={{ fontSize: 13 }}>
+                          {user.name}
+                        </Text>
+                      </div>
+                      <Text type="secondary" style={{ fontSize: 11.5 }}>
+                        {user.email} • {user.department}
+                      </Text>
+                      <div style={{ fontSize: 10.5, color: '#94a3b8' }}>
+                        Assigned: {user.assignedDate}
+                      </div>
+                    </div>
+                  </Flex>
                   <Popconfirm
-                    key="revoke"
                     title="Revoke seat?"
-                    description="This user will lose access to the software."
+                    description="User will lose access to this license."
                     onConfirm={() => handleRevokeSeat(user.id)}
                     okText="Revoke"
                     okType="danger"
@@ -736,26 +676,11 @@ export default function LicensesPage() {
                     <Button type="link" danger size="small">
                       Revoke
                     </Button>
-                  </Popconfirm>,
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={<Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1677ff' }} />}
-                  title={<Text strong>{user.name}</Text>}
-                  description={
-                    <div>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {user.email} • {user.department}
-                      </Text>
-                      <div style={{ fontSize: 11, color: '#999' }}>
-                        Assigned: {user.assignedDate}
-                      </div>
-                    </div>
-                  }
-                />
-              </List.Item>
-            )}
-          />
+                  </Popconfirm>
+                </Flex>
+              ))}
+            </Flex>
+          )}
         </Drawer>
       )}
     </PageContainer>

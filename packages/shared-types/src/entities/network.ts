@@ -1,27 +1,29 @@
 export enum IPStatus {
   AVAILABLE = 'AVAILABLE',
-  ASSIGNED = 'ASSIGNED',
   RESERVED = 'RESERVED',
-  DEPRECATED = 'DEPRECATED',
+  ASSIGNED = 'ASSIGNED',
 }
 
 export interface VLAN {
   id: string;
-  vlanId: number; // 1-4094
+  vlanNumber: number;
   name: string;
-  description: string | null;
+  description?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Subnet {
   id: string;
+  cidr: string;
   name: string;
-  networkAddress: string;
-  cidr: number;
-  gateway: string | null;
-  vlanId: string | null;
-  description: string | null;
+  vlanId?: string | null;
+  vlanName?: string | null;
+  gateway?: string | null;
+  totalIps: number;
+  usedIps: number;
+  location?: string | null;
+  description?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,13 +31,18 @@ export interface Subnet {
 export interface IPAddress {
   id: string;
   address: string;
+  hostname?: string | null;
+  macAddress?: string | null;
+  vendor?: string | null;
+  deviceType?: string | null;
+  subnetId?: string | null;
+  subnetName?: string | null;
+  vlanName?: string | null;
   status: IPStatus;
-  subnetId: string;
-  macAddress: string | null;
-  hostname: string | null;
-  assetId: string | null;
-  notes: string | null;
-  lastSeenAt: string | null;
+  pingStatus?: string | null;
+  lastSeen?: string | null;
+  assignedTo?: string | null;
+  description?: string | null;
   createdAt: string;
   updatedAt: string;
 }

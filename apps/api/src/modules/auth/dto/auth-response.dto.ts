@@ -1,4 +1,12 @@
+export class AuthUserDto {
+  id!: string;
+  email!: string;
+  name!: string;
+  role!: string;
+}
+
 export class AuthResponseDto {
   accessToken!: string;
-  user!: any;
+  token?: string;
+  user!: AuthUserDto;
 }

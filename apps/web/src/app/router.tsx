@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router';
+import PageLoader from '../components/PageLoader';
 import AuthLayout from '../layouts/AuthLayout';
 import MainLayout from '../layouts/MainLayout';
 
@@ -8,7 +9,6 @@ const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
 const LicensesPage = lazy(() => import('../pages/licenses/LicensesPage'));
 const DirectoryPage = lazy(() => import('../pages/directory/DirectoryPage'));
-const EmailPage = lazy(() => import('../pages/email/EmailPage'));
 const NetworkPage = lazy(() => import('../pages/network/NetworkPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
 const TicketsPage = lazy(() => import('../pages/tickets/TicketsPage'));
@@ -21,7 +21,7 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: (
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<PageLoader tip="Loading authentication..." />}>
         <LoginPage />
       </Suspense>
     ),
@@ -36,7 +36,7 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Asset Operations Center..." />}>
                 <DashboardPage />
               </Suspense>
             ),
@@ -44,7 +44,7 @@ export const router = createBrowserRouter([
           {
             path: 'assets',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Hardware Fleet..." />}>
                 <AssetsPage />
               </Suspense>
             ),
@@ -52,7 +52,7 @@ export const router = createBrowserRouter([
           {
             path: 'licenses',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Software & SaaS Assets..." />}>
                 <LicensesPage />
               </Suspense>
             ),
@@ -60,23 +60,15 @@ export const router = createBrowserRouter([
           {
             path: 'directory',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Asset Custodians & Directory..." />}>
                 <DirectoryPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: 'email',
-            element: (
-              <Suspense fallback={<div>Loading...</div>}>
-                <EmailPage />
               </Suspense>
             ),
           },
           {
             path: 'network',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Network Infrastructure..." />}>
                 <NetworkPage />
               </Suspense>
             ),
@@ -84,7 +76,7 @@ export const router = createBrowserRouter([
           {
             path: 'inventory',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Spare Stockroom..." />}>
                 <InventoryPage />
               </Suspense>
             ),
@@ -92,7 +84,7 @@ export const router = createBrowserRouter([
           {
             path: 'tickets',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading IT Helpdesk Queue..." />}>
                 <TicketsPage />
               </Suspense>
             ),
@@ -100,7 +92,7 @@ export const router = createBrowserRouter([
           {
             path: 'audit',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Security Audit Trail..." />}>
                 <AuditPage />
               </Suspense>
             ),
@@ -108,7 +100,7 @@ export const router = createBrowserRouter([
           {
             path: 'reports',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading Executive Reports..." />}>
                 <ReportsPage />
               </Suspense>
             ),
@@ -116,7 +108,7 @@ export const router = createBrowserRouter([
           {
             path: 'settings',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Loading System Configuration..." />}>
                 <SettingsPage />
               </Suspense>
             ),
@@ -124,7 +116,7 @@ export const router = createBrowserRouter([
           {
             path: '*',
             element: (
-              <Suspense fallback={<div>Loading...</div>}>
+              <Suspense fallback={<PageLoader tip="Navigating..." />}>
                 <NotFoundPage />
               </Suspense>
             ),

@@ -4,12 +4,9 @@ import {
   DeleteOutlined,
   EditOutlined,
   FilterOutlined,
-  KeyOutlined,
   LaptopOutlined,
   LockOutlined,
-  MailOutlined,
-  PlusOutlined,
-  SafetyCertificateOutlined,
+  ReloadOutlined,
   SafetyOutlined,
   TeamOutlined,
   UserAddOutlined,
@@ -18,262 +15,172 @@ import {
 import {
   App,
   Avatar,
-  Badge,
   Button,
   Card,
   Col,
   Descriptions,
-  Divider,
   Drawer,
   Flex,
   Form,
   Input,
-  List,
   Modal,
   Popconfirm,
   Row,
   Select,
   Space,
-  Switch,
   Table,
   Tabs,
   Tag,
   Tooltip,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import {
+  type DirectoryGroup,
+  type DirectoryStats,
+  type DirectoryUser,
+  directoryService,
+} from '../../services/directory.service';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
-export interface DirectoryUser {
-  id: string;
-  name: string;
-  email: string;
-  jobTitle: string;
-  department: string;
-  role: 'Super Admin' | 'IT Specialist' | 'Developer' | 'Manager' | 'Employee';
-  status: 'Active' | 'Suspended' | 'Inactive';
-  twoFactorEnabled: boolean;
-  phone: string;
-  location: string;
-  assignedAssetsCount: number;
-  assignedLicensesCount: number;
-  lastLogin: string;
-}
-
-const INITIAL_USERS: DirectoryUser[] = [
-  {
-    id: '1',
-    name: 'Alex Johnson',
-    email: 'alex.johnson@company.com',
-    jobTitle: 'VP of Information Technology',
-    department: 'IT & Infrastructure',
-    role: 'Super Admin',
-    status: 'Active',
-    twoFactorEnabled: true,
-    phone: '+1 (555) 234-5678',
-    location: 'NY Office - Floor 4',
-    assignedAssetsCount: 2,
-    assignedLicensesCount: 4,
-    lastLogin: 'Today, 10:14 AM',
-  },
-  {
-    id: '2',
-    name: 'Sarah Chen',
-    email: 'sarah.chen@company.com',
-    jobTitle: 'Senior Systems Administrator',
-    department: 'IT & Infrastructure',
-    role: 'IT Specialist',
-    status: 'Active',
-    twoFactorEnabled: true,
-    phone: '+1 (555) 345-6789',
-    location: 'SF HQ - Tech Bay',
-    assignedAssetsCount: 3,
-    assignedLicensesCount: 3,
-    lastLogin: 'Today, 09:30 AM',
-  },
-  {
-    id: '3',
-    name: 'Marcus Vance',
-    email: 'marcus.vance@company.com',
-    jobTitle: 'Principal Product Designer',
-    department: 'Product & Design',
-    role: 'Employee',
-    status: 'Active',
-    twoFactorEnabled: true,
-    phone: '+1 (555) 456-7890',
-    location: 'NY Office - Floor 4',
-    assignedAssetsCount: 2,
-    assignedLicensesCount: 2,
-    lastLogin: 'Yesterday, 04:12 PM',
-  },
-  {
-    id: '4',
-    name: 'David Kim',
-    email: 'david.kim@company.com',
-    jobTitle: 'Lead Cloud Architect',
-    department: 'Engineering',
-    role: 'Developer',
-    status: 'Active',
-    twoFactorEnabled: true,
-    phone: '+1 (555) 567-8901',
-    location: 'Remote - US East',
-    assignedAssetsCount: 1,
-    assignedLicensesCount: 3,
-    lastLogin: '2 days ago',
-  },
-  {
-    id: '5',
-    name: 'Elena Rostova',
-    email: 'elena.rostova@company.com',
-    jobTitle: 'Director of Growth Marketing',
-    department: 'Marketing',
-    role: 'Manager',
-    status: 'Active',
-    twoFactorEnabled: false,
-    phone: '+1 (555) 678-9012',
-    location: 'London Hub',
-    assignedAssetsCount: 1,
-    assignedLicensesCount: 2,
-    lastLogin: '3 days ago',
-  },
-  {
-    id: '6',
-    name: 'Thomas Wright',
-    email: 'thomas.wright@company.com',
-    jobTitle: 'Junior QA Engineer (Contractor)',
-    department: 'Engineering',
-    role: 'Employee',
-    status: 'Suspended',
-    twoFactorEnabled: false,
-    phone: '+1 (555) 789-0123',
-    location: 'Remote - EMEA',
-    assignedAssetsCount: 0,
-    assignedLicensesCount: 0,
-    lastLogin: '3 weeks ago',
-  },
-];
-
 export default function DirectoryPage() {
-  const { message, modal } = App.useApp();
-  const [users, setUsers] = useState<DirectoryUser[]>(INITIAL_USERS);
+  const { message } = App.useApp();
+  const [users, setUsers] = useState<Array<DirectoryUser>>([]);
+  const [groups, setGroups] = useState<Array<DirectoryGroup>>([]);
+  const [stats, setStats] = useState<DirectoryStats>({
+    totalUsers: 0,
+    activeUsers: 0,
+    custodiansCount: 0,
+    suspendedAccounts: 0,
+  });
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [deptFilter, setDeptFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState('users');
 
   // Modals & Drawers
-  const [modalOpen, setModalOpen] = useState(false);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [modalSubmitting, setModalSubmitting] = useState(false);
   const [editingUser, setEditingUser] = useState<DirectoryUser | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<DirectoryUser | null>(null);
 
   const [form] = Form.useForm();
 
-  // Metrics
-  const totalUsers = users.length;
-  const activeUsers = users.filter((u) => u.status === 'Active').length;
-  const twoFactorRate = Math.round(
-    (users.filter((u) => u.twoFactorEnabled).length / totalUsers) * 100,
-  );
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [userList, groupList, statsData] = await Promise.all([
+        directoryService.getUsers({
+          search: searchQuery || undefined,
+          department: deptFilter !== 'all' ? deptFilter : undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+        }),
+        directoryService.getGroups(),
+        directoryService.getStats().catch(() => null),
+      ]);
+      setUsers(userList);
+      setGroups(groupList);
+      if (statsData) {
+        setStats(statsData);
+      } else {
+        const totalUsers = userList.length;
+        const activeUsers = userList.filter((u) => u.status === 'Active').length;
+        const custodians = userList.filter((u) => u.assignedAssetsCount > 0).length;
+        const suspendedAccounts = userList.filter((u) => u.status === 'Suspended').length;
+        setStats({
+          totalUsers,
+          activeUsers,
+          custodiansCount: custodians,
+          suspendedAccounts,
+        });
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to load directory from server.');
+    } finally {
+      setLoading(false);
+    }
+  }, [deptFilter, message, searchQuery, statusFilter]);
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.jobTitle.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesDept = departmentFilter === 'all' || user.department === departmentFilter;
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-
-    return matchesSearch && matchesDept && matchesStatus;
-  });
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleOpenCreateModal = () => {
     setEditingUser(null);
     form.resetFields();
     form.setFieldsValue({
-      department: 'Engineering',
       role: 'Employee',
       status: 'Active',
-      twoFactorEnabled: true,
+      department: 'Engineering',
       location: 'NY Office - Floor 4',
     });
-    setModalOpen(true);
+    setUserModalOpen(true);
   };
 
   const handleOpenEditModal = (user: DirectoryUser) => {
     setEditingUser(user);
     form.setFieldsValue(user);
-    setModalOpen(true);
+    setUserModalOpen(true);
   };
 
   const handleSaveUser = async () => {
     try {
       const values = await form.validateFields();
-      const formattedUser: DirectoryUser = {
-        id: editingUser ? editingUser.id : String(Date.now()),
-        name: values.name,
-        email: values.email,
-        jobTitle: values.jobTitle,
-        department: values.department,
-        role: values.role,
-        status: values.status,
-        twoFactorEnabled: values.twoFactorEnabled ?? false,
-        phone: values.phone || '',
-        location: values.location || 'HQ',
-        assignedAssetsCount: editingUser ? editingUser.assignedAssetsCount : 0,
-        assignedLicensesCount: editingUser ? editingUser.assignedLicensesCount : 0,
-        lastLogin: editingUser ? editingUser.lastLogin : 'Never',
-      };
+      setModalSubmitting(true);
 
       if (editingUser) {
-        setUsers((prev) => prev.map((u) => (u.id === editingUser.id ? formattedUser : u)));
-        message.success(`User profile "${formattedUser.name}" updated.`);
+        await directoryService.updateUser(editingUser.id, values);
+        message.success(`User "${values.name}" updated successfully.`);
       } else {
-        setUsers((prev) => [formattedUser, ...prev]);
-        message.success(`User "${formattedUser.name}" created and invitation sent.`);
+        await directoryService.createUser(values);
+        message.success(`User "${values.name}" onboarded into directory.`);
       }
 
-      setModalOpen(false);
-    } catch (err) {
+      setUserModalOpen(false);
+      loadData();
+    } catch (err: unknown) {
       console.error(err);
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || 'Failed to save directory user.');
+    } finally {
+      setModalSubmitting(false);
     }
   };
 
-  const handleDeleteUser = (id: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    message.success('User account removed from directory.');
-  };
-
-  const handleResetPassword = (user: DirectoryUser) => {
-    modal.confirm({
-      title: `Reset Password for ${user.name}?`,
-      icon: <KeyOutlined />,
-      content: `A temporary password and reset link will be dispatched to ${user.email}.`,
-      okText: 'Send Reset Link',
-      onOk: () => {
-        message.success(`Password reset email dispatched to ${user.email}`);
-      },
-    });
+  const handleDeleteUser = async (id: string) => {
+    try {
+      await directoryService.deleteUser(id);
+      message.success('User account removed.');
+      loadData();
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to delete user.');
+    }
   };
 
   const handleShowDetails = (user: DirectoryUser) => {
     setSelectedUser(user);
-    setDrawerOpen(true);
+    setDetailDrawerOpen(true);
   };
 
-  const columns = [
+  const userColumns = [
     {
-      title: 'Employee',
+      title: 'Employee Name & Email',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: DirectoryUser) => (
         <Flex align="center" gap={10}>
-          <Avatar style={{ backgroundColor: '#1677ff', fontWeight: 600 }} size="default">
-            {name[0]}
+          <Avatar
+            size="small"
+            style={{ backgroundColor: '#1677ff', fontSize: 11 }}
+            icon={<UserOutlined />}
+          >
+            {name ? name[0] : 'U'}
           </Avatar>
           <div>
             <Text
@@ -283,7 +190,7 @@ export default function DirectoryPage() {
             >
               {name}
             </Text>
-            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            <Text type="secondary" style={{ display: 'block', fontSize: 11.5 }}>
               {record.email}
             </Text>
           </div>
@@ -291,116 +198,83 @@ export default function DirectoryPage() {
       ),
     },
     {
-      title: 'Role & Title',
-      key: 'role',
-      render: (_: any, record: DirectoryUser) => (
+      title: 'Job Title & Dept',
+      key: 'title',
+      render: (_: unknown, record: DirectoryUser) => (
         <div>
-          <Text strong style={{ fontSize: 13 }}>
+          <Text strong style={{ fontSize: 12.5 }}>
             {record.jobTitle}
           </Text>
-          <div style={{ marginTop: 2 }}>
-            <Tag
-              color={
-                record.role === 'Super Admin'
-                  ? 'red'
-                  : record.role === 'IT Specialist'
-                    ? 'blue'
-                    : 'default'
-              }
-            >
-              {record.role}
-            </Tag>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: 'Department & Location',
-      dataIndex: 'department',
-      key: 'department',
-      render: (dept: string, record: DirectoryUser) => (
-        <div>
-          <Text style={{ fontSize: 13 }}>{dept}</Text>
           <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-            {record.location}
+            {record.department} • {record.location}
           </Text>
         </div>
       ),
     },
     {
-      title: 'Status & Security',
+      title: 'Role & Perms',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role: string) => {
+        let color = 'default';
+        if (role === 'Super Admin') color = 'error';
+        if (role === 'IT Specialist') color = 'blue';
+        if (role === 'Developer') color = 'cyan';
+        if (role === 'Manager') color = 'purple';
+        return <Tag color={color}>{role}</Tag>;
+      },
+    },
+    {
+      title: 'Account Status',
+      dataIndex: 'status',
       key: 'status',
-      render: (_: any, record: DirectoryUser) => (
-        <div>
-          <Tag
-            color={
-              record.status === 'Active'
-                ? 'success'
-                : record.status === 'Suspended'
-                  ? 'error'
-                  : 'default'
-            }
-          >
-            {record.status}
-          </Tag>
-          <div style={{ marginTop: 2 }}>
-            {record.twoFactorEnabled ? (
-              <Tag color="cyan" style={{ fontSize: 10 }}>
-                2FA Active
-              </Tag>
-            ) : (
-              <Tag color="warning" style={{ fontSize: 10 }}>
-                No 2FA
-              </Tag>
-            )}
-          </div>
-        </div>
+      render: (status: DirectoryUser['status']) => (
+        <Tag color={status === 'Active' ? 'success' : status === 'Suspended' ? 'error' : 'default'}>
+          {status}
+        </Tag>
       ),
     },
     {
-      title: 'Assigned IT Resources',
-      key: 'resources',
-      render: (_: any, record: DirectoryUser) => (
-        <Space size="small">
-          <Tag icon={<LaptopOutlined />} color="blue">
-            {record.assignedAssetsCount} Assets
-          </Tag>
-          <Tag icon={<SafetyCertificateOutlined />} color="purple">
-            {record.assignedLicensesCount} Lic
-          </Tag>
-        </Space>
+      title: 'Assigned Equipment & Assets',
+      key: 'assigned',
+      render: (_: unknown, record: DirectoryUser) => (
+        <Flex gap={8}>
+          <Tooltip title="Hardware Assets Checked Out">
+            <Tag icon={<LaptopOutlined />} color="processing">
+              {record.assignedAssetsCount} Assets
+            </Tag>
+          </Tooltip>
+          <Tooltip title="Software SaaS Seats Allocated">
+            <Tag icon={<SafetyOutlined />} color="purple">
+              {record.assignedLicensesCount} Seats
+            </Tag>
+          </Tooltip>
+        </Flex>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: DirectoryUser) => (
+      render: (_: unknown, record: DirectoryUser) => (
         <Space size="small">
-          <Tooltip title="Reset Password">
+          <Tooltip title="Edit Profile">
             <Button
               type="text"
               shape="circle"
-              icon={<KeyOutlined />}
-              onClick={() => handleResetPassword(record)}
-            />
-          </Tooltip>
-          <Tooltip title="Edit User">
-            <Button
-              type="text"
-              shape="circle"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => handleOpenEditModal(record)}
             />
           </Tooltip>
           <Popconfirm
-            title="Delete this user?"
-            description="All single-sign-on sessions will be invalidated immediately."
+            title="Delete this user account?"
+            description="Remove from directory and unassign all held equipment?"
             onConfirm={() => handleDeleteUser(record.id)}
             okText="Delete"
             okType="danger"
           >
             <Tooltip title="Delete">
-              <Button type="text" shape="circle" danger icon={<DeleteOutlined />} />
+              <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
         </Space>
@@ -410,342 +284,180 @@ export default function DirectoryPage() {
 
   return (
     <PageContainer
-      title="Identity & Directory Services"
-      subtitle="Corporate employee directory, access control roles, departments, and credentials."
-      breadcrumbs={[{ title: 'Directory' }]}
+      title="Asset Custodians & Employee Directory"
+      subtitle="Directory of employees, equipment holders, hardware assignments, and software seat allocation."
+      breadcrumbs={[{ title: 'Custodians' }]}
       stats={[
         {
-          title: 'Total Directory Users',
-          value: totalUsers,
+          title: 'Total Employees',
+          value: stats.totalUsers,
           prefix: <TeamOutlined />,
           color: '#1677ff',
         },
         {
           title: 'Active Accounts',
-          value: activeUsers,
+          value: stats.activeUsers,
           prefix: <CheckCircleOutlined />,
-          color: '#52c41a',
+          color: '#10b981',
         },
         {
-          title: '2FA Adoption Rate',
-          value: `${twoFactorRate}%`,
-          prefix: <SafetyCertificateOutlined />,
-          color: '#722ed1',
+          title: 'Equipment Custodians',
+          value: stats.custodiansCount ?? stats.activeUsers,
+          prefix: <LaptopOutlined />,
+          color: '#6366f1',
         },
         {
           title: 'Suspended Accounts',
-          value: users.filter((u) => u.status === 'Suspended').length,
+          value: stats.suspendedAccounts,
           prefix: <LockOutlined />,
-          color: users.filter((u) => u.status === 'Suspended').length > 0 ? '#faad14' : '#8c8c8c',
+          color: stats.suspendedAccounts > 0 ? '#ef4444' : '#94a3b8',
         },
       ]}
       extra={
-        <Button type="primary" icon={<UserAddOutlined />} onClick={handleOpenCreateModal}>
-          Add Employee User
-        </Button>
+        <Flex gap={8}>
+          <Tooltip title="Reload from server">
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+          </Tooltip>
+          <Button type="primary" icon={<UserAddOutlined />} onClick={handleOpenCreateModal}>
+            Onboard Custodian
+          </Button>
+        </Flex>
       }
     >
-      <Card styles={{ body: { padding: '16px 20px' } }}>
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={[
-            {
-              key: 'users',
-              label: (
-                <Space>
-                  <UserOutlined />
-                  <span>Users & Accounts</span>
-                </Space>
-              ),
-              children: (
-                <div>
-                  {/* Search and Filters */}
-                  <Row
-                    gutter={[16, 16]}
-                    align="middle"
-                    justify="space-between"
-                    style={{ marginBottom: 16 }}
-                  >
-                    <Col xs={24} md={10}>
-                      <Input
-                        placeholder="Search users by name, email, or job title..."
-                        prefix={<FilterOutlined style={{ color: '#8c8c8c' }} />}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        allowClear
-                      />
-                    </Col>
-                    <Col xs={24} md={14}>
-                      <Flex gap={12} justify="flex-end" wrap>
-                        <Select
-                          value={departmentFilter}
-                          onChange={setDepartmentFilter}
-                          style={{ width: 170 }}
-                          placeholder="Department"
-                        >
-                          <Option value="all">All Departments</Option>
-                          <Option value="IT & Infrastructure">IT & Infrastructure</Option>
-                          <Option value="Engineering">Engineering</Option>
-                          <Option value="Product & Design">Product & Design</Option>
-                          <Option value="Marketing">Marketing</Option>
-                        </Select>
-
-                        <Select
-                          value={statusFilter}
-                          onChange={setStatusFilter}
-                          style={{ width: 130 }}
-                          placeholder="Status"
-                        >
-                          <Option value="all">All Status</Option>
-                          <Option value="Active">Active</Option>
-                          <Option value="Suspended">Suspended</Option>
-                          <Option value="Inactive">Inactive</Option>
-                        </Select>
-
-                        {(searchQuery || departmentFilter !== 'all' || statusFilter !== 'all') && (
-                          <Button
-                            onClick={() => {
-                              setSearchQuery('');
-                              setDepartmentFilter('all');
-                              setStatusFilter('all');
-                            }}
-                          >
-                            Reset
-                          </Button>
-                        )}
-                      </Flex>
-                    </Col>
-                  </Row>
-
-                  <Table
-                    columns={columns}
-                    dataSource={filteredUsers}
-                    rowKey="id"
-                    pagination={{ pageSize: 8 }}
-                  />
-                </div>
-              ),
-            },
-            {
-              key: 'departments',
-              label: (
-                <Space>
-                  <ApartmentOutlined />
-                  <span>Departments & Teams</span>
-                </Space>
-              ),
-              children: (
-                <Row gutter={[16, 16]}>
-                  {[
-                    {
-                      name: 'IT & Infrastructure',
-                      head: 'Alex Johnson',
-                      members: 12,
-                      budget: '$180,000',
-                      leadColor: '#1677ff',
-                    },
-                    {
-                      name: 'Engineering',
-                      head: 'David Kim',
-                      members: 48,
-                      budget: '$650,000',
-                      leadColor: '#52c41a',
-                    },
-                    {
-                      name: 'Product & Design',
-                      head: 'Marcus Vance',
-                      members: 16,
-                      budget: '$220,000',
-                      leadColor: '#722ed1',
-                    },
-                    {
-                      name: 'Marketing & Growth',
-                      head: 'Elena Rostova',
-                      members: 22,
-                      budget: '$340,000',
-                      leadColor: '#fa8c16',
-                    },
-                    {
-                      name: 'Finance & Legal',
-                      head: 'Sophia Taylor',
-                      members: 8,
-                      budget: '$150,000',
-                      leadColor: '#13c2c2',
-                    },
-                    {
-                      name: 'Human Resources',
-                      head: 'Karen Miller',
-                      members: 6,
-                      budget: '$95,000',
-                      leadColor: '#eb2f96',
-                    },
-                  ].map((dept) => (
-                    <Col xs={24} sm={12} lg={8} key={dept.name}>
-                      <Card
-                        size="small"
-                        title={
-                          <Flex align="center" gap={8}>
-                            <ApartmentOutlined style={{ color: dept.leadColor }} />
-                            <span>{dept.name}</span>
-                          </Flex>
-                        }
-                        extra={<Tag color="blue">{dept.members} Members</Tag>}
+      <Tabs
+        defaultActiveKey="users"
+        items={[
+          {
+            key: 'users',
+            label: (
+              <span>
+                <UserOutlined /> Employees & Custodians ({users.length})
+              </span>
+            ),
+            children: (
+              <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+                <Row
+                  gutter={[14, 14]}
+                  align="middle"
+                  justify="space-between"
+                  style={{ marginBottom: 16 }}
+                >
+                  <Col xs={24} md={10}>
+                    <Input
+                      placeholder="Search by name, email, job title..."
+                      prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      allowClear
+                    />
+                  </Col>
+                  <Col xs={24} md={14}>
+                    <Flex gap={10} justify="flex-end" wrap>
+                      <Select
+                        value={deptFilter}
+                        onChange={setDeptFilter}
+                        style={{ width: 170 }}
+                        placeholder="Department"
                       >
-                        <Descriptions size="small" column={1}>
-                          <Descriptions.Item label="Department Head">
-                            <Text strong>{dept.head}</Text>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="IT Hardware Allocation">
-                            {Math.round(dept.members * 1.5)} Devices
-                          </Descriptions.Item>
-                          <Descriptions.Item label="Software Budget">
-                            {dept.budget}
-                          </Descriptions.Item>
-                        </Descriptions>
-                      </Card>
-                    </Col>
-                  ))}
+                        <Option value="all">All Departments</Option>
+                        <Option value="IT & Infrastructure">IT & Infrastructure</Option>
+                        <Option value="Engineering">Engineering</Option>
+                        <Option value="Product & Design">Product & Design</Option>
+                        <Option value="Marketing">Marketing</Option>
+                        <Option value="Security & Compliance">Security & Compliance</Option>
+                      </Select>
+
+                      <Select
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        style={{ width: 130 }}
+                        placeholder="Status"
+                      >
+                        <Option value="all">All Status</Option>
+                        <Option value="Active">Active</Option>
+                        <Option value="Suspended">Suspended</Option>
+                        <Option value="Inactive">Inactive</Option>
+                      </Select>
+
+                      {(searchQuery || deptFilter !== 'all' || statusFilter !== 'all') && (
+                        <Button
+                          onClick={() => {
+                            setSearchQuery('');
+                            setDeptFilter('all');
+                            setStatusFilter('all');
+                          }}
+                        >
+                          Reset
+                        </Button>
+                      )}
+                    </Flex>
+                  </Col>
                 </Row>
-              ),
-            },
-            {
-              key: 'roles',
-              label: (
-                <Space>
-                  <SafetyOutlined />
-                  <span>Roles & Permission Matrix</span>
-                </Space>
-              ),
-              children: (
+
                 <Table
-                  pagination={false}
-                  columns={[
-                    {
-                      title: 'System Role',
-                      dataIndex: 'role',
-                      key: 'role',
-                      render: (text: string) => <Text strong>{text}</Text>,
-                    },
-                    {
-                      title: 'Asset Mgmt',
-                      dataIndex: 'assets',
-                      key: 'assets',
-                      render: (val: string) => (
-                        <Tag color={val === 'Full' ? 'green' : val === 'Read' ? 'blue' : 'default'}>
-                          {val}
-                        </Tag>
-                      ),
-                    },
-                    {
-                      title: 'Licenses',
-                      dataIndex: 'licenses',
-                      key: 'licenses',
-                      render: (val: string) => (
-                        <Tag color={val === 'Full' ? 'green' : val === 'Read' ? 'blue' : 'default'}>
-                          {val}
-                        </Tag>
-                      ),
-                    },
-                    {
-                      title: 'Directory',
-                      dataIndex: 'directory',
-                      key: 'directory',
-                      render: (val: string) => (
-                        <Tag color={val === 'Full' ? 'green' : val === 'Read' ? 'blue' : 'default'}>
-                          {val}
-                        </Tag>
-                      ),
-                    },
-                    {
-                      title: 'IPAM / Network',
-                      dataIndex: 'network',
-                      key: 'network',
-                      render: (val: string) => (
-                        <Tag color={val === 'Full' ? 'green' : val === 'Read' ? 'blue' : 'default'}>
-                          {val}
-                        </Tag>
-                      ),
-                    },
-                    {
-                      title: 'Audit Logs',
-                      dataIndex: 'audit',
-                      key: 'audit',
-                      render: (val: string) => (
-                        <Tag color={val === 'Full' ? 'green' : val === 'Read' ? 'blue' : 'default'}>
-                          {val}
-                        </Tag>
-                      ),
-                    },
-                  ]}
-                  dataSource={[
-                    {
-                      key: '1',
-                      role: 'Super Admin',
-                      assets: 'Full',
-                      licenses: 'Full',
-                      directory: 'Full',
-                      network: 'Full',
-                      audit: 'Full',
-                    },
-                    {
-                      key: '2',
-                      role: 'IT Specialist',
-                      assets: 'Full',
-                      licenses: 'Full',
-                      directory: 'Full',
-                      network: 'Full',
-                      audit: 'Read',
-                    },
-                    {
-                      key: '3',
-                      role: 'Lead Auditor',
-                      assets: 'Read',
-                      licenses: 'Read',
-                      directory: 'Read',
-                      network: 'Read',
-                      audit: 'Full',
-                    },
-                    {
-                      key: '4',
-                      role: 'Manager',
-                      assets: 'Read',
-                      licenses: 'Read',
-                      directory: 'Read',
-                      network: 'None',
-                      audit: 'None',
-                    },
-                    {
-                      key: '5',
-                      role: 'Standard Employee',
-                      assets: 'None',
-                      licenses: 'None',
-                      directory: 'None',
-                      network: 'None',
-                      audit: 'None',
-                    },
-                  ]}
+                  columns={userColumns}
+                  dataSource={users}
+                  rowKey="id"
+                  loading={loading}
+                  scroll={{ x: 'max-content' }}
+                  pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} employees` }}
                 />
-              ),
-            },
-          ]}
-        />
-      </Card>
+              </Card>
+            ),
+          },
+          {
+            key: 'departments',
+            label: (
+              <span>
+                <ApartmentOutlined /> Departmental Groups ({groups.length})
+              </span>
+            ),
+            children: (
+              <Row gutter={[14, 14]}>
+                {groups.map((group) => (
+                  <Col xs={24} sm={12} lg={6} key={group.id}>
+                    <Card
+                      size="small"
+                      title={group.name}
+                      extra={<Tag color="blue">{group.scope}</Tag>}
+                    >
+                      <Flex vertical gap={6}>
+                        <Text code style={{ fontSize: 11 }}>
+                          {group.email}
+                        </Text>
+                        <Flex justify="space-between" style={{ marginTop: 6, fontSize: 12 }}>
+                          <Text type="secondary">Members:</Text>
+                          <Text strong>{group.memberCount} active</Text>
+                        </Flex>
+                        <Flex justify="space-between" style={{ fontSize: 12 }}>
+                          <Text type="secondary">Managed By:</Text>
+                          <Text>{group.managedBy}</Text>
+                        </Flex>
+                      </Flex>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            ),
+          },
+        ]}
+      />
 
       {/* Add / Edit User Modal */}
       <Modal
-        title={editingUser ? `Edit Employee: ${editingUser.name}` : 'Onboard New Employee'}
-        open={modalOpen}
+        title={editingUser ? `Edit Custodian: ${editingUser.name}` : 'Onboard New Asset Custodian'}
+        open={userModalOpen}
         onOk={handleSaveUser}
-        onCancel={() => setModalOpen(false)}
-        width={680}
-        okText={editingUser ? 'Save Changes' : 'Create User'}
+        onCancel={() => setUserModalOpen(false)}
+        confirmLoading={modalSubmitting}
+        width={620}
+        okText={editingUser ? 'Save Changes' : 'Create Custodian'}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Row gutter={16}>
+        <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Full Name" name="name" rules={[{ required: true }]}>
-                <Input prefix={<UserOutlined />} placeholder="e.g. Marcus Vance" />
+                <Input placeholder="e.g. Alex Johnson" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -754,15 +466,15 @@ export default function DirectoryPage() {
                 name="email"
                 rules={[{ required: true, type: 'email' }]}
               >
-                <Input prefix={<MailOutlined />} placeholder="e.g. marcus@company.com" />
+                <Input placeholder="e.g. alex.johnson@company.com" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Job Title" name="jobTitle" rules={[{ required: true }]}>
-                <Input placeholder="e.g. Principal Product Designer" />
+                <Input placeholder="e.g. Senior Cloud Architect" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -772,15 +484,16 @@ export default function DirectoryPage() {
                   <Option value="Engineering">Engineering</Option>
                   <Option value="Product & Design">Product & Design</Option>
                   <Option value="Marketing">Marketing</Option>
-                  <Option value="Finance">Finance</Option>
+                  <Option value="Security & Compliance">Security & Compliance</Option>
+                  <Option value="Executive">Executive</Option>
                 </Select>
               </Form.Item>
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item label="System Role" name="role" rules={[{ required: true }]}>
+          <Row gutter={14}>
+            <Col span={12}>
+              <Form.Item label="Access Role" name="role" rules={[{ required: true }]}>
                 <Select>
                   <Option value="Super Admin">Super Admin</Option>
                   <Option value="IT Specialist">IT Specialist</Option>
@@ -790,7 +503,7 @@ export default function DirectoryPage() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item label="Account Status" name="status" rules={[{ required: true }]}>
                 <Select>
                   <Option value="Active">Active</Option>
@@ -799,120 +512,75 @@ export default function DirectoryPage() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item label="Office Location" name="location">
-                <Input placeholder="e.g. NY Office - Floor 4" />
-              </Form.Item>
-            </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Direct Phone" name="phone">
-                <Input placeholder="+1 (555) 000-0000" />
+              <Form.Item label="Phone Number" name="phone">
+                <Input placeholder="e.g. +1 (555) 234-5678" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item
-                label="Enforce 2-Factor Authentication (2FA)"
-                name="twoFactorEnabled"
-                valuePropName="checked"
-              >
-                <Switch defaultChecked />
+              <Form.Item label="Office Location" name="location">
+                <Input placeholder="e.g. NY Office - Floor 4" />
               </Form.Item>
             </Col>
           </Row>
         </Form>
       </Modal>
 
-      {/* User Profile Detail Drawer */}
+      {/* User Details Drawer */}
       {selectedUser && (
         <Drawer
           title={
-            <Flex align="center" gap={10}>
-              <Avatar style={{ backgroundColor: '#1677ff' }} icon={<UserOutlined />} />
-              <div>
-                <Title level={5} style={{ margin: 0 }}>
-                  {selectedUser.name}
-                </Title>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {selectedUser.jobTitle}
-                </Text>
-              </div>
-            </Flex>
-          }
-          width={520}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        >
-          <Descriptions
-            title="Profile Details"
-            bordered
-            size="small"
-            column={1}
-            style={{ marginBottom: 20 }}
-          >
-            <Descriptions.Item label="Email Address">{selectedUser.email}</Descriptions.Item>
-            <Descriptions.Item label="Department">{selectedUser.department}</Descriptions.Item>
-            <Descriptions.Item label="Role">{selectedUser.role}</Descriptions.Item>
-            <Descriptions.Item label="Status">
+            <Flex align="center" gap={8}>
+              <Avatar size="small" style={{ backgroundColor: '#1677ff' }} icon={<UserOutlined />} />
+              <span>{selectedUser.name}</span>
               <Tag color={selectedUser.status === 'Active' ? 'success' : 'error'}>
                 {selectedUser.status}
               </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="2FA Authentication">
-              {selectedUser.twoFactorEnabled ? (
-                <Tag color="success">Enabled</Tag>
-              ) : (
-                <Tag color="warning">Not Configured</Tag>
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Location">{selectedUser.location}</Descriptions.Item>
-            <Descriptions.Item label="Last Active">{selectedUser.lastLogin}</Descriptions.Item>
+            </Flex>
+          }
+          size={480}
+          open={detailDrawerOpen}
+          onClose={() => setDetailDrawerOpen(false)}
+          extra={
+            <Button
+              type="primary"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setDetailDrawerOpen(false);
+                handleOpenEditModal(selectedUser);
+              }}
+            >
+              Edit Profile
+            </Button>
+          }
+        >
+          <Descriptions
+            title="Custodian & Employee Details"
+            size="small"
+            column={1}
+            bordered
+            style={{ marginBottom: 16 }}
+          >
+            <Descriptions.Item label="Corporate Email">{selectedUser.email}</Descriptions.Item>
+            <Descriptions.Item label="Job Title">{selectedUser.jobTitle}</Descriptions.Item>
+            <Descriptions.Item label="Department">{selectedUser.department}</Descriptions.Item>
+            <Descriptions.Item label="Access Role">{selectedUser.role}</Descriptions.Item>
+            <Descriptions.Item label="Office Location">{selectedUser.location}</Descriptions.Item>
+            <Descriptions.Item label="Phone">{selectedUser.phone || 'N/A'}</Descriptions.Item>
           </Descriptions>
 
-          <Title level={5}>Assigned Company Hardware</Title>
-          <List
-            size="small"
-            bordered
-            style={{ marginBottom: 20 }}
-            dataSource={[
-              { name: 'MacBook Pro 16" M3 Max', tag: 'AST-1024', sn: 'C02G8392MD6R' },
-              { name: 'Dell UltraSharp 32" 4K Monitor', tag: 'AST-1025', sn: 'CN-0N179F-74261' },
-            ]}
-            renderItem={(item) => (
-              <List.Item>
-                <Flex justify="space-between" align="center" style={{ width: '100%' }}>
-                  <div>
-                    <Text strong>{item.name}</Text>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                      SN: {item.sn}
-                    </Text>
-                  </div>
-                  <Tag color="blue">{item.tag}</Tag>
-                </Flex>
-              </List.Item>
-            )}
-          />
-
-          <Title level={5}>Assigned Software Licenses</Title>
-          <List
-            size="small"
-            bordered
-            dataSource={[
-              { name: 'Microsoft 365 E5 Enterprise', type: 'Subscription' },
-              { name: 'Adobe Creative Cloud All Apps', type: 'Subscription' },
-              { name: 'Figma Enterprise Workspace', type: 'Subscription' },
-            ]}
-            renderItem={(item) => (
-              <List.Item>
-                <Flex justify="space-between" align="center" style={{ width: '100%' }}>
-                  <Text strong>{item.name}</Text>
-                  <Tag color="purple">{item.type}</Tag>
-                </Flex>
-              </List.Item>
-            )}
-          />
+          <Descriptions title="Allocated Equipment & Software" size="small" column={1} bordered>
+            <Descriptions.Item label="Hardware Assets Checked Out">
+              {selectedUser.assignedAssetsCount} devices
+            </Descriptions.Item>
+            <Descriptions.Item label="Software Seats Active">
+              {selectedUser.assignedLicensesCount} SaaS licenses
+            </Descriptions.Item>
+          </Descriptions>
         </Drawer>
       )}
     </PageContainer>

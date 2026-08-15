@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { COLOR_PRESETS, useThemeStore } from './theme.store';
+import { useThemeStore } from './theme.store';
 
 describe('useThemeStore', () => {
   beforeEach(() => {
@@ -7,7 +7,7 @@ describe('useThemeStore', () => {
       mode: 'light',
       compact: false,
       presetKey: 'blue',
-      borderRadius: 8,
+      borderRadius: 6,
     });
   });
 
@@ -16,7 +16,7 @@ describe('useThemeStore', () => {
     expect(state.mode).toBe('light');
     expect(state.compact).toBe(false);
     expect(state.presetKey).toBe('blue');
-    expect(state.borderRadius).toBe(8);
+    expect(state.borderRadius).toBe(6);
   });
 
   it('should toggle and set mode', () => {
@@ -38,7 +38,7 @@ describe('useThemeStore', () => {
   it('should return correct color preset', () => {
     useThemeStore.getState().setPresetKey('emerald');
     const preset = useThemeStore.getState().getCurrentPreset();
-    expect(preset.name).toBe('Emerald Corporate');
+    expect(preset.name).toBe('Emerald Green');
     expect(preset.primary).toBe('#059669');
   });
 });

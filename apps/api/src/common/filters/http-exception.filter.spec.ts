@@ -12,11 +12,11 @@ describe('HttpExceptionFilter', () => {
       json: jsonMock,
     });
 
-    const hostMock: any = {
+    const hostMock = {
       switchToHttp: () => ({
         getResponse: getResponseMock,
       }),
-    };
+    } as unknown as import('@nestjs/common').ArgumentsHost;
 
     const exception = new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     filter.catch(exception, hostMock);

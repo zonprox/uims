@@ -17,7 +17,7 @@ export interface ApiErrorResponse {
   error: {
     code: string;
     message: string;
-    details?: Record<string, string[]>;
+    details?: Record<string, Array<string>>;
   };
   timestamp: string;
 }

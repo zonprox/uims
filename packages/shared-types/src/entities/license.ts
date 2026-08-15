@@ -1,31 +1,33 @@
 export enum LicenseType {
-  PERPETUAL = 'PERPETUAL',
   SUBSCRIPTION = 'SUBSCRIPTION',
-  OEM = 'OEM',
+  PERPETUAL = 'PERPETUAL',
   OPEN_SOURCE = 'OPEN_SOURCE',
-  TRIAL = 'TRIAL',
+  VOLUME = 'VOLUME',
+  OEM = 'OEM',
 }
 
 export enum LicenseStatus {
   ACTIVE = 'ACTIVE',
   EXPIRED = 'EXPIRED',
-  SUSPENDED = 'SUSPENDED',
+  EXPIRING_SOON = 'EXPIRING_SOON',
   REVOKED = 'REVOKED',
 }
 
 export interface License {
   id: string;
   name: string;
-  publisher: string;
+  vendor?: string | null;
+  licenseKey?: string | null;
   type: LicenseType;
-  status: LicenseStatus;
   totalSeats: number;
-  availableSeats: number;
-  cost: number | null;
-  purchaseDate: string | null;
-  expiryDate: string | null;
-  key: string | null;
-  notes: string | null;
+  usedSeats: number;
+  costPerSeat?: number | null;
+  purchaseDate?: string | null;
+  expiryDate?: string | null;
+  cost?: number | null;
+  status: LicenseStatus;
+  autoRenew: boolean;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,8 +35,10 @@ export interface License {
 export interface LicenseAssignment {
   id: string;
   licenseId: string;
-  assignedToId: string; // UserId or AssetId
-  assignedType: 'USER' | 'ASSET';
+  userId?: string | null;
+  assignedName?: string | null;
+  assignedEmail?: string | null;
+  department?: string | null;
   assignedAt: string;
-  assignedById: string;
+  unassignedAt?: string | null;
 }

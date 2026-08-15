@@ -4,103 +4,95 @@ import {
   ClockCircleOutlined,
   DeleteOutlined,
   InfoCircleOutlined,
+  ReloadOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { Badge, Button, Drawer, Empty, Flex, List, Tabs, Tag, Typography } from 'antd';
-import { useState } from 'react';
+import { Badge, Button, Drawer, Empty, Flex, Spin, Tabs, Tag, Tooltip, Typography } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { type NotificationItem, notificationsService } from '../services/notifications.service';
 
 const { Text, Title } = Typography;
-
-export interface NotificationItem {
-  id: string;
-  title: string;
-  description: string;
-  type: 'info' | 'warning' | 'error' | 'success';
-  category: 'alerts' | 'tasks' | 'general';
-  time: string;
-  read: boolean;
-  link?: string;
-}
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    title: 'License Expiration Notice',
-    description: 'Adobe Creative Cloud subscription will expire in 14 days (May 15).',
-    type: 'warning',
-    category: 'alerts',
-    time: '10 mins ago',
-    read: false,
-    link: '/licenses',
-  },
-  {
-    id: '2',
-    title: 'Hardware Stock Alert',
-    description: 'Wireless Mouse stock level is below threshold (2 units remaining).',
-    type: 'error',
-    category: 'alerts',
-    time: '45 mins ago',
-    read: false,
-    link: '/inventory',
-  },
-  {
-    id: '3',
-    title: 'High Priority Ticket Created',
-    description: 'TKT-1001: "Cannot access VPN" requires immediate IT assignment.',
-    type: 'warning',
-    category: 'tasks',
-    time: '2 hours ago',
-    read: false,
-    link: '/tickets',
-  },
-  {
-    id: '4',
-    title: 'Automated System Backup Completed',
-    description: 'Daily PostgreSQL database backup finished successfully (Size: 420MB).',
-    type: 'success',
-    category: 'general',
-    time: '5 hours ago',
-    read: true,
-    link: '/settings',
-  },
-  {
-    id: '5',
-    title: 'New Asset Assigned',
-    description: 'MacBook Pro M2 (L-1024) was assigned to John Doe in NY Office.',
-    type: 'info',
-    category: 'general',
-    time: 'Yesterday',
-    read: true,
-    link: '/assets',
-  },
-];
 
 interface NotificationDrawerProps {
   open: boolean;
   onClose: () => void;
+  onNotificationsChanged?: () => void;
 }
 
-export default function NotificationDrawer({ open, onClose }: NotificationDrawerProps) {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+export default function NotificationDrawer({
+  open,
+  onClose,
+  onNotificationsChanged,
+}: NotificationDrawerProps) {
+  const [notifications, setNotifications] = useState<Array<NotificationItem>>([]);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const navigate = useNavigate();
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await notificationsService.getNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      loadNotifications();
+    }
+  }, [open, loadNotifications]);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      await notificationsService.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      onNotificationsChanged?.();
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
 
-  const clearAll = () => {
-    setNotifications([]);
+  const clearAll = async () => {
+    try {
+      await notificationsService.clearAll();
+      setNotifications([]);
+      onNotificationsChanged?.();
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+    }
   };
 
-  const markSingleAsRead = (id: string, link?: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const markSingleAsRead = async (id: string, link?: string) => {
+    try {
+      await notificationsService.markAsRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+      onNotificationsChanged?.();
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
+
     if (link) {
       navigate(link);
       onClose();
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await notificationsService.deleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      onNotificationsChanged?.();
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
     }
   };
 
@@ -114,13 +106,13 @@ export default function NotificationDrawer({ open, onClose }: NotificationDrawer
   const getIcon = (type: NotificationItem['type']) => {
     switch (type) {
       case 'warning':
-        return <WarningOutlined style={{ color: '#faad14', fontSize: 18 }} />;
+        return <WarningOutlined style={{ color: '#f59e0b', fontSize: 16 }} />;
       case 'error':
-        return <AlertOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />;
+        return <AlertOutlined style={{ color: '#ef4444', fontSize: 16 }} />;
       case 'success':
-        return <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 18 }} />;
+        return <CheckCircleOutlined style={{ color: '#10b981', fontSize: 16 }} />;
       default:
-        return <InfoCircleOutlined style={{ color: '#1677ff', fontSize: 18 }} />;
+        return <InfoCircleOutlined style={{ color: '#1677ff', fontSize: 16 }} />;
     }
   };
 
@@ -130,7 +122,9 @@ export default function NotificationDrawer({ open, onClose }: NotificationDrawer
       label: (
         <span>
           All{' '}
-          {unreadCount > 0 && <Badge count={unreadCount} style={{ backgroundColor: '#1677ff' }} />}
+          {unreadCount > 0 && (
+            <Badge count={unreadCount} style={{ backgroundColor: '#1677ff', fontSize: 11 }} />
+          )}
         </span>
       ),
     },
@@ -149,14 +143,31 @@ export default function NotificationDrawer({ open, onClose }: NotificationDrawer
       title={
         <Flex justify="space-between" align="center">
           <Flex align="center" gap={8}>
-            <Title level={5} style={{ margin: 0 }}>
-              Notifications
+            <Title level={5} style={{ margin: 0, fontSize: 14 }}>
+              System Notifications
             </Title>
-            {unreadCount > 0 && <Tag color="processing">{unreadCount} new</Tag>}
-          </Flex>
-          <Flex gap={8}>
             {unreadCount > 0 && (
-              <Button type="link" size="small" onClick={markAllAsRead}>
+              <Tag color="blue" style={{ fontSize: 11 }}>
+                {unreadCount} unread
+              </Tag>
+            )}
+          </Flex>
+          <Flex gap={8} align="center">
+            <Tooltip title="Refresh notifications">
+              <Button
+                type="text"
+                size="small"
+                icon={<ReloadOutlined spin={loading} />}
+                onClick={loadNotifications}
+              />
+            </Tooltip>
+            {unreadCount > 0 && (
+              <Button
+                type="link"
+                size="small"
+                onClick={markAllAsRead}
+                style={{ padding: 0, fontSize: 12 }}
+              >
                 Mark all read
               </Button>
             )}
@@ -173,7 +184,7 @@ export default function NotificationDrawer({ open, onClose }: NotificationDrawer
         </Flex>
       }
       placement="right"
-      width={420}
+      size={420}
       open={open}
       onClose={onClose}
     >
@@ -184,61 +195,69 @@ export default function NotificationDrawer({ open, onClose }: NotificationDrawer
         style={{ marginBottom: 12 }}
       />
 
-      {filteredNotifications.length === 0 ? (
+      {loading && notifications.length === 0 ? (
+        <div style={{ padding: '60px 0', textAlign: 'center' }}>
+          <Spin size="default" />
+        </div>
+      ) : filteredNotifications.length === 0 ? (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="No notifications in this category"
+          description="No notifications"
           style={{ marginTop: 60 }}
         />
       ) : (
-        <List
-          itemLayout="horizontal"
-          dataSource={filteredNotifications}
-          renderItem={(item) => (
-            <List.Item
+        <Flex vertical gap={6}>
+          {filteredNotifications.map((item) => (
+            <Flex
+              key={item.id}
               onClick={() => markSingleAsRead(item.id, item.link)}
+              justify="space-between"
+              align="flex-start"
               style={{
                 cursor: 'pointer',
-                padding: '12px 14px',
-                marginBottom: 8,
-                borderRadius: 8,
-                background: item.read ? 'transparent' : 'rgba(22, 119, 255, 0.05)',
+                padding: '10px 12px',
+                borderRadius: 6,
+                background: item.read ? 'transparent' : 'rgba(22, 119, 255, 0.04)',
                 border: item.read
                   ? '1px solid rgba(140, 140, 140, 0.1)'
-                  : '1px solid rgba(22, 119, 255, 0.2)',
-                transition: 'all 0.2s ease',
+                  : '1px solid rgba(22, 119, 255, 0.18)',
+                transition: 'all 0.15s ease',
               }}
             >
-              <List.Item.Meta
-                avatar={<div style={{ marginTop: 2 }}>{getIcon(item.type)}</div>}
-                title={
-                  <Flex justify="space-between" align="center">
-                    <Text strong={!item.read} style={{ fontSize: 13 }}>
+              <Flex gap={12} align="flex-start" style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+                <div style={{ marginTop: 2, flexShrink: 0 }}>{getIcon(item.type)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
+                    <Text strong={!item.read} style={{ fontSize: 12.5 }}>
                       {item.title}
                     </Text>
                     {!item.read && <Badge status="processing" color="#1677ff" />}
                   </Flex>
-                }
-                description={
-                  <div>
-                    <Text
-                      type="secondary"
-                      style={{ fontSize: 12, display: 'block', marginBottom: 4 }}
-                    >
-                      {item.description}
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 11.5, display: 'block', marginBottom: 2 }}
+                  >
+                    {item.description}
+                  </Text>
+                  <Flex align="center" gap={4}>
+                    <ClockCircleOutlined style={{ fontSize: 10.5, color: '#94a3b8' }} />
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {item.time}
                     </Text>
-                    <Flex align="center" gap={4}>
-                      <ClockCircleOutlined style={{ fontSize: 11, color: '#999' }} />
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {item.time}
-                      </Text>
-                    </Flex>
-                  </div>
-                }
+                  </Flex>
+                </div>
+              </Flex>
+              <Button
+                key="del"
+                type="text"
+                shape="circle"
+                size="small"
+                icon={<DeleteOutlined style={{ fontSize: 12, color: '#94a3b8' }} />}
+                onClick={(e) => handleDelete(e, item.id)}
               />
-            </List.Item>
-          )}
-        />
+            </Flex>
+          ))}
+        </Flex>
       )}
     </Drawer>
   );

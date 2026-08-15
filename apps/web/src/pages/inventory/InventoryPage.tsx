@@ -7,12 +7,11 @@ import {
   EditOutlined,
   FilterOutlined,
   PlusOutlined,
+  ReloadOutlined,
   ShoppingOutlined,
-  WarningOutlined,
 } from '@ant-design/icons';
 import {
   App,
-  Badge,
   Button,
   Card,
   Col,
@@ -32,153 +31,131 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import {
+  type InventoryItem,
+  type InventoryStats,
+  inventoryService,
+} from '../../services/inventory.service';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
-export interface InventoryItem {
-  id: string;
-  sku: string;
-  name: string;
-  category: 'Cables & Adapters' | 'Peripherals' | 'Storage & RAM' | 'Power & Battery' | 'Tooling';
-  quantity: number;
-  minThreshold: number;
-  unitCost: number;
-  location: string;
-  binNumber: string;
-  supplier: string;
-  notes?: string;
-}
+const StockLevelCell: React.FC<{ record: InventoryItem }> = ({ record }) => {
+  const isDepleted = record.quantity === 0;
+  const isLow = record.quantity > 0 && record.quantity < record.minThreshold;
+  const strokeColor = isDepleted ? '#ef4444' : isLow ? '#f59e0b' : '#10b981';
+  const status = isDepleted ? 'exception' : isLow ? 'active' : 'normal';
+  const percent = Math.min(100, (record.quantity / (record.minThreshold * 2)) * 100);
 
-const INITIAL_INVENTORY: InventoryItem[] = [
-  {
-    id: '1',
-    sku: 'CAB-CAT6-2M',
-    name: 'Cat6 Snagless RJ45 Patch Cable (2m, Blue)',
-    category: 'Cables & Adapters',
-    quantity: 48,
-    minThreshold: 15,
-    unitCost: 4.5,
-    location: 'Storage Room A',
-    binNumber: 'Bin A-04',
-    supplier: 'Monoprice B2B',
-    notes: 'Standard deployment cable for desk setups.',
-  },
-  {
-    id: '2',
-    sku: 'ACC-MSE-MX3S',
-    name: 'Logitech MX Master 3S Wireless Mouse',
-    category: 'Peripherals',
-    quantity: 2,
-    minThreshold: 5,
-    unitCost: 99.0,
-    location: 'Storage Room A',
-    binNumber: 'Shelf 2',
-    supplier: 'CDW Direct',
-    notes: 'Low stock warning! Restock order PO-9921 placed.',
-  },
-  {
-    id: '3',
-    sku: 'ACC-USB-C-DOCK',
-    name: 'CalDigit TS4 Thunderbolt 4 Dock 18-Port',
-    category: 'Peripherals',
-    quantity: 6,
-    minThreshold: 4,
-    unitCost: 379.0,
-    location: 'Storage Room B',
-    binNumber: 'Cabinet Secure-1',
-    supplier: 'B&H Photo Video',
-  },
-  {
-    id: '4',
-    sku: 'RAM-DDR5-32G',
-    name: 'Crucial 32GB DDR5-5600 SODIMM Laptop RAM',
-    category: 'Storage & RAM',
-    quantity: 12,
-    minThreshold: 6,
-    unitCost: 110.0,
-    location: 'IT Tech Lab',
-    binNumber: 'Anti-Static Drawer 3',
-    supplier: 'Newegg Business',
-  },
-  {
-    id: '5',
-    sku: 'PWR-APL-140W',
-    name: 'Apple 140W USB-C Power Adapter + MagSafe 3',
-    category: 'Power & Battery',
-    quantity: 14,
-    minThreshold: 5,
-    unitCost: 99.0,
-    location: 'Storage Room A',
-    binNumber: 'Shelf 1',
-    supplier: 'Apple Enterprise',
-  },
-  {
-    id: '6',
-    sku: 'ADP-TB-LAN',
-    name: 'Belkin USB-C to 2.5Gbps Gigabit Ethernet Adapter',
-    category: 'Cables & Adapters',
-    quantity: 0,
-    minThreshold: 5,
-    unitCost: 35.0,
-    location: 'Storage Room A',
-    binNumber: 'Bin A-12',
-    supplier: 'Amazon Business',
-    notes: 'Completely depleted. Pending supplier restock.',
-  },
-];
+  return (
+    <div>
+      <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
+        <Text strong style={{ color: isDepleted ? '#ef4444' : isLow ? '#f59e0b' : undefined }}>
+          {record.quantity} units
+        </Text>
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          Min: {record.minThreshold}
+        </Text>
+      </Flex>
+      <Progress
+        percent={percent}
+        status={status}
+        strokeColor={strokeColor}
+        size="small"
+        showInfo={false}
+      />
+      {isDepleted && (
+        <Tag color="error" style={{ fontSize: 10, marginTop: 2 }}>
+          Out of Stock
+        </Tag>
+      )}
+      {isLow && (
+        <Tag color="warning" style={{ fontSize: 10, marginTop: 2 }}>
+          Low Stock
+        </Tag>
+      )}
+    </div>
+  );
+};
 
 export default function InventoryPage() {
   const { message } = App.useApp();
-  const [items, setItems] = useState<InventoryItem[]>(INITIAL_INVENTORY);
+  const [items, setItems] = useState<Array<InventoryItem>>([]);
+  const [stats, setStats] = useState<InventoryStats>({
+    totalSkus: 0,
+    totalUnits: 0,
+    totalValuation: 0,
+    lowStockCount: 0,
+    outOfStockCount: 0,
+  });
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [stockStatusFilter, setStockStatusFilter] = useState<string>('all');
+  const [stockFilter, setStockFilter] = useState<string>('all');
 
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalSubmitting, setModalSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [restockModalOpen, setRestockModalOpen] = useState(false);
-  const [restockTarget, setRestockTarget] = useState<InventoryItem | null>(null);
+  const [restockItem, setRestockItem] = useState<InventoryItem | null>(null);
   const [restockQty, setRestockQty] = useState<number>(10);
+  const [restocking, setRestocking] = useState(false);
 
   const [form] = Form.useForm();
 
-  // Metrics
-  const totalStockUnits = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalValuation = items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
-  const lowStockCount = items.filter((i) => i.quantity > 0 && i.quantity < i.minThreshold).length;
-  const outOfStockCount = items.filter((i) => i.quantity === 0).length;
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [list, statsData] = await Promise.all([
+        inventoryService.getItems({
+          search: searchQuery || undefined,
+          category: categoryFilter !== 'all' ? categoryFilter : undefined,
+          stockStatus: stockFilter !== 'all' ? stockFilter : undefined,
+        }),
+        inventoryService.getStats().catch(() => null),
+      ]);
+      setItems(list);
+      if (statsData) {
+        setStats(statsData);
+      } else {
+        const totalUnits = list.reduce((sum, i) => sum + i.quantity, 0);
+        const totalValuation = list.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+        const lowStockCount = list.filter(
+          (i) => i.quantity > 0 && i.quantity < i.minThreshold,
+        ).length;
+        const outOfStockCount = list.filter((i) => i.quantity === 0).length;
+        setStats({
+          totalSkus: list.length,
+          totalUnits,
+          totalValuation,
+          lowStockCount,
+          outOfStockCount,
+        });
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to load inventory items.');
+    } finally {
+      setLoading(false);
+    }
+  }, [categoryFilter, message, searchQuery, stockFilter]);
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.supplier.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCat = categoryFilter === 'all' || item.category === categoryFilter;
-
-    let matchesStock = true;
-    if (stockStatusFilter === 'in_stock') matchesStock = item.quantity >= item.minThreshold;
-    if (stockStatusFilter === 'low_stock')
-      matchesStock = item.quantity > 0 && item.quantity < item.minThreshold;
-    if (stockStatusFilter === 'out_of_stock') matchesStock = item.quantity === 0;
-
-    return matchesSearch && matchesCat && matchesStock;
-  });
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleOpenCreateModal = () => {
     setEditingItem(null);
     form.resetFields();
     form.setFieldsValue({
-      sku: `ITM-${Math.floor(1000 + Math.random() * 9000)}`,
+      sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
       category: 'Cables & Adapters',
       quantity: 10,
       minThreshold: 5,
-      unitCost: 25,
+      unitCost: 15,
       location: 'Storage Room A',
     });
     setModalOpen(true);
@@ -193,14 +170,15 @@ export default function InventoryPage() {
   const handleSaveItem = async () => {
     try {
       const values = await form.validateFields();
-      const formattedItem: InventoryItem = {
-        id: editingItem ? editingItem.id : String(Date.now()),
+      setModalSubmitting(true);
+
+      const payload = {
         sku: values.sku,
         name: values.name,
         category: values.category,
-        quantity: values.quantity,
-        minThreshold: values.minThreshold,
-        unitCost: values.unitCost || 0,
+        quantity: Number(values.quantity),
+        minThreshold: Number(values.minThreshold),
+        unitCost: Number(values.unitCost || 0),
         location: values.location,
         binNumber: values.binNumber || 'Unassigned',
         supplier: values.supplier || 'Direct Order',
@@ -208,55 +186,79 @@ export default function InventoryPage() {
       };
 
       if (editingItem) {
-        setItems((prev) => prev.map((i) => (i.id === editingItem.id ? formattedItem : i)));
-        message.success(`Item "${formattedItem.sku}" updated.`);
+        await inventoryService.updateItem(editingItem.id, payload);
+        message.success(`SKU "${payload.sku}" updated successfully.`);
       } else {
-        setItems((prev) => [formattedItem, ...prev]);
-        message.success(`Item "${formattedItem.sku}" added to inventory.`);
+        await inventoryService.createItem(payload);
+        message.success(`SKU "${payload.sku}" added to inventory.`);
       }
 
       setModalOpen(false);
-    } catch (err) {
+      loadData();
+    } catch (err: unknown) {
       console.error(err);
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || 'Failed to save inventory item.');
+    } finally {
+      setModalSubmitting(false);
     }
   };
 
-  const handleDeleteItem = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    message.success('Inventory SKU removed.');
+  const handleDeleteItem = async (id: string) => {
+    try {
+      await inventoryService.deleteItem(id);
+      message.success('Inventory item deleted.');
+      loadData();
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to delete item.');
+    }
   };
 
   const handleOpenRestock = (item: InventoryItem) => {
-    setRestockTarget(item);
+    setRestockItem(item);
     setRestockQty(10);
     setRestockModalOpen(true);
   };
 
-  const handleConfirmRestock = () => {
-    if (!restockTarget) return;
-    const updated = {
-      ...restockTarget,
-      quantity: restockTarget.quantity + restockQty,
-    };
-    setItems((prev) => prev.map((i) => (i.id === restockTarget.id ? updated : i)));
-    message.success(
-      `Restocked +${restockQty} units of ${restockTarget.sku}. New total: ${updated.quantity}`,
-    );
-    setRestockModalOpen(false);
+  const handleConfirmRestock = async () => {
+    if (!restockItem) return;
+    setRestocking(true);
+    try {
+      await inventoryService.restockItem(restockItem.id, restockQty);
+      message.success(`Restocked ${restockQty} units of ${restockItem.name}`);
+      setRestockModalOpen(false);
+      loadData();
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to restock item.');
+    } finally {
+      setRestocking(false);
+    }
+  };
+
+  const handleShowDetails = (item: InventoryItem) => {
+    handleOpenEditModal(item);
   };
 
   const columns = [
     {
       title: 'SKU & Item Name',
-      dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: InventoryItem) => (
+      render: (_: unknown, record: InventoryItem) => (
         <div>
-          <Text strong style={{ fontSize: 13 }}>
-            {name}
+          <Text code strong style={{ fontSize: 12.5, color: '#1677ff' }}>
+            {record.sku}
           </Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-            <Text code>{record.sku}</Text> • {record.supplier}
+          <Text
+            strong
+            style={{ fontSize: 13, display: 'block', cursor: 'pointer' }}
+            onClick={() => handleShowDetails(record)}
+          >
+            {record.name}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {record.supplier}
           </Text>
         </div>
       ),
@@ -270,72 +272,22 @@ export default function InventoryPage() {
     {
       title: 'Stock Level & Threshold',
       key: 'stock',
-      width: 220,
-      render: (_: any, record: InventoryItem) => {
-        let tagColor = 'success';
-        let statusLabel = 'In Stock';
-        if (record.quantity === 0) {
-          tagColor = 'error';
-          statusLabel = 'Out of Stock';
-        } else if (record.quantity < record.minThreshold) {
-          tagColor = 'warning';
-          statusLabel = 'Low Stock';
-        }
-
-        const maxScale = Math.max(record.minThreshold * 2, record.quantity);
-        const percent =
-          maxScale > 0 ? Math.min(100, Math.round((record.quantity / maxScale) * 100)) : 0;
-
-        return (
-          <div>
-            <Flex justify="space-between" align="center" style={{ fontSize: 12, marginBottom: 2 }}>
-              <Text strong>{record.quantity} units</Text>
-              <Tag color={tagColor} style={{ margin: 0 }}>
-                {statusLabel}
-              </Tag>
-            </Flex>
-            <Progress
-              percent={percent}
-              size="small"
-              strokeColor={
-                record.quantity === 0
-                  ? '#ff4d4f'
-                  : record.quantity < record.minThreshold
-                    ? '#faad14'
-                    : '#52c41a'
-              }
-              showInfo={false}
-            />
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              Min Threshold: {record.minThreshold} units
-            </Text>
-          </div>
-        );
-      },
+      width: 200,
+      render: (_: unknown, record: InventoryItem) => <StockLevelCell record={record} />,
     },
     {
-      title: 'Unit Cost / Total Value',
-      key: 'valuation',
-      render: (_: any, record: InventoryItem) => (
+      title: 'Unit Valuation',
+      key: 'price',
+      render: (_: unknown, record: InventoryItem) => (
         <div>
           <Text strong style={{ fontSize: 13 }}>
-            ${(record.quantity * record.unitCost).toLocaleString()}
+            $
+            {(record.quantity * record.unitCost).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+            })}
           </Text>
           <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-            ${record.unitCost} / unit
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Storage Location',
-      dataIndex: 'location',
-      key: 'location',
-      render: (location: string, record: InventoryItem) => (
-        <div>
-          <Text style={{ fontSize: 13 }}>{location}</Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-            {record.binNumber}
+            ${record.unitCost.toFixed(2)}/unit
           </Text>
         </div>
       ),
@@ -343,7 +295,7 @@ export default function InventoryPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: InventoryItem) => (
+      render: (_: unknown, record: InventoryItem) => (
         <Space size="small">
           <Button
             size="small"
@@ -358,19 +310,20 @@ export default function InventoryPage() {
             <Button
               type="text"
               shape="circle"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => handleOpenEditModal(record)}
             />
           </Tooltip>
           <Popconfirm
             title="Delete this SKU?"
-            description="Are you sure you want to remove this hardware stock item?"
+            description="Remove this consumable from inventory?"
             onConfirm={() => handleDeleteItem(record.id)}
             okText="Delete"
             okType="danger"
           >
             <Tooltip title="Delete">
-              <Button type="text" shape="circle" danger icon={<DeleteOutlined />} />
+              <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
         </Space>
@@ -380,58 +333,64 @@ export default function InventoryPage() {
 
   return (
     <PageContainer
-      title="Hardware & Consumables Inventory"
-      subtitle="Track physical accessories, cables, docks, replacement parts, and storage bins."
+      title="Consumables & Inventory Management"
+      subtitle="Track stock levels, storage bins, suppliers, and automatic restock thresholds."
       breadcrumbs={[{ title: 'Inventory' }]}
       stats={[
         {
-          title: 'Total Catalog SKUs',
-          value: items.length,
+          title: 'Total Tracked SKUs',
+          value: stats.totalSkus,
           prefix: <DatabaseOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Units in Stock',
-          value: totalStockUnits,
+          title: 'Total Stocked Units',
+          value: stats.totalUnits,
           prefix: <CheckCircleOutlined />,
-          color: '#52c41a',
+          color: '#10b981',
         },
         {
-          title: 'Total Stock Valuation',
-          value: `$${totalValuation.toLocaleString()}`,
+          title: 'Inventory Valuation',
+          value: `$${stats.totalValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
           prefix: <DollarOutlined />,
-          color: '#722ed1',
+          color: '#6366f1',
         },
         {
-          title: 'Low / Depleted Stock',
-          value: lowStockCount + outOfStockCount,
+          title: 'Restock Required',
+          value: stats.lowStockCount + stats.outOfStockCount,
           prefix: <AlertOutlined />,
-          color: lowStockCount + outOfStockCount > 0 ? '#ff4d4f' : '#8c8c8c',
+          color: stats.lowStockCount + stats.outOfStockCount > 0 ? '#ef4444' : '#94a3b8',
         },
       ]}
       extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
-          Add Inventory SKU
-        </Button>
+        <Flex gap={8}>
+          <Tooltip title="Reload from server">
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+          </Tooltip>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
+            Add Inventory SKU
+          </Button>
+        </Flex>
       }
     >
-      <Card styles={{ body: { padding: '16px 20px' } }}>
-        <Row gutter={[16, 16]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+        {/* Search & Filter Toolbar */}
+        <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} md={10}>
             <Input
-              placeholder="Search by SKU, item name, bin, supplier..."
-              prefix={<FilterOutlined style={{ color: '#8c8c8c' }} />}
+              placeholder="Search by SKU, name, bin, supplier..."
+              prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               allowClear
             />
           </Col>
           <Col xs={24} md={14}>
-            <Flex gap={12} justify="flex-end" wrap>
+            <Flex gap={10} justify="flex-end" wrap>
               <Select
                 value={categoryFilter}
                 onChange={setCategoryFilter}
-                style={{ width: 170 }}
+                style={{ width: 160 }}
                 placeholder="Category"
               >
                 <Option value="all">All Categories</Option>
@@ -439,26 +398,27 @@ export default function InventoryPage() {
                 <Option value="Peripherals">Peripherals</Option>
                 <Option value="Storage & RAM">Storage & RAM</Option>
                 <Option value="Power & Battery">Power & Battery</Option>
+                <Option value="Tooling">Tooling</Option>
               </Select>
 
               <Select
-                value={stockStatusFilter}
-                onChange={setStockStatusFilter}
-                style={{ width: 150 }}
+                value={stockFilter}
+                onChange={setStockFilter}
+                style={{ width: 140 }}
                 placeholder="Stock Status"
               >
-                <Option value="all">All Stock Levels</Option>
-                <Option value="in_stock">In Stock Normal</Option>
+                <Option value="all">All Stock Status</Option>
+                <Option value="in_stock">In Stock</Option>
                 <Option value="low_stock">Low Stock Warning</Option>
                 <Option value="out_of_stock">Out of Stock</Option>
               </Select>
 
-              {(searchQuery || categoryFilter !== 'all' || stockStatusFilter !== 'all') && (
+              {(searchQuery || categoryFilter !== 'all' || stockFilter !== 'all') && (
                 <Button
                   onClick={() => {
                     setSearchQuery('');
                     setCategoryFilter('all');
-                    setStockStatusFilter('all');
+                    setStockFilter('all');
                   }}
                 >
                   Reset
@@ -468,25 +428,29 @@ export default function InventoryPage() {
           </Col>
         </Row>
 
+        {/* Data Table */}
         <Table
           columns={columns}
-          dataSource={filteredItems}
+          dataSource={items}
           rowKey="id"
-          pagination={{ pageSize: 8 }}
+          loading={loading}
+          scroll={{ x: 'max-content' }}
+          pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} SKUs` }}
         />
       </Card>
 
-      {/* Add / Edit Modal */}
+      {/* Add / Edit Inventory Modal */}
       <Modal
-        title={editingItem ? `Edit SKU: ${editingItem.sku}` : 'Add New Inventory SKU'}
+        title={editingItem ? `Edit SKU: ${editingItem.sku}` : 'Add Inventory SKU'}
         open={modalOpen}
         onOk={handleSaveItem}
         onCancel={() => setModalOpen(false)}
-        width={680}
+        confirmLoading={modalSubmitting}
+        width={620}
         okText={editingItem ? 'Save Changes' : 'Create Item'}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Row gutter={16}>
+        <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
+          <Row gutter={14}>
             <Col span={10}>
               <Form.Item label="SKU Code" name="sku" rules={[{ required: true }]}>
                 <Input placeholder="e.g. CAB-CAT6-2M" />
@@ -499,8 +463,8 @@ export default function InventoryPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={8}>
+          <Row gutter={14}>
+            <Col span={12}>
               <Form.Item label="Category" name="category" rules={[{ required: true }]}>
                 <Select>
                   <Option value="Cables & Adapters">Cables & Adapters</Option>
@@ -511,12 +475,16 @@ export default function InventoryPage() {
                 </Select>
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item label="Supplier / Vendor" name="supplier" rules={[{ required: true }]}>
+                <Input placeholder="e.g. Monoprice / CDW" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={14}>
             <Col span={8}>
-              <Form.Item
-                label="Current Quantity in Stock"
-                name="quantity"
-                rules={[{ required: true }]}
-              >
+              <Form.Item label="Current Quantity" name="quantity" rules={[{ required: true }]}>
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -529,77 +497,61 @@ export default function InventoryPage() {
                 <InputNumber min={1} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-          </Row>
-
-          <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label="Unit Cost ($)" name="unitCost">
+              <Form.Item label="Unit Cost ($)" name="unitCost" rules={[{ required: true }]}>
                 <InputNumber prefix="$" min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item label="Storage Room / Lab" name="location" rules={[{ required: true }]}>
+          </Row>
+
+          <Row gutter={14}>
+            <Col span={12}>
+              <Form.Item label="Storage Location" name="location">
                 <Input placeholder="e.g. Storage Room A" />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item label="Bin / Shelf Number" name="binNumber">
                 <Input placeholder="e.g. Bin A-04" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item label="Primary Supplier / Vendor" name="supplier">
-            <Input placeholder="e.g. Monoprice B2B Direct" />
-          </Form.Item>
-
-          <Form.Item label="Notes & Technical Specs" name="notes">
-            <Input.TextArea
-              rows={2}
-              placeholder="Add any details regarding manufacturer or compatibility..."
-            />
+          <Form.Item label="Notes & Replenishment Info" name="notes">
+            <Input.TextArea rows={2} placeholder="Add reorder notes or package specs..." />
           </Form.Item>
         </Form>
       </Modal>
 
-      {/* Quick Restock Modal */}
-      {restockTarget && (
+      {/* Restock Quantity Modal */}
+      {restockItem && (
         <Modal
-          title={`Restock: ${restockTarget.name}`}
+          title={`Restock: ${restockItem.name}`}
           open={restockModalOpen}
           onOk={handleConfirmRestock}
           onCancel={() => setRestockModalOpen(false)}
-          okText="Confirm Restock"
+          confirmLoading={restocking}
+          width={400}
+          okText="Receive Stock"
         >
-          <Flex vertical gap={12} style={{ padding: '12px 0' }}>
-            <Text type="secondary">
-              Current inventory on hand: <Text strong>{restockTarget.quantity} units</Text> (
-              {restockTarget.location})
+          <div style={{ padding: '8px 0' }}>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              Current stock: <b>{restockItem.quantity} units</b> ({restockItem.location} -{' '}
+              {restockItem.binNumber})
             </Text>
-            <div>
-              <Text strong style={{ display: 'block', marginBottom: 6 }}>
-                Quantity to Add:
-              </Text>
-              <InputNumber
-                min={1}
-                max={500}
-                value={restockQty}
-                onChange={(val) => setRestockQty(val || 1)}
-                style={{ width: '100%' }}
-              />
-            </div>
-            <Flex gap={8}>
-              {[5, 10, 25, 50, 100].map((qty) => (
-                <Button key={qty} size="small" onClick={() => setRestockQty(qty)}>
-                  +{qty}
-                </Button>
-              ))}
-            </Flex>
-            <Divider style={{ margin: '8px 0' }} />
-            <Text strong style={{ color: '#1677ff' }}>
-              New stock level will be: {restockTarget.quantity + restockQty} units
+            <Divider style={{ margin: '12px 0' }} />
+            <Text strong style={{ display: 'block', marginBottom: 6 }}>
+              Units to Add to Stock:
             </Text>
-          </Flex>
+            <InputNumber
+              min={1}
+              max={10000}
+              value={restockQty}
+              onChange={(val) => setRestockQty(val || 1)}
+              style={{ width: '100%' }}
+              size="large"
+            />
+          </div>
         </Modal>
       )}
     </PageContainer>

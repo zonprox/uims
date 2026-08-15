@@ -2,21 +2,25 @@
   "name": "@uims/shared-utils",
   "version": "1.0.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "scripts": {
     "build": "tsdown src/index.ts --dts --format esm",
     "dev": "tsdown src/index.ts --dts --format esm --watch",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@uims/shared-types": "workspace:*",
     "dayjs": "^1.11.21"
   },
   "devDependencies": {

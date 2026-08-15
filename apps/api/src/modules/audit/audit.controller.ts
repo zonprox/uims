@@ -1,0 +1,44 @@
+import { Body, Controller, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { AuditQueryDto, LogEventDto } from '@uims/shared-types';
+import type { Response } from 'express';
+import { AuditService } from './audit.service';
+
+@ApiTags('audit')
+@Controller('audit')
+export class AuditController {
+  constructor(private readonly auditService: AuditService) {}
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get audit compliance metrics' })
+  getStats() {
+    return this.auditService.getStats();
+  }
+
+  @Get('export')
+  @ApiOperation({ summary: 'Export audit logs as CSV' })
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="audit-logs.csv"')
+  async exportCsv(@Res() res: Response) {
+    const csv = await this.auditService.exportCsv();
+    res.send(csv);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all audit logs' })
+  findAll(@Query() query: AuditQueryDto) {
+    return this.auditService.findAll(query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get audit log details by id' })
+  findOne(@Param('id') id: string) {
+    return this.auditService.findOne(id);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Log a new audit event' })
+  logEvent(@Body() body: LogEventDto) {
+    return this.auditService.logEvent(body);
+  }
+}

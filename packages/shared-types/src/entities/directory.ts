@@ -1,43 +1,44 @@
 export enum AccountStatus {
-  ENABLED = 'ENABLED',
+  ACTIVE = 'ACTIVE',
   DISABLED = 'DISABLED',
   LOCKED = 'LOCKED',
-  EXPIRED = 'EXPIRED',
+  SUSPENDED = 'SUSPENDED',
 }
 
 export enum DirectorySource {
-  ACTIVE_DIRECTORY = 'ACTIVE_DIRECTORY',
-  LDAP = 'LDAP',
-  GOOGLE_WORKSPACE = 'GOOGLE_WORKSPACE',
-  AZURE_AD = 'AZURE_AD',
   LOCAL = 'LOCAL',
+  LDAP = 'LDAP',
+  AZURE_AD = 'AZURE_AD',
 }
 
 export interface DirectoryUser {
   id: string;
   source: DirectorySource;
-  externalId: string;
+  externalId?: string | null;
   username: string;
   email: string;
-  displayName: string;
-  department: string | null;
-  title: string | null;
-  managerId: string | null;
+  displayName?: string | null;
+  department?: string | null;
+  jobTitle?: string | null;
+  role?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  twoFactorEnabled: boolean;
   accountStatus: AccountStatus;
-  lastSyncAt: string;
+  lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface DirectoryGroup {
   id: string;
-  source: DirectorySource;
-  externalId: string;
   name: string;
-  description: string | null;
-  email: string | null;
-  members: string[]; // User IDs
-  lastSyncAt: string;
+  description?: string | null;
+  email?: string | null;
+  type?: string | null;
+  scope?: string | null;
+  managedBy?: string | null;
+  memberCount: number;
   createdAt: string;
   updatedAt: string;
 }

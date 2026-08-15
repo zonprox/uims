@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  constructor(private configService: ConfigService) {
+  constructor(configService: ConfigService) {
     const connectionString =
       configService.get<string>('DATABASE_URL') ||
       process.env.DATABASE_URL ||

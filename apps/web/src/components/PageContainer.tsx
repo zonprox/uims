@@ -1,9 +1,10 @@
-import { HomeOutlined } from '@ant-design/icons';
-import { Breadcrumb, Card, Col, Flex, Row, Statistic, Typography } from 'antd';
+import { ArrowDownOutlined, ArrowUpOutlined, HomeOutlined } from '@ant-design/icons';
+import { Breadcrumb, Card, Col, Flex, Grid, Row, Statistic, Typography } from 'antd';
 import type React from 'react';
 import { Link } from 'react-router';
 
 const { Title, Paragraph } = Typography;
+const { useBreakpoint } = Grid;
 
 export interface PageStatItem {
   title: string;
@@ -21,9 +22,9 @@ interface PageContainerProps {
   title: string;
   subtitle?: string;
   tag?: React.ReactNode;
-  breadcrumbs?: { title: string; path?: string }[];
+  breadcrumbs?: Array<{ title: string; path?: string }>;
   extra?: React.ReactNode;
-  stats?: PageStatItem[];
+  stats?: Array<PageStatItem>;
   children: React.ReactNode;
   noCardWrapper?: boolean;
 }
@@ -38,6 +39,8 @@ export default function PageContainer({
   children,
   noCardWrapper = false,
 }: PageContainerProps) {
+  const screens = useBreakpoint();
+
   const breadcrumbItems = breadcrumbs
     ? [
         {
@@ -57,67 +60,128 @@ export default function PageContainer({
     : undefined;
 
   return (
-    <Flex vertical gap={20} style={{ width: '100%' }}>
+    <Flex vertical gap={screens.xs ? 12 : 18} style={{ width: '100%' }}>
       {/* Page Header */}
       <div>
         {breadcrumbItems && (
-          <Breadcrumb items={breadcrumbItems} style={{ marginBottom: 10, fontSize: 13 }} />
+          <Breadcrumb items={breadcrumbItems} style={{ marginBottom: 6, fontSize: 12 }} />
         )}
-        <Flex justify="space-between" align="center" wrap gap={12}>
+        <Flex
+          justify="space-between"
+          align={screens.xs ? 'flex-start' : 'center'}
+          vertical={screens.xs}
+          wrap
+          gap={10}
+        >
           <div>
-            <Flex align="center" gap={10}>
-              <Title level={3} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            <Flex align="center" gap={8} wrap>
+              <Title
+                level={4}
+                style={{
+                  margin: 0,
+                  fontWeight: 600,
+                  fontSize: screens.xs ? 18 : 20,
+                  letterSpacing: '-0.01em',
+                }}
+              >
                 {title}
               </Title>
               {tag}
             </Flex>
             {subtitle && (
-              <Paragraph type="secondary" style={{ margin: '4px 0 0 0', fontSize: 13 }}>
+              <Paragraph
+                type="secondary"
+                style={{ margin: '3px 0 0 0', fontSize: screens.xs ? 12 : 13 }}
+              >
                 {subtitle}
               </Paragraph>
             )}
           </div>
           {extra && (
-            <Flex align="center" gap={8} wrap>
+            <Flex
+              align="center"
+              gap={8}
+              wrap
+              style={{
+                width: screens.xs ? '100%' : 'auto',
+                justifyContent: screens.xs ? 'flex-start' : 'flex-end',
+              }}
+            >
               {extra}
             </Flex>
           )}
         </Flex>
       </div>
 
-      {/* KPI Stats Bar if provided */}
+      {/* KPI Stats Bar with Responsive Grid */}
       {stats && stats.length > 0 && (
-        <Row gutter={[16, 16]}>
-          {stats.map((stat, idx) => (
-            <Col xs={24} sm={12} md={24 / Math.min(stats.length, 4)} key={idx}>
+        <Row gutter={[12, 12]}>
+          {stats.map((stat) => (
+            <Col xs={12} sm={12} lg={24 / Math.min(stats.length, 4)} key={stat.title}>
               <Card
                 size="small"
                 className="uims-stat-card"
                 styles={{
-                  body: { padding: '16px 20px' },
+                  body: { padding: screens.xs ? '10px 12px' : '14px 18px' },
                 }}
               >
                 <Statistic
-                  title={<span style={{ fontSize: 13, color: '#8c8c8c' }}>{stat.title}</span>}
+                  title={
+                    <span
+                      style={{
+                        fontSize: screens.xs ? 11 : 12,
+                        fontWeight: 500,
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        display: 'block',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {stat.title}
+                    </span>
+                  }
                   value={stat.value}
                   prefix={stat.prefix}
                   suffix={stat.suffix}
                   styles={{
                     content: {
                       color: stat.color || 'inherit',
-                      fontSize: 24,
-                      fontWeight: 700,
+                      fontSize: screens.xs ? 18 : 22,
+                      fontWeight: 600,
+                      letterSpacing: '-0.02em',
                     },
                   }}
                 />
-                {stat.trend && (
-                  <div style={{ marginTop: 4, fontSize: 12 }}>
+                {stat.trend && !screens.xs && (
+                  <div
+                    style={{
+                      marginTop: 3,
+                      fontSize: 11.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
                     <span
-                      style={{ color: stat.trend.isUp ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}
+                      style={{
+                        color: stat.trend.isUp ? '#10b981' : '#ef4444',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
                     >
-                      {stat.trend.isUp ? '↑' : '↓'} {stat.trend.value}
+                      {stat.trend.isUp ? (
+                        <ArrowUpOutlined style={{ fontSize: 11 }} />
+                      ) : (
+                        <ArrowDownOutlined style={{ fontSize: 11 }} />
+                      )}
+                      {stat.trend.value}
                     </span>{' '}
-                    <span style={{ color: '#8c8c8c' }}>vs last month</span>
+                    <span style={{ color: '#94a3b8' }}>vs last month</span>
                   </div>
                 )}
               </Card>

@@ -3,7 +3,6 @@ import {
   DashboardOutlined,
   HomeOutlined,
   LaptopOutlined,
-  SearchOutlined,
 } from '@ant-design/icons';
 import { Button, Card, Flex, Result, Space, Typography } from 'antd';
 import { useNavigate } from 'react-router';

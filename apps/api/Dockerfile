@@ -35,6 +35,9 @@ COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 
 WORKDIR /app/apps/api
 
+RUN chown -R node:node /app
+USER node
+
 EXPOSE 3000
 
 CMD ["node", "dist/main"]

@@ -9,8 +9,9 @@ services:
       - "${APP_PORT:-3002}:3000"
     environment:
       NODE_ENV: development
+      CI: "true"
       PORT: 3000
-      DATABASE_URL: postgresql://${DATABASE_USER:-uims}:${DATABASE_PASSWORD:-uims_secret_2026}@postgres:5432/${DATABASE_NAME:-uims_db}?schema=public
+      DATABASE_URL: postgresql://${DATABASE_USER:-uims}:${DATABASE_PASSWORD:-uims_secret_2026}@postgres:5432/${DATABASE_NAME:-uims_db}?schema=public&connection_limit=20&pool_timeout=30
       REDIS_URL: redis://:${REDIS_PASSWORD:-uims_redis_2026}@redis:6379
       JWT_SECRET: ${JWT_SECRET:-uims-jwt-secret-change-in-production}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-uims-jwt-refresh-secret-change-in-production}
@@ -44,7 +45,8 @@ services:
       - "${WEB_PORT:-5679}:5679"
     environment:
       NODE_ENV: development
-      VITE_API_URL: http://localhost:3002/api/v1
+      CI: "true"
+      VITE_API_URL: /api/v1
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
     volumes:

@@ -8,6 +8,7 @@
     "start": "node dist/main",
     "start:prod": "node dist/main",
     "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
@@ -31,6 +32,7 @@
     "@nestjs/websockets": "^11.1.29",
     "@prisma/adapter-pg": "^7.9.1",
     "@uims/shared-types": "workspace:*",
+    "@uims/shared-utils": "workspace:*",
     "@uims/shared-validators": "workspace:*",
     "bcrypt": "^6.0.0",
     "bullmq": "^6.1.1",
@@ -65,10 +67,11 @@
     "dotenv": "^17.4.2",
     "eslint": "^10.8.1",
     "prisma": "^7.9.1",
+    "tsx": "^4.19.3",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   }
 }

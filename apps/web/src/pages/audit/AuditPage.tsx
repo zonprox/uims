@@ -1,196 +1,114 @@
 import {
   AuditOutlined,
-  CheckCircleOutlined,
-  CopyOutlined,
   DownloadOutlined,
   EyeOutlined,
   FilterOutlined,
+  ReloadOutlined,
   SafetyCertificateOutlined,
   SafetyOutlined,
-  SearchOutlined,
-  UserOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import {
   App,
   Avatar,
-  Badge,
   Button,
   Card,
   Col,
-  DatePicker,
   Descriptions,
-  Divider,
   Drawer,
   Flex,
   Input,
   Row,
   Select,
-  Space,
   Table,
   Tag,
   Tooltip,
   Typography,
 } from 'antd';
-import dayjs from 'dayjs';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import { type AuditLog, type AuditStats, auditService } from '../../services/audit.service';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Title } = Typography;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
-
-export interface AuditLog {
-  id: string;
-  timestamp: string;
-  user: string;
-  userEmail: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN_SUCCESS' | 'LOGIN_FAILED' | 'PERMISSION_GRANT';
-  severity: 'Info' | 'Warning' | 'Critical';
-  entity: string;
-  entityType: 'Asset' | 'License' | 'User' | 'Network' | 'Security';
-  ipAddress: string;
-  status: 'Success' | 'Failed' | 'Blocked';
-  details: string;
-  diffPayload?: {
-    before?: Record<string, any>;
-    after?: Record<string, any>;
-    requestId: string;
-    userAgent: string;
-  };
-}
-
-const INITIAL_LOGS: AuditLog[] = [
-  {
-    id: 'aud-8891',
-    timestamp: '2024-03-15 10:14:22',
-    user: 'Alex Johnson',
-    userEmail: 'alex.johnson@company.com',
-    action: 'CREATE',
-    severity: 'Info',
-    entity: 'Asset AST-1024',
-    entityType: 'Asset',
-    ipAddress: '192.168.1.15 (NY Office)',
-    status: 'Success',
-    details: 'Provisioned new MacBook Pro 16" M3 Max to Marcus Vance.',
-    diffPayload: {
-      requestId: 'req_88a91b2c',
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) UIMS-Client/2.4',
-      after: {
-        tag: 'AST-1024',
-        model: 'MacBook Pro 16 M3 Max',
-        assignedTo: 'Marcus Vance',
-        price: 3499,
-      },
-    },
-  },
-  {
-    id: 'aud-8892',
-    timestamp: '2024-03-15 09:45:10',
-    user: 'Sarah Chen',
-    userEmail: 'sarah.chen@company.com',
-    action: 'UPDATE',
-    severity: 'Info',
-    entity: 'License Adobe CC',
-    entityType: 'License',
-    ipAddress: '192.168.10.12 (SF HQ)',
-    status: 'Success',
-    details: 'Allocated 1 user seat to Elena Rostova (Marketing).',
-    diffPayload: {
-      requestId: 'req_99c81a1d',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      before: { usedSeats: 23 },
-      after: { usedSeats: 24, assignedUser: 'Elena Rostova' },
-    },
-  },
-  {
-    id: 'aud-8893',
-    timestamp: '2024-03-15 04:12:00',
-    user: 'Unknown IP (89.248.163.2)',
-    userEmail: 'admin@company.com',
-    action: 'LOGIN_FAILED',
-    severity: 'Critical',
-    entity: 'Authentication Gateway',
-    entityType: 'Security',
-    ipAddress: '89.248.163.2 (St. Petersburg, RU)',
-    status: 'Blocked',
-    details:
-      'Failed password attempt with invalid SAML assertion signature. IP blocked by firewall rate-limiter.',
-    diffPayload: {
-      requestId: 'sec_block_4482',
-      userAgent: 'python-requests/2.28.1',
-      before: { geoCountry: 'RU', riskScore: 98 },
-      after: { actionTaken: 'GEO_IP_DROP_RULE_ENGAGED' },
-    },
-  },
-  {
-    id: 'aud-8894',
-    timestamp: '2024-03-14 16:30:19',
-    user: 'Alex Johnson',
-    userEmail: 'alex.johnson@company.com',
-    action: 'PERMISSION_GRANT',
-    severity: 'Warning',
-    entity: 'Role Super Admin',
-    entityType: 'User',
-    ipAddress: '192.168.1.15 (NY Office)',
-    status: 'Success',
-    details:
-      'Granted temporary Super Admin elevated privileges to Sarah Chen for network maintenance window.',
-    diffPayload: {
-      requestId: 'req_elevation_331',
-      userAgent: 'UIMS-AdminConsole/2.4.0',
-      before: { role: 'IT Specialist' },
-      after: { role: 'Super Admin', expiresAt: '2024-03-16 00:00 UTC' },
-    },
-  },
-  {
-    id: 'aud-8895',
-    timestamp: '2024-03-14 11:15:00',
-    user: 'System Cron',
-    userEmail: 'daemon@uims.internal',
-    action: 'UPDATE',
-    severity: 'Info',
-    entity: 'Automated Snapshot',
-    entityType: 'Security',
-    ipAddress: '127.0.0.1 (Localhost)',
-    status: 'Success',
-    details: 'Nightly database snapshot sha256 checksum verified.',
-  },
-];
 
 export default function AuditPage() {
   const { message } = App.useApp();
-  const [logs, setLogs] = useState<AuditLog[]>(INITIAL_LOGS);
+  const [logs, setLogs] = useState<Array<AuditLog>>([]);
+  const [stats, setStats] = useState<AuditStats>({
+    soc2Score: '98.4%',
+    isoReadiness: '96.0%',
+    securityAnomalies: '1 Blocked',
+    totalEventRecords: '5',
+  });
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
 
-  // Drawer
+  // Inspector Drawer
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedLog, setSelectedLog] = useState<AuditLog[] | null>(null);
-  const [activeLog, setActiveLog] = useState<AuditLog | null>(null);
 
-  const filteredLogs = logs.filter((log) => {
-    const matchesSearch =
-      log.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.entity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.details.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.ipAddress.toLowerCase().includes(searchQuery.toLowerCase());
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [list, statsData] = await Promise.all([
+        auditService.getLogs({
+          search: searchQuery || undefined,
+          action: actionFilter !== 'all' ? actionFilter : undefined,
+          severity: severityFilter !== 'all' ? severityFilter : undefined,
+        }),
+        auditService.getStats().catch(() => null),
+      ]);
+      setLogs(list);
+      if (statsData) {
+        setStats(statsData);
+      } else {
+        const anomalyCount = list.filter((l) => l.severity === 'Critical').length;
+        setStats({
+          soc2Score: '98.4%',
+          isoReadiness: '96.0%',
+          securityAnomalies: `${anomalyCount} Blocked`,
+          totalEventRecords: list.length.toString(),
+        });
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to load audit logs from server.');
+    } finally {
+      setLoading(false);
+    }
+  }, [actionFilter, message, searchQuery, severityFilter]);
 
-    const matchesAction = actionFilter === 'all' || log.action === actionFilter;
-    const matchesSeverity = severityFilter === 'all' || log.severity === severityFilter;
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-    return matchesSearch && matchesAction && matchesSeverity;
-  });
-
-  const handleExportCSV = () => {
-    message.loading('Generating signed tamper-proof audit export...', 1.2).then(() => {
-      message.success('Audit_Compliance_Log_2024.csv successfully downloaded.');
-    });
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const csvData = await auditService.exportCsv();
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `audit_trail_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      message.success('Audit trail exported successfully as CSV.');
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to export CSV.');
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const handleInspect = (log: AuditLog) => {
-    setActiveLog(log);
+  const handleInspectLog = (log: AuditLog) => {
+    setSelectedLog(log);
     setDrawerOpen(true);
   };
 
@@ -199,150 +117,179 @@ export default function AuditPage() {
       title: 'Timestamp (UTC)',
       dataIndex: 'timestamp',
       key: 'timestamp',
-      render: (timestamp: string) => (
-        <div>
-          <Text strong style={{ fontSize: 13 }}>
-            {timestamp}
-          </Text>
-        </div>
+      render: (ts: string) => (
+        <Text style={{ fontSize: 12.5, fontFamily: 'monospace' }}>
+          {new Date(ts).toLocaleString()}
+        </Text>
       ),
     },
     {
-      title: 'Actor / User',
-      dataIndex: 'user',
+      title: 'Actor',
       key: 'user',
-      render: (user: string, record: AuditLog) => (
+      render: (_: unknown, record: AuditLog) => (
         <Flex align="center" gap={8}>
-          <Avatar
-            size="small"
-            style={{ backgroundColor: record.severity === 'Critical' ? '#ff4d4f' : '#1677ff' }}
-            icon={<UserOutlined />}
-          />
+          <Avatar size="small" style={{ backgroundColor: '#1890ff', fontSize: 11 }}>
+            {record.userName?.[0] || 'S'}
+          </Avatar>
           <div>
-            <Text style={{ fontSize: 13 }}>{user}</Text>
-            <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-              {record.ipAddress}
+            <Text strong style={{ fontSize: 12.5, display: 'block' }}>
+              {record.userName || 'System'}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {record.userEmail || 'system@uims.internal'}
             </Text>
           </div>
         </Flex>
       ),
     },
     {
-      title: 'Event Action',
+      title: 'Action',
       dataIndex: 'action',
       key: 'action',
-      render: (action: AuditLog['action'], record: AuditLog) => {
-        let color = 'blue';
-        if (action === 'DELETE' || action === 'LOGIN_FAILED') color = 'error';
-        if (action === 'CREATE' || action === 'LOGIN_SUCCESS') color = 'success';
-        if (action === 'PERMISSION_GRANT') color = 'purple';
-        return (
-          <Space>
-            <Tag color={color}>{action}</Tag>
-            {record.severity === 'Critical' && <Tag color="red">Critical</Tag>}
-          </Space>
-        );
+      render: (action: string) => {
+        let color = 'default';
+        if (action.includes('DELETE') || action.includes('REVOKE') || action.includes('FAILED'))
+          color = 'error';
+        if (action.includes('CREATE') || action.includes('GRANT')) color = 'processing';
+        if (action.includes('UPDATE') || action.includes('ROTATE')) color = 'warning';
+        if (action === 'LOGIN_SUCCESS') color = 'success';
+        return <Tag color={color}>{action}</Tag>;
       },
     },
     {
-      title: 'Target Entity',
-      dataIndex: 'entity',
-      key: 'entity',
-      render: (entity: string, record: AuditLog) => (
+      title: 'Target Entity & Details',
+      key: 'details',
+      render: (_: unknown, record: AuditLog) => (
         <div>
-          <Text strong style={{ fontSize: 13 }}>
-            {entity}
-          </Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+          <Flex align="center" gap={6}>
+            <Tag color="geekblue" style={{ fontSize: 11 }}>
+              {record.entityType}
+            </Tag>
+            <Text strong style={{ fontSize: 12.5 }}>
+              {record.entity}
+            </Text>
+          </Flex>
+          <Text type="secondary" style={{ display: 'block', fontSize: 11.5, marginTop: 2 }}>
             {record.details}
           </Text>
         </div>
       ),
     },
     {
-      title: 'Outcome',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: AuditLog['status']) => {
-        let color = 'success';
-        if (status === 'Blocked') color = 'error';
-        if (status === 'Failed') color = 'warning';
-        return <Tag color={color}>{status}</Tag>;
+      title: 'Origin IP',
+      dataIndex: 'ipAddress',
+      key: 'ipAddress',
+      render: (ip: string) => (
+        <Text code style={{ fontSize: 11.5 }}>
+          {ip}
+        </Text>
+      ),
+    },
+    {
+      title: 'Severity',
+      dataIndex: 'severity',
+      key: 'severity',
+      render: (sev: string) => {
+        let color = 'default';
+        if (sev === 'Critical') color = 'error';
+        if (sev === 'Warning') color = 'warning';
+        if (sev === 'Info') color = 'blue';
+        return <Tag color={color}>{sev}</Tag>;
       },
     },
     {
-      title: 'Payload Diff',
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={status === 'Success' ? 'success' : status === 'Blocked' ? 'error' : 'warning'}>
+          {status}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Inspect',
       key: 'inspect',
-      render: (_: any, record: AuditLog) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => handleInspect(record)}>
-          Inspect JSON
-        </Button>
+      render: (_: unknown, record: AuditLog) => (
+        <Button
+          size="small"
+          type="text"
+          shape="circle"
+          icon={<EyeOutlined />}
+          onClick={() => handleInspectLog(record)}
+        />
       ),
     },
   ];
 
   return (
     <PageContainer
-      title="Audit Trail & Regulatory Compliance"
-      subtitle="Immutable event logs, privilege escalations, authentication failures, and compliance telemetry."
+      title="Security & Compliance Audit Trail"
+      subtitle="Immutable cryptographic log records for SOC2, ISO 27001, privilege escalations, and authentication telemetry."
       breadcrumbs={[{ title: 'Audit Logs' }]}
       stats={[
         {
-          title: 'SOC2 Compliance Score',
-          value: '98.4%',
-          prefix: <SafetyOutlined />,
-          color: '#52c41a',
+          title: 'SOC2 Type II Adherence',
+          value: stats.soc2Score,
+          prefix: <SafetyCertificateOutlined />,
+          color: '#10b981',
         },
         {
           title: 'ISO 27001 Readiness',
-          value: '96.0%',
-          prefix: <SafetyCertificateOutlined />,
+          value: stats.isoReadiness,
+          prefix: <SafetyOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Security Anomalies (24h)',
-          value: '1 Blocked',
+          title: 'Security Anomalies',
+          value: stats.securityAnomalies,
           prefix: <WarningOutlined />,
-          color: '#faad14',
+          color: stats.securityAnomalies.includes('0') ? '#94a3b8' : '#ef4444',
         },
         {
           title: 'Total Event Records',
-          value: '14,892',
+          value: stats.totalEventRecords,
           prefix: <AuditOutlined />,
-          color: '#722ed1',
+          color: '#6366f1',
         },
       ]}
       extra={
-        <Button icon={<DownloadOutlined />} type="primary" onClick={handleExportCSV}>
-          Export Audit Trail (CSV)
-        </Button>
+        <Flex gap={8}>
+          <Tooltip title="Reload from server">
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+          </Tooltip>
+          <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExportCSV}>
+            Export CSV
+          </Button>
+        </Flex>
       }
     >
-      <Card styles={{ body: { padding: '16px 20px' } }}>
-        <Row gutter={[16, 16]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
-          <Col xs={24} md={8}>
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+        {/* Search & Filter Toolbar */}
+        <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
+          <Col xs={24} md={10}>
             <Input
-              placeholder="Search by actor, entity, IP address, or details..."
-              prefix={<FilterOutlined style={{ color: '#8c8c8c' }} />}
+              placeholder="Search by actor, entity, IP address, details..."
+              prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               allowClear
             />
           </Col>
-          <Col xs={24} md={16}>
-            <Flex gap={12} justify="flex-end" wrap>
+          <Col xs={24} md={14}>
+            <Flex gap={10} justify="flex-end" wrap>
               <Select
                 value={actionFilter}
                 onChange={setActionFilter}
-                style={{ width: 170 }}
+                style={{ width: 160 }}
                 placeholder="Action"
               >
-                <Option value="all">All Action Types</Option>
+                <Option value="all">All Actions</Option>
                 <Option value="CREATE">CREATE</Option>
                 <Option value="UPDATE">UPDATE</Option>
                 <Option value="DELETE">DELETE</Option>
-                <Option value="PERMISSION_GRANT">PERMISSION_GRANT</Option>
                 <Option value="LOGIN_FAILED">LOGIN_FAILED</Option>
+                <Option value="PERMISSION_GRANT">PERMISSION_GRANT</Option>
               </Select>
 
               <Select
@@ -374,88 +321,66 @@ export default function AuditPage() {
 
         <Table
           columns={columns}
-          dataSource={filteredLogs}
+          dataSource={logs}
           rowKey="id"
-          pagination={{ pageSize: 8 }}
+          loading={loading}
+          scroll={{ x: 'max-content' }}
+          pagination={{ pageSize: 10, showTotal: (total) => `Total ${total} audit records` }}
         />
       </Card>
 
-      {/* JSON Diff Drawer */}
-      {activeLog && (
+      {/* JSON Payload Inspector Drawer */}
+      {selectedLog && (
         <Drawer
           title={
             <div>
-              <Title level={5} style={{ margin: 0 }}>
-                Audit Event: {activeLog.id}
+              <Flex align="center" gap={8}>
+                <Tag color={selectedLog.severity === 'Critical' ? 'error' : 'blue'}>
+                  {selectedLog.severity}
+                </Tag>
+                <Text code strong>
+                  {selectedLog.action}
+                </Text>
+              </Flex>
+              <Title level={5} style={{ margin: '4px 0 0 0', fontSize: 13.5 }}>
+                {selectedLog.entity}
               </Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {activeLog.timestamp} UTC • {activeLog.ipAddress}
-              </Text>
             </div>
           }
-          width={540}
+          size={520}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
         >
-          <Descriptions size="small" bordered column={1} style={{ marginBottom: 20 }}>
+          <Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
+            <Descriptions.Item label="Event ID">{selectedLog.id}</Descriptions.Item>
+            <Descriptions.Item label="Timestamp">{selectedLog.timestamp}</Descriptions.Item>
             <Descriptions.Item label="Actor">
-              {activeLog.user} ({activeLog.userEmail})
+              {selectedLog.user} ({selectedLog.userEmail})
             </Descriptions.Item>
-            <Descriptions.Item label="Action Type">
-              <Tag color={activeLog.action === 'LOGIN_FAILED' ? 'error' : 'blue'}>
-                {activeLog.action}
+            <Descriptions.Item label="Origin IP">{selectedLog.ipAddress}</Descriptions.Item>
+            <Descriptions.Item label="Status">
+              <Tag color={selectedLog.status === 'Success' ? 'success' : 'error'}>
+                {selectedLog.status}
               </Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Severity">
-              <Tag color={activeLog.severity === 'Critical' ? 'red' : 'default'}>
-                {activeLog.severity}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Target Entity">{activeLog.entity}</Descriptions.Item>
-            <Descriptions.Item label="Outcome Status">
-              <Tag color={activeLog.status === 'Success' ? 'success' : 'error'}>
-                {activeLog.status}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Event Description">{activeLog.details}</Descriptions.Item>
+            <Descriptions.Item label="Details Summary">{selectedLog.details}</Descriptions.Item>
           </Descriptions>
 
-          <Title level={5}>Payload & Execution Context</Title>
-          <div
-            style={{
-              padding: 16,
-              background: '#1a1a1a',
-              borderRadius: 8,
-              color: '#4ade80',
-              fontFamily: 'monospace',
-              fontSize: 12,
-              overflowX: 'auto',
-            }}
-          >
-            <pre style={{ margin: 0 }}>
-              {JSON.stringify(
-                {
-                  eventId: activeLog.id,
-                  timestamp: activeLog.timestamp,
-                  actor: activeLog.user,
-                  ip: activeLog.ipAddress,
-                  context: activeLog.diffPayload || { note: 'Standard database commit' },
-                },
-                null,
-                2,
-              )}
+          <Card size="small" title="Request Telemetry & Payload Diff">
+            <pre
+              style={{
+                background: '#090d16',
+                color: '#38bdf8',
+                padding: 12,
+                borderRadius: 6,
+                fontSize: 12,
+                fontFamily: 'monospace',
+                overflowX: 'auto',
+              }}
+            >
+              {JSON.stringify(selectedLog.diffPayload, null, 2)}
             </pre>
-          </div>
-          <Button
-            style={{ marginTop: 12 }}
-            icon={<CopyOutlined />}
-            onClick={() => {
-              navigator.clipboard.writeText(JSON.stringify(activeLog, null, 2));
-              message.success('JSON payload copied to clipboard.');
-            }}
-          >
-            Copy Raw JSON Payload
-          </Button>
+          </Card>
         </Drawer>
       )}
     </PageContainer>

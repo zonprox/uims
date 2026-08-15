@@ -1,23 +1,29 @@
 import { api } from './api';
 
+export interface LoginResponse {
+  token: string;
+  accessToken: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+}
+
 export const authService = {
-  login: async (credentials: any) => {
-    // Mock login for now
-    if (credentials.email && credentials.password) {
-      return {
-        data: {
-          token: 'mock-jwt-token',
-          user: { id: '1', email: credentials.email, name: 'Admin User', role: 'admin' },
-        },
-      };
-    }
-    throw new Error('Invalid credentials');
+  login: async (credentials: {
+    email: string;
+    password: string;
+  }): Promise<{ data: LoginResponse }> => {
+    const res = await api.post('/auth/login', credentials);
+    return res.data;
   },
   logout: async () => {
-    // await api.post('/auth/logout');
+    // Local logout cleanup
   },
   getProfile: async () => {
-    const response = await api.get('/auth/me');
-    return response.data;
+    const res = await api.get('/auth/me');
+    return res.data;
   },
 };

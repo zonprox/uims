@@ -13,14 +13,14 @@ export interface ThemeColorPreset {
   info: string;
 }
 
-export const COLOR_PRESETS: ThemeColorPreset[] = [
+export const COLOR_PRESETS: Array<ThemeColorPreset> = [
   {
-    name: 'Geek Blue',
+    name: 'Enterprise Blue',
     key: 'blue',
     primary: '#1677ff',
-    success: '#52c41a',
-    warning: '#faad14',
-    error: '#ff4d4f',
+    success: '#10b981',
+    warning: '#f59e0b',
+    error: '#ef4444',
     info: '#1677ff',
   },
   {
@@ -42,31 +42,31 @@ export const COLOR_PRESETS: ThemeColorPreset[] = [
     info: '#06b6d4',
   },
   {
-    name: 'Emerald Corporate',
+    name: 'Emerald Green',
     key: 'emerald',
     primary: '#059669',
     success: '#10b981',
-    warning: '#eab308',
+    warning: '#f59e0b',
     error: '#e11d48',
     info: '#0284c7',
   },
   {
-    name: 'Vibrant Violet',
+    name: 'Slate Minimal',
+    key: 'slate',
+    primary: '#334155',
+    success: '#10b981',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    info: '#3b82f6',
+  },
+  {
+    name: 'Royal Violet',
     key: 'violet',
     primary: '#7c3aed',
     success: '#10b981',
     warning: '#f59e0b',
     error: '#f43f5e',
     info: '#6366f1',
-  },
-  {
-    name: 'Midnight Amber',
-    key: 'amber',
-    primary: '#d97706',
-    success: '#16a34a',
-    warning: '#f59e0b',
-    error: '#dc2626',
-    info: '#2563eb',
   },
 ];
 
@@ -89,7 +89,7 @@ export const useThemeStore = create<ThemeState>()(
       mode: 'light',
       compact: false,
       presetKey: 'blue',
-      borderRadius: 8,
+      borderRadius: 6,
       setMode: (mode: ThemeMode) => set({ mode }),
       toggleMode: () => set((state) => ({ mode: state.mode === 'light' ? 'dark' : 'light' })),
       setCompact: (compact: boolean) => set({ compact }),

@@ -8,6 +8,105 @@ interface GetThemeOptions {
   borderRadius: number;
 }
 
+function getThemeTokens(isDark: boolean, preset: ThemeColorPreset, borderRadius: number) {
+  return {
+    colorPrimary: preset.primary,
+    colorSuccess: preset.success,
+    colorWarning: preset.warning,
+    colorError: preset.error,
+    colorInfo: preset.info,
+    borderRadius,
+    fontFamily:
+      "'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    fontSize: 13.5,
+    wireframe: false,
+    colorBgLayout: isDark ? '#090d16' : '#f8fafc',
+    colorBgContainer: isDark ? '#0f172a' : '#ffffff',
+    colorBgElevated: isDark ? '#1e293b' : '#ffffff',
+    colorBorder: isDark ? '#1e293b' : '#e2e8f0',
+    colorBorderSecondary: isDark ? '#172033' : '#f1f5f9',
+    colorText: isDark ? '#f8fafc' : '#0f172a',
+    colorTextSecondary: isDark ? '#94a3b8' : '#475569',
+    colorTextTertiary: isDark ? '#64748b' : '#94a3b8',
+  };
+}
+
+function getComponentThemes(isDark: boolean, preset: ThemeColorPreset, borderRadius: number) {
+  return {
+    Layout: {
+      headerBg: isDark ? '#0f172a' : '#ffffff',
+      headerHeight: 56,
+      headerPadding: '0 20px',
+      siderBg: isDark ? '#080c14' : '#0f172a',
+      bodyBg: isDark ? '#090d16' : '#f8fafc',
+      footerBg: isDark ? '#090d16' : '#f8fafc',
+    },
+    Menu: {
+      darkItemBg: isDark ? '#080c14' : '#0f172a',
+      darkSubMenuItemBg: isDark ? '#060910' : '#0a0f1d',
+      darkItemSelectedBg: preset.primary,
+      darkItemColor: 'rgba(248, 250, 252, 0.75)',
+      darkItemSelectedColor: '#ffffff',
+      itemBorderRadius: 6,
+      itemMarginInline: 8,
+      itemMarginBlock: 2,
+      itemHeight: 38,
+      iconMarginInlineEnd: 8,
+      iconSize: 15,
+    },
+    Card: {
+      headerHeight: 44,
+      headerFontSize: 14,
+      borderRadiusLG: borderRadius,
+      paddingLG: 18,
+    },
+    Table: {
+      headerBg: isDark ? '#131c2e' : '#f8fafc',
+      headerColor: isDark ? '#94a3b8' : '#475569',
+      headerBorderRadius: borderRadius,
+      rowHoverBg: isDark ? '#1e293b' : '#f1f5f9',
+      borderColor: isDark ? '#1e293b' : '#f1f5f9',
+    },
+    Button: {
+      controlHeight: 36,
+      borderRadius,
+      fontWeight: 500,
+    },
+    Input: {
+      controlHeight: 36,
+      borderRadius,
+    },
+    Select: {
+      controlHeight: 36,
+      borderRadius,
+    },
+    DatePicker: {
+      controlHeight: 36,
+      borderRadius,
+    },
+    Tabs: {
+      horizontalItemPadding: '10px 16px',
+      itemSelectedColor: preset.primary,
+      inkBarColor: preset.primary,
+    },
+    Tag: {
+      borderRadiusSM: 4,
+    },
+    Badge: {
+      indicatorHeight: 18,
+    },
+    Modal: {
+      borderRadiusLG: borderRadius + 2,
+    },
+    Drawer: {
+      borderRadiusSM: borderRadius,
+    },
+    Segmented: {
+      borderRadius,
+    },
+  };
+}
+
 export function buildThemeConfig({
   mode,
   compact,
@@ -15,13 +114,7 @@ export function buildThemeConfig({
   borderRadius,
 }: GetThemeOptions): ThemeConfig {
   const isDark = mode === 'dark';
-
-  const algorithms = [];
-  if (isDark) {
-    algorithms.push(theme.darkAlgorithm);
-  } else {
-    algorithms.push(theme.defaultAlgorithm);
-  }
+  const algorithms = [isDark ? theme.darkAlgorithm : theme.defaultAlgorithm];
 
   if (compact) {
     algorithms.push(theme.compactAlgorithm);
@@ -29,98 +122,22 @@ export function buildThemeConfig({
 
   return {
     algorithm: algorithms,
-    token: {
-      colorPrimary: preset.primary,
-      colorSuccess: preset.success,
-      colorWarning: preset.warning,
-      colorError: preset.error,
-      colorInfo: preset.info,
-      borderRadius,
-      fontFamily:
-        "'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      fontSize: 14,
-      wireframe: false,
-      // Subtle background colors
-      colorBgLayout: isDark ? '#0b0f19' : '#f4f6f9',
-      colorBgContainer: isDark ? '#111827' : '#ffffff',
-      colorBgElevated: isDark ? '#1f2937' : '#ffffff',
-      colorBorderSecondary: isDark ? '#1f2937' : '#eef2f6',
-    },
-    components: {
-      Layout: {
-        headerBg: isDark ? '#111827' : '#ffffff',
-        headerHeight: 64,
-        headerPadding: '0 24px',
-        siderBg: isDark ? '#0d131f' : '#001529',
-        bodyBg: isDark ? '#0b0f19' : '#f4f6f9',
-        footerBg: isDark ? '#0b0f19' : '#f4f6f9',
-      },
-      Menu: {
-        darkItemBg: isDark ? '#0d131f' : '#001529',
-        darkSubMenuItemBg: isDark ? '#090d16' : '#000c17',
-        darkItemSelectedBg: preset.primary,
-        darkItemColor: 'rgba(255, 255, 255, 0.85)',
-        itemBorderRadius: 6,
-        itemMarginInline: 8,
-      },
-      Card: {
-        headerHeight: 48,
-        headerFontSize: 15,
-        borderRadiusLG: borderRadius + 2,
-        boxShadowTertiary: isDark
-          ? '0 1px 3px 0 rgba(0, 0, 0, 0.37), 0 1px 2px -1px rgba(0, 0, 0, 0.37)'
-          : '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03)',
-      },
-      Table: {
-        headerBg: isDark ? '#1a2234' : '#f8fafc',
-        headerBorderRadius: borderRadius,
-        rowHoverBg: isDark ? '#1f2a3e' : '#f1f5f9',
-      },
-      Button: {
-        controlHeight: 36,
-        borderRadius,
-        fontWeight: 500,
-      },
-      Input: {
-        controlHeight: 36,
-        borderRadius,
-      },
-      Select: {
-        controlHeight: 36,
-        borderRadius,
-      },
-      Tabs: {
-        cardGutter: 4,
-        horizontalItemPadding: '12px 16px',
-      },
-      Tag: {
-        borderRadiusSM: 4,
-      },
-      Badge: {
-        indicatorHeight: 18,
-      },
-      Modal: {
-        borderRadiusLG: borderRadius + 4,
-      },
-      Drawer: {
-        borderRadiusSM: borderRadius,
-      },
-    },
+    token: getThemeTokens(isDark, preset, borderRadius),
+    components: getComponentThemes(isDark, preset, borderRadius),
   };
 }
 
-// Default export for initial load or backward compatibility
 export const themeConfig: ThemeConfig = buildThemeConfig({
   mode: 'light',
   compact: false,
   preset: {
-    name: 'Geek Blue',
+    name: 'Enterprise Blue',
     key: 'blue',
     primary: '#1677ff',
-    success: '#52c41a',
-    warning: '#faad14',
-    error: '#ff4d4f',
+    success: '#10b981',
+    warning: '#f59e0b',
+    error: '#ef4444',
     info: '#1677ff',
   },
-  borderRadius: 8,
+  borderRadius: 6,
 });

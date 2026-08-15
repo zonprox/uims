@@ -2,10 +2,10 @@ import {
   AppstoreOutlined,
   CheckCircleOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   EyeOutlined,
   FilterOutlined,
-  HistoryOutlined,
   LaptopOutlined,
   PlusOutlined,
   QrcodeOutlined,
@@ -16,7 +16,6 @@ import {
 import {
   App,
   Avatar,
-  Badge,
   Button,
   Card,
   Col,
@@ -24,7 +23,6 @@ import {
   Descriptions,
   Divider,
   Drawer,
-  Dropdown,
   Flex,
   Form,
   Input,
@@ -42,206 +40,126 @@ import {
   Typography,
 } from 'antd';
 import dayjs from 'dayjs';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import { type Asset, type AssetStats, assetsService } from '../../services/assets.service';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Title } = Typography;
 const { Option } = Select;
 
-export interface Asset {
-  id: string;
-  tag: string;
-  name: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  category: 'Laptop' | 'Desktop' | 'Server' | 'Monitor' | 'Networking' | 'Mobile';
-  status: 'Active' | 'In Repair' | 'In Storage' | 'Retired';
-  assignedTo: string;
-  assignedEmail: string;
-  location: string;
-  purchaseDate: string;
-  purchasePrice: number;
-  warrantyExpiry: string;
-  specs: {
-    cpu: string;
-    ram: string;
-    storage: string;
-    os: string;
-  };
+interface AssetFormValues {
+  tag?: string;
+  name?: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  category?: Asset['category'];
+  status?: Asset['status'];
+  assignedTo?: string;
+  location?: string;
+  purchaseDate?: dayjs.Dayjs;
+  purchasePrice?: number;
+  warrantyExpiry?: dayjs.Dayjs;
+  cpu?: string;
+  ram?: string;
+  storage?: string;
+  os?: string;
   notes?: string;
 }
 
-const INITIAL_ASSETS: Asset[] = [
-  {
-    id: '1',
-    tag: 'AST-1024',
-    name: 'MacBook Pro 16" M3 Max',
-    manufacturer: 'Apple',
-    model: 'MacBookPro18,2',
-    serialNumber: 'C02G8392MD6R',
-    category: 'Laptop',
-    status: 'Active',
-    assignedTo: 'Marcus Vance',
-    assignedEmail: 'marcus.vance@company.com',
-    location: 'NY Office - Floor 4',
-    purchaseDate: '2024-01-15',
-    purchasePrice: 3499,
-    warrantyExpiry: '2027-01-15',
-    specs: {
-      cpu: 'Apple M3 Max (16-core)',
-      ram: '64 GB Unified',
-      storage: '1 TB NVMe SSD',
-      os: 'macOS Sonoma 14.4',
-    },
-    notes: 'Issued for Lead Product Designer with multi-display hub.',
-  },
-  {
-    id: '2',
-    tag: 'AST-1025',
-    name: 'Dell UltraSharp 32" 4K Monitor',
-    manufacturer: 'Dell',
-    model: 'U3223QE',
-    serialNumber: 'CN-0N179F-74261',
-    category: 'Monitor',
-    status: 'Active',
-    assignedTo: 'Marcus Vance',
-    assignedEmail: 'marcus.vance@company.com',
-    location: 'NY Office - Floor 4',
-    purchaseDate: '2024-01-20',
-    purchasePrice: 899,
-    warrantyExpiry: '2027-01-20',
-    specs: {
-      cpu: 'N/A',
-      ram: 'N/A',
-      storage: 'N/A',
-      os: 'Firmware v1.04',
-    },
-  },
-  {
-    id: '3',
-    tag: 'AST-1026',
-    name: 'Dell PowerEdge R750 Server',
-    manufacturer: 'Dell',
-    model: 'PowerEdge R750 2U',
-    serialNumber: '8X9K3M2',
-    category: 'Server',
-    status: 'Active',
-    assignedTo: 'IT Operations',
-    assignedEmail: 'it-ops@company.com',
-    location: 'Data Center Rack B-04',
-    purchaseDate: '2023-05-10',
-    purchasePrice: 8500,
-    warrantyExpiry: '2028-05-10',
-    specs: {
-      cpu: '2x Intel Xeon Gold 6330',
-      ram: '256 GB ECC DDR4',
-      storage: '8x 3.84TB SAS SSD RAID 10',
-      os: 'Ubuntu Server 22.04 LTS',
-    },
-    notes: 'Hosts primary internal Kubernetes cluster nodes.',
-  },
-  {
-    id: '4',
-    tag: 'AST-1027',
-    name: 'Lenovo ThinkPad X1 Carbon Gen 11',
-    manufacturer: 'Lenovo',
-    model: 'ThinkPad 21HM',
-    serialNumber: 'PF-39K21L',
-    category: 'Laptop',
-    status: 'In Repair',
-    assignedTo: 'Sarah Chen',
-    assignedEmail: 'sarah.chen@company.com',
-    location: 'IT Repair Center',
-    purchaseDate: '2023-08-14',
-    purchasePrice: 1950,
-    warrantyExpiry: '2026-08-14',
-    specs: {
-      cpu: 'Intel Core i7-1365U',
-      ram: '32 GB LPDDR5',
-      storage: '512 GB PCIe 4.0 SSD',
-      os: 'Windows 11 Pro',
-    },
-    notes: 'Sent to Lenovo service center for battery replacement under warranty.',
-  },
-  {
-    id: '5',
-    tag: 'AST-1028',
-    name: 'Cisco Catalyst 9300 48-Port Switch',
-    manufacturer: 'Cisco',
-    model: 'C9300-48P-A',
-    serialNumber: 'FOC2438L0K4',
-    category: 'Networking',
-    status: 'Active',
-    assignedTo: 'Network Team',
-    assignedEmail: 'network-ops@company.com',
-    location: 'SF HQ Server Room',
-    purchaseDate: '2022-11-01',
-    purchasePrice: 4200,
-    warrantyExpiry: '2027-11-01',
-    specs: {
-      cpu: 'Cisco Quad-core x86',
-      ram: '16 GB DRAM',
-      storage: '16 GB Flash',
-      os: 'Cisco IOS XE 17.9',
-    },
-  },
-  {
-    id: '6',
-    tag: 'AST-1029',
-    name: 'Apple iPad Pro 12.9" M2',
-    manufacturer: 'Apple',
-    model: 'iPadPro6,6',
-    serialNumber: 'DMP8271LK3M',
-    category: 'Mobile',
-    status: 'In Storage',
-    assignedTo: 'Unassigned',
-    assignedEmail: '',
-    location: 'IT Storage Vault A',
-    purchaseDate: '2023-09-12',
-    purchasePrice: 1199,
-    warrantyExpiry: '2025-09-12',
-    specs: {
-      cpu: 'Apple M2 (8-core)',
-      ram: '8 GB Unified',
-      storage: '256 GB Storage',
-      os: 'iPadOS 17.4',
-    },
-    notes: 'Available for immediate checkout by field sales team.',
-  },
-];
+function buildAssetSpecs(values: AssetFormValues) {
+  return {
+    cpu: values.cpu ?? 'N/A',
+    ram: values.ram ?? 'N/A',
+    storage: values.storage ?? 'N/A',
+    os: values.os ?? 'N/A',
+  };
+}
+
+function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
+  const specs = buildAssetSpecs(values);
+  const purchaseDate = values.purchaseDate?.format('YYYY-MM-DD');
+  const warrantyExpiry = values.warrantyExpiry?.format('YYYY-MM-DD');
+
+  return {
+    tag: values.tag ?? '',
+    name: values.name ?? '',
+    manufacturer: values.manufacturer ?? '',
+    model: values.model ?? '',
+    serialNumber: values.serialNumber ?? '',
+    category: values.category ?? 'Laptop',
+    status: values.status ?? 'Active',
+    assignedTo: values.assignedTo || 'Unassigned',
+    location: values.location ?? '',
+    purchaseDate,
+    purchasePrice: values.purchasePrice ?? 0,
+    warrantyExpiry,
+    specs,
+    notes: values.notes,
+  };
+}
 
 export default function AssetsPage() {
-  const { message, modal } = App.useApp();
-  const [assets, setAssets] = useState<Asset[]>(INITIAL_ASSETS);
+  const { message } = App.useApp();
+  const [assets, setAssets] = useState<Array<Asset>>([]);
+  const [stats, setStats] = useState<AssetStats>({
+    total: 0,
+    active: 0,
+    inRepair: 0,
+    inStorage: 0,
+    retired: 0,
+  });
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Modal / Drawer state
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalSubmitting, setModalSubmitting] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrAsset, setQrAsset] = useState<Asset | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const [form] = Form.useForm();
 
-  // Filtered Assets
-  const filteredAssets = assets.filter((asset) => {
-    const matchesSearch =
-      asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.assignedTo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.location.toLowerCase().includes(searchQuery.toLowerCase());
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [list, statsData] = await Promise.all([
+        assetsService.getAssets({
+          search: searchQuery || undefined,
+          category: categoryFilter !== 'all' ? categoryFilter : undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+        }),
+        assetsService.getStats().catch(() => null),
+      ]);
+      setAssets(list);
+      if (statsData) {
+        setStats(statsData);
+      } else {
+        setStats({
+          total: list.length,
+          active: list.filter((a) => a.status === 'Active').length,
+          inRepair: list.filter((a) => a.status === 'In Repair').length,
+          inStorage: list.filter((a) => a.status === 'In Storage').length,
+          retired: list.filter((a) => a.status === 'Retired').length,
+        });
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to load assets from server.');
+    } finally {
+      setLoading(false);
+    }
+  }, [categoryFilter, message, searchQuery, statusFilter]);
 
-    const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
-    const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
-
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleOpenCreateModal = () => {
     setEditingAsset(null);
@@ -264,10 +182,10 @@ export default function AssetsPage() {
       ...asset,
       purchaseDate: asset.purchaseDate ? dayjs(asset.purchaseDate) : undefined,
       warrantyExpiry: asset.warrantyExpiry ? dayjs(asset.warrantyExpiry) : undefined,
-      cpu: asset.specs.cpu,
-      ram: asset.specs.ram,
-      storage: asset.specs.storage,
-      os: asset.specs.os,
+      cpu: asset.specs?.cpu,
+      ram: asset.specs?.ram,
+      storage: asset.specs?.storage,
+      os: asset.specs?.os,
     });
     setModalOpen(true);
   };
@@ -275,47 +193,37 @@ export default function AssetsPage() {
   const handleSaveAsset = async () => {
     try {
       const values = await form.validateFields();
-      const formattedAsset: Asset = {
-        id: editingAsset ? editingAsset.id : String(Date.now()),
-        tag: values.tag,
-        name: values.name,
-        manufacturer: values.manufacturer,
-        model: values.model,
-        serialNumber: values.serialNumber,
-        category: values.category,
-        status: values.status,
-        assignedTo: values.assignedTo || 'Unassigned',
-        assignedEmail: values.assignedEmail || '',
-        location: values.location,
-        purchaseDate: values.purchaseDate ? values.purchaseDate.format('YYYY-MM-DD') : '',
-        purchasePrice: values.purchasePrice || 0,
-        warrantyExpiry: values.warrantyExpiry ? values.warrantyExpiry.format('YYYY-MM-DD') : '',
-        specs: {
-          cpu: values.cpu || 'N/A',
-          ram: values.ram || 'N/A',
-          storage: values.storage || 'N/A',
-          os: values.os || 'N/A',
-        },
-        notes: values.notes,
-      };
+      setModalSubmitting(true);
+      const payload = buildAssetPayload(values);
 
       if (editingAsset) {
-        setAssets((prev) => prev.map((a) => (a.id === editingAsset.id ? formattedAsset : a)));
-        message.success(`Asset "${formattedAsset.tag}" updated successfully.`);
+        await assetsService.updateAsset(editingAsset.id, payload);
+        message.success(`Asset "${payload.tag}" updated successfully.`);
       } else {
-        setAssets((prev) => [formattedAsset, ...prev]);
-        message.success(`Asset "${formattedAsset.tag}" added to inventory.`);
+        await assetsService.createAsset(payload);
+        message.success(`Asset "${payload.tag}" added to database.`);
       }
 
       setModalOpen(false);
-    } catch (err) {
+      loadData();
+    } catch (err: unknown) {
       console.error(err);
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      message.error(apiErr.response?.data?.message || 'Failed to save asset.');
+    } finally {
+      setModalSubmitting(false);
     }
   };
 
-  const handleDeleteAsset = (id: string) => {
-    setAssets((prev) => prev.filter((a) => a.id !== id));
-    message.success('Asset deleted successfully.');
+  const handleDeleteAsset = async (id: string) => {
+    try {
+      await assetsService.deleteAsset(id);
+      message.success('Asset deleted successfully.');
+      loadData();
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to delete asset.');
+    }
   };
 
   const handleShowDetails = (asset: Asset) => {
@@ -328,60 +236,71 @@ export default function AssetsPage() {
     setQrModalOpen(true);
   };
 
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const csvData = await assetsService.exportCsv();
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `assets_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      message.success('Assets database exported successfully as CSV.');
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to export CSV.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const columns = [
     {
-      title: 'Asset Tag',
-      dataIndex: 'tag',
+      title: 'Asset Tag & Name',
       key: 'tag',
-      render: (tag: string, record: Asset) => (
+      render: (_: unknown, record: Asset) => (
         <div>
+          <Flex align="center" gap={8}>
+            <Text code strong style={{ fontSize: 13, color: '#1677ff' }}>
+              {record.tag}
+            </Text>
+            <Tag color="geekblue" style={{ fontSize: 11 }}>
+              {record.category}
+            </Tag>
+          </Flex>
           <Text
-            code
-            style={{ fontWeight: 600, color: '#1677ff', cursor: 'pointer' }}
+            strong
+            style={{ fontSize: 13, display: 'block', marginTop: 2, cursor: 'pointer' }}
             onClick={() => handleShowDetails(record)}
           >
-            {tag}
+            {record.name}
           </Text>
-          <div style={{ fontSize: 11, color: '#8c8c8c' }}>SN: {record.serialNumber}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Device & Model',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name: string, record: Asset) => (
-        <div>
-          <Text strong style={{ fontSize: 13 }}>
-            {name}
-          </Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-            {record.manufacturer} • {record.model}
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {record.manufacturer} {record.model}
           </Text>
         </div>
       ),
     },
     {
-      title: 'Category',
-      dataIndex: 'category',
-      key: 'category',
-      render: (category: string) => {
-        let icon = <LaptopOutlined />;
-        if (category === 'Server') icon = <AppstoreOutlined />;
-        return (
-          <Space>
-            {icon}
-            <span>{category}</span>
-          </Space>
-        );
-      },
+      title: 'Serial Number',
+      dataIndex: 'serialNumber',
+      key: 'serialNumber',
+      render: (serial: string) => (
+        <Text code style={{ fontSize: 12 }}>
+          {serial || 'N/A'}
+        </Text>
+      ),
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: Asset['status']) => {
-        let color = 'success';
+        let color = 'default';
+        if (status === 'Active') color = 'success';
         if (status === 'In Repair') color = 'warning';
         if (status === 'In Storage') color = 'processing';
         if (status === 'Retired') color = 'error';
@@ -389,36 +308,30 @@ export default function AssetsPage() {
       },
     },
     {
-      title: 'Assigned To',
+      title: 'Assigned User',
       dataIndex: 'assignedTo',
       key: 'assignedTo',
-      render: (assignedTo: string, record: Asset) =>
-        assignedTo !== 'Unassigned' ? (
-          <Flex align="center" gap={6}>
-            <Avatar size="small" style={{ backgroundColor: '#1677ff' }} icon={<UserOutlined />} />
-            <div>
-              <Text style={{ fontSize: 13 }}>{assignedTo}</Text>
-              <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                {record.location}
-              </Text>
-            </div>
-          </Flex>
-        ) : (
-          <Tag color="default">Unassigned</Tag>
-        ),
+      render: (user: string) => <Text style={{ fontSize: 13 }}>{user || 'Unassigned Pool'}</Text>,
     },
     {
-      title: 'Warranty',
+      title: 'Location',
+      dataIndex: 'location',
+      key: 'location',
+      render: (loc: string) => <Text style={{ fontSize: 12.5 }}>{loc}</Text>,
+    },
+    {
+      title: 'Warranty Expiry',
       dataIndex: 'warrantyExpiry',
       key: 'warrantyExpiry',
-      render: (warrantyExpiry: string) => {
-        const isExpiringSoon = dayjs(warrantyExpiry).diff(dayjs(), 'day') < 180;
+      render: (date: string) => {
+        if (!date) return <Text type="secondary">N/A</Text>;
+        const isExpiringSoon = dayjs(date).diff(dayjs(), 'day') < 90;
         return (
           <div>
-            <Text style={{ fontSize: 13 }}>{warrantyExpiry}</Text>
+            <Text style={{ fontSize: 12 }}>{date}</Text>
             {isExpiringSoon && (
-              <Tag color="warning" style={{ fontSize: 10, display: 'inline-block', marginTop: 2 }}>
-                Expires Soon
+              <Tag color="warning" style={{ display: 'inline-block', marginTop: 2, fontSize: 10 }}>
+                Expiring
               </Tag>
             )}
           </div>
@@ -428,20 +341,22 @@ export default function AssetsPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: Asset) => (
+      render: (_: unknown, record: Asset) => (
         <Space size="small">
-          <Tooltip title="View Detailed Specs">
+          <Tooltip title="View Specs">
             <Button
               type="text"
               shape="circle"
+              size="small"
               icon={<EyeOutlined />}
               onClick={() => handleShowDetails(record)}
             />
           </Tooltip>
-          <Tooltip title="Print QR Label">
+          <Tooltip title="QR Code">
             <Button
               type="text"
               shape="circle"
+              size="small"
               icon={<QrcodeOutlined />}
               onClick={() => handleShowQr(record)}
             />
@@ -450,19 +365,20 @@ export default function AssetsPage() {
             <Button
               type="text"
               shape="circle"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => handleOpenEditModal(record)}
             />
           </Tooltip>
           <Popconfirm
             title="Delete this asset?"
-            description="Are you sure you want to permanently remove this asset from inventory?"
+            description="Remove this hardware asset from active inventory?"
             onConfirm={() => handleDeleteAsset(record.id)}
             okText="Delete"
             okType="danger"
           >
             <Tooltip title="Delete">
-              <Button type="text" shape="circle" danger icon={<DeleteOutlined />} />
+              <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
         </Space>
@@ -478,53 +394,61 @@ export default function AssetsPage() {
       stats={[
         {
           title: 'Total Assets',
-          value: assets.length,
+          value: stats.total,
           prefix: <LaptopOutlined />,
           color: '#1677ff',
         },
         {
           title: 'Active in Use',
-          value: assets.filter((a) => a.status === 'Active').length,
+          value: stats.active,
           prefix: <CheckCircleOutlined />,
-          color: '#52c41a',
+          color: '#10b981',
         },
         {
           title: 'In Repair / RMA',
-          value: assets.filter((a) => a.status === 'In Repair').length,
+          value: stats.inRepair,
           prefix: <WarningOutlined />,
-          color: '#faad14',
+          color: '#f59e0b',
         },
         {
           title: 'In Storage Vault',
-          value: assets.filter((a) => a.status === 'In Storage').length,
+          value: stats.inStorage,
           prefix: <AppstoreOutlined />,
-          color: '#722ed1',
+          color: '#6366f1',
         },
       ]}
       extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
-          Provision New Asset
-        </Button>
+        <Flex gap={8}>
+          <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExportCSV}>
+            Export CSV
+          </Button>
+          <Tooltip title="Reload from server">
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+          </Tooltip>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
+            Provision Asset
+          </Button>
+        </Flex>
       }
     >
-      <Card styles={{ body: { padding: '20px 24px' } }} style={{ marginBottom: 20 }}>
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
         {/* Filter and Search Bar */}
-        <Row gutter={[16, 16]} align="middle" justify="space-between">
+        <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} md={10}>
             <Input
-              placeholder="Search by asset tag, serial, model, user, or location..."
-              prefix={<FilterOutlined style={{ color: '#8c8c8c' }} />}
+              placeholder="Search tag, serial, model, user, location..."
+              prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               allowClear
             />
           </Col>
           <Col xs={24} md={14}>
-            <Flex gap={12} justify="flex-end" wrap>
+            <Flex gap={10} justify="flex-end" wrap>
               <Select
                 value={categoryFilter}
                 onChange={setCategoryFilter}
-                style={{ width: 150 }}
+                style={{ width: 140 }}
                 placeholder="Category"
               >
                 <Option value="all">All Categories</Option>
@@ -533,16 +457,16 @@ export default function AssetsPage() {
                 <Option value="Server">Servers</Option>
                 <Option value="Monitor">Monitors</Option>
                 <Option value="Networking">Networking</Option>
-                <Option value="Mobile">Mobile Devices</Option>
+                <Option value="Mobile">Mobile</Option>
               </Select>
 
               <Select
                 value={statusFilter}
                 onChange={setStatusFilter}
-                style={{ width: 140 }}
+                style={{ width: 130 }}
                 placeholder="Status"
               >
-                <Option value="all">All Statuses</Option>
+                <Option value="all">All Status</Option>
                 <Option value="Active">Active</Option>
                 <Option value="In Repair">In Repair</Option>
                 <Option value="In Storage">In Storage</Option>
@@ -564,14 +488,14 @@ export default function AssetsPage() {
           </Col>
         </Row>
 
-        <Divider style={{ margin: '16px 0' }} />
-
         {/* Assets Data Table */}
         <Table
           columns={columns}
-          dataSource={filteredAssets}
+          dataSource={assets}
           rowKey="id"
-          pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} assets` }}
+          loading={loading}
+          scroll={{ x: 'max-content' }}
+          pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} items` }}
         />
       </Card>
 
@@ -581,11 +505,12 @@ export default function AssetsPage() {
         open={modalOpen}
         onOk={handleSaveAsset}
         onCancel={() => setModalOpen(false)}
-        width={760}
+        confirmLoading={modalSubmitting}
+        width={680}
         okText={editingAsset ? 'Save Changes' : 'Create Asset'}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Row gutter={16}>
+        <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item
                 label="Asset Tag"
@@ -606,10 +531,10 @@ export default function AssetsPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item
-                label="Device / Model Name"
+                label="Device Model Name"
                 name="name"
                 rules={[{ required: true, message: 'Device name is required' }]}
               >
@@ -632,7 +557,7 @@ export default function AssetsPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={8}>
               <Form.Item label="Category" name="category" rules={[{ required: true }]}>
                 <Select>
@@ -662,7 +587,7 @@ export default function AssetsPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Assigned User" name="assignedTo">
                 <Input placeholder="e.g. Marcus Vance or Unassigned" />
@@ -675,22 +600,22 @@ export default function AssetsPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Purchase Date" name="purchaseDate">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Warranty Expiration Date" name="warrantyExpiry">
+              <Form.Item label="Warranty Expiry Date" name="warrantyExpiry">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
 
-          <Divider style={{ margin: '12px 0 16px 0' }}>Technical Specifications</Divider>
+          <Divider style={{ margin: '8px 0 14px 0' }}>Technical Specifications</Divider>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={6}>
               <Form.Item label="Processor (CPU)" name="cpu">
                 <Input placeholder="e.g. M3 Max 16-Core" />
@@ -716,7 +641,7 @@ export default function AssetsPage() {
           <Form.Item label="Internal Notes & Accessories" name="notes">
             <Input.TextArea
               rows={2}
-              placeholder="Add any special accessories, dock serial, or deployment notes..."
+              placeholder="Add deployment details or dock serial number..."
             />
           </Form.Item>
         </Form>
@@ -732,12 +657,13 @@ export default function AssetsPage() {
               <Tag color="blue">{selectedAsset.tag}</Tag>
             </Flex>
           }
-          width={580}
+          size={540}
           open={detailDrawerOpen}
           onClose={() => setDetailDrawerOpen(false)}
           extra={
             <Button
               type="primary"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => {
                 setDetailDrawerOpen(false);
@@ -761,7 +687,7 @@ export default function AssetsPage() {
                       bordered
                       size="small"
                       column={1}
-                      style={{ marginBottom: 20 }}
+                      style={{ marginBottom: 16 }}
                     >
                       <Descriptions.Item label="Asset Tag">{selectedAsset.tag}</Descriptions.Item>
                       <Descriptions.Item label="Serial Number">
@@ -786,19 +712,19 @@ export default function AssetsPage() {
                       bordered
                       size="small"
                       column={1}
-                      style={{ marginBottom: 20 }}
+                      style={{ marginBottom: 16 }}
                     >
                       <Descriptions.Item label="Processor">
-                        {selectedAsset.specs.cpu}
+                        {selectedAsset.specs?.cpu || 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label="RAM / Memory">
-                        {selectedAsset.specs.ram}
+                        {selectedAsset.specs?.ram || 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label="Storage Drive">
-                        {selectedAsset.specs.storage}
+                        {selectedAsset.specs?.storage || 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label="Operating System">
-                        {selectedAsset.specs.os}
+                        {selectedAsset.specs?.os || 'N/A'}
                       </Descriptions.Item>
                     </Descriptions>
 
@@ -807,10 +733,10 @@ export default function AssetsPage() {
                         {selectedAsset.purchaseDate}
                       </Descriptions.Item>
                       <Descriptions.Item label="Purchase Cost">
-                        ${selectedAsset.purchasePrice.toLocaleString()}
+                        ${(selectedAsset.purchasePrice || 0).toLocaleString()}
                       </Descriptions.Item>
                       <Descriptions.Item label="Warranty Expiration">
-                        {selectedAsset.warrantyExpiry}
+                        {selectedAsset.warrantyExpiry || 'N/A'}
                       </Descriptions.Item>
                       <Descriptions.Item label="Current Location">
                         {selectedAsset.location}
@@ -826,7 +752,7 @@ export default function AssetsPage() {
                   <Card size="small">
                     <Flex align="center" gap={12} style={{ marginBottom: 16 }}>
                       <Avatar
-                        size={48}
+                        size={40}
                         style={{ backgroundColor: '#1677ff' }}
                         icon={<UserOutlined />}
                       />
@@ -834,7 +760,7 @@ export default function AssetsPage() {
                         <Title level={5} style={{ margin: 0 }}>
                           {selectedAsset.assignedTo}
                         </Title>
-                        <Text type="secondary">
+                        <Text type="secondary" style={{ fontSize: 12 }}>
                           {selectedAsset.assignedEmail || 'No corporate email linked'}
                         </Text>
                       </div>
@@ -843,9 +769,8 @@ export default function AssetsPage() {
                       <Descriptions.Item label="Assigned Location">
                         {selectedAsset.location}
                       </Descriptions.Item>
-                      <Descriptions.Item label="Department">Engineering & Design</Descriptions.Item>
                       <Descriptions.Item label="Assignment Date">
-                        {selectedAsset.purchaseDate}
+                        {selectedAsset.purchaseDate || 'Recent'}
                       </Descriptions.Item>
                     </Descriptions>
                   </Card>
@@ -853,29 +778,29 @@ export default function AssetsPage() {
               },
               {
                 key: 'label',
-                label: 'QR Barcode Tag',
+                label: 'QR Barcode',
                 children: (
                   <Flex
                     vertical
                     align="center"
                     justify="center"
-                    gap={16}
-                    style={{ padding: '24px 0' }}
+                    gap={14}
+                    style={{ padding: '20px 0' }}
                   >
                     <div
                       style={{
-                        padding: 16,
-                        border: '2px dashed #1677ff',
-                        borderRadius: 12,
+                        padding: 14,
+                        border: '1px dashed #1677ff',
+                        borderRadius: 8,
                         background: '#fff',
                         textAlign: 'center',
                       }}
                     >
                       <QRCode
                         value={`https://uims.internal/assets/${selectedAsset.tag}`}
-                        size={160}
+                        size={150}
                       />
-                      <div style={{ marginTop: 8, fontWeight: 700, fontSize: 16, color: '#000' }}>
+                      <div style={{ marginTop: 6, fontWeight: 700, fontSize: 15, color: '#000' }}>
                         {selectedAsset.tag}
                       </div>
                       <div style={{ fontSize: 11, color: '#666' }}>
@@ -907,15 +832,17 @@ export default function AssetsPage() {
               Print Physical Sticker
             </Button>,
           ]}
-          width={380}
+          width={360}
           centered
         >
-          <Flex vertical align="center" justify="center" gap={12} style={{ padding: '20px 0' }}>
-            <QRCode value={`https://uims.internal/assets/${qrAsset.tag}`} size={180} />
-            <Text strong style={{ fontSize: 18 }}>
+          <Flex vertical align="center" justify="center" gap={10} style={{ padding: '16px 0' }}>
+            <QRCode value={`https://uims.internal/assets/${qrAsset.tag}`} size={160} />
+            <Text strong style={{ fontSize: 16 }}>
               {qrAsset.tag}
             </Text>
-            <Text type="secondary">{qrAsset.name}</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {qrAsset.name}
+            </Text>
             <Text code>{qrAsset.serialNumber}</Text>
           </Flex>
         </Modal>

@@ -18,6 +18,8 @@ enum LicenseType {
   SUBSCRIPTION
   PERPETUAL
   OPEN_SOURCE
+  VOLUME
+  OEM
 }
 
 enum LicenseStatus {
@@ -51,6 +53,7 @@ enum AccountStatus {
   ACTIVE
   DISABLED
   LOCKED
+  SUSPENDED
 }
 
 enum DirectorySource {
@@ -78,13 +81,17 @@ model User {
   firstName    String
   lastName     String
   roleId       String?
+  roleName     String?    @default("Employee")
   status       UserStatus @default(ACTIVE)
   avatar       String?
+  phone        String?
+  department   String?
+  location     String?
   lastLoginAt  DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  role               Role?               @relation(fields: [roleId], references: [id])
+  role               Role?               @relation(fields: [roleId], references: [id], onDelete: SetNull)
   assignedAssets     Asset[]             @relation("AssignedAssets")
   licenseAssignments LicenseAssignment[]
   createdTickets     Ticket[]            @relation("CreatedTickets")
@@ -113,8 +120,8 @@ model Permission {
 model RolePermission {
   roleId       String
   permissionId String
-  role         Role       @relation(fields: [roleId], references: [id])
-  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
 }
@@ -134,13 +141,21 @@ model Asset {
   warrantyExpiry DateTime?
   assignedToId   String?
   locationId     String?
+  specs          Json?
+  notes          String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  category   AssetCategory? @relation(fields: [categoryId], references: [id])
-  assignedTo User?          @relation("AssignedAssets", fields: [assignedToId], references: [id])
-  location   Location?      @relation(fields: [locationId], references: [id])
+  category   AssetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  assignedTo User?          @relation("AssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  location   Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
   history    AssetHistory[]
+
+  @@index([assignedToId])
+  @@index([categoryId])
+  @@index([locationId])
+  @@index([status])
+  @@index([assetTag])
 }
 
 model AssetCategory {
@@ -148,7 +163,7 @@ model AssetCategory {
   name        String
   description String?
   parentId    String?
-  parent      AssetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  parent      AssetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children    AssetCategory[] @relation("CategoryHierarchy")
   assets      Asset[]
 }
@@ -161,7 +176,30 @@ model AssetHistory {
   oldValue  Json?
   newValue  Json?
   timestamp DateTime @default(now())
-  asset     Asset    @relation(fields: [assetId], references: [id])
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([timestamp(sort: Desc)])
+}
+
+model InventoryItem {
+  id           String   @id @default(uuid())
+  sku          String   @unique
+  name         String
+  category     String
+  quantity     Int      @default(0)
+  minThreshold Int      @default(5)
+  unitCost     Float    @default(0)
+  location     String
+  binNumber    String?
+  supplier     String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([sku])
+  @@index([category])
+  @@index([quantity])
 }
 
 model License {
@@ -169,88 +207,131 @@ model License {
   name         String
   vendor       String?
   licenseKey   String?
-  type         LicenseType
+  type         LicenseType   @default(SUBSCRIPTION)
   totalSeats   Int
   usedSeats    Int           @default(0)
+  costPerSeat  Float         @default(0)
   purchaseDate DateTime?
   expiryDate   DateTime?
   cost         Float?
   status       LicenseStatus @default(ACTIVE)
+  autoRenew    Boolean       @default(true)
+  notes        String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   assignments LicenseAssignment[]
+
+  @@index([status])
+  @@index([vendor])
 }
 
 model LicenseAssignment {
-  id           String    @id @default(uuid())
-  licenseId    String
-  userId       String
-  assignedAt   DateTime  @default(now())
-  unassignedAt DateTime?
-  license      License   @relation(fields: [licenseId], references: [id])
-  user         User      @relation(fields: [userId], references: [id])
+  id            String    @id @default(uuid())
+  licenseId     String
+  userId        String?
+  assignedName  String?
+  assignedEmail String?
+  department    String?
+  assignedAt    DateTime  @default(now())
+  unassignedAt  DateTime?
+  license       License   @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([licenseId])
+  @@index([userId])
+  @@index([assignedEmail])
 }
 
 model DirectoryUser {
-  id            String          @id @default(uuid())
-  username      String          @unique
-  email         String          @unique
-  displayName   String?
-  department    String?
-  title         String?
-  manager       String?
-  accountStatus AccountStatus   @default(ACTIVE)
-  source        DirectorySource @default(LOCAL)
-  externalId    String?
-  lastSyncAt    DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id               String          @id @default(uuid())
+  username         String          @unique
+  email            String          @unique
+  displayName      String?
+  jobTitle         String?
+  department       String?
+  role             String?         @default("Employee")
+  phone            String?
+  location         String?
+  twoFactorEnabled Boolean         @default(false)
+  accountStatus    AccountStatus   @default(ACTIVE)
+  source           DirectorySource @default(LOCAL)
+  externalId       String?
+  lastLoginAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  memberships DirectoryMembership[]
+
+  @@index([accountStatus])
+  @@index([department])
 }
 
 model DirectoryGroup {
   id          String   @id @default(uuid())
   name        String
+  email       String?
   description String?
   type        String?
+  scope       String?  @default("Internal Only")
+  managedBy   String?
   memberCount Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  memberships DirectoryMembership[]
 }
 
 model DirectoryMembership {
   userId  String
   groupId String
+  user    DirectoryUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group   DirectoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@id([userId, groupId])
+  @@index([userId])
+  @@index([groupId])
 }
 
 model EmailAccount {
-  id          String   @id @default(uuid())
-  address     String   @unique
-  displayName String?
-  userId      String?
-  quota       Int?
-  usedSpace   Int?
-  status      String?
-  aliases     Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(uuid())
+  address           String   @unique
+  displayName       String?
+  type              String   @default("User")
+  department        String?
+  userId            String?
+  quotaUsed         Float    @default(0)
+  quotaTotal        Float    @default(50)
+  status            String   @default("Active")
+  forwardingAddress String?
+  autoReplyEnabled  Boolean  @default(false)
+  aliases           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model IPAddress {
   id          String   @id @default(uuid())
   address     String   @unique
-  subnetId    String?
-  macAddress  String?
   hostname    String?
+  macAddress  String?
+  vendor      String?
+  deviceType  String?  @default("Workstation")
+  subnetId    String?
+  subnetName  String?
+  vlanName    String?
   status      IPStatus @default(AVAILABLE)
+  pingStatus  String?  @default("online")
+  lastSeen    String?
   assignedTo  String?
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  subnet Subnet? @relation(fields: [subnetId], references: [id])
+  subnet Subnet? @relation(fields: [subnetId], references: [id], onDelete: SetNull)
+
+  @@index([subnetId])
+  @@index([status])
 }
 
 model Subnet {
@@ -258,12 +339,16 @@ model Subnet {
   cidr        String   @unique
   name        String
   vlanId      String?
+  vlanName    String?
   gateway     String?
+  totalIps    Int      @default(254)
+  usedIps     Int      @default(0)
+  location    String?
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  vlan       VLAN?       @relation(fields: [vlanId], references: [id])
+  vlan        VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
   ipAddresses IPAddress[]
 }
 
@@ -279,23 +364,37 @@ model VLAN {
 }
 
 model Ticket {
-  id           String         @id @default(uuid())
-  title        String
-  description  String
-  priority     TicketPriority @default(MEDIUM)
-  status       TicketStatus   @default(OPEN)
-  categoryId   String?
-  createdById  String
-  assignedToId String?
-  dueDate      DateTime?
-  resolvedAt   DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id             String         @id @default(uuid())
+  ticketCode     String?        @unique
+  title          String
+  description    String?
+  category       String?
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(OPEN)
+  categoryId     String?
+  requesterName  String?
+  requesterEmail String?
+  assigneeName   String?
+  affectedAsset  String?
+  createdById    String?
+  assignedToId   String?
+  slaDeadline    String?
+  dueDate        DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  category   TicketCategory? @relation(fields: [categoryId], references: [id])
-  createdBy  User            @relation("CreatedTickets", fields: [createdById], references: [id])
-  assignedTo User?           @relation("AssignedTickets", fields: [assignedToId], references: [id])
-  comments   TicketComment[]
+  categoryRel TicketCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy   User?           @relation("CreatedTickets", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedTo  User?           @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  comments    TicketComment[]
+
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt(sort: Desc)])
 }
 
 model TicketCategory {
@@ -306,31 +405,51 @@ model TicketCategory {
 }
 
 model TicketComment {
-  id         String   @id @default(uuid())
-  ticketId   String
-  authorId   String
-  content    String
-  isInternal Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(uuid())
+  ticketId    String
+  authorId    String?
+  authorName  String?
+  authorEmail String?
+  avatarColor String?
+  isStaff     Boolean  @default(false)
+  content     String
+  isInternal  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  ticket Ticket @relation(fields: [ticketId], references: [id])
-  author User   @relation(fields: [authorId], references: [id])
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([authorId])
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  action    String
-  entity    String
-  entityId  String
-  oldValue  Json?
-  newValue  Json?
-  ipAddress String?
-  userAgent String?
-  timestamp DateTime @default(now())
+  id          String   @id @default(uuid())
+  userId      String?
+  userEmail   String?
+  userName    String?
+  action      String
+  severity    String   @default("Info")
+  entity      String
+  entityType  String?
+  entityId    String?
+  ipAddress   String?
+  status      String   @default("Success")
+  details     String?
+  diffPayload Json?
+  oldValue    Json?
+  newValue    Json?
+  userAgent   String?
+  timestamp   DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([timestamp(sort: Desc)])
+  @@index([entity])
+  @@index([action])
+  @@index([severity])
 }
 
 model Notification {
@@ -344,15 +463,27 @@ model Notification {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Setting {
-  id          String  @id @default(uuid())
-  key         String  @unique
+  id          String   @id @default(uuid())
+  key         String   @unique
   value       Json
   group       String
   description String?
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model ReportSchedule {
+  id         String   @id @default(uuid())
+  title      String
+  category   String
+  frequency  String
+  format     String   @default("PDF")
+  recipients String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Location {

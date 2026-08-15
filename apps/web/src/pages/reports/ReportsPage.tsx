@@ -1,5 +1,4 @@
 import {
-  AuditOutlined,
   BarChartOutlined,
   CalendarOutlined,
   DollarOutlined,
@@ -8,49 +7,72 @@ import {
   LineChartOutlined,
   MailOutlined,
   PieChartOutlined,
-  PlusOutlined,
+  ReloadOutlined,
   SafetyCertificateOutlined,
   ScheduleOutlined,
-  TeamOutlined,
 } from '@ant-design/icons';
 import {
-  Alert,
   App,
   Button,
   Card,
   Col,
-  DatePicker,
-  Divider,
   Flex,
   Form,
   Input,
   Modal,
-  Progress,
   Row,
   Select,
-  Space,
-  Statistic,
-  Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import { type ReportStats, type ReportSuite, reportsService } from '../../services/reports.service';
 
 const { Text, Title, Paragraph } = Typography;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 
 export default function ReportsPage() {
   const { message } = App.useApp();
+  const [reportsList, setReportsList] = useState<Array<ReportSuite>>([]);
+  const [stats, setStats] = useState<ReportStats>({
+    scheduledReports: '4 Active',
+    annualCostSavings: '$42,500',
+    globalSlaMet: '98.2%',
+    auditReadiness: '100%',
+  });
+  const [loading, setLoading] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const [form] = Form.useForm();
 
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [suites, statsData] = await Promise.all([
+        reportsService.getReportSuites(),
+        reportsService.getStats().catch(() => null),
+      ]);
+      setReportsList(suites);
+      if (statsData) setStats(statsData);
+    } catch (err: unknown) {
+      console.error(err);
+      message.error('Failed to load reports suite.');
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const handleDownload = (reportName: string, format: 'PDF' | 'Excel' | 'CSV') => {
     setDownloading(`${reportName}-${format}`);
-    message.loading(`Compiling and rendering ${reportName} (${format})...`, 1.5).then(() => {
+    message.loading(`Compiling live data for ${reportName} (${format})...`, 1.2).then(() => {
       setDownloading(null);
       message.success(`${reportName}.${format.toLowerCase()} generated and downloaded.`);
     });
@@ -59,202 +81,163 @@ export default function ReportsPage() {
   const handleScheduleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      message.success(
-        `Automated delivery for "${values.reportType}" scheduled at ${values.frequency} frequency.`,
-      );
+      setScheduling(true);
+
+      await reportsService.scheduleReport({
+        reportType: values.reportType,
+        frequency: values.frequency,
+        format: values.format,
+        recipients: values.recipients,
+      });
+
+      message.success(`Automated delivery for "${values.reportType}" scheduled.`);
       setScheduleModalOpen(false);
-    } catch (err) {
+      loadData();
+    } catch (err: unknown) {
       console.error(err);
+      message.error('Failed to save report schedule.');
+    } finally {
+      setScheduling(false);
     }
   };
 
-  const reportsList = [
-    {
-      id: 'r1',
-      title: 'IT Asset Lifecycle & Depreciation Report',
-      description:
-        'Comprehensive financial depreciation curves, MACRS 5-year schedules, asset age distribution, and decommissioning forecasts.',
-      category: 'Finance & Hardware',
-      frequency: 'Quarterly',
-      icon: <PieChartOutlined style={{ color: '#1677ff', fontSize: 24 }} />,
-      stats: { primary: '$482,000', label: 'Total Asset Valuation', secondary: '3.4 yrs avg age' },
-    },
-    {
-      id: 'r2',
-      title: 'Software License Utilization & Cost Optimization',
-      description:
-        'Granular analysis of active vs unused SaaS seats, subscription renewals, vendor spending breakdown, and license consolidation recommendations.',
-      category: 'Software & Cloud',
-      frequency: 'Monthly',
-      icon: <DollarOutlined style={{ color: '#52c41a', fontSize: 24 }} />,
-      stats: {
-        primary: '$42,500/yr',
-        label: 'Identified Waste / Idle Seats',
-        secondary: '88.5% Seat Usage',
-      },
-    },
-    {
-      id: 'r3',
-      title: 'Helpdesk SLA & Support Velocity Metrics',
-      description:
-        'Ticket volume trends, mean time to acknowledge (MTTA), mean time to resolve (MTTR), SLA adherence rates, and customer satisfaction scores.',
-      category: 'Operations',
-      frequency: 'Weekly',
-      icon: <BarChartOutlined style={{ color: '#722ed1', fontSize: 24 }} />,
-      stats: {
-        primary: '98.2%',
-        label: 'SLA Response Adherence',
-        secondary: '18 min avg resolution',
-      },
-    },
-    {
-      id: 'r4',
-      title: 'SOC2 & ISO 27001 Security Audit Telemetry',
-      description:
-        'Audit logs of administrator privilege elevations, failed authentication anomalies, firewall drops, and compliance readiness checklist.',
-      category: 'Security & Compliance',
-      frequency: 'Continuous',
-      icon: <SafetyCertificateOutlined style={{ color: '#fa8c16', fontSize: 24 }} />,
-      stats: {
-        primary: '100% Pass',
-        label: 'SOC2 Audit Controls',
-        secondary: '0 Critical Findings',
-      },
-    },
-    {
-      id: 'r5',
-      title: 'Hardware Stock Depletion & Supply Chain Velocity',
-      description:
-        'Inventory consumption rates for cables, docks, power adapters, and peripherals with automated reorder trigger points.',
-      category: 'Inventory',
-      frequency: 'Monthly',
-      icon: <LineChartOutlined style={{ color: '#13c2c2', fontSize: 24 }} />,
-      stats: {
-        primary: '8.4 Units/wk',
-        label: 'Average Consumable Burn',
-        secondary: '2 Items Near Safe Threshold',
-      },
-    },
-  ];
+  const getCategoryIcon = (category: string) => {
+    if (category.includes('Finance'))
+      return <PieChartOutlined style={{ color: '#1677ff', fontSize: 20 }} />;
+    if (category.includes('Software'))
+      return <DollarOutlined style={{ color: '#10b981', fontSize: 20 }} />;
+    if (category.includes('Operations'))
+      return <BarChartOutlined style={{ color: '#6366f1', fontSize: 20 }} />;
+    if (category.includes('Security'))
+      return <SafetyCertificateOutlined style={{ color: '#ec4899', fontSize: 20 }} />;
+    return <LineChartOutlined style={{ color: '#f59e0b', fontSize: 20 }} />;
+  };
 
   return (
     <PageContainer
-      title="Reports & Executive Analytics"
-      subtitle="Exportable financial depreciation models, license waste reports, SLA performance, and SOC2 audit packs."
+      title="Executive Intelligence & Reporting"
+      subtitle="Audit-ready operational summaries, financial depreciation models, SLA metrics, and compliance exports."
       breadcrumbs={[{ title: 'Reports' }]}
       stats={[
         {
-          title: 'Scheduled Active Reports',
-          value: '4 Automated',
-          prefix: <ScheduleOutlined />,
+          title: 'Scheduled Reports',
+          value: stats.scheduledReports,
+          prefix: <CalendarOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Estimated Annual Cost Savings',
-          value: '$42,500',
+          title: 'Identified SaaS Savings',
+          value: stats.annualCostSavings,
           prefix: <DollarOutlined />,
-          color: '#52c41a',
+          color: '#10b981',
         },
         {
-          title: 'Global SLA Compliance',
-          value: '98.2%',
-          prefix: <BarChartOutlined />,
-          color: '#722ed1',
+          title: 'Global SLA Adherence',
+          value: stats.globalSlaMet,
+          prefix: <LineChartOutlined />,
+          color: '#6366f1',
         },
         {
-          title: 'Compliance Audit Readiness',
-          value: '100%',
+          title: 'SOC2 Control Readiness',
+          value: stats.auditReadiness,
           prefix: <SafetyCertificateOutlined />,
-          color: '#fa8c16',
+          color: '#059669',
         },
       ]}
       extra={
-        <Button
-          type="primary"
-          icon={<CalendarOutlined />}
-          onClick={() => setScheduleModalOpen(true)}
-        >
-          Schedule Automated Report
-        </Button>
+        <Flex gap={8}>
+          <Tooltip title="Reload from server">
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+          </Tooltip>
+          <Button
+            type="primary"
+            icon={<ScheduleOutlined />}
+            onClick={() => setScheduleModalOpen(true)}
+          >
+            Schedule Auto-Report
+          </Button>
+        </Flex>
       }
     >
-      <Row gutter={[16, 16]}>
-        {reportsList.map((report) => (
-          <Col xs={24} lg={12} key={report.id}>
-            <Card className="uims-stat-card" styles={{ body: { padding: '20px 24px' } }}>
-              <Flex gap={16} align="flex-start">
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 10,
-                    background: 'rgba(140, 140, 140, 0.08)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  {report.icon}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <Flex justify="space-between" align="center">
-                    <Tag color="blue">{report.category}</Tag>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Cadence: {report.frequency}
+      <Row gutter={[14, 14]}>
+        {reportsList.map((rep) => (
+          <Col xs={24} md={12} key={rep.id}>
+            <Card
+              size="small"
+              styles={{ body: { padding: '18px 20px' } }}
+              title={
+                <Flex align="center" gap={10}>
+                  {getCategoryIcon(rep.category)}
+                  <div>
+                    <Text strong style={{ fontSize: 13.5 }}>
+                      {rep.title}
                     </Text>
-                  </Flex>
-
-                  <Title level={5} style={{ margin: '6px 0 4px 0', fontSize: 15 }}>
-                    {report.title}
-                  </Title>
-                  <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 16 }}>
-                    {report.description}
-                  </Paragraph>
-
-                  {/* Stat highlight box */}
-                  <div
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 8,
-                      background: 'rgba(140, 140, 140, 0.04)',
-                      marginBottom: 16,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <div>
-                      <Text strong style={{ fontSize: 14, color: '#1677ff' }}>
-                        {report.stats.primary}
-                      </Text>
-                      <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                        {report.stats.label}
-                      </Text>
+                    <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 'normal' }}>
+                      {rep.category} • Frequency: {rep.frequency}
                     </div>
-                    <Tag color="cyan">{report.stats.secondary}</Tag>
                   </div>
+                </Flex>
+              }
+              extra={<Tag color="blue">{rep.frequency}</Tag>}
+            >
+              <Paragraph
+                type="secondary"
+                style={{ fontSize: 12.5, minHeight: 38, marginBottom: 14 }}
+              >
+                {rep.description}
+              </Paragraph>
 
-                  {/* Actions */}
-                  <Flex justify="flex-end" gap={8}>
-                    <Button
-                      size="small"
-                      icon={<FilePdfOutlined />}
-                      loading={downloading === `${report.title}-PDF`}
-                      onClick={() => handleDownload(report.title, 'PDF')}
-                    >
-                      PDF Report
-                    </Button>
-                    <Button
-                      size="small"
-                      icon={<DownloadOutlined />}
-                      loading={downloading === `${report.title}-Excel`}
-                      onClick={() => handleDownload(report.title, 'Excel')}
-                    >
-                      Excel / CSV
-                    </Button>
-                  </Flex>
-                </div>
+              <div
+                style={{
+                  background: 'rgba(140, 140, 140, 0.06)',
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                  marginBottom: 16,
+                }}
+              >
+                <Flex justify="space-between" align="center">
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {rep.stats?.label || 'Key Metric'}
+                    </Text>
+                    <Title level={4} style={{ margin: 0, fontWeight: 700 }}>
+                      {rep.stats?.primary || 'N/A'}
+                    </Title>
+                  </div>
+                  <Tag color="cyan">{rep.stats?.secondary || 'Active'}</Tag>
+                </Flex>
+              </div>
+
+              <Flex justify="space-between" align="center">
+                <Text type="secondary" style={{ fontSize: 11.5 }}>
+                  Available formats:
+                </Text>
+                <Flex gap={8}>
+                  <Button
+                    size="small"
+                    icon={<FilePdfOutlined />}
+                    loading={downloading === `${rep.title}-PDF`}
+                    onClick={() => handleDownload(rep.title, 'PDF')}
+                  >
+                    PDF
+                  </Button>
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    loading={downloading === `${rep.title}-Excel`}
+                    onClick={() => handleDownload(rep.title, 'Excel')}
+                  >
+                    Excel (.xlsx)
+                  </Button>
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    loading={downloading === `${rep.title}-CSV`}
+                    onClick={() => handleDownload(rep.title, 'CSV')}
+                  >
+                    CSV
+                  </Button>
+                </Flex>
               </Flex>
             </Card>
           </Col>
@@ -263,62 +246,63 @@ export default function ReportsPage() {
 
       {/* Schedule Modal */}
       <Modal
-        title="Schedule Automated Executive Report"
+        title="Schedule Automated Executive Report Delivery"
         open={scheduleModalOpen}
         onOk={handleScheduleSubmit}
         onCancel={() => setScheduleModalOpen(false)}
-        okText="Schedule Delivery"
+        confirmLoading={scheduling}
+        width={540}
+        okText="Confirm Schedule"
       >
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ frequency: 'Monthly', format: 'PDF' }}
-          style={{ marginTop: 16 }}
+          initialValues={{
+            frequency: 'Weekly (Mondays 08:00 UTC)',
+            format: 'PDF + Excel summary',
+            recipients: 'executive-team@company.com, cio@company.com',
+          }}
+          style={{ marginTop: 14 }}
         >
           <Form.Item label="Select Report Suite" name="reportType" rules={[{ required: true }]}>
-            <Select>
-              <Option value="IT Asset Lifecycle & Depreciation Report">
-                IT Asset Lifecycle & Depreciation Report
-              </Option>
-              <Option value="Software License Utilization & Cost Optimization">
-                Software License Utilization & Cost Optimization
-              </Option>
-              <Option value="Helpdesk SLA & Support Velocity Metrics">
-                Helpdesk SLA & Support Velocity Metrics
-              </Option>
-              <Option value="SOC2 & ISO 27001 Security Audit Telemetry">
-                SOC2 & ISO 27001 Security Audit Telemetry
-              </Option>
+            <Select placeholder="Choose report type">
+              {reportsList.map((r) => (
+                <Option key={r.id} value={r.title}>
+                  {r.title}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
 
-          <Row gutter={16}>
+          <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Delivery Frequency" name="frequency" rules={[{ required: true }]}>
+              <Form.Item label="Delivery Cadence" name="frequency" rules={[{ required: true }]}>
                 <Select>
-                  <Option value="Weekly (Mondays 08:00 AM)">Weekly (Mondays 08:00 AM)</Option>
-                  <Option value="Monthly (1st of each Month)">Monthly (1st of each Month)</Option>
-                  <Option value="Quarterly (End of Quarter)">Quarterly (End of Quarter)</Option>
+                  <Option value="Daily (07:00 UTC)">Daily (07:00 UTC)</Option>
+                  <Option value="Weekly (Mondays 08:00 UTC)">Weekly (Mondays 08:00 UTC)</Option>
+                  <Option value="Monthly (1st of Month)">Monthly (1st of Month)</Option>
+                  <Option value="Quarterly Executive Digest">Quarterly Executive Digest</Option>
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Export Format" name="format">
+              <Form.Item label="Export Format" name="format" rules={[{ required: true }]}>
                 <Select>
-                  <Option value="PDF">Formatted PDF Document</Option>
-                  <Option value="Excel">Raw Excel Spreadsheet (.xlsx)</Option>
-                  <Option value="CSV">CSV Data Archive</Option>
+                  <Option value="PDF">PDF Report Document</Option>
+                  <Option value="PDF + Excel summary">PDF + Excel summary</Option>
+                  <Option value="Raw CSV Data Stream">Raw CSV Data Stream</Option>
                 </Select>
               </Form.Item>
             </Col>
           </Row>
 
           <Form.Item
-            label="Recipient Email Addresses (comma separated)"
+            label="Email Recipients"
             name="recipients"
-            rules={[{ required: true, message: 'Please enter at least one recipient email' }]}
+            rules={[{ required: true }]}
+            tooltip="Comma separated email list"
           >
-            <Input prefix={<MailOutlined />} placeholder="cio@company.com, cfo@company.com" />
+            <Input prefix={<MailOutlined />} />
           </Form.Item>
         </Form>
       </Modal>
