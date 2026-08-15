@@ -19,7 +19,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
 import { SettingsModule } from './modules/settings/settings.module';
-import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -34,7 +33,6 @@ import { UsersModule } from './modules/users/users.module';
     InventoryModule,
     DirectoryModule,
     NetworkModule,
-    TicketsModule,
     AuditModule,
     ReportsModule,
     SettingsModule,

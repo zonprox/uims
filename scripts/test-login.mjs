@@ -88,26 +88,20 @@ async function runTest() {
     await page.waitForSelector('text=Network IPAM & Infrastructure Topology', { timeout: 10000 });
     console.log('   ✅ Network page loaded successfully!');
 
-    // 10. Test Helpdesk Tickets Page
-    console.log('🔟 Testing Helpdesk Tickets (/tickets)...');
-    await page.goto('https://localhost:5679/tickets', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=IT Helpdesk & Incident Management', { timeout: 10000 });
-    console.log('   ✅ Helpdesk Tickets page loaded successfully!');
-
-    // 11. Test Security Audit Trail Page
-    console.log('1️⃣1️⃣ Testing Security Audit Trail (/audit)...');
+    // 10. Test Security Audit Trail Page
+    console.log('🔟 Testing Security Audit Trail (/audit)...');
     await page.goto('https://localhost:5679/audit', { waitUntil: 'networkidle', timeout: 15000 });
     await page.waitForSelector('text=Security & Compliance Audit Trail', { timeout: 10000 });
     console.log('   ✅ Audit Trail page loaded successfully!');
 
-    // 12. Test Reports Page
-    console.log('1️⃣2️⃣ Testing Executive Reports (/reports)...');
+    // 11. Test Reports Page
+    console.log('1️⃣1️⃣ Testing Executive Reports (/reports)...');
     await page.goto('https://localhost:5679/reports', { waitUntil: 'networkidle', timeout: 15000 });
     await page.waitForSelector('text=Executive Intelligence & Reporting', { timeout: 10000 });
     console.log('   ✅ Reports page loaded successfully!');
 
-    // 13. Test Settings Page
-    console.log('1️⃣3️⃣ Testing System Settings (/settings)...');
+    // 12. Test Settings Page
+    console.log('1️⃣2️⃣ Testing System Settings (/settings)...');
     await page.goto('https://localhost:5679/settings', {
       waitUntil: 'networkidle',
       timeout: 15000,
@@ -116,7 +110,7 @@ async function runTest() {
     console.log('   ✅ Settings page loaded successfully!');
 
     console.log('\n======================================================');
-    console.log('🎉 ALL 13 PLAYWRIGHT E2E TESTS PASSED 100% WITH ZERO ERRORS!');
+    console.log('🎉 ALL 12 PLAYWRIGHT E2E TESTS PASSED 100% WITH ZERO ERRORS!');
     console.log('======================================================');
   } catch (error) {
     console.error('❌ Playwright Test Suite Failed:', error);

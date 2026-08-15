@@ -4,8 +4,6 @@ import {
   IPStatus,
   LicenseStatus,
   LicenseType,
-  TicketPriority,
-  TicketStatus,
 } from '@uims/shared-types';
 
 /**
@@ -43,72 +41,6 @@ export function mapAssetStatusToLabel(status?: AssetStatus | string | null): str
       return 'Lost';
     default:
       return 'In Storage';
-  }
-}
-
-/**
- * Normalizes input string to TicketPriority enum
- */
-export function mapTicketPriority(priority?: string | null): TicketPriority {
-  if (!priority) return TicketPriority.MEDIUM;
-  const normalized = priority.toUpperCase().trim();
-  if (normalized === 'URGENT' || normalized === 'CRITICAL') return TicketPriority.URGENT;
-  if (normalized === 'HIGH') return TicketPriority.HIGH;
-  if (normalized === 'LOW') return TicketPriority.LOW;
-  return TicketPriority.MEDIUM;
-}
-
-/**
- * Maps TicketPriority enum to human-friendly UI label
- */
-export function mapTicketPriorityToLabel(priority?: TicketPriority | string | null): string {
-  if (!priority) return 'Medium';
-  const p = typeof priority === 'string' ? priority.toUpperCase() : priority;
-  switch (p) {
-    case TicketPriority.URGENT:
-    case 'URGENT':
-      return 'Urgent';
-    case TicketPriority.HIGH:
-    case 'HIGH':
-      return 'High';
-    case TicketPriority.LOW:
-    case 'LOW':
-      return 'Low';
-    default:
-      return 'Medium';
-  }
-}
-
-/**
- * Normalizes input string to TicketStatus enum
- */
-export function mapTicketStatus(status?: string | null): TicketStatus {
-  if (!status) return TicketStatus.OPEN;
-  const normalized = status.toUpperCase().trim().replace(/\s+/g, '_');
-  if (normalized === 'IN_PROGRESS' || normalized === 'INPROGRESS') return TicketStatus.IN_PROGRESS;
-  if (normalized === 'RESOLVED') return TicketStatus.RESOLVED;
-  if (normalized === 'CLOSED') return TicketStatus.CLOSED;
-  return TicketStatus.OPEN;
-}
-
-/**
- * Maps TicketStatus enum to human-friendly UI label
- */
-export function mapTicketStatusToLabel(status?: TicketStatus | string | null): string {
-  if (!status) return 'Open';
-  const s = typeof status === 'string' ? status.toUpperCase() : status;
-  switch (s) {
-    case TicketStatus.IN_PROGRESS:
-    case 'IN_PROGRESS':
-      return 'In Progress';
-    case TicketStatus.RESOLVED:
-    case 'RESOLVED':
-      return 'Resolved';
-    case TicketStatus.CLOSED:
-    case 'CLOSED':
-      return 'Closed';
-    default:
-      return 'Open';
   }
 }
 

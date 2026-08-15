@@ -1,6 +1,6 @@
 import {
-  CustomerServiceOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
   HomeOutlined,
   LaptopOutlined,
 } from '@ant-design/icons';
@@ -58,10 +58,10 @@ export default function NotFoundPage() {
                   </Button>
                   <Button
                     size="small"
-                    icon={<CustomerServiceOutlined />}
-                    onClick={() => navigate('/tickets')}
+                    icon={<DatabaseOutlined />}
+                    onClick={() => navigate('/inventory')}
                   >
-                    Helpdesk
+                    Inventory
                   </Button>
                   <Button
                     size="small"

@@ -5,8 +5,6 @@ import {
   IPStatus,
   LicenseStatus,
   LicenseType,
-  TicketPriority,
-  TicketStatus,
 } from '@uims/shared-types';
 import {
   mapAssetStatus,
@@ -19,10 +17,6 @@ import {
   mapLicenseStatusToLabel,
   mapLicenseType,
   mapLicenseTypeToLabel,
-  mapTicketPriority,
-  mapTicketPriorityToLabel,
-  mapTicketStatus,
-  mapTicketStatusToLabel,
 } from './enum';
 
 describe('Enum Normalization & Labeling Utilities', () => {
@@ -44,18 +38,6 @@ describe('Enum Normalization & Labeling Utilities', () => {
       expect(mapAssetStatusToLabel(AssetStatus.MAINTENANCE)).toBe('In Repair');
       expect(mapAssetStatusToLabel(AssetStatus.AVAILABLE)).toBe('In Storage');
       expect(mapAssetStatusToLabel(AssetStatus.RETIRED)).toBe('Retired');
-    });
-  });
-
-  describe('mapTicketStatus & mapTicketPriority', () => {
-    it('should map ticket status and priorities correctly', () => {
-      expect(mapTicketStatus('in_progress')).toBe(TicketStatus.IN_PROGRESS);
-      expect(mapTicketStatus('Resolved')).toBe(TicketStatus.RESOLVED);
-      expect(mapTicketStatusToLabel(TicketStatus.IN_PROGRESS)).toBe('In Progress');
-
-      expect(mapTicketPriority('Urgent')).toBe(TicketPriority.URGENT);
-      expect(mapTicketPriority('High')).toBe(TicketPriority.HIGH);
-      expect(mapTicketPriorityToLabel(TicketPriority.URGENT)).toBe('Urgent');
     });
   });
 

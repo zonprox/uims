@@ -1,14 +1,14 @@
 export interface SearchQueryDto {
   q: string;
   limit?: number;
-  type?: 'all' | 'assets' | 'tickets' | 'licenses' | 'users';
+  type?: 'all' | 'assets' | 'licenses' | 'users';
 }
 
 export interface SearchResultItem {
   id: string;
   title: string;
   subtitle?: string;
-  category: 'Asset' | 'Ticket' | 'License' | 'Directory' | 'Navigation';
+  category: 'Asset' | 'License' | 'Directory' | 'Navigation';
   path: string;
   status?: string;
   meta?: Record<string, unknown>;

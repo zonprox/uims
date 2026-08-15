@@ -10,7 +10,6 @@ import { licensesService } from './licenses.service';
 import { networkService } from './network.service';
 import { reportsService } from './reports.service';
 import { settingsService } from './settings.service';
-import { ticketsService } from './tickets.service';
 
 vi.mock('./api', () => ({
   api: {
@@ -45,22 +44,6 @@ describe('Frontend Service Clients', () => {
       const asset = await assetsService.createAsset({ name: 'MacBook Pro' });
       expect(api.post).toHaveBeenCalledWith('/assets', { name: 'MacBook Pro' });
       expect(asset.id).toBe('a1');
-    });
-  });
-
-  describe('ticketsService', () => {
-    it('should fetch tickets and ticket stats', async () => {
-      vi.mocked(api.get).mockResolvedValueOnce({ data: { data: [] } });
-      vi.mocked(api.get).mockResolvedValueOnce({
-        data: { data: { openIncidentQueue: 5, slaComplianceRate: '98.5%' } },
-      });
-
-      await ticketsService.getTickets();
-      const stats = await ticketsService.getStats();
-
-      expect(api.get).toHaveBeenCalledWith('/tickets', { params: undefined });
-      expect(api.get).toHaveBeenCalledWith('/tickets/stats');
-      expect(stats.slaComplianceRate).toBe('98.5%');
     });
   });
 

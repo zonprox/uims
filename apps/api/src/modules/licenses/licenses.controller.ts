@@ -1,12 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type {
-  AssignUserLicenseDto,
-  CreateLicenseDto,
-  LicenseQueryDto,
-  UpdateLicenseDto,
-} from '@uims/shared-types';
+import type { AssignUserLicenseDto, LicenseQueryDto } from '@uims/shared-types';
+import { CreateLicenseDto } from './dto/create-license.dto';
+import { UpdateLicenseDto } from './dto/update-license.dto';
 import { LicensesService } from './licenses.service';
+
 
 @ApiTags('licenses')
 @Controller('licenses')

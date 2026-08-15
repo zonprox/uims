@@ -1,7 +1,6 @@
 import {
   AuditOutlined,
   BarChartOutlined,
-  CustomerServiceOutlined,
   DatabaseOutlined,
   GlobalOutlined,
   LaptopOutlined,
@@ -74,14 +73,6 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/directory',
     icon: <TeamOutlined />,
     description: 'Employee directory and allocated equipment tracking',
-  },
-  {
-    key: 'tickets',
-    title: 'Maintenance & Repairs',
-    category: 'Servicing',
-    path: '/tickets',
-    icon: <CustomerServiceOutlined />,
-    description: 'Hardware repair requests, maintenance tickets, and SLAs',
   },
   {
     key: 'reports',
@@ -171,8 +162,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     switch (category) {
       case 'Asset':
         return <LaptopOutlined />;
-      case 'Ticket':
-        return <CustomerServiceOutlined />;
       case 'License':
         return <SafetyCertificateOutlined />;
       case 'Directory':
@@ -206,7 +195,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(140, 140, 140, 0.12)' }}>
         <Input
           prefix={<SearchOutlined style={{ fontSize: 16, color: '#94a3b8', marginRight: 6 }} />}
-          placeholder="Search assets, tickets, licenses, users, or jump to page..."
+          placeholder="Search assets, licenses, users, or jump to page..."
           variant="borderless"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

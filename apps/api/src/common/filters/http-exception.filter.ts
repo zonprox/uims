@@ -7,12 +7,28 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
+
+    let message = exception.message;
+    let errors: unknown = undefined;
+
+    if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      const respObj = exceptionResponse as Record<string, unknown>;
+      if (Array.isArray(respObj.message)) {
+        errors = respObj.message;
+        message = respObj.message[0] || exception.message;
+      } else if (typeof respObj.message === 'string') {
+        message = respObj.message;
+      }
+    }
 
     response.status(status).json({
       success: false,
       statusCode: status,
-      message: exception.message,
+      message,
+      ...(errors ? { errors } : {}),
       timestamp: new Date().toISOString(),
     });
   }
 }
+

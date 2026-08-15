@@ -10,10 +10,10 @@ export interface DashboardOverviewDto {
       seatUsagePercent: string;
       expiringCount: number;
     };
-    helpdesk: {
-      openCount: number;
-      urgentCount: number;
-      slaMetPercent: string;
+    inventory: {
+      totalItems: number;
+      lowStockCount: number;
+      totalUnits: number;
     };
     ipam: {
       used: number;

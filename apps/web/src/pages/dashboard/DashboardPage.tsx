@@ -2,7 +2,7 @@ import {
   AlertOutlined,
   ArrowUpOutlined,
   CloudServerOutlined,
-  CustomerServiceOutlined,
+  DatabaseOutlined,
   GlobalOutlined,
   LaptopOutlined,
   ReloadOutlined,
@@ -192,7 +192,7 @@ const KpiCardsGrid: React.FC<{ data: DashboardOverview | null }> = ({ data }) =>
       </Card>
     </Col>
 
-    {/* Open Tickets */}
+    {/* Spare Stockroom */}
     <Col xs={24} sm={12} lg={6}>
       <Card className="uims-stat-card" size="small" styles={{ body: { padding: '14px 16px' } }}>
         <Flex justify="space-between" align="flex-start">
@@ -206,26 +206,26 @@ const KpiCardsGrid: React.FC<{ data: DashboardOverview | null }> = ({ data }) =>
                 letterSpacing: '0.04em',
               }}
             >
-              Open Helpdesk Tickets
+              Spare Stockroom
             </Text>
             <Title
               level={3}
               style={{ margin: '2px 0 4px 0', fontWeight: 700, letterSpacing: '-0.02em' }}
             >
-              {data?.kpi?.helpdesk?.openCount ?? 0}
+              {data?.kpi?.inventory?.totalUnits ?? 0} Units
             </Title>
             <Flex align="center" gap={4}>
-              {data?.kpi?.helpdesk?.urgentCount ? (
-                <Tag color="error" style={{ margin: 0, fontSize: 10 }}>
-                  {data.kpi.helpdesk.urgentCount} Urgent
+              {data?.kpi?.inventory?.lowStockCount ? (
+                <Tag color="warning" style={{ margin: 0, fontSize: 10 }}>
+                  {data.kpi.inventory.lowStockCount} Low Stock
                 </Tag>
               ) : null}
               <Text type="secondary" style={{ fontSize: 11 }}>
-                {data?.kpi?.helpdesk?.slaMetPercent || '98.2%'} SLA Met
+                • {data?.kpi?.inventory?.totalItems || 0} items
               </Text>
             </Flex>
           </div>
-          <CustomerServiceOutlined style={{ fontSize: 20, color: '#f59e0b' }} />
+          <DatabaseOutlined style={{ fontSize: 20, color: '#f59e0b' }} />
         </Flex>
       </Card>
     </Col>
@@ -427,12 +427,12 @@ const QuickActionHub: React.FC<{ onNavigate: (path: string) => void }> = ({ onNa
         Assign Software License
       </Button>
       <Button
-        icon={<CustomerServiceOutlined />}
+        icon={<DatabaseOutlined />}
         block
         style={{ textAlign: 'left', display: 'flex', alignItems: 'center', height: 34 }}
-        onClick={() => onNavigate('/tickets')}
+        onClick={() => onNavigate('/inventory')}
       >
-        Log Maintenance Ticket
+        Manage Stockroom Inventory
       </Button>
       <Button
         icon={<TeamOutlined />}

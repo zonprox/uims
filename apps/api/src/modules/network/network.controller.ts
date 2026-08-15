@@ -1,12 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type {
-  CreateIPAddressDto,
-  CreateSubnetDto,
-  IPAddressQueryDto,
-  UpdateIPAddressDto,
-} from '@uims/shared-types';
+import type { IPAddressQueryDto } from '@uims/shared-types';
+import { CreateIPAddressDto } from './dto/create-ip.dto';
+import { CreateSubnetDto } from './dto/create-subnet.dto';
+import { UpdateIPAddressDto } from './dto/update-ip.dto';
 import { NetworkService } from './network.service';
+
 
 @ApiTags('network')
 @Controller('network')

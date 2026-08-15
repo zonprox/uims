@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
@@ -10,6 +10,7 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter'
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
   app.setGlobalPrefix('api/v1');
@@ -33,6 +34,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`Application is running on port ${port}`);
+  logger.log(`Application is running on port ${port}`);
 }
 bootstrap();
+

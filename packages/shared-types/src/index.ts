@@ -3,7 +3,6 @@ export * from './dto/auth';
 export * from './dto/common';
 export * from './dto/pagination';
 export * from './dto/assets.dto';
-export * from './dto/tickets.dto';
 export * from './dto/licenses.dto';
 export * from './dto/directory.dto';
 export * from './dto/network.dto';
@@ -22,7 +21,6 @@ export * from './entities/license';
 export * from './entities/network';
 export * from './entities/notification';
 export * from './entities/role';
-export * from './entities/ticket';
 export * from './entities/user';
 
 export * from './enums';

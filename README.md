@@ -30,7 +30,6 @@ Enterprise-grade centralized IT management platform built with modern 2026 tech 
 - **Email Management** — Email account lifecycle
 - **Network & IP** — IPAM, subnets, VLANs, DNS
 - **Hardware Inventory** — Physical inventory tracking
-- **Helpdesk & Tickets** — IT support ticketing
 - **Audit & Compliance** — Full audit trail
 - **Reports & Analytics** — Custom reports, exports
 - **Settings & Admin** — RBAC, system configuration

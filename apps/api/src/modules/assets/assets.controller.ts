@@ -1,7 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { AssetQueryDto, CreateAssetDto, UpdateAssetDto } from '@uims/shared-types';
+import type { AssetQueryDto } from '@uims/shared-types';
 import { AssetsService } from './assets.service';
+import { CreateAssetDto } from './dto/create-asset.dto';
+import { UpdateAssetDto } from './dto/update-asset.dto';
+
 
 @ApiTags('assets')
 @Controller('assets')

@@ -1,0 +1,60 @@
+# ==============================================================================
+# UIMS Docker Ignore File (2026 Best Practices)
+# ==============================================================================
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Planning & Docs
+.planning/
+*.md
+!README.md
+*.txt
+
+# Dependencies & Local Stores
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+
+# Build artifacts & caches
+dist/
+dist-*/
+build/
+out/
+.next/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Environment & local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+certs/
+
+# Logs & temp files
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+tmp/
+temp/
+
+# Test & Coverage
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+scripts/
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,13 +1,41 @@
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateLicenseDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
 
+  @IsOptional()
   @IsString()
-  type!: string;
+  vendor?: string;
 
-  @IsNumber()
-  totalSeats!: number;
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @IsOptional()
+  totalSeats?: number | string;
+
+  @IsOptional()
+  costPerSeat?: number | string;
+
+  @IsOptional()
+  expiryDate?: string | Date;
+
+  @IsOptional()
+  @IsString()
+  licenseKey?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  autoRenew?: boolean;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
+

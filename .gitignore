@@ -1,51 +1,133 @@
-# Dependencies
+# ==============================================================================
+# UIMS Monorepo .gitignore (2026 Best Practices)
+# Architecture: pnpm workspaces + Turborepo + NestJS 11 + React 19 + Prisma 7
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Package Managers & Dependencies
+# ------------------------------------------------------------------------------
 node_modules/
 .pnpm-store/
+.npm/
+.yarn/
+.yarn-cache/
+.pnp.*
+package-lock.json
+yarn.lock
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Build outputs
+# ------------------------------------------------------------------------------
+# Build Outputs & Compilation Caches
+# ------------------------------------------------------------------------------
 dist/
+dist-*/
+dist_*/
 build/
+out/
 .next/
+.nuxt/
+.output/
+.turbo/
+.cache/
+.parcel-cache/
+.swc/
+.tsdown/
 *.tsbuildinfo
+tsconfig.tsbuildinfo
 
-# Environment
+# ------------------------------------------------------------------------------
+# Environment, Credentials & Secrets
+# ------------------------------------------------------------------------------
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+*.jwt
+certs/
+secrets/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
+# ------------------------------------------------------------------------------
+# Logs & Process Telemetry
+# ------------------------------------------------------------------------------
 logs/
 *.log
-npm-debug.log*
-pnpm-debug.log*
+*.pid
+*.seed
+*.pid.lock
 
-# Testing
+# ------------------------------------------------------------------------------
+# Testing, Coverage & Playwright Reports
+# ------------------------------------------------------------------------------
 coverage/
+.nyc_output/
 test-results/
 playwright-report/
+playwright/.cache/
+blob-report/
+.vitest/
 
-# Prisma
+# ------------------------------------------------------------------------------
+# Database & Container Volume Persistence
+# ------------------------------------------------------------------------------
+docker/data/
+data/
+*.rdb
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sql.gz
+
+# Prisma (Keep migrations, ignore lock/temporary files)
 apps/api/prisma/migrations/**/migration_lock.toml
 
-# Docker volumes
-docker/data/
+# ------------------------------------------------------------------------------
+# IDE, Editors & Development Tools
+# ------------------------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*.swn
+*~
+*.bak
+*.sublime-project
+*.sublime-workspace
+.claude/
+.gemini/
+.cursor/
 
-# Turborepo
-.turbo/
+# ------------------------------------------------------------------------------
+# Operating System Artifacts
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
 
-# Misc
+# ------------------------------------------------------------------------------
+# Packaging & Temporary Files
+# ------------------------------------------------------------------------------
 *.tgz
-.cache/
-certs/
-*.pem
+*.tar.gz
+*.zip
+*.7z
+tmp/
+temp/
+.temp/

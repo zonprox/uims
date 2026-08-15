@@ -1,11 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type {
-  CreateInventoryItemDto,
-  InventoryQueryDto,
-  UpdateInventoryItemDto,
-} from '@uims/shared-types';
+import type { InventoryQueryDto } from '@uims/shared-types';
+import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
+import { RestockInventoryDto } from './dto/restock-inventory.dto';
+import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto';
 import { InventoryService } from './inventory.service';
+
 
 @ApiTags('inventory')
 @Controller('inventory')
@@ -50,7 +50,8 @@ export class InventoryController {
 
   @Post(':id/restock')
   @ApiOperation({ summary: 'Restock inventory SKU quantity' })
-  restock(@Param('id') id: string, @Body() body: { quantity: number }) {
+  restock(@Param('id') id: string, @Body() body: RestockInventoryDto) {
     return this.inventoryService.restock(id, body.quantity || 10);
   }
 }
+

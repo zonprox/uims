@@ -14,16 +14,6 @@ function mapMeiliHit(indexUid: string, hit: Record<string, unknown>): SearchResu
       status: hit.status as string,
     };
   }
-  if (indexUid === 'tickets') {
-    return {
-      id: String(hit.id),
-      title: `[${hit.ticketCode || hit.id}] ${hit.title}`,
-      subtitle: `Requester: ${hit.requesterName || 'Unknown'} • Priority: ${hit.priority}`,
-      category: 'Ticket',
-      path: '/tickets',
-      status: hit.status as string,
-    };
-  }
   if (indexUid === 'licenses') {
     return {
       id: String(hit.id),
@@ -125,7 +115,6 @@ export class SearchService implements OnModuleInit {
     const searchBody = {
       queries: [
         { indexUid: 'assets', q, limit },
-        { indexUid: 'tickets', q, limit },
         { indexUid: 'licenses', q, limit },
         { indexUid: 'users', q, limit },
       ],
@@ -159,7 +148,7 @@ export class SearchService implements OnModuleInit {
   }
 
   async searchDatabaseFallback(q: string, limit: number): Promise<SearchResponseDto> {
-    const [assets, tickets, licenses, users] = await Promise.all([
+    const [assets, licenses, users] = await Promise.all([
       this.prisma.asset.findMany({
         where: {
           OR: [
@@ -170,17 +159,6 @@ export class SearchService implements OnModuleInit {
           ],
         },
         include: { category: true },
-        take: limit,
-      }),
-      this.prisma.ticket.findMany({
-        where: {
-          OR: [
-            { title: { contains: q, mode: 'insensitive' } },
-            { ticketCode: { contains: q, mode: 'insensitive' } },
-            { description: { contains: q, mode: 'insensitive' } },
-            { requesterName: { contains: q, mode: 'insensitive' } },
-          ],
-        },
         take: limit,
       }),
       this.prisma.license.findMany({
@@ -216,14 +194,6 @@ export class SearchService implements OnModuleInit {
         path: '/assets',
         status: a.status,
       })),
-      ...tickets.map((t) => ({
-        id: t.id,
-        title: `[${t.ticketCode || t.id.substring(0, 8)}] ${t.title}`,
-        subtitle: `Requester: ${t.requesterName || 'Unknown'} • Priority: ${t.priority}`,
-        category: 'Ticket' as const,
-        path: '/tickets',
-        status: t.status,
-      })),
       ...licenses.map((l) => ({
         id: l.id,
         title: `${l.name} (${l.vendor || 'License'})`,
@@ -258,9 +228,8 @@ export class SearchService implements OnModuleInit {
     }
 
     try {
-      const [assets, tickets, licenses, users] = await Promise.all([
+      const [assets, licenses, users] = await Promise.all([
         this.prisma.asset.findMany({ include: { category: true } }),
-        this.prisma.ticket.findMany(),
         this.prisma.license.findMany(),
         this.prisma.directoryUser.findMany(),
       ]);
@@ -274,17 +243,6 @@ export class SearchService implements OnModuleInit {
         manufacturer: a.manufacturer,
         category: a.category?.name,
         status: a.status,
-      }));
-
-      const ticketDocs = tickets.map((t) => ({
-        id: t.id,
-        ticketCode: t.ticketCode,
-        title: t.title,
-        description: t.description,
-        requesterName: t.requesterName,
-        category: t.category,
-        priority: t.priority,
-        status: t.status,
       }));
 
       const licenseDocs = licenses.map((l) => ({
@@ -308,7 +266,6 @@ export class SearchService implements OnModuleInit {
 
       await Promise.all([
         this.sendDocuments('assets', assetDocs),
-        this.sendDocuments('tickets', ticketDocs),
         this.sendDocuments('licenses', licenseDocs),
         this.sendDocuments('users', userDocs),
       ]);
@@ -318,7 +275,6 @@ export class SearchService implements OnModuleInit {
         message: 'Successfully synchronized entities to Meilisearch indices',
         counts: {
           assets: assetDocs.length,
-          tickets: ticketDocs.length,
           licenses: licenseDocs.length,
           users: userDocs.length,
         },

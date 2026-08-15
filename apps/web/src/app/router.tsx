@@ -11,7 +11,6 @@ const LicensesPage = lazy(() => import('../pages/licenses/LicensesPage'));
 const DirectoryPage = lazy(() => import('../pages/directory/DirectoryPage'));
 const NetworkPage = lazy(() => import('../pages/network/NetworkPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
-const TicketsPage = lazy(() => import('../pages/tickets/TicketsPage'));
 const AuditPage = lazy(() => import('../pages/audit/AuditPage'));
 const ReportsPage = lazy(() => import('../pages/reports/ReportsPage'));
 const SettingsPage = lazy(() => import('../pages/settings/SettingsPage'));
@@ -78,14 +77,6 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader tip="Loading Spare Stockroom..." />}>
                 <InventoryPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: 'tickets',
-            element: (
-              <Suspense fallback={<PageLoader tip="Loading IT Helpdesk Queue..." />}>
-                <TicketsPage />
               </Suspense>
             ),
           },

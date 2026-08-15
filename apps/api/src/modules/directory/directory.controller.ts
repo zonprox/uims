@@ -1,12 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type {
-  CreateDirectoryGroupDto,
-  CreateDirectoryUserDto,
-  DirectoryUserQueryDto,
-  UpdateDirectoryUserDto,
-} from '@uims/shared-types';
+import type { DirectoryUserQueryDto } from '@uims/shared-types';
+import { CreateDirectoryGroupDto } from './dto/create-directory-group.dto';
+import { CreateDirectoryUserDto } from './dto/create-directory-user.dto';
+import { UpdateDirectoryUserDto } from './dto/update-directory-user.dto';
 import { DirectoryService } from './directory.service';
+
 
 @ApiTags('directory')
 @Controller('directory')

@@ -10,7 +10,7 @@ export class SearchController {
 
   @Get()
   @ApiOperation({
-    summary: 'Global full-text search across assets, tickets, licenses, and directory',
+    summary: 'Global full-text search across assets, licenses, and directory',
   })
   search(@Query() query: SearchQueryDto) {
     return this.searchService.search(query);

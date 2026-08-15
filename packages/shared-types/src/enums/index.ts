@@ -3,5 +3,5 @@ export { AccountStatus, DirectorySource } from '../entities/directory';
 export { LicenseStatus, LicenseType } from '../entities/license';
 export { IPStatus } from '../entities/network';
 export { NotificationType } from '../entities/notification';
-export { TicketPriority, TicketStatus } from '../entities/ticket';
 export { UserStatus } from '../entities/user';
+

@@ -4,9 +4,8 @@ import { ReportsService } from './reports.service';
 describe('ReportsService', () => {
   let service: ReportsService;
   let mockPrisma: {
-    asset: { aggregate: ReturnType<typeof vi.fn> };
+    asset: { aggregate: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn> };
     license: { findMany: ReturnType<typeof vi.fn> };
-    ticket: { count: ReturnType<typeof vi.fn> };
     reportSchedule: {
       count: ReturnType<typeof vi.fn>;
       findMany: ReturnType<typeof vi.fn>;
@@ -16,9 +15,8 @@ describe('ReportsService', () => {
 
   beforeEach(() => {
     mockPrisma = {
-      asset: { aggregate: vi.fn() },
+      asset: { aggregate: vi.fn(), count: vi.fn() },
       license: { findMany: vi.fn() },
-      ticket: { count: vi.fn() },
       reportSchedule: { count: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     };
     service = new ReportsService(
@@ -27,14 +25,14 @@ describe('ReportsService', () => {
   });
 
   describe('getStats', () => {
-    it('should aggregate financial, SaaS, and SLA KPIs', async () => {
+    it('should aggregate financial, SaaS, and fleet utilization KPIs', async () => {
       mockPrisma.reportSchedule.count.mockResolvedValue(4);
       mockPrisma.license.findMany.mockResolvedValue([
         { totalSeats: 100, usedSeats: 50, costPerSeat: 20 },
       ]);
-      mockPrisma.ticket.count
-        .mockResolvedValueOnce(100) // totalTickets
-        .mockResolvedValueOnce(95); // closedTickets
+      mockPrisma.asset.count
+        .mockResolvedValueOnce(100) // totalAssets
+        .mockResolvedValueOnce(95); // inUseAssets
 
       const stats = await service.getStats();
 

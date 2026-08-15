@@ -29,20 +29,6 @@ enum LicenseStatus {
   REVOKED
 }
 
-enum TicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-}
-
 enum IPStatus {
   AVAILABLE
   RESERVED
@@ -94,9 +80,6 @@ model User {
   role               Role?               @relation(fields: [roleId], references: [id], onDelete: SetNull)
   assignedAssets     Asset[]             @relation("AssignedAssets")
   licenseAssignments LicenseAssignment[]
-  createdTickets     Ticket[]            @relation("CreatedTickets")
-  assignedTickets    Ticket[]            @relation("AssignedTickets")
-  ticketComments     TicketComment[]
   auditLogs          AuditLog[]
   notifications      Notification[]
 }
@@ -361,67 +344,6 @@ model VLAN {
   updatedAt   DateTime @updatedAt
 
   subnets Subnet[]
-}
-
-model Ticket {
-  id             String         @id @default(uuid())
-  ticketCode     String?        @unique
-  title          String
-  description    String?
-  category       String?
-  priority       TicketPriority @default(MEDIUM)
-  status         TicketStatus   @default(OPEN)
-  categoryId     String?
-  requesterName  String?
-  requesterEmail String?
-  assigneeName   String?
-  affectedAsset  String?
-  createdById    String?
-  assignedToId   String?
-  slaDeadline    String?
-  dueDate        DateTime?
-  resolvedAt     DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-
-  categoryRel TicketCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  createdBy   User?           @relation("CreatedTickets", fields: [createdById], references: [id], onDelete: SetNull)
-  assignedTo  User?           @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  comments    TicketComment[]
-
-  @@index([createdById])
-  @@index([assignedToId])
-  @@index([categoryId])
-  @@index([status])
-  @@index([priority])
-  @@index([createdAt(sort: Desc)])
-}
-
-model TicketCategory {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  tickets     Ticket[]
-}
-
-model TicketComment {
-  id          String   @id @default(uuid())
-  ticketId    String
-  authorId    String?
-  authorName  String?
-  authorEmail String?
-  avatarColor String?
-  isStaff     Boolean  @default(false)
-  content     String
-  isInternal  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author User?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
-
-  @@index([ticketId])
-  @@index([authorId])
 }
 
 model AuditLog {

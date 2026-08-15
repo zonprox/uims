@@ -68,4 +68,4 @@ UIMS serves direct native **HTTPS with TLS 1.2 / TLS 1.3** on public port **5679
 - **Biome Enforcement**: Run `pnpm format` and `pnpm lint` before submitting changes.
 - **Response Format Invariant**: All NestJS API endpoints must return `{ success: true, data: T, timestamp: string }`.
 - **Database Schema**: Modify database entities in `apps/api/prisma/schema.prisma` and run `pnpm db:migrate`.
-- **Reference Docs**: For full API schemas and entity models, refer to [llms-full.txt](file:///home/user/projects/uims/llms-full.txt).
+- **Reference Docs**: For full API schemas, entity models, and UI guidelines, refer to [ant-design-guide.md](file:///home/user/projects/uims/ant-design-guide.md).

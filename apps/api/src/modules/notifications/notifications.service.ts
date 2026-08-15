@@ -46,10 +46,9 @@ export class NotificationsService {
   private mapCategory(title: string, message: string): 'alerts' | 'tasks' | 'general' {
     const combined = `${title} ${message}`.toLowerCase();
     if (
-      combined.includes('ticket') ||
-      combined.includes('tkt-') ||
       combined.includes('task') ||
-      combined.includes('approval')
+      combined.includes('approval') ||
+      combined.includes('assignment')
     ) {
       return 'tasks';
     }

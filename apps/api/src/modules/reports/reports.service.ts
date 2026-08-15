@@ -48,15 +48,15 @@ export class ReportsService {
       },
       {
         id: 'r3',
-        title: 'Helpdesk SLA & Support Velocity Metrics',
+        title: 'Network IPAM & Subnet Allocation Audit',
         description:
-          'Ticket volume trends, mean time to resolve (MTTR), SLA adherence rates, and satisfaction scores.',
-        category: 'Operations',
+          'IP address pool saturation, DHCP/Static lease distributions, and VLAN capacity projections.',
+        category: 'Operations & Infrastructure',
         frequency: 'Weekly',
         stats: {
-          primary: '98.2%',
-          label: 'SLA Adherence',
-          secondary: '18 min avg resolution',
+          primary: '83.6%',
+          label: 'IP Capacity Used',
+          secondary: '6 Subnets Monitored',
         },
       },
       {
@@ -112,21 +112,21 @@ export class ReportsService {
   }
 
   async getStats() {
-    const [schedules, licenses, totalTickets, closedTickets] = await Promise.all([
+    const [schedules, licenses, totalAssets, inUseAssets] = await Promise.all([
       this.prisma.reportSchedule.count(),
       this.prisma.license.findMany({ select: { usedSeats: true, costPerSeat: true } }),
-      this.prisma.ticket.count(),
-      this.prisma.ticket.count({ where: { status: { in: ['RESOLVED', 'CLOSED'] } } }),
+      this.prisma.asset.count(),
+      this.prisma.asset.count({ where: { status: 'IN_USE' } }),
     ]);
 
     const totalSaaS = licenses.reduce((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0);
-    const slaPercent =
-      totalTickets > 0 ? ((closedTickets / totalTickets) * 100).toFixed(1) : '98.2';
+    const inUsePercent =
+      totalAssets > 0 ? ((inUseAssets / totalAssets) * 100).toFixed(1) : '98.2';
 
     return {
       scheduledReports: `${Math.max(1, schedules)} Active`,
       annualCostSavings: `$${Math.round(totalSaaS * 0.15 || 42500).toLocaleString()}`,
-      globalSlaMet: `${slaPercent}%`,
+      globalSlaMet: `${inUsePercent}%`,
       auditReadiness: '100%',
     };
   }
