@@ -11,6 +11,8 @@ export * from './dto/audit.dto';
 export * from './dto/search.dto';
 export * from './dto/dashboard.dto';
 export * from './dto/health.dto';
+export * from './dto/organization.dto';
+export * from './dto/users.dto';
 
 export * from './entities/asset';
 export * from './entities/audit';
@@ -20,6 +22,7 @@ export * from './entities/inventory';
 export * from './entities/license';
 export * from './entities/network';
 export * from './entities/notification';
+export * from './entities/organization';
 export * from './entities/role';
 export * from './entities/user';
 

@@ -11,11 +11,28 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  fullName: string;
-  avatar: string | null;
+  fullName?: string;
+  roleId?: string | null;
+  roleName?: string | null;
+  avatar?: string | null;
+  phone?: string | null;
+  department?: string | null;
+  location?: string | null;
+  departmentId?: string | null;
+  positionId?: string | null;
+  organizationId?: string | null;
+  locationId?: string | null;
   status: UserStatus;
-  role: Role;
-  lastLoginAt: string | null;
+  role?: Role | null;
+  lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserSummaryStats {
+  totalUsers: number;
+  activeUsers: number;
+  adminUsers: number;
+  suspendedUsers: number;
+  recentActiveCount: number;
 }

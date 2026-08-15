@@ -1,6 +1,7 @@
 import type { AccountStatus, DirectorySource } from '../entities/directory';
 
 export interface CreateDirectoryUserDto {
+  username?: string;
   name?: string;
   displayName?: string;
   email: string;
@@ -11,7 +12,22 @@ export interface CreateDirectoryUserDto {
   location?: string;
   twoFactorEnabled?: boolean;
   status?: string | AccountStatus;
+  accountStatus?: string | AccountStatus;
   source?: DirectorySource;
+
+  // Initial Passwords
+  adInitialPassword?: string;
+  mailInitialPassword?: string;
+
+  // Mailbox Settings
+  hasMailbox?: boolean;
+  mailboxType?: string;
+  quotaTotal?: number;
+  quotaUsed?: number;
+  mailStatus?: string;
+  forwardingAddress?: string;
+  autoReplyEnabled?: boolean;
+  aliases?: string[];
 }
 
 export interface UpdateDirectoryUserDto extends Partial<CreateDirectoryUserDto> {}
@@ -23,6 +39,7 @@ export interface DirectoryUserQueryDto {
   search?: string;
   department?: string;
   status?: string;
+  mailboxType?: string;
 }
 
 export interface CreateDirectoryGroupDto {
@@ -41,4 +58,7 @@ export interface DirectoryStatsDto {
   custodiansCount?: number;
   twoFactorRate?: number;
   suspendedAccounts: number;
+  totalMailboxes?: number;
+  totalStorageQuotaGb?: number;
+  usedStorageGb?: number;
 }

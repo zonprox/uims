@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@uims/shared-types": "workspace:*",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "tsdown": "^0.22.14",

@@ -25,6 +25,21 @@ export interface DirectoryUser {
   location?: string | null;
   twoFactorEnabled: boolean;
   accountStatus: AccountStatus;
+
+  // Credentials (AD & Mail initial passwords)
+  adInitialPassword?: string | null;
+  mailInitialPassword?: string | null;
+
+  // Domain Controller Mailbox Configuration
+  hasMailbox?: boolean;
+  mailboxType?: string | null;
+  quotaUsed?: number;
+  quotaTotal?: number;
+  mailStatus?: string | null;
+  forwardingAddress?: string | null;
+  autoReplyEnabled?: boolean;
+  aliases?: string[] | null;
+
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
