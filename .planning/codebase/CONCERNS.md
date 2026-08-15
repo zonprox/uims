@@ -3,44 +3,38 @@
 **Analysis Date:** 2026-08-15
 
 ## Tech Debt
+- **Massive Components**: Several React components are extremely large and violate separation of concerns. Examples include:
+  - `apps/web/src/layouts/MainLayout.tsx` (1423 lines)
+  - `apps/web/src/pages/assets/AssetsPage.tsx` (852 lines)
+  - `apps/web/src/pages/network/NetworkPage.tsx` (711 lines)
+- **Type Safety**: High usage of `any` types (over 112 instances found in `apps/api/src` and `apps/web/src`), undermining TypeScript's benefits.
+- **Complex Prisma Seed**: `apps/api/prisma/seed.ts` is 2872 lines long, indicating it might be unmaintainable or testing data is tightly coupled to the DB script instead of being factory-based.
 
-### Prisma Schema Denormalization
-- **Files:** `apps/api/prisma/schema.prisma`
-- **Impact:** The database schema mixes explicit string fields with relational fields, leading to data inconsistencies. For example, the `Ticket` model has both `category String?` and `categoryId String?`. The `DirectoryUser` model stores `role` as a string rather than linking to the `Role` model. The `Ticket` model also stores `requesterName` and `requesterEmail` instead of relating back to a `User` record.
-- **Fix approach:** Normalize the schema. Migrate hardcoded string references to actual foreign key relationships, remove duplicated enum-like string fields, and refactor the corresponding Prisma queries to `include` relations instead.
+## Known Bugs
+- Several minor TODOs and FIXMEs scattered across the API controllers (e.g. `jwt-auth.guard.ts`, `assets.module.ts`), suggesting incomplete implementations or authentication bypasses for development.
+- `console.log` statements left in production code (found in API and web sources).
 
 ## Security Considerations
+- **Error Handling**: Missing comprehensive error handling in services. For example, `apps/api/src/modules/assets/assets.service.ts` (281 lines) has only 2 `try/catch/throw` keywords, indicating that exceptions from DB queries or external calls are likely unhandled, potentially leaking stack traces or crashing processes.
+- **Authentication Bypass**: Guard logic in `jwt-auth.guard.ts` contains TODOs which might imply hardcoded bypasses or incomplete role verifications.
 
-### Missing RBAC on Mutation Endpoints
-- **Files:** `apps/api/src/modules/**/*.controller.ts`
-- **Impact:** Major controllers such as `AssetsController`, `InventoryController`, and others lack `@Roles` guards. This means any user with a valid authentication token can execute `POST`, `PATCH`, and `DELETE` requests on critical company assets. Even the `UsersController` only restricts `POST` and `DELETE`, leaving `PATCH` unguarded, which could allow privilege escalation.
-- **Fix approach:** Conduct a full audit of all controllers. Apply granular `@Roles` or equivalent RBAC decorators to all mutation endpoints to ensure only authorized administrators can modify data.
-
-### Insecure Token Storage
-- **Files:** `apps/web/src/stores/auth.store.ts`
-- **Impact:** The authentication token is persisted using Zustand's default `persist` middleware, which saves the JWT directly to `localStorage`. This makes the application highly vulnerable to Cross-Site Scripting (XSS) attacks.
-- **Fix approach:** Migrate authentication mechanisms to use secure, HTTP-only, `SameSite` cookies instead of storing sensitive tokens in the browser's local storage.
-
-## Performance Bottlenecks & Scaling Limits
-
-### Unbounded Queries in Search Reindexing
-- **Files:** `apps/api/src/modules/search/search.service.ts`
-- **Impact:** The search service reindexes data into Meilisearch by calling unbounded Prisma queries such as `this.prisma.asset.findMany()` with no `take` or `skip` limits. On a moderately sized database, this will pull the entire table into Node.js memory at once, resulting in Out-Of-Memory (OOM) crashes and service downtime.
-- **Fix approach:** Implement batched, cursor-based pagination (using Prisma's `cursor`) to process records in manageable chunks when syncing to the search engine.
+## Performance Bottlenecks
+- `MainLayout.tsx` and complex pages like `AssetsPage.tsx` likely suffer from unnecessary re-renders due to massive hook usage (16+ hooks in a single component) and inline functions.
 
 ## Fragile Areas
+- **Search Module**: `apps/api/src/modules/search/search.service.ts` is fairly large (347 lines) and handles complex aggregations. Without proper testing, this area is highly fragile.
 
-### Axios Interceptor Token Refresh Logic
-- **Files:** `apps/web/src/services/api.ts`
-- **Impact:** The custom request queueing mechanism used during token refreshes (`isRefreshing` lock, `failedQueue` array) is fragile. If the refresh request hangs or fails silently, the queued promises may never resolve or reject, leading to a stalled application state or infinite login redirect loops.
-- **Fix approach:** Refactor the interceptor to use a more robust, standardized library for handling token refreshes (like `axios-auth-refresh`), or add strict timeouts and error boundary resets to the manual queue logic.
+## Scaling Limits
+- Heavy reliance on single massive services (`assets.service.ts`, `tickets.service.ts`) without domain-driven separation. This will become a bottleneck as the team and features grow.
+
+## Dependencies at Risk
+- Potential typescript version divergence between `apps/web` (v7.x) and `apps/api` (v5.x), complicating monorepo tooling and shared types.
+
+## Missing Critical Features
+- Robust validation on DTOs is incomplete (TODOs found in `update-asset.dto.ts`, `update-license.dto.ts`).
 
 ## Test Coverage Gaps
+- **Severe Lack of Tests**: Only 24 test files found across the entire monorepo (`apps/` and `packages/`). This indicates critically low test coverage for an enterprise application (`UIMS Enterprise v2.4`). 
 
-### Complete Lack of UI Component Tests
-- **Files:** `apps/web/src/components/`, `apps/web/src/pages/`
-- **Impact:** While the backend has some unit tests and there are Playwright E2E tests, the frontend lacks isolated unit tests. There are zero `.spec.tsx` or `.test.tsx` files for React UI components. Large, monolithic pages (like `AssetsPage.tsx`) are untested at the unit level, making refactoring highly risky.
-- **Fix approach:** Introduce React Testing Library (`@testing-library/react`) alongside Vitest. Start by writing component tests for reusable components in `apps/web/src/components/`, then incrementally cover complex page layouts and user interactions.
-
-<!-- refreshed: 2026-08-15 -->
-*Analysis completed on 2026-08-15 based on repository state.*
+---
+*Concerns audit: 2026-08-15*
