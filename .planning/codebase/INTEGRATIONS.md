@@ -1,77 +1,77 @@
 # External Integrations
 
-**Analysis Date:** 2026-08-15
+**Analysis Date:** 2026-08-16
 
 ## APIs & External Services
 
 **Search:**
-- MeiliSearch - Full-text search engine for syncing and querying database records.
-  - SDK/Client: REST API via `fetch`
+- MeiliSearch - High-performance full-text search for assets, licenses, and users
+  - SDK/Client: Direct REST API via `fetch`
   - Auth: `MEILISEARCH_API_KEY`
-
-**File Storage:**
-- SeaweedFS - S3-compatible object storage for file uploads and database snapshot backups.
-  - SDK/Client: S3 protocol
-  - Auth: `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 
 ## Data Storage
 
 **Databases:**
-- PostgreSQL (v17)
+- PostgreSQL
   - Connection: `DATABASE_URL`
-  - Client: Prisma (`@prisma/client`)
+  - Client: Prisma ORM (`@prisma/client` with `@prisma/adapter-pg`)
 
 **File Storage:**
-- SeaweedFS (S3-compatible) deployed via Docker, used as main file vault.
+- SeaweedFS (S3-compatible API)
+  - Connection: `S3_ENDPOINT`, `S3_BUCKET`
+  - Auth: `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 
 **Caching:**
-- Redis (v8)
+- Redis
   - Connection: `REDIS_URL`
-  - Client: `ioredis`, used for standard caching and `BullMQ` job queues.
+  - Client: `ioredis` (via BullMQ and NestJS caching)
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- Custom JWT-based authentication
-  - Implementation: `@nestjs/passport`, `passport-jwt`, and `bcrypt` for password hashing. Issues Access and Refresh tokens.
+- Custom
+  - Implementation: JWT (JSON Web Tokens) using `@nestjs/passport` and `passport-jwt`. Custom `bcrypt` password hashing.
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None found (relies on application logs).
+- None explicitly configured
 
 **Logs:**
-- Pino (`pino`, `pino-http`) used for structured JSON application logging in the API.
+- Pino logger (`pino`, `pino-http`) outputting JSON logs to stdout
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Docker/Docker Compose (Self-hosted or VM environment)
-- Uses Nginx to serve the compiled frontend (`@uims/web`).
+- Docker / Docker Compose
 
 **CI Pipeline:**
-- None found (No `.github/workflows` or similar CI definitions present in root).
+- None discovered in repository (relies on local/dev build scripts)
 
 ## Environment Configuration
 
 **Required env vars:**
-- `DATABASE_URL` - PostgreSQL connection string
-- `REDIS_URL` - Redis connection string
-- `JWT_SECRET` \u0026 `JWT_REFRESH_SECRET` - Tokens for auth signing
-- `MEILISEARCH_HOST` \u0026 `MEILISEARCH_API_KEY` - Search engine config
-- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` - Storage config
+- `DATABASE_URL`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `MEILISEARCH_HOST`
+- `MEILISEARCH_API_KEY`
+- `S3_ENDPOINT`
+- `S3_ACCESS_KEY`
+- `S3_SECRET_KEY`
 
 **Secrets location:**
-- Stored locally in `.env` files (not committed to source control, templated in `.env.example`). Passed to containers via docker-compose environment variables.
+- Stored in `.env` files locally, likely managed by environment in production
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- None found.
+- None
 
 **Outgoing:**
-- None found.
+- None
 
 ---
 
-*Integration audit: 2026-08-15*
+*Integration audit: 2026-08-16*

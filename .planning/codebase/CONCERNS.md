@@ -1,81 +1,89 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-08-15
+**Analysis Date:** 2026-08-16
 
 ## Tech Debt
 
-**Error Handling Gaps:**
-- Issue: Empty catch blocks silently swallowing errors without fallback or logging
-- Files: `apps/web/src/pages/settings/SettingsPage.tsx`, `apps/web/src/pages/organization/OrganizationCanvas.tsx`
-- Impact: Unhandled promises fail silently without feedback to the user or logging, making debugging difficult.
-- Fix approach: Replace empty catches with appropriate error logging, metric capturing, or UI notification toasts.
+**Dashboard Mock Data:**
+- Issue: Hardcoded fallback data is used in the dashboard API response when no real alerts exist, masking the actual empty state.
+- Files: `apps/api/src/modules/dashboard/dashboard.service.ts`
+- Impact: Users will see fake warnings (e.g., "Adobe Creative Cloud... expires soon" or "Wireless Mouse... at 2 units") that look real, leading to confusion.
+- Fix approach: Remove the ternary fallback data in `actionItems`. Send an empty array if there are no real low stock items or expiring licenses.
 
-**Hardcoded KPI Metrics and Fallbacks:**
-- Issue: Static fallback strings and mocked percentages for KPIs (e.g. `+8.4% MoM` growth, `98.4%` SOC2 score, `83.6%` IP percent)
-- Files: `apps/api/src/modules/dashboard/dashboard.service.ts`, `apps/api/src/modules/audit/audit.service.ts`
-- Impact: Users will see static, misleading statistics when the calculation should rely on actual historical data or return 0.
-- Fix approach: Implement real aggregate queries for month-over-month growth or remove the mocked percentages entirely.
+**Fake Health Telemetry:**
+- Issue: System health metrics like latency and available storage are hardcoded.
+- Files: `apps/api/src/modules/settings/settings.service.ts`
+- Impact: System operators cannot rely on the dashboard telemetry (e.g. `latency: '0.8ms'`) to diagnose actual infrastructure problems.
+- Fix approach: Implement real metrics collection (e.g., executing `SELECT 1` with a timer for Postgres latency).
 
 ## Known Bugs
 
-**Audit Log CSV Export Truncation:**
-- Symptoms: Exporting audit logs via CSV silently drops all logs older than the latest 1000 entries.
-- Files: `apps/api/src/modules/audit/audit.service.ts`
-- Trigger: A system with more than 1000 logs attempts to export a full historical CSV via `exportCsv()`.
-- Workaround: None via the UI.
+**AD Password Plaintext Storage:**
+- Symptoms: When an admin resets a user's password, the new password is saved in plaintext to the `adInitialPassword` field.
+- Files: `apps/api/src/modules/users/users.service.ts`
+- Trigger: Calling the `resetPassword` function.
+- Workaround: None. This exposes user passwords if the database is compromised.
 
 ## Security Considerations
 
-**Hardcoded Fallback Credentials:**
-- Risk: Critical security backdoor. The authentication service logic manually allows access using `admin123` and `Admin@2026` passwords for specific pre-defined usernames/emails (e.g., `admin@uims.local`, `alex.johnson`), completely bypassing actual database password verification.
-- Files: `apps/api/src/modules/auth/auth.service.ts`, `apps/web/src/pages/auth/LoginPage.tsx`
-- Current mitigation: None. The backend logic hardcodes these strings in production.
-- Recommendations: Completely remove the static fallback password check in the authentication flow. Use database seeding for demo accounts and authenticate strictly against actual database hashes.
+**Hardcoded Backdoor Credentials:**
+- Risk: Critical security vulnerability. The authentication service contains static fallback passwords (`Admin@2026`, `password123`, `admin`, `admin123`) for specific user accounts (e.g. `admin@uims.local`, `sarah.chen@company.com`, `david.kim@company.com`).
+- Files: `apps/api/src/modules/auth/auth.service.ts`
+- Current mitigation: None. Anyone who discovers these credentials can log in as an administrator.
+- Recommendations: Remove the static backdoor checks from the `validateUser` method immediately. Rely purely on bcrypt password hashing.
+
+**Plaintext Initial Passwords:**
+- Risk: `adInitialPassword` allows login using plaintext password comparisons in the authentication service.
+- Files: `apps/api/src/modules/auth/auth.service.ts`, `apps/api/src/modules/users/users.service.ts`
+- Current mitigation: None.
+- Recommendations: Ensure all passwords, including initial ones, are salted and hashed.
 
 ## Performance Bottlenecks
 
-**Meilisearch Sync Unbounded Memory Query:**
-- Problem: The search sync function fetches the entirety of multiple tables (`Asset`, `License`, `User`) into memory concurrently.
-- Files: `apps/api/src/modules/search/search.service.ts`
-- Cause: Uses `findMany()` with no filters, limits, or cursor-based chunking.
-- Improvement path: Implement chunking/pagination (e.g., pulling in batches of 1000) or streaming cursors to prevent V8 out-of-memory errors on large datasets.
+**Dashboard Overview Aggregations:**
+- Problem: The dashboard overview endpoint executes 13 heavy database queries and aggregations concurrently for every request.
+- Files: `apps/api/src/modules/dashboard/dashboard.service.ts`
+- Cause: Uses `Promise.all` with multiple `count()`, `aggregate()`, and `findMany()` calls on large tables (Assets, Inventory, AuditLogs) without caching.
+- Improvement path: Implement Redis caching for the dashboard overview results, updating them asynchronously or expiring them every few minutes.
 
 ## Fragile Areas
 
-**Organization Canvas Component:**
-- Files: `apps/web/src/pages/organization/OrganizationCanvas.tsx`
-- Why fragile: Extremely large component (1724 lines) managing over 13 `useState` hooks natively handling zooming, dragging, nodes, and complex tree operations in a single file.
-- Safe modification: Heavy refactoring required to extract sub-components (NodeItem, ZoomControls) and move state to a dedicated React context or Zustand store.
-- Test coverage: High complexity paired with limited tests makes it extremely prone to regressions.
+**Authentication Logic:**
+- Files: `apps/api/src/modules/auth/auth.service.ts`
+- Why fragile: Contains multiple different flows for authentication (hashed, AD initial plaintext, static backdoor list) combined in a single linear function, making it error-prone during refactoring.
+- Safe modification: Write unit tests covering standard login failures before removing the static passwords.
+- Test coverage: Gaps in testing negative paths without the mock data.
 
 ## Scaling Limits
 
-**Export/Query Batch Sizes:**
-- Current capacity: System assumes total counts under a few thousand for synchronous exports and Meilisearch sync operations.
-- Limit: Memory limits will be hit at around 50k-100k rows, slowing down the Node Event Loop or crashing it.
-- Scaling path: Introduce asynchronous background jobs (e.g., using BullMQ, which is already a dependency in `package.json`) for massive CSV exports and search indexing, and return progress polling tokens to the client.
+**Dashboard API Rate:**
+- Current capacity: Fast on small datasets, but `count()` queries on large Postgres tables scan many rows.
+- Limit: As audit logs and assets grow to hundreds of thousands of records, the unindexed dashboard aggregations will slow down page loads.
+- Scaling path: Introduce materialized views or background cron jobs to compute KPI statistics.
 
 ## Dependencies at Risk
 
-**Audit Dependencies:**
-- Risk: While no overtly critical vulnerabilities are immediately exploitable without a deeper audit, several dependencies are set to bleeding-edge versions.
-- Impact: Unexpected library behaviors with undocumented breaking changes.
-- Migration plan: Run routine `pnpm audit` and ensure exact version pinning for production stability.
+**Duplicated Validation Libraries:**
+- Risk: Both `zod` and `class-validator` are used across the backend and frontend.
+- Impact: Increased bundle size and scattered validation logic standards.
+- Migration plan: Standardize on `zod` and use `nestjs-zod` for the API, phasing out `class-validator`.
 
 ## Missing Critical Features
 
-**Audit Logging Historical Queries:**
-- Problem: The audit log export is hard-capped at 1000 records. There is no date range filtering mechanism in the export controller.
-- Blocks: Prevents SOC2 compliance workflows which require unrestricted querying and extraction of historical audit data for arbitrary time periods.
+**Database Backup Execution:**
+- Problem: The "Run Backup" action generates a fake snapshot name and writes a success log without actually exporting any data.
+- Blocks: System recovery in case of catastrophic data loss.
+- Files: `apps/api/src/modules/settings/settings.service.ts` (see `runBackup()`)
 
 ## Test Coverage Gaps
 
-**Untested UI Components:**
-- What's not tested: Core operational pages (e.g., Users, Inventory, Dashboard, Settings). The web app contains over 250 code files but only a handful of test files (~34 for the whole monorepo).
-- Files: `apps/web/src/pages/users/UsersPage.tsx`, `apps/web/src/pages/inventory/InventoryPage.tsx`
-- Risk: High risk of regressions in critical administrative interfaces since manual testing is required for every PR.
-- Priority: High
+**Frontend Components:**
+- What's not tested: Complex UI state in the Dashboard and Inventory pages.
+- Files: `apps/web/src/pages/dashboard/DashboardPage.tsx`
+- Risk: Hardcoded alerts (like "Scheduled Hardware Fleet Audit") or layout issues may go unnoticed.
+- Priority: Medium
 
 ---
 
-*Concerns audit: 2026-08-15*
+*Concerns audit: 2026-08-16*
+<!-- refreshed: 2026-08-16 -->

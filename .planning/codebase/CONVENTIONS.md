@@ -1,82 +1,89 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-08-15
+**Analysis Date:** 2026-08-16
 
 ## Naming Patterns
 
 **Files:**
-- **NestJS API files:** kebab-case with type suffix (e.g., `users.controller.ts`, `http-exception.filter.ts`)
-- **React Hooks:** camelCase (e.g., `useAssetManagement.ts`, `useSystemHealth.ts`)
-- **React Components/Pages:** PascalCase (e.g., `OrganizationCanvas.tsx`)
-- **Tests:** Co-located with `.test.ts`, `.spec.ts`, or `.test.tsx` extensions.
+- Backend / Logic: Kebab-case, typically `[module].[type].ts` (e.g., `users.controller.ts`, `users.service.ts`).
+- Frontend Components: PascalCase for React components (e.g., `PageContainer.tsx`, `UsersPage.tsx`).
 
 **Functions:**
-- camelCase (e.g., `buildAssetSpecs`, `handleOpenCreateModal`)
+- camelCase for functions and methods.
 
 **Variables:**
-- camelCase (e.g., `modalSubmitting`, `searchQuery`)
+- camelCase for instances and variables.
+- PascalCase for React component definitions.
 
 **Types:**
-- PascalCase for Classes, Interfaces, Types, and DTOs (e.g., `CreateUserDto`, `AssetFormValues`).
+- PascalCase for interfaces, classes, and types (e.g., `PageStatItem`, `CreateUserDto`).
+- Enums: PascalCase.
 
 ## Code Style
 
 **Formatting:**
-- **Tool:** Biome (`biome.json`)
-- **Settings:** 2 spaces indent, single quotes, trailing commas (all), semicolons always, line width 100.
+- Tool: Biome
+- Key Settings: 
+  - Indentation: 2 spaces
+  - Line width: 100 characters
+  - Quotes: Single quotes (`'`)
+  - Trailing commas: `all`
+  - Semicolons: `always`
 
 **Linting:**
-- **Tool:** Biome
-- **Key Rules:** `preset: recommended`, `noExplicitAny: warn`, `noNonNullAssertion: warn`, `noExcessiveCognitiveComplexity: warn`.
+- Tool: Biome and ESLint (via `turbo run lint`)
+- Key Rules:
+  - `recommended` preset
+  - `noExcessiveCognitiveComplexity: warn`
+  - `useConsistentArrayType: generic` (e.g., `Array<{}>` instead of `{}[]`)
+  - `noExplicitAny: warn`
+
+## Language & Terminology
+
+**Enterprise English Standard Policy:**
+- 100% Professional Enterprise English Mandatory.
+- All user-facing UI labels, descriptions, alert messages, toasts/notifications, table columns, modal titles, placeholder text, code identifiers, comments, documentation, test descriptions, API payloads, error messages, and git commits MUST be in clear, standardized Enterprise English.
+- No non-English or mixed language text anywhere.
 
 ## Import Organization
 
 **Order:**
-1. External packages (e.g., `react`, `@nestjs/common`)
-2. Path aliases (`@/`)
-3. Relative imports (`../`, `./`)
-*(Note: Biome's `organizeImports` is globally turned off in `biome.json`)*
+1. Built-in modules
+2. External dependencies (`@nestjs/*`, `antd`, `react`, etc.)
+3. Internal workspace packages (`@uims/shared-*`)
+4. Local relative imports (`./`, `../`)
 
 **Path Aliases:**
-- `@/` maps to `./src` in web workspace (`apps/web/vitest.config.ts`, `tsconfig`).
+- Monorepo packages use workspace aliases like `@uims/shared-types` or `@uims/shared-validators`.
 
 ## Error Handling
 
 **Patterns:**
-- **API (NestJS):** Uses centralized Exception Filters (e.g., `HttpExceptionFilter`, `PrismaExceptionFilter`) to normalize responses into a standard shape: `{ success: false, statusCode, message, errors, timestamp }`.
-- **Web (React):** Uses `try/catch` with `err: unknown` type casting. Extracts API error messages via `err.response?.data?.message` and displays them to the user via Ant Design's `App.useApp().message.error()`.
+- Backend relies on NestJS Exception Filters and standard exceptions (e.g., `NotFoundException`).
+- Frontend uses standard Error Boundaries (`ErrorBoundary.tsx`).
 
 ## Logging
 
-**Framework:**
-- API: NestJS built-in `Logger` (e.g., `import { Logger } from '@nestjs/common'`).
-- Web: Standard `console.error` in catch blocks.
+**Framework:** `pino` and `pino-http` in `@uims/api`.
 
 **Patterns:**
-- Log exceptions in catch blocks before showing user-friendly toast messages.
-- Bootstrap logs port configuration via NestJS `Logger`.
+- Structured JSON logging for production.
 
-## Comments
+## UI / UX Design (Frontend)
 
-**When to Comment:**
-- Minimal inline comments; code is self-documenting.
-- Comments are mainly used for Swagger API documentation generation.
-
-**JSDoc/TSDoc:**
-- Primarily used via Decorators in the backend (e.g., `@ApiOperation({ summary: '...' })`) rather than raw JSDoc blocks.
-
-## Function Design
-
-**Size:** Small, focused functions.
-**Parameters:** Prefers object payloads/DTOs over multiple arguments (e.g., `findAll(options)` or `createUser(createUserDto)`).
-**Return Values:** React hooks return an object of state variables and handlers. API services return promises of raw data or entities.
+**Ant Design v6+ Guidelines:**
+- **Dynamic Context:** Always consume dynamic theme context via `App.useApp()` (e.g., `const { message, modal, notification } = App.useApp();`).
+- **Styling:** Use semantic token styling with `styles={{ body: ... }}` and `styles={{ content: ... }}` rather than deprecated `bodyStyle` / `valueStyle`.
+- **Layouts:** Use `<PageContainer>` for all views to maintain consistent breadcrumbs, KPI statistics, search controls, and primary action buttons.
+- **Tables:** Keep table density high and information readable with dedicated quick actions (e.g., 1-click credential/email copying, status tags, responsive drawers).
 
 ## Module Design
 
-**Exports:** Named exports are standard across the codebase, except for framework configuration files (e.g., `vite.config.ts`, `vitest.config.ts`) which use `default export`.
-**Barrel Files:** Not prominently used; components/services are imported from their specific files.
-**Architecture:** NestJS uses Class-based Modules (`AppModule`, `UsersModule`).
+**Backend:**
+- NestJS modules (e.g., `UsersModule`).
+- Controllers handle HTTP routing (`users.controller.ts`).
+- Services handle business logic (`users.service.ts`).
 
 ---
 
-*Convention analysis: 2026-08-15*
+*Convention analysis: 2026-08-16*

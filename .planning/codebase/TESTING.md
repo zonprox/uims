@@ -1,41 +1,37 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-08-15
+**Analysis Date:** 2026-08-16
 
 ## Test Framework
 
 **Runner:**
-- Vitest v4
-- Config: `apps/web/vitest.config.ts` (using `happy-dom`), `apps/api/vitest.config.mts`
+- Vitest (`v4.1.10`) for Unit/Integration tests.
+- Config: `vite.config.ts` / `vitest.config.ts` (implied by Vite usage).
 
 **Assertion Library:**
-- Vitest built-in `expect`
+- Vitest's built-in `expect` (Chai/Jest compatible).
 
 **Run Commands:**
 ```bash
-turbo run test         # Run all tests via turborepo
-vitest run             # Run tests in specific workspace
-turbo run test:e2e     # Run e2e tests (configured but tests currently absent)
+turbo run test         # Run all unit tests across the workspace
+vitest run             # Run tests in a specific package
+vitest                 # Watch mode
+turbo run test:e2e     # Run end-to-end tests
 ```
 
 ## Test File Organization
 
 **Location:**
-- Co-located with the source files they test.
+- Co-located with the implementation file.
 
 **Naming:**
-- Matches source file with `.test.ts`, `.spec.ts`, or `.test.tsx` (e.g., `useAssetManagement.test.ts`, `users.service.spec.ts`).
+- Suffix `.spec.ts` (e.g., `users.service.spec.ts`).
 
 **Structure:**
-```
-src/
-  hooks/
-    useSystemHealth.ts
-    useSystemHealth.test.ts
-  modules/
-    users/
-      users.service.ts
-      users.service.spec.ts
+```text
+apps/api/src/modules/users/
+├── users.service.ts
+└── users.service.spec.ts
 ```
 
 ## Test Structure
@@ -43,109 +39,76 @@ src/
 **Suite Organization:**
 ```typescript
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { UsersService } from './users.service';
 
 describe('UsersService', () => {
+  let service: UsersService;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    // setup
   });
 
-  it('should aggregate system login user metrics', async () => {
-    // test body
+  describe('getStats', () => {
+    it('should aggregate system login user metrics', async () => {
+      // test logic
+    });
   });
 });
 ```
 
 **Patterns:**
-- **Setup:** Uses `beforeEach` to initialize services, mock dependencies, and reset DOM/containers (e.g., `document.createElement('div')`).
-- **Teardown:** `vi.clearAllMocks()` in `beforeEach`, and `root.unmount()` in React hook tests.
-- **Assertion:** Uses standard `expect(result).toEqual(...)` or `expect(result).toBe(...)`.
+- **Setup:** Use `beforeEach` to instantiate the service/component and reset mock objects.
+- **Assertion:** Arrange-Act-Assert pattern, using `expect(res).toEqual(...)` or `.toBe(...)`.
 
 ## Mocking
 
-**Framework:** Vitest (`vi`)
+**Framework:** Vitest (`vi`).
 
 **Patterns:**
 ```typescript
-// Module Mocking
-vi.mock('../services/health.service', () => ({
-  healthService: {
-    checkHealth: vi.fn(),
-  },
-}));
+let mockPrisma: Record<string, unknown>;
 
-// Object Mocking (e.g., Prisma)
-const mockPrisma = {
-  user: {
-    count: vi.fn(),
-  }
-};
-(mockPrisma.user.count as ReturnType<typeof vi.fn>).mockResolvedValueOnce(50);
-```
+beforeEach(() => {
+  mockPrisma = {
+    user: {
+      count: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+  };
 
-**What to Mock:**
-- External services and API boundaries (e.g., `healthService`, `assetsService`).
-- Database clients (e.g., Prisma models).
+  service = new UsersService(
+    mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+  );
+});
 
-**What NOT to Mock:**
-- Pure utility functions (e.g., `buildAssetSpecs`).
+it('should update user status', async () => {
+  (mockPrisma.user as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValueOnce({
+    id: 'usr-1',
+  });
 
-## Fixtures and Factories
-
-**Test Data:**
-```typescript
-// Inline test data is typically used over external fixtures
-const payload = buildAssetPayload({
-  tag: 'AST-1099',
-  name: 'Dell XPS 16',
-  // ...
+  const res = await service.toggleStatus('usr-1', 'SUSPENDED');
+  expect(res.status).toBe('SUSPENDED');
 });
 ```
 
-**Location:**
-- Test data is defined inline within the test files rather than in dedicated fixture directories.
-
-## Coverage
-
-**Requirements:** None enforced natively in configs.
-
-**View Coverage:**
-```bash
-vitest run --coverage  # Requires vitest coverage provider installation
-```
+**What to Mock:**
+- External dependencies (e.g., Prisma database client, HTTP clients).
+- File system and external service interactions.
 
 ## Test Types
 
 **Unit Tests:**
-- Used heavily for React hooks, utility functions, and backend services. Hooks are tested natively using `react-dom/client` `createRoot` and `act` (without React Testing Library).
+- Validate business logic in services and controllers in isolation.
+- Co-located `.spec.ts` files.
 
 **Integration Tests:**
-- Not distinctly separated; backend tests currently mock the database (Prisma) indicating a preference for unit isolation over DB integration.
+- Validate interaction between internal modules.
 
 **E2E Tests:**
-- Playwright is present in `package.json` (`test:e2e`), but no explicit e2e test directories or configs currently implemented.
-
-## Common Patterns
-
-**Async Testing (React Hooks):**
-```typescript
-const root = createRoot(container);
-await act(async () => {
-  root.render(createElement(TestComponent));
-});
-
-// Allow promise resolution for internal state updates
-await act(async () => {
-  await Promise.resolve();
-});
-```
-
-**Error Testing:**
-```typescript
-vi.mocked(healthService.checkHealth).mockRejectedValueOnce(new Error('Network error'));
-// wait for resolution and assert error state
-expect(currentHookState!.error).toBe('Network error');
-```
+- Framework: Playwright (`@playwright/test`).
+- Command: `turbo run test:e2e`.
 
 ---
 
-*Testing analysis: 2026-08-15*
+*Testing analysis: 2026-08-16*

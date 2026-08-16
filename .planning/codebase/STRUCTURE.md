@@ -1,100 +1,105 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-08-15
+**Analysis Date:** 2026-08-16
 
 ## Directory Layout
 
-```
+```text
 /home/user/projects/uims/
-├── apps/               # Application entry points
-│   ├── api/            # NestJS Backend API
-│   └── web/            # React/Vite Frontend
-├── docker/             # Docker configuration files
-├── packages/           # Shared libraries
-│   ├── eslint-config/  # Shared ESLint configurations
-│   ├── shared-types/   # Shared TypeScript definitions
-│   ├── shared-utils/   # Shared utility functions
-│   └── shared-validators/# Validation logic (Zod schemas)
-└── scripts/            # Build and utility scripts
+├── apps/               # Main application workspaces
+│   ├── api/            # NestJS backend API
+│   └── web/            # React frontend application
+├── packages/           # Shared monorepo dependencies
+│   ├── eslint-config/  # Shared ESLint rules
+│   ├── shared-types/   # Shared TypeScript types
+│   ├── shared-utils/   # Common utility functions
+│   └── shared-validators/# Shared Zod validation schemas
+├── .planning/          # AI Agent context and documentation
+└── turbo.json          # Turborepo configuration
 ```
 
 ## Directory Purposes
 
-**`apps/api/`:**
-- Purpose: Contains the primary NestJS backend service.
-- Contains: Controllers, Services, Prisma schemas, Dockerfiles, module definitions.
-- Key files: `apps/api/src/app.module.ts`, `apps/api/prisma/schema.prisma`
+**`apps/api/src/`:**
+- Purpose: Backend REST API implementation.
+- Contains: Modules, common filters/guards/interceptors, database connection logic.
+- Key files: `main.ts`, `app.module.ts`
 
-**`apps/web/`:**
-- Purpose: Contains the primary React frontend SPA.
-- Contains: Components, pages, layouts, hooks, API services, stores, Vite configuration.
-- Key files: `apps/web/src/main.tsx`, `apps/web/src/app/router.tsx`
+**`apps/web/src/`:**
+- Purpose: Frontend React application implementation.
+- Contains: Components, pages, layouts, stores, hooks, services.
+- Key files: `main.tsx`, `app/App.tsx`, `app/router.tsx`
 
-**`packages/*/`:**
-- Purpose: Contains code reused across apps (monorepo internal libraries).
-- Contains: Code and type definitions for validations, utils, and configurations.
-- Key files: `packages/shared-validators/src/index.ts`
+**`packages/shared-*/`:**
+- Purpose: Code sharing between `api` and `web`.
+- Contains: TypeScript interfaces, Zod schemas, utility functions.
+- Key files: `src/index.ts` in each package.
 
 ## Key File Locations
 
 **Entry Points:**
 - `apps/web/src/main.tsx`: React application mount point.
-- `apps/web/src/app/router.tsx`: Frontend routing definition.
-- `apps/api/src/app.module.ts`: NestJS root module definition.
+- `apps/api/src/main.ts`: NestJS server bootstrap.
 
 **Configuration:**
-- `docker-compose.yml`: Local infrastructure deployment configuration.
-- `apps/api/prisma/schema.prisma`: Database schema and ORM mappings.
-- `turbo.json`: Turborepo build pipeline configuration.
+- `turbo.json`: Monorepo build/task pipeline configuration.
+- `apps/api/prisma/schema.prisma`: Database schema definition.
+- `apps/web/vite.config.ts`: Frontend bundler configuration.
+- `package.json` (root): Workspace definitions.
 
 **Core Logic:**
-- `apps/api/src/modules/`: Domain-specific backend implementation.
-- `apps/web/src/pages/`: Frontend views by feature.
-- `apps/web/src/services/`: Client-side API integration layers.
+- `apps/api/src/modules/`: Domain-specific backend logic (e.g., auth, users, inventory).
+- `apps/web/src/pages/`: Domain-specific frontend views matching backend modules.
+
+**Testing:**
+- `apps/api/vitest.config.mts`: API test runner configuration.
+- `apps/web/vitest.config.ts`: Web test runner configuration.
 
 ## Naming Conventions
 
 **Files:**
-- React Components: PascalCase (`PageContainer.tsx`)
-- Hooks: camelCase with 'use' prefix (`useSystemHealth.ts`)
-- API Controllers: kebab-case with suffix (`users.controller.ts`)
-- API Services: kebab-case with suffix (`users.service.ts`)
-- DTOs: kebab-case with suffix (`create-user.dto.ts`)
+- Kebab-case for most files: `app.module.ts`, `jwt-auth.guard.ts`.
+- PascalCase for React components: `PageContainer.tsx`, `NotificationDrawer.tsx`.
+- Suffixes for backend files indicating their role: `*.controller.ts`, `*.service.ts`, `*.module.ts`, `*.validator.ts`.
 
 **Directories:**
-- Frontend pages: lowercase by domain (`dashboard`, `assets`)
-- Backend modules: lowercase by domain (`dashboard`, `assets`)
-- Packages: lowercase with dashes (`shared-validators`)
+- Kebab-case or lowercase: `shared-validators`, `components`, `hooks`.
+- Pluralization for grouped items: `modules`, `pages`, `components`.
 
 ## Where to Add New Code
 
-**New Feature (e.g. "Work Orders"):**
-- Primary code (Backend): `apps/api/src/modules/work-orders/`
-- Primary code (Frontend): `apps/web/src/pages/work-orders/`
-- API Client (Frontend): `apps/web/src/services/work-orders.service.ts`
-- Database Schema: Add `WorkOrder` model to `apps/api/prisma/schema.prisma`
-- Shared Validations: `packages/shared-validators/src/work-order.validator.ts`
+**New Feature:**
+- Primary backend code: `apps/api/src/modules/[new-feature]/`
+- Primary frontend code: `apps/web/src/pages/[new-feature]/`
+- Shared validation: `packages/shared-validators/src/[new-feature].validator.ts`
+- Shared types: `packages/shared-types/src/[new-feature].types.ts`
 
 **New Component/Module:**
-- Implementation (Frontend Shared Component): `apps/web/src/components/`
-- Implementation (Backend Shared Module): `apps/api/src/common/`
+- Shared UI component: `apps/web/src/components/`
+- Backend domain module: `apps/api/src/modules/`
 
 **Utilities:**
-- Shared helpers (cross-app): `packages/shared-utils/src/`
-- Frontend-only helpers: `apps/web/src/utils/`
+- Shared helpers (both ends): `packages/shared-utils/src/`
+- Web-only helpers: `apps/web/src/utils/`
+- API-only helpers: `apps/api/src/common/utils/`
 
 ## Special Directories
 
 **`apps/api/prisma/`:**
-- Purpose: Prisma schema definitions and database configurations.
-- Generated: No
-- Committed: Yes
+- Purpose: Database schema, migrations, and seed scripts.
+- Generated: No (schema is source of truth, but generates client).
+- Committed: Yes.
 
-**`node_modules/` / `.turbo/`:**
-- Purpose: Dependency installations and build caches.
-- Generated: Yes
-- Committed: No
+**`apps/api/dist/` & `apps/web/dist/`:**
+- Purpose: Build output artifacts.
+- Generated: Yes.
+- Committed: No (in `.gitignore`).
+
+**`packages/*/dist/`:**
+- Purpose: Compiled shared packages.
+- Generated: Yes.
+- Committed: No.
 
 ---
 
-*Structure analysis: 2026-08-15*
+*Structure analysis: 2026-08-16*
