@@ -33,7 +33,7 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-validators/node_modules
       - /app/packages/shared-utils/node_modules
-    command: pnpm --filter @uims/api dev
+    command: sh -c "pnpm --filter @uims/api prisma:generate && pnpm --filter @uims/api dev"
 
   web:
     build:

@@ -79,8 +79,8 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       department: 'IT & Infrastructure',
       location: 'NY HQ - Floor 4',
       phone: '+1 (555) 234-5678',
-      passwordHash: defaultPasswordHash,
-      adInitialPassword: 'Ad#AlexJohnson2026!',
+      passwordHash: adminPasswordHash,
+      adInitialPassword: 'Admin@2026',
     },
     {
       username: 'sarah.chen',

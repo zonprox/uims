@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { SearchQueryDto, SearchResponseDto, SearchResultItem } from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
@@ -46,14 +46,14 @@ export class SearchService implements OnModuleInit {
 
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService,
+    @Optional() private configService?: ConfigService,
   ) {
     this.meiliHost =
-      this.configService.get<string>('MEILISEARCH_HOST') ||
+      this.configService?.get<string>('MEILISEARCH_HOST') ||
       process.env.MEILISEARCH_HOST ||
       'http://localhost:7700';
     this.meiliApiKey =
-      this.configService.get<string>('MEILISEARCH_API_KEY') ||
+      this.configService?.get<string>('MEILISEARCH_API_KEY') ||
       process.env.MEILISEARCH_API_KEY ||
       'uims_meili_master_key_2026';
   }

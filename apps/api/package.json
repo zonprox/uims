@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "tsc && (tsc --watch --preserveWatchOutput & node --watch dist/main.js)",
     "build": "tsc",
     "start": "node dist/main",
     "start:prod": "node dist/main",
