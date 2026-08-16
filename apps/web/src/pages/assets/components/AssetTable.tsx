@@ -2,6 +2,7 @@ import { DeleteOutlined, EditOutlined, EyeOutlined, QrcodeOutlined } from '@ant-
 import { Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
+import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 
 const { Text } = Typography;
@@ -91,7 +92,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             const isExpiringSoon = dayjs(date).diff(dayjs(), 'day') < 90;
             return (
               <div>
-                <Text style={{ fontSize: 12 }}>{date}</Text>
+                <FormattedDate date={date} style={{ fontSize: 12 }} />
                 {isExpiringSoon && (
                   <Tag
                     color="warning"

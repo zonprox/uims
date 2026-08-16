@@ -1,3 +1,4 @@
+import { SYSTEM_INFO } from '@uims/shared-utils';
 import { Divider, Flex, Layout, Space } from 'antd';
 import React from 'react';
 
@@ -11,23 +12,31 @@ export const LayoutFooter: React.FC<LayoutFooterProps> = React.memo(({ mode }) =
   <Footer
     style={{
       textAlign: 'center',
-      padding: '16px 24px',
-      color: '#94a3b8',
+      padding: '14px 24px',
+      color: mode === 'dark' ? '#64748b' : '#94a3b8',
       fontSize: 12,
       borderTop: mode === 'dark' ? '1px solid #1e293b' : '1px solid #f1f5f9',
+      backgroundColor: mode === 'dark' ? '#090d16' : '#ffffff',
     }}
   >
     <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-      <span>UIMS Enterprise v2.4 • Unified IT Infrastructure & Assets Management</span>
+      <span>
+        {SYSTEM_INFO.name} v{SYSTEM_INFO.version} • {SYSTEM_INFO.tagline} • {SYSTEM_INFO.copyright}
+      </span>
       <Space separator={<Divider orientation="vertical" />}>
-        <a href="/help" style={{ color: 'inherit' }}>
+        <a href={SYSTEM_INFO.links.helpCenter} style={{ color: 'inherit' }}>
           Help Center
         </a>
-        <a href="/api/docs" style={{ color: 'inherit' }}>
+        <a
+          href={SYSTEM_INFO.links.apiDocs}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'inherit' }}
+        >
           API Docs
         </a>
-        <a href="/status" style={{ color: 'inherit' }}>
-          System Status
+        <a href={SYSTEM_INFO.links.status} style={{ color: 'inherit' }}>
+          System Telemetry
         </a>
       </Space>
     </Flex>

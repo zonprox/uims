@@ -18,7 +18,10 @@
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@uims/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@uims/shared-validators": ["../../packages/shared-validators/src/index.ts"],
+      "@uims/shared-utils": ["../../packages/shared-utils/src/index.ts"]
     }
   },
   "include": ["src", "vite-env.d.ts"],

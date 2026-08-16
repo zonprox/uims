@@ -38,6 +38,7 @@ import {
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import { FormattedDate } from '../../components/FormattedDate';
 import { type License, type LicenseStats, licensesService } from '../../services/licenses.service';
 
 const { Text, Title } = Typography;
@@ -316,7 +317,7 @@ export default function LicensesPage() {
         const diff = expiryDate ? dayjs(expiryDate).diff(dayjs(), 'day') : 999;
         return (
           <div>
-            <Text style={{ fontSize: 12.5 }}>{expiryDate || 'N/A'}</Text>
+            <FormattedDate date={expiryDate} style={{ fontSize: 12.5 }} />
             <div style={{ marginTop: 2 }}>
               {diff < 30 ? (
                 <Tag color="error" style={{ fontSize: 10 }}>

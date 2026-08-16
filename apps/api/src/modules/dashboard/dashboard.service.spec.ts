@@ -30,7 +30,7 @@ describe('DashboardService', () => {
       auditLog: {
         findMany: vi.fn(),
       },
-      directoryUser: {
+      user: {
         count: vi.fn(),
       },
     };
@@ -79,7 +79,7 @@ describe('DashboardService', () => {
       { id: 'inv-1', name: 'USB-C Adapter', quantity: 1, minThreshold: 5 },
     ]);
 
-    mockPrisma.directoryUser.count.mockResolvedValue(148);
+    mockPrisma.user.count.mockResolvedValue(148);
 
     const overview = await service.getOverview();
 
@@ -101,5 +101,53 @@ describe('DashboardService', () => {
     expect(overview.actionItems).toHaveLength(2);
     expect(overview.actionItems[0].title).toBe('License Renewal Required');
     expect(overview.actionItems[1].title).toBe('Hardware Stock Depleted');
+  });
+
+  it('should return empty action items array when no warnings or low stock exist', async () => {
+    mockPrisma.asset.count.mockResolvedValueOnce(10).mockResolvedValueOnce(8);
+
+    mockPrisma.license.aggregate.mockResolvedValue({
+      _sum: { totalSeats: 50, usedSeats: 30 },
+    });
+    mockPrisma.license.count.mockResolvedValue(5);
+    mockPrisma.license.findMany.mockResolvedValue([]);
+
+    mockPrisma.inventoryItem.aggregate.mockResolvedValue({
+      _sum: { quantity: 100 },
+    });
+    mockPrisma.inventoryItem.count.mockResolvedValueOnce(20).mockResolvedValueOnce(0);
+
+    mockPrisma.subnet.aggregate.mockResolvedValue({
+      _sum: { totalIps: 256 },
+    });
+    mockPrisma.iPAddress.count.mockResolvedValue(50);
+    mockPrisma.auditLog.findMany.mockResolvedValue([]);
+    mockPrisma.inventoryItem.findMany.mockResolvedValue([]);
+    mockPrisma.user.count.mockResolvedValue(30);
+
+    const overview = await service.getOverview('empty-test');
+
+    expect(overview.actionItems).toEqual([]);
+  });
+
+  it('should serve subsequent requests from cache within TTL', async () => {
+    mockPrisma.asset.count.mockResolvedValueOnce(10).mockResolvedValueOnce(8);
+    mockPrisma.license.aggregate.mockResolvedValue({ _sum: { totalSeats: 50, usedSeats: 30 } });
+    mockPrisma.license.count.mockResolvedValue(5);
+    mockPrisma.license.findMany.mockResolvedValue([]);
+    mockPrisma.inventoryItem.aggregate.mockResolvedValue({ _sum: { quantity: 100 } });
+    mockPrisma.inventoryItem.count.mockResolvedValueOnce(20).mockResolvedValueOnce(0);
+    mockPrisma.subnet.aggregate.mockResolvedValue({ _sum: { totalIps: 256 } });
+    mockPrisma.iPAddress.count.mockResolvedValue(50);
+    mockPrisma.auditLog.findMany.mockResolvedValue([]);
+    mockPrisma.inventoryItem.findMany.mockResolvedValue([]);
+    mockPrisma.user.count.mockResolvedValue(30);
+
+    const first = await service.getOverview('cached-period');
+    expect(mockPrisma.asset.count).toHaveBeenCalledTimes(2);
+
+    const second = await service.getOverview('cached-period');
+    expect(second).toEqual(first);
+    expect(mockPrisma.asset.count).toHaveBeenCalledTimes(2); // no extra db calls
   });
 });

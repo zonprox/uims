@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ProConfigProvider, enUSIntl } from '@ant-design/pro-components';
 import { App as AntApp, ConfigProvider } from 'antd';
 import enUS from 'antd/locale/en_US';
-import dayjs from 'dayjs';
+import { dayjs } from '@uims/shared-utils';
 import 'dayjs/locale/en';
 import { useMemo } from 'react';
 import { RouterProvider } from 'react-router';

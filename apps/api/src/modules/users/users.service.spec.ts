@@ -10,14 +10,22 @@ describe('UsersService', () => {
       user: {
         findMany: vi.fn(),
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
         delete: vi.fn(),
         count: vi.fn(),
       },
+      asset: {
+        count: vi.fn(),
+      },
       role: {
         findUnique: vi.fn(),
         findMany: vi.fn(),
+      },
+      directoryGroup: {
+        findMany: vi.fn(),
+        create: vi.fn(),
       },
     };
 
@@ -33,6 +41,7 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(45) // active
         .mockResolvedValueOnce(5) // admin
         .mockResolvedValueOnce(2); // suspended
+      (mockPrisma.asset as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(38); // custodians
 
       const stats = await service.getStats();
 
@@ -40,6 +49,7 @@ describe('UsersService', () => {
         totalUsers: 50,
         activeUsers: 45,
         adminUsers: 5,
+        custodiansCount: 38,
         suspendedUsers: 2,
         recentActiveCount: 45,
       });

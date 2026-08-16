@@ -1,21 +1,46 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserStatus } from '@prisma/client';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { DirectorySource, UserStatus } from '@prisma/client';
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateUserDto {
+  @ApiPropertyOptional({ example: 'john.doe' })
+  @IsString()
+  @IsOptional()
+  username?: string;
+
   @ApiProperty({ example: 'john.doe@company.com' })
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'John' })
+  @ApiPropertyOptional({ example: 'John' })
   @IsString()
-  @IsNotEmpty()
-  firstName!: string;
+  @IsOptional()
+  firstName?: string;
 
-  @ApiProperty({ example: 'Doe' })
+  @ApiPropertyOptional({ example: 'Doe' })
   @IsString()
-  @IsNotEmpty()
-  lastName!: string;
+  @IsOptional()
+  lastName?: string;
+
+  @ApiPropertyOptional({ example: 'John Doe' })
+  @IsString()
+  @IsOptional()
+  displayName?: string;
+
+  @ApiPropertyOptional({ example: 'Lead Cloud Architect' })
+  @IsString()
+  @IsOptional()
+  jobTitle?: string;
+
+  @ApiPropertyOptional({ enum: DirectorySource, default: DirectorySource.LOCAL })
+  @IsEnum(DirectorySource)
+  @IsOptional()
+  source?: DirectorySource;
+
+  @ApiPropertyOptional({ example: 'Ad#JohnDoe2026!' })
+  @IsString()
+  @IsOptional()
+  adInitialPassword?: string;
 
   @ApiPropertyOptional({ example: 'Admin@2026' })
   @IsString()

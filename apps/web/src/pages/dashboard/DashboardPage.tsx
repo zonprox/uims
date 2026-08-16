@@ -1,6 +1,7 @@
 import {
   AlertOutlined,
   ArrowUpOutlined,
+  CheckCircleOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
   GlobalOutlined,
@@ -32,7 +33,9 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import PageContainer from '../../components/PageContainer';
+import { WorldClockWidget } from '../../components/WorldClockWidget';
 import { type DashboardOverview, dashboardService } from '../../services/dashboard.service';
+import { useTimezoneStore } from '../../stores/timezone.store';
 import { useAuthStore } from '../../stores/auth.store';
 
 const { Title, Text } = Typography;
@@ -453,55 +456,72 @@ const ActionItemsCard: React.FC<{
   <Card
     size="small"
     title="Action Items & Warnings"
-    extra={<Badge count={items.length} style={{ backgroundColor: '#faad14', color: '#000' }} />}
+    extra={
+      <Badge
+        count={items.length}
+        style={{
+          backgroundColor: items.length > 0 ? '#faad14' : '#52c41a',
+          color: items.length > 0 ? '#000' : '#fff',
+        }}
+      />
+    }
   >
-    <Flex vertical gap={10}>
-      {items.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            padding: 10,
-            borderRadius: 6,
-            background:
-              item.type === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-            border:
-              item.type === 'error'
-                ? '1px solid rgba(239, 68, 68, 0.2)'
-                : '1px solid rgba(245, 158, 11, 0.2)',
-          }}
-        >
-          <Flex justify="space-between" align="flex-start">
-            <Flex gap={6} align="center">
-              {item.type === 'error' ? (
-                <AlertOutlined style={{ color: '#ef4444', fontSize: 14 }} />
-              ) : (
-                <WarningOutlined style={{ color: '#f59e0b', fontSize: 14 }} />
-              )}
-              <Text strong style={{ fontSize: 12.5 }}>
-                {item.title}
-              </Text>
-            </Flex>
-            <Tag color={item.tagColor} style={{ fontSize: 11 }}>
-              {item.tag}
-            </Tag>
-          </Flex>
-          <Text type="secondary" style={{ fontSize: 11.5, display: 'block', marginTop: 3 }}>
-            {item.description}
-          </Text>
-          <Button
-            type="link"
-            size="small"
-            style={{ padding: 0, marginTop: 2, fontSize: 12 }}
-            onClick={() => onNavigate(item.linkUrl)}
+    {items.length === 0 ? (
+      <div style={{ padding: '24px 0', textAlign: 'center' }}>
+        <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a', marginBottom: 8 }} />
+        <Text type="secondary" style={{ display: 'block', fontSize: 12.5 }}>
+          All systems operational. No active warnings or replenishment actions required.
+        </Text>
+      </div>
+    ) : (
+      <Flex vertical gap={10}>
+        {items.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              padding: 10,
+              borderRadius: 6,
+              background:
+                item.type === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+              border:
+                item.type === 'error'
+                  ? '1px solid rgba(239, 68, 68, 0.2)'
+                  : '1px solid rgba(245, 158, 11, 0.2)',
+            }}
           >
-            <Space size={4}>
-              <span>{item.linkText.replace(/[\s→←↑↓]+$/, '')}</span>
-              <RightOutlined style={{ fontSize: 10 }} />
-            </Space>
-          </Button>
-        </div>
-      ))}
-    </Flex>
+            <Flex justify="space-between" align="flex-start">
+              <Flex gap={6} align="center">
+                {item.type === 'error' ? (
+                  <AlertOutlined style={{ color: '#ef4444', fontSize: 14 }} />
+                ) : (
+                  <WarningOutlined style={{ color: '#f59e0b', fontSize: 14 }} />
+                )}
+                <Text strong style={{ fontSize: 12.5 }}>
+                  {item.title}
+                </Text>
+              </Flex>
+              <Tag color={item.tagColor} style={{ fontSize: 11 }}>
+                {item.tag}
+              </Tag>
+            </Flex>
+            <Text type="secondary" style={{ fontSize: 11.5, display: 'block', marginTop: 3 }}>
+              {item.description}
+            </Text>
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, marginTop: 2, fontSize: 12 }}
+              onClick={() => onNavigate(item.linkUrl)}
+            >
+              <Space size={4}>
+                <span>{item.linkText.replace(/[\s→←↑↓]+$/, '')}</span>
+                <RightOutlined style={{ fontSize: 10 }} />
+              </Space>
+            </Button>
+          </div>
+        ))}
+      </Flex>
+    )}
   </Card>
 );
 
@@ -583,6 +603,8 @@ export default function DashboardPage() {
               <QuickActionHub onNavigate={navigate} />
             </Col>
           </Row>
+
+          <WorldClockWidget systemTimezone={useTimezoneStore.getState().systemTimezone} />
 
           <Row gutter={[14, 14]}>
             <Col xs={24} lg={16}>

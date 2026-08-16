@@ -5,6 +5,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import CommandPalette from '../components/CommandPalette';
 import ErrorBoundary from '../components/ErrorBoundary';
 import NotificationDrawer from '../components/NotificationDrawer';
+import { QuickConfigDrawer } from '../components/QuickConfigDrawer';
 import { useAuthStore } from '../stores/auth.store';
 import { useThemeStore } from '../stores/theme.store';
 import { LayoutFooter } from './components/LayoutFooter';
@@ -29,7 +30,6 @@ export default function MainLayout() {
   const screens = useBreakpoint();
 
   const mode = useThemeStore((state) => state.mode);
-  const toggleMode = useThemeStore((state) => state.toggleMode);
 
   const isMobile = screens.md === false;
   const isXs = screens.xs === true;
@@ -38,6 +38,7 @@ export default function MainLayout() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [quickConfigOpen, setQuickConfigOpen] = useState(false);
   const [activeOrg, setActiveOrg] = useState('Acme Enterprise HQ (US-East)');
 
   const { unreadNotifCount, navBadges, fetchLiveTelemetry } = useLayoutTelemetry(15000);
@@ -148,7 +149,7 @@ export default function MainLayout() {
           unreadCount={unreadNotifCount}
           onToggleSidebar={handleToggleSidebar}
           onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-          onToggleMode={toggleMode}
+          onOpenQuickConfig={() => setQuickConfigOpen(true)}
           onOpenNotifications={() => setNotificationsOpen(true)}
         />
 
@@ -162,6 +163,7 @@ export default function MainLayout() {
       </Layout>
 
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
+      <QuickConfigDrawer open={quickConfigOpen} onClose={() => setQuickConfigOpen(false)} />
       <NotificationDrawer
         open={notificationsOpen}
         onClose={() => setNotificationsOpen(false)}

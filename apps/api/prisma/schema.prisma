@@ -61,25 +61,30 @@ enum UserStatus {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  roleId       String?
-  roleName     String?    @default("Employee")
-  status       UserStatus @default(ACTIVE)
-  avatar       String?
-  phone        String?
-  department     String?
-  location       String?
-  departmentId   String?
-  positionId     String?
-  organizationId String?
-  locationId     String?
-  lastLoginAt    DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id                 String              @id @default(uuid())
+  username           String              @unique
+  email              String              @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  displayName        String?
+  jobTitle           String?
+  roleId             String?
+  roleName           String?             @default("Employee")
+  status             UserStatus          @default(ACTIVE)
+  source             DirectorySource     @default(LOCAL)
+  avatar             String?
+  phone              String?
+  department         String?
+  location           String?
+  adInitialPassword  String?
+  departmentId       String?
+  positionId         String?
+  organizationId     String?
+  locationId         String?
+  lastLoginAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   role               Role?               @relation(fields: [roleId], references: [id], onDelete: SetNull)
   organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -90,6 +95,11 @@ model User {
   licenseAssignments LicenseAssignment[]
   auditLogs          AuditLog[]
   notifications      Notification[]
+  groupMemberships   DirectoryMembership[]
+
+  @@index([status])
+  @@index([department])
+  @@index([roleName])
 }
 
 model Role {
@@ -234,56 +244,17 @@ model LicenseAssignment {
   @@index([assignedEmail])
 }
 
-model DirectoryUser {
-  id                  String          @id @default(uuid())
-  username            String          @unique
-  email               String          @unique
-  displayName         String?
-  jobTitle            String?
-  department          String?
-  role                String?         @default("Employee")
-  phone               String?
-  location            String?
-  twoFactorEnabled    Boolean         @default(false)
-  accountStatus       AccountStatus   @default(ACTIVE)
-  source              DirectorySource @default(LOCAL)
-  externalId          String?
-
-  // Initial Credentials (AD & Mail)
-  adInitialPassword   String?
-  mailInitialPassword String?
-
-  // Domain Controller Mailbox Configuration
-  hasMailbox          Boolean         @default(true)
-  mailboxType         String?         @default("User")
-  quotaUsed           Float           @default(0)
-  quotaTotal          Float           @default(50)
-  mailStatus          String?         @default("Active")
-  forwardingAddress   String?
-  autoReplyEnabled    Boolean         @default(false)
-  aliases             Json?
-
-  lastLoginAt         DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-
-  memberships DirectoryMembership[]
-
-  @@index([accountStatus])
-  @@index([department])
-}
-
 model DirectoryGroup {
-  id          String   @id @default(uuid())
+  id          String                @id @default(uuid())
   name        String
   email       String?
   description String?
   type        String?
-  scope       String?  @default("Internal Only")
+  scope       String?               @default("Internal Only")
   managedBy   String?
-  memberCount Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  memberCount Int                   @default(0)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
   memberships DirectoryMembership[]
 }
@@ -291,29 +262,12 @@ model DirectoryGroup {
 model DirectoryMembership {
   userId  String
   groupId String
-  user    DirectoryUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   group   DirectoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@id([userId, groupId])
   @@index([userId])
   @@index([groupId])
-}
-
-model EmailAccount {
-  id                String   @id @default(uuid())
-  address           String   @unique
-  displayName       String?
-  type              String   @default("User")
-  department        String?
-  userId            String?
-  quotaUsed         Float    @default(0)
-  quotaTotal        Float    @default(50)
-  status            String   @default("Active")
-  forwardingAddress String?
-  autoReplyEnabled  Boolean  @default(false)
-  aliases           Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 }
 
 model IPAddress {

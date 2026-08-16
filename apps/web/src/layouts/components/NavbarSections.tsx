@@ -3,10 +3,9 @@ import {
   MenuFoldOutlined,
   MenuOutlined,
   MenuUnfoldOutlined,
-  MoonOutlined,
   PlusOutlined,
   SearchOutlined,
-  SunOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import {
   Avatar,
@@ -93,7 +92,7 @@ export interface NavbarRightSectionProps {
   userMenuItems: MenuProps['items'];
   user: { name?: string } | null;
   unreadCount: number;
-  onToggleMode: () => void;
+  onOpenQuickConfig: () => void;
   onOpenNotifications: () => void;
 }
 
@@ -105,10 +104,10 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
     userMenuItems,
     user,
     unreadCount,
-    onToggleMode,
+    onOpenQuickConfig,
     onOpenNotifications,
   }) => (
-    <Flex align="center" gap={isXs ? 6 : 12}>
+    <Flex align="center" gap={isXs ? 6 : 8}>
       <Dropdown menu={{ items: quickCreateMenu }} placement="bottomRight">
         <Button
           type="primary"
@@ -116,25 +115,9 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
           icon={<PlusOutlined />}
           style={{ height: 32, borderRadius: 6, fontWeight: 600 }}
         >
-          {!isXs ? 'Quick Action' : ''}
+          {!isXs ? 'New' : ''}
         </Button>
       </Dropdown>
-
-      <Tooltip title={mode === 'dark' ? 'Switch to Light' : 'Switch to Dark'}>
-        <Button
-          type="text"
-          shape="circle"
-          size="small"
-          icon={
-            mode === 'dark' ? (
-              <SunOutlined style={{ color: '#f59e0b' }} />
-            ) : (
-              <MoonOutlined style={{ color: '#64748b' }} />
-            )
-          }
-          onClick={onToggleMode}
-        />
-      </Tooltip>
 
       <Tooltip title="Security & Telemetry Alerts">
         <Badge
@@ -163,7 +146,17 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
         </Badge>
       </Tooltip>
 
-      {!isXs && <Divider orientation="vertical" style={{ height: 20 }} />}
+      <Tooltip title="Quick Setup & Config (Theme, Timezone, System)">
+        <Button
+          type="text"
+          shape="circle"
+          size="small"
+          icon={<SettingOutlined style={{ fontSize: 16, color: '#64748b' }} />}
+          onClick={onOpenQuickConfig}
+        />
+      </Tooltip>
+
+      <Divider orientation="vertical" style={{ height: 20, margin: '0 4px' }} />
 
       <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
         <div
@@ -172,7 +165,7 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            padding: isXs ? '2px' : '4px 8px',
+            padding: isXs ? '2px' : '2px 6px',
             borderRadius: 6,
           }}
         >
@@ -221,7 +214,7 @@ export interface AppNavbarHeaderProps {
   unreadCount: number;
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;
-  onToggleMode: () => void;
+  onOpenQuickConfig: () => void;
   onOpenNotifications: () => void;
 }
 
@@ -237,7 +230,7 @@ export const AppNavbarHeader: React.FC<AppNavbarHeaderProps> = React.memo(
     unreadCount,
     onToggleSidebar,
     onOpenCommandPalette,
-    onToggleMode,
+    onOpenQuickConfig,
     onOpenNotifications,
   }) => (
     <Header
@@ -269,7 +262,7 @@ export const AppNavbarHeader: React.FC<AppNavbarHeaderProps> = React.memo(
         userMenuItems={userMenuItems}
         user={user}
         unreadCount={unreadCount}
-        onToggleMode={onToggleMode}
+        onOpenQuickConfig={onOpenQuickConfig}
         onOpenNotifications={onOpenNotifications}
       />
     </Header>

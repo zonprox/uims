@@ -41,6 +41,7 @@ import {
   Typography,
 } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useThemeStore } from '../../stores/theme.store';
 
 const { Text } = Typography;
 
@@ -112,67 +113,79 @@ export function getNodeDimensions(type: OrgNode['type']): { width: number; heigh
   }
 }
 
-export function getNodeTheme(type: OrgNode['type']) {
+export function getNodeTheme(type: OrgNode['type'], isDark = false) {
   switch (type) {
     case 'organization':
       return {
-        borderColor: '#8b5cf6',
-        bgHeader: '#f5f3ff',
-        badgeBg: '#ede9fe',
-        badgeColor: '#6d28d9',
+        borderColor: isDark ? '#a78bfa' : '#8b5cf6',
+        bgHeader: isDark ? 'rgba(139, 92, 246, 0.18)' : '#f5f3ff',
+        badgeBg: isDark ? 'rgba(139, 92, 246, 0.3)' : '#ede9fe',
+        badgeColor: isDark ? '#ddd6fe' : '#6d28d9',
         tagColor: 'purple',
-        icon: <BankOutlined style={{ color: '#7c3aed' }} />,
-        titleColor: '#5b21b6',
+        icon: <BankOutlined style={{ color: isDark ? '#c4b5fd' : '#7c3aed' }} />,
+        titleColor: isDark ? '#e9d5ff' : '#5b21b6',
+        cardBg: isDark ? '#0f172a' : '#ffffff',
+        textColor: isDark ? '#f1f5f9' : '#1e293b',
       };
     case 'branch':
       return {
-        borderColor: '#10b981',
-        bgHeader: '#ecfdf5',
-        badgeBg: '#d1fae5',
-        badgeColor: '#047857',
+        borderColor: isDark ? '#34d399' : '#10b981',
+        bgHeader: isDark ? 'rgba(16, 185, 129, 0.18)' : '#ecfdf5',
+        badgeBg: isDark ? 'rgba(16, 185, 129, 0.3)' : '#d1fae5',
+        badgeColor: isDark ? '#a7f3d0' : '#047857',
         tagColor: 'green',
-        icon: <EnvironmentOutlined style={{ color: '#059669' }} />,
-        titleColor: '#065f46',
+        icon: <EnvironmentOutlined style={{ color: isDark ? '#6ee7b7' : '#059669' }} />,
+        titleColor: isDark ? '#a7f3d0' : '#065f46',
+        cardBg: isDark ? '#0f172a' : '#ffffff',
+        textColor: isDark ? '#f1f5f9' : '#1e293b',
       };
     case 'department':
       return {
-        borderColor: '#3b82f6',
-        bgHeader: '#eff6ff',
-        badgeBg: '#dbeafe',
-        badgeColor: '#1d4ed8',
+        borderColor: isDark ? '#60a5fa' : '#3b82f6',
+        bgHeader: isDark ? 'rgba(59, 130, 246, 0.18)' : '#eff6ff',
+        badgeBg: isDark ? 'rgba(59, 130, 246, 0.3)' : '#dbeafe',
+        badgeColor: isDark ? '#bfdbfe' : '#1d4ed8',
         tagColor: 'blue',
-        icon: <ApartmentOutlined style={{ color: '#2563eb' }} />,
-        titleColor: '#1e40af',
+        icon: <ApartmentOutlined style={{ color: isDark ? '#93c5fd' : '#2563eb' }} />,
+        titleColor: isDark ? '#bfdbfe' : '#1e40af',
+        cardBg: isDark ? '#0f172a' : '#ffffff',
+        textColor: isDark ? '#f1f5f9' : '#1e293b',
       };
     case 'sub-department':
       return {
-        borderColor: '#06b6d4',
-        bgHeader: '#ecfeff',
-        badgeBg: '#cffafe',
-        badgeColor: '#0e7490',
+        borderColor: isDark ? '#22d3ee' : '#06b6d4',
+        bgHeader: isDark ? 'rgba(6, 182, 212, 0.18)' : '#ecfeff',
+        badgeBg: isDark ? 'rgba(6, 182, 212, 0.3)' : '#cffafe',
+        badgeColor: isDark ? '#a5f3fc' : '#0e7490',
         tagColor: 'cyan',
-        icon: <ClusterOutlined style={{ color: '#0891b2' }} />,
-        titleColor: '#155e75',
+        icon: <ClusterOutlined style={{ color: isDark ? '#67e8f9' : '#0891b2' }} />,
+        titleColor: isDark ? '#a5f3fc' : '#155e75',
+        cardBg: isDark ? '#0f172a' : '#ffffff',
+        textColor: isDark ? '#f1f5f9' : '#1e293b',
       };
     case 'position':
       return {
-        borderColor: '#f59e0b',
-        bgHeader: '#fffbeb',
-        badgeBg: '#fef3c7',
-        badgeColor: '#b45309',
+        borderColor: isDark ? '#fbbf24' : '#f59e0b',
+        bgHeader: isDark ? 'rgba(245, 158, 11, 0.18)' : '#fffbeb',
+        badgeBg: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fef3c7',
+        badgeColor: isDark ? '#fde68a' : '#b45309',
         tagColor: 'orange',
-        icon: <IdcardOutlined style={{ color: '#d97706' }} />,
-        titleColor: '#92400e',
+        icon: <IdcardOutlined style={{ color: isDark ? '#fcd34d' : '#d97706' }} />,
+        titleColor: isDark ? '#fef08a' : '#92400e',
+        cardBg: isDark ? '#0f172a' : '#ffffff',
+        textColor: isDark ? '#f1f5f9' : '#1e293b',
       };
     default:
       return {
-        borderColor: '#94a3b8',
-        bgHeader: '#f8fafc',
-        badgeBg: '#f1f5f9',
-        badgeColor: '#475569',
+        borderColor: isDark ? '#64748b' : '#94a3b8',
+        bgHeader: isDark ? 'rgba(148, 163, 184, 0.18)' : '#f8fafc',
+        badgeBg: isDark ? 'rgba(148, 163, 184, 0.3)' : '#f1f5f9',
+        badgeColor: isDark ? '#e2e8f0' : '#475569',
         tagColor: 'default',
-        icon: <ApartmentOutlined style={{ color: '#64748b' }} />,
-        titleColor: '#334155',
+        icon: <ApartmentOutlined style={{ color: isDark ? '#94a3b8' : '#64748b' }} />,
+        titleColor: isDark ? '#e2e8f0' : '#334155',
+        cardBg: isDark ? '#0f172a' : '#ffffff',
+        textColor: isDark ? '#f1f5f9' : '#1e293b',
       };
   }
 }
@@ -423,6 +436,9 @@ export default function OrganizationCanvas({
   onOpenCreatePos,
   loading = false,
 }: OrganizationCanvasProps) {
+  const mode = useThemeStore((state) => state.mode);
+  const isDark = mode === 'dark';
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 
@@ -729,26 +745,32 @@ export default function OrganizationCanvas({
 
     const { minX, minY, width, height } = layout.bounds;
     const padding = 50;
+    const bgColor = isDark ? '#080c14' : '#ffffff';
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    const subColor = isDark ? '#94a3b8' : '#64748b';
+    const edgeColor = isDark ? '#334155' : '#94a3b8';
+    const cardBg = isDark ? '#0f172a' : '#ffffff';
 
     let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${width + padding * 2}" height="${height + padding * 2}" viewBox="${minX - padding} ${minY - padding} ${width + padding * 2} ${height + padding * 2}">\n`;
+    svgContent += `<rect width="100%" height="100%" fill="${bgColor}" />\n`;
     svgContent += `<style>
       .node-card { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-      .node-title { font-weight: 600; font-size: 13px; fill: #1e293b; }
+      .node-title { font-weight: 600; font-size: 13px; fill: ${textColor}; }
       .node-code { font-size: 10px; font-weight: bold; }
-      .node-subtitle { font-size: 11px; fill: #64748b; }
+      .node-subtitle { font-size: 11px; fill: ${subColor}; }
     </style>\n`;
 
     // Add Edges
     for (const edge of layout.edges) {
-      svgContent += `<path d="${edge.path}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="0" />\n`;
+      svgContent += `<path d="${edge.path}" fill="none" stroke="${edgeColor}" stroke-width="2" stroke-dasharray="0" />\n`;
     }
 
     // Add Nodes
     for (const node of layout.nodes) {
-      const theme = getNodeTheme(node.data.type);
+      const theme = getNodeTheme(node.data.type, isDark);
       svgContent += `
       <g transform="translate(${node.x}, ${node.y})">
-        <rect width="${node.width}" height="${node.height}" rx="8" fill="#ffffff" stroke="${theme.borderColor}" stroke-width="2" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.08))" />
+        <rect width="${node.width}" height="${node.height}" rx="8" fill="${cardBg}" stroke="${theme.borderColor}" stroke-width="2" />
         <rect width="${node.width}" height="24" rx="8" fill="${theme.bgHeader}" />
         <text x="12" y="16" font-size="11" font-weight="700" fill="${theme.badgeColor}">${node.data.code}</text>
         <text x="12" y="44" class="node-title">${node.data.title.replace(/&/g, '&amp;')}</text>
@@ -779,14 +801,14 @@ export default function OrganizationCanvas({
     if (!ctx) return;
 
     ctx.scale(scale, scale);
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = isDark ? '#080c14' : '#f8fafc';
     ctx.fillRect(0, 0, width + padding * 2, height + padding * 2);
 
     ctx.translate(-minX + padding, -minY + padding);
 
     // Draw Edges
     for (const edge of layout.edges) {
-      ctx.strokeStyle = '#cbd5e1';
+      ctx.strokeStyle = isDark ? '#334155' : '#cbd5e1';
       ctx.lineWidth = 2;
       ctx.beginPath();
       const p = new Path2D(edge.path);
@@ -795,8 +817,8 @@ export default function OrganizationCanvas({
 
     // Draw Nodes
     for (const node of layout.nodes) {
-      const theme = getNodeTheme(node.data.type);
-      ctx.fillStyle = '#ffffff';
+      const theme = getNodeTheme(node.data.type, isDark);
+      ctx.fillStyle = isDark ? '#0f172a' : '#ffffff';
       ctx.strokeStyle = theme.borderColor;
       ctx.lineWidth = 2;
 
@@ -819,12 +841,12 @@ export default function OrganizationCanvas({
       ctx.fillText(node.data.code || node.data.type.toUpperCase(), node.x + 10, node.y + 16);
 
       // Title
-      ctx.fillStyle = '#0f172a';
+      ctx.fillStyle = isDark ? '#f1f5f9' : '#0f172a';
       ctx.font = 'bold 12px Inter, sans-serif';
       ctx.fillText(node.data.title.substring(0, 24), node.x + 10, node.y + 45);
 
       // Subtitle / Manager
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
       ctx.font = '11px Inter, sans-serif';
       const sub = node.data.manager
         ? `Lead: ${node.data.manager}`
@@ -972,13 +994,13 @@ export default function OrganizationCanvas({
           padding: 0,
           position: 'relative',
           overflow: 'hidden',
-          backgroundColor: '#fafbfc',
+          backgroundColor: isDark ? '#090d16' : '#fafbfc',
           borderRadius: 8,
         },
       }}
       style={{
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        border: isDark ? '1px solid #1e293b' : '1px solid #e2e8f0',
+        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.03)',
       }}
     >
       {/* Canvas Top Control Bar */}
@@ -989,8 +1011,8 @@ export default function OrganizationCanvas({
         gap={8}
         style={{
           padding: '10px 14px',
-          background: '#ffffff',
-          borderBottom: '1px solid #e2e8f0',
+          background: isDark ? '#0c1017' : '#ffffff',
+          borderBottom: isDark ? '1px solid #1e293b' : '1px solid #e2e8f0',
           zIndex: 10,
           position: 'relative',
         }}
@@ -999,7 +1021,7 @@ export default function OrganizationCanvas({
         <Flex align="center" gap={8}>
           <Input
             placeholder="Search nodes in canvas..."
-            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            prefix={<SearchOutlined style={{ color: isDark ? '#64748b' : '#94a3b8' }} />}
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -1215,9 +1237,10 @@ export default function OrganizationCanvas({
           cursor: isDragging ? 'grabbing' : 'grab',
           userSelect: 'none',
           touchAction: 'none',
-          backgroundColor: '#f8fafc',
-          backgroundImage:
-            'radial-gradient(circle, #cbd5e1 1px, transparent 1px), radial-gradient(circle, #e2e8f0 1px, transparent 1px)',
+          backgroundColor: isDark ? '#080c14' : '#f8fafc',
+          backgroundImage: isDark
+            ? 'radial-gradient(circle, #1e293b 1.2px, transparent 1.2px), radial-gradient(circle, #0f172a 1.2px, transparent 1.2px)'
+            : 'radial-gradient(circle, #cbd5e1 1px, transparent 1px), radial-gradient(circle, #e2e8f0 1px, transparent 1px)',
           backgroundSize: '24px 24px, 120px 120px',
           backgroundPosition: `${transform.x}px ${transform.y}px`,
         }}
@@ -1231,12 +1254,12 @@ export default function OrganizationCanvas({
             top: 16,
             right: 16,
             zIndex: 20,
-            background: 'rgba(255, 255, 255, 0.92)',
+            background: isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(6px)',
             padding: 6,
             borderRadius: 8,
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+            border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
+            boxShadow: isDark ? '0 4px 14px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.06)',
           }}
         >
           <Tooltip title="Zoom In (+)" placement="left">
@@ -1276,10 +1299,10 @@ export default function OrganizationCanvas({
             style={{
               textAlign: 'center',
               fontSize: 10,
-              color: '#64748b',
+              color: isDark ? '#94a3b8' : '#64748b',
               fontWeight: 600,
               paddingTop: 4,
-              borderTop: '1px solid #f1f5f9',
+              borderTop: isDark ? '1px solid #334155' : '1px solid #f1f5f9',
             }}
           >
             {Math.round(transform.scale * 100)}%
@@ -1296,12 +1319,12 @@ export default function OrganizationCanvas({
             bottom: 16,
             left: 16,
             zIndex: 20,
-            background: 'rgba(255, 255, 255, 0.94)',
+            background: isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.94)',
             backdropFilter: 'blur(6px)',
             padding: '6px 12px',
             borderRadius: 8,
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
+            boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.05)',
             fontSize: 11,
           }}
         >
@@ -1387,11 +1410,11 @@ export default function OrganizationCanvas({
               right: 16,
               width: 180,
               height: 120,
-              background: 'rgba(255, 255, 255, 0.95)',
+              background: isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.95)',
               backdropFilter: 'blur(8px)',
-              border: '1px solid #cbd5e1',
+              border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
               borderRadius: 8,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              boxShadow: isDark ? '0 4px 14px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)',
               zIndex: 20,
               overflow: 'hidden',
               cursor: 'crosshair',
@@ -1409,7 +1432,7 @@ export default function OrganizationCanvas({
                 const mapW = Math.max(n.width * minimapViewport.mapScale, 3);
                 const mapH = Math.max(n.height * minimapViewport.mapScale, 2);
 
-                const theme = getNodeTheme(n.data.type);
+                const theme = getNodeTheme(n.data.type, isDark);
                 return (
                   <rect
                     key={n.id}
@@ -1419,7 +1442,7 @@ export default function OrganizationCanvas({
                     height={mapH}
                     rx={1}
                     fill={theme.borderColor}
-                    opacity={0.8}
+                    opacity={0.85}
                   />
                 );
               })}
@@ -1430,8 +1453,8 @@ export default function OrganizationCanvas({
                 y={minimapViewport.y}
                 width={minimapViewport.w}
                 height={minimapViewport.h}
-                fill="rgba(37, 99, 235, 0.12)"
-                stroke="#2563eb"
+                fill={isDark ? 'rgba(96, 165, 250, 0.2)' : 'rgba(37, 99, 235, 0.12)'}
+                stroke={isDark ? '#60a5fa' : '#2563eb'}
                 strokeWidth={1.5}
                 rx={2}
               />
@@ -1442,7 +1465,7 @@ export default function OrganizationCanvas({
                 top: 3,
                 right: 5,
                 fontSize: 9,
-                color: '#94a3b8',
+                color: isDark ? '#64748b' : '#94a3b8',
                 fontWeight: 600,
               }}
             >
@@ -1499,17 +1522,33 @@ export default function OrganizationCanvas({
                   <path
                     d={edge.path}
                     fill="none"
-                    stroke={isHighlighted ? '#2563eb' : '#cbd5e1'}
+                    stroke={
+                      isHighlighted
+                        ? isDark
+                          ? '#60a5fa'
+                          : '#2563eb'
+                        : isDark
+                          ? '#334155'
+                          : '#cbd5e1'
+                    }
                     strokeWidth={isHighlighted ? 2.5 : 1.8}
                     strokeDasharray={isHighlighted ? 'none' : 'none'}
-                    opacity={isHighlighted ? 1 : 0.8}
+                    opacity={isHighlighted ? 1 : 0.85}
                   />
                   {/* Subtle junction dot at target */}
                   <circle
                     cx={edge.targetX}
                     cy={edge.targetY}
                     r={isHighlighted ? 3.5 : 2.5}
-                    fill={isHighlighted ? '#2563eb' : '#94a3b8'}
+                    fill={
+                      isHighlighted
+                        ? isDark
+                          ? '#60a5fa'
+                          : '#2563eb'
+                        : isDark
+                          ? '#475569'
+                          : '#94a3b8'
+                    }
                   />
                 </g>
               );
@@ -1521,7 +1560,7 @@ export default function OrganizationCanvas({
             const isSelected = selectedNodeKey === node.key;
             const isMatched = matchedNodeKeys.includes(node.key);
             const isActiveMatch = activeMatchedKey === node.key;
-            const theme = getNodeTheme(node.data.type);
+            const theme = getNodeTheme(node.data.type, isDark);
 
             return (
               <div
@@ -1536,7 +1575,7 @@ export default function OrganizationCanvas({
                   top: node.y,
                   width: node.width,
                   height: node.height,
-                  background: '#ffffff',
+                  background: isDark ? '#0f172a' : '#ffffff',
                   borderRadius: 10,
                   border: isSelected
                     ? `2px solid ${theme.borderColor}`
@@ -1544,12 +1583,18 @@ export default function OrganizationCanvas({
                       ? '2px solid #ef4444'
                       : isMatched
                         ? '2px solid #f59e0b'
-                        : '1px solid rgba(0, 0, 0, 0.08)',
+                        : isDark
+                          ? '1px solid #1e293b'
+                          : '1px solid rgba(0, 0, 0, 0.08)',
                   boxShadow: isSelected
-                    ? `0 0 0 3px ${theme.bgHeader}, 0 8px 16px -2px rgba(0, 0, 0, 0.1)`
+                    ? isDark
+                      ? `0 0 0 3px ${theme.bgHeader}, 0 8px 20px -2px rgba(0, 0, 0, 0.6)`
+                      : `0 0 0 3px ${theme.bgHeader}, 0 8px 16px -2px rgba(0, 0, 0, 0.1)`
                     : isActiveMatch
-                      ? '0 0 0 4px rgba(239, 68, 68, 0.25), 0 6px 14px rgba(0,0,0,0.1)'
-                      : '0 2px 6px -1px rgba(0, 0, 0, 0.06), 0 1px 4px -1px rgba(0, 0, 0, 0.03)',
+                      ? '0 0 0 4px rgba(239, 68, 68, 0.25), 0 6px 14px rgba(0,0,0,0.2)'
+                      : isDark
+                        ? '0 2px 8px rgba(0, 0, 0, 0.4)'
+                        : '0 2px 6px -1px rgba(0, 0, 0, 0.06), 0 1px 4px -1px rgba(0, 0, 0, 0.03)',
                   cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1560,14 +1605,19 @@ export default function OrganizationCanvas({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow =
-                    '0 10px 20px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+                  e.currentTarget.style.boxShadow = isDark
+                    ? '0 10px 24px -3px rgba(0, 0, 0, 0.7), 0 4px 8px -2px rgba(0, 0, 0, 0.5)'
+                    : '0 10px 20px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = isSelected
-                    ? `0 0 0 3px ${theme.bgHeader}, 0 8px 16px -2px rgba(0, 0, 0, 0.1)`
-                    : '0 2px 6px -1px rgba(0, 0, 0, 0.06)';
+                    ? isDark
+                      ? `0 0 0 3px ${theme.bgHeader}, 0 8px 20px -2px rgba(0, 0, 0, 0.6)`
+                      : `0 0 0 3px ${theme.bgHeader}, 0 8px 16px -2px rgba(0, 0, 0, 0.1)`
+                    : isDark
+                      ? '0 2px 8px rgba(0, 0, 0, 0.4)'
+                      : '0 2px 6px -1px rgba(0, 0, 0, 0.06)';
                 }}
               >
                 {/* Node Header */}
@@ -1617,7 +1667,7 @@ export default function OrganizationCanvas({
                         minWidth: 18,
                         padding: 0,
                         fontSize: 10,
-                        color: '#94a3b8',
+                        color: isDark ? '#64748b' : '#94a3b8',
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -1633,7 +1683,7 @@ export default function OrganizationCanvas({
                     ellipsis
                     style={{
                       fontSize: 12.5,
-                      color: isSelected ? theme.titleColor : '#1e293b',
+                      color: isSelected ? theme.titleColor : isDark ? '#f1f5f9' : '#1e293b',
                       display: 'block',
                       lineHeight: 1.3,
                     }}
@@ -1651,6 +1701,7 @@ export default function OrganizationCanvas({
                       fontSize: 10.5,
                       maxWidth: '65%',
                       lineHeight: 1,
+                      color: isDark ? '#94a3b8' : undefined,
                     }}
                   >
                     {node.data.manager ? (
@@ -1691,16 +1742,26 @@ export default function OrganizationCanvas({
                       width: 20,
                       height: 20,
                       borderRadius: '50%',
-                      background: '#ffffff',
-                      border: `1.5px solid ${node.isCollapsed ? '#f59e0b' : '#3b82f6'}`,
-                      color: node.isCollapsed ? '#d97706' : '#2563eb',
+                      background: isDark ? '#1e293b' : '#ffffff',
+                      border: isDark
+                        ? `1.5px solid ${node.isCollapsed ? '#f59e0b' : '#60a5fa'}`
+                        : `1.5px solid ${node.isCollapsed ? '#f59e0b' : '#3b82f6'}`,
+                      color: isDark
+                        ? node.isCollapsed
+                          ? '#fbbf24'
+                          : '#93c5fd'
+                        : node.isCollapsed
+                          ? '#d97706'
+                          : '#2563eb',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: 10,
                       fontWeight: 700,
                       cursor: 'pointer',
-                      boxShadow: '0 2px 5px rgba(0,0,0,0.12)',
+                      boxShadow: isDark
+                        ? '0 2px 6px rgba(0,0,0,0.5)'
+                        : '0 2px 5px rgba(0,0,0,0.12)',
                       zIndex: 16,
                       transition: 'transform 0.15s ease',
                     }}

@@ -26,8 +26,6 @@ async function clearDatabase(client: PrismaClient) {
   await client.auditLog.deleteMany();
   await client.directoryMembership.deleteMany();
   await client.directoryGroup.deleteMany();
-  await client.directoryUser.deleteMany();
-  await client.emailAccount.deleteMany();
   await client.iPAddress.deleteMany();
   await client.subnet.deleteMany();
   await client.inventoryItem.deleteMany();
@@ -54,8 +52,8 @@ async function main() {
   console.log('🏛️ Seeding Organizations, Departments and Positions...');
   await seedOrganizations(prisma);
 
-  // 4. Roles and Users
-  console.log('👤 Seeding Roles and System Users...');
+  // 4. Roles and Unified System/AD Users
+  console.log('👤 Seeding Roles and Unified Enterprise Users...');
   const usersResult = await seedRolesAndUsers(prisma);
 
   // 5. Hardware Assets
@@ -70,8 +68,8 @@ async function main() {
   console.log('📦 Seeding Hardware Stockroom Inventory...');
   await seedInventory(prisma);
 
-  // 8. Directory Users, Groups and Emails
-  console.log('👥 Seeding Directory Users, Groups & Mailboxes...');
+  // 8. Directory Groups
+  console.log('👥 Seeding Domain Distribution & Security Groups...');
   await seedDirectory(prisma);
 
   // 9. Subnets and IP Allocations
@@ -92,7 +90,7 @@ async function main() {
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   console.log(
-    `✅ Enterprise Seed completed successfully in ${duration}s (100% modular architecture).`,
+    `✅ Enterprise Seed completed successfully in ${duration}s (100% unified architecture).`,
   );
 }
 

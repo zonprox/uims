@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import type { Prisma, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
+import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -11,14 +12,29 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto) {
     const email = createUserDto.email.trim().toLowerCase();
-    const existing = await this.findByEmail(email);
-    if (existing) {
+    const username = (createUserDto.username || email.split('@')[0] || `user-${Date.now()}`)
+      .trim()
+      .toLowerCase();
+
+    const existingByEmail = await this.findByEmail(email);
+    if (existingByEmail) {
       throw new ConflictException('User with this email already exists');
+    }
+
+    const existingByUsername = await this.findByUsername(username);
+    if (existingByUsername) {
+      throw new ConflictException('User with this AD username already exists');
     }
 
     const rawPassword = createUserDto.password || 'Admin@2026';
     const passwordHash = await bcrypt.hash(rawPassword, 10);
     const { password: _password, ...userData } = createUserDto;
+
+    const firstName = userData.firstName || username;
+    const lastName = userData.lastName || '';
+    const displayName = userData.displayName || `${firstName} ${lastName}`.trim();
+    const cleanUsername = username.replace(/[^a-zA-Z0-9]/g, '');
+    const adInitialPassword = userData.adInitialPassword || `Ad#${cleanUsername}2026!`;
 
     // Resolve roleName if roleId provided or vice versa
     let roleId = userData.roleId;
@@ -35,7 +51,14 @@ export class UsersService {
     const created = await this.prisma.user.create({
       data: {
         ...userData,
+        username,
         email,
+        firstName,
+        lastName,
+        displayName,
+        jobTitle: userData.jobTitle || 'Employee',
+        source: userData.source || 'LOCAL',
+        adInitialPassword,
         roleId,
         roleName: roleName || 'Employee',
         passwordHash,
@@ -56,12 +79,14 @@ export class UsersService {
   async findAll(query?: {
     page?: number;
     limit?: number;
+    pageSize?: number;
     search?: string;
     role?: string;
     status?: string;
     department?: string;
+    source?: string;
   }) {
-    const pageSize = Math.min(100, Math.max(1, Number(query?.limit) || 50));
+    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
 
@@ -72,8 +97,11 @@ export class UsersService {
       where.OR = [
         { firstName: { contains: s, mode: 'insensitive' } },
         { lastName: { contains: s, mode: 'insensitive' } },
+        { displayName: { contains: s, mode: 'insensitive' } },
+        { username: { contains: s, mode: 'insensitive' } },
         { email: { contains: s, mode: 'insensitive' } },
         { phone: { contains: s, mode: 'insensitive' } },
+        { jobTitle: { contains: s, mode: 'insensitive' } },
       ];
     }
 
@@ -82,7 +110,11 @@ export class UsersService {
     }
 
     if (query?.status && query.status !== 'all') {
-      where.status = query.status as UserStatus;
+      where.status = query.status.toUpperCase() as UserStatus;
+    }
+
+    if (query?.source && query.source !== 'all') {
+      where.source = query.source as import('@prisma/client').DirectorySource;
     }
 
     if (query?.department && query.department !== 'all') {
@@ -98,9 +130,14 @@ export class UsersService {
         where,
         select: {
           id: true,
+          username: true,
           email: true,
           firstName: true,
           lastName: true,
+          displayName: true,
+          jobTitle: true,
+          source: true,
+          adInitialPassword: true,
           roleId: true,
           roleName: true,
           role: {
@@ -149,12 +186,16 @@ export class UsersService {
       this.prisma.user.count({ where }),
     ]);
 
-    const items = users.map((u) => ({
-      ...u,
-      fullName: `${u.firstName} ${u.lastName}`.trim(),
-      assignedAssetsCount: u._count?.assignedAssets || 0,
-      assignedLicensesCount: u._count?.licenseAssignments || 0,
-    }));
+    const items = users.map((u) => {
+      const fullName = u.displayName || `${u.firstName} ${u.lastName}`.trim();
+      return {
+        ...u,
+        name: fullName,
+        fullName,
+        assignedAssetsCount: u._count?.assignedAssets || 0,
+        assignedLicensesCount: u._count?.licenseAssignments || 0,
+      };
+    });
 
     return {
       items,
@@ -170,9 +211,14 @@ export class UsersService {
       where: { id },
       select: {
         id: true,
+        username: true,
         email: true,
         firstName: true,
         lastName: true,
+        displayName: true,
+        jobTitle: true,
+        source: true,
+        adInitialPassword: true,
         roleId: true,
         roleName: true,
         role: {
@@ -237,15 +283,40 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
+    const fullName = user.displayName || `${user.firstName} ${user.lastName}`.trim();
     return {
       ...user,
-      fullName: `${user.firstName} ${user.lastName}`.trim(),
+      name: fullName,
+      fullName,
+      assignedAssetsCount: user._count?.assignedAssets || 0,
+      assignedLicensesCount: user._count?.licenseAssignments || 0,
     };
   }
 
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
+      include: {
+        role: true,
+      },
+    });
+  }
+
+  async findByUsername(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username },
+      include: {
+        role: true,
+      },
+    });
+  }
+
+  async findByIdentifier(identifier: string) {
+    const clean = identifier.trim().toLowerCase();
+    return this.prisma.user.findFirst({
+      where: {
+        OR: [{ email: clean }, { username: clean }],
+      },
       include: {
         role: true,
       },
@@ -262,7 +333,9 @@ export class UsersService {
     }
 
     if (updateUserDto.roleId && !updateUserDto.roleName) {
-      const role = await this.prisma.role.findUnique({ where: { id: updateUserDto.roleId } });
+      const role = await this.prisma.role.findUnique({
+        where: { id: updateUserDto.roleId },
+      });
       if (role) data.roleName = role.name;
     }
 
@@ -278,9 +351,11 @@ export class UsersService {
     });
 
     const { passwordHash: _hash, ...safeUser } = updated;
+    const fullName = safeUser.displayName || `${safeUser.firstName} ${safeUser.lastName}`.trim();
     return {
       ...safeUser,
-      fullName: `${safeUser.firstName} ${safeUser.lastName}`.trim(),
+      name: fullName,
+      fullName,
     };
   }
 
@@ -289,7 +364,7 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
       where: { id },
-      data: { passwordHash },
+      data: { passwordHash, adInitialPassword: null },
     });
     return { success: true, message: 'Password reset successfully' };
   }
@@ -310,21 +385,24 @@ export class UsersService {
   }
 
   async getStats() {
-    const [totalUsers, activeUsers, adminUsers, suspendedUsers] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.user.count({
-        where: {
-          roleName: { in: ['Super Admin', 'Admin'] },
-        },
-      }),
-      this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
-    ]);
+    const [totalUsers, activeUsers, adminUsers, suspendedUsers, custodiansCount] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.user.count({ where: { status: 'ACTIVE' } }),
+        this.prisma.user.count({
+          where: {
+            roleName: { in: ['Super Admin', 'Admin'] },
+          },
+        }),
+        this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
+        this.prisma.asset.count({ where: { assignedToId: { not: null } } }),
+      ]);
 
     return {
       totalUsers,
       activeUsers,
       adminUsers,
+      custodiansCount,
       suspendedUsers,
       recentActiveCount: activeUsers,
     };
@@ -340,6 +418,28 @@ export class UsersService {
         },
       },
       orderBy: { name: 'asc' },
+    });
+  }
+
+  async findAllGroups() {
+    return this.prisma.directoryGroup.findMany({
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createGroup(data: CreateGroupDto) {
+    return this.prisma.directoryGroup.create({
+      data: {
+        name: data.name,
+        email:
+          data.address ||
+          data.email ||
+          `${data.name.toLowerCase().replace(/\s+/g, '-')}@company.com`,
+        memberCount: data.memberCount ? Number(data.memberCount) : 5,
+        scope: data.scope || 'Internal Only',
+        managedBy: data.managedBy || 'IT Admin',
+        description: data.description,
+      },
     });
   }
 }

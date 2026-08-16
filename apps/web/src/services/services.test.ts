@@ -3,7 +3,6 @@ import { api } from './api';
 import { assetsService } from './assets.service';
 import { auditService } from './audit.service';
 import { dashboardService } from './dashboard.service';
-import { directoryService } from './directory.service';
 import { healthService } from './health.service';
 import { inventoryService } from './inventory.service';
 import { licensesService } from './licenses.service';
@@ -86,22 +85,6 @@ describe('Frontend Service Clients', () => {
       const item = await inventoryService.restockItem('inv-1', 10);
       expect(api.post).toHaveBeenCalledWith('/inventory/inv-1/restock', { quantity: 10 });
       expect(item.quantity).toBe(30);
-    });
-  });
-
-  describe('directoryService', () => {
-    it('should fetch directory users and stats', async () => {
-      vi.mocked(api.get).mockResolvedValueOnce({ data: { data: [] } });
-      vi.mocked(api.get).mockResolvedValueOnce({
-        data: { data: { totalUsers: 50, activeUsers: 48 } },
-      });
-
-      await directoryService.getUsers();
-      const stats = await directoryService.getStats();
-
-      expect(api.get).toHaveBeenCalledWith('/directory/users', { params: undefined });
-      expect(api.get).toHaveBeenCalledWith('/directory/stats');
-      expect(stats.totalUsers).toBe(50);
     });
   });
 
@@ -241,10 +224,20 @@ describe('Frontend Service Clients', () => {
       const stats = await usersService.getStats();
       const users = await usersService.getUsers({ search: 'admin' });
 
-      expect(api.get).toHaveBeenCalledWith('/users/stats/summary');
+      expect(api.get).toHaveBeenCalledWith('/users/stats');
       expect(api.get).toHaveBeenCalledWith('/users', { params: { search: 'admin' } });
       expect(stats.totalUsers).toBe(10);
       expect(users.items).toHaveLength(1);
+    });
+
+    it('should fetch directory groups', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: { data: [{ id: 'grp-1', name: 'DevOps Core' }] },
+      });
+
+      const groups = await usersService.getGroups();
+      expect(api.get).toHaveBeenCalledWith('/users/groups');
+      expect(groups).toHaveLength(1);
     });
 
     it('should reset user password', async () => {

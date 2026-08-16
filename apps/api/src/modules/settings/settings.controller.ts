@@ -13,6 +13,12 @@ export class SettingsController {
     return this.settingsService.getAllSettings();
   }
 
+  @Get('time')
+  @ApiOperation({ summary: 'Get server time telemetry and timezone info' })
+  getServerTime() {
+    return this.settingsService.getServerTimeInfo();
+  }
+
   @Get('health')
   @ApiOperation({ summary: 'Get subsystem health telemetry' })
   getHealthTelemetry() {

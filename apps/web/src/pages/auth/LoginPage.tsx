@@ -1,5 +1,6 @@
 import { LockOutlined, MoonOutlined, SunOutlined, UserOutlined } from '@ant-design/icons';
 import { App, Button, Card, Checkbox, Flex, Form, Input, Tooltip, Typography } from 'antd';
+import { SYSTEM_INFO } from '@uims/shared-utils';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { authService } from '../../services/auth.service';
@@ -26,7 +27,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (!values.email || !values.password) {
-        message.warning('Please enter both email and password.');
+        message.warning('Please enter your email or AD username and password.');
         return;
       }
       const response = await authService.login({
@@ -42,7 +43,7 @@ export default function LoginPage() {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       const errMsg =
         err.response?.data?.message ||
-        (err.message ? `Connection error: ${err.message}` : 'Invalid email or password.');
+        (err.message ? `Connection error: ${err.message}` : 'Invalid credentials.');
       message.error(errMsg);
     } finally {
       setLoading(false);
@@ -147,20 +148,19 @@ export default function LoginPage() {
             requiredMark={false}
           >
             <Form.Item
-              label="Email Address"
+              label="Email Address or AD Username"
               name="email"
               rules={[
-                { required: true, message: 'Please enter your email' },
-                { type: 'email', message: 'Please enter a valid email' },
+                { required: true, message: 'Please enter your corporate email or AD username' },
               ]}
               style={{ marginBottom: 16 }}
             >
               <Input
                 prefix={<UserOutlined style={{ color: '#94a3b8' }} />}
-                placeholder="name@company.com"
+                placeholder="name@company.com or username"
                 size="large"
                 style={{ fontSize: 13.5 }}
-                autoComplete="email"
+                autoComplete="username"
               />
             </Form.Item>
 
@@ -225,7 +225,7 @@ export default function LoginPage() {
                     });
                   }}
                 >
-                  👑 Super Admin
+                  👑 Super Admin (admin)
                 </Button>
                 <Button
                   size="small"
@@ -233,12 +233,12 @@ export default function LoginPage() {
                   style={{ fontSize: 11, height: 24, padding: '0 8px' }}
                   onClick={() => {
                     form.setFieldsValue({
-                      email: 'sarah.chen@company.com',
+                      email: 'sarah.chen',
                       password: 'password123',
                     });
                   }}
                 >
-                  🛠️ IT Asset Manager
+                  🛠️ AD Login (sarah.chen)
                 </Button>
                 <Button
                   size="small"
@@ -246,12 +246,12 @@ export default function LoginPage() {
                   style={{ fontSize: 11, height: 24, padding: '0 8px' }}
                   onClick={() => {
                     form.setFieldsValue({
-                      email: 'david.kim@company.com',
+                      email: 'david.kim',
                       password: 'password123',
                     });
                   }}
                 >
-                  💻 Inventory Tech
+                  💻 AD Login (david.kim)
                 </Button>
               </Flex>
             </div>
@@ -262,7 +262,7 @@ export default function LoginPage() {
       {/* Clean Minimalist Footer */}
       <div style={{ textAlign: 'center', padding: '12px 0' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          UIMS Enterprise © 2026 • Enterprise Asset Tracking & Management System
+          {SYSTEM_INFO.footerCredit}
         </Text>
       </div>
     </div>

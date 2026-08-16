@@ -12,7 +12,7 @@ describe('SearchService', () => {
     mockPrisma = {
       asset: { findMany: vi.fn().mockResolvedValue([]) },
       license: { findMany: vi.fn().mockResolvedValue([]) },
-      directoryUser: { findMany: vi.fn().mockResolvedValue([]) },
+      user: { findMany: vi.fn().mockResolvedValue([]) },
     };
 
     mockConfig = {
@@ -30,7 +30,7 @@ describe('SearchService', () => {
   });
 
   describe('searchDatabaseFallback', () => {
-    it('should search across assets, licenses, and directory users and format results', async () => {
+    it('should search across assets, licenses, and users and format results', async () => {
       mockPrisma.asset.findMany.mockResolvedValue([
         {
           id: 'a1',
@@ -52,15 +52,17 @@ describe('SearchService', () => {
           status: 'ACTIVE',
         },
       ]);
-      mockPrisma.directoryUser.findMany.mockResolvedValue([
+      mockPrisma.user.findMany.mockResolvedValue([
         {
           id: 'u1',
           displayName: 'Sarah Chen',
+          firstName: 'Sarah',
+          lastName: 'Chen',
           email: 'sarah.chen@company.com',
           username: 'sarah.chen',
           jobTitle: 'Systems Admin',
           department: 'IT',
-          accountStatus: 'ACTIVE',
+          status: 'ACTIVE',
         },
       ]);
 
@@ -96,7 +98,7 @@ describe('SearchService', () => {
         title: 'Sarah Chen',
         subtitle: 'sarah.chen@company.com • Systems Admin',
         category: 'Directory',
-        path: '/directory',
+        path: '/users',
         status: 'ACTIVE',
       });
     });

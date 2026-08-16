@@ -5,7 +5,7 @@ services:
       dockerfile: apps/api/Dockerfile.dev
     container_name: uims-api-dev
     restart: unless-stopped
-    ports:
+    ports: !override
       - "${APP_PORT:-3002}:3000"
     environment:
       NODE_ENV: development
@@ -41,7 +41,7 @@ services:
       dockerfile: apps/web/Dockerfile.dev
     container_name: uims-web-dev
     restart: unless-stopped
-    ports:
+    ports: !override
       - "${WEB_PORT:-5679}:5679"
     environment:
       NODE_ENV: development
@@ -49,7 +49,7 @@ services:
       VITE_API_URL: /api/v1
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
-    volumes:
+    volumes: !override
       - .:/app
       - /app/node_modules
       - /app/apps/api/node_modules

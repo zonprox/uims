@@ -24,6 +24,7 @@ export * from './entities/network';
 export * from './entities/notification';
 export * from './entities/organization';
 export * from './entities/role';
+export * from './entities/timezone';
 export * from './entities/user';
 
 export * from './enums';

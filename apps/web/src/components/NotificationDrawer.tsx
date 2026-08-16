@@ -7,9 +7,22 @@ import {
   ReloadOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { Badge, Button, Drawer, Empty, Flex, Spin, Tabs, Tag, Tooltip, Typography } from 'antd';
+import {
+  Badge,
+  Button,
+  Drawer,
+  Empty,
+  Flex,
+  Popconfirm,
+  Spin,
+  Tabs,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { TimeAgo } from './FormattedDate';
 import { type NotificationItem, notificationsService } from '../services/notifications.service';
 
 const { Text, Title } = Typography;
@@ -239,22 +252,44 @@ export default function NotificationDrawer({
                   >
                     {item.description}
                   </Text>
-                  <Flex align="center" gap={4}>
-                    <ClockCircleOutlined style={{ fontSize: 10.5, color: '#94a3b8' }} />
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {item.time}
-                    </Text>
-                  </Flex>
+                  {item.createdAt ? (
+                    <TimeAgo
+                      date={item.createdAt}
+                      showIcon
+                      style={{ fontSize: 11, color: '#94a3b8' }}
+                    />
+                  ) : (
+                    <Flex align="center" gap={4}>
+                      <ClockCircleOutlined style={{ fontSize: 10.5, color: '#94a3b8' }} />
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {item.time}
+                      </Text>
+                    </Flex>
+                  )}
                 </div>
               </Flex>
-              <Button
-                key="del"
-                type="text"
-                shape="circle"
-                size="small"
-                icon={<DeleteOutlined style={{ fontSize: 12, color: '#94a3b8' }} />}
-                onClick={(e) => handleDelete(e, item.id)}
-              />
+              <div onClick={(e) => e.stopPropagation()}>
+                <Popconfirm
+                  title="Dismiss notification?"
+                  description="Are you sure you want to permanently remove this notification?"
+                  okText="Delete"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true, size: 'small' }}
+                  cancelButtonProps={{ size: 'small' }}
+                  onConfirm={(e) => {
+                    if (e) e.stopPropagation();
+                    handleDelete(e as unknown as React.MouseEvent, item.id);
+                  }}
+                >
+                  <Button
+                    key="del"
+                    type="text"
+                    shape="circle"
+                    size="small"
+                    icon={<DeleteOutlined style={{ fontSize: 12, color: '#94a3b8' }} />}
+                  />
+                </Popconfirm>
+              </div>
             </Flex>
           ))}
         </Flex>

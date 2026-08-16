@@ -12,6 +12,7 @@ import {
   Typography,
 } from 'antd';
 import React from 'react';
+import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 
 const { Text, Title } = Typography;
@@ -107,13 +108,13 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
 
                   <Descriptions title="Financial & Warranty" bordered size="small" column={1}>
                     <Descriptions.Item label="Purchase Date">
-                      {selectedAsset.purchaseDate}
+                      <FormattedDate date={selectedAsset.purchaseDate} />
                     </Descriptions.Item>
                     <Descriptions.Item label="Purchase Cost">
                       ${(selectedAsset.purchasePrice || 0).toLocaleString()}
                     </Descriptions.Item>
                     <Descriptions.Item label="Warranty Expiration">
-                      {selectedAsset.warrantyExpiry || 'N/A'}
+                      <FormattedDate date={selectedAsset.warrantyExpiry} />
                     </Descriptions.Item>
                     <Descriptions.Item label="Current Location">
                       {selectedAsset.location}

@@ -24,9 +24,9 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter(), new PrismaExceptionFilter());
 
   const config = new DocumentBuilder()
-    .setTitle('UIMS API')
-    .setDescription('Unified IT Management System API documentation')
-    .setVersion('1.0')
+    .setTitle('UIMS Enterprise API')
+    .setDescription('Unified IT Infrastructure & Assets Management Platform API Documentation')
+    .setVersion('2.4.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);

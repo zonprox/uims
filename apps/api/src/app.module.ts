@@ -10,7 +10,6 @@ import { AssetsModule } from './modules/assets/assets.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
-import { DirectoryModule } from './modules/directory/directory.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { LicensesModule } from './modules/licenses/licenses.module';
@@ -33,7 +32,6 @@ import { UsersModule } from './modules/users/users.module';
     AssetsModule,
     LicensesModule,
     InventoryModule,
-    DirectoryModule,
     NetworkModule,
     AuditModule,
     ReportsModule,

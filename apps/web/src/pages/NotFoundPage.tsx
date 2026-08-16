@@ -1,9 +1,5 @@
-import {
-  DashboardOutlined,
-  DatabaseOutlined,
-  HomeOutlined,
-  LaptopOutlined,
-} from '@ant-design/icons';
+import { DatabaseOutlined, HomeOutlined, LaptopOutlined, TeamOutlined } from '@ant-design/icons';
+import { SYSTEM_INFO } from '@uims/shared-utils';
 import { Button, Card, Flex, Result, Space, Typography } from 'antd';
 import { useNavigate } from 'react-router';
 
@@ -16,9 +12,11 @@ export default function NotFoundPage() {
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '75vh',
+        gap: 16,
       }}
     >
       <Card
@@ -63,12 +61,8 @@ export default function NotFoundPage() {
                   >
                     Inventory
                   </Button>
-                  <Button
-                    size="small"
-                    icon={<DashboardOutlined />}
-                    onClick={() => navigate('/directory')}
-                  >
-                    Directory
+                  <Button size="small" icon={<TeamOutlined />} onClick={() => navigate('/users')}>
+                    Active Directory & Users
                   </Button>
                 </Space>
               </div>
@@ -76,6 +70,10 @@ export default function NotFoundPage() {
           }
         />
       </Card>
+
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {SYSTEM_INFO.footerCredit}
+      </Text>
     </div>
   );
 }

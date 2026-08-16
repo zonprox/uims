@@ -27,10 +27,10 @@ function mapMeiliHit(indexUid: string, hit: Record<string, unknown>): SearchResu
   if (indexUid === 'users') {
     return {
       id: String(hit.id),
-      title: (hit.name || hit.displayName || hit.username) as string,
+      title: (hit.displayName || hit.name || hit.username) as string,
       subtitle: `${hit.email} • ${hit.jobTitle || hit.department || 'Directory'}`,
       category: 'Directory',
-      path: '/directory',
+      path: '/users',
       status: hit.status as string,
     };
   }
@@ -171,13 +171,16 @@ export class SearchService implements OnModuleInit {
         },
         take: limit,
       }),
-      this.prisma.directoryUser.findMany({
+      this.prisma.user.findMany({
         where: {
           OR: [
             { displayName: { contains: q, mode: 'insensitive' } },
+            { firstName: { contains: q, mode: 'insensitive' } },
+            { lastName: { contains: q, mode: 'insensitive' } },
             { email: { contains: q, mode: 'insensitive' } },
             { username: { contains: q, mode: 'insensitive' } },
             { department: { contains: q, mode: 'insensitive' } },
+            { jobTitle: { contains: q, mode: 'insensitive' } },
           ],
         },
         take: limit,
@@ -204,11 +207,11 @@ export class SearchService implements OnModuleInit {
       })),
       ...users.map((u) => ({
         id: u.id,
-        title: u.displayName || u.username,
+        title: u.displayName || `${u.firstName} ${u.lastName}`.trim() || u.username,
         subtitle: `${u.email} • ${u.jobTitle || u.department || 'Directory'}`,
         category: 'Directory' as const,
-        path: '/directory',
-        status: u.accountStatus,
+        path: '/users',
+        status: u.status,
       })),
     ].slice(0, limit);
 
@@ -231,7 +234,7 @@ export class SearchService implements OnModuleInit {
       const [assets, licenses, users] = await Promise.all([
         this.prisma.asset.findMany({ include: { category: true } }),
         this.prisma.license.findMany(),
-        this.prisma.directoryUser.findMany(),
+        this.prisma.user.findMany(),
       ]);
 
       const assetDocs = assets.map((a) => ({
@@ -256,12 +259,12 @@ export class SearchService implements OnModuleInit {
 
       const userDocs = users.map((u) => ({
         id: u.id,
-        name: u.displayName,
+        name: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
         username: u.username,
         email: u.email,
         jobTitle: u.jobTitle,
         department: u.department,
-        status: u.accountStatus,
+        status: u.status,
       }));
 
       await Promise.all([

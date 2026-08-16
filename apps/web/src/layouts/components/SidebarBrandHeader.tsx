@@ -1,3 +1,4 @@
+import { SYSTEM_INFO } from '@uims/shared-utils';
 import { Flex, Tag, Typography } from 'antd';
 import React from 'react';
 
@@ -72,7 +73,7 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
         >
           <Flex align="center" gap={6}>
             <Text strong style={{ color: '#f8fafc', fontSize: 14.5, lineHeight: 1.2 }}>
-              UIMS
+              {SYSTEM_INFO.shortName}
             </Text>
             <Tag
               color="cyan"
@@ -87,7 +88,7 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
                 borderRadius: 3,
               }}
             >
-              v2.4
+              v{SYSTEM_INFO.version.split('.').slice(0, 2).join('.')}
             </Tag>
           </Flex>
           <div
@@ -103,7 +104,7 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
               textOverflow: 'ellipsis',
             }}
           >
-            Asset Management
+            {SYSTEM_INFO.name}
           </div>
         </button>
       )}

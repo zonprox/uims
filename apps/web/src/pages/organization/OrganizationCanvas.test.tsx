@@ -57,10 +57,12 @@ describe('OrganizationCanvas Layout Engine', () => {
     expect(getNodeDimensions('position')).toEqual({ width: 195, height: 70 });
   });
 
-  it('assigns distinctive themes to each entity type', () => {
-    const orgTheme = getNodeTheme('organization');
-    expect(orgTheme.tagColor).toBe('purple');
-    expect(orgTheme.borderColor).toBe('#8b5cf6');
+  it('assigns distinctive themes to each entity type (light and dark mode)', () => {
+    // Light mode
+    const orgThemeLight = getNodeTheme('organization', false);
+    expect(orgThemeLight.tagColor).toBe('purple');
+    expect(orgThemeLight.borderColor).toBe('#8b5cf6');
+    expect(orgThemeLight.cardBg).toBe('#ffffff');
 
     const branchTheme = getNodeTheme('branch');
     expect(branchTheme.tagColor).toBe('green');
@@ -73,6 +75,19 @@ describe('OrganizationCanvas Layout Engine', () => {
 
     const posTheme = getNodeTheme('position');
     expect(posTheme.tagColor).toBe('orange');
+
+    // Dark mode
+    const orgThemeDark = getNodeTheme('organization', true);
+    expect(orgThemeDark.tagColor).toBe('purple');
+    expect(orgThemeDark.borderColor).toBe('#a78bfa');
+    expect(orgThemeDark.cardBg).toBe('#0f172a');
+    expect(orgThemeDark.textColor).toBe('#f1f5f9');
+
+    const branchThemeDark = getNodeTheme('branch', true);
+    expect(branchThemeDark.borderColor).toBe('#34d399');
+
+    const deptThemeDark = getNodeTheme('department', true);
+    expect(deptThemeDark.borderColor).toBe('#60a5fa');
   });
 
   it('computes full vertical tree layout with nodes and edges', () => {

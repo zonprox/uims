@@ -27,6 +27,7 @@ import {
 } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
+import { FormattedDateTime } from '../../components/FormattedDate';
 import { type AuditLog, type AuditStats, auditService } from '../../services/audit.service';
 
 const { Text, Title } = Typography;
@@ -114,14 +115,10 @@ export default function AuditPage() {
 
   const columns = [
     {
-      title: 'Timestamp (UTC)',
+      title: 'Timestamp',
       dataIndex: 'timestamp',
       key: 'timestamp',
-      render: (ts: string) => (
-        <Text style={{ fontSize: 12.5, fontFamily: 'monospace' }}>
-          {new Date(ts).toLocaleString()}
-        </Text>
-      ),
+      render: (ts: string) => <FormattedDateTime date={ts} showOffset monospace />,
     },
     {
       title: 'Actor',
@@ -353,7 +350,9 @@ export default function AuditPage() {
         >
           <Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
             <Descriptions.Item label="Event ID">{selectedLog.id}</Descriptions.Item>
-            <Descriptions.Item label="Timestamp">{selectedLog.timestamp}</Descriptions.Item>
+            <Descriptions.Item label="Timestamp">
+              <FormattedDateTime date={selectedLog.timestamp} showOffset showTimezone />
+            </Descriptions.Item>
             <Descriptions.Item label="Actor">
               {selectedLog.user} ({selectedLog.userEmail})
             </Descriptions.Item>

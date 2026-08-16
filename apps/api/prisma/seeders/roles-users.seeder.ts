@@ -46,376 +46,381 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     create: { name: 'Employee', description: 'Standard Enterprise Employee' },
   });
 
-  // 3. System Login Users
-  const userAdminLocal = await prisma.user.upsert({
-    where: { email: 'admin@uims.local' },
-    update: {
-      passwordHash: adminPasswordHash,
-      roleId: superAdminRole.id,
-      roleName: 'Super Admin',
-      firstName: 'System',
-      lastName: 'Administrator',
-      status: 'ACTIVE',
-      department: 'IT & Infrastructure',
-    },
-    create: {
+  // 3. System & Active Directory Users
+  const usersData = [
+    {
+      username: 'admin',
       email: 'admin@uims.local',
       firstName: 'System',
       lastName: 'Administrator',
+      displayName: 'System Administrator',
+      jobTitle: 'Super Administrator',
       roleId: superAdminRole.id,
       roleName: 'Super Admin',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
       department: 'IT & Infrastructure',
       location: 'NY HQ - Floor 4',
       phone: '+1 (555) 100-2000',
       passwordHash: adminPasswordHash,
+      adInitialPassword: 'Admin@2026',
     },
-  });
-
-  const userAlex = await prisma.user.upsert({
-    where: { email: 'admin@uims.internal' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      roleId: superAdminRole.id,
-      roleName: 'Super Admin',
-      firstName: 'Alex',
-      lastName: 'Johnson',
-      status: 'ACTIVE',
-      department: 'IT & Infrastructure',
-    },
-    create: {
+    {
+      username: 'alex.johnson',
       email: 'admin@uims.internal',
       firstName: 'Alex',
       lastName: 'Johnson',
+      displayName: 'Alex Johnson',
+      jobTitle: 'VP of Information Technology',
       roleId: superAdminRole.id,
       roleName: 'Super Admin',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
       department: 'IT & Infrastructure',
       location: 'NY HQ - Floor 4',
       phone: '+1 (555) 234-5678',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#AlexJohnson2026!',
     },
-  });
-
-  const userSarah = await prisma.user.upsert({
-    where: { email: 'sarah.chen@company.com' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      roleId: techRole.id,
-      roleName: 'IT Specialist',
-    },
-    create: {
+    {
+      username: 'sarah.chen',
       email: 'sarah.chen@company.com',
       firstName: 'Sarah',
       lastName: 'Chen',
+      displayName: 'Sarah Chen',
+      jobTitle: 'Senior Systems Administrator',
       roleId: techRole.id,
       roleName: 'IT Specialist',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'IT & Infrastructure',
       location: 'SF HQ - Tech Bay',
       phone: '+1 (555) 345-6789',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#SarahChen2026!',
     },
-  });
-
-  const userMichael = await prisma.user.upsert({
-    where: { email: 'michael.wong@company.com' },
-    update: {
-      passwordHash: defaultPasswordHash,
-      roleId: adminRole.id,
-      roleName: 'Network Architect',
-    },
-    create: {
+    {
+      username: 'michael.wong',
       email: 'michael.wong@company.com',
       firstName: 'Michael',
       lastName: 'Wong',
+      displayName: 'Michael Wong',
+      jobTitle: 'Senior Network Architect',
       roleId: adminRole.id,
       roleName: 'Network Architect',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'IT & Infrastructure',
       location: 'NY HQ - Floor 4',
       phone: '+1 (555) 345-1122',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#MichaelWong2026!',
     },
-  });
-
-  const userMarcusBell = await prisma.user.upsert({
-    where: { email: 'compliance@uims.internal' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'marcus.bell',
       email: 'compliance@uims.internal',
       firstName: 'Marcus',
       lastName: 'Bell',
+      displayName: 'Marcus Bell',
+      jobTitle: 'Principal Security Compliance Auditor',
       roleId: auditorRole.id,
       roleName: 'Lead Auditor',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
       department: 'Security & Compliance',
       location: 'London Hub',
       phone: '+44 20 7946 0912',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#MarcusBell2026!',
     },
-  });
-
-  const userDavidKim = await prisma.user.upsert({
-    where: { email: 'david.kim@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'david.kim',
       email: 'david.kim@company.com',
       firstName: 'David',
       lastName: 'Kim',
+      displayName: 'David Kim',
+      jobTitle: 'Lead Cloud Architect',
       roleId: employeeRole.id,
       roleName: 'Developer',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'Remote - US East',
       phone: '+1 (555) 567-8901',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#DavidKim2026!',
     },
-  });
-
-  const userSophiaPatel = await prisma.user.upsert({
-    where: { email: 'sophia.patel@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'sophia.patel',
       email: 'sophia.patel@company.com',
       firstName: 'Sophia',
       lastName: 'Patel',
+      displayName: 'Sophia Patel',
+      jobTitle: 'Senior Staff Fullstack Engineer',
       roleId: employeeRole.id,
       roleName: 'Developer',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'SF HQ - Tech Bay',
       phone: '+1 (555) 567-2233',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#SophiaPatel2026!',
     },
-  });
-
-  const userLiamNguyen = await prisma.user.upsert({
-    where: { email: 'liam.nguyen@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'liam.nguyen',
       email: 'liam.nguyen@company.com',
       firstName: 'Liam',
       lastName: 'Nguyen',
+      displayName: 'Liam Nguyen',
+      jobTitle: 'Lead DevOps & SRE Architect',
       roleId: employeeRole.id,
       roleName: 'Developer',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'Remote - US West',
       phone: '+1 (555) 567-4455',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#LiamNguyen2026!',
     },
-  });
-
-  const userCarlosMendez = await prisma.user.upsert({
-    where: { email: 'carlos.mendez@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'carlos.mendez',
       email: 'carlos.mendez@company.com',
       firstName: 'Carlos',
       lastName: 'Mendez',
+      displayName: 'Carlos Mendez',
+      jobTitle: 'Senior Backend Platform Engineer',
       roleId: employeeRole.id,
       roleName: 'Developer',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'NY HQ - Floor 4',
       phone: '+1 (555) 567-7788',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#CarlosMendez2026!',
     },
-  });
-
-  const userMarcusVance = await prisma.user.upsert({
-    where: { email: 'marcus.vance@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'marcus.vance',
       email: 'marcus.vance@company.com',
       firstName: 'Marcus',
       lastName: 'Vance',
+      displayName: 'Marcus Vance',
+      jobTitle: 'Principal Product Designer',
       roleId: employeeRole.id,
       roleName: 'Employee',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Product & Design',
       location: 'NY HQ - Floor 4',
       phone: '+1 (555) 456-7890',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#MarcusVance2026!',
     },
-  });
-
-  const userChloeMartin = await prisma.user.upsert({
-    where: { email: 'chloe.martin@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'chloe.martin',
       email: 'chloe.martin@company.com',
       firstName: 'Chloe',
       lastName: 'Martin',
+      displayName: 'Chloe Martin',
+      jobTitle: 'Senior UX Researcher',
       roleId: employeeRole.id,
       roleName: 'Employee',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Product & Design',
       location: 'London Hub',
       phone: '+44 20 7946 0881',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#ChloeMartin2026!',
     },
-  });
-
-  const userElena = await prisma.user.upsert({
-    where: { email: 'elena.rostova@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'elena.rostova',
       email: 'elena.rostova@company.com',
       firstName: 'Elena',
       lastName: 'Rostova',
+      displayName: 'Elena Rostova',
+      jobTitle: 'Director of Growth Marketing',
       roleId: managerRole.id,
       roleName: 'Manager',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Marketing',
       location: 'London Hub',
       phone: '+1 (555) 678-9012',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#ElenaRostova2026!',
     },
-  });
-
-  const userRobertTorres = await prisma.user.upsert({
-    where: { email: 'robert.torres@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'robert.torres',
       email: 'robert.torres@company.com',
       firstName: 'Robert',
       lastName: 'Torres',
+      displayName: 'Robert Torres',
+      jobTitle: 'IT Infrastructure Operations Manager',
       roleId: managerRole.id,
       roleName: 'Manager',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
       department: 'IT & Infrastructure',
       location: 'NY HQ - Floor 4',
       phone: '+1 (555) 678-3344',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#RobertTorres2026!',
     },
-  });
-
-  const userLisaWang = await prisma.user.upsert({
-    where: { email: 'lisa.wang@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'lisa.wang',
       email: 'lisa.wang@company.com',
       firstName: 'Lisa',
       lastName: 'Wang',
+      displayName: 'Lisa Wang',
+      jobTitle: 'Financial Controller',
       roleId: managerRole.id,
       roleName: 'Manager',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Finance',
       location: 'Singapore Hub',
       phone: '+65 6789 0123',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#LisaWang2026!',
     },
-  });
-
-  const userRachelAdams = await prisma.user.upsert({
-    where: { email: 'rachel.adams@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'rachel.adams',
       email: 'rachel.adams@company.com',
       firstName: 'Rachel',
       lastName: 'Adams',
+      displayName: 'Rachel Adams',
+      jobTitle: 'Head of People Operations',
       roleId: employeeRole.id,
       roleName: 'Employee',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Human Resources',
       location: 'NY HQ - Floor 5',
       phone: '+1 (555) 890-1234',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#RachelAdams2026!',
     },
-  });
-
-  const userJamesWilson = await prisma.user.upsert({
-    where: { email: 'james.wilson@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'james.wilson',
       email: 'james.wilson@company.com',
       firstName: 'James',
       lastName: 'Wilson',
+      displayName: 'James Wilson',
+      jobTitle: 'Senior Corporate Counsel',
       roleId: employeeRole.id,
       roleName: 'Employee',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Legal & Governance',
       location: 'NY HQ - Floor 5',
       phone: '+1 (555) 901-2345',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#JamesWilson2026!',
     },
-  });
-
-  const userHannahScott = await prisma.user.upsert({
-    where: { email: 'hannah.scott@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'hannah.scott',
       email: 'hannah.scott@company.com',
       firstName: 'Hannah',
       lastName: 'Scott',
+      displayName: 'Hannah Scott',
+      jobTitle: 'Strategic Account Executive',
       roleId: employeeRole.id,
       roleName: 'Employee',
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Sales',
       location: 'Remote - US Central',
       phone: '+1 (555) 901-6789',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#HannahScott2026!',
     },
-  });
-
-  const userThomas = await prisma.user.upsert({
-    where: { email: 'thomas.wright@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'thomas.wright',
       email: 'thomas.wright@company.com',
       firstName: 'Thomas',
       lastName: 'Wright',
+      displayName: 'Thomas Wright',
+      jobTitle: 'Junior QA Engineer (Contractor)',
       roleId: employeeRole.id,
       roleName: 'Employee',
-      status: 'SUSPENDED',
+      status: 'SUSPENDED' as const,
+      source: 'LOCAL' as const,
       department: 'Engineering',
       location: 'Remote - EMEA',
       phone: '+1 (555) 789-0123',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#ThomasWright2026!',
     },
-  });
-
-  const userJessica = await prisma.user.upsert({
-    where: { email: 'jessica.taylor@company.com' },
-    update: { passwordHash: defaultPasswordHash },
-    create: {
+    {
+      username: 'jessica.taylor',
       email: 'jessica.taylor@company.com',
       firstName: 'Jessica',
       lastName: 'Taylor',
+      displayName: 'Jessica Taylor',
+      jobTitle: 'Content Strategist (Leave of Absence)',
       roleId: employeeRole.id,
       roleName: 'Employee',
-      status: 'INACTIVE',
+      status: 'INACTIVE' as const,
+      source: 'AZURE_AD' as const,
       department: 'Marketing',
       location: 'London Hub',
       phone: '+44 20 7946 0999',
       passwordHash: defaultPasswordHash,
+      adInitialPassword: 'Ad#JessicaTaylor2026!',
     },
-  });
+  ];
+
+  const seededUsers: Record<string, import('@prisma/client').User> = {};
+
+  for (const u of usersData) {
+    const userRecord = await prisma.user.upsert({
+      where: { email: u.email },
+      update: {
+        username: u.username,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        displayName: u.displayName,
+        jobTitle: u.jobTitle,
+        roleId: u.roleId,
+        roleName: u.roleName,
+        status: u.status,
+        source: u.source,
+        department: u.department,
+        location: u.location,
+        phone: u.phone,
+        passwordHash: u.passwordHash,
+        adInitialPassword: u.adInitialPassword,
+      },
+      create: u,
+    });
+    seededUsers[u.email] = userRecord;
+  }
 
   return {
     roles: { superAdminRole, adminRole, techRole, auditorRole, managerRole, employeeRole },
     users: {
-      userAdminLocal,
-      userAlex,
-      userSarah,
-      userMichael,
-      userMarcusBell,
-      userDavidKim,
-      userSophiaPatel,
-      userLiamNguyen,
-      userCarlosMendez,
-      userMarcusVance,
-      userChloeMartin,
-      userElena,
-      userRobertTorres,
-      userLisaWang,
-      userRachelAdams,
-      userJamesWilson,
-      userHannahScott,
-      userThomas,
-      userJessica,
+      userAdminLocal: seededUsers['admin@uims.local'],
+      userAlex: seededUsers['admin@uims.internal'],
+      userSarah: seededUsers['sarah.chen@company.com'],
+      userMichael: seededUsers['michael.wong@company.com'],
+      userMarcusBell: seededUsers['compliance@uims.internal'],
+      userDavidKim: seededUsers['david.kim@company.com'],
+      userSophiaPatel: seededUsers['sophia.patel@company.com'],
+      userLiamNguyen: seededUsers['liam.nguyen@company.com'],
+      userCarlosMendez: seededUsers['carlos.mendez@company.com'],
+      userMarcusVance: seededUsers['marcus.vance@company.com'],
+      userChloeMartin: seededUsers['chloe.martin@company.com'],
+      userElena: seededUsers['elena.rostova@company.com'],
+      userRobertTorres: seededUsers['robert.torres@company.com'],
+      userLisaWang: seededUsers['lisa.wang@company.com'],
+      userRachelAdams: seededUsers['rachel.adams@company.com'],
+      userJamesWilson: seededUsers['james.wilson@company.com'],
+      userHannahScott: seededUsers['hannah.scott@company.com'],
+      userThomas: seededUsers['thomas.wright@company.com'],
+      userJessica: seededUsers['jessica.taylor@company.com'],
     },
   };
 }

@@ -7,6 +7,7 @@ export interface LoginResponse {
     id: string;
     email: string;
     name: string;
+    username?: string;
     role: string;
   };
 }

@@ -10,7 +10,6 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   TeamOutlined,
-  UserOutlined,
 } from '@ant-design/icons';
 import { Flex, type MenuProps, Tag, Typography } from 'antd';
 import React from 'react';
@@ -71,8 +70,8 @@ export function getQuickCreateMenu(navigate: (path: string) => void): MenuProps[
   return [
     {
       key: 'new-user',
-      icon: <UserOutlined style={{ color: '#1677ff' }} />,
-      label: 'New System Login User',
+      icon: <TeamOutlined style={{ color: '#1677ff' }} />,
+      label: 'New Domain User',
       onClick: () => navigate('/users'),
     },
     {
@@ -128,8 +127,8 @@ export function getUserMenuItems(
     { type: 'divider' },
     {
       key: 'manage-users',
-      icon: <UserOutlined />,
-      label: 'System Login Users',
+      icon: <TeamOutlined />,
+      label: 'Active Directory & Users',
       onClick: () => navigate('/users'),
     },
     {
@@ -204,15 +203,9 @@ export function getNavMenuItems(
         },
         {
           key: '/users',
-          icon: <NavIconWithBadge icon={<UserOutlined />} isCollapsed={isCollapsedDesktop} />,
-          label: 'System Login Users',
-          title: 'System Login Users',
-        },
-        {
-          key: '/directory',
           icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-          label: 'Active Directory',
-          title: 'Active Directory & Domain Accounts',
+          label: 'Active Directory & Users',
+          title: 'Active Directory & Enterprise Users',
         },
       ],
     },

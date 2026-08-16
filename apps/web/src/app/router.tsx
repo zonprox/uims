@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import PageLoader from '../components/PageLoader';
 import AuthLayout from '../layouts/AuthLayout';
 import MainLayout from '../layouts/MainLayout';
@@ -8,7 +8,6 @@ const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
 const LicensesPage = lazy(() => import('../pages/licenses/LicensesPage'));
-const DirectoryPage = lazy(() => import('../pages/directory/DirectoryPage'));
 const OrganizationPage = lazy(() => import('../pages/organization/OrganizationPage'));
 const UsersPage = lazy(() => import('../pages/users/UsersPage'));
 const NetworkPage = lazy(() => import('../pages/network/NetworkPage'));
@@ -60,13 +59,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'directory',
-            element: (
-              <Suspense
-                fallback={<PageLoader tip="Loading Active Directory & Domain Accounts..." />}
-              >
-                <DirectoryPage />
-              </Suspense>
-            ),
+            element: <Navigate to="/users" replace />,
           },
           {
             path: 'organization',
@@ -81,9 +74,7 @@ export const router = createBrowserRouter([
           {
             path: 'users',
             element: (
-              <Suspense
-                fallback={<PageLoader tip="Loading System Login Users & Access Accounts..." />}
-              >
+              <Suspense fallback={<PageLoader tip="Loading Active Directory & Users Hub..." />}>
                 <UsersPage />
               </Suspense>
             ),

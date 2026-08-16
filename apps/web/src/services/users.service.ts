@@ -1,5 +1,7 @@
 import type {
+  CreateDirectoryGroupDto,
   CreateSystemUserDto,
+  DirectoryGroup,
   Role,
   UpdateSystemUserDto,
   User,
@@ -8,6 +10,8 @@ import type {
   UserSummaryStats,
 } from '@uims/shared-types';
 import { api } from './api';
+
+export type { DirectoryGroup, User, UserStatus, UserSummaryStats };
 
 export interface PaginatedUsersResponse {
   items: User[];
@@ -19,18 +23,27 @@ export interface PaginatedUsersResponse {
 
 export const usersService = {
   getStats: async (): Promise<UserSummaryStats> => {
-    const res = await api.get('/users/stats/summary');
-    return res.data.data;
+    const res = await api.get('/users/stats');
+    return res.data.data || res.data;
   },
 
   getRoles: async (): Promise<Role[]> => {
     const res = await api.get('/users/roles/list');
-    return res.data.data;
+    return res.data.data || res.data;
+  },
+
+  getGroups: async (): Promise<DirectoryGroup[]> => {
+    const res = await api.get('/users/groups');
+    return res.data.data || res.data;
+  },
+
+  createGroup: async (data: CreateDirectoryGroupDto): Promise<DirectoryGroup> => {
+    const res = await api.post('/users/groups', data);
+    return res.data.data || res.data;
   },
 
   getUsers: async (params?: UserQueryDto): Promise<PaginatedUsersResponse> => {
     const res = await api.get('/users', { params });
-    // if backend returns raw items or wrapped envelope
     const data = res.data.data || res.data;
     if (Array.isArray(data)) {
       return {
@@ -46,17 +59,17 @@ export const usersService = {
 
   getUser: async (id: string): Promise<User> => {
     const res = await api.get(`/users/${id}`);
-    return res.data.data;
+    return res.data.data || res.data;
   },
 
   createUser: async (data: CreateSystemUserDto): Promise<User> => {
     const res = await api.post('/users', data);
-    return res.data.data;
+    return res.data.data || res.data;
   },
 
   updateUser: async (id: string, data: UpdateSystemUserDto): Promise<User> => {
     const res = await api.patch(`/users/${id}`, data);
-    return res.data.data;
+    return res.data.data || res.data;
   },
 
   resetPassword: async (
@@ -64,12 +77,12 @@ export const usersService = {
     password: string,
   ): Promise<{ success: boolean; message: string }> => {
     const res = await api.post(`/users/${id}/reset-password`, { password });
-    return res.data.data;
+    return res.data.data || res.data;
   },
 
   toggleStatus: async (id: string, status: UserStatus): Promise<User> => {
     const res = await api.patch(`/users/${id}/toggle-status`, { status });
-    return res.data.data;
+    return res.data.data || res.data;
   },
 
   deleteUser: async (id: string): Promise<void> => {

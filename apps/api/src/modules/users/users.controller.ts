@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
@@ -13,9 +14,15 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Get('stats/summary')
+  @Get('stats')
   @ApiOperation({ summary: 'Get user metrics summary' })
   getStats() {
+    return this.usersService.getStats();
+  }
+
+  @Get('stats/summary')
+  @ApiOperation({ summary: 'Get user metrics summary (alias)' })
+  getStatsSummary() {
     return this.usersService.getStats();
   }
 
@@ -23,6 +30,19 @@ export class UsersController {
   @ApiOperation({ summary: 'Get all available RBAC roles' })
   getRoles() {
     return this.usersService.getRoles();
+  }
+
+  @Get('groups')
+  @ApiOperation({ summary: 'Get all Active Directory distribution & security groups' })
+  getGroups() {
+    return this.usersService.findAllGroups();
+  }
+
+  @Post('groups')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Create new distribution / security group' })
+  createGroup(@Body() createGroupDto: CreateGroupDto) {
+    return this.usersService.createGroup(createGroupDto);
   }
 
   @Post()
@@ -36,13 +56,24 @@ export class UsersController {
   @ApiOperation({ summary: 'Get all users with search and filter' })
   findAll(
     @Query('page') page?: number,
+    @Query('pageSize') pageSize?: number,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
     @Query('role') role?: string,
     @Query('status') status?: string,
     @Query('department') department?: string,
+    @Query('source') source?: string,
   ) {
-    return this.usersService.findAll({ page, limit, search, role, status, department });
+    return this.usersService.findAll({
+      page,
+      pageSize,
+      limit,
+      search,
+      role,
+      status,
+      department,
+      source,
+    });
   }
 
   @Get(':id')

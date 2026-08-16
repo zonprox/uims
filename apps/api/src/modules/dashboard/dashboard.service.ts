@@ -36,9 +36,29 @@ function formatRecentLog(log: AuditLog, timeAgo: (date: Date) => string) {
 
 @Injectable()
 export class DashboardService {
+  private cache: {
+    data: DashboardOverviewDto | null;
+    timestamp: number;
+    period?: string;
+  } = { data: null, timestamp: 0 };
+  private readonly CACHE_TTL_MS = 15_000; // 15 seconds cache
+
   constructor(private prisma: PrismaService) {}
 
-  async getOverview(_period?: string): Promise<DashboardOverviewDto> {
+  clearCache() {
+    this.cache = { data: null, timestamp: 0 };
+  }
+
+  async getOverview(period?: string): Promise<DashboardOverviewDto> {
+    const now = Date.now();
+    if (
+      this.cache.data &&
+      this.cache.period === period &&
+      now - this.cache.timestamp < this.CACHE_TTL_MS
+    ) {
+      return this.cache.data;
+    }
+
     const [
       totalAssets,
       activeAssets,
@@ -64,29 +84,51 @@ export class DashboardService {
       this.prisma.subnet.aggregate({ _sum: { totalIps: true } }),
       this.prisma.iPAddress.count({ where: { status: 'ASSIGNED' } }),
       this.prisma.auditLog.findMany({ take: 6, orderBy: { timestamp: 'desc' } }),
-      this.prisma.inventoryItem.findMany({ where: { quantity: { lte: 2 } }, take: 1 }),
-      this.prisma.license.findMany({ where: { status: 'EXPIRING_SOON' }, take: 1 }),
-      this.prisma.directoryUser.count(),
+      this.prisma.inventoryItem.findMany({ where: { quantity: { lte: 2 } }, take: 3 }),
+      this.prisma.license.findMany({ where: { status: 'EXPIRING_SOON' }, take: 3 }),
+      this.prisma.user.count(),
     ]);
 
     // License calculations
     const totalSeats = licenseStats._sum.totalSeats || 0;
     const usedSeats = licenseStats._sum.usedSeats || 0;
-    const seatUsagePercent = totalSeats > 0 ? ((usedSeats / totalSeats) * 100).toFixed(1) : '88.5';
+    const seatUsagePercent = totalSeats > 0 ? ((usedSeats / totalSeats) * 100).toFixed(1) : '0.0';
 
     // IPAM calculations
-    const totalCapacity = subnetsStats._sum.totalIps || 512;
+    const totalCapacity = subnetsStats._sum.totalIps || 0;
     const freeIps = Math.max(0, totalCapacity - allocatedIps);
-    const ipPercent =
-      totalCapacity > 0 ? ((allocatedIps / totalCapacity) * 100).toFixed(1) : '83.6';
+    const ipPercent = totalCapacity > 0 ? ((allocatedIps / totalCapacity) * 100).toFixed(1) : '0.0';
 
     const recentActivity = recentLogs.map((log) => formatRecentLog(log, (d) => this.timeAgo(d)));
 
     // Compute uptime percentage based on process uptime
     const uptimeSecs = process.uptime();
-    const uptimePercent = uptimeSecs > 0 ? '99.98%' : '100.0%';
+    const uptimePercent = uptimeSecs > 3600 ? '99.99%' : '100.0%';
 
-    return {
+    const actionItems = [
+      ...expiringLicenses.map((lic) => ({
+        id: `lic-${lic.id}`,
+        type: 'warning' as const,
+        title: 'License Renewal Required',
+        tag: 'Expiring Soon',
+        tagColor: 'warning',
+        description: `${lic.name} (${lic.totalSeats} seats) expires soon.`,
+        linkText: 'Manage Subscription',
+        linkUrl: '/licenses',
+      })),
+      ...lowStockItems.map((item) => ({
+        id: `inv-${item.id}`,
+        type: 'error' as const,
+        title: 'Hardware Stock Depleted',
+        tag: 'Critical',
+        tagColor: 'error',
+        description: `${item.name} inventory is at ${item.quantity} units (Threshold: ${item.minThreshold || 5}).`,
+        linkText: 'Create Restock Order',
+        linkUrl: '/inventory',
+      })),
+    ];
+
+    const result: DashboardOverviewDto = {
       kpi: {
         managedAssets: {
           total: totalAssets,
@@ -116,22 +158,22 @@ export class DashboardService {
           name: 'Active Directory / LDAP',
           status: 'Synced',
           usersCount: directoryUsersCount,
-          syncTime: '4m ago',
-          percent: 99.4,
+          syncTime: 'Real-time',
+          percent: 100,
         },
         mail: {
           name: 'Hardware Fleet & Asset Tagging',
           status: 'Operational',
           throughput: `${totalAssets} Managed Units`,
-          latency: '99.4% In Service',
-          percent: 98.6,
+          latency: `${activeAssets} In Service`,
+          percent: totalAssets > 0 ? Math.round((activeAssets / totalAssets) * 100) : 100,
         },
         vpn: {
-          name: 'VPN & Zero Trust Gateways',
+          name: 'Network Gateways & IPAM',
           status: 'Active',
-          tunnels: 342,
+          tunnels: allocatedIps,
           load: 'Normal',
-          percent: 76.0,
+          percent: Number(ipPercent) || 100,
         },
         backups: {
           name: 'Automated Backups',
@@ -142,59 +184,16 @@ export class DashboardService {
         },
       },
       recentActivity,
-      actionItems: [
-        ...(expiringLicenses.length > 0
-          ? [
-              {
-                id: 'w1',
-                type: 'warning' as const,
-                title: 'License Renewal Required',
-                tag: '14 Days',
-                tagColor: 'warning',
-                description: `${expiringLicenses[0].name} (${expiringLicenses[0].totalSeats} seats) expires soon.`,
-                linkText: 'Manage Subscription',
-                linkUrl: '/licenses',
-              },
-            ]
-          : [
-              {
-                id: 'w1',
-                type: 'warning' as const,
-                title: 'License Renewal Required',
-                tag: '14 Days',
-                tagColor: 'warning',
-                description: 'Adobe Creative Cloud (24 seats) expires soon.',
-                linkText: 'Manage Subscription',
-                linkUrl: '/licenses',
-              },
-            ]),
-        ...(lowStockItems.length > 0
-          ? [
-              {
-                id: 'w2',
-                type: 'error' as const,
-                title: 'Hardware Stock Depleted',
-                tag: 'Critical',
-                tagColor: 'error',
-                description: `${lowStockItems[0].name} inventory is at ${lowStockItems[0].quantity} units (Threshold: ${lowStockItems[0].minThreshold}).`,
-                linkText: 'Create Restock Order',
-                linkUrl: '/inventory',
-              },
-            ]
-          : [
-              {
-                id: 'w2',
-                type: 'error' as const,
-                title: 'Hardware Stock Depleted',
-                tag: 'Critical',
-                tagColor: 'error',
-                description: 'Wireless Mouse inventory is at 2 units (Min threshold: 5).',
-                linkText: 'Create Restock Order',
-                linkUrl: '/inventory',
-              },
-            ]),
-      ],
+      actionItems,
     };
+
+    this.cache = {
+      data: result,
+      timestamp: now,
+      period,
+    };
+
+    return result;
   }
 
   private timeAgo(date: Date): string {
