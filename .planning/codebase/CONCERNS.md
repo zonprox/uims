@@ -1,57 +1,37 @@
-# Codebase Concerns & Remediation Status
+# Codebase Concerns
+**Analysis Date:** 2026-08-17
 
-**Analysis & Remediation Date:** 2026-08-16
-**Status:** All Critical Concerns, Security Vulnerabilities, and Fake Telemetry Fully Resolved
+## Tech Debt
+- **Type Safety Bypass**: There are approximately 24 instances of explicit `any` casting in the `apps/web` application and API test files (e.g., `apps/api/src/modules/notifications/notifications.service.spec.ts`).
+- **Excessive Logging**: Seed files (e.g., `apps/api/prisma/seed.ts`) and test scripts (`scripts/test-login.mjs`) rely heavily on `console.log`. While acceptable in scripts, this pattern must be avoided in production application logic.
 
----
+## Known Bugs
+- Not detected. The codebase currently reports 100% passing Playwright E2E tests.
 
-## 1. Security Vulnerabilities (Resolved)
+## Security Considerations
+- **Sensitive Data Storage**: The `User` model in `apps/api/prisma/schema.prisma` includes an `adInitialPassword` field. If this stores plaintext passwords, it represents a significant security vulnerability and should be hashed or handled via a secure credential distribution mechanism.
+- **Hardcoded E2E Credentials**: The test script `scripts/test-login.mjs` uses hardcoded credentials (`admin@uims.internal`). These should be extracted to secure environment variables.
 
-**Hardcoded Backdoor Credentials & Plaintext Password Checks:**
-- **Status:** Resolved
-- **Files:** `apps/api/src/modules/auth/auth.service.ts`
-- **Resolution:** Completely removed static backdoor passwords (`Admin@2026`, `password123`, `admin`, `admin123`) and plaintext comparison checks. Authentication now strictly relies on salted bcrypt hash verification (`bcrypt.compare`). Added unit tests for invalid credentials and non-existent users.
+## Performance Bottlenecks
+- **Large React Components**: `apps/web/src/pages/organization/OrganizationCanvas.tsx` is 1785 lines long, and `apps/web/src/pages/organization/OrganizationPage.tsx` is 1526 lines. These massive components are likely to suffer from render performance issues.
+- **Hierarchical Data Queries**: `AssetCategory` and `Department` models in `schema.prisma` use self-referencing hierarchical relationships (`parentId`). Retrieving deep trees using standard Prisma queries can result in severe N+1 query bottlenecks.
 
-**Plaintext Password Storage in Users Module:**
-- **Status:** Resolved
-- **Files:** `apps/api/src/modules/users/users.service.ts`
-- **Resolution:** Fixed `resetPassword` to never store new credentials in plaintext; sets `adInitialPassword` to null and verifies the updated bcrypt hash.
+## Fragile Areas
+- **God Components**: The massive size of `OrganizationCanvas.tsx` and `OrganizationPage.tsx` indicates tight coupling and a lack of modularity, making them highly fragile and difficult to maintain.
+- **Service Complexity**: `apps/api/src/modules/users/users.service.ts` is growing large (461 lines) and risks becoming a God Object if domain responsibilities are not adequately separated.
 
----
+## Scaling Limits
+- **Database Indexing**: As the `Asset` and `AuditLog` tables grow, the current indexing strategy in `schema.prisma` may prove insufficient for complex, multi-field filtering and aggregation.
+- **Tree Structures**: Deeply nested organizational or category hierarchies will struggle to scale without implementing materialised paths or closure tables, as Prisma lacks native recursive CTE support.
 
-## 2. Tech Debt & Fake Data (Resolved)
+## Dependencies at Risk
+- Not detected. The project utilizes a modern monorepo setup with `pnpm` and standard, up-to-date dependencies (e.g., Turbo, Biome, Prisma).
 
-**Dashboard Mock Data & Fake Action Items:**
-- **Status:** Resolved
-- **Files:** `apps/api/src/modules/dashboard/dashboard.service.ts`, `apps/web/src/pages/dashboard/DashboardPage.tsx`
-- **Resolution:** Eliminated hardcoded fallback action items (fake Adobe / Wireless Mouse alerts). If no real low stock items or expiring licenses exist, the API returns an empty array. The frontend `ActionItemsCard` renders a clean Ant Design v6 empty state ("All systems operational").
+## Missing Critical Features
+- Not detected. No significant stubbed implementations or missing critical paths were identified.
 
-**Fake Health Telemetry & Backup Execution:**
-- **Status:** Resolved
-- **Files:** `apps/api/src/modules/settings/settings.service.ts`
-- **Resolution:**
-  - `getHealthTelemetry()` now performs real database query latency measurement using `performance.now()` with `SELECT 1`, real process memory heap usage, and actual uptime.
-  - `runBackup()` now queries real record counts across all core tables (Assets, Users, Licenses, Inventory, Audit Logs, Subnets, Settings), creates a structured verifiable snapshot with table statistics and SHA-256 metadata, and logs genuine audit events.
-
----
-
-## 3. Performance & Optimization (Resolved)
-
-**Dashboard Overview Aggregations & Caching:**
-- **Status:** Resolved
-- **Files:** `apps/api/src/modules/dashboard/dashboard.service.ts`
-- **Resolution:** Implemented in-memory TTL caching with cache invalidation (`clearCache()`) to prevent redundant concurrent queries to PostgreSQL during high traffic.
+## Test Coverage Gaps
+- **Unit Testing for Complex UI**: Given the enormous size of the Organization components (`OrganizationCanvas.tsx`), there is a high probability of significant unit test coverage gaps for edge cases and state management within those specific views. E2E tests alone are insufficient for components of this complexity.
 
 ---
-
-## 4. Dependencies & Best Practices (Pumped to Latest)
-
-- **Monorepo Dependencies:**
-  - Upgraded all workspace dependencies (`@nestjs/*` 11.2.1, `turbo` 2.10.10, `typescript` 7.0.2, etc.) to their latest available versions with 0 downgrades and clean lockfiles.
-  - Formatted entire monorepo using Biome 2026 standards.
-  - All test suites passing (138+ automated unit tests across all packages).
-
----
-
-*Concerns audit & resolution: 2026-08-16*
-<!-- refreshed: 2026-08-16 -->
+*Concerns audit: 2026-08-17*

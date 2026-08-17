@@ -1,77 +1,35 @@
 # External Integrations
-
-**Analysis Date:** 2026-08-16
+**Analysis Date:** 2026-08-17
 
 ## APIs & External Services
-
-**Search:**
-- MeiliSearch - High-performance full-text search for assets, licenses, and users
-  - SDK/Client: Direct REST API via `fetch`
-  - Auth: `MEILISEARCH_API_KEY`
+- **SeaweedFS (S3-compatible Gateway):** Used for object storage. Configured in `docker-compose.yml` with Master, Volume, and Filer components. Communicates via S3 API (`S3_ENDPOINT: http://seaweedfs-filer:8333`).
+- **MeiliSearch:** Used for fast text search. Integrated via `MEILISEARCH_HOST` and `MEILISEARCH_API_KEY`. Exposed on port 7700.
 
 ## Data Storage
-
-**Databases:**
-- PostgreSQL
-  - Connection: `DATABASE_URL`
-  - Client: Prisma ORM (`@prisma/client` with `@prisma/adapter-pg`)
-
-**File Storage:**
-- SeaweedFS (S3-compatible API)
-  - Connection: `S3_ENDPOINT`, `S3_BUCKET`
-  - Auth: `S3_ACCESS_KEY`, `S3_SECRET_KEY`
-
-**Caching:**
-- Redis
-  - Connection: `REDIS_URL`
-  - Client: `ioredis` (via BullMQ and NestJS caching)
+- **Relational Database:** PostgreSQL 17. Integrated via Prisma ORM (`@prisma/client`). Connection defined via `DATABASE_URL` in `.env` and `docker-compose.yml`.
+- **In-Memory Store:** Redis 8. Integrated via `ioredis` and used for caching and task queues (BullMQ). Connection defined via `REDIS_URL`.
+- **File Storage:** SeaweedFS (local S3 alternative) for handling document/image uploads, bucket `uims-files`.
 
 ## Authentication & Identity
-
-**Auth Provider:**
-- Custom
-  - Implementation: JWT (JSON Web Tokens) using `@nestjs/passport` and `passport-jwt`. Custom `bcrypt` password hashing.
+- **JWT (JSON Web Tokens):** Managed via `@nestjs/jwt` and `passport-jwt`. Configuration involves `JWT_SECRET`, `JWT_REFRESH_SECRET`, and expiration settings (`15m` access, `7d` refresh).
+- **Password Hashing:** `bcrypt` used for securing user passwords prior to persistence.
+- **Identity Provider:** No external SSO (e.g., OAuth, Auth0) detected. Identity is self-managed in the database.
 
 ## Monitoring & Observability
-
-**Error Tracking:**
-- None explicitly configured
-
-**Logs:**
-- Pino logger (`pino`, `pino-http`) outputting JSON logs to stdout
+- **Logging:** Application logging is handled by `pino` and `pino-http` in the backend API.
+- **Health Checks:** Native Docker Compose healthchecks configured for `postgres`, `redis`, and `meilisearch` (e.g., `pg_isready`, `redis-cli ping`, `curl -f http://localhost:7700/health`).
 
 ## CI/CD & Deployment
-
-**Hosting:**
-- Docker / Docker Compose
-
-**CI Pipeline:**
-- None discovered in repository (relies on local/dev build scripts)
+- **Containerization:** Docker Compose orchestrates the full stack (`api`, `web`, `postgres`, `redis`, `meilisearch`, `seaweedfs`).
+- **Build System:** Turborepo handles task orchestration (`build`, `test`, `lint`) with remote/local caching.
 
 ## Environment Configuration
-
-**Required env vars:**
-- `DATABASE_URL`
-- `REDIS_URL`
-- `JWT_SECRET`
-- `JWT_REFRESH_SECRET`
-- `MEILISEARCH_HOST`
-- `MEILISEARCH_API_KEY`
-- `S3_ENDPOINT`
-- `S3_ACCESS_KEY`
-- `S3_SECRET_KEY`
-
-**Secrets location:**
-- Stored in `.env` files locally, likely managed by environment in production
+- Environment variables govern all external connections (see `.env.example`).
+- Secrets and keys include: `DATABASE_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `MEILISEARCH_API_KEY`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`.
 
 ## Webhooks & Callbacks
-
-**Incoming:**
-- None
-
-**Outgoing:**
-- None
+- **Background Tasks:** BullMQ (`@nestjs/bullmq`) utilized for background processing and potentially scheduled jobs (using Redis).
+- **WebSockets:** Real-time bi-directional communication configured via `Socket.IO` (`@nestjs/websockets` on backend, `socket.io-client` on frontend).
 
 ---
-
-*Integration audit: 2026-08-16*
+*Integration audit: 2026-08-17*

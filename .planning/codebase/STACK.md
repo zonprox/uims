@@ -1,78 +1,63 @@
 # Technology Stack
-
-**Analysis Date:** 2026-08-16
+**Analysis Date:** 2026-08-17
 
 ## Languages
-
-**Primary:**
-- TypeScript 5.9.3 / 7.0.2 - Fullstack application language (API & Web)
-- Node.js >=22.0.0 - Runtime environment
-
-**Secondary:**
-- HTML/CSS - Web frontend via Ant Design
+- TypeScript (Strict type checking, `tsc`, `@types/*` definitions)
+- Node.js (Engine requirement: `>=22.0.0`)
+- HTML/CSS (React components and Ant Design)
 
 ## Runtime
-
-**Environment:**
-- Node.js >=22.0.0
-
-**Package Manager:**
-- pnpm 11.21.0
-- Lockfile: present (pnpm-lock.yaml)
+- **Package Manager:** `pnpm` (v11.21.0)
+- **Runtime Environment:** Node.js `>=22.0.0`
+- **Monorepo Manager:** Turborepo (`turbo` v2.10.10) - configured via `turbo.json`
+- **Containerization:** Docker & Docker Compose (`docker-compose.yml`, `docker-compose.dev.yml`)
 
 ## Frameworks
+### Backend (`apps/api/package.json`)
+- **Core:** NestJS v11 (`@nestjs/core`, `@nestjs/common`)
+- **Transport/Web:** Express (via `@nestjs/platform-express`)
+- **ORM:** Prisma v7.9.1 (`@prisma/client`, `@prisma/adapter-pg`)
+- **Real-time:** Socket.IO v4.8 (`@nestjs/websockets`, `@nestjs/platform-socket.io`)
 
-**Core:**
-- NestJS 11.1.29 - Backend API framework
-- React 19.2.8 - Frontend UI framework
-- Turborepo 2.10.9 - Monorepo build system
-
-**Testing:**
-- Vitest 4.1.10 - Unit and integration testing
-- Playwright 1.62.1 - End-to-end testing (E2E)
-
-**Build/Dev:**
-- Vite 8.2.1 - Frontend build tool and dev server
-- Biome 2.5.8 - Fast formatter and linter
-- tsx 4.23.12 - TypeScript execution
+### Frontend (`apps/web/package.json`)
+- **Core:** React v19.2 (`react`, `react-dom`)
+- **Build Tool:** Vite v8.2
+- **Routing:** React Router v8.3
+- **State Management:** Zustand v5, TanStack React Query v5
+- **UI Library:** Ant Design v6.6 (`antd`, `@ant-design/pro-components`)
 
 ## Key Dependencies
+### Shared (`packages/*`)
+- **Validation:** Zod v4.4
+- **Shared Types & Utils:** Internal workspace packages (`@uims/shared-types`, `@uims/shared-validators`)
 
-**Critical:**
-- Prisma 7.9.1 - TypeScript ORM for database access
-- Ant Design 6.6.0 - React UI component library
-- Zustand 5.0.15 - Frontend state management
-- @tanstack/react-query 5.101.4 - Data fetching and state synchronization
-- Zod 4.4.3 - Schema declaration and validation
+### API Dependencies
+- **Task Queues:** BullMQ v6.1 (`@nestjs/bullmq`)
+- **Caching/Redis:** ioredis v6
+- **Security:** Helmet, Passport (`passport-jwt`), bcrypt
+- **Logging:** Pino (`pino`, `pino-http`)
 
-**Infrastructure:**
-- @nestjs/bullmq 11.0.5 & bullmq 6.1.1 - Redis-based queue management
-- @nestjs/websockets 11.1.29 & socket.io - Real-time websocket communication
-- pino 10.3.1 - High-performance logging
+### Web Dependencies
+- **Styling:** `@fontsource-variable/inter`
+- **HTTP Client:** Axios v1.19
+- **Dates:** Day.js
+
+### Dev & Testing
+- **Linting & Formatting:** Biome v2.5 (`biome.json`), ESLint v10
+- **Testing:** Vitest v4.1, Playwright v1.62 (E2E)
 
 ## Configuration
-
-**Environment:**
-- Environment variables via `.env` file (based on `.env.example`)
-- Requires database connection, Redis, JWT secrets, MeiliSearch, and S3 credentials
-
-**Build:**
-- `turbo.json` (Turborepo pipeline configuration)
-- `biome.json` (Biome lint/format configuration)
-- `pnpm-workspace.yaml` (Workspace packages configuration)
+- **Monorepo Config:** `turbo.json` (Caching, Task dependencies)
+- **Formatting/Linting:** `biome.json` (Recommended preset, LF endings, 2 spaces)
+- **Environment:** Managed via `.env` (development) and Docker environment variables (production)
+- **Nginx:** Reverse proxy configured in `docker/nginx/nginx.conf`
 
 ## Platform Requirements
-
-**Development:**
-- Node.js >=22.0.0
-- pnpm >=11.0.0
-- Docker & Docker Compose (for Postgres, Redis, Meilisearch, SeaweedFS)
-
-**Production:**
-- Docker containers orchestrating API and static web delivery
-- PostgreSQL database
-- Redis instance
+- Docker and Docker Compose (required for local dev via `pnpm docker:dev`)
+- PostgreSQL 17
+- Redis 8
+- MeiliSearch
+- SeaweedFS (S3 Gateway)
 
 ---
-
-*Stack analysis: 2026-08-16*
+*Stack analysis: 2026-08-17*

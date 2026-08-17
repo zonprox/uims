@@ -1,131 +1,87 @@
-<!-- refreshed: 2026-08-16 -->
+<!-- refreshed: 2026-08-17 -->
 # Architecture
-
-**Analysis Date:** 2026-08-16
+**Analysis Date:** 2026-08-17
 
 ## System Overview
+The UIMS (Unified IT Infrastructure & Assets Management Platform) is built as a monorepo utilizing Turborepo. It features a modern client-server architecture with a React-based Single Page Application frontend (`apps/web`) and a NestJS-based backend API (`apps/api`). The system relies on PostgreSQL via Prisma ORM for persistent data, and Redis/BullMQ for asynchronous job processing. 
 
 ```text
-[Monorepo Root: /home/user/projects/uims]
- ├── apps/
- │   ├── web/ (React, Vite, Ant Design, React Query, Zustand)
- │   └── api/ (NestJS, Prisma, PostgreSQL)
- └── packages/
-     ├── shared-types/      (TypeScript Interfaces/Enums)
-     ├── shared-validators/ (Zod Schemas)
-     └── shared-utils/      (Shared utility functions like dayjs)
++-------------------+       +-------------------+       +-------------------+
+|                   |       |                   |       |                   |
+|   UIMS Web App    | <---> |   UIMS API        | <---> |   PostgreSQL      |
+|  (React/Vite)     | REST/ |  (NestJS)         | Prisma|                   |
+|                   | WSS   |                   |       |                   |
++-------------------+       +-------------------+       +-------------------+
+        ^                           ^                             ^
+        |                           |                             |
+        v                           v                             v
++-----------------------------------------------------------------------+
+|                       Shared Packages                                 |
+|  (shared-types, shared-validators, shared-utils, eslint-config)       |
++-----------------------------------------------------------------------+
 ```
 
 ## Component Responsibilities
 
-| Component | Responsibility | File |
-|-----------|----------------|------|
-| `apps/web` | Frontend SPA providing the UI | `apps/web/src/main.tsx` |
-| `apps/api` | Backend REST API serving business logic | `apps/api/src/main.ts` |
-| `packages/shared-types` | Shared type definitions across web and api | `packages/shared-types/src/index.ts` |
-| `packages/shared-validators` | Zod schemas for input validation | `packages/shared-validators/src/index.ts` |
+| Component | Responsibility | File Path(s) |
+|---|---|---|
+| **Web Frontend** | Provides the user interface using React, Ant Design, and Zustand for state management. Uses React Query for data fetching and caching. | `apps/web/` |
+| **API Backend** | Handles business logic, authentication, data validation, and database operations using NestJS and Prisma. | `apps/api/` |
+| **Shared Types** | Defines common TypeScript interfaces, entities, and DTO structures used across frontend and backend. | `packages/shared-types/` |
+| **Shared Validators** | Defines common Zod schemas for input validation utilized by both the frontend forms and backend API pipes. | `packages/shared-validators/` |
+| **Shared Utils** | Contains common helper functions and utilities (e.g., date formatting, timezone handling). | `packages/shared-utils/` |
+| **Prisma Schema** | Defines the database schema and generates the TypeScript client. | `apps/api/prisma/schema.prisma` |
 
 ## Pattern Overview
-
-**Overall:** Client-Server Monorepo (Turborepo)
-- **Frontend:** SPA with React, component-driven, client-side routing, global/server state separation.
-- **Backend:** Modular, Dependency Injection (DI) based REST API (NestJS).
-
-**Key Characteristics:**
-- Strict typing across the stack using shared packages.
-- Zod used for cross-stack validation schemas.
-- Ant Design v6+ used strictly on frontend, driven by AntApp context (`App.useApp()`).
-- Database access abstracted via Prisma ORM.
+- **Monorepo Strategy:** Codebase is managed using Turborepo and pnpm workspaces, enforcing code sharing across applications.
+- **Frontend State Management:** Global UI state is handled by Zustand (e.g., `apps/web/src/stores/theme.store.ts`), while asynchronous server state is managed via React Query (`apps/web/src/app/query-client.ts`).
+- **Backend Architecture:** Follows NestJS's standard module-controller-service pattern. Each domain (e.g., Assets, Inventory) is encapsulated within its own module in `apps/api/src/modules/`.
+- **Real-time Communication:** Utilizes Socket.IO (`@nestjs/platform-socket.io`) for real-time notifications (`apps/api/src/modules/notifications/notifications.gateway.ts` and `apps/web/src/hooks/useRealtimeNotifications.ts`).
 
 ## Layers
-
-**Frontend (Web):**
-- Purpose: Render UI and handle client-side business logic.
-- Location: `apps/web/src/`
-- Contains: React components, pages, stores (Zustand), services (React Query clients).
-- Depends on: `shared-types`, `shared-validators`, `@tanstack/react-query`, `antd`, `@ant-design/pro-components`.
-- Used by: End users (via browser).
-
-**Backend (API):**
-- Purpose: Handle requests, apply business rules, persist data.
-- Location: `apps/api/src/`
-- Contains: NestJS Modules (Controllers, Services), Prisma client, Guards, Interceptors.
-- Depends on: `shared-types`, `shared-validators`, `@nestjs/*`, `prisma`.
-- Used by: Web frontend (`apps/web`).
+- **Presentation Layer (Web):** React components, layouts, and pages (e.g., `apps/web/src/pages/`, `apps/web/src/components/`).
+- **Data Access Layer (Web):** Axios service wrappers and React Query hooks (`apps/web/src/services/`).
+- **Transport Layer (API):** NestJS Controllers handling REST endpoints (`apps/api/src/modules/**/*.controller.ts`).
+- **Business Logic Layer (API):** NestJS Services handling core logic and data manipulation (`apps/api/src/modules/**/*.service.ts`).
+- **Persistence Layer (API):** Prisma service acting as the ORM to interact with PostgreSQL (`apps/api/src/database/prisma.service.ts`).
 
 ## Data Flow
-
-### Primary Request Path
-
-1. User Interaction (Frontend Component) (`apps/web/src/pages/[module]/*.tsx`)
-2. Server State Query/Mutation (`apps/web/src/app/query-client.ts` via React Query)
-3. API Gateway / Routing (`apps/api/src/main.ts`)
-4. Global Middleware & Guards (Throttler, JwtAuthGuard, RolesGuard) (`apps/api/src/common/guards/`)
-5. Controller Logic (`apps/api/src/modules/[module]/[module].controller.ts`)
-6. Business Logic (`apps/api/src/modules/[module]/[module].service.ts`)
-7. Database Access (`apps/api/src/database/prisma.module.ts`)
-
-**State Management:**
-- **Web Server State:** `@tanstack/react-query` (cached, background synchronized).
-- **Web Client State:** Zustand (`apps/web/src/stores/`).
-- **API State:** Stateless, session managed via JWTs.
+1. **Client Action:** User interacts with a React component (e.g., submitting an asset form).
+2. **Frontend Validation:** The form data is validated using shared Zod schemas (`packages/shared-validators`).
+3. **API Request:** React Query triggers an Axios call to the NestJS backend.
+4. **Backend Validation:** The incoming request is parsed and validated by a global validation pipe (`apps/api/src/common/pipes/zod-validation.pipe.ts`).
+5. **Business Logic Execution:** The relevant NestJS Controller routes the request to its Service, which performs the business logic.
+6. **Data Persistence:** The Service calls Prisma to interact with the PostgreSQL database.
+7. **Response & Real-time Update:** The API returns a response to the client. If necessary, a WebSocket event is emitted to connected clients via the NotificationsGateway.
+8. **Client Update:** React Query updates its cache, triggering a re-render of the relevant React components.
 
 ## Key Abstractions
-
-**Shared Validators:**
-- Purpose: Ensure identical validation logic on both client forms and API endpoints.
-- Examples: `packages/shared-validators/src/auth.validator.ts`
-
-**NestJS Modules:**
-- Purpose: Encapsulate domain logic (Controllers + Services).
-- Examples: `apps/api/src/modules/audit/audit.module.ts`
-
-**Ant Design App Context:**
-- Purpose: Provide dynamic theme context and global feedback mechanisms (message, modal, notification).
-- Examples: `apps/web/src/app/App.tsx`
+- **Domain Modules:** The backend logic is strictly divided into domain-specific modules such as `auth`, `users`, `assets`, `inventory`, `network`, `licenses`, `organization`, and `audit`.
+- **Shared DTOs & Entities:** Cross-boundary data structures are abstracted in `packages/shared-types` to ensure type consistency.
 
 ## Entry Points
-
-**Web Entry Point:**
-- Location: `apps/web/src/main.tsx` & `apps/web/src/app/App.tsx`
-- Triggers: Browser loading the application bundle.
-
-**API Entry Point:**
-- Location: `apps/api/src/main.ts`
-- Triggers: Node.js process startup, listening on configured PORT.
+- **Web Frontend:** `apps/web/src/main.tsx` and `apps/web/src/app/App.tsx`.
+- **API Backend:** `apps/api/src/main.ts` and `apps/api/src/app.module.ts`.
 
 ## Architectural Constraints
-
-- **Threading:** Node.js single-threaded event loop for both API and Web build processes.
-- **Global state:** 
-  - API: strictly no global mutable state, everything must be stateless or handled via DI.
-  - Web: Zustand used for minimal UI state (e.g. theme preferences).
-- **Circular imports:** Turborepo prevents cyclic package dependencies. NestJS DI requires forward references (`forwardRef`) if circular imports exist, though they should be avoided.
+- **Strict Typing:** TypeScript must be used strictly across all applications and packages.
+- **Shared Logic:** Any domain logic, types, or validation schemas required by both the frontend and backend MUST be placed in the `packages/` directory.
+- **Database Access:** Direct database access is restricted to the backend API (`apps/api/src/database/`). The frontend must communicate via the API.
+- **Dependency Management:** Dependencies must be managed via pnpm workspaces to ensure versions align properly across the monorepo.
 
 ## Anti-Patterns
-
-### Inline Ant Design Feedback
-**What happens:** Using `message.success()` or `Modal.confirm()` directly from `antd` imports.
-**Why it's wrong:** Breaks dynamic theming context and creates UI inconsistencies.
-**Do this instead:** Always consume via `const { message, modal, notification } = App.useApp();` as per `ant-design-guide.md`.
-
-### Mixing Client and Server State
-**What happens:** Storing API responses in Zustand stores.
-**Why it's wrong:** Re-invents caching, caching invalidation, and background fetching.
-**Do this instead:** Use React Query (`useQuery`, `useMutation`) for all external data.
+- **Duplicated Types:** Defining API request/response types in the frontend or backend instead of using `packages/shared-types`.
+- **Direct DB Queries from Controllers:** Skipping the Service layer and calling Prisma directly from a Controller.
+- **Frontend State Bloat:** Storing server data in Zustand instead of utilizing React Query for fetching and caching.
 
 ## Error Handling
-
-**Strategy:** 
-- **API:** Global Exception Filters (`HttpExceptionFilter`, `PrismaExceptionFilter` in `apps/api/src/common/filters/`) capture and format all errors into standard HTTP JSON responses.
-- **Web:** Error Boundaries (`apps/web/src/components/ErrorBoundary.tsx`) for UI crashes, React Query error handling for API failures.
+- **Backend:** Global HTTP and Prisma exception filters are utilized to format error responses consistently (`apps/api/src/common/filters/http-exception.filter.ts`, `apps/api/src/common/filters/prisma-exception.filter.ts`).
+- **Frontend:** API errors are handled globally via Axios interceptors and presented to the user. React Error Boundaries (`apps/web/src/components/ErrorBoundary.tsx`) capture uncaught render errors.
 
 ## Cross-Cutting Concerns
-
-**Logging:** NestJS built-in `Logger` during bootstrap. Likely extended by custom interceptors (e.g., `AuditInterceptor` in `apps/api/src/common/interceptors/audit.interceptor.ts`).
-**Validation:** Zod schemas via `shared-validators` used in NestJS ValidationPipe and frontend form resolvers.
-**Authentication:** JWT-based. Protected by `JwtAuthGuard` applied globally in `app.module.ts`. Authorization handled by `RolesGuard`.
+- **Authentication & Authorization:** Managed by the Auth Module using JWT strategy (`apps/api/src/modules/auth/strategies/jwt.strategy.ts`).
+- **Logging & Auditing:** Audit logs are generated for significant actions and persisted via the Audit Module (`apps/api/src/modules/audit/audit.service.ts`).
+- **Validation:** Enforced uniformly by Zod schemas shared between client and server.
 
 ---
-
-*Architecture analysis: 2026-08-16*
+*Architecture analysis: 2026-08-17*
