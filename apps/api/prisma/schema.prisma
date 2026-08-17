@@ -91,7 +91,6 @@ model User {
   adInitialPassword  String?
   ouPath             String?
   managerName        String?
-  mfaStatus          String?             @default("ENABLED")
   isLocked           Boolean             @default(false)
   accountExpiresAt   DateTime?
   departmentId       String?

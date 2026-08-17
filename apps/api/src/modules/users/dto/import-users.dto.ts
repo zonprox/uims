@@ -70,11 +70,6 @@ export class ImportUserRowDto {
   @IsString()
   managerName?: string;
 
-  @ApiPropertyOptional({ example: 'ENABLED' })
-  @IsOptional()
-  @IsString()
-  mfaStatus?: string;
-
   @ApiPropertyOptional({ example: 'STOTHPR102' })
   @IsOptional()
   @IsString()

@@ -7,8 +7,6 @@ export enum UserStatus {
   SUSPENDED = 'SUSPENDED',
 }
 
-export type MfaStatus = 'ENFORCED' | 'ENABLED' | 'DISABLED';
-
 export interface User {
   id: string;
   username: string;
@@ -31,7 +29,6 @@ export interface User {
   isClosed?: boolean;
   ouPath?: string | null;
   managerName?: string | null;
-  mfaStatus?: MfaStatus | string | null;
   isLocked?: boolean;
   accountExpiresAt?: string | null;
   source?: DirectorySource;
@@ -64,7 +61,6 @@ export interface UserSummaryStats {
   recentActiveCount: number;
   totalGroups?: number;
   totalWorkstations?: number;
-  mfaEnforcedCount?: number;
   lockedCount?: number;
   totalOUs?: number;
 }

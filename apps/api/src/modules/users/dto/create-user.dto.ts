@@ -92,11 +92,6 @@ export class CreateUserDto {
   @IsOptional()
   managerName?: string;
 
-  @ApiPropertyOptional({ example: 'ENABLED' })
-  @IsString()
-  @IsOptional()
-  mfaStatus?: string;
-
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   isClosed?: boolean;

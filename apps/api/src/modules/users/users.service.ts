@@ -104,7 +104,6 @@ export class UsersService {
         adGroup: userData.adGroup || null,
         ouPath: userData.ouPath || 'OU=Corporate,DC=uims,DC=internal',
         managerName: userData.managerName || null,
-        mfaStatus: userData.mfaStatus || 'ENABLED',
         isLocked: Boolean(userData.isLocked),
         telephone: userData.telephone || null,
         isClosed: Boolean(userData.isClosed),
@@ -244,7 +243,6 @@ export class UsersService {
           adGroup: true,
           ouPath: true,
           managerName: true,
-          mfaStatus: true,
           isLocked: true,
           accountExpiresAt: true,
           telephone: true,
@@ -404,7 +402,6 @@ export class UsersService {
     if (updateUserDto.adGroup !== undefined) updateData.adGroup = updateUserDto.adGroup;
     if (updateUserDto.ouPath !== undefined) updateData.ouPath = updateUserDto.ouPath;
     if (updateUserDto.managerName !== undefined) updateData.managerName = updateUserDto.managerName;
-    if (updateUserDto.mfaStatus !== undefined) updateData.mfaStatus = updateUserDto.mfaStatus;
     if (updateUserDto.isLocked !== undefined) updateData.isLocked = updateUserDto.isLocked;
     if (updateUserDto.telephone !== undefined) updateData.telephone = updateUserDto.telephone;
     if (updateUserDto.department !== undefined) updateData.department = updateUserDto.department;
@@ -509,7 +506,6 @@ export class UsersService {
       custodiansCount,
       totalGroups,
       totalWorkstations,
-      mfaEnforcedCount,
       lockedCount,
     ] = await Promise.all([
       this.prisma.user.count(),
@@ -523,7 +519,6 @@ export class UsersService {
       this.prisma.asset.count({ where: { assignedToId: { not: null } } }),
       this.prisma.directoryGroup?.count ? this.prisma.directoryGroup.count() : Promise.resolve(0),
       this.prisma.user.count({ where: { computerName: { not: null } } }),
-      this.prisma.user.count({ where: { mfaStatus: 'ENFORCED' } }),
       this.prisma.user.count({ where: { isLocked: true } }),
     ]);
 
@@ -536,7 +531,6 @@ export class UsersService {
       recentActiveCount: activeUsers,
       totalGroups: totalGroups || 0,
       totalWorkstations: totalWorkstations || custodiansCount,
-      mfaEnforcedCount: mfaEnforcedCount || Math.floor(activeUsers * 0.85),
       lockedCount: lockedCount || 0,
       totalOUs: 6,
     };
@@ -787,7 +781,6 @@ export class UsersService {
               adGroup: row.adGroup || existingUser.adGroup,
               ouPath: row.ouPath || existingUser.ouPath || 'OU=Production,DC=uims,DC=internal',
               managerName: row.managerName || existingUser.managerName,
-              mfaStatus: row.mfaStatus || existingUser.mfaStatus || 'ENABLED',
               telephone: row.telephone || existingUser.telephone,
               adInitialPassword: row.initialPassword || existingUser.adInitialPassword,
               isClosed,
@@ -828,7 +821,6 @@ export class UsersService {
               adGroup: row.adGroup || null,
               ouPath: row.ouPath || 'OU=Production,DC=uims,DC=internal',
               managerName: row.managerName || null,
-              mfaStatus: row.mfaStatus || 'ENABLED',
               telephone: row.telephone || null,
               adInitialPassword: adPass,
               passwordHash,
@@ -882,7 +874,6 @@ export class UsersService {
         phone: true,
         ouPath: true,
         managerName: true,
-        mfaStatus: true,
         isClosed: true,
         computerName: true,
         computerName2: true,
@@ -915,7 +906,6 @@ export class UsersService {
         'Initial Pass': u.adInitialPassword || '',
         'GR_GROUP USER': u.adGroup || '',
         'OU Path': u.ouPath || 'OU=Production,DC=uims,DC=internal',
-        'MFA Status': u.mfaStatus || 'ENABLED',
         State: u.status,
       };
     });

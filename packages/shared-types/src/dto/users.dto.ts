@@ -1,5 +1,5 @@
 import type { DirectorySource } from '../entities/directory';
-import type { MfaStatus, UserStatus } from '../entities/user';
+import type { UserStatus } from '../entities/user';
 
 export interface CreateSystemUserDto {
   username?: string;
@@ -22,7 +22,6 @@ export interface CreateSystemUserDto {
   isClosed?: boolean;
   ouPath?: string;
   managerName?: string;
-  mfaStatus?: MfaStatus | string;
   isLocked?: boolean;
   accountExpiresAt?: string;
   source?: DirectorySource;
@@ -97,7 +96,6 @@ export interface BatchImportADUserItem {
   adGroup?: string;
   ouPath?: string;
   managerName?: string;
-  mfaStatus?: string;
   isClosed?: boolean | string;
   status?: string;
 }

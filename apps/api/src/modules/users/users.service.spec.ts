@@ -49,7 +49,6 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(5) // admin
         .mockResolvedValueOnce(2) // suspended
         .mockResolvedValueOnce(38) // totalWorkstations
-        .mockResolvedValueOnce(38) // mfaEnforcedCount
         .mockResolvedValueOnce(0); // lockedCount
       (mockPrisma.asset as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(38); // custodians
       (
@@ -67,7 +66,6 @@ describe('UsersService', () => {
         recentActiveCount: 45,
         totalGroups: 12,
         totalWorkstations: 38,
-        mfaEnforcedCount: 38,
         lockedCount: 0,
         totalOUs: 6,
       });

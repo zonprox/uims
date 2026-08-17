@@ -101,7 +101,6 @@ export default function UsersPage() {
     recentActiveCount: 0,
     totalGroups: 0,
     totalWorkstations: 0,
-    mfaEnforcedCount: 0,
     lockedCount: 0,
     totalOUs: 6,
   });
@@ -120,7 +119,6 @@ export default function UsersPage() {
   const [adGroupFilter, setAdGroupFilter] = useState('all');
   const [ouFilter, setOuFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
-  const [mfaFilter, setMfaFilter] = useState('all');
 
   // Password Visibility Toggle per row
   const [visibleAdPasswords, setVisibleAdPasswords] = useState<Record<string, boolean>>({});
@@ -167,7 +165,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 - sAMAccountName / Domain Logon ID: ${username}
 - UserPrincipalName (UPN): ${user.email}
 - Initial Domain Password: ${adPass}
-- Multi-Factor Authentication (MFA): ${user.mfaStatus || 'ENFORCED'}
 
 [ORGANIZATIONAL PLACEMENT]
 - Business Entity (Company): ${user.company || 'BSL Others'}
@@ -214,10 +211,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           rolesService.getCatalog().catch(() => []),
         ]);
 
-      let items = usersData.items || [];
-      if (mfaFilter !== 'all') {
-        items = items.filter((u) => (u.mfaStatus || 'ENABLED') === mfaFilter);
-      }
+      const items = usersData.items || [];
 
       setUsers(items);
       setGroups(groupsData || []);
@@ -247,7 +241,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           recentActiveCount: active,
           totalGroups: groupsData?.length || 0,
           totalWorkstations: workstations,
-          mfaEnforcedCount: Math.floor(active * 0.85),
           lockedCount: 0,
           totalOUs: ousData?.length || 6,
         });
@@ -263,7 +256,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
     companyFilter,
     deptFilter,
     message,
-    mfaFilter,
     ouFilter,
     roleFilter,
     search,
@@ -353,7 +345,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       subSection: 'Printing',
       adGroup: 'GR_BSLOTHPrinting',
       ouPath: 'OU=Production,DC=uims,DC=internal',
-      mfaStatus: 'ENFORCED',
       isClosed: false,
     });
     setUserModalOpen(true);
@@ -380,7 +371,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       adGroup: user.adGroup,
       ouPath: user.ouPath || 'OU=Production,DC=uims,DC=internal',
       managerName: user.managerName,
-      mfaStatus: user.mfaStatus || 'ENABLED',
       telephone: user.telephone || user.phone,
       roleName: user.roleName || user.role?.name || 'Employee',
       status: user.status,
@@ -830,21 +820,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       },
     },
     {
-      title: 'MFA POSTURE',
-      key: 'mfa',
-      width: 110,
-      render: (_: unknown, record: User) => {
-        const mfa = record.mfaStatus || 'ENFORCED';
-        return (
-          <Tag
-            color={mfa === 'ENFORCED' ? 'success' : mfa === 'ENABLED' ? 'processing' : 'default'}
-          >
-            {mfa}
-          </Tag>
-        );
-      },
-    },
-    {
       title: 'STATUS',
       dataIndex: 'status',
       key: 'status',
@@ -969,12 +944,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           value: stats.totalGroups ?? groups.length,
           prefix: <ShareAltOutlined />,
           color: '#8b5cf6',
-        },
-        {
-          title: 'MFA Enforced Logins',
-          value: stats.mfaEnforcedCount ?? Math.floor(stats.activeUsers * 0.85),
-          prefix: <SafetyCertificateOutlined />,
-          color: '#059669',
         },
         {
           title: 'Suspended / Closed Accounts',
@@ -1161,8 +1130,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                         companyFilter !== 'all' ||
                         adGroupFilter !== 'all' ||
                         ouFilter !== 'all' ||
-                        sourceFilter !== 'all' ||
-                        mfaFilter !== 'all') && (
+                        sourceFilter !== 'all') && (
                         <Button
                           onClick={() => {
                             setSearch('');
@@ -1174,7 +1142,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                             setAdGroupFilter('all');
                             setOuFilter('all');
                             setSourceFilter('all');
-                            setMfaFilter('all');
                           }}
                         >
                           Reset
@@ -1499,12 +1466,8 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Multi-Factor Auth (MFA)" name="mfaStatus" initialValue="ENFORCED">
-                <Select>
-                  <Option value="ENFORCED">ENFORCED (Hardware / Authenticator App)</Option>
-                  <Option value="ENABLED">ENABLED (SMS / Push)</Option>
-                  <Option value="DISABLED">DISABLED</Option>
-                </Select>
+              <Form.Item label="Reporting Line Manager" name="managerName">
+                <Input placeholder="e.g., Nguyen Doan Quang Huy" />
               </Form.Item>
             </Col>
           </Row>
@@ -1738,19 +1701,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             </Descriptions.Item>
             <Descriptions.Item label="Initial Domain Password">
               <Text code>{selectedUser.adInitialPassword || '••••••••••'}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Multi-Factor Auth (MFA)">
-              <Tag
-                color={
-                  selectedUser.mfaStatus === 'ENFORCED'
-                    ? 'success'
-                    : selectedUser.mfaStatus === 'ENABLED'
-                      ? 'processing'
-                      : 'default'
-                }
-              >
-                {selectedUser.mfaStatus || 'ENFORCED'}
-              </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Canonical OU Path">
               <Text code style={{ fontSize: 11 }}>
