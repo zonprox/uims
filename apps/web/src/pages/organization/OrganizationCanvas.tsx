@@ -1776,7 +1776,11 @@ export default function OrganizationCanvas({
                       e.currentTarget.style.transform = 'scale(1)';
                     }}
                   >
-                    {node.isCollapsed ? `+${node.childCount}` : <MinusOutlined style={{ fontSize: 9 }} />}
+                    {node.isCollapsed ? (
+                      `+${node.childCount}`
+                    ) : (
+                      <MinusOutlined style={{ fontSize: 9 }} />
+                    )}
                   </div>
                 )}
               </div>

@@ -21,11 +21,18 @@ describe('UsersService', () => {
       },
       role: {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         findMany: vi.fn(),
       },
       directoryGroup: {
         findMany: vi.fn(),
+        findFirst: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
+        count: vi.fn(),
+      },
+      directoryMembership: {
+        upsert: vi.fn(),
       },
     };
 
@@ -40,8 +47,14 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(50) // total
         .mockResolvedValueOnce(45) // active
         .mockResolvedValueOnce(5) // admin
-        .mockResolvedValueOnce(2); // suspended
+        .mockResolvedValueOnce(2) // suspended
+        .mockResolvedValueOnce(38) // totalWorkstations
+        .mockResolvedValueOnce(38) // mfaEnforcedCount
+        .mockResolvedValueOnce(0); // lockedCount
       (mockPrisma.asset as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(38); // custodians
+      (
+        mockPrisma.directoryGroup as { count: ReturnType<typeof vi.fn> }
+      ).count.mockResolvedValueOnce(12); // totalGroups
 
       const stats = await service.getStats();
 
@@ -52,6 +65,11 @@ describe('UsersService', () => {
         custodiansCount: 38,
         suspendedUsers: 2,
         recentActiveCount: 45,
+        totalGroups: 12,
+        totalWorkstations: 38,
+        mfaEnforcedCount: 38,
+        lockedCount: 0,
+        totalOUs: 6,
       });
     });
   });
@@ -69,6 +87,7 @@ describe('UsersService', () => {
         id: 'usr-1',
         email: 'john@example.com',
         status: 'SUSPENDED',
+        isClosed: true,
       });
 
       const res = await service.toggleStatus(
@@ -77,6 +96,24 @@ describe('UsersService', () => {
       );
 
       expect(res.status).toBe('SUSPENDED');
+    });
+  });
+
+  describe('syncDomain', () => {
+    it('should simulate active directory replication telemetry', async () => {
+      (mockPrisma.user as { count: ReturnType<typeof vi.fn> }).count
+        .mockResolvedValueOnce(50) // total
+        .mockResolvedValueOnce(45); // active
+      (
+        mockPrisma.directoryGroup as { count: ReturnType<typeof vi.fn> }
+      ).count.mockResolvedValueOnce(12);
+
+      const res = await service.syncDomain();
+
+      expect(res.domain).toBe('uims.internal');
+      expect(res.controller).toBe('DC01-PRIMARY.corp.uims.internal');
+      expect(res.status).toBe('SYNCHRONIZED');
+      expect(res.replicatedObjects).toBe(62);
     });
   });
 });

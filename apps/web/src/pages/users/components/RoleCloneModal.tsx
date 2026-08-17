@@ -71,7 +71,9 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
       <div style={{ marginBottom: 16, marginTop: 8 }}>
         <Text type="secondary" style={{ fontSize: 13 }}>
           Creates a new custom role inheriting all{' '}
-          <strong>{sourceRole?.permissionCount || sourceRole?.permissions?.length || 0} permissions</strong>{' '}
+          <strong>
+            {sourceRole?.permissionCount || sourceRole?.permissions?.length || 0} permissions
+          </strong>{' '}
           from <strong>{sourceRole?.name}</strong>.
         </Text>
       </div>

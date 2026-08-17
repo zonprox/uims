@@ -70,7 +70,11 @@ describe('RolesService', () => {
 
     it('should create new custom role and assign permissions', async () => {
       mockPrisma.role.findFirst.mockResolvedValue(null);
-      mockPrisma.role.create.mockResolvedValue({ id: 'new-id', name: 'Field Tech', description: 'desc' });
+      mockPrisma.role.create.mockResolvedValue({
+        id: 'new-id',
+        name: 'Field Tech',
+        description: 'desc',
+      });
       mockPrisma.role.findUnique.mockResolvedValue({
         id: 'new-id',
         name: 'Field Tech',

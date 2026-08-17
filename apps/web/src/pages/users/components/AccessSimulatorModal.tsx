@@ -76,7 +76,11 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
 
     const set = new Set<string>();
     activeRole.permissions.forEach((p: unknown) => {
-      const pObj = p as { permission?: { subject: string; action: string }; subject?: string; action?: string };
+      const pObj = p as {
+        permission?: { subject: string; action: string };
+        subject?: string;
+        action?: string;
+      };
       if (pObj.permission) {
         set.add(`${pObj.permission.subject}:${pObj.permission.action}`.toLowerCase());
       } else if (pObj.subject && pObj.action) {

@@ -103,7 +103,10 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
             style={{ borderRadius: 8, textAlign: 'center' }}
             styles={{ body: { padding: '10px 8px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
+            >
               Assigned Users
             </Text>
             <Text strong style={{ fontSize: 20, color: '#1677ff' }}>
@@ -117,13 +120,16 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
             style={{ borderRadius: 8, textAlign: 'center' }}
             styles={{ body: { padding: '10px 8px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
+            >
               Granted Permissions
             </Text>
             <Text strong style={{ fontSize: 20, color: '#059669' }}>
               {roleDetail?.name === 'Super Admin'
                 ? 'All (*:*)'
-                : roleDetail?.permissionCount ?? roleDetail?.permissions?.length ?? 0}
+                : (roleDetail?.permissionCount ?? roleDetail?.permissions?.length ?? 0)}
             </Text>
           </Card>
         </Col>
@@ -133,7 +139,10 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
             style={{ borderRadius: 8, textAlign: 'center' }}
             styles={{ body: { padding: '10px 8px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
+            >
               Governance Tier
             </Text>
             <Text strong style={{ fontSize: 14, color: '#7c3aed', display: 'block', marginTop: 4 }}>
@@ -216,9 +225,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
               title: 'DEPARTMENT',
               dataIndex: 'department',
               key: 'department',
-              render: (dept: string) => (
-                <Text style={{ fontSize: 12 }}>{dept || 'General'}</Text>
-              ),
+              render: (dept: string) => <Text style={{ fontSize: 12 }}>{dept || 'General'}</Text>,
             },
             {
               title: 'JOB TITLE',

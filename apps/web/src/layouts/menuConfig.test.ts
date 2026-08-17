@@ -78,7 +78,9 @@ describe('menuConfig', () => {
     expect(groupOrg).toBeUndefined();
 
     // Check that group-assets is included
-    const groupAssets = items?.find((item) => (item as { key?: string })?.key === 'group-assets') as {
+    const groupAssets = items?.find(
+      (item) => (item as { key?: string })?.key === 'group-assets',
+    ) as {
       children?: Array<{ key: string }>;
     };
     expect(groupAssets).toBeDefined();

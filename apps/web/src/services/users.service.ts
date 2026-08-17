@@ -1,7 +1,10 @@
 import type {
+  BatchImportADResponse,
+  BatchImportADUserItem,
   CreateDirectoryGroupDto,
   CreateSystemUserDto,
   DirectoryGroup,
+  OrganizationalUnit,
   Role,
   UpdateSystemUserDto,
   User,
@@ -11,7 +14,15 @@ import type {
 } from '@uims/shared-types';
 import { api } from './api';
 
-export type { DirectoryGroup, User, UserStatus, UserSummaryStats };
+export type {
+  BatchImportADResponse,
+  BatchImportADUserItem,
+  DirectoryGroup,
+  OrganizationalUnit,
+  User,
+  UserStatus,
+  UserSummaryStats,
+};
 
 export interface PaginatedUsersResponse {
   items: User[];
@@ -19,6 +30,16 @@ export interface PaginatedUsersResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export interface DomainSyncResult {
+  domain: string;
+  controller: string;
+  status: string;
+  latencyMs: number;
+  replicatedObjects: number;
+  activeIdentities: number;
+  lastSyncTimestamp: string;
 }
 
 export const usersService = {
@@ -39,6 +60,16 @@ export const usersService = {
 
   createGroup: async (data: CreateDirectoryGroupDto): Promise<DirectoryGroup> => {
     const res = await api.post('/users/groups', data);
+    return res.data.data || res.data;
+  },
+
+  getOrganizationalUnits: async (): Promise<OrganizationalUnit[]> => {
+    const res = await api.get('/users/organizational-units');
+    return res.data.data || res.data;
+  },
+
+  syncDomain: async (): Promise<DomainSyncResult> => {
+    const res = await api.post('/users/sync-domain');
     return res.data.data || res.data;
   },
 
@@ -87,5 +118,15 @@ export const usersService = {
 
   deleteUser: async (id: string): Promise<void> => {
     await api.delete(`/users/${id}`);
+  },
+
+  importUsers: async (users: BatchImportADUserItem[]): Promise<BatchImportADResponse> => {
+    const res = await api.post('/users/import', { users });
+    return res.data.data || res.data;
+  },
+
+  exportUsers: async (): Promise<Record<string, unknown>[]> => {
+    const res = await api.get('/users/export');
+    return res.data.data || res.data;
   },
 };

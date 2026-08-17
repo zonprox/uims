@@ -132,7 +132,8 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
             >
               {existingRoles.map((r) => (
                 <Option key={r.id} value={r.id}>
-                  {r.name} ({r.isSystem ? 'System' : 'Custom'} - {r.permissionCount || 0} permissions)
+                  {r.name} ({r.isSystem ? 'System' : 'Custom'} - {r.permissionCount || 0}{' '}
+                  permissions)
                 </Option>
               ))}
             </Select>

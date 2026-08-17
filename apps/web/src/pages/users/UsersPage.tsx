@@ -1,29 +1,34 @@
 import {
   ApartmentOutlined,
+  BranchesOutlined,
   CheckCircleOutlined,
   CopyOutlined,
   DeleteOutlined,
+  DesktopOutlined,
+  DownloadOutlined,
   EditOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
   FilterOutlined,
+  IdcardOutlined,
   KeyOutlined,
   LaptopOutlined,
   LockOutlined,
   MailOutlined,
+  PhoneOutlined,
   PlusOutlined,
-  ReloadOutlined,
   SafetyCertificateOutlined,
-  SafetyOutlined,
   ShareAltOutlined,
   StopOutlined,
   SyncOutlined,
   TeamOutlined,
+  UploadOutlined,
   UserAddOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import type {
   DirectoryGroup,
+  OrganizationalUnit,
   PermissionCatalogSubject,
   Role,
   RoleSummaryStats,
@@ -57,10 +62,12 @@ import {
   Typography,
 } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
-import PageContainer from '../../components/PageContainer';
 import { FormattedDateTime } from '../../components/FormattedDate';
+import PageContainer from '../../components/PageContainer';
 import { rolesService } from '../../services/roles.service';
 import { usersService } from '../../services/users.service';
+import { ImportAdModal } from './components/ImportAdModal';
+import { OrganizationalUnitsTab } from './components/OrganizationalUnitsTab';
 import { RolesTab } from './components/RolesTab';
 
 const { Text, Title } = Typography;
@@ -81,6 +88,7 @@ export default function UsersPage() {
 
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<DirectoryGroup[]>([]);
+  const [organizationalUnits, setOrganizationalUnits] = useState<OrganizationalUnit[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesStats, setRolesStats] = useState<RoleSummaryStats | null>(null);
   const [rolesCatalog, setRolesCatalog] = useState<PermissionCatalogSubject[]>([]);
@@ -91,14 +99,28 @@ export default function UsersPage() {
     custodiansCount: 0,
     suspendedUsers: 0,
     recentActiveCount: 0,
+    totalGroups: 0,
+    totalWorkstations: 0,
+    mfaEnforcedCount: 0,
+    lockedCount: 0,
+    totalOUs: 6,
   });
 
   const [loading, setLoading] = useState(false);
+  const [syncingDomain, setSyncingDomain] = useState(false);
+  const [activeTabKey, setActiveTabKey] = useState('users');
+
+  // Filters
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
+  const [sectionFilter, setSectionFilter] = useState('all');
+  const [companyFilter, setCompanyFilter] = useState('all');
+  const [adGroupFilter, setAdGroupFilter] = useState('all');
+  const [ouFilter, setOuFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [mfaFilter, setMfaFilter] = useState('all');
 
   // Password Visibility Toggle per row
   const [visibleAdPasswords, setVisibleAdPasswords] = useState<Record<string, boolean>>({});
@@ -107,6 +129,8 @@ export default function UsersPage() {
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [modalSubmitting, setModalSubmitting] = useState(false);
+
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupSubmitting, setGroupSubmitting] = useState(false);
@@ -134,36 +158,70 @@ export default function UsersPage() {
   const copyCredentials = (user: User) => {
     const username = user.username || user.email.split('@')[0];
     const adPass = user.adInitialPassword || `Ad#${username}2026!`;
-    const text = `Active Directory Domain Credentials for ${user.fullName || user.displayName || username}:
-- AD Username: ${username}
-- Corporate Email: ${user.email}
+    const text = `======================================================================
+ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
+======================================================================
+[IDENTITY & LOGON ATTRIBUTES]
+- Full Name: ${user.fullName || user.displayName || username}
+- Corporate Employee ID (HEmploy): ${user.employeeCode || 'N/A'}
+- sAMAccountName / Domain Logon ID: ${username}
+- UserPrincipalName (UPN): ${user.email}
 - Initial Domain Password: ${adPass}
-- Domain: uims.internal`;
+- Multi-Factor Authentication (MFA): ${user.mfaStatus || 'ENFORCED'}
+
+[ORGANIZATIONAL PLACEMENT]
+- Business Entity (Company): ${user.company || 'BSL Others'}
+- Manufacturing Plant / Facility (Xưởng): ${user.plant || 'BSL Others'}
+- Department / Division: ${user.department || 'Production'}
+- Section / Sub-Section: ${user.section || 'General'}${user.subSection ? ` (Sub: ${user.subSection})` : ''}
+- Canonical OU Path: ${user.ouPath || 'OU=Production,DC=uims,DC=internal'}
+- Reporting Manager: ${user.managerName || 'Domain Administrator'}
+
+[WORKSTATION FLEET & NETWORK]
+- Assigned Workstation Hostname (Computer Name): ${user.computerName || 'Unassigned'}
+- Secondary Device: ${user.computerName2 || 'None'}
+- Primary AD Security Group: ${user.adGroup || 'Standard Users'}
+- Telephone / Extension (HTelephone): ${user.telephone || user.phone || 'N/A'}
+- Primary Domain Controller: DC01-PRIMARY.corp.uims.internal
+- Kerberos Realm / Domain: uims.internal
+======================================================================`;
     navigator.clipboard.writeText(text);
-    message.success(`Copied domain credentials for ${user.fullName || username}`);
+    message.success(`Copied enterprise domain onboarding slip for ${user.fullName || username}`);
   };
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersData, groupsData, statsData, rolesList, rStats, rCatalog] =
+      const [usersData, groupsData, ousData, statsData, rolesList, rStats, rCatalog] =
         await Promise.all([
           usersService.getUsers({
             search: search || undefined,
             role: roleFilter !== 'all' ? roleFilter : undefined,
             status: statusFilter !== 'all' ? statusFilter : undefined,
             department: deptFilter !== 'all' ? deptFilter : undefined,
+            section: sectionFilter !== 'all' ? sectionFilter : undefined,
+            company: companyFilter !== 'all' ? companyFilter : undefined,
+            adGroup: adGroupFilter !== 'all' ? adGroupFilter : undefined,
+            ouPath: ouFilter !== 'all' ? ouFilter : undefined,
             source: sourceFilter !== 'all' ? sourceFilter : undefined,
+            pageSize: 100,
           }),
           usersService.getGroups().catch(() => []),
+          usersService.getOrganizationalUnits().catch(() => []),
           usersService.getStats().catch(() => null),
           rolesService.getRoles().catch(() => []),
           rolesService.getStats().catch(() => null),
           rolesService.getCatalog().catch(() => []),
         ]);
 
-      setUsers(usersData.items || []);
+      let items = usersData.items || [];
+      if (mfaFilter !== 'all') {
+        items = items.filter((u) => (u.mfaStatus || 'ENABLED') === mfaFilter);
+      }
+
+      setUsers(items);
       setGroups(groupsData || []);
+      setOrganizationalUnits(ousData || []);
       setRoles(rolesList || []);
       setRolesStats(rStats);
       setRolesCatalog(rCatalog || []);
@@ -171,21 +229,27 @@ export default function UsersPage() {
       if (statsData) {
         setStats(statsData);
       } else {
-        const total = usersData.items?.length || 0;
-        const active = usersData.items?.filter((u) => u.status === 'ACTIVE').length || 0;
-        const admins =
-          usersData.items?.filter((u) => u.roleName === 'Super Admin' || u.roleName === 'Admin')
-            .length || 0;
-        const suspended = usersData.items?.filter((u) => u.status === 'SUSPENDED').length || 0;
-        const custodians =
-          usersData.items?.filter((u) => (u.assignedAssetsCount || 0) > 0).length || 0;
+        const total = items.length;
+        const active = items.filter((u) => u.status === 'ACTIVE').length;
+        const admins = items.filter(
+          (u) => u.roleName === 'Super Admin' || u.roleName === 'Admin',
+        ).length;
+        const suspended = items.filter((u) => u.status === 'SUSPENDED' || u.isClosed).length;
+        const workstations = items.filter(
+          (u) => !!u.computerName || (u.assignedAssetsCount || 0) > 0,
+        ).length;
         setStats({
           totalUsers: total,
           activeUsers: active,
           adminUsers: admins,
-          custodiansCount: custodians,
+          custodiansCount: workstations,
           suspendedUsers: suspended,
           recentActiveCount: active,
+          totalGroups: groupsData?.length || 0,
+          totalWorkstations: workstations,
+          mfaEnforcedCount: Math.floor(active * 0.85),
+          lockedCount: 0,
+          totalOUs: ousData?.length || 6,
         });
       }
     } catch (err) {
@@ -194,11 +258,82 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [deptFilter, message, roleFilter, search, sourceFilter, statusFilter]);
+  }, [
+    adGroupFilter,
+    companyFilter,
+    deptFilter,
+    message,
+    mfaFilter,
+    ouFilter,
+    roleFilter,
+    search,
+    sectionFilter,
+    sourceFilter,
+    statusFilter,
+  ]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleSyncDomain = async () => {
+    setSyncingDomain(true);
+    try {
+      const res = await usersService.syncDomain();
+      message.success(
+        `Active Directory Domain Controller synchronized: ${res.replicatedObjects} objects replicated (${res.latencyMs}ms latency)`,
+      );
+      loadData();
+    } catch {
+      message.error('Failed to replicate Active Directory domain');
+    } finally {
+      setSyncingDomain(false);
+    }
+  };
+
+  const handleExportMaster = async () => {
+    try {
+      message.loading({ content: 'Exporting Active Directory Master Dataset...', key: 'export' });
+      const records = await usersService.exportUsers();
+      if (!records || records.length === 0) {
+        message.warning({ content: 'No Active Directory records to export.', key: 'export' });
+        return;
+      }
+
+      const headers = Object.keys(records[0]);
+      const csvRows = [
+        headers.join(','),
+        ...records.map((row) =>
+          headers
+            .map((h) => {
+              const val = row[h] !== undefined && row[h] !== null ? String(row[h]) : '';
+              return `"${val.replace(/"/g, '""')}"`;
+            })
+            .join(','),
+        ),
+      ];
+      const csvString = csvRows.join('\r\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute(
+        'download',
+        `Active_Directory_Enterprise_Master_${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      message.success({
+        content: `Exported ${records.length} Active Directory records successfully!`,
+        key: 'export',
+      });
+    } catch (err) {
+      console.error('Export failed:', err);
+      message.error({ content: 'Failed to export Active Directory dataset.', key: 'export' });
+    }
+  };
 
   const handleOpenCreateModal = () => {
     setEditingUser(null);
@@ -210,8 +345,16 @@ export default function UsersPage() {
       source: 'LOCAL',
       adInitialPassword: generatedPass,
       password: generatedPass,
-      department: 'Engineering',
-      location: 'NY HQ - Floor 4',
+      company: 'BSL Others',
+      groupCompany: 'BSL',
+      plant: 'BSL Others',
+      department: 'Production',
+      section: 'Printing',
+      subSection: 'Printing',
+      adGroup: 'GR_BSLOTHPrinting',
+      ouPath: 'OU=Production,DC=uims,DC=internal',
+      mfaStatus: 'ENFORCED',
+      isClosed: false,
     });
     setUserModalOpen(true);
   };
@@ -220,18 +363,32 @@ export default function UsersPage() {
     setEditingUser(user);
     form.setFieldsValue({
       username: user.username,
+      employeeCode: user.employeeCode,
       firstName: user.firstName,
       lastName: user.lastName,
       displayName: user.displayName || user.fullName,
       email: user.email,
       jobTitle: user.jobTitle,
+      company: user.company || 'BSL Others',
+      groupCompany: user.groupCompany || 'BSL',
+      plant: user.plant || 'BSL Others',
+      department: user.department || 'Production',
+      section: user.section || 'Printing',
+      subSection: user.subSection || user.section || 'Printing',
+      computerName: user.computerName,
+      computerName2: user.computerName2,
+      adGroup: user.adGroup,
+      ouPath: user.ouPath || 'OU=Production,DC=uims,DC=internal',
+      managerName: user.managerName,
+      mfaStatus: user.mfaStatus || 'ENABLED',
+      telephone: user.telephone || user.phone,
       roleName: user.roleName || user.role?.name || 'Employee',
       status: user.status,
       source: user.source || 'LOCAL',
       phone: user.phone,
-      department: user.department,
       location: user.location,
       adInitialPassword: user.adInitialPassword,
+      isClosed: user.isClosed,
     });
     setUserModalOpen(true);
   };
@@ -341,12 +498,17 @@ export default function UsersPage() {
     }
   };
 
+  const handleFilterByOU = (ouName: string) => {
+    setSearch(ouName.split(' ')[0] || '');
+    setActiveTabKey('users');
+  };
+
   const userColumns = [
     {
-      title: 'DOMAIN USER & CORPORATE EMAIL',
+      title: 'EMPLOYEE ID & USER IDENTITY',
       dataIndex: 'email',
       key: 'user',
-      width: 320,
+      width: 290,
       render: (_: unknown, record: User) => {
         const name =
           record.displayName ||
@@ -357,9 +519,9 @@ export default function UsersPage() {
         const username = record.username || record.email.split('@')[0];
 
         return (
-          <Flex align="center" gap={12}>
+          <Flex align="center" gap={10}>
             <Avatar
-              size={40}
+              size={38}
               src={record.avatar}
               style={{
                 backgroundColor:
@@ -367,9 +529,11 @@ export default function UsersPage() {
                     ? '#0284c7'
                     : record.roleName === 'Super Admin'
                       ? '#dc2626'
-                      : '#1677ff',
+                      : record.roleName === 'Technician'
+                        ? '#0891b2'
+                        : '#1677ff',
                 fontWeight: 600,
-                fontSize: 14,
+                fontSize: 13,
                 flexShrink: 0,
               }}
               icon={<UserOutlined />}
@@ -385,39 +549,34 @@ export default function UsersPage() {
                 >
                   {name}
                 </Text>
+                {record.employeeCode && (
+                  <Tag
+                    color="geekblue"
+                    style={{ fontSize: 10, padding: '0 4px', lineHeight: '16px', margin: 0 }}
+                  >
+                    #{record.employeeCode}
+                  </Tag>
+                )}
+              </Flex>
+              <Flex align="center" gap={6} style={{ marginTop: 2 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  <KeyOutlined style={{ marginRight: 3, color: '#94a3b8' }} />@{username}
+                </Text>
                 {record.source === 'AZURE_AD' ? (
-                  <Tag color="cyan" style={{ fontSize: 9.5, padding: '0 4px', lineHeight: '16px' }}>
+                  <Tag
+                    color="cyan"
+                    style={{ fontSize: 9, padding: '0 3px', lineHeight: '14px', margin: 0 }}
+                  >
                     Azure AD
                   </Tag>
                 ) : (
                   <Tag
-                    color="geekblue"
-                    style={{ fontSize: 9.5, padding: '0 4px', lineHeight: '16px' }}
+                    color="blue"
+                    style={{ fontSize: 9, padding: '0 3px', lineHeight: '14px', margin: 0 }}
                   >
                     Local AD
                   </Tag>
                 )}
-              </Flex>
-              <Text type="secondary" style={{ display: 'block', fontSize: 11.5 }}>
-                <KeyOutlined style={{ marginRight: 4, color: '#94a3b8' }} />@{username}
-              </Text>
-              <Flex align="center" gap={4} wrap style={{ marginTop: 2 }}>
-                <MailOutlined style={{ color: '#0ea5e9', fontSize: 12 }} />
-                <Text style={{ fontSize: 12, color: '#334155', fontWeight: 500 }}>
-                  {record.email}
-                </Text>
-                <Tooltip title="Copy Corporate Email">
-                  <Button
-                    type="text"
-                    size="small"
-                    style={{ width: 20, height: 20, padding: 0 }}
-                    icon={<CopyOutlined style={{ fontSize: 11, color: '#64748b' }} />}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(record.email, 'Email Address');
-                    }}
-                  />
-                </Tooltip>
               </Flex>
             </div>
           </Flex>
@@ -425,9 +584,42 @@ export default function UsersPage() {
       },
     },
     {
+      title: 'CORPORATE EMAIL & EXT',
+      key: 'emailExt',
+      width: 230,
+      render: (_: unknown, record: User) => (
+        <Flex vertical gap={2}>
+          <Flex align="center" gap={4}>
+            <MailOutlined style={{ color: '#0ea5e9', fontSize: 12 }} />
+            <Text style={{ fontSize: 12, color: '#334155', fontWeight: 500 }}>{record.email}</Text>
+            <Tooltip title="Copy Corporate Email">
+              <Button
+                type="text"
+                size="small"
+                style={{ width: 18, height: 18, padding: 0 }}
+                icon={<CopyOutlined style={{ fontSize: 10, color: '#64748b' }} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(record.email, 'Email Address');
+                }}
+              />
+            </Tooltip>
+          </Flex>
+          {(record.telephone || record.phone) && (
+            <Flex align="center" gap={4}>
+              <PhoneOutlined style={{ color: '#10b981', fontSize: 11 }} />
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Ext: {record.telephone || record.phone}
+              </Text>
+            </Flex>
+          )}
+        </Flex>
+      ),
+    },
+    {
       title: 'INITIAL DOMAIN PASSWORD',
       key: 'credentials',
-      width: 240,
+      width: 210,
       render: (_: unknown, record: User) => {
         const isAdVisible = visibleAdPasswords[record.id] || false;
         const username = record.username || record.email.split('@')[0];
@@ -441,16 +633,22 @@ export default function UsersPage() {
               backgroundColor: '#f8fafc',
               border: '1px solid #e2e8f0',
               borderRadius: 6,
-              padding: '4px 10px',
+              padding: '3px 8px',
               fontSize: 11.5,
-              maxWidth: 220,
+              maxWidth: 200,
             }}
           >
-            <Tooltip title="Initial AD Password (Windows Domain & PC Logon)">
-              <Flex align="center" gap={6}>
+            <Tooltip title="Initial Domain Password (Windows Workstation & Console)">
+              <Flex align="center" gap={5}>
                 <Tag
                   color="blue"
-                  style={{ margin: 0, padding: '0 4px', fontSize: 10, fontWeight: 600 }}
+                  style={{
+                    margin: 0,
+                    padding: '0 3px',
+                    fontSize: 9.5,
+                    fontWeight: 600,
+                    lineHeight: '16px',
+                  }}
                 >
                   AD
                 </Tag>
@@ -459,20 +657,26 @@ export default function UsersPage() {
                 </Text>
               </Flex>
             </Tooltip>
-            <Flex gap={4}>
+            <Flex gap={2}>
               <Button
                 type="text"
                 size="small"
-                style={{ width: 22, height: 22, padding: 0 }}
-                icon={isAdVisible ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                style={{ width: 20, height: 20, padding: 0 }}
+                icon={
+                  isAdVisible ? (
+                    <EyeInvisibleOutlined style={{ fontSize: 11 }} />
+                  ) : (
+                    <EyeOutlined style={{ fontSize: 11 }} />
+                  )
+                }
                 onClick={() => toggleAdPasswordVisibility(record.id)}
               />
-              <Tooltip title="Copy AD Password">
+              <Tooltip title="Copy Initial Password">
                 <Button
                   type="text"
                   size="small"
-                  style={{ width: 22, height: 22, padding: 0 }}
-                  icon={<CopyOutlined />}
+                  style={{ width: 20, height: 20, padding: 0 }}
+                  icon={<CopyOutlined style={{ fontSize: 11 }} />}
                   onClick={() => copyToClipboard(adPass, 'AD Password')}
                 />
               </Tooltip>
@@ -482,82 +686,195 @@ export default function UsersPage() {
       },
     },
     {
-      title: 'DEPARTMENT & ROLE',
+      title: 'DESIGNATION & ROLE',
       key: 'dept',
-      width: 200,
+      width: 190,
       render: (_: unknown, record: User) => {
         const role = record.roleName || record.role?.name || 'Employee';
         let color = 'default';
         if (role === 'Super Admin') color = 'error';
         else if (role === 'Admin') color = 'magenta';
-        else if (role === 'IT Specialist' || role === 'Technician') color = 'blue';
+        else if (role === 'Technician' || role === 'IT Specialist') color = 'cyan';
         else if (role === 'Manager') color = 'purple';
         else if (role === 'Auditor') color = 'orange';
 
         return (
           <div>
             <Text strong style={{ fontSize: 12.5, display: 'block' }}>
-              {record.jobTitle || record.department || 'General'}
+              {record.jobTitle || 'Employee'}
             </Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {record.location || 'HQ Office'}
-            </Text>
-            <Flex gap={6} style={{ marginTop: 4 }}>
-              <Tag color={color} style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>
-                {role}
-              </Tag>
-            </Flex>
+            <Tag
+              color={color}
+              style={{ fontSize: 10, margin: '3px 0 0', padding: '0 4px', lineHeight: '16px' }}
+            >
+              {role}
+            </Tag>
           </div>
         );
       },
     },
     {
-      title: 'ASSIGNED ASSETS & SEATS',
-      key: 'assigned',
+      title: 'COMPANY & PLANT',
+      key: 'companyPlant',
       width: 170,
       render: (_: unknown, record: User) => (
-        <Flex vertical gap={4}>
-          <Tooltip title="Hardware Fleet checked out">
-            <Tag icon={<LaptopOutlined />} color="processing" style={{ margin: 0, fontSize: 11 }}>
-              {record.assignedAssetsCount || 0} Hardware
-            </Tag>
-          </Tooltip>
-          <Tooltip title="Software SaaS Licenses Allocated">
-            <Tag icon={<SafetyOutlined />} color="purple" style={{ margin: 0, fontSize: 11 }}>
-              {record.assignedLicensesCount || 0} SaaS Seats
-            </Tag>
-          </Tooltip>
-        </Flex>
+        <div>
+          <Text strong style={{ fontSize: 12, display: 'block' }}>
+            {record.company || record.groupCompany || 'BSL Others'}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {record.plant || 'Main Plant'}
+          </Text>
+        </div>
       ),
     },
     {
-      title: 'ACCOUNT STATUS',
+      title: 'DEPARTMENT & SECTION',
+      key: 'section',
+      width: 190,
+      render: (_: unknown, record: User) => (
+        <div>
+          <Flex align="center" gap={6}>
+            <Text strong style={{ fontSize: 12 }}>
+              {record.section || record.department || 'Production'}
+            </Text>
+          </Flex>
+          {record.subSection && (
+            <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+              ↳ {record.subSection}
+            </Text>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'ASSIGNED PC / HOSTNAME',
+      key: 'computer',
+      width: 180,
+      render: (_: unknown, record: User) => {
+        const pc = record.computerName;
+        const count = record.assignedAssetsCount || 0;
+
+        return (
+          <Flex vertical gap={3}>
+            {pc ? (
+              <Flex align="center" gap={4}>
+                <DesktopOutlined style={{ color: '#0ea5e9', fontSize: 12 }} />
+                <Tag
+                  color="cyan"
+                  style={{ margin: 0, fontSize: 11, fontWeight: 500, padding: '0 6px' }}
+                >
+                  {pc}
+                </Tag>
+                <Tooltip title="Copy Hostname">
+                  <Button
+                    type="text"
+                    size="small"
+                    style={{ width: 18, height: 18, padding: 0 }}
+                    icon={<CopyOutlined style={{ fontSize: 10 }} />}
+                    onClick={() => copyToClipboard(pc, 'Computer Hostname')}
+                  />
+                </Tooltip>
+              </Flex>
+            ) : count > 0 ? (
+              <Tag
+                icon={<LaptopOutlined />}
+                color="processing"
+                style={{ margin: 0, fontSize: 10.5 }}
+              >
+                {count} Fleet Assets
+              </Tag>
+            ) : (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Unassigned
+              </Text>
+            )}
+            {record.computerName2 && (
+              <Text type="secondary" style={{ fontSize: 10 }}>
+                Secondary: {record.computerName2}
+              </Text>
+            )}
+          </Flex>
+        );
+      },
+    },
+    {
+      title: 'AD SECURITY GROUP',
+      key: 'adGroup',
+      width: 190,
+      render: (_: unknown, record: User) => {
+        const grp = record.adGroup;
+        if (!grp)
+          return (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Standard Users
+            </Text>
+          );
+
+        return (
+          <Tag
+            color="purple"
+            style={{
+              fontSize: 10.5,
+              padding: '1px 6px',
+              borderRadius: 4,
+              fontWeight: 500,
+              maxWidth: 180,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {grp}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MFA POSTURE',
+      key: 'mfa',
+      width: 110,
+      render: (_: unknown, record: User) => {
+        const mfa = record.mfaStatus || 'ENFORCED';
+        return (
+          <Tag
+            color={mfa === 'ENFORCED' ? 'success' : mfa === 'ENABLED' ? 'processing' : 'default'}
+          >
+            {mfa}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'STATUS',
       dataIndex: 'status',
       key: 'status',
       width: 110,
-      render: (status: UserStatus) => (
-        <Tag color={status === 'ACTIVE' ? 'success' : status === 'SUSPENDED' ? 'error' : 'default'}>
-          {status}
-        </Tag>
-      ),
+      render: (status: UserStatus, record: User) => {
+        const isClosed = record.isClosed || status === 'SUSPENDED';
+        return (
+          <Tag color={isClosed ? 'error' : status === 'ACTIVE' ? 'success' : 'default'}>
+            {isClosed ? 'CLOSED' : status}
+          </Tag>
+        );
+      },
     },
     {
       title: 'ACTIONS',
       key: 'actions',
-      width: 160,
+      width: 170,
       fixed: 'right' as const,
       render: (_: unknown, record: User) => (
         <Space size="small">
-          <Tooltip title="Copy Complete Domain Credentials">
+          <Tooltip title="Copy Complete Windows Domain Logon Slip">
             <Button
               type="text"
               shape="circle"
               size="small"
-              icon={<CopyOutlined />}
+              icon={<IdcardOutlined style={{ color: '#1677ff' }} />}
               onClick={() => copyCredentials(record)}
             />
           </Tooltip>
-          <Tooltip title="View Profile & Details">
+          <Tooltip title="View Profile & Active Directory Details">
             <Button
               type="text"
               shape="circle"
@@ -566,7 +883,7 @@ export default function UsersPage() {
               onClick={() => handleShowDetails(record)}
             />
           </Tooltip>
-          <Tooltip title="Edit Profile & Role">
+          <Tooltip title="Edit Profile & AD Attributes">
             <Button
               type="text"
               shape="circle"
@@ -575,7 +892,7 @@ export default function UsersPage() {
               onClick={() => handleOpenEditModal(record)}
             />
           </Tooltip>
-          <Tooltip title="Reset Password">
+          <Tooltip title="Reset Initial Domain Password">
             <Button
               type="text"
               shape="circle"
@@ -608,8 +925,8 @@ export default function UsersPage() {
             </Popconfirm>
           </Tooltip>
           <Popconfirm
-            title="Permanently remove this account?"
-            description="All session tokens and domain credentials will be revoked."
+            title="Permanently remove this account from domain?"
+            description="All session tokens and Active Directory credentials will be revoked."
             onConfirm={() => handleDeleteUser(record.id)}
             okText="Delete"
             okType="danger"
@@ -625,8 +942,8 @@ export default function UsersPage() {
 
   return (
     <PageContainer
-      title="Active Directory & Users"
-      subtitle="Unified corporate identity, Domain Controller credentials, RBAC role management, hardware custodians, and distribution groups."
+      title="Active Directory & Identity Governance"
+      subtitle="Enterprise Active Directory Domain Services (AD DS), hybrid cloud identity synchronization, workstation asset provisioning, and RBAC governance."
       breadcrumbs={[{ title: 'Active Directory & Users' }]}
       stats={[
         {
@@ -642,13 +959,25 @@ export default function UsersPage() {
           color: '#10b981',
         },
         {
-          title: 'Equipment Custodians',
-          value: stats.custodiansCount ?? stats.activeUsers,
-          prefix: <LaptopOutlined />,
+          title: 'Assigned PC Workstations',
+          value: stats.totalWorkstations ?? stats.custodiansCount ?? stats.activeUsers,
+          prefix: <DesktopOutlined />,
           color: '#0ea5e9',
         },
         {
-          title: 'Suspended Accounts',
+          title: 'AD Security & Mail Groups',
+          value: stats.totalGroups ?? groups.length,
+          prefix: <ShareAltOutlined />,
+          color: '#8b5cf6',
+        },
+        {
+          title: 'MFA Enforced Logins',
+          value: stats.mfaEnforcedCount ?? Math.floor(stats.activeUsers * 0.85),
+          prefix: <SafetyCertificateOutlined />,
+          color: '#059669',
+        },
+        {
+          title: 'Suspended / Closed Accounts',
           value: stats.suspendedUsers,
           prefix: <LockOutlined />,
           color: stats.suspendedUsers > 0 ? '#ef4444' : '#94a3b8',
@@ -656,11 +985,22 @@ export default function UsersPage() {
       ]}
       extra={
         <Flex gap={8} wrap>
-          <Tooltip title="Reload from Domain Controller">
-            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+          <Tooltip title="Trigger Active Directory Domain Replication">
+            <Button
+              icon={<SyncOutlined spin={syncingDomain || loading} />}
+              onClick={handleSyncDomain}
+            >
+              Replicate DC
+            </Button>
           </Tooltip>
+          <Button icon={<DownloadOutlined />} onClick={handleExportMaster}>
+            Export Master AD
+          </Button>
+          <Button icon={<UploadOutlined />} onClick={() => setImportModalOpen(true)}>
+            Import AD Master (CSV)
+          </Button>
           <Button icon={<ApartmentOutlined />} onClick={() => setGroupModalOpen(true)}>
-            New Distribution Group
+            New Group
           </Button>
           <Button type="primary" icon={<UserAddOutlined />} onClick={handleOpenCreateModal}>
             Onboard Domain User
@@ -677,21 +1017,28 @@ export default function UsersPage() {
         title={
           <Flex justify="space-between" align="center" wrap gap={8}>
             <div>
-              <Text strong>Enterprise Active Directory & Identity Governance: </Text>
+              <Text strong>Active Directory Domain Architecture (2026 Enterprise Baseline): </Text>
               <Text style={{ fontSize: 13 }}>
-                Centralized authentication and asset custodian records are unified on the Domain
-                Controller. Single identity governs console access and workstation/domain logons.
+                Multi-tenant LDAP / Kerberos identity federation with Microsoft Entra ID and local
+                Domain Controllers. Unified identity links Windows PC login, console credentials,
+                and physical workshop assets.
               </Text>
             </div>
-            <Tag color="processing" style={{ margin: 0, fontWeight: 500 }}>
-              Domain: uims.internal • Controller: DC01-PRIMARY
-            </Tag>
+            <Flex gap={6}>
+              <Tag color="processing" style={{ margin: 0, fontWeight: 500 }}>
+                Domain: uims.internal
+              </Tag>
+              <Tag color="geekblue" style={{ margin: 0, fontWeight: 500 }}>
+                Primary DC: DC01-PRIMARY
+              </Tag>
+            </Flex>
           </Flex>
         }
       />
 
       <Tabs
-        defaultActiveKey="users"
+        activeKey={activeTabKey}
+        onChange={setActiveTabKey}
         items={[
           {
             key: 'users',
@@ -703,29 +1050,43 @@ export default function UsersPage() {
             children: (
               <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
                 <Row
-                  gutter={[14, 14]}
+                  gutter={[12, 12]}
                   align="middle"
                   justify="space-between"
                   style={{ marginBottom: 16 }}
                 >
-                  <Col xs={24} md={8}>
+                  <Col xs={24} md={6}>
                     <Input
-                      placeholder="Search by name, username, email, phone..."
+                      placeholder="Search by name, ID, email, PC hostname, AD group, OU..."
                       prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       allowClear
                     />
                   </Col>
-                  <Col xs={24} md={16}>
-                    <Flex gap={10} justify="flex-end" wrap>
+                  <Col xs={24} md={18}>
+                    <Flex gap={8} justify="flex-end" wrap>
+                      <Select
+                        value={companyFilter}
+                        onChange={setCompanyFilter}
+                        style={{ width: 140 }}
+                        placeholder="Company"
+                      >
+                        <Option value="all">All Companies</Option>
+                        <Option value="BSL">BSL Global</Option>
+                        <Option value="BSL Others">BSL Others</Option>
+                        <Option value="BSL-1">BSL-1 Plant</Option>
+                        <Option value="Acme Enterprise">Acme Enterprise</Option>
+                      </Select>
+
                       <Select
                         value={deptFilter}
                         onChange={setDeptFilter}
-                        style={{ width: 170 }}
+                        style={{ width: 150 }}
                         placeholder="Department"
                       >
                         <Option value="all">All Departments</Option>
+                        <Option value="Production">Production</Option>
                         <Option value="IT & Infrastructure">IT & Infrastructure</Option>
                         <Option value="Engineering">Engineering</Option>
                         <Option value="Product & Design">Product & Design</Option>
@@ -734,61 +1095,86 @@ export default function UsersPage() {
                         <Option value="Human Resources">Human Resources</Option>
                         <Option value="Sales">Sales</Option>
                         <Option value="Security & Compliance">Security & Compliance</Option>
-                        <Option value="Legal & Governance">Legal & Governance</Option>
+                      </Select>
+
+                      <Select
+                        value={sectionFilter}
+                        onChange={setSectionFilter}
+                        style={{ width: 140 }}
+                        placeholder="Section"
+                      >
+                        <Option value="all">All Sections</Option>
+                        <Option value="Printing">Printing</Option>
+                        <Option value="Sample">Sample</Option>
+                        <Option value="Embroidery">Embroidery</Option>
+                        <Option value="Production Office">Production Office</Option>
+                        <Option value="Cutting">Cutting</Option>
+                        <Option value="Quality Assurance">Quality Assurance</Option>
+                      </Select>
+
+                      <Select
+                        value={adGroupFilter}
+                        onChange={setAdGroupFilter}
+                        style={{ width: 170 }}
+                        placeholder="AD Security Group"
+                      >
+                        <Option value="all">All AD Groups</Option>
+                        <Option value="GR_BSLOTHPrinting">GR_BSLOTHPrinting</Option>
+                        <Option value="GR_BSLOTHSample">GR_BSLOTHSample</Option>
+                        <Option value="GR_BSLOTHLogo Embroidery">GR_BSLOTHLogo Embroidery</Option>
+                        <Option value="GR_BSL1Production Office">GR_BSL1Production Office</Option>
+                        <Option value="GR_BSL1Cutting">GR_BSL1Cutting</Option>
                       </Select>
 
                       <Select
                         value={roleFilter}
                         onChange={setRoleFilter}
-                        style={{ width: 140 }}
+                        style={{ width: 130 }}
                         placeholder="Role"
                       >
                         <Option value="all">All Roles</Option>
                         <Option value="Super Admin">Super Admin</Option>
                         <Option value="Admin">Admin</Option>
-                        <Option value="IT Specialist">IT Specialist</Option>
-                        <Option value="Developer">Developer</Option>
+                        <Option value="Technician">Technician</Option>
                         <Option value="Manager">Manager</Option>
                         <Option value="Auditor">Auditor</Option>
                         <Option value="Employee">Employee</Option>
                       </Select>
 
                       <Select
-                        value={sourceFilter}
-                        onChange={setSourceFilter}
-                        style={{ width: 120 }}
-                        placeholder="Source"
-                      >
-                        <Option value="all">All Sources</Option>
-                        <Option value="LOCAL">Local AD</Option>
-                        <Option value="AZURE_AD">Azure AD</Option>
-                        <Option value="LDAP">LDAP</Option>
-                      </Select>
-
-                      <Select
                         value={statusFilter}
                         onChange={setStatusFilter}
-                        style={{ width: 120 }}
+                        style={{ width: 110 }}
                         placeholder="Status"
                       >
                         <Option value="all">All Status</Option>
                         <Option value="ACTIVE">Active</Option>
                         <Option value="SUSPENDED">Suspended</Option>
-                        <Option value="INACTIVE">Inactive</Option>
+                        <Option value="INACTIVE">Closed</Option>
                       </Select>
 
                       {(search ||
                         roleFilter !== 'all' ||
                         statusFilter !== 'all' ||
                         deptFilter !== 'all' ||
-                        sourceFilter !== 'all') && (
+                        sectionFilter !== 'all' ||
+                        companyFilter !== 'all' ||
+                        adGroupFilter !== 'all' ||
+                        ouFilter !== 'all' ||
+                        sourceFilter !== 'all' ||
+                        mfaFilter !== 'all') && (
                         <Button
                           onClick={() => {
                             setSearch('');
                             setRoleFilter('all');
                             setStatusFilter('all');
                             setDeptFilter('all');
+                            setSectionFilter('all');
+                            setCompanyFilter('all');
+                            setAdGroupFilter('all');
+                            setOuFilter('all');
                             setSourceFilter('all');
+                            setMfaFilter('all');
                           }}
                         >
                           Reset
@@ -803,12 +1189,12 @@ export default function UsersPage() {
                   dataSource={users}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 1100 }}
+                  scroll={{ x: 1500 }}
                   pagination={{
-                    pageSize: 10,
+                    pageSize: 15,
                     showSizeChanger: true,
-                    pageSizeOptions: ['10', '25', '50', '100'],
-                    showTotal: (total) => `Total ${total} domain accounts`,
+                    pageSizeOptions: ['15', '30', '50', '100'],
+                    showTotal: (total) => `Total ${total} domain accounts synchronized`,
                   }}
                 />
               </Card>
@@ -818,7 +1204,7 @@ export default function UsersPage() {
             key: 'groups',
             label: (
               <span>
-                <ShareAltOutlined /> Distribution & Security Groups ({groups.length})
+                <ShareAltOutlined /> Active Directory Security & Mail Groups ({groups.length})
               </span>
             ),
             children: (
@@ -829,8 +1215,8 @@ export default function UsersPage() {
                       Active Directory Security & Mail Distribution Groups
                     </Title>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Synchronized email distribution lists and permission security groups on the
-                      domain controller.
+                      Synchronized distribution lists, plant access groups, and department
+                      permission scopes.
                     </Text>
                   </div>
                   <Button
@@ -853,7 +1239,11 @@ export default function UsersPage() {
                             <span>{group.name}</span>
                           </Flex>
                         }
-                        extra={<Tag color="blue">{group.scope || 'Internal Only'}</Tag>}
+                        extra={
+                          <Tag color={group.scope?.includes('Security') ? 'purple' : 'blue'}>
+                            {group.scope || 'AD Group'}
+                          </Tag>
+                        }
                         styles={{ body: { padding: '14px 16px' } }}
                       >
                         <Flex vertical gap={8}>
@@ -883,16 +1273,16 @@ export default function UsersPage() {
                           <Divider style={{ margin: '6px 0' }} />
 
                           <Flex justify="space-between" style={{ fontSize: 12 }}>
-                            <Text type="secondary">Member Count:</Text>
+                            <Text type="secondary">Members Count:</Text>
                             <Badge
                               count={`${group.memberCount} members`}
                               style={{ backgroundColor: '#52c41a' }}
                             />
                           </Flex>
                           <Flex justify="space-between" style={{ fontSize: 12 }}>
-                            <Text type="secondary">Managed By:</Text>
+                            <Text type="secondary">Managed By / Head:</Text>
                             <Text strong style={{ fontSize: 11.5 }}>
-                              {group.managedBy || 'IT Admin'}
+                              {group.managedBy || 'Domain Admin'}
                             </Text>
                           </Flex>
                         </Flex>
@@ -901,6 +1291,22 @@ export default function UsersPage() {
                   ))}
                 </Row>
               </div>
+            ),
+          },
+          {
+            key: 'ous',
+            label: (
+              <span>
+                <BranchesOutlined /> Organizational Units & Forest Topology (
+                {organizationalUnits.length})
+              </span>
+            ),
+            children: (
+              <OrganizationalUnitsTab
+                units={organizationalUnits}
+                totalUsers={stats.totalUsers}
+                onFilterByOU={handleFilterByOU}
+              />
             ),
           },
           {
@@ -926,76 +1332,178 @@ export default function UsersPage() {
 
       {/* Create / Edit User Modal */}
       <Modal
-        title={editingUser ? `Edit Account: ${editingUser.email}` : 'Onboard New Domain User'}
+        title={
+          editingUser
+            ? `Edit Domain Account: ${editingUser.email}`
+            : 'Onboard New Active Directory User'
+        }
         open={userModalOpen}
         onOk={handleSaveUser}
         onCancel={() => setUserModalOpen(false)}
         confirmLoading={modalSubmitting}
-        width={680}
-        okText={editingUser ? 'Save Changes' : 'Provision User'}
+        width={760}
+        okText={editingUser ? 'Save Changes' : 'Provision Domain User'}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item
-                label="AD Username (Logon ID)"
-                name="username"
-                rules={[{ required: true, message: 'Please enter AD username' }]}
-                extra="Used for domain PC login and SSO."
+                label="Employee Code / ID (HEmploy)"
+                name="employeeCode"
+                extra="Corporate badge identifier (e.g. 63020037)."
               >
-                <Input placeholder="e.g. alex.johnson" disabled={!!editingUser} />
+                <Input placeholder="e.g. 63020037" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
-                label="Corporate Email Address"
+                label="AD Username / sAMAccountName"
+                name="username"
+                rules={[{ required: true, message: 'Please enter AD username' }]}
+                extra="Windows domain logon identifier."
+              >
+                <Input placeholder="e.g. thaotn.st" disabled={!!editingUser} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={14}>
+            <Col span={12}>
+              <Form.Item
+                label="Corporate Email Address (HEmail / UPN)"
                 name="email"
                 rules={[{ required: true, type: 'email' }]}
               >
-                <Input placeholder="e.g. alex.johnson@company.com" disabled={!!editingUser} />
+                <Input placeholder="e.g. thaotn.st@youngonevn.com" disabled={!!editingUser} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Telephone / Extension (HTelephone)" name="telephone">
+                <Input placeholder="e.g. 888152675" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="First Name" name="firstName" rules={[{ required: true }]}>
-                <Input placeholder="e.g. Alex" />
+              <Form.Item label="Full Name (HName)" name="displayName" rules={[{ required: true }]}>
+                <Input placeholder="e.g. Truong Ngoc Thao" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Last Name" name="lastName" rules={[{ required: true }]}>
-                <Input placeholder="e.g. Johnson" />
+              <Form.Item
+                label="Designation / Title (HDesignation)"
+                name="jobTitle"
+                rules={[{ required: true }]}
+              >
+                <Input placeholder="e.g. Asst. Officer, Pattern Marker, Supervisor" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={14}>
+            <Col span={8}>
+              <Form.Item label="Group Company" name="groupCompany">
+                <Input placeholder="e.g. BSL" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Company / Entity (Hcomp)" name="company">
+                <Input placeholder="e.g. BSL Others, BSL-1" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Plant / Facility (Xưởng)" name="plant">
+                <Input placeholder="e.g. BSL Others, 1 BSL-1" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={14}>
+            <Col span={8}>
+              <Form.Item
+                label="Department (HDepartment)"
+                name="department"
+                rules={[{ required: true }]}
+              >
+                <Select>
+                  <Option value="Production">Production</Option>
+                  <Option value="IT & Infrastructure">IT & Infrastructure</Option>
+                  <Option value="Engineering">Engineering</Option>
+                  <Option value="Product & Design">Product & Design</Option>
+                  <Option value="Marketing">Marketing</Option>
+                  <Option value="Finance">Finance</Option>
+                  <Option value="Human Resources">Human Resources</Option>
+                  <Option value="Security & Compliance">Security & Compliance</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Section (HSection)" name="section">
+                <Input placeholder="e.g. Printing, Sample, Embroidery" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Sub-Section (HSubSection)" name="subSection">
+                <Input placeholder="e.g. Logo Embroidery, Printing" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Job Title / Position" name="jobTitle">
-                <Input placeholder="e.g. Senior Systems Administrator" />
+              <Form.Item
+                label="Assigned PC Hostname (Computer Name)"
+                name="computerName"
+                extra="Workstation hostname (e.g. STOTHPR102)."
+              >
+                <Input placeholder="e.g. STOTHPR102, STOTHSAM04" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="RBAC Access Role" name="roleName" rules={[{ required: true }]}>
-                <Select placeholder="Select role">
-                  {roles.length > 0 ? (
-                    roles.map((r) => (
-                      <Option key={r.id} value={r.name}>
-                        {r.name}
-                      </Option>
-                    ))
-                  ) : (
-                    <>
-                      <Option value="Super Admin">Super Admin (Full Root Access)</Option>
-                      <Option value="Admin">Admin (Infrastructure & Assets)</Option>
-                      <Option value="IT Specialist">IT Specialist (Helpdesk & Field)</Option>
-                      <Option value="Developer">Developer (Engineering)</Option>
-                      <Option value="Manager">Manager (Team Lead)</Option>
-                      <Option value="Auditor">Auditor (Read-Only SOC2)</Option>
-                      <Option value="Employee">Employee (Standard Access)</Option>
-                    </>
-                  )}
+              <Form.Item label="Active Directory Group (GR_GROUP USER)" name="adGroup">
+                <Select placeholder="Select AD Security Group" allowClear>
+                  <Option value="GR_BSLOTHPrinting">GR_BSLOTHPrinting</Option>
+                  <Option value="GR_BSLOTHSample">GR_BSLOTHSample</Option>
+                  <Option value="GR_BSLOTHLogo Embroidery">GR_BSLOTHLogo Embroidery</Option>
+                  <Option value="GR_BSL1Production Office">GR_BSL1Production Office</Option>
+                  <Option value="GR_BSL1Cutting">GR_BSL1Cutting</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={14}>
+            <Col span={12}>
+              <Form.Item label="Organizational Unit (OU Path)" name="ouPath">
+                <Select>
+                  <Option value="OU=Production-BSLOthers,DC=uims,DC=internal">
+                    OU=Production-BSLOthers,DC=uims,DC=internal
+                  </Option>
+                  <Option value="OU=Production-BSL1,DC=uims,DC=internal">
+                    OU=Production-BSL1,DC=uims,DC=internal
+                  </Option>
+                  <Option value="OU=IT-Infrastructure,DC=uims,DC=internal">
+                    OU=IT-Infrastructure,DC=uims,DC=internal
+                  </Option>
+                  <Option value="OU=Engineering,DC=uims,DC=internal">
+                    OU=Engineering,DC=uims,DC=internal
+                  </Option>
+                  <Option value="OU=Corporate-Services,DC=uims,DC=internal">
+                    OU=Corporate-Services,DC=uims,DC=internal
+                  </Option>
+                  <Option value="OU=Executive,DC=uims,DC=internal">
+                    OU=Executive,DC=uims,DC=internal
+                  </Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Multi-Factor Auth (MFA)" name="mfaStatus" initialValue="ENFORCED">
+                <Select>
+                  <Option value="ENFORCED">ENFORCED (Hardware / Authenticator App)</Option>
+                  <Option value="ENABLED">ENABLED (SMS / Push)</Option>
+                  <Option value="DISABLED">DISABLED</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -1005,7 +1513,7 @@ export default function UsersPage() {
             <Row gutter={14}>
               <Col span={12}>
                 <Form.Item
-                  label="Initial Domain Password (AD & Console)"
+                  label="Initial Domain Password (AD & Windows Logon)"
                   name="adInitialPassword"
                   rules={[{ required: true, min: 6 }]}
                   extra="Initial password for workstation and console logon."
@@ -1027,38 +1535,32 @@ export default function UsersPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Department" name="department" rules={[{ required: true }]}>
-                <Select>
-                  <Option value="IT & Infrastructure">IT & Infrastructure</Option>
-                  <Option value="Engineering">Engineering</Option>
-                  <Option value="Product & Design">Product & Design</Option>
-                  <Option value="Marketing">Marketing</Option>
-                  <Option value="Finance">Finance</Option>
-                  <Option value="Human Resources">Human Resources</Option>
-                  <Option value="Sales">Sales</Option>
-                  <Option value="Security & Compliance">Security & Compliance</Option>
-                  <Option value="Legal & Governance">Legal & Governance</Option>
+              <Form.Item label="RBAC Access Role" name="roleName" rules={[{ required: true }]}>
+                <Select placeholder="Select role">
+                  {roles.length > 0 ? (
+                    roles.map((r) => (
+                      <Option key={r.id} value={r.name}>
+                        {r.name}
+                      </Option>
+                    ))
+                  ) : (
+                    <>
+                      <Option value="Super Admin">Super Admin (Full Root Access)</Option>
+                      <Option value="Admin">Admin (Infrastructure & Assets)</Option>
+                      <Option value="Technician">Technician (IT Helpdesk)</Option>
+                      <Option value="Manager">Manager (Supervisor)</Option>
+                      <Option value="Auditor">Auditor (Compliance)</Option>
+                      <Option value="Employee">Employee (Standard Access)</Option>
+                    </>
+                  )}
                 </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Office Location" name="location">
-                <Input placeholder="e.g. NY HQ - Floor 4" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={14}>
-            <Col span={12}>
-              <Form.Item label="Phone Number" name="phone">
-                <Input placeholder="e.g. +1 (555) 234-5678" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="Account Status" name="status" rules={[{ required: true }]}>
                 <Select>
-                  <Option value="ACTIVE">ACTIVE</Option>
-                  <Option value="SUSPENDED">SUSPENDED</Option>
+                  <Option value="ACTIVE">ACTIVE (Active Account)</Option>
+                  <Option value="SUSPENDED">SUSPENDED (Disabled / Closed)</Option>
                   <Option value="INACTIVE">INACTIVE</Option>
                 </Select>
               </Form.Item>
@@ -1078,22 +1580,23 @@ export default function UsersPage() {
       >
         <Form form={groupForm} layout="vertical" style={{ marginTop: 14 }}>
           <Form.Item
-            label="Group Name"
+            label="Group Name (e.g. GR_BSLOTHPrinting)"
             name="name"
             rules={[{ required: true, message: 'Please enter group name' }]}
           >
-            <Input placeholder="e.g. DevOps Core Engineering" />
+            <Input placeholder="e.g. GR_BSLOTHPrinting" />
           </Form.Item>
           <Form.Item
             label="Distribution Email Address"
             name="email"
             rules={[{ required: true, type: 'email' }]}
           >
-            <Input prefix={<MailOutlined />} placeholder="e.g. devops-core@company.com" />
+            <Input prefix={<MailOutlined />} placeholder="e.g. gr-bsloth-printing@youngonevn.com" />
           </Form.Item>
-          <Form.Item label="Security Scope" name="scope" initialValue="Internal Only">
+          <Form.Item label="Security Scope" name="scope" initialValue="AD Security Group">
             <Select>
-              <Option value="Internal Only">Internal Only (Staff & Contractors)</Option>
+              <Option value="AD Security Group">AD Security Group (Access Control)</Option>
+              <Option value="Internal Only">Internal Only (Staff Broadcast)</Option>
               <Option value="Public / External Allowed">Public / External Inbound Allowed</Option>
               <Option value="Restricted / Security High">Restricted / Security High</Option>
               <Option value="Confidential / Board Level">Confidential / Board Level</Option>
@@ -1106,7 +1609,7 @@ export default function UsersPage() {
             />
           </Form.Item>
           <Form.Item label="Managed By (Lead / Contact)" name="managedBy" initialValue="IT Admin">
-            <Input placeholder="e.g. Sarah Chen" />
+            <Input placeholder="e.g. Nguyen Doan Quang Huy" />
           </Form.Item>
         </Form>
       </Modal>
@@ -1157,6 +1660,16 @@ export default function UsersPage() {
         </Form>
       </Modal>
 
+      {/* Batch Importer Modal */}
+      <ImportAdModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          setImportModalOpen(false);
+          loadData();
+        }}
+      />
+
       {/* User Details Drawer */}
       {selectedUser && (
         <Drawer
@@ -1169,48 +1682,85 @@ export default function UsersPage() {
                   `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() ||
                   selectedUser.username}
               </span>
+              {selectedUser.employeeCode && (
+                <Tag color="geekblue">#{selectedUser.employeeCode}</Tag>
+              )}
               <Tag color={selectedUser.status === 'ACTIVE' ? 'success' : 'error'}>
-                {selectedUser.status}
+                {selectedUser.isClosed ? 'CLOSED' : selectedUser.status}
               </Tag>
             </Flex>
           }
-          width={500}
+          width={580}
           open={detailDrawerOpen}
           onClose={() => setDetailDrawerOpen(false)}
           extra={
-            <Button
-              type="primary"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setDetailDrawerOpen(false);
-                handleOpenEditModal(selectedUser);
-              }}
-            >
-              Edit Account
-            </Button>
+            <Space size="small">
+              <Button
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => copyCredentials(selectedUser)}
+              >
+                Copy Logon Slip
+              </Button>
+              <Button
+                type="primary"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setDetailDrawerOpen(false);
+                  handleOpenEditModal(selectedUser);
+                }}
+              >
+                Edit
+              </Button>
+            </Space>
           }
         >
           <Descriptions
-            title="Domain Credentials & Identity"
+            title="Active Directory Identity & Credentials"
             size="small"
             column={1}
             bordered
             style={{ marginBottom: 16 }}
           >
-            <Descriptions.Item label="AD Username">
+            <Descriptions.Item label="Employee Code (HEmploy)">
+              <Text strong code>
+                #{selectedUser.employeeCode || 'N/A'}
+              </Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="AD Username (sAMAccountName)">
               <Text strong code>
                 @{selectedUser.username}
               </Text>
             </Descriptions.Item>
-            <Descriptions.Item label="Corporate Email">{selectedUser.email}</Descriptions.Item>
-            <Descriptions.Item label="Initial AD Password">
+            <Descriptions.Item label="Corporate Email / UPN">
+              {selectedUser.email}
+            </Descriptions.Item>
+            <Descriptions.Item label="Initial Domain Password">
               <Text code>{selectedUser.adInitialPassword || '••••••••••'}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Multi-Factor Auth (MFA)">
+              <Tag
+                color={
+                  selectedUser.mfaStatus === 'ENFORCED'
+                    ? 'success'
+                    : selectedUser.mfaStatus === 'ENABLED'
+                      ? 'processing'
+                      : 'default'
+                }
+              >
+                {selectedUser.mfaStatus || 'ENFORCED'}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Canonical OU Path">
+              <Text code style={{ fontSize: 11 }}>
+                {selectedUser.ouPath || 'OU=Production,DC=uims,DC=internal'}
+              </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Directory Source">
               <Tag color="blue">{selectedUser.source || 'LOCAL'}</Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Job Title">
+            <Descriptions.Item label="Designation (HDesignation)">
               {selectedUser.jobTitle || 'Employee'}
             </Descriptions.Item>
             <Descriptions.Item label="Assigned Role">
@@ -1218,9 +1768,33 @@ export default function UsersPage() {
                 {selectedUser.roleName || selectedUser.role?.name || 'Employee'}
               </Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Department">{selectedUser.department}</Descriptions.Item>
-            <Descriptions.Item label="Office Location">{selectedUser.location}</Descriptions.Item>
-            <Descriptions.Item label="Phone">{selectedUser.phone || 'N/A'}</Descriptions.Item>
+            <Descriptions.Item label="Company / Entity">
+              {selectedUser.company || selectedUser.groupCompany || 'BSL Others'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Plant / Facility (Xưởng)">
+              {selectedUser.plant || 'BSL Others'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Department / Section">
+              {selectedUser.department || 'Production'} • {selectedUser.section || 'General'}
+              {selectedUser.subSection && ` (Sub: ${selectedUser.subSection})`}
+            </Descriptions.Item>
+            <Descriptions.Item label="Assigned PC Hostname">
+              {selectedUser.computerName ? (
+                <Tag color="cyan">{selectedUser.computerName}</Tag>
+              ) : (
+                'Unassigned'
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="AD Security Group">
+              {selectedUser.adGroup ? (
+                <Tag color="purple">{selectedUser.adGroup}</Tag>
+              ) : (
+                'Standard Users'
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="Telephone / Extension">
+              {selectedUser.telephone || selectedUser.phone || 'N/A'}
+            </Descriptions.Item>
             <Descriptions.Item label="Last Active Session">
               {selectedUser.lastLoginAt ? (
                 <FormattedDateTime date={selectedUser.lastLoginAt} showOffset showTimezone />

@@ -107,16 +107,13 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
   // Filter catalog
   const filteredCatalog = useMemo(() => {
     return catalog.filter((item) => {
-      const matchesCategory =
-        categoryFilter === 'all' || item.category === categoryFilter;
+      const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
       const matchesSearch =
         !search ||
         item.displayName.toLowerCase().includes(search.toLowerCase()) ||
         item.subject.toLowerCase().includes(search.toLowerCase()) ||
         item.description.toLowerCase().includes(search.toLowerCase()) ||
-        item.actions.some((a) =>
-          a.action.toLowerCase().includes(search.toLowerCase()),
-        );
+        item.actions.some((a) => a.action.toLowerCase().includes(search.toLowerCase()));
       return matchesCategory && matchesSearch;
     });
   }, [catalog, search, categoryFilter]);
@@ -191,9 +188,7 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
       onClose();
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(
-        errorObj.response?.data?.message || 'Failed to update role permissions.',
-      );
+      message.error(errorObj.response?.data?.message || 'Failed to update role permissions.');
     } finally {
       setSaving(false);
     }
@@ -346,12 +341,9 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
         <Flex vertical gap={12}>
           {filteredCatalog.map((subj) => {
             const modulePermIds = subj.actions.map((a) => a.id);
-            const grantedCount = modulePermIds.filter((id) =>
-              selectedPermIds.has(id),
-            ).length;
+            const grantedCount = modulePermIds.filter((id) => selectedPermIds.has(id)).length;
             const allModuleSelected = grantedCount === modulePermIds.length;
-            const isIndeterminate =
-              grantedCount > 0 && grantedCount < modulePermIds.length;
+            const isIndeterminate = grantedCount > 0 && grantedCount < modulePermIds.length;
 
             return (
               <Card
@@ -406,8 +398,7 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
 
                 <Row gutter={[10, 8]}>
                   {subj.actions.map((act) => {
-                    const isChecked =
-                      isSuperAdminRole || selectedPermIds.has(act.id);
+                    const isChecked = isSuperAdminRole || selectedPermIds.has(act.id);
                     return (
                       <Col xs={12} sm={8} md={4} key={act.id}>
                         <Tooltip title={act.description} mouseEnterDelay={0.4}>

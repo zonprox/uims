@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CloneRoleDto } from './dto/clone-role.dto';
@@ -71,10 +63,7 @@ export class RolesController {
   @Post(':id/permissions')
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Batch sync / replace permissions assigned to a role' })
-  syncPermissions(
-    @Param('id') id: string,
-    @Body() syncPermissionsDto: SyncPermissionsDto,
-  ) {
+  syncPermissions(@Param('id') id: string, @Body() syncPermissionsDto: SyncPermissionsDto) {
     return this.rolesService.syncPermissions(id, syncPermissionsDto);
   }
 

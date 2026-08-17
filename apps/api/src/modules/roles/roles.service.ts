@@ -200,8 +200,7 @@ export class RolesService {
         };
       }
 
-      const actionName =
-        perm.action.charAt(0).toUpperCase() + perm.action.slice(1);
+      const actionName = perm.action.charAt(0).toUpperCase() + perm.action.slice(1);
       grouped[subj].actions.push({
         id: perm.id,
         action: perm.action,
@@ -309,9 +308,7 @@ export class RolesService {
     const isSystem = SYSTEM_ROLES.has(existing.name.trim().toUpperCase());
 
     if (isSystem && dto.name && dto.name.trim() !== existing.name) {
-      throw new BadRequestException(
-        `System protected role "${existing.name}" cannot be renamed`,
-      );
+      throw new BadRequestException(`System protected role "${existing.name}" cannot be renamed`);
     }
 
     if (dto.name && dto.name.trim() !== existing.name) {
@@ -331,8 +328,7 @@ export class RolesService {
       where: { id },
       data: {
         name: isSystem ? existing.name : dto.name?.trim() || existing.name,
-        description:
-          dto.description !== undefined ? dto.description.trim() : existing.description,
+        description: dto.description !== undefined ? dto.description.trim() : existing.description,
       },
     });
 
@@ -433,9 +429,7 @@ export class RolesService {
 
     const isSystem = SYSTEM_ROLES.has(role.name.trim().toUpperCase());
     if (isSystem) {
-      throw new BadRequestException(
-        `System protected role "${role.name}" cannot be deleted`,
-      );
+      throw new BadRequestException(`System protected role "${role.name}" cannot be deleted`);
     }
 
     if (role._count.users > 0) {

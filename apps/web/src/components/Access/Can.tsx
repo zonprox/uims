@@ -10,14 +10,7 @@ export interface CanProps {
   children: ReactNode | ((hasAccess: boolean) => ReactNode);
 }
 
-export function Can({
-  action,
-  subject,
-  role,
-  permission,
-  fallback = null,
-  children,
-}: CanProps) {
+export function Can({ action, subject, role, permission, fallback = null, children }: CanProps) {
   const access = useAccess();
 
   let hasAccess = true;

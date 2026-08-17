@@ -1,7 +1,10 @@
 import { type CanActivate, type ExecutionContext, Injectable, Optional } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../database/prisma.service';
-import { PERMISSIONS_KEY, type RequiredPermission } from '../decorators/require-permissions.decorator';
+import {
+  PERMISSIONS_KEY,
+  type RequiredPermission,
+} from '../decorators/require-permissions.decorator';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -16,10 +19,10 @@ export class PermissionsGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const reflector = this.reflector || new Reflector();
-    const requiredPermissions = reflector.getAllAndOverride<RequiredPermission[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = reflector.getAllAndOverride<RequiredPermission[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
@@ -36,11 +39,7 @@ export class PermissionsGuard implements CanActivate {
       .toUpperCase();
 
     // Super Admin inherits all permissions unconditionally
-    if (
-      userRole === 'SUPER ADMIN' ||
-      userRole === 'SUPERADMIN' ||
-      userRole === 'SUPER_ADMIN'
-    ) {
+    if (userRole === 'SUPER ADMIN' || userRole === 'SUPERADMIN' || userRole === 'SUPER_ADMIN') {
       return true;
     }
 
@@ -101,18 +100,14 @@ export class PermissionsGuard implements CanActivate {
       }
 
       const rolePerms = userRecord.role.permissions.map((rp) => rp.permission);
-      const permSet = new Set(
-        rolePerms.map((p) => `${p.subject}:${p.action}`.toLowerCase()),
-      );
+      const permSet = new Set(rolePerms.map((p) => `${p.subject}:${p.action}`.toLowerCase()));
 
       return requiredPermissions.every((req) => {
         const directKey = `${req.subject}:${req.action}`.toLowerCase();
         const wildcardSubjectKey = `${req.subject}:*`.toLowerCase();
         const wildcardAllKey = '*:*';
         return (
-          permSet.has(directKey) ||
-          permSet.has(wildcardSubjectKey) ||
-          permSet.has(wildcardAllKey)
+          permSet.has(directKey) || permSet.has(wildcardSubjectKey) || permSet.has(wildcardAllKey)
         );
       });
     }

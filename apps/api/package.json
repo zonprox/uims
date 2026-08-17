@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsc && (tsc --watch --preserveWatchOutput & node --watch dist/main.js)",
+    "dev": "tsc && (tsc --watch --preserveWatchOutput & nodemon --watch dist --delay 1s dist/main.js)",
     "build": "tsc",
     "start": "node dist/main",
     "start:prod": "node dist/main",
@@ -67,6 +67,7 @@
     "@uims/eslint-config": "workspace:*",
     "dotenv": "^17.4.2",
     "eslint": "^10.8.1",
+    "nodemon": "^3.1.14",
     "prisma": "^7.9.1",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",

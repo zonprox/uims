@@ -1,14 +1,30 @@
 import type { DirectorySource } from '../entities/directory';
-import type { UserStatus } from '../entities/user';
+import type { MfaStatus, UserStatus } from '../entities/user';
 
 export interface CreateSystemUserDto {
   username?: string;
   email: string;
+  employeeCode?: string;
   password?: string;
   firstName?: string;
   lastName?: string;
   displayName?: string;
   jobTitle?: string;
+  company?: string;
+  groupCompany?: string;
+  plant?: string;
+  section?: string;
+  subSection?: string;
+  computerName?: string;
+  computerName2?: string;
+  adGroup?: string;
+  telephone?: string;
+  isClosed?: boolean;
+  ouPath?: string;
+  managerName?: string;
+  mfaStatus?: MfaStatus | string;
+  isLocked?: boolean;
+  accountExpiresAt?: string;
   source?: DirectorySource;
   adInitialPassword?: string;
   roleId?: string;
@@ -42,6 +58,11 @@ export interface UserQueryDto {
   role?: string;
   status?: string;
   department?: string;
+  section?: string;
+  company?: string;
+  plant?: string;
+  adGroup?: string;
+  ouPath?: string;
   source?: string;
 }
 
@@ -50,7 +71,41 @@ export interface CreateDirectoryGroupDto {
   email?: string;
   address?: string;
   description?: string;
-  memberCount?: number | string;
+  type?: string;
   scope?: string;
+  ouPath?: string;
+  memberCount?: number | string;
   managedBy?: string;
+}
+
+export interface BatchImportADUserItem {
+  stt?: number | string;
+  employeeCode?: string;
+  name: string;
+  email: string;
+  designation?: string;
+  groupCompany?: string;
+  company?: string;
+  plant?: string;
+  department?: string;
+  section?: string;
+  subSection?: string;
+  telephone?: string;
+  computerName?: string;
+  computerName2?: string;
+  initialPassword?: string;
+  adGroup?: string;
+  ouPath?: string;
+  managerName?: string;
+  mfaStatus?: string;
+  isClosed?: boolean | string;
+  status?: string;
+}
+
+export interface BatchImportADResponse {
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ row: number; email?: string; error: string }>;
 }

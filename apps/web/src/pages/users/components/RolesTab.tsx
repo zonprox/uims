@@ -136,7 +136,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             style={{ borderRadius: 8, height: '100%' }}
             styles={{ body: { padding: '12px 14px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
+            >
               Total Roles
             </Text>
             <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
@@ -156,7 +159,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             style={{ borderRadius: 8, height: '100%' }}
             styles={{ body: { padding: '12px 14px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
+            >
               Core System Roles
             </Text>
             <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
@@ -176,7 +182,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             style={{ borderRadius: 8, height: '100%' }}
             styles={{ body: { padding: '12px 14px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
+            >
               Custom Roles
             </Text>
             <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
@@ -196,7 +205,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             style={{ borderRadius: 8, height: '100%' }}
             styles={{ body: { padding: '12px 14px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
+            >
               Permission Catalog
             </Text>
             <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
@@ -216,7 +228,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             style={{ borderRadius: 8, height: '100%' }}
             styles={{ body: { padding: '12px 14px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
+            >
               Super Admins
             </Text>
             <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
@@ -236,7 +251,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             style={{ borderRadius: 8, height: '100%' }}
             styles={{ body: { padding: '12px 14px' } }}
           >
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
+            >
               User Coverage
             </Text>
             <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
@@ -268,11 +286,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
                 onChange={(e) => setSearch(e.target.value)}
                 style={{ width: 240 }}
               />
-              <Select
-                value={tierFilter}
-                onChange={setTierFilter}
-                style={{ width: 150 }}
-              >
+              <Select value={tierFilter} onChange={setTierFilter} style={{ width: 150 }}>
                 <Option value="all">All Tiers</Option>
                 <Option value="system">System Roles</Option>
                 <Option value="custom">Custom Roles</Option>

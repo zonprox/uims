@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { BatchImportUsersDto } from './dto/import-users.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -26,6 +27,19 @@ export class UsersController {
     return this.usersService.getStats();
   }
 
+  @Get('organizational-units')
+  @ApiOperation({ summary: 'Get Active Directory Organizational Units (OUs) hierarchy' })
+  getOrganizationalUnits() {
+    return this.usersService.getOrganizationalUnits();
+  }
+
+  @Post('sync-domain')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Trigger Active Directory Domain Controller replication sync' })
+  syncDomain() {
+    return this.usersService.syncDomain();
+  }
+
   @Get('roles/list')
   @ApiOperation({ summary: 'Get all available RBAC roles' })
   getRoles() {
@@ -45,6 +59,19 @@ export class UsersController {
     return this.usersService.createGroup(createGroupDto);
   }
 
+  @Get('export')
+  @ApiOperation({ summary: 'Export standardized Active Directory & user master dataset' })
+  exportMaster() {
+    return this.usersService.exportMaster();
+  }
+
+  @Post('import')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Batch import Active Directory users from Excel/CSV master' })
+  importBatch(@Body() importDto: BatchImportUsersDto) {
+    return this.usersService.importBatch(importDto);
+  }
+
   @Post()
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Create new user' })
@@ -62,6 +89,11 @@ export class UsersController {
     @Query('role') role?: string,
     @Query('status') status?: string,
     @Query('department') department?: string,
+    @Query('section') section?: string,
+    @Query('company') company?: string,
+    @Query('plant') plant?: string,
+    @Query('adGroup') adGroup?: string,
+    @Query('ouPath') ouPath?: string,
     @Query('source') source?: string,
   ) {
     return this.usersService.findAll({
@@ -72,6 +104,11 @@ export class UsersController {
       role,
       status,
       department,
+      section,
+      company,
+      plant,
+      adGroup,
+      ouPath,
       source,
     });
   }

@@ -64,11 +64,22 @@ model User {
   id                 String              @id @default(uuid())
   username           String              @unique
   email              String              @unique
+  employeeCode       String?             @unique
   passwordHash       String
   firstName          String
   lastName           String
   displayName        String?
   jobTitle           String?
+  company            String?
+  groupCompany       String?
+  plant              String?
+  section            String?
+  subSection         String?
+  computerName       String?
+  computerName2      String?
+  adGroup            String?
+  telephone          String?
+  isClosed           Boolean             @default(false)
   roleId             String?
   roleName           String?             @default("Employee")
   status             UserStatus          @default(ACTIVE)
@@ -78,6 +89,11 @@ model User {
   department         String?
   location           String?
   adInitialPassword  String?
+  ouPath             String?
+  managerName        String?
+  mfaStatus          String?             @default("ENABLED")
+  isLocked           Boolean             @default(false)
+  accountExpiresAt   DateTime?
   departmentId       String?
   positionId         String?
   organizationId     String?
@@ -100,10 +116,18 @@ model User {
 
   @@index([status])
   @@index([department])
+  @@index([section])
+  @@index([company])
+  @@index([plant])
+  @@index([computerName])
+  @@index([adGroup])
+  @@index([employeeCode])
   @@index([roleName])
   @@index([email])
   @@index([firstName, lastName])
   @@index([jobTitle])
+  @@index([ouPath])
+  @@index([managerName])
 }
 
 model Role {
@@ -261,6 +285,7 @@ model DirectoryGroup {
   description String?
   type        String?
   scope       String?               @default("Internal Only")
+  ouPath      String?
   managedBy   String?
   memberCount Int                   @default(0)
   createdAt   DateTime              @default(now())

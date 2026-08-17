@@ -87,7 +87,10 @@ export default function MainLayout() {
     () => getNavMenuItems(collapsed, isMobile, navBadges, can),
     [collapsed, isMobile, navBadges, can, permissions],
   );
-  const quickCreateMenu = useMemo(() => getQuickCreateMenu(navigate, can), [navigate, can, permissions]);
+  const quickCreateMenu = useMemo(
+    () => getQuickCreateMenu(navigate, can),
+    [navigate, can, permissions],
+  );
   const userMenuItems = useMemo(
     () => getUserMenuItems(user, navigate, handleLogout),
     [user, navigate, handleLogout],

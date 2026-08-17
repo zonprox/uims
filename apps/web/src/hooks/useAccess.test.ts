@@ -16,11 +16,13 @@ describe('useAccess hook', () => {
   });
 
   it('should return correct permissions status for logged in user', async () => {
-    useAuthStore.getState().login(
-      'jwt-token',
-      { id: '1', email: 'auditor@uims.internal', name: 'Auditor', role: 'Auditor' },
-      ['Audit:read', 'Audit:export', 'Asset:read'],
-    );
+    useAuthStore
+      .getState()
+      .login(
+        'jwt-token',
+        { id: '1', email: 'auditor@uims.internal', name: 'Auditor', role: 'Auditor' },
+        ['Audit:read', 'Audit:export', 'Asset:read'],
+      );
 
     let currentAccess: ReturnType<typeof useAccess> | null = null;
     function TestComponent() {

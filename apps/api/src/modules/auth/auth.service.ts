@@ -86,7 +86,9 @@ export class AuthService {
     roleId?: string | null,
     roleName?: string | null,
   ): Promise<string[]> {
-    const roleUpper = String(roleName || '').trim().toUpperCase();
+    const roleUpper = String(roleName || '')
+      .trim()
+      .toUpperCase();
     if (roleUpper === 'SUPER ADMIN' || roleUpper === 'SUPERADMIN') {
       return ['*:*'];
     }
@@ -97,10 +99,7 @@ export class AuthService {
 
     const role = await this.prisma.role.findFirst({
       where: {
-        OR: [
-          ...(roleId ? [{ id: roleId }] : []),
-          ...(roleName ? [{ name: roleName }] : []),
-        ],
+        OR: [...(roleId ? [{ id: roleId }] : []), ...(roleName ? [{ name: roleName }] : [])],
       },
       include: {
         permissions: {
@@ -119,9 +118,7 @@ export class AuthService {
       return ['*:*'];
     }
 
-    return role.permissions.map(
-      (rp) => `${rp.permission.subject}:${rp.permission.action}`,
-    );
+    return role.permissions.map((rp) => `${rp.permission.subject}:${rp.permission.action}`);
   }
 
   async login(loginDto: LoginDto, ipAddress = '127.0.0.1', userAgent = 'UIMS Client') {

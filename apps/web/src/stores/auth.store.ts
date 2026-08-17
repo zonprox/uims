@@ -72,7 +72,11 @@ export const useAuthStore = create<AuthState>()(
         const target = permissionStr.trim().toLowerCase();
         return perms.some((p) => {
           const lp = p.trim().toLowerCase();
-          return lp === target || lp === '*:*' || (target.includes(':') && lp === `${target.split(':')[0]}:*`);
+          return (
+            lp === target ||
+            lp === '*:*' ||
+            (target.includes(':') && lp === `${target.split(':')[0]}:*`)
+          );
         });
       },
 

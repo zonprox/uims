@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
 export async function seedDirectory(prisma: PrismaClient) {
-  // Directory Groups (Mail Distribution & Security Groups)
+  // Directory Groups (Mail Distribution & Active Directory Security Groups)
   const directoryGroups = [
     {
       id: 'grp-all-company',
@@ -74,6 +74,52 @@ export async function seedDirectory(prisma: PrismaClient) {
       scope: 'Confidential / Board Level',
       managedBy: 'Alex Johnson',
       description: 'Executive VPs, Directors and Legal Counsel.',
+    },
+    // Enterprise AD Security Groups from Active Directory Master
+    {
+      id: 'grp-ad-bsloth-printing',
+      name: 'GR_BSLOTHPrinting',
+      email: 'gr-bsloth-printing@youngonevn.com',
+      memberCount: 18,
+      scope: 'AD Security Group',
+      managedBy: 'Printing Section Head',
+      description: 'Production Printing Division Active Directory Security & Access Control Group',
+    },
+    {
+      id: 'grp-ad-bsloth-sample',
+      name: 'GR_BSLOTHSample',
+      email: 'gr-bsloth-sample@youngonevn.com',
+      memberCount: 26,
+      scope: 'AD Security Group',
+      managedBy: 'Nguyen Doan Quang Huy (Asst. Manager)',
+      description: 'Sample Development & Pattern Marker Division Active Directory Security Group',
+    },
+    {
+      id: 'grp-ad-bsloth-embroidery',
+      name: 'GR_BSLOTHLogo Embroidery',
+      email: 'gr-bsloth-embroidery@youngonevn.com',
+      memberCount: 12,
+      scope: 'AD Security Group',
+      managedBy: 'Huynh Kim Ngan (Chief Of Section)',
+      description: 'Logo Embroidery Division Active Directory Security Group',
+    },
+    {
+      id: 'grp-ad-bsl1-prod-office',
+      name: 'GR_BSL1Production Office',
+      email: 'gr-bsl1-prod-office@youngonevn.com',
+      memberCount: 8,
+      scope: 'AD Security Group',
+      managedBy: 'Le Thi Kim Chi (Junior Technician)',
+      description: 'BSL-1 Plant Production Office Operations AD Security Group',
+    },
+    {
+      id: 'grp-ad-bsl1-cutting',
+      name: 'GR_BSL1Cutting',
+      email: 'gr-bsl1-cutting@youngonevn.com',
+      memberCount: 15,
+      scope: 'AD Security Group',
+      managedBy: 'Son Thi Ngoc Huyen (Junior Supervisor)',
+      description: 'BSL-1 Plant Cutting Operations AD Security Group',
     },
   ];
 

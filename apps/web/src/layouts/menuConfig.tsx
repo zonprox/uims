@@ -267,11 +267,7 @@ export function getNavMenuItems(
       ),
       title: expiringCount > 0 ? `SaaS Licenses (${expiringCount} Expiring)` : 'SaaS Licenses',
       label: (
-        <Flex
-          justify="space-between"
-          align="center"
-          style={{ width: '100%', minWidth: 0, gap: 8 }}
-        >
+        <Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             SaaS Licenses
           </span>
@@ -310,14 +306,9 @@ export function getNavMenuItems(
           isCollapsed={isCollapsedDesktop}
         />
       ),
-      title:
-        lowStockCount > 0 ? `Spare Stockroom (${lowStockCount} Low Stock)` : 'Spare Stockroom',
+      title: lowStockCount > 0 ? `Spare Stockroom (${lowStockCount} Low Stock)` : 'Spare Stockroom',
       label: (
-        <Flex
-          justify="space-between"
-          align="center"
-          style={{ width: '100%', minWidth: 0, gap: 8 }}
-        >
+        <Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             Spare Stockroom
           </span>

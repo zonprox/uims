@@ -12,6 +12,11 @@ export class CreateUserDto {
   @IsEmail()
   email!: string;
 
+  @ApiPropertyOptional({ example: '63020037' })
+  @IsString()
+  @IsOptional()
+  employeeCode?: string;
+
   @ApiPropertyOptional({ example: 'John' })
   @IsString()
   @IsOptional()
@@ -27,17 +32,89 @@ export class CreateUserDto {
   @IsOptional()
   displayName?: string;
 
-  @ApiPropertyOptional({ example: 'Lead Cloud Architect' })
+  @ApiPropertyOptional({ example: 'Asst. Officer' })
   @IsString()
   @IsOptional()
   jobTitle?: string;
+
+  @ApiPropertyOptional({ example: 'BSL Others' })
+  @IsString()
+  @IsOptional()
+  company?: string;
+
+  @ApiPropertyOptional({ example: 'BSL' })
+  @IsString()
+  @IsOptional()
+  groupCompany?: string;
+
+  @ApiPropertyOptional({ example: '1 BSL-1' })
+  @IsString()
+  @IsOptional()
+  plant?: string;
+
+  @ApiPropertyOptional({ example: 'Printing' })
+  @IsString()
+  @IsOptional()
+  section?: string;
+
+  @ApiPropertyOptional({ example: 'Logo Embroidery' })
+  @IsString()
+  @IsOptional()
+  subSection?: string;
+
+  @ApiPropertyOptional({ example: 'STOTHPR102' })
+  @IsString()
+  @IsOptional()
+  computerName?: string;
+
+  @ApiPropertyOptional({ example: 'STOTHPR102-LAP' })
+  @IsString()
+  @IsOptional()
+  computerName2?: string;
+
+  @ApiPropertyOptional({ example: 'GR_BSLOTHPrinting' })
+  @IsString()
+  @IsOptional()
+  adGroup?: string;
+
+  @ApiPropertyOptional({ example: '888152675' })
+  @IsString()
+  @IsOptional()
+  telephone?: string;
+
+  @ApiPropertyOptional({ example: 'OU=Production,OU=BSL,DC=uims,DC=internal' })
+  @IsString()
+  @IsOptional()
+  ouPath?: string;
+
+  @ApiPropertyOptional({ example: 'Nguyen Doan Quang Huy' })
+  @IsString()
+  @IsOptional()
+  managerName?: string;
+
+  @ApiPropertyOptional({ example: 'ENABLED' })
+  @IsString()
+  @IsOptional()
+  mfaStatus?: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  isClosed?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  isLocked?: boolean;
+
+  @ApiPropertyOptional({ example: '2026-12-31T23:59:59Z' })
+  @IsOptional()
+  accountExpiresAt?: string;
 
   @ApiPropertyOptional({ enum: DirectorySource, default: DirectorySource.LOCAL })
   @IsEnum(DirectorySource)
   @IsOptional()
   source?: DirectorySource;
 
-  @ApiPropertyOptional({ example: 'Ad#JohnDoe2026!' })
+  @ApiPropertyOptional({ example: 'kPm#*Ed8' })
   @IsString()
   @IsOptional()
   adInitialPassword?: string;
@@ -73,7 +150,7 @@ export class CreateUserDto {
   @IsOptional()
   phone?: string;
 
-  @ApiPropertyOptional({ example: 'Engineering' })
+  @ApiPropertyOptional({ example: 'Production' })
   @IsString()
   @IsOptional()
   department?: string;
