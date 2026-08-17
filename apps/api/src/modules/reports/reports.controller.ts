@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { ScheduleReportDto } from './dto/schedule-report.dto';
 import { ReportsService } from './reports.service';
 
 @ApiTags('reports')
+@ApiBearerAuth()
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
@@ -27,7 +29,8 @@ export class ReportsController {
   }
 
   @Post('schedule')
-  @ApiOperation({ summary: 'Schedule automated report delivery' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Schedule automated report delivery (Admin/Super Admin only)' })
   scheduleReport(@Body() body: ScheduleReportDto) {
     return this.reportsService.scheduleReport(body);
   }

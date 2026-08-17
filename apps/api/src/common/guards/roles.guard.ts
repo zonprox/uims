@@ -23,7 +23,26 @@ export class RolesGuard implements CanActivate {
     if (!user?.role) {
       return false;
     }
-    const userRole = String(user.role).toUpperCase();
-    return roles.some((r) => r.toUpperCase() === userRole || r === user.role);
+    const userRole = String(user.role).trim().toUpperCase();
+
+    // Direct match check
+    if (roles.some((r) => r.trim().toUpperCase() === userRole)) {
+      return true;
+    }
+
+    // Super Admin inherits all role permissions
+    if (userRole === 'SUPER ADMIN' || userRole === 'SUPERADMIN') {
+      return true;
+    }
+
+    // Admin inherits Manager, Technician, Auditor, and Employee roles
+    if (userRole === 'ADMIN') {
+      return roles.some((r) => {
+        const target = r.trim().toUpperCase();
+        return ['ADMIN', 'MANAGER', 'TECHNICIAN', 'AUDITOR', 'EMPLOYEE'].includes(target);
+      });
+    }
+
+    return false;
   }
 }

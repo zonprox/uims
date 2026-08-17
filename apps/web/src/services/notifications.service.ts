@@ -12,10 +12,31 @@ export interface NotificationItem {
   createdAt?: string;
 }
 
+export interface BroadcastPayload {
+  title: string;
+  message: string;
+  type?: 'INFO' | 'WARNING' | 'ALERT' | 'SUCCESS';
+  targetRole?: 'All' | 'Admin' | 'Super Admin' | 'Employee';
+  link?: string;
+}
+
 export const notificationsService = {
   getNotifications: async (): Promise<Array<NotificationItem>> => {
     const res = await api.get('/notifications');
     return res.data?.data ?? res.data ?? [];
+  },
+
+  getUnreadCount: async (): Promise<number> => {
+    const res = await api.get('/notifications/unread-count');
+    const data = res.data?.data ?? res.data;
+    return typeof data?.count === 'number' ? data.count : 0;
+  },
+
+  broadcastAnnouncement: async (
+    payload: BroadcastPayload,
+  ): Promise<{ count: number; success: boolean }> => {
+    const res = await api.post('/notifications/broadcast', payload);
+    return res.data?.data ?? res.data;
   },
 
   markAsRead: async (id: string): Promise<NotificationItem> => {

@@ -5,6 +5,8 @@ import {
   DeleteOutlined,
   InfoCircleOutlined,
   ReloadOutlined,
+  SearchOutlined,
+  SendOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import {
@@ -13,6 +15,7 @@ import {
   Drawer,
   Empty,
   Flex,
+  Input,
   Popconfirm,
   Spin,
   Tabs,
@@ -20,99 +23,62 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import React, { useState } from 'react';
 import { TimeAgo } from './FormattedDate';
-import { type NotificationItem, notificationsService } from '../services/notifications.service';
+import { BroadcastAnnouncementModal } from './BroadcastAnnouncementModal';
+import { type NotificationItem } from '../services/notifications.service';
+import { useAuthStore } from '../stores/auth.store';
 
 const { Text, Title } = Typography;
 
 interface NotificationDrawerProps {
   open: boolean;
   onClose: () => void;
-  onNotificationsChanged?: () => void;
+  notifications: Array<NotificationItem>;
+  unreadCount: number;
+  loading: boolean;
+  isConnected: boolean;
+  onRefresh: () => void;
+  onMarkAsRead: (id: string, link?: string) => Promise<void>;
+  onMarkAllAsRead: () => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onClearAll: () => Promise<void>;
 }
 
 export default function NotificationDrawer({
   open,
   onClose,
-  onNotificationsChanged,
+  notifications,
+  unreadCount,
+  loading,
+  isConnected,
+  onRefresh,
+  onMarkAsRead,
+  onMarkAllAsRead,
+  onDelete,
+  onClearAll,
 }: NotificationDrawerProps) {
-  const [notifications, setNotifications] = useState<Array<NotificationItem>>([]);
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
-  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
+  const { user } = useAuthStore();
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await notificationsService.getNotifications();
-      setNotifications(data);
-    } catch (err) {
-      console.error('Failed to load notifications:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      loadNotifications();
-    }
-  }, [open, loadNotifications]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllAsRead = async () => {
-    try {
-      await notificationsService.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      onNotificationsChanged?.();
-    } catch (err) {
-      console.error('Failed to mark all as read:', err);
-    }
-  };
-
-  const clearAll = async () => {
-    try {
-      await notificationsService.clearAll();
-      setNotifications([]);
-      onNotificationsChanged?.();
-    } catch (err) {
-      console.error('Failed to clear notifications:', err);
-    }
-  };
-
-  const markSingleAsRead = async (id: string, link?: string) => {
-    try {
-      await notificationsService.markAsRead(id);
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-      onNotificationsChanged?.();
-    } catch (err) {
-      console.error('Failed to mark notification as read:', err);
-    }
-
-    if (link) {
-      navigate(link);
-      onClose();
-    }
-  };
-
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    try {
-      await notificationsService.deleteNotification(id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      onNotificationsChanged?.();
-    } catch (err) {
-      console.error('Failed to delete notification:', err);
-    }
-  };
+  const isAdmin = user?.role === 'Admin' || user?.role === 'Super Admin';
 
   const filteredNotifications = notifications.filter((item) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'alerts') return item.category === 'alerts';
-    if (activeTab === 'tasks') return item.category === 'tasks';
+    // Tab filter
+    if (activeTab === 'alerts' && item.category !== 'alerts') return false;
+    if (activeTab === 'tasks' && item.category !== 'tasks') return false;
+    if (activeTab === 'unread' && item.read) return false;
+
+    // Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesTitle = item.title.toLowerCase().includes(q);
+      const matchesDesc = item.description.toLowerCase().includes(q);
+      if (!matchesTitle && !matchesDesc) return false;
+    }
+
     return true;
   });
 
@@ -142,6 +108,10 @@ export default function NotificationDrawer({
       ),
     },
     {
+      key: 'unread',
+      label: 'Unread Only',
+    },
+    {
       key: 'alerts',
       label: 'Alerts',
     },
@@ -152,148 +122,222 @@ export default function NotificationDrawer({
   ];
 
   return (
-    <Drawer
-      title={
-        <Flex justify="space-between" align="center">
-          <Flex align="center" gap={8}>
-            <Title level={5} style={{ margin: 0, fontSize: 14 }}>
-              System Notifications
-            </Title>
-            {unreadCount > 0 && (
-              <Tag color="blue" style={{ fontSize: 11 }}>
-                {unreadCount} unread
-              </Tag>
-            )}
-          </Flex>
-          <Flex gap={8} align="center">
-            <Tooltip title="Refresh notifications">
-              <Button
-                type="text"
-                size="small"
-                icon={<ReloadOutlined spin={loading} />}
-                onClick={loadNotifications}
-              />
-            </Tooltip>
-            {unreadCount > 0 && (
-              <Button
-                type="link"
-                size="small"
-                onClick={markAllAsRead}
-                style={{ padding: 0, fontSize: 12 }}
-              >
-                Mark all read
-              </Button>
-            )}
-            {notifications.length > 0 && (
-              <Button
-                type="text"
-                size="small"
-                icon={<DeleteOutlined />}
-                onClick={clearAll}
-                title="Clear all notifications"
-              />
-            )}
-          </Flex>
-        </Flex>
-      }
-      placement="right"
-      size={420}
-      open={open}
-      onClose={onClose}
-    >
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        items={tabItems}
-        style={{ marginBottom: 12 }}
-      />
-
-      {loading && notifications.length === 0 ? (
-        <div style={{ padding: '60px 0', textAlign: 'center' }}>
-          <Spin size="medium" />
-        </div>
-      ) : filteredNotifications.length === 0 ? (
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="No notifications"
-          style={{ marginTop: 60 }}
-        />
-      ) : (
-        <Flex vertical gap={6}>
-          {filteredNotifications.map((item) => (
-            <Flex
-              key={item.id}
-              onClick={() => markSingleAsRead(item.id, item.link)}
-              justify="space-between"
-              align="flex-start"
-              style={{
-                cursor: 'pointer',
-                padding: '10px 12px',
-                borderRadius: 6,
-                background: item.read ? 'transparent' : 'rgba(22, 119, 255, 0.04)',
-                border: item.read
-                  ? '1px solid rgba(140, 140, 140, 0.1)'
-                  : '1px solid rgba(22, 119, 255, 0.18)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Flex gap={12} align="flex-start" style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
-                <div style={{ marginTop: 2, flexShrink: 0 }}>{getIcon(item.type)}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
-                    <Text strong={!item.read} style={{ fontSize: 12.5 }}>
-                      {item.title}
-                    </Text>
-                    {!item.read && <Badge status="processing" color="#1677ff" />}
-                  </Flex>
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: 11.5, display: 'block', marginBottom: 2 }}
+    <>
+      <Drawer
+        title={
+          <Flex justify="space-between" align="center">
+            <Flex align="center" gap={8}>
+              <Title level={5} style={{ margin: 0, fontSize: 14 }}>
+                Enterprise Notifications
+              </Title>
+              <Badge
+                status={isConnected ? 'success' : 'default'}
+                text={
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 600,
+                      color: isConnected ? '#10b981' : '#94a3b8',
+                    }}
                   >
-                    {item.description}
-                  </Text>
-                  {item.createdAt ? (
-                    <TimeAgo
-                      date={item.createdAt}
-                      showIcon
-                      style={{ fontSize: 11, color: '#94a3b8' }}
-                    />
-                  ) : (
-                    <Flex align="center" gap={4}>
-                      <ClockCircleOutlined style={{ fontSize: 10.5, color: '#94a3b8' }} />
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {item.time}
-                      </Text>
-                    </Flex>
-                  )}
-                </div>
-              </Flex>
-              <div onClick={(e) => e.stopPropagation()}>
+                    {isConnected ? 'LIVE' : 'SYNCING'}
+                  </span>
+                }
+              />
+            </Flex>
+            <Flex gap={6} align="center">
+              <Tooltip title="Refresh from database">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ReloadOutlined spin={loading} />}
+                  onClick={onRefresh}
+                />
+              </Tooltip>
+              {unreadCount > 0 && (
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={onMarkAllAsRead}
+                  style={{ padding: 0, fontSize: 12 }}
+                >
+                  Mark all read
+                </Button>
+              )}
+              {notifications.length > 0 && (
                 <Popconfirm
-                  title="Dismiss notification?"
-                  description="Are you sure you want to permanently remove this notification?"
-                  okText="Delete"
+                  title="Clear all notifications?"
+                  description="This will remove all notification records for your account."
+                  okText="Clear All"
                   cancelText="Cancel"
                   okButtonProps={{ danger: true, size: 'small' }}
-                  cancelButtonProps={{ size: 'small' }}
-                  onConfirm={(e) => {
-                    if (e) e.stopPropagation();
-                    handleDelete(e as unknown as React.MouseEvent, item.id);
-                  }}
+                  onConfirm={onClearAll}
                 >
                   <Button
-                    key="del"
                     type="text"
-                    shape="circle"
                     size="small"
-                    icon={<DeleteOutlined style={{ fontSize: 12, color: '#94a3b8' }} />}
+                    icon={<DeleteOutlined />}
+                    title="Clear all notifications"
                   />
                 </Popconfirm>
-              </div>
+              )}
             </Flex>
-          ))}
-        </Flex>
+          </Flex>
+        }
+        placement="right"
+        size={440}
+        open={open}
+        onClose={onClose}
+      >
+        {/* Admin Broadcast Button */}
+        {isAdmin && (
+          <div style={{ marginBottom: 12 }}>
+            <Button
+              type="dashed"
+              block
+              icon={<SendOutlined style={{ color: '#1677ff' }} />}
+              onClick={() => setBroadcastModalOpen(true)}
+              style={{
+                borderRadius: 6,
+                fontWeight: 600,
+                fontSize: 12.5,
+                borderColor: '#1677ff',
+                color: '#1677ff',
+              }}
+            >
+              Broadcast System Announcement
+            </Button>
+          </div>
+        )}
+
+        {/* Search & Tabs */}
+        <Input
+          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+          placeholder="Filter notifications by keyword..."
+          allowClear
+          size="small"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ marginBottom: 10, borderRadius: 6 }}
+        />
+
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          style={{ marginBottom: 12 }}
+        />
+
+        {loading && notifications.length === 0 ? (
+          <div style={{ padding: '60px 0', textAlign: 'center' }}>
+            <Spin size="medium" />
+          </div>
+        ) : filteredNotifications.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+              searchQuery
+                ? `No notifications matching "${searchQuery}"`
+                : 'No notifications at this time'
+            }
+            style={{ marginTop: 60 }}
+          />
+        ) : (
+          <Flex vertical gap={6}>
+            {filteredNotifications.map((item) => (
+              <Flex
+                key={item.id}
+                onClick={() => {
+                  onMarkAsRead(item.id, item.link);
+                  if (item.link) onClose();
+                }}
+                justify="space-between"
+                align="flex-start"
+                style={{
+                  cursor: 'pointer',
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                  background: item.read ? 'transparent' : 'rgba(22, 119, 255, 0.04)',
+                  border: item.read
+                    ? '1px solid rgba(140, 140, 140, 0.12)'
+                    : '1px solid rgba(22, 119, 255, 0.22)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Flex gap={12} align="flex-start" style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+                  <div style={{ marginTop: 2, flexShrink: 0 }}>{getIcon(item.type)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
+                      <Text strong={!item.read} style={{ fontSize: 12.5 }}>
+                        {item.title}
+                      </Text>
+                      {!item.read && <Badge status="processing" color="#1677ff" />}
+                    </Flex>
+                    <Text
+                      type="secondary"
+                      style={{ fontSize: 11.5, display: 'block', marginBottom: 4 }}
+                    >
+                      {item.description}
+                    </Text>
+                    <Flex align="center" gap={8}>
+                      {item.createdAt ? (
+                        <TimeAgo
+                          date={item.createdAt}
+                          showIcon
+                          style={{ fontSize: 10.5, color: '#94a3b8' }}
+                        />
+                      ) : (
+                        <Flex align="center" gap={4}>
+                          <ClockCircleOutlined style={{ fontSize: 10.5, color: '#94a3b8' }} />
+                          <Text type="secondary" style={{ fontSize: 10.5 }}>
+                            {item.time}
+                          </Text>
+                        </Flex>
+                      )}
+                      {item.link && (
+                        <Tag color="blue" style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>
+                          Action Available
+                        </Tag>
+                      )}
+                    </Flex>
+                  </div>
+                </Flex>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Popconfirm
+                    title="Dismiss notification?"
+                    description="Remove this notification permanently?"
+                    okText="Delete"
+                    cancelText="Cancel"
+                    okButtonProps={{ danger: true, size: 'small' }}
+                    cancelButtonProps={{ size: 'small' }}
+                    onConfirm={(e) => {
+                      if (e) e.stopPropagation();
+                      onDelete(item.id);
+                    }}
+                  >
+                    <Button
+                      key="del"
+                      type="text"
+                      shape="circle"
+                      size="small"
+                      icon={<DeleteOutlined style={{ fontSize: 12, color: '#94a3b8' }} />}
+                    />
+                  </Popconfirm>
+                </div>
+              </Flex>
+            ))}
+          </Flex>
+        )}
+      </Drawer>
+
+      {/* Admin Broadcast Modal */}
+      {isAdmin && (
+        <BroadcastAnnouncementModal
+          open={broadcastModalOpen}
+          onClose={() => setBroadcastModalOpen(false)}
+          onSuccess={onRefresh}
+        />
       )}
-    </Drawer>
+    </>
   );
 }

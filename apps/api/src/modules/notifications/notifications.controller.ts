@@ -1,9 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { NotificationsService } from './notifications.service';
 
-@ApiTags('Notifications')
+@ApiTags('notifications')
 @ApiBearerAuth()
 @Controller('notifications')
 export class NotificationsController {
@@ -16,10 +18,26 @@ export class NotificationsController {
     return this.notificationsService.findAll(userId);
   }
 
+  @Get('unread-count')
+  @ApiOperation({ summary: 'Get unread notification count for the authenticated user' })
+  async getUnreadCount(@Request() req: { user?: { sub?: string; id?: string; role?: string } }) {
+    const userId = req.user?.role === 'Super Admin' ? undefined : req.user?.id || req.user?.sub;
+    const count = await this.notificationsService.getUnreadCount(userId);
+    return { count };
+  }
+
   @Post()
-  @ApiOperation({ summary: 'Create a new system notification' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Create a new system notification (Admin/Super Admin only)' })
   async create(@Body() createNotificationDto: CreateNotificationDto) {
     return this.notificationsService.create(createNotificationDto);
+  }
+
+  @Post('broadcast')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Broadcast an announcement to users (Admin/Super Admin only)' })
+  async broadcast(@Body() broadcastDto: BroadcastNotificationDto) {
+    return this.notificationsService.broadcast(broadcastDto);
   }
 
   @Patch(':id/read')

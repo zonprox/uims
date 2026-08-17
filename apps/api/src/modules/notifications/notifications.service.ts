@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Notification, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import type { CreateNotificationDto } from './dto/create-notification.dto';
+import type { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
+import type { CreateNotificationDto, NotificationTypeEnum } from './dto/create-notification.dto';
+import { NotificationsGateway } from './notifications.gateway';
 
 export interface FormattedNotification {
   id: string;
@@ -17,7 +19,12 @@ export interface FormattedNotification {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(NotificationsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly gateway?: NotificationsGateway,
+  ) {}
 
   private timeAgo(date: Date): string {
     const diffMs = Date.now() - new Date(date).getTime();
@@ -57,7 +64,9 @@ export class NotificationsService {
       combined.includes('critical') ||
       combined.includes('expir') ||
       combined.includes('deplet') ||
-      combined.includes('warn')
+      combined.includes('warn') ||
+      combined.includes('low stock') ||
+      combined.includes('out of stock')
     ) {
       return 'alerts';
     }
@@ -93,12 +102,23 @@ export class NotificationsService {
     return notifications.map((n) => this.formatNotification(n));
   }
 
+  async getUnreadCount(userId?: string): Promise<number> {
+    const where: Prisma.NotificationWhereInput = { isRead: false };
+    if (userId) {
+      where.userId = userId;
+    }
+    return this.prisma.notification.count({ where });
+  }
+
   async findOne(id: string) {
     const notif = await this.prisma.notification.findUnique({ where: { id } });
     if (!notif) throw new NotFoundException('Notification not found');
     return this.formatNotification(notif);
   }
 
+  /**
+   * Create a notification record and dispatch it via WebSocket in real-time
+   */
   async create(data: CreateNotificationDto) {
     const created = await this.prisma.notification.create({
       data: {
@@ -111,7 +131,137 @@ export class NotificationsService {
       },
     });
 
-    return this.formatNotification(created);
+    const formatted = this.formatNotification(created);
+
+    // Real-time dispatch via WebSocket Gateway
+    if (this.gateway) {
+      this.gateway.sendToUser(data.userId, formatted);
+      const unreadCount = await this.getUnreadCount(data.userId);
+      this.gateway.sendCountToUser(data.userId, unreadCount);
+    }
+
+    return formatted;
+  }
+
+  /**
+   * Helper to send notification to a single user
+   */
+  async notifyUser(
+    userId: string,
+    payload: {
+      title: string;
+      message: string;
+      type?: NotificationTypeEnum | string;
+      link?: string;
+    },
+  ) {
+    return this.create({
+      userId,
+      title: payload.title,
+      message: payload.message,
+      type: (payload.type as NotificationTypeEnum) || 'INFO',
+      link: payload.link,
+    });
+  }
+
+  /**
+   * Helper to send real-time notification to all Admin & Super Admin users
+   */
+  async notifyAdmins(payload: {
+    title: string;
+    message: string;
+    type?: NotificationTypeEnum | string;
+    link?: string;
+  }) {
+    try {
+      const adminUsers = await this.prisma.user.findMany({
+        where: {
+          OR: [
+            { roleName: { in: ['Admin', 'Super Admin'] } },
+            { role: { name: { in: ['Admin', 'Super Admin'] } } },
+          ],
+          status: 'ACTIVE',
+        },
+        select: { id: true },
+      });
+
+      if (adminUsers.length === 0) return [];
+
+      const createdNotifications = await Promise.all(
+        adminUsers.map((admin) =>
+          this.create({
+            userId: admin.id,
+            title: payload.title,
+            message: payload.message,
+            type: (payload.type as NotificationTypeEnum) || 'INFO',
+            link: payload.link,
+          }),
+        ),
+      );
+
+      return createdNotifications;
+    } catch (err) {
+      this.logger.error(`Failed to notify admins: ${(err as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Broadcast an announcement to all active users or a specific target role
+   */
+  async broadcast(data: BroadcastNotificationDto) {
+    const where: Prisma.UserWhereInput = { status: 'ACTIVE' };
+    if (data.targetRole && data.targetRole !== 'All') {
+      where.OR = [{ roleName: data.targetRole }, { role: { name: data.targetRole } }];
+    }
+
+    const recipients = await this.prisma.user.findMany({
+      where,
+      select: { id: true },
+    });
+
+    if (recipients.length === 0) {
+      return { count: 0, success: true };
+    }
+
+    const notifType = (data.type as NotificationType) || 'INFO';
+
+    // Batch create notifications for all target users
+    const records = await this.prisma.$transaction(
+      recipients.map((user) =>
+        this.prisma.notification.create({
+          data: {
+            userId: user.id,
+            title: data.title,
+            message: data.message,
+            type: notifType,
+            link: data.link || null,
+            isRead: false,
+          },
+        }),
+      ),
+    );
+
+    // If WebSocket gateway is present, push live events
+    if (this.gateway && records.length > 0) {
+      const sampleFormatted = this.formatNotification(records[0]);
+      if (!data.targetRole || data.targetRole === 'All') {
+        this.gateway.broadcast(sampleFormatted);
+      } else {
+        this.gateway.sendToRole(data.targetRole, sampleFormatted);
+      }
+
+      // Update unread counts asynchronously
+      for (const user of recipients) {
+        this.getUnreadCount(user.id)
+          .then((count) => {
+            this.gateway?.sendCountToUser(user.id, count);
+          })
+          .catch(() => {});
+      }
+    }
+
+    return { count: records.length, success: true };
   }
 
   async markAsRead(id: string) {
@@ -119,7 +269,16 @@ export class NotificationsService {
       where: { id },
       data: { isRead: true },
     });
-    return this.formatNotification(updated);
+
+    const formatted = this.formatNotification(updated);
+
+    if (this.gateway) {
+      this.gateway.emitNotificationRead(updated.userId, id);
+      const unreadCount = await this.getUnreadCount(updated.userId);
+      this.gateway.sendCountToUser(updated.userId, unreadCount);
+    }
+
+    return formatted;
   }
 
   async markAllAsRead(userId?: string) {
@@ -133,11 +292,22 @@ export class NotificationsService {
       data: { isRead: true },
     });
 
+    if (this.gateway && userId) {
+      this.gateway.sendCountToUser(userId, 0);
+    }
+
     return { count: res.count, success: true };
   }
 
   async remove(id: string) {
+    const existing = await this.prisma.notification.findUnique({ where: { id } });
     await this.prisma.notification.delete({ where: { id } });
+
+    if (this.gateway && existing) {
+      const unreadCount = await this.getUnreadCount(existing.userId);
+      this.gateway.sendCountToUser(existing.userId, unreadCount);
+    }
+
     return { success: true };
   }
 
@@ -148,6 +318,14 @@ export class NotificationsService {
     }
 
     const res = await this.prisma.notification.deleteMany({ where });
+
+    if (this.gateway) {
+      this.gateway.emitNotificationsCleared(userId);
+      if (userId) {
+        this.gateway.sendCountToUser(userId, 0);
+      }
+    }
+
     return { count: res.count, success: true };
   }
 }

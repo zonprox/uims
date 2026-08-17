@@ -10,7 +10,7 @@ const VENDOR_RULES: Array<{ chunk: string; patterns: Array<string> }> = [
   { chunk: 'vendor-antd-pro', patterns: ['@ant-design/pro-'] },
   { chunk: 'vendor-antd-core', patterns: ['antd'] },
   { chunk: 'vendor-query', patterns: ['@tanstack'] },
-  { chunk: 'vendor-utils', patterns: ['dayjs', 'axios', 'zustand', 'zod'] },
+  { chunk: 'vendor-utils', patterns: ['dayjs', 'axios', 'zustand', 'zod', 'socket.io-client'] },
 ];
 
 function resolveManualChunk(id: string): string | undefined {
@@ -60,6 +60,23 @@ export default defineConfig(({ mode }) => {
         '@uims/shared-utils': path.resolve(import.meta.dirname, '../../packages/shared-utils/src'),
       },
     },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react-router',
+        'antd',
+        '@ant-design/icons',
+        '@ant-design/pro-components',
+        '@tanstack/react-query',
+        'axios',
+        'zustand',
+        'dayjs',
+        'zod',
+        'socket.io-client',
+      ],
+    },
     server: {
       port: webPort,
       host: '0.0.0.0',
@@ -67,6 +84,9 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       allowedHosts: true,
       cors: true,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
       hmr: {
         overlay: true,
       },
@@ -77,6 +97,12 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/socket.io': {
+          target: proxyTarget,
+          ws: true,
           changeOrigin: true,
           secure: false,
         },

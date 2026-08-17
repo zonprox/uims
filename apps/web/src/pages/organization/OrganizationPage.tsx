@@ -154,13 +154,13 @@ export default function OrganizationPage() {
   const formatTreeNodes = useCallback(
     (nodes: OrgNode[]): DataNode[] => {
       return nodes.map((node) => {
-        let icon = <ApartmentOutlined style={{ color: '#1677ff' }} />;
+        let icon = <ApartmentOutlined key="dept-icon" style={{ color: '#1677ff' }} />;
         if (node.type === 'organization') {
-          icon = <BankOutlined style={{ color: '#722ed1' }} />;
+          icon = <BankOutlined key="bank-icon" style={{ color: '#722ed1' }} />;
         } else if (node.type === 'branch') {
-          icon = <EnvironmentOutlined style={{ color: '#10b981' }} />;
+          icon = <EnvironmentOutlined key="env-icon" style={{ color: '#10b981' }} />;
         } else if (node.type === 'position') {
-          icon = <IdcardOutlined style={{ color: '#f59e0b' }} />;
+          icon = <IdcardOutlined key="pos-icon" style={{ color: '#f59e0b' }} />;
         }
 
         const isMatch =

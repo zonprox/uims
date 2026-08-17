@@ -8,6 +8,7 @@ import { inventoryService } from './inventory.service';
 import { licensesService } from './licenses.service';
 import { networkService } from './network.service';
 import { organizationService } from './organization.service';
+import { notificationsService } from './notifications.service';
 import { reportsService } from './reports.service';
 import { settingsService } from './settings.service';
 import { usersService } from './users.service';
@@ -265,6 +266,40 @@ describe('Frontend Service Clients', () => {
       expect(api.patch).toHaveBeenCalledWith('/settings/general', { companyName: 'Corp2' });
       expect(settings.companyName).toBe('Corp');
       expect(updated.companyName).toBe('Corp2');
+    });
+  });
+
+  describe('notificationsService', () => {
+    it('should fetch notifications and unread count', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce({ data: { data: [{ id: 'n1', title: 'Hello' }] } });
+      vi.mocked(api.get).mockResolvedValueOnce({ data: { count: 3 } });
+
+      const list = await notificationsService.getNotifications();
+      const count = await notificationsService.getUnreadCount();
+
+      expect(api.get).toHaveBeenCalledWith('/notifications');
+      expect(api.get).toHaveBeenCalledWith('/notifications/unread-count');
+      expect(list).toHaveLength(1);
+      expect(count).toBe(3);
+    });
+
+    it('should broadcast announcement and mark as read', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({ data: { count: 5, success: true } });
+      vi.mocked(api.patch).mockResolvedValueOnce({ data: { data: { id: 'n1', read: true } } });
+
+      const broadcast = await notificationsService.broadcastAnnouncement({
+        title: 'Maintenance',
+        message: 'Tonight at 2am',
+      });
+      const read = await notificationsService.markAsRead('n1');
+
+      expect(api.post).toHaveBeenCalledWith('/notifications/broadcast', {
+        title: 'Maintenance',
+        message: 'Tonight at 2am',
+      });
+      expect(api.patch).toHaveBeenCalledWith('/notifications/n1/read');
+      expect(broadcast.count).toBe(5);
+      expect(read.read).toBe(true);
     });
   });
 });

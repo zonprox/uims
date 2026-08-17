@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type {
   AssignUserLicenseDto,
@@ -14,6 +14,7 @@ import {
   mapLicenseTypeToLabel,
 } from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type LicenseWithAssignments = Prisma.LicenseGetPayload<{
   include: { assignments: true };
@@ -21,7 +22,10 @@ type LicenseWithAssignments = Prisma.LicenseGetPayload<{
 
 @Injectable()
 export class LicensesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private notificationsService?: NotificationsService,
+  ) {}
 
   async create(data: CreateLicenseDto) {
     const type = mapLicenseType(data.type as string);
@@ -121,6 +125,23 @@ export class LicensesService {
       include: { assignments: true },
     });
 
+    if (
+      this.notificationsService &&
+      data.status &&
+      (data.status === 'EXPIRING_SOON' || data.status === 'EXPIRED')
+    ) {
+      try {
+        await this.notificationsService.notifyAdmins({
+          title: 'Software License Expiry Notice',
+          message: `License "${updated.name}" status changed to ${updated.status}. Review active subscriptions.`,
+          type: 'WARNING',
+          link: '/licenses',
+        });
+      } catch {
+        // Non-blocking
+      }
+    }
+
     return this.formatLicense(updated);
   }
 
@@ -129,29 +150,62 @@ export class LicensesService {
   }
 
   async assignUser(licenseId: string, payload: AssignUserLicenseDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const license = await tx.license.findUnique({
         where: { id: licenseId },
         include: { assignments: true },
       });
       if (!license) throw new NotFoundException('License not found');
 
+      // Check if user exists by email
+      const existingUser =
+        payload.email && tx.user
+          ? await tx.user.findUnique({ where: { email: payload.email } })
+          : null;
+
       const newAssignment = await tx.licenseAssignment.create({
         data: {
           licenseId,
+          userId: existingUser?.id || null,
           assignedName: payload.name,
           assignedEmail: payload.email,
           department: payload.department || 'Engineering',
         },
       });
 
-      await tx.license.update({
+      const updatedLicense = await tx.license.update({
         where: { id: licenseId },
         data: { usedSeats: { increment: 1 } },
       });
 
-      return newAssignment;
+      return { newAssignment, license: updatedLicense, userId: existingUser?.id };
     });
+
+    // Business event triggers
+    if (this.notificationsService) {
+      try {
+        if (result.userId) {
+          await this.notificationsService.notifyUser(result.userId, {
+            title: 'Software License Assigned',
+            message: `You have been allocated a license seat for "${result.license.name}".`,
+            type: 'INFO',
+            link: '/licenses',
+          });
+        }
+        if (result.license.usedSeats >= result.license.totalSeats) {
+          await this.notificationsService.notifyAdmins({
+            title: 'License Capacity Reached',
+            message: `License "${result.license.name}" has reached 100% capacity (${result.license.usedSeats}/${result.license.totalSeats} seats assigned).`,
+            type: 'WARNING',
+            link: '/licenses',
+          });
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    return result.newAssignment;
   }
 
   async revokeUser(licenseId: string, assignmentId: string) {

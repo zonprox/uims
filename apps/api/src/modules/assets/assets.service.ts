@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type {
   AssetQueryDto,
@@ -8,6 +8,7 @@ import type {
 } from '@uims/shared-types';
 import { mapAssetStatus, mapAssetStatusToLabel } from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type AssetWithRelations = Prisma.AssetGetPayload<{
   include: {
@@ -25,7 +26,10 @@ function generateAssetTag(): string {
 
 @Injectable()
 export class AssetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private notificationsService?: NotificationsService,
+  ) {}
 
   private async resolveCategoryId(
     tx: Prisma.TransactionClient,
@@ -56,7 +60,7 @@ export class AssetsService {
   async create(data: CreateAssetDto) {
     const status = mapAssetStatus(data.status);
 
-    return this.prisma.$transaction(async (tx) => {
+    const formatted = await this.prisma.$transaction(async (tx) => {
       const categoryId = await this.resolveCategoryId(tx, data.categoryId, data.category);
       const locationId = await this.resolveLocationId(tx, data.locationId, data.location);
 
@@ -80,6 +84,7 @@ export class AssetsService {
           warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
           categoryId,
           locationId,
+          assignedToId: data.assignedToId || null,
           specs: (data.specs as Prisma.InputJsonValue) || {},
           notes: data.notes || '',
         },
@@ -92,6 +97,21 @@ export class AssetsService {
 
       return this.formatAsset(created);
     });
+
+    if (data.assignedToId && this.notificationsService) {
+      try {
+        await this.notificationsService.notifyUser(data.assignedToId, {
+          title: 'Hardware Asset Assigned',
+          message: `Asset "${formatted.name}" (Tag: ${formatted.tag}) has been assigned to your corporate profile.`,
+          type: 'INFO',
+          link: '/assets',
+        });
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    return formatted;
   }
 
   async findAll(query?: AssetQueryDto) {
@@ -160,6 +180,11 @@ export class AssetsService {
     if (data.specs) updateData.specs = data.specs as Prisma.InputJsonValue;
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.status) updateData.status = mapAssetStatus(data.status);
+    if (data.assignedToId !== undefined) {
+      updateData.assignedTo = data.assignedToId
+        ? { connect: { id: data.assignedToId } }
+        : { disconnect: true };
+    }
   }
 
   private assignFinancialFields(data: UpdateAssetDto, updateData: Prisma.AssetUpdateInput) {
@@ -219,7 +244,39 @@ export class AssetsService {
       return result;
     });
 
-    return this.formatAsset(updated);
+    const formatted = this.formatAsset(updated);
+
+    // Business event triggers
+    if (this.notificationsService) {
+      try {
+        // 1. Assignment change notification
+        if (data.assignedToId && data.assignedToId !== existing.assignedToId) {
+          await this.notificationsService.notifyUser(data.assignedToId, {
+            title: 'Hardware Asset Assigned',
+            message: `Asset "${formatted.name}" (Tag: ${formatted.tag}) has been assigned to your corporate profile.`,
+            type: 'INFO',
+            link: '/assets',
+          });
+        }
+        // 2. Critical status change notification
+        if (
+          data.status &&
+          (updated.status === 'MAINTENANCE' || updated.status === 'LOST') &&
+          existing.status !== updated.status
+        ) {
+          await this.notificationsService.notifyAdmins({
+            title: `Asset Alert: ${formatted.name}`,
+            message: `Hardware asset ${formatted.name} (${formatted.tag}) has been marked as ${formatted.status}.`,
+            type: 'ALERT',
+            link: '/assets',
+          });
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    return formatted;
   }
 
   async remove(id: string) {

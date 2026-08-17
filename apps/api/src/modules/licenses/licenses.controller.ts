@@ -1,11 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AssignUserLicenseDto, LicenseQueryDto } from '@uims/shared-types';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateLicenseDto } from './dto/create-license.dto';
 import { UpdateLicenseDto } from './dto/update-license.dto';
 import { LicensesService } from './licenses.service';
 
 @ApiTags('licenses')
+@ApiBearerAuth()
 @Controller('licenses')
 export class LicensesController {
   constructor(private readonly licensesService: LicensesService) {}
@@ -17,7 +19,8 @@ export class LicensesController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create new software license' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Create new software license (Admin/Super Admin only)' })
   create(@Body() body: CreateLicenseDto) {
     return this.licensesService.create(body);
   }
@@ -35,25 +38,29 @@ export class LicensesController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update software license' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Update software license (Admin/Super Admin only)' })
   update(@Param('id') id: string, @Body() body: UpdateLicenseDto) {
     return this.licensesService.update(id, body);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete software license' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Delete software license (Admin/Super Admin only)' })
   remove(@Param('id') id: string) {
     return this.licensesService.remove(id);
   }
 
   @Post(':id/assign')
-  @ApiOperation({ summary: 'Assign seat to user' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Assign seat to user (Admin/Super Admin only)' })
   assignSeat(@Param('id') id: string, @Body() body: AssignUserLicenseDto) {
     return this.licensesService.assignUser(id, body);
   }
 
   @Delete(':id/assign/:assignmentId')
-  @ApiOperation({ summary: 'Revoke seat from user' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Revoke seat from user (Admin/Super Admin only)' })
   revokeSeat(@Param('id') id: string, @Param('assignmentId') assignmentId: string) {
     return this.licensesService.revokeUser(id, assignmentId);
   }

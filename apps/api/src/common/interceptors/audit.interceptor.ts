@@ -1,28 +1,36 @@
+import * as crypto from 'node:crypto';
 import {
   type CallHandler,
   type ExecutionContext,
   Injectable,
   type NestInterceptor,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { PrismaService } from '../../database/prisma.service';
+
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'passwordHash',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'secret',
+  'adInitialPassword',
+  'apiKey',
+  'privateKey',
+  'creditCard',
+  'cvv',
+]);
 
 function sanitizePayload(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(sanitizePayload);
 
   const copy: Record<string, unknown> = { ...(obj as Record<string, unknown>) };
-  const sensitiveKeys = [
-    'password',
-    'passwordHash',
-    'token',
-    'accessToken',
-    'refreshToken',
-    'secret',
-  ];
   for (const key of Object.keys(copy)) {
-    if (sensitiveKeys.includes(key)) {
+    if (SENSITIVE_KEYS.has(key)) {
       copy[key] = '[REDACTED]';
     } else if (typeof copy[key] === 'object' && copy[key] !== null) {
       copy[key] = sanitizePayload(copy[key]);
@@ -55,6 +63,22 @@ function resolveAction(method: string): string {
   }
 }
 
+function computeAuditHash(
+  timestamp: string,
+  userId: string,
+  action: string,
+  entity: string,
+  status: string,
+  ip: string,
+  payloadStr: string,
+): string {
+  const secret = process.env.AUDIT_SIGNING_KEY || 'uims-audit-tamper-evident-hmac-2026';
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}|${userId}|${action}|${entity}|${status}|${ip}|${payloadStr}`)
+    .digest('hex');
+}
+
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   constructor(private prisma: PrismaService) {}
@@ -66,8 +90,10 @@ export class AuditInterceptor implements NestInterceptor {
       ip?: string;
       body?: unknown;
     },
+    res: Response,
     method: string,
     path: string,
+    durationMs: number,
   ): Promise<void> {
     try {
       const user = req.user;
@@ -86,6 +112,21 @@ export class AuditInterceptor implements NestInterceptor {
       const userAgent =
         typeof req.headers?.['user-agent'] === 'string' ? req.headers['user-agent'] : undefined;
       const sanitizedBody = sanitizePayload(req.body);
+      const timestampIso = new Date().toISOString();
+      const userId = user?.id || user?.sub || 'SYSTEM';
+      const statusCode = res.statusCode || 200;
+      const status = statusCode >= 400 ? 'Failed' : 'Success';
+
+      const payloadStr = sanitizedBody ? JSON.stringify(sanitizedBody) : '{}';
+      const hash = computeAuditHash(
+        timestampIso,
+        userId,
+        action,
+        entity,
+        status,
+        ipAddress,
+        payloadStr,
+      );
 
       await this.prisma.auditLog.create({
         data: {
@@ -97,8 +138,11 @@ export class AuditInterceptor implements NestInterceptor {
           entity,
           entityType: entity,
           ipAddress,
-          status: 'Success',
-          details: `${action} performed on ${entity} via ${method} ${path}`,
+          status,
+          statusCode,
+          durationMs: Number(durationMs.toFixed(2)),
+          hash,
+          details: `${action} performed on ${entity} via ${method} ${path} (${statusCode})`,
           diffPayload: sanitizedBody
             ? (sanitizedBody as import('@prisma/client').Prisma.InputJsonValue)
             : undefined,
@@ -111,8 +155,12 @@ export class AuditInterceptor implements NestInterceptor {
   }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const req = context.switchToHttp().getRequest();
-    const method = req.method ? req.method.toUpperCase() : 'GET';
+    const http = context.switchToHttp();
+    const req = http.getRequest ? http.getRequest() : {};
+    const res =
+      (typeof http.getResponse === 'function' ? http.getResponse<Response>() : null) ||
+      ({ statusCode: 200 } as Response);
+    const method = req && req.method ? req.method.toUpperCase() : 'GET';
 
     if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
       return next.handle();
@@ -123,9 +171,12 @@ export class AuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    const startTime = performance.now();
+
     return next.handle().pipe(
       tap(() => {
-        void this.recordAudit(req, method, path);
+        const durationMs = performance.now() - startTime;
+        void this.recordAudit(req, res, method, path, durationMs);
       }),
     );
   }

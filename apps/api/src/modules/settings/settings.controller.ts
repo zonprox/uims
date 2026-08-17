@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { SettingsService } from './settings.service';
 
 @ApiTags('settings')
+@ApiBearerAuth()
 @Controller('settings')
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
@@ -32,13 +34,15 @@ export class SettingsController {
   }
 
   @Patch(':group')
-  @ApiOperation({ summary: 'Update settings group' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Update settings group (Admin/Super Admin only)' })
   updateSetting(@Param('group') group: string, @Body() body: Record<string, unknown>) {
     return this.settingsService.updateSetting(group, body);
   }
 
   @Post('backup')
-  @ApiOperation({ summary: 'Trigger on-demand encrypted backup' })
+  @Roles('Super Admin')
+  @ApiOperation({ summary: 'Trigger on-demand encrypted backup (Super Admin only)' })
   runBackup() {
     return this.settingsService.runBackup();
   }

@@ -319,6 +319,32 @@ export interface FormatDateTimeOptions {
   showOffset?: boolean;
 }
 
+function buildTimePattern(timeFormat: '12h' | '24h', includeSeconds: boolean): string {
+  if (timeFormat === '12h') {
+    return includeSeconds ? ' hh:mm:ss A' : ' hh:mm A';
+  }
+  return includeSeconds ? ' HH:mm:ss' : ' HH:mm';
+}
+
+function buildTimezoneSuffix(
+  safeTz: string,
+  d: dayjs.Dayjs,
+  showTimezone: boolean,
+  showOffset: boolean,
+  refDate?: Date,
+): string {
+  if (!showOffset && !showTimezone) return '';
+  const offset = d.format('Z');
+  const abbr = getTimezoneAbbr(safeTz, refDate);
+  if (showTimezone && showOffset) {
+    return ` (${abbr} / UTC${offset})`;
+  }
+  if (showTimezone) {
+    return ` (${abbr})`;
+  }
+  return ` (UTC${offset})`;
+}
+
 /**
  * Enterprise date-time formatter supporting dynamic timezones and formats.
  */
@@ -343,30 +369,17 @@ export function formatEnterpriseDateTime(
 
     if (!d.isValid()) return '';
 
-    let pattern = format;
-    if (includeTime) {
-      if (timeFormat === '12h') {
-        pattern += includeSeconds ? ' hh:mm:ss A' : ' hh:mm A';
-      } else {
-        pattern += includeSeconds ? ' HH:mm:ss' : ' HH:mm';
-      }
-    }
+    const timePattern = includeTime ? buildTimePattern(timeFormat, includeSeconds) : '';
+    const formattedDate = d.format(`${format}${timePattern}`);
+    const tzSuffix = buildTimezoneSuffix(
+      safeTz,
+      d,
+      showTimezone,
+      showOffset,
+      date instanceof Date ? date : undefined,
+    );
 
-    let result = d.format(pattern);
-
-    if (showOffset || showTimezone) {
-      const offset = d.format('Z');
-      const abbr = getTimezoneAbbr(safeTz, date instanceof Date ? date : undefined);
-      if (showTimezone && showOffset) {
-        result += ` (${abbr} / UTC${offset})`;
-      } else if (showTimezone) {
-        result += ` (${abbr})`;
-      } else if (showOffset) {
-        result += ` (UTC${offset})`;
-      }
-    }
-
-    return result;
+    return `${formattedDate}${tzSuffix}`;
   } catch {
     return String(date);
   }

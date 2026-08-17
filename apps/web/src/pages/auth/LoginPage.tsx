@@ -1,4 +1,12 @@
-import { LockOutlined, MoonOutlined, SunOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  CrownOutlined,
+  DesktopOutlined,
+  LockOutlined,
+  MoonOutlined,
+  SunOutlined,
+  ToolOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { App, Button, Card, Checkbox, Flex, Form, Input, Tooltip, Typography } from 'antd';
 import { SYSTEM_INFO } from '@uims/shared-utils';
 import { useState } from 'react';
@@ -217,6 +225,7 @@ export default function LoginPage() {
                 <Button
                   size="small"
                   type="dashed"
+                  icon={<CrownOutlined style={{ color: '#eab308' }} />}
                   style={{ fontSize: 11, height: 24, padding: '0 8px' }}
                   onClick={() => {
                     form.setFieldsValue({
@@ -225,11 +234,12 @@ export default function LoginPage() {
                     });
                   }}
                 >
-                  👑 Super Admin (admin)
+                  Super Admin (admin)
                 </Button>
                 <Button
                   size="small"
                   type="dashed"
+                  icon={<ToolOutlined style={{ color: '#3b82f6' }} />}
                   style={{ fontSize: 11, height: 24, padding: '0 8px' }}
                   onClick={() => {
                     form.setFieldsValue({
@@ -238,11 +248,12 @@ export default function LoginPage() {
                     });
                   }}
                 >
-                  🛠️ AD Login (sarah.chen)
+                  AD Login (sarah.chen)
                 </Button>
                 <Button
                   size="small"
                   type="dashed"
+                  icon={<DesktopOutlined style={{ color: '#10b981' }} />}
                   style={{ fontSize: 11, height: 24, padding: '0 8px' }}
                   onClick={() => {
                     form.setFieldsValue({
@@ -251,7 +262,7 @@ export default function LoginPage() {
                     });
                   }}
                 >
-                  💻 AD Login (david.kim)
+                  AD Login (david.kim)
                 </Button>
               </Flex>
             </div>

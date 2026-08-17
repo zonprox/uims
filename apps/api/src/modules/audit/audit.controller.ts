@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuditQueryDto, LogEventDto } from '@uims/shared-types';
 import type { Response } from 'express';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
 
 @ApiTags('audit')
+@ApiBearerAuth()
 @Controller('audit')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
@@ -37,7 +39,8 @@ export class AuditController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Log a new audit event' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Log a new verified audit event (Admin/Super Admin only)' })
   logEvent(@Body() body: LogEventDto) {
     return this.auditService.logEvent(body);
   }

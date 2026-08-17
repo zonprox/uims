@@ -11,3 +11,7 @@ allowBuilds:
   prisma: true
 minimumReleaseAgeExclude:
   - bullmq@6.1.1
+peerDependencyRules:
+  allowedVersions:
+    antd: "^6.0.0"
+

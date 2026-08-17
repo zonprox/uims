@@ -1,12 +1,14 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { IPAddressQueryDto } from '@uims/shared-types';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateIPAddressDto } from './dto/create-ip.dto';
 import { CreateSubnetDto } from './dto/create-subnet.dto';
 import { UpdateIPAddressDto } from './dto/update-ip.dto';
 import { NetworkService } from './network.service';
 
 @ApiTags('network')
+@ApiBearerAuth()
 @Controller('network')
 export class NetworkController {
   constructor(private readonly networkService: NetworkService) {}
@@ -24,7 +26,8 @@ export class NetworkController {
   }
 
   @Post('ips')
-  @ApiOperation({ summary: 'Allocate new static IP' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Allocate new static IP (Admin/Super Admin only)' })
   createIp(@Body() body: CreateIPAddressDto) {
     return this.networkService.createIp(body);
   }
@@ -36,13 +39,15 @@ export class NetworkController {
   }
 
   @Patch('ips/:id')
-  @ApiOperation({ summary: 'Update IP address' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Update IP address (Admin/Super Admin only)' })
   updateIp(@Param('id') id: string, @Body() body: UpdateIPAddressDto) {
     return this.networkService.updateIp(id, body);
   }
 
   @Delete('ips/:id')
-  @ApiOperation({ summary: 'Release IP address' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Release IP address (Admin/Super Admin only)' })
   deleteIp(@Param('id') id: string) {
     return this.networkService.deleteIp(id);
   }
@@ -60,7 +65,8 @@ export class NetworkController {
   }
 
   @Post('subnets')
-  @ApiOperation({ summary: 'Provision new subnet' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Provision new subnet (Admin/Super Admin only)' })
   createSubnet(@Body() body: CreateSubnetDto) {
     return this.networkService.createSubnet(body);
   }

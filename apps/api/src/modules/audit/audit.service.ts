@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { AuditLog, Prisma } from '@prisma/client';
 import type { AuditQueryDto, AuditStatsDto, LogEventDto } from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuditService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private notificationsService?: NotificationsService,
+  ) {}
 
   async findAll(query?: AuditQueryDto) {
     const where: Prisma.AuditLogWhereInput = {};
@@ -49,7 +53,7 @@ export class AuditService {
   }
 
   async logEvent(data: LogEventDto) {
-    return this.prisma.auditLog.create({
+    const log = await this.prisma.auditLog.create({
       data: {
         userId: data.userId,
         userName: data.userName || 'System Engine',
@@ -68,6 +72,24 @@ export class AuditService {
         userAgent: data.userAgent || null,
       },
     });
+
+    if (
+      this.notificationsService &&
+      (data.severity === 'Critical' || data.severity === 'Alert' || data.status === 'Failed')
+    ) {
+      try {
+        await this.notificationsService.notifyAdmins({
+          title: `Security Anomaly: ${data.action}`,
+          message: `${data.details || `Critical event detected on entity ${data.entity}`} (IP: ${data.ipAddress || 'Unknown'})`,
+          type: 'ALERT',
+          link: '/audit',
+        });
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    return log;
   }
 
   async exportCsv() {

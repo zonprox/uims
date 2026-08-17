@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { AuditLog } from '@prisma/client';
 import type { DashboardOverviewDto } from '@uims/shared-types';
+import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 
 function formatRecentLog(log: AuditLog, timeAgo: (date: Date) => string) {
@@ -36,27 +37,40 @@ function formatRecentLog(log: AuditLog, timeAgo: (date: Date) => string) {
 
 @Injectable()
 export class DashboardService {
-  private cache: {
+  private localCache: {
     data: DashboardOverviewDto | null;
     timestamp: number;
     period?: string;
   } = { data: null, timestamp: 0 };
-  private readonly CACHE_TTL_MS = 15_000; // 15 seconds cache
+  private readonly CACHE_TTL_SECONDS = 15;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private redis?: RedisService,
+  ) {}
 
-  clearCache() {
-    this.cache = { data: null, timestamp: 0 };
+  async clearCache() {
+    this.localCache = { data: null, timestamp: 0 };
+    if (this.redis) {
+      await this.redis.delPattern('uims:cache:dashboard:*');
+    }
   }
 
   async getOverview(period?: string): Promise<DashboardOverviewDto> {
-    const now = Date.now();
-    if (
-      this.cache.data &&
-      this.cache.period === period &&
-      now - this.cache.timestamp < this.CACHE_TTL_MS
-    ) {
-      return this.cache.data;
+    const cacheKey = `uims:cache:dashboard:overview:${period || 'all'}`;
+
+    if (this.redis) {
+      const cached = await this.redis.get<DashboardOverviewDto>(cacheKey);
+      if (cached) return cached;
+    } else {
+      const now = Date.now();
+      if (
+        this.localCache.data &&
+        this.localCache.period === period &&
+        now - this.localCache.timestamp < this.CACHE_TTL_SECONDS * 1000
+      ) {
+        return this.localCache.data;
+      }
     }
 
     const [
@@ -187,11 +201,15 @@ export class DashboardService {
       actionItems,
     };
 
-    this.cache = {
-      data: result,
-      timestamp: now,
-      period,
-    };
+    if (this.redis) {
+      await this.redis.set(cacheKey, result, this.CACHE_TTL_SECONDS);
+    } else {
+      this.localCache = {
+        data: result,
+        timestamp: Date.now(),
+        period,
+      };
+    }
 
     return result;
   }

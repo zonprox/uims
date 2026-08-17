@@ -100,6 +100,7 @@ describe('AuthService', () => {
         sub: 'user-2',
         role: 'Employee',
         username: 'jane.doe',
+        type: 'access',
       });
     });
 

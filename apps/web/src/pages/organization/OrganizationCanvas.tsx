@@ -14,11 +14,14 @@ import {
   FullscreenExitOutlined,
   FullscreenOutlined,
   IdcardOutlined,
+  MinusOutlined,
   MinusSquareOutlined,
+  MoreOutlined,
   OneToOneOutlined,
   PlusOutlined,
   PlusSquareOutlined,
   SearchOutlined,
+  UserOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons';
@@ -1661,18 +1664,16 @@ export default function OrganizationCanvas({
                     <Button
                       type="text"
                       size="small"
+                      icon={<MoreOutlined style={{ fontSize: 12 }} />}
                       style={{
                         width: 18,
                         height: 18,
                         minWidth: 18,
                         padding: 0,
-                        fontSize: 10,
                         color: isDark ? '#64748b' : '#94a3b8',
                       }}
                       onClick={(e) => e.stopPropagation()}
-                    >
-                      •••
-                    </Button>
+                    />
                   </Dropdown>
                 </Flex>
 
@@ -1705,7 +1706,10 @@ export default function OrganizationCanvas({
                     }}
                   >
                     {node.data.manager ? (
-                      `👤 ${node.data.manager}`
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <UserOutlined style={{ fontSize: 10 }} />
+                        <span>{node.data.manager}</span>
+                      </span>
                     ) : node.data.description ? (
                       node.data.description
                     ) : (
@@ -1772,7 +1776,7 @@ export default function OrganizationCanvas({
                       e.currentTarget.style.transform = 'scale(1)';
                     }}
                   >
-                    {node.isCollapsed ? `+${node.childCount}` : '−'}
+                    {node.isCollapsed ? `+${node.childCount}` : <MinusOutlined style={{ fontSize: 9 }} />}
                   </div>
                 )}
               </div>

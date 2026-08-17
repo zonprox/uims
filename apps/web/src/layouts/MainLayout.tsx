@@ -6,6 +6,7 @@ import CommandPalette from '../components/CommandPalette';
 import ErrorBoundary from '../components/ErrorBoundary';
 import NotificationDrawer from '../components/NotificationDrawer';
 import { QuickConfigDrawer } from '../components/QuickConfigDrawer';
+import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications';
 import { useAuthStore } from '../stores/auth.store';
 import { useThemeStore } from '../stores/theme.store';
 import { LayoutFooter } from './components/LayoutFooter';
@@ -41,7 +42,18 @@ export default function MainLayout() {
   const [quickConfigOpen, setQuickConfigOpen] = useState(false);
   const [activeOrg, setActiveOrg] = useState('Acme Enterprise HQ (US-East)');
 
-  const { unreadNotifCount, navBadges, fetchLiveTelemetry } = useLayoutTelemetry(15000);
+  const { navBadges } = useLayoutTelemetry(15000);
+  const {
+    notifications,
+    unreadCount,
+    isConnected,
+    loading: notifLoading,
+    refreshNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll,
+  } = useRealtimeNotifications();
 
   const handleLogout = useCallback(() => {
     modal.confirm({
@@ -146,7 +158,7 @@ export default function MainLayout() {
           quickCreateMenu={quickCreateMenu}
           userMenuItems={userMenuItems}
           user={user}
-          unreadCount={unreadNotifCount}
+          unreadCount={unreadCount}
           onToggleSidebar={handleToggleSidebar}
           onOpenCommandPalette={() => setCommandPaletteOpen(true)}
           onOpenQuickConfig={() => setQuickConfigOpen(true)}
@@ -167,7 +179,15 @@ export default function MainLayout() {
       <NotificationDrawer
         open={notificationsOpen}
         onClose={() => setNotificationsOpen(false)}
-        onNotificationsChanged={fetchLiveTelemetry}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        loading={notifLoading}
+        isConnected={isConnected}
+        onRefresh={refreshNotifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        onDelete={deleteNotification}
+        onClearAll={clearAll}
       />
     </Layout>
   );

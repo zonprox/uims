@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type {
   CreateInventoryItemDto,
@@ -7,6 +7,7 @@ import type {
   UpdateInventoryItemDto,
 } from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 function generateSku(): string {
   const timeSuffix = Date.now().toString(36).toUpperCase().slice(-4);
@@ -16,10 +17,41 @@ function generateSku(): string {
 
 @Injectable()
 export class InventoryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private notificationsService?: NotificationsService,
+  ) {}
+
+  private async checkStockThreshold(item: {
+    name: string;
+    sku: string;
+    quantity: number;
+    minThreshold: number;
+  }) {
+    if (!this.notificationsService) return;
+    try {
+      if (item.quantity === 0) {
+        await this.notificationsService.notifyAdmins({
+          title: 'Item Out of Stock',
+          message: `Inventory SKU ${item.sku} (${item.name}) is completely depleted (0 units remaining).`,
+          type: 'ALERT',
+          link: '/inventory',
+        });
+      } else if (item.quantity <= item.minThreshold) {
+        await this.notificationsService.notifyAdmins({
+          title: 'Low Stock Alert',
+          message: `Inventory SKU ${item.sku} (${item.name}) is running low: ${item.quantity} units left (Threshold: ${item.minThreshold}).`,
+          type: 'WARNING',
+          link: '/inventory',
+        });
+      }
+    } catch {
+      // Non-blocking notification dispatch
+    }
+  }
 
   async create(data: CreateInventoryItemDto) {
-    return this.prisma.inventoryItem.create({
+    const item = await this.prisma.inventoryItem.create({
       data: {
         sku: data.sku || generateSku(),
         name: data.name,
@@ -33,6 +65,12 @@ export class InventoryService {
         notes: data.notes || '',
       },
     });
+
+    if (item.quantity <= item.minThreshold) {
+      await this.checkStockThreshold(item);
+    }
+
+    return item;
   }
 
   async findAll(query?: InventoryQueryDto) {
@@ -92,10 +130,16 @@ export class InventoryService {
     if (data.supplier !== undefined) updateData.supplier = data.supplier;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
-    return this.prisma.inventoryItem.update({
+    const item = await this.prisma.inventoryItem.update({
       where: { id },
       data: updateData,
     });
+
+    if (item.quantity <= item.minThreshold) {
+      await this.checkStockThreshold(item);
+    }
+
+    return item;
   }
 
   async remove(id: string) {
@@ -106,12 +150,14 @@ export class InventoryService {
     const item = await this.prisma.inventoryItem.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Item not found');
 
-    return this.prisma.inventoryItem.update({
+    const updated = await this.prisma.inventoryItem.update({
       where: { id },
       data: {
         quantity: { increment: Number(quantityToAdd) },
       },
     });
+
+    return updated;
   }
 
   async getStats(): Promise<InventoryStatsDto> {

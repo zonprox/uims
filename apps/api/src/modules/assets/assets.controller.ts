@@ -1,11 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AssetQueryDto } from '@uims/shared-types';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { AssetsService } from './assets.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 
 @ApiTags('assets')
+@ApiBearerAuth()
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
@@ -17,7 +19,8 @@ export class AssetsController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create new asset' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Create new asset (Admin/Super Admin only)' })
   create(@Body() body: CreateAssetDto) {
     return this.assetsService.create(body);
   }
@@ -35,13 +38,15 @@ export class AssetsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update asset' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Update asset (Admin/Super Admin only)' })
   update(@Param('id') id: string, @Body() body: UpdateAssetDto) {
     return this.assetsService.update(id, body);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete asset' })
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Delete asset (Admin/Super Admin only)' })
   remove(@Param('id') id: string) {
     return this.assetsService.remove(id);
   }

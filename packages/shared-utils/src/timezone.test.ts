@@ -26,6 +26,12 @@ describe('Timezone Utilities (Best Practice 2026)', () => {
     expect(isValidTimezone(tz)).toBe(true);
   });
 
+  it('retrieves timezone abbreviation fallback', () => {
+    expect(getTimezoneAbbr('UTC')).toBe('UTC');
+    expect(typeof getTimezoneAbbr('Asia/Ho_Chi_Minh')).toBe('string');
+    expect(getTimezoneAbbr('Asia/Ho_Chi_Minh').length).toBeGreaterThan(0);
+  });
+
   it('calculates timezone offset accurately', () => {
     // 2026-08-15 UTC
     const refDate = '2026-08-15T12:00:00Z';

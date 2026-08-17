@@ -406,9 +406,9 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           Open Advanced Enterprise Settings <RightOutlined style={{ fontSize: 11 }} />
         </Button>
 
-        <div style={{ textAlign: 'center', padding: '4px 0' }}>
+        <div style={{ textAlign: 'center', padding: '6px 0 2px 0' }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            {SYSTEM_INFO.name} v{SYSTEM_INFO.version} • {SYSTEM_INFO.copyright}
+            {SYSTEM_INFO.copyright} • v{SYSTEM_INFO.version}
           </Text>
         </div>
       </Drawer>

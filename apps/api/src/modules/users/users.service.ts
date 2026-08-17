@@ -1,6 +1,7 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -8,7 +9,10 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private redis?: RedisService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
     const email = createUserDto.email.trim().toLowerCase();
@@ -409,7 +413,13 @@ export class UsersService {
   }
 
   async getRoles() {
-    return this.prisma.role.findMany({
+    const cacheKey = 'uims:cache:roles:all';
+    if (this.redis) {
+      const cached = await this.redis.get<Array<unknown>>(cacheKey);
+      if (cached) return cached;
+    }
+
+    const roles = await this.prisma.role.findMany({
       include: {
         permissions: {
           include: {
@@ -419,6 +429,12 @@ export class UsersService {
       },
       orderBy: { name: 'asc' },
     });
+
+    if (this.redis) {
+      await this.redis.set(cacheKey, roles, 3600); // 1 hour cache
+    }
+
+    return roles;
   }
 
   async findAllGroups() {

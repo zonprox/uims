@@ -54,6 +54,34 @@ describe('RolesGuard', () => {
     expect(guard.canActivate(context)).toBe(true);
   });
 
+  it('should grant Super Admin access to any role-protected endpoint via hierarchy', () => {
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['Auditor']);
+
+    const context = {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { role: 'Super Admin' } }),
+      }),
+    } as unknown as ExecutionContext;
+
+    expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it('should grant Admin access to Employee-protected endpoint via hierarchy', () => {
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['Employee']);
+
+    const context = {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => ({
+        getRequest: () => ({ user: { role: 'Admin' } }),
+      }),
+    } as unknown as ExecutionContext;
+
+    expect(guard.canActivate(context)).toBe(true);
+  });
+
   it('should deny access if user role does not match', () => {
     vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['Admin']);
 
