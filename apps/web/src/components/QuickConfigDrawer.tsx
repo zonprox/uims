@@ -111,7 +111,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           </Flex>
         }
         placement="right"
-        size={420}
+        width={420}
         open={open}
         onClose={onClose}
         styles={{

@@ -21,7 +21,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
     const columns = useMemo(
       () => [
         {
-          title: 'Asset Tag & Name',
+          title: 'ASSET TAG & NAME',
           key: 'tag',
           render: (_: unknown, record: Asset) => (
             <div>
@@ -47,7 +47,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           ),
         },
         {
-          title: 'Serial Number',
+          title: 'SERIAL NUMBER',
           dataIndex: 'serialNumber',
           key: 'serialNumber',
           render: (serial: string) => (
@@ -57,7 +57,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           ),
         },
         {
-          title: 'Status',
+          title: 'STATUS',
           dataIndex: 'status',
           key: 'status',
           render: (status: Asset['status']) => {
@@ -70,7 +70,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           },
         },
         {
-          title: 'Assigned User',
+          title: 'ASSIGNED USER',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
           render: (user: string) => (
@@ -78,13 +78,13 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           ),
         },
         {
-          title: 'Location',
+          title: 'LOCATION',
           dataIndex: 'location',
           key: 'location',
           render: (loc: string) => <Text style={{ fontSize: 12.5 }}>{loc}</Text>,
         },
         {
-          title: 'Warranty Expiry',
+          title: 'WARRANTY EXPIRY',
           dataIndex: 'warrantyExpiry',
           key: 'warrantyExpiry',
           render: (date: string) => {
@@ -106,7 +106,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           },
         },
         {
-          title: 'Actions',
+          title: 'ACTIONS',
           key: 'actions',
           render: (_: unknown, record: Asset) => (
             <Space size="small">
@@ -168,7 +168,12 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         rowKey="id"
         loading={loading}
         scroll={{ x: 'max-content' }}
-        pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} items` }}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          pageSizeOptions: ['10', '25', '50', '100'],
+          showTotal: (total) => `Total ${total} items`,
+        }}
       />
     );
   },

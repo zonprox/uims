@@ -65,7 +65,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     const columns = useMemo(
       () => [
         {
-          title: 'IP Address & Hostname',
+          title: 'IP ADDRESS & HOSTNAME',
           dataIndex: 'ip',
           key: 'ip',
           render: (ip: string, record: IPAddress) => (
@@ -80,7 +80,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'MAC & Hardware Vendor',
+          title: 'MAC & HARDWARE VENDOR',
           key: 'hardware',
           render: (_: unknown, record: IPAddress) => (
             <div>
@@ -94,7 +94,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'Subnet & VLAN',
+          title: 'SUBNET & VLAN',
           key: 'network',
           render: (_: unknown, record: IPAddress) => (
             <div>
@@ -108,7 +108,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'Device Type',
+          title: 'DEVICE TYPE',
           dataIndex: 'deviceType',
           key: 'deviceType',
           render: (deviceType: string) => {
@@ -125,7 +125,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           },
         },
         {
-          title: 'ICMP & Status',
+          title: 'ICMP & STATUS',
           key: 'status',
           render: (_: unknown, record: IPAddress) => (
             <div>
@@ -144,7 +144,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'Actions',
+          title: 'ACTIONS',
           key: 'actions',
           render: (_: unknown, record: IPAddress) => (
             <Space size="small">
@@ -239,7 +239,12 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           rowKey="id"
           loading={loading}
           scroll={{ x: 'max-content' }}
-          pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} IPs` }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50', '100'],
+            showTotal: (total) => `Total ${total} IPs`,
+          }}
         />
       </Card>
     );

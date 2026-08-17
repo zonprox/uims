@@ -46,6 +46,193 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     create: { name: 'Employee', description: 'Standard Enterprise Employee' },
   });
 
+  // Seed Granular System Permissions
+  const ALL_PERMISSIONS_CATALOG = [
+    // Asset Management
+    { subject: 'Asset', action: 'create' },
+    { subject: 'Asset', action: 'read' },
+    { subject: 'Asset', action: 'update' },
+    { subject: 'Asset', action: 'delete' },
+    { subject: 'Asset', action: 'export' },
+    { subject: 'Asset', action: 'manage' },
+
+    // SaaS & Software Licenses
+    { subject: 'License', action: 'create' },
+    { subject: 'License', action: 'read' },
+    { subject: 'License', action: 'update' },
+    { subject: 'License', action: 'delete' },
+    { subject: 'License', action: 'export' },
+    { subject: 'License', action: 'manage' },
+
+    // Directory & Users
+    { subject: 'User', action: 'create' },
+    { subject: 'User', action: 'read' },
+    { subject: 'User', action: 'update' },
+    { subject: 'User', action: 'delete' },
+    { subject: 'User', action: 'export' },
+    { subject: 'User', action: 'manage' },
+
+    // Active Directory Groups
+    { subject: 'Group', action: 'create' },
+    { subject: 'Group', action: 'read' },
+    { subject: 'Group', action: 'update' },
+    { subject: 'Group', action: 'delete' },
+    { subject: 'Group', action: 'manage' },
+
+    // RBAC Roles & Permissions
+    { subject: 'Role', action: 'create' },
+    { subject: 'Role', action: 'read' },
+    { subject: 'Role', action: 'update' },
+    { subject: 'Role', action: 'delete' },
+    { subject: 'Role', action: 'manage' },
+
+    // Enterprise Organization Structure
+    { subject: 'Organization', action: 'create' },
+    { subject: 'Organization', action: 'read' },
+    { subject: 'Organization', action: 'update' },
+    { subject: 'Organization', action: 'delete' },
+    { subject: 'Organization', action: 'export' },
+    { subject: 'Organization', action: 'manage' },
+
+    // Network IPAM & Infrastructure
+    { subject: 'Network', action: 'create' },
+    { subject: 'Network', action: 'read' },
+    { subject: 'Network', action: 'update' },
+    { subject: 'Network', action: 'delete' },
+    { subject: 'Network', action: 'export' },
+    { subject: 'Network', action: 'manage' },
+
+    // Spare Stockroom & Inventory
+    { subject: 'Inventory', action: 'create' },
+    { subject: 'Inventory', action: 'read' },
+    { subject: 'Inventory', action: 'update' },
+    { subject: 'Inventory', action: 'delete' },
+    { subject: 'Inventory', action: 'export' },
+    { subject: 'Inventory', action: 'manage' },
+
+    // Security & Compliance Audit
+    { subject: 'Audit', action: 'read' },
+    { subject: 'Audit', action: 'export' },
+
+    // Executive Reports
+    { subject: 'Report', action: 'create' },
+    { subject: 'Report', action: 'read' },
+    { subject: 'Report', action: 'export' },
+    { subject: 'Report', action: 'manage' },
+
+    // System Settings & Preferences
+    { subject: 'Setting', action: 'read' },
+    { subject: 'Setting', action: 'update' },
+    { subject: 'Setting', action: 'manage' },
+  ];
+
+  const seededPermissionsMap = new Map<string, string>();
+
+  for (const perm of ALL_PERMISSIONS_CATALOG) {
+    const existing = await prisma.permission.findFirst({
+      where: { subject: perm.subject, action: perm.action },
+    });
+    if (existing) {
+      seededPermissionsMap.set(`${perm.subject}:${perm.action}`, existing.id);
+    } else {
+      const created = await prisma.permission.create({
+        data: {
+          subject: perm.subject,
+          action: perm.action,
+        },
+      });
+      seededPermissionsMap.set(`${perm.subject}:${perm.action}`, created.id);
+    }
+  }
+
+  // Link Permissions to Standard Roles
+  const rolePermissionAssignments: Record<string, string[]> = {
+    'Super Admin': Array.from(seededPermissionsMap.keys()), // All permissions
+    Admin: Array.from(seededPermissionsMap.keys()), // All permissions
+    Technician: [
+      'Asset:create',
+      'Asset:read',
+      'Asset:update',
+      'Asset:manage',
+      'Inventory:create',
+      'Inventory:read',
+      'Inventory:update',
+      'Inventory:manage',
+      'Network:create',
+      'Network:read',
+      'Network:update',
+      'Network:manage',
+      'License:read',
+      'User:read',
+      'Organization:read',
+      'Report:read',
+    ],
+    Auditor: [
+      'Asset:read',
+      'Asset:export',
+      'License:read',
+      'License:export',
+      'User:read',
+      'User:export',
+      'Group:read',
+      'Organization:read',
+      'Organization:export',
+      'Network:read',
+      'Network:export',
+      'Inventory:read',
+      'Inventory:export',
+      'Audit:read',
+      'Audit:export',
+      'Report:read',
+      'Report:export',
+      'Setting:read',
+    ],
+    Manager: [
+      'Asset:read',
+      'License:read',
+      'User:read',
+      'Organization:read',
+      'Inventory:read',
+      'Report:create',
+      'Report:read',
+      'Report:export',
+    ],
+    Employee: ['Asset:read', 'License:read', 'User:read', 'Organization:read'],
+  };
+
+  const roleEntities = [
+    { name: 'Super Admin', role: superAdminRole },
+    { name: 'Admin', role: adminRole },
+    { name: 'Technician', role: techRole },
+    { name: 'Auditor', role: auditorRole },
+    { name: 'Manager', role: managerRole },
+    { name: 'Employee', role: employeeRole },
+  ];
+
+  for (const { name, role } of roleEntities) {
+    const targetPermKeys = rolePermissionAssignments[name] || [];
+    for (const key of targetPermKeys) {
+      const permId = seededPermissionsMap.get(key);
+      if (permId) {
+        await prisma.rolePermission
+          .upsert({
+            where: {
+              roleId_permissionId: {
+                roleId: role.id,
+                permissionId: permId,
+              },
+            },
+            update: {},
+            create: {
+              roleId: role.id,
+              permissionId: permId,
+            },
+          })
+          .catch(() => {});
+      }
+    }
+  }
+
   // 3. System & Active Directory Users
   const usersData = [
     {

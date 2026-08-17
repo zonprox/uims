@@ -31,7 +31,8 @@ async function clearDatabase(client: PrismaClient) {
   await client.inventoryItem.deleteMany();
   await client.asset.deleteMany();
   await client.license.deleteMany();
-  await client.reportSchedule.deleteMany();
+  await client.rolePermission.deleteMany().catch(() => {});
+  await client.permission.deleteMany().catch(() => {});
   await client.position.deleteMany();
   await client.department.deleteMany();
   await client.organization.deleteMany();

@@ -9,6 +9,7 @@ export interface LoginResponse {
   user: User;
   accessToken: string;
   refreshToken: string;
+  permissions?: string[];
 }
 
 export interface RefreshRequest {
@@ -19,6 +20,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  permissions?: string[];
   exp: number;
   iat: number;
 }

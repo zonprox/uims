@@ -82,6 +82,48 @@ export class AuthService {
     return null;
   }
 
+  private async resolvePermissions(
+    roleId?: string | null,
+    roleName?: string | null,
+  ): Promise<string[]> {
+    const roleUpper = String(roleName || '').trim().toUpperCase();
+    if (roleUpper === 'SUPER ADMIN' || roleUpper === 'SUPERADMIN') {
+      return ['*:*'];
+    }
+
+    if (!this.prisma) {
+      return [];
+    }
+
+    const role = await this.prisma.role.findFirst({
+      where: {
+        OR: [
+          ...(roleId ? [{ id: roleId }] : []),
+          ...(roleName ? [{ name: roleName }] : []),
+        ],
+      },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    });
+
+    if (!role) {
+      return [];
+    }
+
+    if (role.name.trim().toUpperCase() === 'SUPER ADMIN') {
+      return ['*:*'];
+    }
+
+    return role.permissions.map(
+      (rp) => `${rp.permission.subject}:${rp.permission.action}`,
+    );
+  }
+
   async login(loginDto: LoginDto, ipAddress = '127.0.0.1', userAgent = 'UIMS Client') {
     const user = await this.validateUser(loginDto.email, loginDto.password, ipAddress);
     if (!user) {
@@ -89,10 +131,13 @@ export class AuthService {
     }
 
     const role = user.roleName || 'Employee';
+    const permissions = await this.resolvePermissions(user.roleId, role);
+
     const payload = {
       email: user.email,
       sub: user.id,
       role,
+      permissions,
       username: user.username,
       type: 'access',
     };
@@ -147,12 +192,14 @@ export class AuthService {
       token,
       accessToken: token,
       refreshToken,
+      permissions,
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         name: user.displayName || `${user.firstName} ${user.lastName}`.trim(),
         role,
+        permissions,
       },
     };
   }
@@ -164,6 +211,7 @@ export class AuthService {
     username?: string;
     role?: string;
     name?: string;
+    permissions?: string[];
   }) {
     const userId = user.id || user.sub;
     if (!userId) {
@@ -181,10 +229,13 @@ export class AuthService {
       }
 
       const role = freshUser.roleName || freshUser.role?.name || 'Employee';
+      const permissions = await this.resolvePermissions(freshUser.roleId, role);
+
       const payload = {
         email: freshUser.email,
         sub: freshUser.id,
         role,
+        permissions,
         username: freshUser.username,
         type: 'access',
       };
@@ -193,25 +244,30 @@ export class AuthService {
       return {
         token,
         accessToken: token,
+        permissions,
         user: {
           id: freshUser.id,
           username: freshUser.username,
           email: freshUser.email,
           name: freshUser.displayName || `${freshUser.firstName} ${freshUser.lastName}`.trim(),
           role,
+          permissions,
         },
       };
     }
 
     const role = user.role || 'Employee';
-    const payload = { email: user.email, sub: userId, role, username: user.username };
+    const permissions = user.permissions || [];
+    const payload = { email: user.email, sub: userId, role, permissions, username: user.username };
     const token = this.jwtService.sign(payload);
     return {
       token,
       accessToken: token,
+      permissions,
       user: {
         ...user,
         role,
+        permissions,
       },
     };
   }

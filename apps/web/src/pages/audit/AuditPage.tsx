@@ -115,13 +115,13 @@ export default function AuditPage() {
 
   const columns = [
     {
-      title: 'Timestamp',
+      title: 'TIMESTAMP',
       dataIndex: 'timestamp',
       key: 'timestamp',
       render: (ts: string) => <FormattedDateTime date={ts} showOffset monospace />,
     },
     {
-      title: 'Actor',
+      title: 'ACTOR',
       key: 'user',
       render: (_: unknown, record: AuditLog) => (
         <Flex align="center" gap={8}>
@@ -140,7 +140,7 @@ export default function AuditPage() {
       ),
     },
     {
-      title: 'Action',
+      title: 'ACTION',
       dataIndex: 'action',
       key: 'action',
       render: (action: string) => {
@@ -154,7 +154,7 @@ export default function AuditPage() {
       },
     },
     {
-      title: 'Target Entity & Details',
+      title: 'TARGET ENTITY & DETAILS',
       key: 'details',
       render: (_: unknown, record: AuditLog) => (
         <div>
@@ -173,7 +173,7 @@ export default function AuditPage() {
       ),
     },
     {
-      title: 'Origin IP',
+      title: 'ORIGIN IP',
       dataIndex: 'ipAddress',
       key: 'ipAddress',
       render: (ip: string) => (
@@ -183,7 +183,7 @@ export default function AuditPage() {
       ),
     },
     {
-      title: 'Severity',
+      title: 'SEVERITY',
       dataIndex: 'severity',
       key: 'severity',
       render: (sev: string) => {
@@ -195,7 +195,7 @@ export default function AuditPage() {
       },
     },
     {
-      title: 'Status',
+      title: 'STATUS',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -205,7 +205,7 @@ export default function AuditPage() {
       ),
     },
     {
-      title: 'Inspect',
+      title: 'INSPECT',
       key: 'inspect',
       render: (_: unknown, record: AuditLog) => (
         <Button
@@ -322,7 +322,12 @@ export default function AuditPage() {
           rowKey="id"
           loading={loading}
           scroll={{ x: 'max-content' }}
-          pagination={{ pageSize: 10, showTotal: (total) => `Total ${total} audit records` }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50', '100'],
+            showTotal: (total) => `Total ${total} audit records`,
+          }}
         />
       </Card>
 
@@ -344,7 +349,7 @@ export default function AuditPage() {
               </Title>
             </div>
           }
-          size={520}
+          width={520}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
         >

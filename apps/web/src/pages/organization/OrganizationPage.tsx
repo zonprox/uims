@@ -376,7 +376,7 @@ export default function OrganizationPage() {
   // Table columns
   const deptColumns = [
     {
-      title: 'Department Name & Code',
+      title: 'DEPARTMENT NAME & CODE',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: Department) => (
@@ -409,7 +409,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Organization Entity',
+      title: 'ORGANIZATION ENTITY',
       key: 'org',
       render: (_: unknown, record: Department) => (
         <Text style={{ fontSize: 12.5 }}>
@@ -418,7 +418,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Parent Division',
+      title: 'PARENT DIVISION',
       key: 'parent',
       render: (_: unknown, record: Department) =>
         record.parent ? (
@@ -428,7 +428,7 @@ export default function OrganizationPage() {
         ),
     },
     {
-      title: 'Department Manager',
+      title: 'DEPARTMENT MANAGER',
       key: 'manager',
       render: (_: unknown, record: Department) => (
         <div>
@@ -444,7 +444,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Headcount & Roles',
+      title: 'HEADCOUNT & ROLES',
       key: 'stats',
       render: (_: unknown, record: Department) => (
         <Space size={6}>
@@ -458,7 +458,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Status',
+      title: 'STATUS',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -466,7 +466,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Actions',
+      title: 'ACTIONS',
       key: 'actions',
       render: (_: unknown, record: Department) => (
         <Space size="small">
@@ -497,7 +497,7 @@ export default function OrganizationPage() {
 
   const posColumns = [
     {
-      title: 'Job Position Title',
+      title: 'JOB POSITION TITLE',
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Position) => (
@@ -530,14 +530,14 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Assigned Department',
+      title: 'ASSIGNED DEPARTMENT',
       key: 'dept',
       render: (_: unknown, record: Position) => (
         <Text style={{ fontSize: 12.5 }}>{record.department?.name || 'General Operations'}</Text>
       ),
     },
     {
-      title: 'Seniority Level',
+      title: 'SENIORITY LEVEL',
       dataIndex: 'level',
       key: 'level',
       render: (level: string) => {
@@ -550,7 +550,7 @@ export default function OrganizationPage() {
       },
     },
     {
-      title: 'Current Headcount',
+      title: 'CURRENT HEADCOUNT',
       dataIndex: 'headcount',
       key: 'headcount',
       render: (count: number) => (
@@ -560,7 +560,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Status',
+      title: 'STATUS',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -568,7 +568,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Actions',
+      title: 'ACTIONS',
       key: 'actions',
       render: (_: unknown, record: Position) => (
         <Space size="small">
@@ -1155,7 +1155,12 @@ export default function OrganizationPage() {
                   rowKey="id"
                   loading={loading}
                   scroll={{ x: 'max-content' }}
-                  pagination={{ pageSize: 8, showTotal: (t) => `Total ${t} departments` }}
+                  pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    pageSizeOptions: ['10', '25', '50', '100'],
+                    showTotal: (t) => `Total ${t} departments`,
+                  }}
                 />
               </Card>
             ),
@@ -1329,7 +1334,12 @@ export default function OrganizationPage() {
                   rowKey="id"
                   loading={loading}
                   scroll={{ x: 'max-content' }}
-                  pagination={{ pageSize: 8, showTotal: (t) => `Total ${t} positions` }}
+                  pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    pageSizeOptions: ['10', '25', '50', '100'],
+                    showTotal: (t) => `Total ${t} positions`,
+                  }}
                 />
               </Card>
             ),

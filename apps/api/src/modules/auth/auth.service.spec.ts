@@ -99,6 +99,7 @@ describe('AuthService', () => {
         email: 'employee@uims.internal',
         sub: 'user-2',
         role: 'Employee',
+        permissions: [],
         username: 'jane.doe',
         type: 'access',
       });
@@ -150,6 +151,7 @@ describe('AuthService', () => {
         email: 'user3@uims.internal',
         sub: 'user-3',
         role: 'Employee',
+        permissions: [],
         username: 'user3',
       });
     });

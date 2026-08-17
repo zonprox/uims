@@ -185,7 +185,7 @@ export default function NotificationDrawer({
           </Flex>
         }
         placement="right"
-        size={440}
+        width={440}
         open={open}
         onClose={onClose}
       >
@@ -230,7 +230,7 @@ export default function NotificationDrawer({
 
         {loading && notifications.length === 0 ? (
           <div style={{ padding: '60px 0', textAlign: 'center' }}>
-            <Spin size="medium" />
+            <Spin size="default" />
           </div>
         ) : filteredNotifications.length === 0 ? (
           <Empty

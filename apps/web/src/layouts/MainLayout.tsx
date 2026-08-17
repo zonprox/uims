@@ -26,7 +26,7 @@ const { useBreakpoint } = Grid;
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, can, permissions } = useAuthStore();
   const { modal } = App.useApp();
   const screens = useBreakpoint();
 
@@ -84,10 +84,10 @@ export default function MainLayout() {
 
   const orgMenuItems = useMemo(() => getOrgMenuItems(setActiveOrg), []);
   const menuItems = useMemo(
-    () => getNavMenuItems(collapsed, isMobile, navBadges),
-    [collapsed, isMobile, navBadges],
+    () => getNavMenuItems(collapsed, isMobile, navBadges, can),
+    [collapsed, isMobile, navBadges, can, permissions],
   );
-  const quickCreateMenu = useMemo(() => getQuickCreateMenu(navigate), [navigate]);
+  const quickCreateMenu = useMemo(() => getQuickCreateMenu(navigate, can), [navigate, can, permissions]);
   const userMenuItems = useMemo(
     () => getUserMenuItems(user, navigate, handleLogout),
     [user, navigate, handleLogout],
@@ -133,7 +133,7 @@ export default function MainLayout() {
           open={mobileDrawerOpen}
           onClose={handleCloseDrawer}
           styles={{ body: { padding: 0, backgroundColor: '#0c1017' } }}
-          size={290}
+          width={290}
           closable={false}
         >
           <SidebarContent

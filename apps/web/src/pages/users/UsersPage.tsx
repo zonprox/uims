@@ -13,6 +13,7 @@ import {
   MailOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
   SafetyOutlined,
   ShareAltOutlined,
   StopOutlined,
@@ -21,7 +22,15 @@ import {
   UserAddOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import type { DirectoryGroup, Role, User, UserStatus, UserSummaryStats } from '@uims/shared-types';
+import type {
+  DirectoryGroup,
+  PermissionCatalogSubject,
+  Role,
+  RoleSummaryStats,
+  User,
+  UserStatus,
+  UserSummaryStats,
+} from '@uims/shared-types';
 import {
   Alert,
   App,
@@ -50,7 +59,9 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
 import { FormattedDateTime } from '../../components/FormattedDate';
+import { rolesService } from '../../services/roles.service';
 import { usersService } from '../../services/users.service';
+import { RolesTab } from './components/RolesTab';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -71,6 +82,8 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<DirectoryGroup[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [rolesStats, setRolesStats] = useState<RoleSummaryStats | null>(null);
+  const [rolesCatalog, setRolesCatalog] = useState<PermissionCatalogSubject[]>([]);
   const [stats, setStats] = useState<UserSummaryStats>({
     totalUsers: 0,
     activeUsers: 0,
@@ -133,22 +146,27 @@ export default function UsersPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersData, groupsData, statsData, rolesList] = await Promise.all([
-        usersService.getUsers({
-          search: search || undefined,
-          role: roleFilter !== 'all' ? roleFilter : undefined,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          department: deptFilter !== 'all' ? deptFilter : undefined,
-          source: sourceFilter !== 'all' ? sourceFilter : undefined,
-        }),
-        usersService.getGroups().catch(() => []),
-        usersService.getStats().catch(() => null),
-        usersService.getRoles().catch(() => []),
-      ]);
+      const [usersData, groupsData, statsData, rolesList, rStats, rCatalog] =
+        await Promise.all([
+          usersService.getUsers({
+            search: search || undefined,
+            role: roleFilter !== 'all' ? roleFilter : undefined,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            department: deptFilter !== 'all' ? deptFilter : undefined,
+            source: sourceFilter !== 'all' ? sourceFilter : undefined,
+          }),
+          usersService.getGroups().catch(() => []),
+          usersService.getStats().catch(() => null),
+          rolesService.getRoles().catch(() => []),
+          rolesService.getStats().catch(() => null),
+          rolesService.getCatalog().catch(() => []),
+        ]);
 
       setUsers(usersData.items || []);
       setGroups(groupsData || []);
       setRoles(rolesList || []);
+      setRolesStats(rStats);
+      setRolesCatalog(rCatalog || []);
 
       if (statsData) {
         setStats(statsData);
@@ -325,7 +343,7 @@ export default function UsersPage() {
 
   const userColumns = [
     {
-      title: 'Domain User & Corporate Email',
+      title: 'DOMAIN USER & CORPORATE EMAIL',
       dataIndex: 'email',
       key: 'user',
       width: 320,
@@ -407,7 +425,7 @@ export default function UsersPage() {
       },
     },
     {
-      title: 'Initial Domain Password',
+      title: 'INITIAL DOMAIN PASSWORD',
       key: 'credentials',
       width: 240,
       render: (_: unknown, record: User) => {
@@ -464,7 +482,7 @@ export default function UsersPage() {
       },
     },
     {
-      title: 'Department & Role',
+      title: 'DEPARTMENT & ROLE',
       key: 'dept',
       width: 200,
       render: (_: unknown, record: User) => {
@@ -494,7 +512,7 @@ export default function UsersPage() {
       },
     },
     {
-      title: 'Assigned Assets & Seats',
+      title: 'ASSIGNED ASSETS & SEATS',
       key: 'assigned',
       width: 170,
       render: (_: unknown, record: User) => (
@@ -513,7 +531,7 @@ export default function UsersPage() {
       ),
     },
     {
-      title: 'Account Status',
+      title: 'ACCOUNT STATUS',
       dataIndex: 'status',
       key: 'status',
       width: 110,
@@ -524,7 +542,7 @@ export default function UsersPage() {
       ),
     },
     {
-      title: 'Actions',
+      title: 'ACTIONS',
       key: 'actions',
       width: 160,
       fixed: 'right' as const,
@@ -788,6 +806,8 @@ export default function UsersPage() {
                   scroll={{ x: 1100 }}
                   pagination={{
                     pageSize: 10,
+                    showSizeChanger: true,
+                    pageSizeOptions: ['10', '25', '50', '100'],
                     showTotal: (total) => `Total ${total} domain accounts`,
                   }}
                 />
@@ -881,6 +901,24 @@ export default function UsersPage() {
                   ))}
                 </Row>
               </div>
+            ),
+          },
+          {
+            key: 'roles',
+            label: (
+              <span>
+                <SafetyCertificateOutlined /> RBAC Roles & Permission Matrix ({roles.length})
+              </span>
+            ),
+            children: (
+              <RolesTab
+                roles={roles}
+                stats={rolesStats}
+                catalog={rolesCatalog}
+                users={users}
+                loading={loading}
+                onRefresh={loadData}
+              />
             ),
           },
         ]}
@@ -1136,7 +1174,7 @@ export default function UsersPage() {
               </Tag>
             </Flex>
           }
-          size={500}
+          width={500}
           open={detailDrawerOpen}
           onClose={() => setDetailDrawerOpen(false)}
           extra={

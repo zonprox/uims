@@ -13,6 +13,7 @@ export * from './dto/dashboard.dto';
 export * from './dto/health.dto';
 export * from './dto/organization.dto';
 export * from './dto/users.dto';
+export * from './dto/roles.dto';
 
 export * from './entities/asset';
 export * from './entities/audit';

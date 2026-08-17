@@ -37,7 +37,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
             <Tag color="blue">{selectedAsset.tag}</Tag>
           </Flex>
         }
-        size={540}
+        width={540}
         open={open}
         onClose={onClose}
         extra={

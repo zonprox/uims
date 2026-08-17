@@ -52,7 +52,7 @@ function renderActionTag(action: string) {
 
 const activityColumns = [
   {
-    title: 'Actor',
+    title: 'ACTOR',
     dataIndex: 'user',
     key: 'user',
     render: (text: string, record: RecentActivityItem) => (
@@ -75,13 +75,13 @@ const activityColumns = [
     ),
   },
   {
-    title: 'Action',
+    title: 'ACTION',
     dataIndex: 'action',
     key: 'action',
     render: renderActionTag,
   },
   {
-    title: 'Target Entity',
+    title: 'TARGET ENTITY',
     dataIndex: 'entity',
     key: 'entity',
     render: (entity: string, record: RecentActivityItem) => (
@@ -96,7 +96,7 @@ const activityColumns = [
     ),
   },
   {
-    title: 'Time',
+    title: 'TIME',
     dataIndex: 'time',
     key: 'time',
     render: (time: string) => (

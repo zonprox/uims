@@ -234,7 +234,7 @@ export default function LicensesPage() {
 
   const columns = [
     {
-      title: 'Software & Vendor',
+      title: 'SOFTWARE & VENDOR',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: License) => (
@@ -253,7 +253,7 @@ export default function LicensesPage() {
       ),
     },
     {
-      title: 'License Status',
+      title: 'LICENSE STATUS',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -265,7 +265,7 @@ export default function LicensesPage() {
       ),
     },
     {
-      title: 'Seat Utilization',
+      title: 'SEAT UTILIZATION',
       key: 'seats',
       width: 190,
       render: (_: unknown, record: License) => {
@@ -296,7 +296,7 @@ export default function LicensesPage() {
       },
     },
     {
-      title: 'Annual Spend',
+      title: 'ANNUAL SPEND',
       key: 'cost',
       render: (_: unknown, record: License) => (
         <div>
@@ -310,7 +310,7 @@ export default function LicensesPage() {
       ),
     },
     {
-      title: 'Expiry & Renewal',
+      title: 'EXPIRY & RENEWAL',
       dataIndex: 'expiryDate',
       key: 'expiryDate',
       render: (expiryDate: string, record: License) => {
@@ -338,7 +338,7 @@ export default function LicensesPage() {
       },
     },
     {
-      title: 'Actions',
+      title: 'ACTIONS',
       key: 'actions',
       render: (_: unknown, record: License) => (
         <Space size="small">
@@ -486,7 +486,12 @@ export default function LicensesPage() {
           rowKey="id"
           loading={loading}
           scroll={{ x: 'max-content' }}
-          pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} licenses` }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50', '100'],
+            showTotal: (total) => `Total ${total} licenses`,
+          }}
         />
       </Card>
 
@@ -593,7 +598,7 @@ export default function LicensesPage() {
               </Text>
             </div>
           }
-          size={480}
+          width={480}
           open={seatsDrawerOpen}
           onClose={() => setSeatsDrawerOpen(false)}
         >

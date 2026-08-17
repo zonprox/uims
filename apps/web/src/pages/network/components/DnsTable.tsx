@@ -12,7 +12,7 @@ export const DnsTable: React.FC<DnsTableProps> = React.memo(({ dnsRecords }) => 
   const dnsColumns = useMemo(
     () => [
       {
-        title: 'Hostname / FQDN',
+        title: 'HOSTNAME / FQDN',
         dataIndex: 'host',
         key: 'host',
         render: (host: string) => (
@@ -22,13 +22,13 @@ export const DnsTable: React.FC<DnsTableProps> = React.memo(({ dnsRecords }) => 
         ),
       },
       {
-        title: 'Record Type',
+        title: 'RECORD TYPE',
         dataIndex: 'type',
         key: 'type',
         render: (type: string) => <Tag color="blue">{type}</Tag>,
       },
       {
-        title: 'Target / IP Destination',
+        title: 'TARGET / IP DESTINATION',
         dataIndex: 'target',
         key: 'target',
         render: (target: string) => <Text code>{target}</Text>,

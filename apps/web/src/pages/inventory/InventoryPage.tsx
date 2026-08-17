@@ -243,7 +243,7 @@ export default function InventoryPage() {
 
   const columns = [
     {
-      title: 'SKU & Item Name',
+      title: 'SKU & ITEM NAME',
       key: 'name',
       render: (_: unknown, record: InventoryItem) => (
         <div>
@@ -264,19 +264,19 @@ export default function InventoryPage() {
       ),
     },
     {
-      title: 'Category',
+      title: 'CATEGORY',
       dataIndex: 'category',
       key: 'category',
       render: (category: string) => <Tag color="blue">{category}</Tag>,
     },
     {
-      title: 'Stock Level & Threshold',
+      title: 'STOCK LEVEL & THRESHOLD',
       key: 'stock',
       width: 200,
       render: (_: unknown, record: InventoryItem) => <StockLevelCell record={record} />,
     },
     {
-      title: 'Unit Valuation',
+      title: 'UNIT VALUATION',
       key: 'price',
       render: (_: unknown, record: InventoryItem) => (
         <div>
@@ -293,7 +293,7 @@ export default function InventoryPage() {
       ),
     },
     {
-      title: 'Actions',
+      title: 'ACTIONS',
       key: 'actions',
       render: (_: unknown, record: InventoryItem) => (
         <Space size="small">
@@ -435,7 +435,12 @@ export default function InventoryPage() {
           rowKey="id"
           loading={loading}
           scroll={{ x: 'max-content' }}
-          pagination={{ pageSize: 8, showTotal: (total) => `Total ${total} SKUs` }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50', '100'],
+            showTotal: (total) => `Total ${total} SKUs`,
+          }}
         />
       </Card>
 
