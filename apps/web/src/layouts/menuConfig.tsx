@@ -2,6 +2,7 @@ import {
   ApartmentOutlined,
   AuditOutlined,
   BarChartOutlined,
+  BellOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   GlobalOutlined,
@@ -151,6 +152,12 @@ export function getUserMenuItems(
       icon: <TeamOutlined />,
       label: 'Users & Access',
       onClick: () => navigate('/users'),
+    },
+    {
+      key: 'notifications',
+      icon: <BellOutlined />,
+      label: 'Notifications',
+      onClick: () => navigate('/notifications'),
     },
     {
       key: 'org-structure',

@@ -21,11 +21,11 @@
   },
   "dependencies": {
     "@uims/shared-types": "workspace:*",
-    "dayjs": "^1.11.21"
+    "dayjs": "^1.11.23"
   },
   "devDependencies": {
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

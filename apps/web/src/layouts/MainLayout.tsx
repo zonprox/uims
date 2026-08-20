@@ -5,7 +5,6 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 import CommandPalette from '../components/CommandPalette';
 import ErrorBoundary from '../components/ErrorBoundary';
 import NotificationDrawer from '../components/NotificationDrawer';
-import { QuickConfigDrawer } from '../components/QuickConfigDrawer';
 import { useRealtimeNotifications } from '../hooks/useRealtimeNotifications';
 import { useAuthStore } from '../stores/auth.store';
 import { useThemeStore } from '../stores/theme.store';
@@ -39,7 +38,6 @@ export default function MainLayout() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [quickConfigOpen, setQuickConfigOpen] = useState(false);
   const [activeOrg, setActiveOrg] = useState('Acme Enterprise HQ (US-East)');
 
   const { navBadges } = useLayoutTelemetry(15000);
@@ -166,7 +164,6 @@ export default function MainLayout() {
           unreadCount={unreadCount}
           onToggleSidebar={handleToggleSidebar}
           onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-          onOpenQuickConfig={() => setQuickConfigOpen(true)}
           onOpenNotifications={() => setNotificationsOpen(true)}
         />
 
@@ -180,7 +177,6 @@ export default function MainLayout() {
       </Layout>
 
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
-      <QuickConfigDrawer open={quickConfigOpen} onClose={() => setQuickConfigOpen(false)} />
       <NotificationDrawer
         open={notificationsOpen}
         onClose={() => setNotificationsOpen(false)}

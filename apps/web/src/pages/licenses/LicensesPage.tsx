@@ -37,6 +37,7 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import { FormattedDate } from '../../components/FormattedDate';
 import { type License, type LicenseStats, licensesService } from '../../services/licenses.service';
@@ -105,9 +106,25 @@ export default function LicensesPage() {
     }
   }, [message, searchQuery, typeFilter, vendorFilter]);
 
+  const [searchParams] = useSearchParams();
+  const deepLinkId = searchParams.get('id') || searchParams.get('key');
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Deep linking: auto-open seats drawer if id or key param is provided
+  useEffect(() => {
+    if (deepLinkId && licenses.length > 0) {
+      const match = licenses.find(
+        (l) => l.id === deepLinkId || l.name.toLowerCase().includes(deepLinkId.toLowerCase()),
+      );
+      if (match) {
+        setSelectedLicense(match);
+        setSeatsDrawerOpen(true);
+      }
+    }
+  }, [deepLinkId, licenses]);
 
   const handleOpenCreateModal = () => {
     setEditingLicense(null);

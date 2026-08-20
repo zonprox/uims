@@ -1,20 +1,16 @@
 import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Notification, NotificationType, Prisma } from '@prisma/client';
+import type {
+  CreateNotificationDto as ICreateNotificationDto,
+  NotificationItem,
+  NotificationListResponseDto,
+} from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
 import type { CreateNotificationDto, NotificationTypeEnum } from './dto/create-notification.dto';
+import type { NotificationQueryDto } from './dto/notification-query.dto';
 import { NotificationsGateway } from './notifications.gateway';
 
-export interface FormattedNotification {
-  id: string;
-  title: string;
-  description: string;
-  type: 'info' | 'warning' | 'error' | 'success';
-  category: 'alerts' | 'tasks' | 'general';
-  time: string;
-  read: boolean;
-  link?: string;
-  createdAt: string;
-}
+export type FormattedNotification = NotificationItem;
 
 @Injectable()
 export class NotificationsService {
@@ -86,19 +82,153 @@ export class NotificationsService {
     };
   }
 
-  async findAll(userId?: string): Promise<Array<FormattedNotification>> {
-    const where: Prisma.NotificationWhereInput = {};
+  async findAll(
+    userId?: string,
+    query?: NotificationQueryDto,
+  ): Promise<NotificationListResponseDto> {
+    const conditions: Prisma.NotificationWhereInput[] = [];
+
     if (userId) {
-      where.userId = userId;
+      conditions.push({ userId });
     }
 
-    const notifications = await this.prisma.notification.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+    const readFilter = query?.isRead !== undefined ? query.isRead : query?.read;
+    if (typeof readFilter === 'boolean') {
+      conditions.push({ isRead: readFilter });
+    }
 
-    return notifications.map((n) => this.formatNotification(n));
+    if (query?.type) {
+      const t = query.type.toUpperCase();
+      let typeEnum: NotificationType | undefined;
+      if (t === 'ERROR' || t === 'ALERT') {
+        typeEnum = 'ALERT';
+      } else if (t === 'WARNING' || t === 'WARN') {
+        typeEnum = 'WARNING';
+      } else if (t === 'INFO' || t === 'SUCCESS') {
+        typeEnum = 'INFO';
+      } else if (['INFO', 'WARNING', 'ALERT'].includes(t)) {
+        typeEnum = t as NotificationType;
+      }
+      if (typeEnum) {
+        conditions.push({ type: typeEnum });
+      }
+    }
+
+    if (query?.search && query.search.trim()) {
+      const s = query.search.trim();
+      conditions.push({
+        OR: [
+          { title: { contains: s, mode: 'insensitive' } },
+          { message: { contains: s, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (query?.startDate || query?.endDate) {
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (query.startDate) {
+        createdAtFilter.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        const end = new Date(query.endDate);
+        if (query.endDate.length === 10) {
+          end.setUTCHours(23, 59, 59, 999);
+        }
+        createdAtFilter.lte = end;
+      }
+      conditions.push({ createdAt: createdAtFilter });
+    }
+
+    if (query?.category && query.category !== 'all') {
+      if (query.category === 'tasks') {
+        conditions.push({
+          OR: [
+            { title: { contains: 'task', mode: 'insensitive' } },
+            { message: { contains: 'task', mode: 'insensitive' } },
+            { title: { contains: 'approval', mode: 'insensitive' } },
+            { message: { contains: 'approval', mode: 'insensitive' } },
+            { title: { contains: 'assignment', mode: 'insensitive' } },
+            { message: { contains: 'assignment', mode: 'insensitive' } },
+          ],
+        });
+      } else if (query.category === 'alerts') {
+        conditions.push({
+          OR: [
+            { title: { contains: 'alert', mode: 'insensitive' } },
+            { message: { contains: 'alert', mode: 'insensitive' } },
+            { title: { contains: 'critical', mode: 'insensitive' } },
+            { message: { contains: 'critical', mode: 'insensitive' } },
+            { title: { contains: 'expir', mode: 'insensitive' } },
+            { message: { contains: 'expir', mode: 'insensitive' } },
+            { title: { contains: 'deplet', mode: 'insensitive' } },
+            { message: { contains: 'deplet', mode: 'insensitive' } },
+            { title: { contains: 'warn', mode: 'insensitive' } },
+            { message: { contains: 'warn', mode: 'insensitive' } },
+            { title: { contains: 'low stock', mode: 'insensitive' } },
+            { message: { contains: 'low stock', mode: 'insensitive' } },
+            { title: { contains: 'out of stock', mode: 'insensitive' } },
+            { message: { contains: 'out of stock', mode: 'insensitive' } },
+            { type: 'ALERT' },
+            { type: 'WARNING' },
+          ],
+        });
+      } else if (query.category === 'general') {
+        conditions.push({
+          AND: [
+            { title: { not: { contains: 'task' } } },
+            { message: { not: { contains: 'task' } } },
+            { title: { not: { contains: 'approval' } } },
+            { message: { not: { contains: 'approval' } } },
+            { title: { not: { contains: 'assignment' } } },
+            { message: { not: { contains: 'assignment' } } },
+            { title: { not: { contains: 'alert' } } },
+            { message: { not: { contains: 'alert' } } },
+            { title: { not: { contains: 'critical' } } },
+            { message: { not: { contains: 'critical' } } },
+            { title: { not: { contains: 'expir' } } },
+            { message: { not: { contains: 'expir' } } },
+            { title: { not: { contains: 'deplet' } } },
+            { message: { not: { contains: 'deplet' } } },
+            { title: { not: { contains: 'warn' } } },
+            { message: { not: { contains: 'warn' } } },
+            { title: { not: { contains: 'low stock' } } },
+            { message: { not: { contains: 'low stock' } } },
+            { title: { not: { contains: 'out of stock' } } },
+            { message: { not: { contains: 'out of stock' } } },
+            { type: 'INFO' },
+          ],
+        });
+      }
+    }
+
+    const where: Prisma.NotificationWhereInput = conditions.length > 0 ? { AND: conditions } : {};
+
+    const limit = Math.min(100, Math.max(1, Number(query?.limit || query?.pageSize) || 50));
+    const page = Math.max(1, Number(query?.page) || 1);
+    const skip = (page - 1) * limit;
+
+    const sortField = query?.sort || 'createdAt';
+    const sortOrder = query?.order || 'desc';
+    const orderBy = { [sortField]: sortOrder };
+
+    const [notifications, total, unreadCount] = await Promise.all([
+      this.prisma.notification.findMany({
+        where,
+        orderBy,
+        take: limit,
+        skip,
+      }),
+      this.prisma.notification.count({ where }),
+      this.getUnreadCount(userId),
+    ]);
+
+    return {
+      data: notifications.map((n) => this.formatNotification(n)),
+      total,
+      page,
+      limit,
+      unreadCount,
+    };
   }
 
   async getUnreadCount(userId?: string): Promise<number> {
@@ -109,7 +239,7 @@ export class NotificationsService {
     return this.prisma.notification.count({ where });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<FormattedNotification> {
     const notif = await this.prisma.notification.findUnique({ where: { id } });
     if (!notif) throw new NotFoundException(`Notification with ID ${id} not found`);
     return this.formatNotification(notif);
@@ -118,7 +248,9 @@ export class NotificationsService {
   /**
    * Create a notification record and dispatch it via WebSocket in real-time
    */
-  async create(data: CreateNotificationDto) {
+  async create(
+    data: CreateNotificationDto | ICreateNotificationDto,
+  ): Promise<FormattedNotification> {
     const created = await this.prisma.notification.create({
       data: {
         userId: data.userId,
@@ -205,7 +337,7 @@ export class NotificationsService {
     }
   }
 
-  async markAsRead(id: string) {
+  async markAsRead(id: string): Promise<FormattedNotification> {
     const updated = await this.prisma.notification.update({
       where: { id },
       data: { isRead: true },
@@ -222,7 +354,7 @@ export class NotificationsService {
     return formatted;
   }
 
-  async markAllAsRead(userId?: string) {
+  async markAllAsRead(userId?: string): Promise<{ count: number; success: boolean }> {
     const where: Prisma.NotificationWhereInput = { isRead: false };
     if (userId) {
       where.userId = userId;
@@ -240,7 +372,7 @@ export class NotificationsService {
     return { count: res.count, success: true };
   }
 
-  async remove(id: string) {
+  async remove(id: string): Promise<{ success: boolean }> {
     const existing = await this.prisma.notification.findUnique({ where: { id } });
     await this.prisma.notification.delete({ where: { id } });
 
@@ -252,7 +384,7 @@ export class NotificationsService {
     return { success: true };
   }
 
-  async clearAll(userId?: string) {
+  async clearAll(userId?: string): Promise<{ count: number; success: boolean }> {
     const where: Prisma.NotificationWhereInput = {};
     if (userId) {
       where.userId = userId;

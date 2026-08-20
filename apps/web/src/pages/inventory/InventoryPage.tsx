@@ -32,6 +32,7 @@ import {
   Typography,
 } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import {
   type InventoryItem,
@@ -143,6 +144,9 @@ export default function InventoryPage() {
     }
   }, [categoryFilter, message, searchQuery, stockFilter]);
 
+  const [searchParams] = useSearchParams();
+  const deepLinkSku = searchParams.get('sku') || searchParams.get('id');
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -161,11 +165,29 @@ export default function InventoryPage() {
     setModalOpen(true);
   };
 
-  const handleOpenEditModal = (item: InventoryItem) => {
-    setEditingItem(item);
-    form.setFieldsValue(item);
-    setModalOpen(true);
-  };
+  const handleOpenEditModal = useCallback(
+    (item: InventoryItem) => {
+      setEditingItem(item);
+      form.setFieldsValue(item);
+      setModalOpen(true);
+    },
+    [form],
+  );
+
+  // Deep linking: auto-open item edit modal if sku or id is provided in URL
+  useEffect(() => {
+    if (deepLinkSku && items.length > 0) {
+      const match = items.find(
+        (i) =>
+          i.sku.toLowerCase() === deepLinkSku.toLowerCase() ||
+          i.id.toLowerCase() === deepLinkSku.toLowerCase() ||
+          i.name.toLowerCase().includes(deepLinkSku.toLowerCase()),
+      );
+      if (match) {
+        handleOpenEditModal(match);
+      }
+    }
+  }, [deepLinkSku, items, handleOpenEditModal]);
 
   const handleSaveItem = async () => {
     try {

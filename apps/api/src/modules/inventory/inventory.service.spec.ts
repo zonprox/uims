@@ -60,6 +60,48 @@ describe('InventoryService', () => {
     });
   });
 
+  describe('restock', () => {
+    it('should increment quantity and trigger threshold check if still low stock', async () => {
+      const mockNotificationsService = {
+        notifyAdmins: vi.fn().mockResolvedValue([]),
+      };
+      const serviceWithNotif = new InventoryService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        mockNotificationsService as unknown as import('../notifications/notifications.service').NotificationsService,
+      );
+
+      mockPrisma.inventoryItem.findUnique.mockResolvedValue({
+        id: 'itm-1',
+        name: 'USB-C Multiport Hub',
+        sku: 'SKU-001',
+        quantity: 1,
+        minThreshold: 5,
+      });
+
+      mockPrisma.inventoryItem.update.mockResolvedValue({
+        id: 'itm-1',
+        name: 'USB-C Multiport Hub',
+        sku: 'SKU-001',
+        quantity: 3,
+        minThreshold: 5,
+      });
+
+      const updated = await serviceWithNotif.restock('itm-1', 2);
+
+      expect(updated.quantity).toBe(3);
+      expect(mockPrisma.inventoryItem.update).toHaveBeenCalledWith({
+        where: { id: 'itm-1' },
+        data: { quantity: { increment: 2 } },
+      });
+      expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Low Stock Alert',
+          type: 'WARNING',
+        }),
+      );
+    });
+  });
+
   describe('getStats', () => {
     it('should calculate valuation, low stock and out of stock counts', async () => {
       mockPrisma.inventoryItem.count

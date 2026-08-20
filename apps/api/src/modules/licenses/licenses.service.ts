@@ -192,10 +192,21 @@ export class LicensesService {
             link: '/licenses',
           });
         }
-        if (result.license.usedSeats >= result.license.totalSeats) {
+        const total = result.license.totalSeats;
+        const used = result.license.usedSeats;
+        const ratio = total > 0 ? used / total : 0;
+
+        if (used >= total) {
           await this.notificationsService.notifyAdmins({
             title: 'License Capacity Reached',
-            message: `License "${result.license.name}" has reached full capacity (${result.license.usedSeats}/${result.license.totalSeats} seats assigned).`,
+            message: `License "${result.license.name}" has reached full capacity (${used}/${total} seats assigned).`,
+            type: 'WARNING',
+            link: '/licenses',
+          });
+        } else if (ratio >= 0.9) {
+          await this.notificationsService.notifyAdmins({
+            title: 'License Capacity Near Limit',
+            message: `License "${result.license.name}" is near full capacity (${used}/${total} seats assigned, ${Math.round(ratio * 100)}%).`,
             type: 'WARNING',
             link: '/licenses',
           });

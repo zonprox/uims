@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { NotificationsService } from './notifications.service';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NotificationType } from '@uims/shared-types';
 import type { PrismaService } from '../../database/prisma.service';
 import type { NotificationsGateway } from './notifications.gateway';
-import { NotificationType } from '@uims/shared-types';
+import { NotificationsService } from './notifications.service';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -51,7 +51,7 @@ describe('NotificationsService', () => {
   });
 
   describe('findAll', () => {
-    it('should return formatted notifications for a user', async () => {
+    it('should return paginated formatted notifications for a user', async () => {
       const dbNotif = {
         id: 'n1',
         userId: 'u1',
@@ -63,17 +63,137 @@ describe('NotificationsService', () => {
         createdAt: new Date(),
       };
       mockPrisma.notification.findMany.mockResolvedValue([dbNotif]);
+      mockPrisma.notification.count.mockResolvedValueOnce(1); // count for where
+      mockPrisma.notification.count.mockResolvedValueOnce(1); // unread count
 
       const result = await service.findAll('u1');
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('n1');
-      expect(result[0].type).toBe('error');
-      expect(result[0].category).toBe('alerts');
-      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith({
-        where: { userId: 'u1' },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe('n1');
+      expect(result.data[0].type).toBe('error');
+      expect(result.data[0].category).toBe('alerts');
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(50);
+      expect(result.unreadCount).toBe(1);
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { AND: [{ userId: 'u1' }] },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+          skip: 0,
+        }),
+      );
+    });
+
+    it('should apply pagination and search query filters', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      const result = await service.findAll('u1', {
+        page: 2,
+        limit: 15,
+        search: 'license',
+        sort: 'createdAt',
+        order: 'asc',
       });
+
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(15);
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              { userId: 'u1' },
+              {
+                OR: [
+                  { title: { contains: 'license', mode: 'insensitive' } },
+                  { message: { contains: 'license', mode: 'insensitive' } },
+                ],
+              },
+            ],
+          },
+          orderBy: { createdAt: 'asc' },
+          take: 15,
+          skip: 15,
+        }),
+      );
+    });
+
+    it('should filter by isRead and category', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      await service.findAll('u1', {
+        isRead: false,
+        category: 'tasks',
+      });
+
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              { userId: 'u1' },
+              { isRead: false },
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { title: { contains: 'task', mode: 'insensitive' } },
+                  { message: { contains: 'task', mode: 'insensitive' } },
+                ]),
+              }),
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should filter by type and date range', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      await service.findAll('u1', {
+        type: 'warning',
+        startDate: '2026-08-01',
+        endDate: '2026-08-15',
+      });
+
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              { userId: 'u1' },
+              { type: 'WARNING' },
+              {
+                createdAt: {
+                  gte: new Date('2026-08-01'),
+                  lte: expect.any(Date),
+                },
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should support general category filter', async () => {
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockPrisma.notification.count.mockResolvedValue(0);
+
+      await service.findAll('u1', {
+        category: 'general',
+      });
+
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              { userId: 'u1' },
+              expect.objectContaining({
+                AND: expect.arrayContaining([{ type: 'INFO' }]),
+              }),
+            ],
+          },
+        }),
+      );
     });
   });
 
@@ -85,6 +205,31 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.count).toHaveBeenCalledWith({
         where: { isRead: false, userId: 'u1' },
       });
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return formatted notification when found', async () => {
+      const dbNotif = {
+        id: 'n1',
+        userId: 'u1',
+        title: 'Task Assigned',
+        message: 'You have a new task approval pending',
+        type: 'INFO',
+        isRead: false,
+        link: '/tasks',
+        createdAt: new Date(),
+      };
+      mockPrisma.notification.findUnique.mockResolvedValue(dbNotif);
+
+      const res = await service.findOne('n1');
+      expect(res.id).toBe('n1');
+      expect(res.category).toBe('tasks');
+    });
+
+    it('should throw NotFoundException when not found', async () => {
+      mockPrisma.notification.findUnique.mockResolvedValue(null);
+      await expect(service.findOne('n-missing')).rejects.toThrowError();
     });
   });
 
@@ -116,6 +261,30 @@ describe('NotificationsService', () => {
         expect.objectContaining({ id: 'n-new' }),
       );
       expect(mockGateway.sendCountToUser).toHaveBeenCalledWith('u1', 1);
+    });
+  });
+
+  describe('notifyUser', () => {
+    it('should delegate to create for specific user', async () => {
+      const createdDb = {
+        id: 'n-user',
+        userId: 'u2',
+        title: 'Alert',
+        message: 'Msg',
+        type: 'WARNING',
+        isRead: false,
+        createdAt: new Date(),
+      };
+      mockPrisma.notification.create.mockResolvedValue(createdDb);
+      mockPrisma.notification.count.mockResolvedValue(1);
+
+      const res = await service.notifyUser('u2', {
+        title: 'Alert',
+        message: 'Msg',
+        type: 'WARNING',
+      });
+
+      expect(res.id).toBe('n-user');
     });
   });
 
@@ -179,12 +348,27 @@ describe('NotificationsService', () => {
     });
   });
 
+  describe('remove', () => {
+    it('should delete notification and emit unread count update', async () => {
+      const existing = { id: 'n1', userId: 'u1' };
+      mockPrisma.notification.findUnique.mockResolvedValue(existing);
+      mockPrisma.notification.delete.mockResolvedValue(existing);
+      mockPrisma.notification.count.mockResolvedValue(2);
+
+      const res = await service.remove('n1');
+      expect(res).toEqual({ success: true });
+      expect(mockPrisma.notification.delete).toHaveBeenCalledWith({ where: { id: 'n1' } });
+      expect(mockGateway.sendCountToUser).toHaveBeenCalledWith('u1', 2);
+    });
+  });
+
   describe('clearAll', () => {
     it('should clear notifications and emit cleared event', async () => {
       mockPrisma.notification.deleteMany.mockResolvedValue({ count: 4 });
       const res = await service.clearAll('u1');
       expect(res.count).toBe(4);
       expect(mockGateway.emitNotificationsCleared).toHaveBeenCalledWith('u1');
+      expect(mockGateway.sendCountToUser).toHaveBeenCalledWith('u1', 0);
     });
   });
 });

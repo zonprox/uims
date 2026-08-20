@@ -1,7 +1,9 @@
 import {
+  BellOutlined,
   BgColorsOutlined,
   CloudUploadOutlined,
   DatabaseOutlined,
+  DesktopOutlined,
   ExclamationCircleOutlined,
   InfoCircleOutlined,
   MailOutlined,
@@ -10,6 +12,7 @@ import {
   SafetyCertificateOutlined,
   SaveOutlined,
   SettingOutlined,
+  SoundOutlined,
   SunOutlined,
   ThunderboltOutlined,
   UndoOutlined,
@@ -43,6 +46,7 @@ import {
   Typography,
 } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import { TimezoneSelector } from '../../components/TimezoneSelector';
 import { WorldClockWidget } from '../../components/WorldClockWidget';
@@ -52,6 +56,7 @@ import {
   type SecuritySettings,
   settingsService,
 } from '../../services/settings.service';
+import { useNotificationSettingsStore } from '../../stores/notification-settings.store';
 import { COLOR_PRESETS, type ThemeMode, useThemeStore } from '../../stores/theme.store';
 import { useTimezoneStore } from '../../stores/timezone.store';
 
@@ -60,7 +65,14 @@ const { Option } = Select;
 
 export default function SettingsPage() {
   const { message, modal } = App.useApp();
-  const [activeTab, setActiveTab] = useState('appearance');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(
+    tabParam &&
+      ['appearance', 'notifications', 'general', 'security', 'maintenance'].includes(tabParam)
+      ? tabParam
+      : 'appearance',
+  );
   const [backupRunning, setBackupRunning] = useState(false);
   const [purgingCache, setPurgingCache] = useState(false);
   const [savingGeneral, setSavingGeneral] = useState(false);
@@ -78,6 +90,45 @@ export default function SettingsPage() {
   const setPresetKey = useThemeStore((state) => state.setPresetKey);
   const borderRadius = useThemeStore((state) => state.borderRadius);
   const setBorderRadius = useThemeStore((state) => state.setBorderRadius);
+
+  // Notification store state
+  const {
+    soundEnabled,
+    soundVolume,
+    toastEnabled,
+    toastDuration,
+    categories: notificationCategories,
+    setSoundEnabled,
+    setSoundVolume,
+    setToastEnabled,
+    setToastDuration,
+    setCategoryPreference,
+    resetToDefaults: resetNotificationDefaults,
+    playTestChime,
+  } = useNotificationSettingsStore();
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (
+      tab &&
+      ['appearance', 'notifications', 'general', 'security', 'maintenance'].includes(tab) &&
+      tab !== activeTab
+    ) {
+      setActiveTab(tab);
+    }
+  }, [searchParams, activeTab]);
+
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', key);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   // Dirty state tracking
   const [isAppearanceDirty, setIsAppearanceDirty] = useState(false);
@@ -121,6 +172,25 @@ export default function SettingsPage() {
           minPasswordLength: 12,
           ipAllowlist: '',
         });
+      }
+
+      if (settingsObj?.appearance) {
+        const appearanceData = settingsObj.appearance as Record<string, unknown>;
+        if (
+          appearanceData.mode &&
+          ['light', 'dark', 'system'].includes(String(appearanceData.mode))
+        ) {
+          useThemeStore.getState().setMode(appearanceData.mode as ThemeMode);
+        }
+        if (appearanceData.presetKey) {
+          useThemeStore.getState().setPresetKey(String(appearanceData.presetKey));
+        }
+        if (typeof appearanceData.compact === 'boolean') {
+          useThemeStore.getState().setCompact(appearanceData.compact);
+        }
+        if (typeof appearanceData.borderRadius === 'number') {
+          useThemeStore.getState().setBorderRadius(appearanceData.borderRadius);
+        }
       }
 
       if (healthTelemetry) {
@@ -452,7 +522,7 @@ export default function SettingsPage() {
       <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
         <Tabs
           activeKey={activeTab}
-          onChange={setActiveTab}
+          onChange={handleTabChange}
           items={[
             // ================= TAB 1: APPEARANCE =================
             {
@@ -521,6 +591,12 @@ export default function SettingsPage() {
                         <Space size={6}>
                           <MoonOutlined style={{ color: '#6366f1' }} />
                           <span>Dark Enterprise</span>
+                        </Space>
+                      </Radio.Button>
+                      <Radio.Button value="system">
+                        <Space size={6}>
+                          <DesktopOutlined style={{ color: '#64748b' }} />
+                          <span>System</span>
                         </Space>
                       </Radio.Button>
                     </Radio.Group>
@@ -670,7 +746,236 @@ export default function SettingsPage() {
               ),
             },
 
-            // ================= TAB 2: GENERAL PREFERENCES =================
+            // ================= TAB 2: NOTIFICATIONS =================
+            {
+              key: 'notifications',
+              label: (
+                <Space>
+                  <BellOutlined />
+                  <span>Notifications</span>
+                </Space>
+              ),
+              children: (
+                <div style={{ maxWidth: 840, padding: '8px 0' }}>
+                  <Alert
+                    type="info"
+                    showIcon
+                    title="Notification & Alert Preferences"
+                    description="Configure audio chime playback, in-app toast alerts, and category subscriptions for real-time domain events."
+                    style={{ marginBottom: 20, fontSize: 12.5 }}
+                  />
+
+                  {/* Audio Alerts Card */}
+                  <Card
+                    size="small"
+                    title={
+                      <Space size={6}>
+                        <SoundOutlined style={{ color: '#1677ff' }} />
+                        <span>Sound & Audio Alerts</span>
+                      </Space>
+                    }
+                    style={{ marginBottom: 16 }}
+                  >
+                    <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+                      <div>
+                        <Text strong style={{ display: 'block', fontSize: 13 }}>
+                          Play Audio Chime for Incoming Notifications
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Play a subtle harmonic chime when real-time alerts or events arrive.
+                        </Text>
+                      </div>
+                      <Switch
+                        checked={soundEnabled}
+                        onChange={(checked) => {
+                          setSoundEnabled(checked);
+                          message.success(
+                            checked ? 'Audio notifications enabled' : 'Audio notifications muted',
+                          );
+                        }}
+                      />
+                    </Flex>
+
+                    <Divider style={{ margin: '12px 0' }} />
+
+                    <div
+                      style={{ opacity: soundEnabled ? 1 : 0.45, transition: 'opacity 0.2s ease' }}
+                    >
+                      <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
+                        <Text strong style={{ fontSize: 12.5 }}>
+                          Alert Volume ({Math.round(soundVolume * 100)}%)
+                        </Text>
+                        <Button
+                          size="small"
+                          icon={<SoundOutlined />}
+                          disabled={!soundEnabled}
+                          onClick={() => {
+                            playTestChime();
+                            message.info('Played test notification chime');
+                          }}
+                        >
+                          Test Sound
+                        </Button>
+                      </Flex>
+                      <Slider
+                        min={0}
+                        max={100}
+                        disabled={!soundEnabled}
+                        value={Math.round(soundVolume * 100)}
+                        onChange={(val) => setSoundVolume(val / 100)}
+                      />
+                    </div>
+                  </Card>
+
+                  {/* Toast Alerts Card */}
+                  <Card
+                    size="small"
+                    title={
+                      <Space size={6}>
+                        <BellOutlined style={{ color: '#10b981' }} />
+                        <span>In-App Toast Alerts</span>
+                      </Space>
+                    }
+                    style={{ marginBottom: 16 }}
+                  >
+                    <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+                      <div>
+                        <Text strong style={{ display: 'block', fontSize: 13 }}>
+                          Display Toast Popups
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Show popup toast notifications in the top-right corner when events occur.
+                        </Text>
+                      </div>
+                      <Switch
+                        checked={toastEnabled}
+                        onChange={(checked) => {
+                          setToastEnabled(checked);
+                          message.success(
+                            checked
+                              ? 'Toast notifications enabled'
+                              : 'Toast notifications disabled',
+                          );
+                        }}
+                      />
+                    </Flex>
+
+                    <Divider style={{ margin: '12px 0' }} />
+
+                    <div
+                      style={{ opacity: toastEnabled ? 1 : 0.45, transition: 'opacity 0.2s ease' }}
+                    >
+                      <Text strong style={{ display: 'block', fontSize: 12.5, marginBottom: 8 }}>
+                        Toast Display Duration ({toastDuration} seconds)
+                      </Text>
+                      <Slider
+                        min={2}
+                        max={15}
+                        step={0.5}
+                        disabled={!toastEnabled}
+                        value={toastDuration}
+                        onChange={(val) => setToastDuration(val)}
+                      />
+                    </div>
+                  </Card>
+
+                  {/* Category Subscriptions Card */}
+                  <Card
+                    size="small"
+                    title={
+                      <Space size={6}>
+                        <SettingOutlined style={{ color: '#6366f1' }} />
+                        <span>Category Subscriptions</span>
+                      </Space>
+                    }
+                    style={{ marginBottom: 16 }}
+                  >
+                    <Flex vertical gap={12}>
+                      <Flex justify="space-between" align="center">
+                        <div>
+                          <Text strong style={{ display: 'block', fontSize: 13 }}>
+                            Critical Alerts & Warnings
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Hardware warranty expiry, low inventory thresholds, and license limit
+                            alerts.
+                          </Text>
+                        </div>
+                        <Switch
+                          checked={notificationCategories.alerts}
+                          onChange={(checked) => setCategoryPreference('alerts', checked)}
+                        />
+                      </Flex>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      <Flex justify="space-between" align="center">
+                        <div>
+                          <Text strong style={{ display: 'block', fontSize: 13 }}>
+                            Workflow & Task Reminders
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Asset allocation requests, maintenance jobs, and review approvals.
+                          </Text>
+                        </div>
+                        <Switch
+                          checked={notificationCategories.tasks}
+                          onChange={(checked) => setCategoryPreference('tasks', checked)}
+                        />
+                      </Flex>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      <Flex justify="space-between" align="center">
+                        <div>
+                          <Text strong style={{ display: 'block', fontSize: 13 }}>
+                            General Announcements
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            User status updates, team invites, and organizational announcements.
+                          </Text>
+                        </div>
+                        <Switch
+                          checked={notificationCategories.general}
+                          onChange={(checked) => setCategoryPreference('general', checked)}
+                        />
+                      </Flex>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      <Flex justify="space-between" align="center">
+                        <div>
+                          <Text strong style={{ display: 'block', fontSize: 13 }}>
+                            System & Infrastructure Events
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Platform backups, cache purges, and automated synchronization tasks.
+                          </Text>
+                        </div>
+                        <Switch
+                          checked={notificationCategories.system}
+                          onChange={(checked) => setCategoryPreference('system', checked)}
+                        />
+                      </Flex>
+                    </Flex>
+                  </Card>
+
+                  {/* Reset Defaults */}
+                  <Flex justify="flex-end">
+                    <Button
+                      onClick={() => {
+                        resetNotificationDefaults();
+                        message.success('Notification settings reset to factory defaults.');
+                      }}
+                    >
+                      Reset Notification Preferences
+                    </Button>
+                  </Flex>
+                </div>
+              ),
+            },
+
+            // ================= TAB 3: GENERAL PREFERENCES =================
             {
               key: 'general',
               label: (

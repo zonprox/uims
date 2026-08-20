@@ -1,11 +1,13 @@
 import {
   AlertOutlined,
+  ArrowRightOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   DeleteOutlined,
   InfoCircleOutlined,
   ReloadOutlined,
   SearchOutlined,
+  SettingOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import {
@@ -23,6 +25,7 @@ import {
   Typography,
 } from 'antd';
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { TimeAgo } from './FormattedDate';
 import { type NotificationItem } from '../services/notifications.service';
 
@@ -55,6 +58,7 @@ export default function NotificationDrawer({
   onDelete,
   onClearAll,
 }: NotificationDrawerProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -180,6 +184,33 @@ export default function NotificationDrawer({
       styles={{ wrapper: { width: 440 } }}
       open={open}
       onClose={onClose}
+      footer={
+        <Flex justify="space-between" align="center">
+          <Button
+            type="text"
+            size="small"
+            icon={<SettingOutlined />}
+            onClick={() => {
+              navigate('/settings');
+              onClose();
+            }}
+            style={{ fontSize: 12 }}
+          >
+            Notification Settings
+          </Button>
+          <Button
+            type="primary"
+            size="small"
+            icon={<ArrowRightOutlined />}
+            onClick={() => {
+              navigate('/notifications');
+              onClose();
+            }}
+          >
+            View All in Notification Center
+          </Button>
+        </Flex>
+      }
     >
       {/* Search & Tabs */}
       <Input

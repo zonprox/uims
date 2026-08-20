@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router';
 import { io, type Socket } from 'socket.io-client';
 import { type NotificationItem, notificationsService } from '../services/notifications.service';
 import { useAuthStore } from '../stores/auth.store';
+import {
+  playNotificationChime,
+  useNotificationSettingsStore,
+} from '../stores/notification-settings.store';
 
 // Helper to determine socket server URL
 function getSocketUrl(): string {
@@ -110,64 +114,49 @@ export function useRealtimeNotifications() {
         setUnreadCount((c) => c + 1);
       }
 
-      // 3. Display instant Ant Design toast popup
-      const toastType =
-        newNotif.type === 'error'
-          ? 'error'
-          : newNotif.type === 'warning'
-            ? 'warning'
-            : newNotif.type === 'success'
-              ? 'success'
-              : 'info';
+      // Read current persistent user preferences
+      const settings = useNotificationSettingsStore.getState();
+      const catKey = (newNotif.category || 'general') as keyof typeof settings.categories;
+      const isSubscribed = settings.categories?.[catKey] !== false;
 
-      antNotificationRef.current[toastType]({
-        message: newNotif.title,
-        description: newNotif.description,
-        placement: 'topRight',
-        duration: 6,
-        btn: newNotif.link
-          ? createElement(
-              Button,
-              {
-                type: 'primary',
-                size: 'small',
-                onClick: () => {
-                  if (newNotif.link) {
-                    navigateRef.current(newNotif.link);
-                  }
-                  antNotificationRef.current.destroy();
+      // 3. Display instant Ant Design toast popup if enabled and subscribed
+      if (settings.toastEnabled && isSubscribed) {
+        const toastType =
+          newNotif.type === 'error'
+            ? 'error'
+            : newNotif.type === 'warning'
+              ? 'warning'
+              : newNotif.type === 'success'
+                ? 'success'
+                : 'info';
+
+        antNotificationRef.current[toastType]({
+          message: newNotif.title,
+          description: newNotif.description,
+          placement: 'topRight',
+          duration: settings.toastDuration ?? 4.5,
+          btn: newNotif.link
+            ? createElement(
+                Button,
+                {
+                  type: 'primary',
+                  size: 'small',
+                  onClick: () => {
+                    if (newNotif.link) {
+                      navigateRef.current(newNotif.link);
+                    }
+                    antNotificationRef.current.destroy();
+                  },
                 },
-              },
-              'View Details',
-            )
-          : undefined,
-      });
+                'View Details',
+              )
+            : undefined,
+        });
+      }
 
-      // 4. Trigger Web Audio subtle notification chime if supported
-      try {
-        if (
-          typeof AudioContext !== 'undefined' ||
-          typeof (window as unknown as { webkitAudioContext: typeof AudioContext })
-            .webkitAudioContext !== 'undefined'
-        ) {
-          const AudioCtx =
-            window.AudioContext ||
-            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-          const ctx = new AudioCtx();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-          gain.gain.setValueAtTime(0.08, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-          osc.start(ctx.currentTime);
-          osc.stop(ctx.currentTime + 0.25);
-        }
-      } catch {
-        // Audio optional
+      // 4. Trigger Web Audio subtle notification chime if enabled and subscribed
+      if (settings.soundEnabled && isSubscribed) {
+        playNotificationChime(settings.soundVolume ?? 0.5);
       }
     });
 

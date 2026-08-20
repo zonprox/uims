@@ -107,7 +107,6 @@ apps/web/
 │   │   ├── NotificationDrawer.tsx # Real-time Socket.IO notification panel
 │   │   ├── PageContainer.tsx  # Standardized page layout wrapper
 │   │   ├── PageLoader.tsx     # Loading fallback spinner for lazy components
-│   │   ├── QuickConfigDrawer.tsx # Live theme and appearance customizer
 │   │   ├── TimezoneSelector.tsx  # Global timezone picker
 │   │   └── WorldClockWidget.tsx  # Multi-region operational world clock
 │   ├── hooks/             # Custom React hooks (auth, access, health, notifications)
@@ -139,6 +138,13 @@ All routes are lazily loaded and defined in `src/app/router.tsx`:
 - **Reports & Analytics (`/reports`)**: Customizable operational reports, cost analytics, and data exports.
 - **Settings (`/settings`)**: Theme customization, default timezone, security preferences, and system parameters.
 - **Authentication (`/login`)**: User login screen with JWT credentials and automatic redirection.
+
+## UI/UX & Design System Guidelines
+
+- **Official Ant Design Reference (`https://ant.design/llms-full.txt`)**: When designing, creating, or modifying any UI/UX components, layouts, forms, or styles, developers and LLMs must download/read `https://ant.design/llms-full.txt` directly to ensure 100% compliance with standard component APIs, semantic token styling, and Ant Design best practices.
+- **Dynamic Context**: Always consume feedback APIs via `App.useApp()` (`message`, `modal`, `notification`).
+- **Semantic Tokens & Styles**: Use `styles={{ body: ... }}` / `styles={{ content: ... }}` rather than deprecated `bodyStyle` / `valueStyle`.
+- **Consistency**: Wrap domain views with `<PageContainer>` and adhere to Enterprise English copy standards.
 
 ## Testing
 

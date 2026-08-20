@@ -106,6 +106,96 @@ describe('LicensesService', () => {
         }),
       );
     });
+
+    it('should trigger License Capacity Near Limit warning when seats reach >= 90%', async () => {
+      const mockNotificationsService = {
+        notifyUser: vi.fn().mockResolvedValue({}),
+        notifyAdmins: vi.fn().mockResolvedValue([]),
+      };
+      const serviceWithNotif = new LicensesService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        mockNotificationsService as unknown as import('../notifications/notifications.service').NotificationsService,
+      );
+
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-1',
+        name: 'Figma Organization',
+        totalSeats: 10,
+        usedSeats: 8,
+        assignments: [],
+      });
+
+      mockPrisma.licenseAssignment.create.mockResolvedValue({
+        id: 'asgn-9',
+        licenseId: 'lic-1',
+        assignedName: 'Alice Designer',
+        assignedEmail: 'alice@company.com',
+      });
+
+      mockPrisma.license.update.mockResolvedValue({
+        id: 'lic-1',
+        name: 'Figma Organization',
+        totalSeats: 10,
+        usedSeats: 9, // 9/10 = 90%
+      });
+
+      await serviceWithNotif.assignUser('lic-1', {
+        name: 'Alice Designer',
+        email: 'alice@company.com',
+      });
+
+      expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'License Capacity Near Limit',
+          type: 'WARNING',
+        }),
+      );
+    });
+
+    it('should trigger License Capacity Reached alert when seats reach 100%', async () => {
+      const mockNotificationsService = {
+        notifyUser: vi.fn().mockResolvedValue({}),
+        notifyAdmins: vi.fn().mockResolvedValue([]),
+      };
+      const serviceWithNotif = new LicensesService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        mockNotificationsService as unknown as import('../notifications/notifications.service').NotificationsService,
+      );
+
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-1',
+        name: 'Figma Organization',
+        totalSeats: 10,
+        usedSeats: 9,
+        assignments: [],
+      });
+
+      mockPrisma.licenseAssignment.create.mockResolvedValue({
+        id: 'asgn-10',
+        licenseId: 'lic-1',
+        assignedName: 'Bob Designer',
+        assignedEmail: 'bob@company.com',
+      });
+
+      mockPrisma.license.update.mockResolvedValue({
+        id: 'lic-1',
+        name: 'Figma Organization',
+        totalSeats: 10,
+        usedSeats: 10, // 10/10 = 100%
+      });
+
+      await serviceWithNotif.assignUser('lic-1', {
+        name: 'Bob Designer',
+        email: 'bob@company.com',
+      });
+
+      expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'License Capacity Reached',
+          type: 'WARNING',
+        }),
+      );
+    });
   });
 
   describe('getStats', () => {

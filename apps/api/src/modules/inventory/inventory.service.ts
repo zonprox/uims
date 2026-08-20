@@ -157,6 +157,10 @@ export class InventoryService {
       },
     });
 
+    if (updated.quantity <= updated.minThreshold) {
+      await this.checkStockThreshold(updated);
+    }
+
     return updated;
   }
 

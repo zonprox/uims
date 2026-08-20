@@ -2,6 +2,7 @@ import { App } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { type Asset, type AssetStats, assetsService } from '../../../services/assets.service';
 
 export interface AssetFormValues {
@@ -112,9 +113,25 @@ export function useAssetManagement(form: FormInstance) {
     }
   }, [categoryFilter, message, searchQuery, statusFilter]);
 
+  const [searchParams] = useSearchParams();
+  const deepLinkId = searchParams.get('id') || searchParams.get('tag');
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Deep linking: auto-open detail drawer if query parameter is present
+  useEffect(() => {
+    if (deepLinkId && assets.length > 0) {
+      const match = assets.find(
+        (a) => a.id === deepLinkId || a.tag.toLowerCase() === deepLinkId.toLowerCase(),
+      );
+      if (match) {
+        setSelectedAsset(match);
+        setDetailDrawerOpen(true);
+      }
+    }
+  }, [deepLinkId, assets]);
 
   const handleOpenCreateModal = useCallback(() => {
     setEditingAsset(null);

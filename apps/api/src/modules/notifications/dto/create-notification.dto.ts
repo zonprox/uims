@@ -33,6 +33,11 @@ export class CreateNotificationDto {
   @IsOptional()
   link?: string;
 
+  @ApiPropertyOptional({ enum: ['alerts', 'tasks', 'general'], description: 'Optional category' })
+  @IsString()
+  @IsOptional()
+  category?: 'alerts' | 'tasks' | 'general';
+
   @ApiPropertyOptional({ default: false })
   @IsBoolean()
   @IsOptional()

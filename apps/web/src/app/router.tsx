@@ -14,6 +14,7 @@ const NetworkPage = lazy(() => import('../pages/network/NetworkPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
 const AuditPage = lazy(() => import('../pages/audit/AuditPage'));
 const ReportsPage = lazy(() => import('../pages/reports/ReportsPage'));
+const NotificationsPage = lazy(() => import('../pages/notifications/NotificationsPage'));
 const SettingsPage = lazy(() => import('../pages/settings/SettingsPage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 
@@ -106,6 +107,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader tip="Loading Reports & Analytics..." />}>
                 <ReportsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'notifications',
+            element: (
+              <Suspense fallback={<PageLoader tip="Loading Notification Center..." />}>
+                <NotificationsPage />
               </Suspense>
             ),
           },

@@ -1,8 +1,14 @@
 import { theme, type ThemeConfig } from 'antd';
-import type { ThemeColorPreset, ThemeMode } from '../stores/theme.store';
+import {
+  type ResolvedThemeMode,
+  type ThemeColorPreset,
+  type ThemeMode,
+  resolveThemeMode,
+} from '../stores/theme.store';
 
 interface GetThemeOptions {
   mode: ThemeMode;
+  resolvedMode?: ResolvedThemeMode;
   compact: boolean;
   preset: ThemeColorPreset;
   borderRadius: number;
@@ -109,11 +115,12 @@ function getComponentThemes(isDark: boolean, preset: ThemeColorPreset, borderRad
 
 export function buildThemeConfig({
   mode,
+  resolvedMode,
   compact,
   preset,
   borderRadius,
 }: GetThemeOptions): ThemeConfig {
-  const isDark = mode === 'dark';
+  const isDark = (resolvedMode ?? resolveThemeMode(mode)) === 'dark';
   const algorithms = [isDark ? theme.darkAlgorithm : theme.defaultAlgorithm];
 
   if (compact) {

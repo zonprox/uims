@@ -2,6 +2,7 @@ import {
   ApartmentOutlined,
   AuditOutlined,
   BarChartOutlined,
+  BellOutlined,
   DatabaseOutlined,
   GlobalOutlined,
   LaptopOutlined,
@@ -107,6 +108,14 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/audit',
     icon: <AuditOutlined />,
     description: 'Lifecycle logs, custodian changes, and compliance events',
+  },
+  {
+    key: 'notifications',
+    title: 'Notifications',
+    category: 'System',
+    path: '/notifications',
+    icon: <BellOutlined />,
+    description: 'View real-time alerts, system messages, and task reminders',
   },
   {
     key: 'settings',

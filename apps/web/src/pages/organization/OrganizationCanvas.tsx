@@ -439,8 +439,8 @@ export default function OrganizationCanvas({
   onOpenCreatePos,
   loading = false,
 }: OrganizationCanvasProps) {
-  const mode = useThemeStore((state) => state.mode);
-  const isDark = mode === 'dark';
+  const resolvedMode = useThemeStore((state) => state.resolvedMode);
+  const isDark = resolvedMode === 'dark';
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());

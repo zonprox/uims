@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { NotificationQueryDto } from './dto/notification-query.dto';
 import { NotificationsService } from './notifications.service';
 
 @ApiTags('notifications')
@@ -11,10 +12,13 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all notifications' })
-  async findAll(@Request() req: { user?: { sub?: string; id?: string; role?: string } }) {
+  @ApiOperation({ summary: 'Get all notifications with pagination and filters' })
+  async findAll(
+    @Request() req: { user?: { sub?: string; id?: string; role?: string } },
+    @Query() query: NotificationQueryDto,
+  ) {
     const userId = req.user?.role === 'Super Admin' ? undefined : req.user?.id || req.user?.sub;
-    return this.notificationsService.findAll(userId);
+    return this.notificationsService.findAll(userId, query);
   }
 
   @Get('unread-count')

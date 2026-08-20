@@ -15,6 +15,7 @@ dayjs.locale('en');
 
 export default function App() {
   const mode = useThemeStore((state) => state.mode);
+  const resolvedMode = useThemeStore((state) => state.resolvedMode);
   const compact = useThemeStore((state) => state.compact);
   const borderRadius = useThemeStore((state) => state.borderRadius);
   const getCurrentPreset = useThemeStore((state) => state.getCurrentPreset);
@@ -24,11 +25,12 @@ export default function App() {
   const themeConfig = useMemo(() => {
     return buildThemeConfig({
       mode,
+      resolvedMode,
       compact,
       preset,
       borderRadius,
     });
-  }, [mode, compact, preset, borderRadius]);
+  }, [mode, resolvedMode, compact, preset, borderRadius]);
 
   return (
     <QueryClientProvider client={queryClient}>

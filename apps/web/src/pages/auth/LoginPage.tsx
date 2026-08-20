@@ -26,8 +26,9 @@ export default function LoginPage() {
   const location = useLocation();
   const login = useAuthStore((state) => state.login);
 
-  const mode = useThemeStore((state) => state.mode);
+  const resolvedMode = useThemeStore((state) => state.resolvedMode);
   const toggleMode = useThemeStore((state) => state.toggleMode);
+  const isDark = resolvedMode === 'dark';
 
   const from = location.state?.from?.pathname || '/';
 
@@ -66,18 +67,18 @@ export default function LoginPage() {
         flexDirection: 'column',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: mode === 'dark' ? '#090d16' : '#f8fafc',
+        background: isDark ? '#090d16' : '#f8fafc',
         padding: '24px 16px',
         position: 'relative',
       }}
     >
       {/* Theme switcher top right */}
       <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 10 }}>
-        <Tooltip title={mode === 'dark' ? 'Switch to Light' : 'Switch to Dark'}>
+        <Tooltip title={isDark ? 'Switch to Light' : 'Switch to Dark'}>
           <Button
             type="text"
             shape="circle"
-            icon={mode === 'dark' ? <SunOutlined style={{ color: '#f59e0b' }} /> : <MoonOutlined />}
+            icon={isDark ? <SunOutlined style={{ color: '#f59e0b' }} /> : <MoonOutlined />}
             onClick={toggleMode}
           />
         </Tooltip>
@@ -136,11 +137,10 @@ export default function LoginPage() {
           }}
           style={{
             borderRadius: 8,
-            boxShadow:
-              mode === 'dark'
-                ? '0 1px 3px rgba(0, 0, 0, 0.4)'
-                : '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03)',
-            border: mode === 'dark' ? '1px solid #1e293b' : '1px solid #e2e8f0',
+            boxShadow: isDark
+              ? '0 1px 3px rgba(0, 0, 0, 0.4)'
+              : '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03)',
+            border: isDark ? '1px solid #1e293b' : '1px solid #e2e8f0',
           }}
         >
           <Form
@@ -211,8 +211,8 @@ export default function LoginPage() {
               style={{
                 padding: '10px 12px',
                 borderRadius: 6,
-                background: mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#f1f5f9',
-                border: mode === 'dark' ? '1px solid #1e293b' : '1px solid #e2e8f0',
+                background: isDark ? 'rgba(255,255,255,0.03)' : '#f1f5f9',
+                border: isDark ? '1px solid #1e293b' : '1px solid #e2e8f0',
               }}
             >
               <Text

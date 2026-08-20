@@ -168,4 +168,54 @@ describe('useRealtimeNotifications Hook', () => {
       root.unmount();
     });
   });
+
+  it('should handle incoming socket notification:new and update state', async () => {
+    vi.mocked(notificationsService.getNotifications).mockResolvedValueOnce([]);
+
+    let hookResult: ReturnType<typeof useRealtimeNotifications> | null = null;
+    function TestComponent() {
+      const state = useRealtimeNotifications();
+      hookResult = state;
+      return createElement('div', null);
+    }
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(TestComponent));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(hookResult!.notifications).toHaveLength(0);
+    expect(hookResult!.unreadCount).toBe(0);
+
+    // Find registered notification:new handler
+    const newNotifHandler = mockSocketOn.mock.calls.find(
+      (call) => call[0] === 'notification:new',
+    )?.[1];
+    expect(newNotifHandler).toBeDefined();
+
+    await act(async () => {
+      newNotifHandler({
+        id: 'new-1',
+        title: 'New Alert',
+        description: 'New Description',
+        type: 'warning',
+        category: 'alerts',
+        time: 'Just now',
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    expect(hookResult!.notifications).toHaveLength(1);
+    expect(hookResult!.notifications[0].id).toBe('new-1');
+    expect(hookResult!.unreadCount).toBe(1);
+
+    act(() => {
+      root.unmount();
+    });
+  });
 });
