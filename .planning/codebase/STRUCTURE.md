@@ -1,84 +1,116 @@
-# Codebase Structure
-**Analysis Date:** 2026-08-17
+# Directory Structure
+**Analysis Date:** 2026-08-20
 
-## Directory Layout
-```text
-/home/user/projects/uims
-├── apps
-│   ├── api                 # NestJS API Backend
-│   │   ├── prisma          # Prisma schema and migrations
-│   │   └── src             # API source code
-│   │       ├── common      # Global filters, interceptors, pipes, redis
-│   │       ├── config      # Configuration files
-│   │       ├── database    # Prisma service and module
-│   │       ├── modules     # Feature domains (auth, users, assets, etc.)
-│   │       └── main.ts     # API entry point
-│   └── web                 # React/Vite Frontend
-│       ├── certs           # SSL Certificates
-│       └── src             # Frontend source code
-│           ├── app         # App configuration, router, and query-client
-│           ├── components  # Reusable UI components
-│           ├── hooks       # Custom React hooks (e.g., realtime, health)
-│           ├── layouts     # Layout components (Main, Auth, Sidebar)
-│           ├── pages       # Route-level page components (assets, auth, etc.)
-│           ├── services    # Axios service layer for API communication
-│           ├── stores      # Zustand state stores
-│           ├── styles      # Global CSS
-│           ├── utils       # Constants and helper functions
-│           └── main.tsx    # Frontend entry point
-├── docker                  # Docker configuration and infrastructure (nginx, postgres)
-├── packages                # Shared packages in monorepo
-│   ├── eslint-config       # Shared ESLint configuration
-│   ├── shared-types        # Shared TypeScript definitions (DTOs, entities)
-│   ├── shared-utils        # Shared utilities (formatters, timezone logic)
-│   └── shared-validators   # Shared Zod validation schemas
-└── scripts                 # Utility scripts for the project
+## Root Structure
+- `apps/` - Contains executable applications.
+- `packages/` - Contains internal libraries and shared dependencies.
+- `docker/` - Docker-related infrastructure.
+- `scripts/` - Utility scripts.
+- `.planning/` - Planning and architectural documentation.
+
+## Backend Structure (`apps/api/`)
+```
+apps/api/src/
+├── common/                  # Shared cross-module NestJS components
+│   ├── decorators/          # Custom parameter and method decorators
+│   ├── dto/                 # Generic Data Transfer Objects
+│   ├── filters/             # Exception filters (e.g., HttpExceptionFilter)
+│   ├── guards/              # Authentication and Authorization guards
+│   ├── interceptors/        # Request/Response interceptors (e.g., AuditInterceptor)
+│   ├── pipes/               # Data transformation pipes
+│   ├── redis/               # Redis connection and caching utilities
+│   └── utils/               # Backend specific utility functions
+├── config/                  # Configuration loaders (e.g., environment variables)
+├── database/                # Prisma service and module
+├── modules/                 # Feature-specific bounded contexts
+│   ├── assets/              # Hardware and software asset tracking
+│   ├── audit/               # System and user activity audit logs
+│   ├── auth/                # Authentication logic and strategies
+│   ├── dashboard/           # Aggregated data for dashboard metrics
+│   ├── health/              # Health check endpoints
+│   ├── inventory/           # IT inventory management
+│   ├── licenses/            # Software license management
+│   ├── network/             # Network and IPAM features
+│   ├── notifications/       # User notification management
+│   ├── organization/        # Org charts and structure
+│   ├── reports/             # Reporting endpoints
+│   ├── roles/               # Role management
+│   ├── search/              # Global search capabilities
+│   ├── settings/            # Application settings
+│   └── users/               # User management
+├── app.module.ts            # Root application module
+└── main.ts                  # NestJS bootstrap entry point
 ```
 
-## Directory Purposes
+## Frontend Structure (`apps/web/`)
+```
+apps/web/src/
+├── app/                     # Global app configuration
+│   ├── App.tsx              # Root component provider setup
+│   └── router.tsx           # Application route definitions
+├── components/              # Shared generic UI components
+│   └── Access/              # Access control wrappers
+├── hooks/                   # Shared React hooks
+├── layouts/                 # Page layout components
+│   ├── components/          # Subcomponents for layouts
+│   └── hooks/               # Layout specific hooks
+├── pages/                   # Route-based page components
+│   ├── assets/              # Assets module views
+│   ├── audit/               # Audit module views
+│   ├── auth/                # Login and auth flow views
+│   ├── dashboard/           # Dashboard views
+│   ├── inventory/           # Inventory management views
+│   ├── licenses/            # Licenses management views
+│   ├── network/             # Network management views
+│   ├── organization/        # Organization structure views
+│   ├── reports/             # Reporting views
+│   ├── settings/            # Application settings views
+│   └── users/               # User management views
+├── services/                # API client and integrations
+├── stores/                  # Zustand global state (e.g., theme)
+├── styles/                  # Global CSS and theming
+└── utils/                   # Frontend-specific utilities
+```
 
-| Directory | Purpose |
-|---|---|
-| `apps/api/` | Houses the NestJS backend application. Manages authentication, business logic, PostgreSQL communication, and real-time data streaming via WebSockets. |
-| `apps/api/src/modules/` | Contains self-contained feature modules (e.g., `assets`, `inventory`, `network`) wrapping Controllers, Services, and business logic. |
-| `apps/web/` | Houses the React SPA frontend application built with Vite and Ant Design v6. |
-| `apps/web/src/pages/` | Contains the top-level route components mapping directly to application views. |
-| `apps/web/src/services/` | Centralizes all external data fetching using Axios wrappers, connecting React components with the NestJS API. |
-| `apps/web/src/stores/` | Houses Zustand stores handling global frontend state such as user session (`auth.store.ts`), theme (`theme.store.ts`), and localization (`timezone.store.ts`). |
-| `packages/shared-types/` | Defines universal TypeScript interfaces (Entities, DTOs, Enums) utilized symmetrically across both the API and Web App to maintain strict type contracts. |
-| `packages/shared-validators/` | Contains Zod schemas ensuring consistent input validation rules on both frontend forms and backend request payloads. |
+## Shared Packages Structure
+- **`packages/shared-types/`**:
+  - `src/dto/`: Request/Response type shapes.
+  - `src/entities/`: Core data models matching Prisma schema.
+  - `src/enums/`: Shared literal value types.
+- **`packages/shared-utils/`**:
+  - `src/`: Date/Time utilities (Day.js), string formatters, enum helpers.
+- **`packages/shared-validators/`**:
+  - `src/`: Zod schemas grouped by domain (e.g., `user.validator.ts`).
 
-## Key File Locations
+## Configuration Files
+- **`package.json`**: Root dependencies and workspace scripts.
+- **`turbo.json`**: Turborepo pipeline configuration for `build`, `dev`, `lint`, and `test`.
+- **`pnpm-workspace.yaml`**: Defines workspace boundaries (`apps/*`, `packages/*`).
+- **`docker-compose.yml` / `.dev.yml`**: Infrastructure deployment configurations.
+- **`biome.json`**: Code formatting and linting rules.
 
-- **Frontend Application Entry:** `apps/web/src/main.tsx` and `apps/web/src/app/App.tsx`
-- **Backend Application Entry:** `apps/api/src/main.ts`
-- **Database Schema:** `apps/api/prisma/schema.prisma`
-- **Frontend Routing Configuration:** `apps/web/src/app/router.tsx`
-- **Global API Response/Exception Handling:** `apps/api/src/common/filters/http-exception.filter.ts`
-- **Core Real-time Logic:** `apps/api/src/modules/notifications/notifications.gateway.ts` and `apps/web/src/hooks/useRealtimeNotifications.ts`
+## Module Inventory
+### Backend Modules (NestJS)
+- `AppModule`, `PrismaModule`, `RedisModule`
+- `AuthModule`, `UsersModule`, `RolesModule`, `OrganizationModule`
+- `AssetsModule`, `InventoryModule`, `LicensesModule`, `NetworkModule`
+- `AuditModule`, `ReportsModule`, `DashboardModule`
+- `SearchModule`, `NotificationsModule`, `SettingsModule`, `HealthModule`
 
-## Naming Conventions
-- **Files & Directories:** 
-  - Kebab-case for typical files and directories (e.g., `user-query.dto.ts`, `assets.controller.ts`).
-  - PascalCase for React component files (e.g., `AssetFormModal.tsx`, `PageContainer.tsx`).
-- **NestJS Components:** Suffixed with `.controller.ts`, `.service.ts`, `.module.ts`, `.guard.ts`.
-- **Data Transfer Objects:** Suffixed with `.dto.ts` (e.g., `create-asset.dto.ts`).
-- **Tests:** Placed alongside implementation, suffixed with `.test.ts`, `.test.tsx`, or `.spec.ts` (e.g., `auth.service.spec.ts`).
-- **Packages:** Prefixed with `@uims/` in `package.json` for internal cross-workspace consumption.
-
-## Where to Add New Code
-- **New Feature/Domain:**
-  - Create a new module inside `apps/api/src/modules/` with its Controller and Service.
-  - Create a corresponding page in `apps/web/src/pages/` and an API wrapper in `apps/web/src/services/`.
-  - Define all required data structures in `packages/shared-types/` and validation logic in `packages/shared-validators/`.
-- **New Reusable UI Element:** Add to `apps/web/src/components/`.
-- **New Reusable Logic (Frontend):** Add custom hooks to `apps/web/src/hooks/`.
-- **New Reusable Logic (Global):** Add utilities that don't depend on DOM or Nest context to `packages/shared-utils/`.
-
-## Special Directories
-- `.planning/codebase/`: Stores structural, architectural, and planning documentation automatically generated/updated by GSD agents.
-- `.turbo/`: Turborepo's internal cache and configuration folder. Do not edit directly.
-- `docker/`: Contains configurations for provisioning necessary infrastructure like the reverse proxy (Nginx) and databases (PostgreSQL).
+### Frontend Routes
+- `/login`: `LoginPage`
+- `/`: `DashboardPage`
+- `/assets`: `AssetsPage`
+- `/licenses`: `LicensesPage`
+- `/directory`: Redirects to `/users`
+- `/organization`: `OrganizationPage`
+- `/users`: `UsersPage`
+- `/network`: `NetworkPage`
+- `/inventory`: `InventoryPage`
+- `/audit`: `AuditPage`
+- `/reports`: `ReportsPage`
+- `/settings`: `SettingsPage`
+- `/*`: `NotFoundPage`
 
 ---
-*Structure analysis: 2026-08-17*
+*2026-08-20*

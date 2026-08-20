@@ -1,37 +1,39 @@
-# Codebase Concerns
-**Analysis Date:** 2026-08-17
+# Analysis Date: 2026-08-20
 
-## Tech Debt
-- **Type Safety Bypass**: There are approximately 24 instances of explicit `any` casting in the `apps/web` application and API test files (e.g., `apps/api/src/modules/notifications/notifications.service.spec.ts`).
-- **Excessive Logging**: Seed files (e.g., `apps/api/prisma/seed.ts`) and test scripts (`scripts/test-login.mjs`) rely heavily on `console.log`. While acceptable in scripts, this pattern must be avoided in production application logic.
+## Critical Issues
+- **CORS Misconfiguration**: In `apps/api/src/main.ts` (L43-L53), the CORS configuration checks if `process.env.NODE_ENV !== 'production'` and allows ALL origins, bypassing the `allowedOrigins` list. In insecure deployments, this allows arbitrary origins.
+- **Hardcoded Database Credentials**: Hardcoded database URL with credentials (`postgresql://uims:uims_secret_2026@localhost:5433/uims_db?schema=public`) is present in `apps/api/prisma.config.ts` (L13), `apps/api/prisma/seed.ts` (L17), and `apps/api/src/database/prisma.service.ts` (L15).
+- **Default/Hardcoded Passwords**: 
+  - `Admin@2026` and `password123` are hardcoded in `apps/api/prisma/seeders/roles-users.seeder.ts` (L6-L7).
+  - In `apps/api/src/modules/users/users.service.ts` (L74), an initial default password is set predictably as `Ad#${username}2026!`.
 
-## Known Bugs
-- Not detected. The codebase currently reports 100% passing Playwright E2E tests.
+## Technical Debt
+- **Outdated Dependencies**: 
+  - `@biomejs/biome (dev)` is at 2.5.8 but 2.5.9 is available.
+  - `turbo (dev)` is at 2.10.10 but 2.10.11 is available.
 
-## Security Considerations
-- **Sensitive Data Storage**: The `User` model in `apps/api/prisma/schema.prisma` includes an `adInitialPassword` field. If this stores plaintext passwords, it represents a significant security vulnerability and should be hashed or handled via a secure credential distribution mechanism.
-- **Hardcoded E2E Credentials**: The test script `scripts/test-login.mjs` uses hardcoded credentials (`admin@uims.internal`). These should be extracted to secure environment variables.
+## Security Concerns
+- **Hardcoded Signing Keys**: In `apps/api/src/common/interceptors/audit.interceptor.ts` (L75), there is a fallback signing key: `uims-audit-tamper-evident-hmac-2026`.
+- **JWT Secrets**: In test files such as `apps/api/src/modules/auth/auth.service.spec.ts` (L32, L56, L80, L109), secrets are hardcoded (`secret123`). This is a security risk if similar practices exist in production code (needs verification for production).
 
-## Performance Bottlenecks
-- **Large React Components**: `apps/web/src/pages/organization/OrganizationCanvas.tsx` is 1785 lines long, and `apps/web/src/pages/organization/OrganizationPage.tsx` is 1526 lines. These massive components are likely to suffer from render performance issues.
-- **Hierarchical Data Queries**: `AssetCategory` and `Department` models in `schema.prisma` use self-referencing hierarchical relationships (`parentId`). Retrieving deep trees using standard Prisma queries can result in severe N+1 query bottlenecks.
+## Performance Concerns
+- **Missing Pagination Limits**: In `apps/api/src/modules/assets/assets.service.ts` (L138), the query parses `pageSize` to cap at 100, which is good, but without indexing on multiple search fields (`contains` queries on name, assetTag, serialNumber, model, manufacturer), this could lead to full table scans.
+- **Database Query Patterns**: The `findMany` methods in services like `apps/api/src/modules/assets/assets.service.ts` and `apps/api/src/modules/audit/audit.service.ts` use insensitive searches which may be slow on large datasets without appropriate GIN/GiST indexes.
 
-## Fragile Areas
-- **God Components**: The massive size of `OrganizationCanvas.tsx` and `OrganizationPage.tsx` indicates tight coupling and a lack of modularity, making them highly fragile and difficult to maintain.
-- **Service Complexity**: `apps/api/src/modules/users/users.service.ts` is growing large (461 lines) and risks becoming a God Object if domain responsibilities are not adequately separated.
+## Type Safety
+- **Type Casting in Queries**: Several test files use `ReturnType<typeof vi.fn>` and `mockPrisma.auditLog.findMany.mockResolvedValue` which cast results broadly, potentially missing true schema types. More investigation needed into actual `.ts` code `as any` casting.
 
-## Scaling Limits
-- **Database Indexing**: As the `Asset` and `AuditLog` tables grow, the current indexing strategy in `schema.prisma` may prove insufficient for complex, multi-field filtering and aggregation.
-- **Tree Structures**: Deeply nested organizational or category hierarchies will struggle to scale without implementing materialised paths or closure tables, as Prisma lacks native recursive CTE support.
+## Missing Features
+- **Incomplete Role Fallbacks**: In `apps/api/src/common/guards/permissions.guard.ts` (L73), the comment `// 2. Fallback: Query Prisma for user's role permissions if available` suggests a potentially unimplemented or unoptimized fallback path.
 
-## Dependencies at Risk
-- Not detected. The project utilizes a modern monorepo setup with `pnpm` and standard, up-to-date dependencies (e.g., Turbo, Biome, Prisma).
+## Dependency Concerns
+- See Technical Debt regarding minor version updates.
 
-## Missing Critical Features
-- Not detected. No significant stubbed implementations or missing critical paths were identified.
-
-## Test Coverage Gaps
-- **Unit Testing for Complex UI**: Given the enormous size of the Organization components (`OrganizationCanvas.tsx`), there is a high probability of significant unit test coverage gaps for edge cases and state management within those specific views. E2E tests alone are insufficient for components of this complexity.
+## Recommendations
+1. **Critical**: Remove all hardcoded credentials from codebase. Use environment variables strictly.
+2. **Critical**: Fix CORS in `apps/api/src/main.ts` to strictly evaluate origin patterns rather than a broad `!== 'production'` fallback.
+3. **High**: Ensure all HMAC and signing keys fallback to an error rather than a hardcoded default.
+4. **Medium**: Refactor database searches to use optimized indexing or full-text search capabilities rather than multiple `contains` conditions.
 
 ---
-*Concerns audit: 2026-08-17*
+*Analysis Date: 2026-08-20*

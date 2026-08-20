@@ -1,151 +1,86 @@
+<!-- generated-by: gsd-doc-writer -->
 # UIMS — Unified IT Management System
 
-> One platform. Complete IT control.
-
-Enterprise-grade centralized IT management platform built with modern 2026 tech stack.
+UIMS is a monorepo containing the Unified IT Management System. It consists of a NestJS backend API and a React (Ant Design) web frontend, built with Turborepo and pnpm.
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|:------|:-----------|:--------|
-| Runtime | Node.js | 24 LTS |
-| Language | TypeScript | 7.0.2 |
-| Frontend | React + Ant Design | 19.2.8 + 6.6.0 |
-| Build | Vite | 8.2.1 |
-| Backend | NestJS | 11.1.29 |
-| ORM | Prisma | 7.9.1 |
-| Database | PostgreSQL | 18.6 |
-| Cache | Redis | 8.8 |
-| Queue | BullMQ | 6.1.0 |
-| Search | MeiliSearch | 1.12 |
-| Storage | SeaweedFS | Latest |
-| Monorepo | Turborepo + pnpm | 2.10.7 + 11.21.0 |
+- **Runtime:** Node.js 22+
+- **Package Manager:** pnpm
+- **Monorepo Tooling:** Turborepo
+- **Backend:** NestJS, Prisma, PostgreSQL, Redis, BullMQ
+- **Frontend:** React 19, Ant Design 6, Vite
+- **Infrastructure:** MeiliSearch (Search), SeaweedFS (S3-compatible storage)
 
-## Modules
+## Modules Overview
 
-- **Dashboard** — KPIs, charts, alerts, system health
-- **Asset Management** — Hardware/software lifecycle tracking
-- **License Management** — Software license compliance
-- **Directory Services** — AD/LDAP user synchronization
-- **Email Management** — Email account lifecycle
-- **Network & IP** — IPAM, subnets, VLANs, DNS
-- **Hardware Inventory** — Physical inventory tracking
-- **Audit & Compliance** — Full audit trail
-- **Reports & Analytics** — Custom reports, exports
-- **Settings & Admin** — RBAC, system configuration
+### Apps
+- **`apps/api`**: NestJS backend application providing the REST and WebSockets API.
+- **`apps/web`**: React-based frontend web application using Ant Design.
 
-## Quick Start
+### Packages (Shared)
+- **`packages/shared-types`**: Shared TypeScript definitions.
+- **`packages/shared-validators`**: Zod validation schemas.
+- **`packages/shared-utils`**: Common utility functions.
+- **`packages/eslint-config`**: Shared ESLint configuration for the workspace.
 
-### Prerequisites
+## Installation
 
-- Node.js >= 24
-- pnpm >= 11
-- Docker & Docker Compose
-
-### Development Setup
+Ensure you have Node.js 22+ and pnpm 11+ installed.
 
 ```bash
 # Clone the repository
-git clone <repo-url> uims
+git clone <repository-url> uims
 cd uims
 
 # Install dependencies
 pnpm install
+```
 
-# Copy environment variables
+## Quick Start
+
+The quickest way to get the full stack running locally is using Docker Compose.
+
+```bash
+# 1. Setup environment variables
 cp .env.example .env
 
-# Start infrastructure services
-docker compose up -d postgres redis meilisearch seaweedfs-master seaweedfs-volume seaweedfs-filer
+# 2. Start the infrastructure and development servers via Docker
+pnpm run docker:dev
 
-# Generate Prisma client
-pnpm db:generate
-
-# Run database migrations
-pnpm db:migrate
-
-# Seed the database
-pnpm db:seed
-
-# Start development servers with Hot Reload
-pnpm dev
+# Alternatively, run infrastructure only and servers locally:
+pnpm run docker:up
+pnpm run db:generate
+pnpm run db:migrate
+pnpm run dev
 ```
 
-- API with live reload: `http://localhost:3002` (Swagger at `http://localhost:3002/api/v1/docs`)
-- Web app with Vite HMR: `http://localhost:5679`
+The applications will be available at:
+- **Web App**: `http://localhost:5679`
+- **API**: `http://localhost:3000` (or `http://localhost:3002` based on `.env`)
 
-### Default Credentials
+### Common Commands
 
-| Email | Password | Role |
-|:------|:---------|:-----|
-| admin@uims.local | Admin@2026 | Super Admin |
+From the root directory, you can run the following Turborepo commands:
 
-### Docker Development (Hot Reload enabled)
+- `pnpm run dev`: Starts all applications in development mode.
+- `pnpm run build`: Builds all apps and packages.
+- `pnpm run lint`: Lints the codebase.
+- `pnpm run format`: Formats code using Biome.
+- `pnpm run test`: Runs tests across the monorepo.
+- `pnpm run docker:dev:down`: Stops the Docker development environment.
 
-```bash
-# Start all services with hot reload & volume mounts
-pnpm docker:dev
+## Usage Examples
 
-# View logs
-pnpm docker:dev:logs
+Once the application is running, you can access the frontend via the provided Web App URL to manage IT assets, tickets, and configurations. The API provides endpoints for external integrations and background task management.
 
-# Stop development containers
-pnpm docker:dev:down
-```
+- **Frontend Dashboard:** Navigate to `http://localhost:5679` and log in with your credentials to access the IT management dashboard.
+- **API Documentation (Swagger):** Navigate to `http://localhost:3000/api/v1/docs` (or your configured API port) to view and test available REST API endpoints interactively.
 
-### Docker Production Deployment
+## Contributing
 
-```bash
-# Build and start all production services
-docker compose up -d --build
-
-# View logs
-docker compose logs -f
-
-# Stop all services
-docker compose down
-```
-
-## Project Structure
-
-```
-uims/
-├── apps/
-│   ├── api/              # NestJS backend
-│   └── web/              # React + Ant Design frontend
-├── packages/
-│   ├── shared-types/     # Shared TypeScript interfaces
-│   ├── shared-validators/# Shared Zod validation schemas
-│   ├── shared-utils/     # Shared utility functions
-│   └── eslint-config/    # Shared ESLint configuration
-├── docker/               # Docker configuration files
-├── docker-compose.yml    # Multi-service orchestration
-├── turbo.json            # Turborepo pipeline config
-└── pnpm-workspace.yaml   # Workspace definition
-```
-
-## Scripts
-
-| Command | Description |
-|:--------|:------------|
-| `pnpm dev` | Start all dev servers (Hot Reload enabled) |
-| `pnpm dev:api` | Start API server only (watch mode) |
-| `pnpm dev:web` | Start web app only (Vite HMR) |
-| `pnpm build` | Build all packages and apps |
-| `pnpm lint` | Lint all packages |
-| `pnpm test` | Run all tests |
-| `pnpm db:migrate` | Run database migrations |
-| `pnpm db:seed` | Seed the database |
-| `pnpm db:studio` | Open Prisma Studio |
-| `pnpm docker:dev` | Start Docker dev stack with Hot Reload & volume mounts |
-| `pnpm docker:dev:down` | Stop Docker dev stack |
-| `pnpm docker:up` | Start Docker production services |
-| `pnpm docker:down` | Stop Docker production services |
-
-## API Documentation
-
-Swagger/OpenAPI docs are available at `http://localhost:3002/api/v1/docs` when the API server is running.
+We welcome contributions to UIMS! Please ensure all code changes pass the standard build, formatting, and linting checks (`pnpm run format` and `pnpm run lint`) prior to submitting a pull request. If you are fixing a bug or adding a feature, please provide appropriate documentation updates.
 
 ## License
 
-UNLICENSED — Proprietary
+UNLICENSED

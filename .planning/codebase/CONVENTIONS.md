@@ -1,48 +1,66 @@
-# Coding Conventions
-**Analysis Date:** 2026-08-17
+# Code Quality & Conventions
 
-## Naming Patterns
-- **Files:** Use `kebab-case` for standard module files (e.g., `assets.controller.ts`, `assets.service.ts`). React component files use `PascalCase` (`OrganizationCanvas.tsx`).
-- **Functions:** Use `camelCase` for all functions and methods (e.g., `getStats`, `formatAsset`).
-- **Variables:** Use `camelCase` for standard variables. 
-- **Classes/Types:** Use `PascalCase` for classes, interfaces, and types (e.g., `AssetsController`, `AssetQueryDto`). Do not use the `I` prefix for interfaces.
-- **DTOs:** Add a `Dto` suffix for data transfer objects (e.g., `CreateAssetDto`).
+**Analysis Date:** 2026-08-20
 
-## Code Style
-- **Formatter/Linter:** Managed centrally by Biome (`biome.json`).
-- **Formatting Rules:** 2-space indent, 100 character line width, single quotes, trailing commas enabled, semicolons required.
-- **TypeScript:** Use explicit type imports (`import type { ... }`).
-- **Simplicity First:** Write the minimum code required to solve the problem. Do not introduce abstractions for single-use code or unrequested "configurability" (per `AGENTS.md`).
-- **Surgical Changes:** Only touch necessary code. Match existing style when making edits.
+## File Naming
+- **API (NestJS)**: Files are organized by feature and named using kebab-case with explicit suffixes (e.g., `inventory.controller.ts`, `inventory.service.ts`, `inventory.module.ts`). DTOs follow the `.dto.ts` pattern (e.g., `create-inventory-item.dto.ts`).
+- **Web (React)**: 
+  - **Components & Layouts**: PascalCase (e.g., `MainLayout.tsx`, `PageContainer.tsx`, `ErrorBoundary.tsx`).
+  - **Hooks**: camelCase with a `use` prefix (e.g., `useLayoutTelemetry.ts`, `useRealtimeNotifications.ts`).
+  - **Stores (Zustand)**: camelCase with a `.store.ts` suffix (e.g., `auth.store.ts`, `theme.store.ts`).
+  - **Utilities**: camelCase (e.g., `menuConfig.ts`).
+
+## Code Organization
+The repository is a Turborepo monorepo with a separation between frontend and backend.
+- **Backend (`apps/api/src`)**: 
+  - Modular architecture grouped by feature under `modules/` (e.g., `modules/inventory`, `modules/notifications`).
+  - Cross-cutting concerns are organized in `common/` (e.g., `common/filters/`, `common/decorators/`).
+- **Frontend (`apps/web/src`)**:
+  - `components/`: Generic, reusable UI components.
+  - `layouts/`: Application structural wrappers.
+  - `pages/`: Feature-based routing components.
+  - `hooks/`: Extracted business logic and UI state.
+  - `stores/`: Global state management.
+  - `services/`: API clients and data fetching logic.
+
+## Backend Conventions
+- **Framework**: NestJS.
+- **Decorators**: Extensive use of standard decorators (`@Controller()`, `@Get()`, `@Body()`) for routing and parameter extraction.
+- **Validation**: Data Transfer Objects (DTOs) with class-validator/class-transformer are used to define request payload shapes (e.g., `CreateInventoryItemDto`).
+- **Access Control**: Role-based access control (RBAC) is implemented via custom decorators (e.g., `@Roles('Admin', 'Super Admin')`).
+- **API Documentation**: Endpoints are richly decorated with Swagger/OpenAPI metadata (`@ApiTags()`, `@ApiOperation()`, `@ApiBearerAuth()`).
+
+## Frontend Conventions
+- **Framework & Libraries**: React (TypeScript), built with Vite.
+- **UI Framework**: Ant Design (`antd`) is the primary UI library. Components like `Layout`, `App`, `Drawer`, and `Grid` are heavily utilized.
+- **State Management**: Zustand is used for lightweight, hook-based global state (e.g., `useAuthStore`, `useThemeStore`).
+- **Routing**: React Router is used for client-side navigation (`useNavigate`, `useLocation`, `<Outlet />`).
+
+## Naming Standards
+- **Variables and Functions**: `camelCase`.
+- **Classes, Interfaces, and Types**: `PascalCase`.
+- **Constants**: Typically `UPPER_SNAKE_CASE` or `camelCase` depending on scope and mutability.
 
 ## Import Organization
-Group imports in the following order:
-1. **External Libraries:** Top-level dependencies (e.g., `import { Injectable } from '@nestjs/common';`).
-2. **Monorepo Shared Types:** Type imports from internal packages (e.g., `import type { AssetQueryDto } from '@uims/shared-types';`).
-3. **Monorepo Shared Utils:** Utilities and constants (e.g., `import { mapAssetStatus } from '@uims/shared-utils';`).
-4. **Relative Imports:** Local modules, services, and DTOs (e.g., `import { PrismaService } from '../../database/prisma.service';`).
+- **Paths**: The web app uses path aliases configured in Vite (e.g., `@/` for `apps/web/src` and `@uims/*` for shared monorepo packages like `shared-types` and `shared-utils`).
+- **Sorting**: Imports are generally organized but Biome's `organizeImports` is set to `"off"` in `biome.json`.
 
 ## Error Handling
-- **API:** Use standard NestJS HTTP exceptions (e.g., `NotFoundException`). Centralized exception handling is done via `HttpExceptionFilter` (found at `apps/api/src/common/filters/http-exception.filter.ts`) which guarantees standardized `{ success: false, statusCode, message, timestamp }` responses.
-- **Web:** Handle errors through central Axios interceptors and do not build excessive handling for impossible states.
-- **UI Context:** Always consume dynamic theme context via `App.useApp()` for UI notifications (`const { message, notification } = App.useApp();`).
+- **Backend**: NestJS Exception Filters are used to intercept and format errors. Dedicated filters like `http-exception.filter.ts` and `prisma-exception.filter.ts` handle generic HTTP and database-specific errors respectively.
+- **Frontend**: React Error Boundaries (`<ErrorBoundary />`) are implemented to catch unhandled exceptions in the component tree and prevent the entire application from crashing.
 
-## Logging
-- Standard structured logging via platform defaults. Emphasize tracking errors at the boundary rather than pervasive inline debugging logs.
-- All logs MUST be written in 100% Professional Enterprise English (`AGENTS.md`).
-
-## Comments
-- Avoid restating what the code does; explain the *why* or non-obvious business rules.
-- Use Swagger decorators (`@ApiOperation`, `@ApiTags`) instead of inline comments to document API endpoints.
-- Ensure all comments strictly follow the Enterprise English standard policy.
-
-## Function Design
-- **Single Responsibility:** Isolate concerns. Controllers handle HTTP boundaries; Services execute domain logic (e.g., `resolveCategoryId`, `buildAssetUpdateData`).
-- **Data Hydration:** Construct complex update inputs iteratively inside private service methods rather than within the main controller path.
-
-## Module Design
-- **API:** Organized by feature domains in NestJS (e.g., `modules/assets/assets.module.ts`).
-- **Web:** React state is managed in feature-specific Zustand slices with persistence (`stores/auth.store.ts`).
+## Style Enforcement
+- **Tooling**: Biome is used exclusively for both formatting and linting. ESLint and Prettier are not used.
+- **Formatting Rules**:
+  - Indentation: 2 spaces.
+  - Line width: 100 characters.
+  - Quotes: Single quotes (`quoteStyle: 'single'`).
+  - Semicolons: Always.
+  - Trailing Commas: All (except for JSON files where it is "none").
+- **Linting Rules**:
+  - `noExplicitAny`: Warn.
+  - `noExcessiveCognitiveComplexity`: Warn.
+  - `useImportType`: Off.
 
 ---
-*Convention analysis: 2026-08-17*
+*Analysis Date: 2026-08-20*
