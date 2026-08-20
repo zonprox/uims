@@ -60,12 +60,17 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. Enterprise English Standard Policy
+## 5. Enterprise English & UI/UX Copy Standards
 
-**100% Professional Enterprise English Mandatory.**
+**100% Professional, Concise Enterprise English Mandatory.**
 
 - All user-facing UI labels, descriptions, alert messages, toasts/notifications, table columns, modal titles, placeholder text, code identifiers, comments, documentation, test descriptions, API payloads, error messages, and git commits MUST be in clear, standardized Enterprise English.
 - No non-English or mixed language text in source code, UI strings, comments, DTOs, seeds, or logs.
+- **Concise & High-Signal UI Copy (No Fluff):**
+  - **Eliminate Redundant Buzzwords & Prefixes:** Do not prepend verbose prefixes like "Enterprise ...", "Unified ...", "Global ...", "Master ...", or "System ..." unless strictly differentiating namespaces (e.g., use `Notifications` instead of `Enterprise Notifications`, `Assets` instead of `Unified Asset Inventory`, `Settings` instead of `Global System Settings`).
+  - **Action-Oriented Buttons & Controls:** Keep actions short, direct, and verb-first (e.g., `Create Asset` instead of `Create New Asset Record`, `Export CSV` instead of `Export Data to CSV File`, `Save` instead of `Save Current Changes`).
+  - **Casing Consistency:** Use Title Case for page titles, modal headers, navigation menus, and tab labels. Use sentence case for subtitles, helper text, toasts, and descriptions.
+  - **Clean & Informative Empty/Error States:** Clearly state the state and the next action without filler words (e.g., "No assets found. Click 'Add Asset' to get started.").
 
 ## 6. Ant Design v6+ UI/UX Guidelines
 

@@ -30,7 +30,7 @@ The UIMS platform is a monorepo consisting of:
 | M1 | Web Shell, Navigation & Core Views Copy Standardization | `index.html`, `apps/web/src/layouts/`, `src/components/`, and views: Dashboard, Assets, Licenses, Inventory, Network + web unit tests | M0 | DONE |
 | M2 | Web Management Views, Modals & Drawers Copy Standardization | Organization, Users & Access, Audit, Reports, Settings views + drawers, modals, tabs, table column casing | M1 | DONE |
 | M3 | API Exceptions, Swagger, Notifications, Seeds & Export Standardization | `apps/api/src/modules/`, `src/common/`, `prisma/seeders/`, `main.ts` + API spec tests | M0 | DONE |
-| M4 | Quality Verification, E2E Test Alignment & Git Commit | `scripts/test-login.mjs`, `scripts/test-responsive.mjs`, `pnpm format`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `.gitignore`, git commit | M1, M2, M3 | IN_PROGRESS |
+| M4 | Quality Verification, E2E Test Alignment & Git Commit | `scripts/test-login.mjs`, `scripts/test-responsive.mjs`, `pnpm format`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `.gitignore`, git commit | M1, M2, M3 | DONE |
 
 ## Interface Contracts
 ### Web Navigation & Views ↔ Backend API
