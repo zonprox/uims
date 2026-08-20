@@ -52,7 +52,7 @@ function renderActionTag(action: string) {
 
 const activityColumns = [
   {
-    title: 'ACTOR',
+    title: 'Actor',
     dataIndex: 'user',
     key: 'user',
     render: (text: string, record: RecentActivityItem) => (
@@ -75,13 +75,13 @@ const activityColumns = [
     ),
   },
   {
-    title: 'ACTION',
+    title: 'Action',
     dataIndex: 'action',
     key: 'action',
     render: renderActionTag,
   },
   {
-    title: 'TARGET ENTITY',
+    title: 'Target Entity & Details',
     dataIndex: 'entity',
     key: 'entity',
     render: (entity: string, record: RecentActivityItem) => (
@@ -96,7 +96,7 @@ const activityColumns = [
     ),
   },
   {
-    title: 'TIME',
+    title: 'Timestamp',
     dataIndex: 'time',
     key: 'time',
     render: (time: string) => (
@@ -195,7 +195,7 @@ const KpiCardsGrid: React.FC<{ data: DashboardOverview | null }> = ({ data }) =>
       </Card>
     </Col>
 
-    {/* Spare Stockroom */}
+    {/* Inventory Stock */}
     <Col xs={24} sm={12} lg={6}>
       <Card className="uims-stat-card" size="small" styles={{ body: { padding: '14px 16px' } }}>
         <Flex justify="space-between" align="flex-start">
@@ -209,7 +209,7 @@ const KpiCardsGrid: React.FC<{ data: DashboardOverview | null }> = ({ data }) =>
                 letterSpacing: '0.04em',
               }}
             >
-              Spare Stockroom
+              Inventory Stock
             </Text>
             <Title
               level={3}
@@ -316,12 +316,12 @@ interface SubsystemItem {
 function getDirSubsystem(dir: DashboardOverview['health']['directory']): SubsystemItem {
   return {
     id: 'dir',
-    name: dir?.name ?? 'Asset Custodians & Directory',
+    name: dir?.name ?? 'Directory & Users',
     badgeStatus: 'success',
     badgeText: dir?.status ?? 'Synced',
     percent: dir?.percent ?? 99.4,
     strokeColor: '#10b981',
-    metric1: `${dir?.usersCount ?? 6} Active Custodians`,
+    metric1: `${dir?.usersCount ?? 6} Active Users`,
     metric2: `Sync: ${dir?.syncTime ?? '4m ago'}`,
   };
 }
@@ -329,12 +329,12 @@ function getDirSubsystem(dir: DashboardOverview['health']['directory']): Subsyst
 function getAssetFleetSubsystem(mail: DashboardOverview['health']['mail']): SubsystemItem {
   return {
     id: 'assets',
-    name: mail?.name ?? 'Hardware Fleet & Asset Tagging',
+    name: mail?.name ?? 'Hardware Assets',
     badgeStatus: 'success',
     badgeText: mail?.status ?? 'Operational',
     percent: mail?.percent ?? 98.6,
     strokeColor: '#1677ff',
-    metric1: mail?.throughput ?? 'Fleet Tagged & Verified',
+    metric1: mail?.throughput ?? 'Assets Verified',
     metric2: `Service: ${mail?.latency ?? '99.4% In Service'}`,
   };
 }
@@ -342,7 +342,7 @@ function getAssetFleetSubsystem(mail: DashboardOverview['health']['mail']): Subs
 function getVpnSubsystem(vpn: DashboardOverview['health']['vpn']): SubsystemItem {
   return {
     id: 'vpn',
-    name: vpn?.name ?? 'Network Gateways & IPAM',
+    name: vpn?.name ?? 'Network & IPAM',
     badgeStatus: 'processing',
     badgeText: vpn?.status ?? 'Active',
     percent: vpn?.percent ?? 76.0,
@@ -355,7 +355,7 @@ function getVpnSubsystem(vpn: DashboardOverview['health']['vpn']): SubsystemItem
 function getBackupsSubsystem(backups: DashboardOverview['health']['backups']): SubsystemItem {
   return {
     id: 'backups',
-    name: backups?.name ?? 'Encrypted Asset Snapshots',
+    name: backups?.name ?? 'Database Backups',
     badgeStatus: 'success',
     badgeText: backups?.status ?? 'Verified',
     percent: backups?.percent ?? 100,
@@ -385,10 +385,10 @@ const InfrastructureHealthCard: React.FC<{ health: DashboardOverview['health'] |
       title={
         <Flex align="center" gap={6}>
           <CloudServerOutlined style={{ color: '#1677ff' }} />
-          <span>Asset Fleet & Infrastructure Telemetry</span>
+          <span>System Status</span>
         </Flex>
       }
-      extra={<Tag color="success">{health?.uptimePercent || '99.98%'} Available</Tag>}
+      extra={<Tag color="success">{health?.uptimePercent || '99.98%'} Operational</Tag>}
     >
       <Row gutter={[12, 12]}>
         {subsystems.map((sub) => (
@@ -410,7 +410,7 @@ const InfrastructureHealthCard: React.FC<{ health: DashboardOverview['health'] |
 };
 
 const QuickActionHub: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => (
-  <Card size="small" title="Quick Action Center">
+  <Card size="small" title="Quick Actions">
     <Flex vertical gap={8}>
       <Button
         type="primary"
@@ -419,7 +419,7 @@ const QuickActionHub: React.FC<{ onNavigate: (path: string) => void }> = ({ onNa
         style={{ textAlign: 'left', display: 'flex', alignItems: 'center', height: 34 }}
         onClick={() => onNavigate('/assets')}
       >
-        Provision New Hardware Asset
+        Create Asset
       </Button>
       <Button
         icon={<SafetyCertificateOutlined />}
@@ -427,7 +427,7 @@ const QuickActionHub: React.FC<{ onNavigate: (path: string) => void }> = ({ onNa
         style={{ textAlign: 'left', display: 'flex', alignItems: 'center', height: 34 }}
         onClick={() => onNavigate('/licenses')}
       >
-        Assign Software License
+        Create License
       </Button>
       <Button
         icon={<DatabaseOutlined />}
@@ -435,15 +435,15 @@ const QuickActionHub: React.FC<{ onNavigate: (path: string) => void }> = ({ onNa
         style={{ textAlign: 'left', display: 'flex', alignItems: 'center', height: 34 }}
         onClick={() => onNavigate('/inventory')}
       >
-        Manage Stockroom Inventory
+        Create Item
       </Button>
       <Button
         icon={<TeamOutlined />}
         block
         style={{ textAlign: 'left', display: 'flex', alignItems: 'center', height: 34 }}
-        onClick={() => onNavigate('/directory')}
+        onClick={() => onNavigate('/users')}
       >
-        Onboard Asset Custodian
+        Create User
       </Button>
     </Flex>
   </Card>
@@ -455,7 +455,7 @@ const ActionItemsCard: React.FC<{
 }> = ({ items = [], onNavigate }) => (
   <Card
     size="small"
-    title="Action Items & Warnings"
+    title="Action Items"
     extra={
       <Badge
         count={items.length}
@@ -470,7 +470,7 @@ const ActionItemsCard: React.FC<{
       <div style={{ padding: '24px 0', textAlign: 'center' }}>
         <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a', marginBottom: 8 }} />
         <Text type="secondary" style={{ display: 'block', fontSize: 12.5 }}>
-          All systems operational. No active warnings or replenishment actions required.
+          All systems operational. No active action items.
         </Text>
       </div>
     ) : (
@@ -557,9 +557,9 @@ export default function DashboardPage() {
 
   return (
     <PageContainer
-      title="Asset Operations Center"
-      subtitle={`Welcome back, ${user?.name || 'Administrator'}. Enterprise IT asset fleet, hardware inventory, and lifecycle telemetry.`}
-      tag={<Tag color="success">Fleet Operational</Tag>}
+      title="Dashboard"
+      subtitle={`Welcome back, ${user?.name || 'Administrator'}. Overview of hardware assets, software licenses, network infrastructure, and security events.`}
+      tag={<Tag color="success">Operational</Tag>}
       extra={
         <Flex gap={8} align="center">
           <Segmented
@@ -579,7 +579,7 @@ export default function DashboardPage() {
       }
     >
       <Alert
-        title="Scheduled Hardware Fleet Audit"
+        title="Scheduled Asset Inventory Audit"
         description="Physical asset inventory audit and barcode verification scheduled for Saturday at 09:00 AM. Estimated duration: 2 hours."
         type="info"
         showIcon
@@ -610,7 +610,7 @@ export default function DashboardPage() {
             <Col xs={24} lg={16}>
               <Card
                 size="small"
-                title="Real-time Audit Activity Stream"
+                title="Recent Activity"
                 extra={
                   <Button type="link" size="small" onClick={() => navigate('/audit')}>
                     <Space size={4}>
@@ -627,7 +627,7 @@ export default function DashboardPage() {
                   pagination={false}
                   size="middle"
                   scroll={{ x: 'max-content' }}
-                  locale={{ emptyText: 'No recent audit events.' }}
+                  locale={{ emptyText: 'No recent activity records.' }}
                 />
               </Card>
             </Col>

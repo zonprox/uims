@@ -57,7 +57,7 @@ export default function NetworkPage() {
   const statsItems = useMemo(
     () => [
       {
-        title: 'Managed Subnets / VLANs',
+        title: 'Managed Subnets',
         value: stats.managedSubnets,
         prefix: <CloudServerOutlined />,
         color: '#1677ff',
@@ -90,7 +90,7 @@ export default function NetworkPage() {
         key: 'ipam',
         label: (
           <span>
-            <ApiOutlined /> IP Address Allocations ({ips.length})
+            <ApiOutlined /> IP Allocations ({ips.length})
           </span>
         ),
         children: (
@@ -114,7 +114,7 @@ export default function NetworkPage() {
         key: 'subnets',
         label: (
           <span>
-            <CloudServerOutlined /> Subnets & CIDR Blocks ({subnets.length})
+            <CloudServerOutlined /> Subnets ({subnets.length})
           </span>
         ),
         children: <SubnetCardList subnets={subnets} />,
@@ -123,7 +123,7 @@ export default function NetworkPage() {
         key: 'dns',
         label: (
           <span>
-            <GlobalOutlined /> Internal DNS Zone Records
+            <GlobalOutlined /> DNS Records
           </span>
         ),
         children: <DnsTable dnsRecords={dnsRecords} />,
@@ -149,18 +149,18 @@ export default function NetworkPage() {
 
   return (
     <PageContainer
-      title="Network IPAM & Infrastructure Topology"
-      subtitle="Manage subnets, CIDR pools, static IP allocations, VLAN segmentations, and internal DNS records."
+      title="Network & IPAM"
+      subtitle="Manage IP address allocations, subnet CIDR blocks, DNS records, and network diagnostics."
       breadcrumbs={[{ title: 'Network' }]}
       stats={statsItems}
       extra={
         <Flex gap={8}>
-          <Tooltip title="Reload from server">
+          <Tooltip title="Refresh network">
             <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
           </Tooltip>
-          <Button onClick={handleOpenSubnetModal}>+ New Subnet</Button>
+          <Button onClick={handleOpenSubnetModal}>Create Subnet</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateIpModal}>
-            Allocate Static IP
+            Allocate IP
           </Button>
         </Flex>
       }

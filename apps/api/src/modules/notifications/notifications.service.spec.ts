@@ -36,7 +36,6 @@ describe('NotificationsService', () => {
       sendCountToUser: vi.fn(),
       sendToRole: vi.fn(),
       sendCountToRole: vi.fn(),
-      broadcast: vi.fn(),
       emitNotificationRead: vi.fn(),
       emitNotificationsCleared: vi.fn(),
     };
@@ -147,35 +146,6 @@ describe('NotificationsService', () => {
 
       expect(results).toHaveLength(2);
       expect(mockGateway.sendToUser).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('broadcast', () => {
-    it('should broadcast notification to all active users', async () => {
-      mockPrisma.user.findMany.mockResolvedValue([{ id: 'u1' }, { id: 'u2' }]);
-      mockPrisma.notification.create.mockImplementation(
-        (args: {
-          data: { userId: string; title: string; message: string; type: NotificationType };
-        }) => ({
-          id: `n-${args.data.userId}`,
-          userId: args.data.userId,
-          title: args.data.title,
-          message: args.data.message,
-          type: args.data.type,
-          isRead: false,
-          createdAt: new Date(),
-        }),
-      );
-
-      const res = await service.broadcast({
-        title: 'Maintenance Tonight',
-        message: 'System upgrade at 02:00 UTC',
-        targetRole: 'All',
-      });
-
-      expect(res.success).toBe(true);
-      expect(res.count).toBe(2);
-      expect(mockGateway.broadcast).toHaveBeenCalled();
     });
   });
 

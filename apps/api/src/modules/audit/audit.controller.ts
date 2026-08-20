@@ -12,13 +12,13 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get('stats')
-  @ApiOperation({ summary: 'Get audit compliance metrics' })
+  @ApiOperation({ summary: 'Get audit statistics' })
   getStats() {
     return this.auditService.getStats();
   }
 
   @Get('export')
-  @ApiOperation({ summary: 'Export audit logs as CSV' })
+  @ApiOperation({ summary: 'Export audit logs' })
   @Header('Content-Type', 'text/csv')
   @Header('Content-Disposition', 'attachment; filename="audit-logs.csv"')
   async exportCsv(@Res() res: Response) {
@@ -33,14 +33,14 @@ export class AuditController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get audit log details by id' })
+  @ApiOperation({ summary: 'Get audit log by ID' })
   findOne(@Param('id') id: string) {
     return this.auditService.findOne(id);
   }
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Log a new verified audit event (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Log audit event' })
   logEvent(@Body() body: LogEventDto) {
     return this.auditService.logEvent(body);
   }

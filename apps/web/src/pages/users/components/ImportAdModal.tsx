@@ -28,7 +28,7 @@ interface ImportAdModalProps {
   onSuccess: () => void;
 }
 
-const SAMPLE_CSV_FULL = `STT,HEmploy,HName,HDesignation,HGroupCompany,Hcomp,Người Ngồi ở Xưởng,Xưởng,HDepartment,HSection,HSubSection,HEmail,HTelephone,HIsclose,Computer Name,Computer Name 2,Initial Pass,GR_GROUP USER,State
+const SAMPLE_CSV_FULL = `STT,HEmploy,HName,HDesignation,HGroupCompany,Hcomp,PlantLocation,Plant,HDepartment,HSection,HSubSection,HEmail,HTelephone,HIsclose,Computer Name,Computer Name 2,Initial Pass,GR_GROUP USER,State
 1,63020037,Phung Thi Nhu Y,Asst. Officer,BSL,BSL Others,OTH,BSL Others,Production,Printing,Printing,yptn.st@youngonevn.com,888152675,N,STOTHPR102,,kPm#*Ed8,GR_BSLOTHPrinting,ACTIVE
 2,30000930,Lam Ngo Ha Vy,Asst. Officer,BSL,BSL Others,OTH,BSL Others,Production,Sample,Sample,wylnh.st@youngonevn.com,984992830,N,STOTHSAM04,,QhSt)-w8,GR_BSLOTHSample,ACTIVE
 3,30100576,Le Thi Thanh Hau,Asst. Officer,BSL,BSL Others,OTH,BSL Others,Production,Sample,Sample,hauttt.st@youngonevn.com,939387051,N,STOTHSAM05,,zBbFdx?9,GR_BSLOTHSample,ACTIVE
@@ -91,8 +91,8 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
         const name = rowObj['HName'] || rowObj['Name'] || cols[2] || '';
         const designation = rowObj['HDesignation'] || rowObj['Designation'] || cols[3] || '';
         const groupCompany = rowObj['HGroupCompany'] || rowObj['HGroupCompan'] || cols[4] || 'BSL';
-        const company = rowObj['Hcomp'] || cols[5] || 'BSL Others';
-        const plant = rowObj['Xưởng'] || rowObj['Plant'] || cols[7] || 'BSL Others';
+        const company = rowObj['Hcomp'] || rowObj['Company'] || cols[5] || 'BSL Others';
+        const plant = rowObj['Plant'] || rowObj['PlantLocation'] || cols[7] || 'BSL Others';
         const department = rowObj['HDepartment'] || rowObj['Department'] || cols[8] || 'Production';
         const section = rowObj['HSection'] || rowObj['Section'] || cols[9] || '';
         const subSection = rowObj['HSubSection'] || rowObj['SubSection'] || cols[10] || section;
@@ -208,12 +208,12 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
       const res = await usersService.importUsers(parsedRows);
       setImportResult(res);
       message.success(
-        `Active Directory Import complete: ${res.created} created, ${res.updated} updated, ${res.skipped} skipped.`,
+        `Import completed: ${res.created} created, ${res.updated} updated, ${res.skipped} skipped.`,
       );
       onSuccess();
     } catch (err) {
       console.error('Import failed:', err);
-      message.error('Failed to import Active Directory records.');
+      message.error('Failed to import users.');
     } finally {
       setImporting(false);
     }
@@ -221,14 +221,14 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
 
   const previewColumns = [
     {
-      title: 'EMP CODE',
+      title: 'Employee Code',
       dataIndex: 'employeeCode',
       key: 'code',
       width: 100,
       render: (code: string) => <Tag color="blue">#{code || 'N/A'}</Tag>,
     },
     {
-      title: 'FULL NAME & EMAIL',
+      title: 'Full Name & Email',
       key: 'user',
       width: 220,
       render: (_: unknown, r: BatchImportADUserItem) => (
@@ -243,14 +243,14 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
       ),
     },
     {
-      title: 'DESIGNATION',
+      title: 'Designation',
       dataIndex: 'designation',
       key: 'designation',
       width: 140,
       render: (d: string) => <Text style={{ fontSize: 12 }}>{d || 'Employee'}</Text>,
     },
     {
-      title: 'SECTION & PLANT',
+      title: 'Section & Plant',
       key: 'sec',
       width: 160,
       render: (_: unknown, r: BatchImportADUserItem) => (
@@ -263,7 +263,7 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
       ),
     },
     {
-      title: 'COMPUTER HOSTNAME',
+      title: 'Computer Hostname',
       dataIndex: 'computerName',
       key: 'computerName',
       width: 130,
@@ -279,7 +279,7 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
         ),
     },
     {
-      title: 'INITIAL AD PASS',
+      title: 'Initial Password',
       dataIndex: 'initialPassword',
       key: 'initialPassword',
       width: 130,
@@ -290,7 +290,7 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
       ),
     },
     {
-      title: 'AD SECURITY GROUP',
+      title: 'Security Group',
       dataIndex: 'adGroup',
       key: 'adGroup',
       width: 170,
@@ -312,7 +312,7 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
       title={
         <Flex align="center" gap={10}>
           <FileExcelOutlined style={{ color: '#10b981', fontSize: 20 }} />
-          <span>Active Directory & User Master Batch Importer</span>
+          <span>Import Users</span>
         </Flex>
       }
       open={open}
@@ -330,13 +330,13 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
           disabled={parsedRows.length === 0}
           onClick={handleExecuteImport}
         >
-          Commit {parsedRows.length} Users to Active Directory
+          Import {parsedRows.length} Users
         </Button>,
       ]}
     >
       <Paragraph type="secondary" style={{ fontSize: 12.5, marginBottom: 16 }}>
-        Import corporate user accounts, initial passwords, assigned computer hostnames, and AD
-        security groups directly from standard enterprise Excel or CSV sheets.
+        Import user accounts, initial passwords, computer hostnames, and security groups from CSV
+        files.
       </Paragraph>
 
       {/* Mode and Samples Selector */}
@@ -357,10 +357,10 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
             <Flex gap={8} justify="flex-end" wrap>
               <Text style={{ fontSize: 11.5 }}>Load Sample:</Text>
               <Button size="small" onClick={() => handleLoadSample('full')}>
-                Full AD Master Template (19 Columns)
+                Full Template (19 Columns)
               </Button>
               <Button size="small" onClick={() => handleLoadSample('quick')}>
-                Email / Password Quick List (7 Columns)
+                Quick List (7 Columns)
               </Button>
             </Flex>
           </Col>
@@ -394,7 +394,7 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
             </p>
             <p className="ant-upload-text">Click or drag CSV master file to this area to import</p>
             <p className="ant-upload-hint">
-              Supports standard enterprise AD export templates and Youngone VN formats.
+              Supports standard user import and Active Directory export formats.
             </p>
           </Upload.Dragger>
         </div>
@@ -429,7 +429,7 @@ export function ImportAdModal({ open, onClose, onSuccess }: ImportAdModalProps) 
         <div>
           <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
             <Text strong style={{ fontSize: 13 }}>
-              Ready for Domain Provisioning ({parsedRows.length} accounts):
+              Ready for Import ({parsedRows.length} accounts):
             </Text>
             <Tag color="success">Format Validated</Tag>
           </Flex>

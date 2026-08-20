@@ -312,7 +312,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
                   icon={<PlusOutlined />}
                   onClick={() => setCreateRoleOpen(true)}
                 >
-                  Create Custom Role
+                  Create Role
                 </Button>
               </Can>
 
@@ -338,7 +338,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           size="middle"
           columns={[
             {
-              title: 'ROLE NAME & TIER',
+              title: 'Role Name & Type',
               dataIndex: 'name',
               key: 'name',
               width: 240,
@@ -362,7 +362,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               ),
             },
             {
-              title: 'DESCRIPTION',
+              title: 'Description',
               dataIndex: 'description',
               key: 'description',
               render: (desc: string) => (
@@ -372,7 +372,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               ),
             },
             {
-              title: 'ASSIGNED USERS',
+              title: 'Assigned Users',
               dataIndex: 'userCount',
               key: 'userCount',
               width: 160,
@@ -396,7 +396,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               ),
             },
             {
-              title: 'PERMISSIONS GRANTED',
+              title: 'Permissions',
               dataIndex: 'permissionCount',
               key: 'permissionCount',
               width: 180,
@@ -421,7 +421,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               },
             },
             {
-              title: 'ACTIONS',
+              title: 'Actions',
               key: 'actions',
               width: 220,
               align: 'right',
@@ -438,7 +438,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
                           setMatrixOpen(true);
                         }}
                       >
-                        Matrix
+                        Permissions
                       </Button>
                     </Tooltip>
 
@@ -463,10 +463,10 @@ export const RolesTab: React.FC<RolesTabProps> = ({
 
                     {!isSystem && (
                       <Popconfirm
-                        title="Delete Custom Role"
+                        title="Delete Role?"
                         description={`Are you sure you want to delete role "${record.name}"?`}
                         onConfirm={() => handleDeleteRole(record)}
-                        okText="Delete Role"
+                        okText="Delete"
                         okButtonProps={{ danger: true }}
                       >
                         <Tooltip title="Delete custom role">

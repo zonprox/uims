@@ -40,11 +40,3 @@ export enum NotificationSocketEvents {
   NOTIFICATION_CLEARED = 'notification:cleared',
   SUBSCRIBE_USER = 'subscribe:user',
 }
-
-export interface BroadcastNotificationDto {
-  title: string;
-  message: string;
-  type?: 'INFO' | 'WARNING' | 'ALERT' | 'SUCCESS';
-  targetRole?: 'All' | 'Admin' | 'Super Admin' | 'Employee';
-  link?: string;
-}

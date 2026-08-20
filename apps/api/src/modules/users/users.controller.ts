@@ -4,9 +4,9 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { BatchImportUsersDto } from './dto/import-users.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserQueryDto } from './dto/user-query.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -16,105 +16,77 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('stats')
-  @ApiOperation({ summary: 'Get user metrics summary' })
+  @ApiOperation({ summary: 'Get user statistics' })
   getStats() {
     return this.usersService.getStats();
   }
 
   @Get('stats/summary')
-  @ApiOperation({ summary: 'Get user metrics summary (alias)' })
+  @ApiOperation({ summary: 'Get user statistics summary' })
   getStatsSummary() {
     return this.usersService.getStats();
   }
 
   @Get('organizational-units')
-  @ApiOperation({ summary: 'Get Active Directory Organizational Units (OUs) hierarchy' })
+  @ApiOperation({ summary: 'Get organizational units' })
   getOrganizationalUnits() {
     return this.usersService.getOrganizationalUnits();
   }
 
   @Post('sync-domain')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Trigger Active Directory Domain Controller replication sync' })
+  @ApiOperation({ summary: 'Sync domain controller' })
   syncDomain() {
     return this.usersService.syncDomain();
   }
 
   @Get('roles/list')
-  @ApiOperation({ summary: 'Get all available RBAC roles' })
+  @ApiOperation({ summary: 'Get all roles' })
   getRoles() {
     return this.usersService.getRoles();
   }
 
   @Get('groups')
-  @ApiOperation({ summary: 'Get all Active Directory distribution & security groups' })
+  @ApiOperation({ summary: 'Get all directory groups' })
   getGroups() {
     return this.usersService.findAllGroups();
   }
 
   @Post('groups')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create new distribution / security group' })
+  @ApiOperation({ summary: 'Create directory group' })
   createGroup(@Body() createGroupDto: CreateGroupDto) {
     return this.usersService.createGroup(createGroupDto);
   }
 
   @Get('export')
-  @ApiOperation({ summary: 'Export standardized Active Directory & user master dataset' })
+  @ApiOperation({ summary: 'Export users' })
   exportMaster() {
     return this.usersService.exportMaster();
   }
 
   @Post('import')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Batch import Active Directory users from Excel/CSV master' })
+  @ApiOperation({ summary: 'Import users' })
   importBatch(@Body() importDto: BatchImportUsersDto) {
     return this.usersService.importBatch(importDto);
   }
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create new user' })
+  @ApiOperation({ summary: 'Create user' })
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all users with search and filter' })
-  findAll(
-    @Query('page') page?: number,
-    @Query('pageSize') pageSize?: number,
-    @Query('limit') limit?: number,
-    @Query('search') search?: string,
-    @Query('role') role?: string,
-    @Query('status') status?: string,
-    @Query('department') department?: string,
-    @Query('section') section?: string,
-    @Query('company') company?: string,
-    @Query('plant') plant?: string,
-    @Query('adGroup') adGroup?: string,
-    @Query('ouPath') ouPath?: string,
-    @Query('source') source?: string,
-  ) {
-    return this.usersService.findAll({
-      page,
-      pageSize,
-      limit,
-      search,
-      role,
-      status,
-      department,
-      section,
-      company,
-      plant,
-      adGroup,
-      ouPath,
-      source,
-    });
+  @ApiOperation({ summary: 'Get all users' })
+  findAll(@Query() query: UserQueryDto) {
+    return this.usersService.findAll(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get user by id' })
+  @ApiOperation({ summary: 'Get user by ID' })
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
@@ -125,16 +97,9 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
-  @Post(':id/reset-password')
-  @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Reset user password' })
-  resetPassword(@Param('id') id: string, @Body() body: ResetPasswordDto) {
-    return this.usersService.resetPassword(id, body.password);
-  }
-
   @Patch(':id/toggle-status')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Toggle user active status' })
+  @ApiOperation({ summary: 'Toggle user status' })
   toggleStatus(@Param('id') id: string, @Body() body: ToggleStatusDto) {
     return this.usersService.toggleStatus(id, body.status);
   }

@@ -57,7 +57,9 @@
       "!**/.turbo",
       "!**/coverage",
       "!**/*.generated.*",
-      "!**/prisma/migrations"
+      "!**/prisma/migrations",
+      "!**/.agents",
+      "!**/.planning"
     ]
   }
 }

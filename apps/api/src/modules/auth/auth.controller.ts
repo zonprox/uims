@@ -24,7 +24,7 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Login user with brute force rate limiting' })
+  @ApiOperation({ summary: 'User login' })
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Req() req: ExpressRequest) {
     const ip =
@@ -39,7 +39,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get current authenticated user profile' })
+  @ApiOperation({ summary: 'Get current user profile' })
   @Get('me')
   getProfile(@Request() req: AuthRequest) {
     return req.user;
@@ -48,7 +48,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Refresh access token with active session validation' })
+  @ApiOperation({ summary: 'Refresh access token' })
   @Post('refresh')
   refresh(@Request() req: AuthRequest) {
     return this.authService.refresh(req.user);
@@ -56,7 +56,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Revoke active refresh tokens and log out' })
+  @ApiOperation({ summary: 'User logout' })
   @Post('logout')
   logout(@Request() req: AuthRequest) {
     const userId = req.user.id || req.user.sub || '';

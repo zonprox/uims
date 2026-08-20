@@ -14,62 +14,60 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all RBAC roles with user & permission counts' })
+  @ApiOperation({ summary: 'Get all roles' })
   findAll() {
     return this.rolesService.findAll();
   }
 
   @Get('stats')
-  @ApiOperation({ summary: 'Get RBAC role and permission summary statistics' })
+  @ApiOperation({ summary: 'Get role statistics' })
   getStats() {
     return this.rolesService.getStats();
   }
 
   @Get('catalog')
-  @ApiOperation({
-    summary: 'Get master system permission catalog grouped by subject domain',
-  })
+  @ApiOperation({ summary: 'Get permission catalog' })
   getCatalog() {
     return this.rolesService.getCatalog();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get detailed role with assigned permissions and users' })
+  @ApiOperation({ summary: 'Get role by ID' })
   findOne(@Param('id') id: string) {
     return this.rolesService.findOne(id);
   }
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create new custom RBAC role' })
+  @ApiOperation({ summary: 'Create role' })
   create(@Body() createRoleDto: CreateRoleDto) {
     return this.rolesService.create(createRoleDto);
   }
 
   @Patch(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Update role description and assigned permissions' })
+  @ApiOperation({ summary: 'Update role' })
   update(@Param('id') id: string, @Body() updateRoleDto: UpdateRoleDto) {
     return this.rolesService.update(id, updateRoleDto);
   }
 
   @Post(':id/clone')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Duplicate an existing role into a new custom role' })
+  @ApiOperation({ summary: 'Clone role' })
   clone(@Param('id') id: string, @Body() cloneRoleDto: CloneRoleDto) {
     return this.rolesService.clone(id, cloneRoleDto);
   }
 
   @Post(':id/permissions')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Batch sync / replace permissions assigned to a role' })
+  @ApiOperation({ summary: 'Sync role permissions' })
   syncPermissions(@Param('id') id: string, @Body() syncPermissionsDto: SyncPermissionsDto) {
     return this.rolesService.syncPermissions(id, syncPermissionsDto);
   }
 
   @Delete(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Delete a custom role (must have 0 assigned users)' })
+  @ApiOperation({ summary: 'Delete role' })
   remove(@Param('id') id: string) {
     return this.rolesService.remove(id);
   }

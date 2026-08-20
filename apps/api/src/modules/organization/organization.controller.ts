@@ -16,38 +16,38 @@ export class OrganizationController {
   constructor(private readonly orgService: OrganizationService) {}
 
   @Get('stats')
-  @ApiOperation({ summary: 'Get enterprise structure summary metrics' })
+  @ApiOperation({ summary: 'Get organization statistics' })
   getStats() {
     return this.orgService.getStats();
   }
 
   @Get('tree')
-  @ApiOperation({ summary: 'Get organizational structure tree hierarchy' })
+  @ApiOperation({ summary: 'Get organization hierarchy' })
   getTree() {
     return this.orgService.getHierarchyTree();
   }
 
   @Get('locations')
-  @ApiOperation({ summary: 'Get all branches and physical locations' })
+  @ApiOperation({ summary: 'Get all locations' })
   getLocations() {
     return this.orgService.findAllLocations();
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all enterprise organizations / entities' })
+  @ApiOperation({ summary: 'Get all organizations' })
   findAll() {
     return this.orgService.findAllOrganizations();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get organization details by ID' })
+  @ApiOperation({ summary: 'Get organization by ID' })
   findOne(@Param('id') id: string) {
     return this.orgService.findOrganization(id);
   }
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create new organization' })
+  @ApiOperation({ summary: 'Create organization' })
   create(@Body() dto: CreateOrganizationDto) {
     return this.orgService.createOrganization(dto);
   }
@@ -87,7 +87,7 @@ export class DepartmentController {
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create new department' })
+  @ApiOperation({ summary: 'Create department' })
   create(@Body() dto: CreateDepartmentDto) {
     return this.orgService.createDepartment(dto);
   }
@@ -114,34 +114,34 @@ export class PositionController {
   constructor(private readonly orgService: OrganizationService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all job positions' })
+  @ApiOperation({ summary: 'Get all positions' })
   findAll() {
     return this.orgService.findAllPositions();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get job position by ID' })
+  @ApiOperation({ summary: 'Get position by ID' })
   findOne(@Param('id') id: string) {
     return this.orgService.findPosition(id);
   }
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create new job position' })
+  @ApiOperation({ summary: 'Create position' })
   create(@Body() dto: CreatePositionDto) {
     return this.orgService.createPosition(dto);
   }
 
   @Patch(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Update job position' })
+  @ApiOperation({ summary: 'Update position' })
   update(@Param('id') id: string, @Body() dto: UpdatePositionDto) {
     return this.orgService.updatePosition(id, dto);
   }
 
   @Delete(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Delete job position' })
+  @ApiOperation({ summary: 'Delete position' })
   remove(@Param('id') id: string) {
     return this.orgService.deletePosition(id);
   }

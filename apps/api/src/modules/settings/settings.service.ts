@@ -143,9 +143,9 @@ export class SettingsService {
         settings: settingsCount,
       },
       sizeBytes: approximateSizeBytes,
-      storedAt: 's3://uims-enterprise-vault/backups/',
+      storedAt: 's3://uims-vault/backups/',
       completedAt: timestamp,
-      message: `Verified snapshot (${snapshotName}) generated for ${totalRecords} records and secured.`,
+      message: `Backup snapshot (${snapshotName}) generated for ${totalRecords} records.`,
     };
   }
 
@@ -188,7 +188,7 @@ export class SettingsService {
       postgres: { status: pgStatus, latency: pgLatency },
       redis: { status: redisStatus, hitRate: '99.4%' },
       assetStorage: { status: 'Online', tlsVersion: 'TLS 1.3' },
-      backupStorage: { status: 'Online', available: 'Enterprise Cloud' },
+      backupStorage: { status: 'Online', available: 'Cloud Storage' },
       system: {
         nodeVersion: process.version,
         memoryHeapUsed: `${heapUsedMb} MB / ${heapTotalMb} MB`,

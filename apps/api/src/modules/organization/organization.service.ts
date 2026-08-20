@@ -379,13 +379,13 @@ export class OrganizationService {
         code: org.code,
         type: 'organization',
         count: org._count.users,
-        description: org.address || org.website || 'Enterprise Entity',
+        description: org.address || org.website || 'Organization Entity',
         children: [
           ...(locationNodes.length > 0
             ? [
                 {
                   key: `branch-group-${org.id}`,
-                  title: `Regional Facilities & Offices (${locationNodes.length})`,
+                  title: `Facilities & Offices (${locationNodes.length})`,
                   code: 'BRANCHES',
                   type: 'branch' as const,
                   children: locationNodes,

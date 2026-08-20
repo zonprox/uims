@@ -11,26 +11,26 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('stats')
-  @ApiOperation({ summary: 'Get report metrics' })
+  @ApiOperation({ summary: 'Get report statistics' })
   getStats() {
     return this.reportsService.getStats();
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get available executive report suites' })
+  @ApiOperation({ summary: 'Get report suites' })
   getReportSuites() {
     return this.reportsService.getReportSuites();
   }
 
   @Get('schedules')
-  @ApiOperation({ summary: 'Get automated report schedules' })
+  @ApiOperation({ summary: 'Get report schedules' })
   getScheduledReports() {
     return this.reportsService.getScheduledReports();
   }
 
   @Post('schedule')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Schedule automated report delivery (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Create report schedule' })
   scheduleReport(@Body() body: ScheduleReportDto) {
     return this.reportsService.scheduleReport(body);
   }

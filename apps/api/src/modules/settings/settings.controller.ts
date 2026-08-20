@@ -10,19 +10,19 @@ export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all system settings' })
+  @ApiOperation({ summary: 'Get all settings' })
   getAllSettings() {
     return this.settingsService.getAllSettings();
   }
 
   @Get('time')
-  @ApiOperation({ summary: 'Get server time telemetry and timezone info' })
+  @ApiOperation({ summary: 'Get server time' })
   getServerTime() {
     return this.settingsService.getServerTimeInfo();
   }
 
   @Get('health')
-  @ApiOperation({ summary: 'Get subsystem health telemetry' })
+  @ApiOperation({ summary: 'Get health telemetry' })
   getHealthTelemetry() {
     return this.settingsService.getHealthTelemetry();
   }
@@ -35,14 +35,14 @@ export class SettingsController {
 
   @Patch(':group')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Update settings group (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Update settings by group' })
   updateSetting(@Param('group') group: string, @Body() body: Record<string, unknown>) {
     return this.settingsService.updateSetting(group, body);
   }
 
   @Post('backup')
   @Roles('Super Admin')
-  @ApiOperation({ summary: 'Trigger on-demand encrypted backup (Super Admin only)' })
+  @ApiOperation({ summary: 'Create backup snapshot' })
   runBackup() {
     return this.settingsService.runBackup();
   }

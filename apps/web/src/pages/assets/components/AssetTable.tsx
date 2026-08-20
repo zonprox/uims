@@ -21,7 +21,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
     const columns = useMemo(
       () => [
         {
-          title: 'ASSET TAG & NAME',
+          title: 'Asset Tag & Name',
           key: 'tag',
           render: (_: unknown, record: Asset) => (
             <div>
@@ -47,7 +47,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           ),
         },
         {
-          title: 'SERIAL NUMBER',
+          title: 'Serial Number',
           dataIndex: 'serialNumber',
           key: 'serialNumber',
           render: (serial: string) => (
@@ -57,7 +57,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           ),
         },
         {
-          title: 'STATUS',
+          title: 'Status',
           dataIndex: 'status',
           key: 'status',
           render: (status: Asset['status']) => {
@@ -70,21 +70,19 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           },
         },
         {
-          title: 'ASSIGNED USER',
+          title: 'Assigned User',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
-          render: (user: string) => (
-            <Text style={{ fontSize: 13 }}>{user || 'Unassigned Pool'}</Text>
-          ),
+          render: (user: string) => <Text style={{ fontSize: 13 }}>{user || 'Unassigned'}</Text>,
         },
         {
-          title: 'LOCATION',
+          title: 'Location',
           dataIndex: 'location',
           key: 'location',
           render: (loc: string) => <Text style={{ fontSize: 12.5 }}>{loc}</Text>,
         },
         {
-          title: 'WARRANTY EXPIRY',
+          title: 'Warranty Expiration',
           dataIndex: 'warrantyExpiry',
           key: 'warrantyExpiry',
           render: (date: string) => {
@@ -106,11 +104,11 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           },
         },
         {
-          title: 'ACTIONS',
+          title: 'Actions',
           key: 'actions',
           render: (_: unknown, record: Asset) => (
             <Space size="small">
-              <Tooltip title="View Specs">
+              <Tooltip title="View Details">
                 <Button
                   type="text"
                   shape="circle"
@@ -138,8 +136,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 />
               </Tooltip>
               <Popconfirm
-                title="Delete this asset?"
-                description="Remove this hardware asset from active inventory?"
+                title="Delete asset?"
+                description="This action cannot be undone."
                 onConfirm={() => onDeleteAsset(record.id)}
                 okText="Delete"
                 okType="danger"

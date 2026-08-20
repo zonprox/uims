@@ -103,14 +103,6 @@ export const usersService = {
     return res.data.data || res.data;
   },
 
-  resetPassword: async (
-    id: string,
-    password: string,
-  ): Promise<{ success: boolean; message: string }> => {
-    const res = await api.post(`/users/${id}/reset-password`, { password });
-    return res.data.data || res.data;
-  },
-
   toggleStatus: async (id: string, status: UserStatus): Promise<User> => {
     const res = await api.patch(`/users/${id}/toggle-status`, { status });
     return res.data.data || res.data;

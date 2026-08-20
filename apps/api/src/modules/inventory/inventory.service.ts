@@ -33,14 +33,14 @@ export class InventoryService {
       if (item.quantity === 0) {
         await this.notificationsService.notifyAdmins({
           title: 'Item Out of Stock',
-          message: `Inventory SKU ${item.sku} (${item.name}) is completely depleted (0 units remaining).`,
+          message: `Item "${item.name}" (${item.sku}) is out of stock (0 units remaining).`,
           type: 'ALERT',
           link: '/inventory',
         });
       } else if (item.quantity <= item.minThreshold) {
         await this.notificationsService.notifyAdmins({
           title: 'Low Stock Alert',
-          message: `Inventory SKU ${item.sku} (${item.name}) is running low: ${item.quantity} units left (Threshold: ${item.minThreshold}).`,
+          message: `Item "${item.name}" (${item.sku}) is low on stock: ${item.quantity} units remaining (threshold: ${item.minThreshold}).`,
           type: 'WARNING',
           link: '/inventory',
         });
@@ -113,7 +113,7 @@ export class InventoryService {
 
   async findOne(id: string) {
     const item = await this.prisma.inventoryItem.findUnique({ where: { id } });
-    if (!item) throw new NotFoundException(`Inventory item ${id} not found`);
+    if (!item) throw new NotFoundException(`Inventory item with ID ${id} not found`);
     return item;
   }
 
@@ -148,7 +148,7 @@ export class InventoryService {
 
   async restock(id: string, quantityToAdd: number) {
     const item = await this.prisma.inventoryItem.findUnique({ where: { id } });
-    if (!item) throw new NotFoundException('Item not found');
+    if (!item) throw new NotFoundException(`Inventory item with ID ${id} not found`);
 
     const updated = await this.prisma.inventoryItem.update({
       where: { id },

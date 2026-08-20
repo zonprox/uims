@@ -41,7 +41,7 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
         targetRoleName: values.targetRoleName,
         description: values.description,
       });
-      message.success(`Successfully duplicated role "${values.targetRoleName}".`);
+      message.success(`Role "${values.targetRoleName}" cloned successfully.`);
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -58,15 +58,15 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <CopyOutlined style={{ color: '#1677ff' }} />
-          Duplicate Role: {sourceRole?.name}
+          Clone Role: {sourceRole?.name}
         </span>
       }
       open={open}
       onOk={handleSubmit}
       onCancel={onClose}
       confirmLoading={loading}
-      okText="Create Duplicate Role"
-      destroyOnClose
+      okText="Clone Role"
+      destroyOnHidden
     >
       <div style={{ marginBottom: 16, marginTop: 8 }}>
         <Text type="secondary" style={{ fontSize: 13 }}>
@@ -83,9 +83,9 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
           name="targetRoleName"
           label="New Role Name"
           rules={[
-            { required: true, message: 'Please enter new role name' },
-            { min: 2, message: 'Role name must be at least 2 characters' },
-            { max: 50, message: 'Role name cannot exceed 50 characters' },
+            { required: true, message: 'Please enter a role name.' },
+            { min: 2, message: 'Role name must be at least 2 characters.' },
+            { max: 50, message: 'Role name cannot exceed 50 characters.' },
           ]}
         >
           <Input placeholder="e.g. Senior IT Field Technician" autoFocus />

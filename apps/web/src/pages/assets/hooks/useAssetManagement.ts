@@ -159,7 +159,7 @@ export function useAssetManagement(form: FormInstance) {
         message.success(`Asset "${payload.tag}" updated successfully.`);
       } else {
         await assetsService.createAsset(payload);
-        message.success(`Asset "${payload.tag}" added to database.`);
+        message.success(`Asset "${payload.tag}" created successfully.`);
       }
 
       setModalOpen(false);
@@ -209,7 +209,7 @@ export function useAssetManagement(form: FormInstance) {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      message.success('Assets database exported successfully as CSV.');
+      message.success('Assets exported successfully.');
     } catch (err: unknown) {
       console.error(err);
       message.error('Failed to export CSV.');

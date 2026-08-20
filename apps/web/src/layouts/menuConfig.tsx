@@ -78,7 +78,7 @@ export function getQuickCreateMenu(
     items.push({
       key: 'new-user',
       icon: <TeamOutlined style={{ color: '#1677ff' }} />,
-      label: 'New Domain User',
+      label: 'Create User',
       onClick: () => navigate('/users'),
     });
   }
@@ -87,7 +87,7 @@ export function getQuickCreateMenu(
     items.push({
       key: 'new-dept',
       icon: <ApartmentOutlined style={{ color: '#722ed1' }} />,
-      label: 'New Organization Dept',
+      label: 'Create Department',
       onClick: () => navigate('/organization'),
     });
   }
@@ -96,7 +96,7 @@ export function getQuickCreateMenu(
     items.push({
       key: 'new-asset',
       icon: <LaptopOutlined style={{ color: '#1677ff' }} />,
-      label: 'New Hardware Asset',
+      label: 'Create Asset',
       onClick: () => navigate('/assets'),
     });
   }
@@ -105,7 +105,7 @@ export function getQuickCreateMenu(
     items.push({
       key: 'new-inventory',
       icon: <DatabaseOutlined style={{ color: '#f59e0b' }} />,
-      label: 'Manage Spare Stock',
+      label: 'Create Item',
       onClick: () => navigate('/inventory'),
     });
   }
@@ -114,7 +114,7 @@ export function getQuickCreateMenu(
     items.push({
       key: 'new-license',
       icon: <SafetyCertificateOutlined style={{ color: '#6366f1' }} />,
-      label: 'New SaaS License',
+      label: 'Create License',
       onClick: () => navigate('/licenses'),
     });
   }
@@ -137,7 +137,7 @@ export function getUserMenuItems(
             {user?.name || 'Administrator'}
           </Text>
           <Text type="secondary" style={{ fontSize: 11.5 }}>
-            {user?.email || 'admin@uims.enterprise'}
+            {user?.email || 'admin@uims.internal'}
           </Text>
           <Tag color="blue" style={{ marginTop: 6, fontSize: 10, padding: '0 6px' }}>
             {user?.role || 'Super Admin'}
@@ -149,7 +149,7 @@ export function getUserMenuItems(
     {
       key: 'manage-users',
       icon: <TeamOutlined />,
-      label: 'Active Directory & Users',
+      label: 'Users & Access',
       onClick: () => navigate('/users'),
     },
     {
@@ -161,20 +161,20 @@ export function getUserMenuItems(
     {
       key: 'settings',
       icon: <SettingOutlined />,
-      label: 'Theme & Preferences',
+      label: 'Settings',
       onClick: () => navigate('/settings'),
     },
     {
       key: 'audit-logs',
       icon: <AuditOutlined />,
-      label: 'Asset Audit Trail',
+      label: 'Audit Trail',
       onClick: () => navigate('/audit'),
     },
     { type: 'divider' },
     {
       key: 'logout',
       icon: <LogoutOutlined style={{ color: '#ef4444' }} />,
-      label: <span style={{ color: '#ef4444', fontWeight: 600 }}>Sign Out Session</span>,
+      label: <span style={{ color: '#ef4444', fontWeight: 600 }}>Sign Out</span>,
       onClick: handleLogout,
     },
   ];
@@ -197,8 +197,8 @@ export function getNavMenuItems(
     {
       key: '/',
       icon: <NavIconWithBadge icon={<DashboardOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Operations Center',
-      title: 'Operations Center',
+      label: 'Dashboard',
+      title: 'Dashboard',
     },
   ];
 
@@ -208,16 +208,16 @@ export function getNavMenuItems(
     orgChildren.push({
       key: '/organization',
       icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Org Structure & Depts',
-      title: 'Org Structure & Depts',
+      label: 'Organization Structure',
+      title: 'Organization Structure',
     });
   }
   if (allow('read', 'User') || allow('read', 'Role')) {
     orgChildren.push({
       key: '/users',
       icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Active Directory & Users',
-      title: 'Active Directory & Enterprise Users',
+      label: 'Users & Access',
+      title: 'Users & Access',
     });
   }
 
@@ -249,8 +249,8 @@ export function getNavMenuItems(
     assetChildren.push({
       key: '/assets',
       icon: <NavIconWithBadge icon={<LaptopOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Hardware Fleet',
-      title: 'Hardware Fleet',
+      label: 'Hardware Assets',
+      title: 'Hardware Assets',
     });
   }
   if (allow('read', 'License')) {
@@ -265,11 +265,12 @@ export function getNavMenuItems(
           isCollapsed={isCollapsedDesktop}
         />
       ),
-      title: expiringCount > 0 ? `SaaS Licenses (${expiringCount} Expiring)` : 'SaaS Licenses',
+      title:
+        expiringCount > 0 ? `Software Licenses (${expiringCount} Expiring)` : 'Software Licenses',
       label: (
         <Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            SaaS Licenses
+            Software Licenses
           </span>
           {showLabels && expiringCount > 0 && (
             <Tag
@@ -306,11 +307,11 @@ export function getNavMenuItems(
           isCollapsed={isCollapsedDesktop}
         />
       ),
-      title: lowStockCount > 0 ? `Spare Stockroom (${lowStockCount} Low Stock)` : 'Spare Stockroom',
+      title: lowStockCount > 0 ? `Inventory (${lowStockCount} Low Stock)` : 'Inventory',
       label: (
         <Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Spare Stockroom
+            Inventory
           </span>
           {showLabels && lowStockCount > 0 && (
             <MenuCountBadge count={lowStockCount} color="#f59e0b" textColor="#000" />
@@ -343,7 +344,7 @@ export function getNavMenuItems(
             textTransform: 'uppercase',
           }}
         >
-          CORE ASSETS & INVENTORY
+          ASSETS & INVENTORY
         </span>
       ) : undefined,
       children: assetChildren,
@@ -356,24 +357,24 @@ export function getNavMenuItems(
     govChildren.push({
       key: '/reports',
       icon: <NavIconWithBadge icon={<BarChartOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Lifecycle & Valuation Reports',
-      title: 'Lifecycle & Valuation Reports',
+      label: 'Reports & Analytics',
+      title: 'Reports & Analytics',
     });
   }
   if (allow('read', 'Audit')) {
     govChildren.push({
       key: '/audit',
       icon: <NavIconWithBadge icon={<AuditOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Asset Audit Trail',
-      title: 'Asset Audit Trail',
+      label: 'Audit Trail',
+      title: 'Audit Trail',
     });
   }
   if (allow('read', 'Setting')) {
     govChildren.push({
       key: '/settings',
       icon: <NavIconWithBadge icon={<SettingOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'System Preferences',
-      title: 'System Preferences',
+      label: 'Settings',
+      title: 'Settings',
     });
   }
 

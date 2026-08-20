@@ -23,7 +23,7 @@ function getSocketUrl(): string {
 }
 
 export function useRealtimeNotifications() {
-  const { token, user } = useAuthStore();
+  const { token } = useAuthStore();
   const { notification: antNotification } = App.useApp();
   const navigate = useNavigate();
 
@@ -54,6 +54,11 @@ export function useRealtimeNotifications() {
   useEffect(() => {
     refreshNotifications();
   }, [refreshNotifications]);
+
+  const antNotificationRef = useRef(antNotification);
+  antNotificationRef.current = antNotification;
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
   // Establish real-time WebSocket connection
   useEffect(() => {
@@ -115,7 +120,7 @@ export function useRealtimeNotifications() {
               ? 'success'
               : 'info';
 
-      antNotification[toastType]({
+      antNotificationRef.current[toastType]({
         message: newNotif.title,
         description: newNotif.description,
         placement: 'topRight',
@@ -128,9 +133,9 @@ export function useRealtimeNotifications() {
                 size: 'small',
                 onClick: () => {
                   if (newNotif.link) {
-                    navigate(newNotif.link);
+                    navigateRef.current(newNotif.link);
                   }
-                  antNotification.destroy();
+                  antNotificationRef.current.destroy();
                 },
               },
               'View Details',
@@ -190,7 +195,7 @@ export function useRealtimeNotifications() {
       socketRef.current = null;
       setIsConnected(false);
     };
-  }, [token, user, antNotification, navigate]);
+  }, [token]);
 
   const markAsRead = async (id: string, link?: string) => {
     try {

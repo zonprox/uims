@@ -36,7 +36,7 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Asset Operations Center..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Dashboard..." />}>
                 <DashboardPage />
               </Suspense>
             ),
@@ -44,7 +44,7 @@ export const router = createBrowserRouter([
           {
             path: 'assets',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Hardware Fleet..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Hardware Assets..." />}>
                 <AssetsPage />
               </Suspense>
             ),
@@ -52,7 +52,7 @@ export const router = createBrowserRouter([
           {
             path: 'licenses',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Software & SaaS Assets..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Software Licenses..." />}>
                 <LicensesPage />
               </Suspense>
             ),
@@ -64,9 +64,7 @@ export const router = createBrowserRouter([
           {
             path: 'organization',
             element: (
-              <Suspense
-                fallback={<PageLoader tip="Loading Enterprise Organization Structure..." />}
-              >
+              <Suspense fallback={<PageLoader tip="Loading Organization Structure..." />}>
                 <OrganizationPage />
               </Suspense>
             ),
@@ -74,7 +72,7 @@ export const router = createBrowserRouter([
           {
             path: 'users',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Active Directory & Users Hub..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Users & Access..." />}>
                 <UsersPage />
               </Suspense>
             ),
@@ -82,7 +80,7 @@ export const router = createBrowserRouter([
           {
             path: 'network',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Network Infrastructure..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Network & IPAM..." />}>
                 <NetworkPage />
               </Suspense>
             ),
@@ -90,7 +88,7 @@ export const router = createBrowserRouter([
           {
             path: 'inventory',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Spare Stockroom..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Inventory Management..." />}>
                 <InventoryPage />
               </Suspense>
             ),
@@ -98,7 +96,7 @@ export const router = createBrowserRouter([
           {
             path: 'audit',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Security Audit Trail..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Audit Trail..." />}>
                 <AuditPage />
               </Suspense>
             ),
@@ -106,7 +104,7 @@ export const router = createBrowserRouter([
           {
             path: 'reports',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Executive Reports..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Reports & Analytics..." />}>
                 <ReportsPage />
               </Suspense>
             ),
@@ -114,7 +112,7 @@ export const router = createBrowserRouter([
           {
             path: 'settings',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading System Configuration..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Settings..." />}>
                 <SettingsPage />
               </Suspense>
             ),

@@ -56,7 +56,6 @@ describe('NotificationsGateway', () => {
 
       expect(mockClient.join).toHaveBeenCalledWith('user:user-123');
       expect(mockClient.join).toHaveBeenCalledWith('role:Admin');
-      expect(mockClient.join).toHaveBeenCalledWith('broadcast');
       expect(mockClient.emit).toHaveBeenCalledWith(
         'connected',
         expect.objectContaining({ userId: 'user-123', role: 'Admin' }),
@@ -120,13 +119,19 @@ describe('NotificationsGateway', () => {
       expect(mockServer.emit).toHaveBeenCalledWith('notification:count', { unreadCount: 5 });
     });
 
-    it('should broadcast to all clients', () => {
-      gateway.broadcast({ id: 'n2', title: 'Broadcast' });
-      expect(mockServer.to).toHaveBeenCalledWith('broadcast');
+    it('should send notification to role room', () => {
+      gateway.sendToRole('Admin', { id: 'n2', title: 'Role Notice' });
+      expect(mockServer.to).toHaveBeenCalledWith('role:Admin');
       expect(mockServer.emit).toHaveBeenCalledWith('notification:new', {
         id: 'n2',
-        title: 'Broadcast',
+        title: 'Role Notice',
       });
+    });
+
+    it('should send count to role room', () => {
+      gateway.sendCountToRole('Admin', 3);
+      expect(mockServer.to).toHaveBeenCalledWith('role:Admin');
+      expect(mockServer.emit).toHaveBeenCalledWith('notification:count', { unreadCount: 3 });
     });
 
     it('should emit notification read to user room', () => {
@@ -135,9 +140,14 @@ describe('NotificationsGateway', () => {
       expect(mockServer.emit).toHaveBeenCalledWith('notification:read', { id: 'n1' });
     });
 
-    it('should emit notifications cleared', () => {
+    it('should emit notifications cleared to user room when userId provided', () => {
       gateway.emitNotificationsCleared('user-1');
       expect(mockServer.to).toHaveBeenCalledWith('user:user-1');
+      expect(mockServer.emit).toHaveBeenCalledWith('notification:cleared', { success: true });
+    });
+
+    it('should emit notifications cleared to all clients when no userId provided', () => {
+      gateway.emitNotificationsCleared();
       expect(mockServer.emit).toHaveBeenCalledWith('notification:cleared', { success: true });
     });
   });

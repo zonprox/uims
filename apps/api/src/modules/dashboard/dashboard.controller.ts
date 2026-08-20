@@ -9,7 +9,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('overview')
-  @ApiOperation({ summary: 'Get aggregated IT dashboard operational telemetry' })
+  @ApiOperation({ summary: 'Get dashboard overview' })
   getOverview(@Query('period') period?: string) {
     return this.dashboardService.getOverview(period);
   }

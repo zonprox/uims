@@ -16,7 +16,7 @@ export interface IpFormModalProps {
 export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
   ({ open, editingIp, form, submitting, onSave, onCancel }) => (
     <Modal
-      title={editingIp ? `Edit IP Allocation: ${editingIp.ip}` : 'Allocate Static IP Address'}
+      title={editingIp ? `Edit IP Allocation: ${editingIp.ip}` : 'Allocate IP Address'}
       open={open}
       onOk={onSave}
       onCancel={onCancel}
@@ -27,12 +27,20 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
       <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
         <Row gutter={14}>
           <Col span={12}>
-            <Form.Item label="IP Address" name="ip" rules={[{ required: true }]}>
+            <Form.Item
+              label="IP Address"
+              name="ip"
+              rules={[{ required: true, message: 'IP address is required' }]}
+            >
               <Input placeholder="e.g. 192.168.1.120" />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="Hostname / FQDN" name="hostname" rules={[{ required: true }]}>
+            <Form.Item
+              label="Hostname & FQDN"
+              name="hostname"
+              rules={[{ required: true, message: 'Hostname is required' }]}
+            >
               <Input placeholder="e.g. srv-k8s-node01.uims.lan" />
             </Form.Item>
           </Col>
@@ -40,13 +48,21 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
 
         <Row gutter={14}>
           <Col span={12}>
-            <Form.Item label="MAC Address" name="mac" rules={[{ required: true }]}>
+            <Form.Item
+              label="MAC Address"
+              name="mac"
+              rules={[{ required: true, message: 'MAC address is required' }]}
+            >
               <Input placeholder="e.g. 00:1B:44:11:3A:B7" />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="Hardware Vendor" name="vendor" rules={[{ required: true }]}>
-              <Input placeholder="e.g. Dell Enterprise / Cisco" />
+            <Form.Item
+              label="Vendor"
+              name="vendor"
+              rules={[{ required: true, message: 'Vendor is required' }]}
+            >
+              <Input placeholder="e.g. Dell / Cisco" />
             </Form.Item>
           </Col>
         </Row>
@@ -63,7 +79,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item label="VLAN Tag" name="vlan" rules={[{ required: true }]}>
+            <Form.Item label="VLAN" name="vlan" rules={[{ required: true }]}>
               <Input placeholder="e.g. VLAN 10 (Servers)" />
             </Form.Item>
           </Col>

@@ -25,7 +25,7 @@ describe('ReportsService', () => {
   });
 
   describe('getStats', () => {
-    it('should aggregate financial, SaaS, and fleet utilization KPIs', async () => {
+    it('should aggregate financial, SaaS, and hardware asset utilization KPIs', async () => {
       mockPrisma.reportSchedule.count.mockResolvedValue(4);
       mockPrisma.license.findMany.mockResolvedValue([
         { totalSeats: 100, usedSeats: 50, costPerSeat: 20 },

@@ -10,7 +10,7 @@ export class HealthController {
   constructor(@Optional() private readonly prisma?: PrismaService) {}
 
   @Get()
-  @ApiOperation({ summary: 'System health check and live operational telemetry' })
+  @ApiOperation({ summary: 'Get system health status' })
   async check() {
     const startTime = performance.now();
     const memUsage = process.memoryUsage();

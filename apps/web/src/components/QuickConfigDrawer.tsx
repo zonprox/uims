@@ -103,18 +103,18 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           <Flex justify="space-between" align="center">
             <Space size={8}>
               <SettingOutlined style={{ color: '#1677ff', fontSize: 16 }} />
-              <span style={{ fontWeight: 700, fontSize: 15 }}>Quick Setup & System Config</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>Quick Settings</span>
             </Space>
             <Tag color="geekblue" style={{ margin: 0, fontSize: 10.5 }}>
-              Enterprise Console
+              System
             </Tag>
           </Flex>
         }
         placement="right"
-        width={420}
         open={open}
         onClose={onClose}
         styles={{
+          wrapper: { width: 420 },
           body: { padding: '16px 20px', backgroundColor: mode === 'dark' ? '#090d16' : '#f8fafc' },
         }}
       >
@@ -131,7 +131,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
         >
           <div style={{ marginBottom: 14 }}>
             <Text type="secondary" style={{ fontSize: 11.5, display: 'block', marginBottom: 6 }}>
-              THEME MODE
+              Theme Mode
             </Text>
             <Segmented
               block
@@ -162,7 +162,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
 
           <div style={{ marginBottom: 14 }}>
             <Text type="secondary" style={{ fontSize: 11.5, display: 'block', marginBottom: 8 }}>
-              ACCENT COLOR PRESET
+              Accent Color
             </Text>
             <Row gutter={[8, 8]}>
               {COLOR_PRESETS.map((preset) => {
@@ -205,7 +205,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           <Flex justify="space-between" align="center" style={{ marginBottom: 10 }}>
             <div>
               <Text strong style={{ fontSize: 12.5, display: 'block' }}>
-                Compact UI Density
+                Compact Density
               </Text>
               <Text type="secondary" style={{ fontSize: 11 }}>
                 High data density for tables & charts
@@ -259,7 +259,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
             <Flex justify="space-between" align="center">
               <div>
                 <Text type="secondary" style={{ fontSize: 10.5, display: 'block' }}>
-                  LIVE PREVIEW ({tzInfo.abbr})
+                  Live Preview ({tzInfo.abbr})
                 </Text>
                 <Text strong style={{ fontSize: 12, display: 'block' }}>
                   {tzInfo.effectiveTimezone}
@@ -279,7 +279,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           <div style={{ marginBottom: 12 }}>
             <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
               <Text type="secondary" style={{ fontSize: 11.5 }}>
-                TIMEZONE RESOLUTION
+                Timezone Resolution
               </Text>
               <Segmented
                 size="small"
@@ -303,7 +303,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           <Row gutter={8} style={{ marginBottom: 6 }}>
             <Col span={12}>
               <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-                CLOCK FORMAT
+                Clock Format
               </Text>
               <Segmented
                 block
@@ -318,7 +318,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
             </Col>
             <Col span={12}>
               <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-                DATE FORMAT
+                Date Format
               </Text>
               <Segmented
                 block
@@ -341,13 +341,13 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           title={
             <Space size={6}>
               <ThunderboltOutlined style={{ color: '#10b981' }} />
-              <span style={{ fontSize: 13, fontWeight: 600 }}>System Telemetry & Backup</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>System Status & Backup</span>
             </Space>
           }
           style={{ marginBottom: 16 }}
         >
           <Descriptions size="small" column={1} bordered style={{ marginBottom: 12 }}>
-            <Descriptions.Item label="Infrastructure Status">
+            <Descriptions.Item label="System Status">
               <Tag color={isOnline ? 'success' : 'error'} style={{ margin: 0, fontSize: 11 }}>
                 {isOnline ? 'Operational' : 'Offline'}
               </Tag>
@@ -357,7 +357,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
                 {health?.clientLatencyMs !== undefined ? `${health.clientLatencyMs}ms` : '1.2ms'}
               </Text>
             </Descriptions.Item>
-            <Descriptions.Item label="PostgreSQL & Redis">
+            <Descriptions.Item label="Database & Cache">
               <Text type="secondary" style={{ fontSize: 11.5 }}>
                 Connected (TLS 1.3 Active)
               </Text>
@@ -365,9 +365,9 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
           </Descriptions>
 
           <Popconfirm
-            title="Trigger instant snapshot?"
-            description="Create an AES-256 encrypted point-in-time database snapshot saved to S3."
-            okText="Run Backup"
+            title="Create database backup?"
+            description="Create an encrypted snapshot of the database and upload it to secure storage."
+            okText="Create Backup"
             cancelText="Cancel"
             onConfirm={handleRunBackup}
           >
@@ -378,7 +378,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
               loading={backupRunning}
               style={{ borderRadius: 6, fontWeight: 600 }}
             >
-              Create On-Demand Database Snapshot
+              Create Backup
             </Button>
           </Popconfirm>
         </Card>
@@ -403,7 +403,7 @@ export const QuickConfigDrawer: React.FC<QuickConfigDrawerProps> = React.memo(
             marginBottom: 12,
           }}
         >
-          Open Advanced Enterprise Settings <RightOutlined style={{ fontSize: 11 }} />
+          Open System Settings <RightOutlined style={{ fontSize: 11 }} />
         </Button>
 
         <div style={{ textAlign: 'center', padding: '6px 0 2px 0' }}>

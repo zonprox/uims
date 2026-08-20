@@ -53,8 +53,15 @@ test-results/
 playwright-report/
 scripts/
 
-# IDE & OS
+# IDE & OS & Agents
 .idea/
 .vscode/
+.claude/
+.gemini/
+.cursor/
+.windsurf/
+.copilot/
+.antigravity/
+.agents/
 .DS_Store
 Thumbs.db

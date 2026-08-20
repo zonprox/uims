@@ -5,20 +5,24 @@ export interface AuditLog {
   timestamp: string;
   user: string;
   userEmail: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN_SUCCESS' | 'LOGIN_FAILED' | 'PERMISSION_GRANT';
-  severity: 'Info' | 'Warning' | 'Critical';
+  action: string;
+  severity: string;
   entity: string;
-  entityType: 'Asset' | 'License' | 'User' | 'Network' | 'Security';
+  entityType: string;
   ipAddress: string;
-  status: 'Success' | 'Failed' | 'Blocked';
+  status: string;
   details?: string;
   userName?: string;
   diffPayload?: {
-    before?: Record<string, unknown>;
-    after?: Record<string, unknown>;
+    before?: Record<string, unknown> | null;
+    after?: Record<string, unknown> | null;
     requestId?: string;
     userAgent?: string;
-  };
+    ipAddress?: string;
+    severity?: string;
+    status?: string;
+    [key: string]: unknown;
+  } | null;
 }
 
 export interface AuditStats {

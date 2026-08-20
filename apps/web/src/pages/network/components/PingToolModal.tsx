@@ -14,7 +14,7 @@ export interface PingToolModalProps {
 export const PingToolModal: React.FC<PingToolModalProps> = React.memo(
   ({ open, pinging, pingResult, onClose }) => (
     <Modal
-      title="ICMP Echo Diagnostic Test"
+      title="Ping Host"
       open={open}
       onCancel={onClose}
       footer={[
@@ -28,7 +28,7 @@ export const PingToolModal: React.FC<PingToolModalProps> = React.memo(
         {pinging ? (
           <Flex justify="center" align="center" gap={12} style={{ padding: '24px 0' }}>
             <ApiOutlined spin style={{ fontSize: 24, color: '#1677ff' }} />
-            <Text>Transmitting 4 ICMP packets (32 bytes each)...</Text>
+            <Text>Transmitting ping requests...</Text>
           </Flex>
         ) : (
           <div>

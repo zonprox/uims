@@ -50,7 +50,7 @@ async function bootstrap() {
       ) {
         callback(null, true);
       } else {
-        callback(new Error('Blocked by CORS policy'));
+        callback(new Error('Origin is not allowed by CORS policy'));
       }
     },
     credentials: true,
@@ -74,8 +74,8 @@ async function bootstrap() {
 
   // Swagger Documentation Setup
   const config = new DocumentBuilder()
-    .setTitle('UIMS Enterprise API')
-    .setDescription('Unified IT Infrastructure & Assets Management Platform API Documentation')
+    .setTitle('UIMS API')
+    .setDescription('IT Infrastructure & Asset Management Platform API Documentation')
     .setVersion('2.4.0')
     .addBearerAuth()
     .build();

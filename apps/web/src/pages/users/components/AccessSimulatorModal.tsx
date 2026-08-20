@@ -2,6 +2,7 @@ import {
   CheckCircleFilled,
   CloseCircleFilled,
   ExperimentOutlined,
+  SafetyCertificateOutlined,
   SearchOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -16,6 +17,7 @@ import {
   Radio,
   Row,
   Select,
+  Space,
   Table,
   Tag,
   Typography,
@@ -119,10 +121,10 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
         <Flex align="center" gap={8}>
           <ExperimentOutlined style={{ color: '#7c3aed', fontSize: 18 }} />
           <Title level={5} style={{ margin: 0, fontSize: 16 }}>
-            Enterprise Access & Policy Simulator
+            Access & Policy Simulator
           </Title>
           <Tag color="purple" style={{ margin: 0 }}>
-            Policy Engine 2026
+            Policy Engine
           </Tag>
         </Flex>
       }
@@ -131,7 +133,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
       footer={null}
       width={840}
       styles={{ body: { padding: '16px 20px', background: '#f8fafc' } }}
-      destroyOnClose
+      destroyOnHidden
     >
       {/* Simulator Target Selector */}
       <Card
@@ -157,10 +159,10 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
                 showSearch
                 value={selectedUserId || undefined}
                 onChange={setSelectedUserId}
-                placeholder="Select a domain user to inspect..."
+                placeholder="Select a user to inspect..."
                 style={{ width: '100%' }}
                 filterOption={(input, option) =>
-                  String(option?.label || '')
+                  String(option?.label ?? '')
                     .toLowerCase()
                     .includes(input.toLowerCase())
                 }
@@ -173,7 +175,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               <Select
                 value={selectedRoleId || undefined}
                 onChange={setSelectedRoleId}
-                placeholder="Select an RBAC role..."
+                placeholder="Select a security role..."
                 style={{ width: '100%' }}
                 options={roles.map((r) => ({
                   value: r.id,
@@ -226,20 +228,25 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
         </Flex>
       </Card>
 
-      {/* Permissions Diagnostic Grid */}
+      {/* Access Diagnostics Grid */}
       <Card
         size="small"
         title={
-          <Flex align="center" justify="space-between" style={{ width: '100%' }}>
-            <span>Module Authority Breakdown</span>
+          <Flex justify="space-between" align="center">
+            <Space size={6}>
+              <SafetyCertificateOutlined style={{ color: '#1677ff' }} />
+              <Text strong style={{ fontSize: 13 }}>
+                Effective Permission Diagnostics
+              </Text>
+            </Space>
             <Input
-              placeholder="Search module..."
               size="small"
+              placeholder="Filter catalog..."
               prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
               value={search}
-              allowClear
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 180 }}
+              allowClear
+              style={{ width: 200 }}
             />
           </Flex>
         }
@@ -253,7 +260,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
           pagination={false}
           columns={[
             {
-              title: 'RESOURCE MODULE',
+              title: 'Resource / Module',
               dataIndex: 'displayName',
               key: 'displayName',
               render: (_: unknown, r: PermissionCatalogSubject) => (
@@ -268,7 +275,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               ),
             },
             {
-              title: 'CREATE',
+              title: 'Create',
               key: 'create',
               align: 'center',
               width: 80,
@@ -284,7 +291,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               },
             },
             {
-              title: 'READ',
+              title: 'Read',
               key: 'read',
               align: 'center',
               width: 80,
@@ -300,7 +307,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               },
             },
             {
-              title: 'UPDATE',
+              title: 'Update',
               key: 'update',
               align: 'center',
               width: 80,
@@ -316,7 +323,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               },
             },
             {
-              title: 'DELETE',
+              title: 'Delete',
               key: 'delete',
               align: 'center',
               width: 80,
@@ -332,7 +339,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               },
             },
             {
-              title: 'EXPORT',
+              title: 'Export',
               key: 'export',
               align: 'center',
               width: 80,
@@ -348,7 +355,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               },
             },
             {
-              title: 'MANAGE',
+              title: 'Manage',
               key: 'manage',
               align: 'center',
               width: 80,

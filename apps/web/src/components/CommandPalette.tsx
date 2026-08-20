@@ -29,7 +29,7 @@ interface CommandItem {
 const COMMAND_ITEMS: Array<CommandItem> = [
   {
     key: 'dashboard',
-    title: 'Operations Center',
+    title: 'Dashboard',
     category: 'Overview',
     path: '/',
     icon: <BarChartOutlined />,
@@ -37,7 +37,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'assets',
-    title: 'Hardware Fleet',
+    title: 'Hardware Assets',
     category: 'Assets',
     path: '/assets',
     icon: <LaptopOutlined />,
@@ -45,7 +45,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'licenses',
-    title: 'Software & SaaS Assets',
+    title: 'Software Licenses',
     category: 'Software',
     path: '/licenses',
     icon: <SafetyCertificateOutlined />,
@@ -53,7 +53,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'inventory',
-    title: 'Spare Stockroom',
+    title: 'Inventory Management',
     category: 'Inventory',
     path: '/inventory',
     icon: <DatabaseOutlined />,
@@ -77,11 +77,11 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'users',
-    title: 'System Login Users',
+    title: 'Users & Access',
     category: 'Access',
     path: '/users',
     icon: <TeamOutlined />,
-    description: 'Manage console login users, RBAC roles, security status, and reset credentials',
+    description: 'Manage console login users, RBAC roles, security status, and domain attributes',
   },
   {
     key: 'directory',
@@ -94,7 +94,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'reports',
-    title: 'Lifecycle & Valuation Reports',
+    title: 'Reports & Analytics',
     category: 'Analytics',
     path: '/reports',
     icon: <BarChartOutlined />,
@@ -102,7 +102,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'audit',
-    title: 'Asset Audit Trail',
+    title: 'Audit Trail',
     category: 'Governance',
     path: '/audit',
     icon: <AuditOutlined />,
@@ -110,7 +110,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'settings',
-    title: 'System Preferences',
+    title: 'Settings',
     category: 'System',
     path: '/settings',
     icon: <SettingOutlined />,

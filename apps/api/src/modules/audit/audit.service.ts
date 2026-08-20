@@ -48,7 +48,7 @@ export class AuditService {
 
   async findOne(id: string) {
     const log = await this.prisma.auditLog.findUnique({ where: { id } });
-    if (!log) throw new NotFoundException('Audit log event not found');
+    if (!log) throw new NotFoundException(`Audit log with ID ${id} not found`);
     return this.formatLog(log);
   }
 
@@ -79,7 +79,7 @@ export class AuditService {
     ) {
       try {
         await this.notificationsService.notifyAdmins({
-          title: `Security Anomaly: ${data.action}`,
+          title: `Security Alert: ${data.action}`,
           message: `${data.details || `Critical event detected on entity ${data.entity}`} (IP: ${data.ipAddress || 'Unknown'})`,
           type: 'ALERT',
           link: '/audit',
@@ -131,6 +131,7 @@ export class AuditService {
         ? log.timestamp.toISOString().replace('T', ' ').substring(0, 19)
         : '',
       user: log.userName || 'System Engine',
+      userName: log.userName || 'System Engine',
       userEmail: log.userEmail || 'system@uims.internal',
       action: log.action,
       severity: log.severity || 'Info',

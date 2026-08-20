@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Notification, NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import type { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
 import type { CreateNotificationDto, NotificationTypeEnum } from './dto/create-notification.dto';
 import { NotificationsGateway } from './notifications.gateway';
 
@@ -112,7 +111,7 @@ export class NotificationsService {
 
   async findOne(id: string) {
     const notif = await this.prisma.notification.findUnique({ where: { id } });
-    if (!notif) throw new NotFoundException('Notification not found');
+    if (!notif) throw new NotFoundException(`Notification with ID ${id} not found`);
     return this.formatNotification(notif);
   }
 
@@ -204,64 +203,6 @@ export class NotificationsService {
       this.logger.error(`Failed to notify admins: ${(err as Error).message}`);
       return [];
     }
-  }
-
-  /**
-   * Broadcast an announcement to all active users or a specific target role
-   */
-  async broadcast(data: BroadcastNotificationDto) {
-    const where: Prisma.UserWhereInput = { status: 'ACTIVE' };
-    if (data.targetRole && data.targetRole !== 'All') {
-      where.OR = [{ roleName: data.targetRole }, { role: { name: data.targetRole } }];
-    }
-
-    const recipients = await this.prisma.user.findMany({
-      where,
-      select: { id: true },
-    });
-
-    if (recipients.length === 0) {
-      return { count: 0, success: true };
-    }
-
-    const notifType = (data.type as NotificationType) || 'INFO';
-
-    // Batch create notifications for all target users
-    const records = await this.prisma.$transaction(
-      recipients.map((user) =>
-        this.prisma.notification.create({
-          data: {
-            userId: user.id,
-            title: data.title,
-            message: data.message,
-            type: notifType,
-            link: data.link || null,
-            isRead: false,
-          },
-        }),
-      ),
-    );
-
-    // If WebSocket gateway is present, push live events
-    if (this.gateway && records.length > 0) {
-      const sampleFormatted = this.formatNotification(records[0]);
-      if (!data.targetRole || data.targetRole === 'All') {
-        this.gateway.broadcast(sampleFormatted);
-      } else {
-        this.gateway.sendToRole(data.targetRole, sampleFormatted);
-      }
-
-      // Update unread counts asynchronously
-      for (const user of recipients) {
-        this.getUnreadCount(user.id)
-          .then((count) => {
-            this.gateway?.sendCountToUser(user.id, count);
-          })
-          .catch(() => {});
-      }
-    }
-
-    return { count: records.length, success: true };
   }
 
   async markAsRead(id: string) {

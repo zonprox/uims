@@ -241,16 +241,71 @@ describe('Frontend Service Clients', () => {
       expect(groups).toHaveLength(1);
     });
 
-    it('should reset user password', async () => {
+    it('should create and update user', async () => {
       vi.mocked(api.post).mockResolvedValueOnce({
-        data: { data: { success: true, message: 'Password reset successfully' } },
+        data: { data: { id: 'u2', email: 'test@youngonevn.com' } },
+      });
+      vi.mocked(api.patch).mockResolvedValueOnce({
+        data: { data: { id: 'u2', displayName: 'Updated' } },
       });
 
-      const res = await usersService.resetPassword('u1', 'NewPassword123');
-      expect(api.post).toHaveBeenCalledWith('/users/u1/reset-password', {
-        password: 'NewPassword123',
+      const created = await usersService.createUser({ email: 'test@youngonevn.com' });
+      const updated = await usersService.updateUser('u2', { displayName: 'Updated' });
+
+      expect(api.post).toHaveBeenCalledWith('/users', { email: 'test@youngonevn.com' });
+      expect(api.patch).toHaveBeenCalledWith('/users/u2', { displayName: 'Updated' });
+      expect(created.id).toBe('u2');
+      expect(updated.displayName).toBe('Updated');
+    });
+
+    it('should toggle status and delete user', async () => {
+      vi.mocked(api.patch).mockResolvedValueOnce({
+        data: { data: { id: 'u1', status: 'SUSPENDED' } },
       });
-      expect(res.success).toBe(true);
+      vi.mocked(api.delete).mockResolvedValueOnce({
+        data: { data: { id: 'u1' } },
+      });
+
+      const toggled = await usersService.toggleStatus(
+        'u1',
+        'SUSPENDED' as import('@uims/shared-types').UserStatus,
+      );
+      await usersService.deleteUser('u1');
+
+      expect(api.patch).toHaveBeenCalledWith('/users/u1/toggle-status', { status: 'SUSPENDED' });
+      expect(api.delete).toHaveBeenCalledWith('/users/u1');
+      expect(toggled.status).toBe('SUSPENDED');
+    });
+
+    it('should export users, import users, and sync domain', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: { data: [{ HEmploy: '63020037', HName: 'Test' }] },
+      });
+      vi.mocked(api.post).mockResolvedValueOnce({
+        data: { data: { created: 1, updated: 0, skipped: 0, errors: [] } },
+      });
+      vi.mocked(api.post).mockResolvedValueOnce({
+        data: { data: { status: 'SYNCHRONIZED', latencyMs: 12 } },
+      });
+
+      const exported = await usersService.exportUsers();
+      const imported = await usersService.importUsers([
+        { email: 'test@test.com', name: 'Test User' },
+      ]);
+      const sync = await usersService.syncDomain();
+
+      expect(api.get).toHaveBeenCalledWith('/users/export');
+      expect(api.post).toHaveBeenCalledWith('/users/import', {
+        users: [{ email: 'test@test.com', name: 'Test User' }],
+      });
+      expect(api.post).toHaveBeenCalledWith('/users/sync-domain');
+      expect(exported).toHaveLength(1);
+      expect(imported.created).toBe(1);
+      expect(sync.status).toBe('SYNCHRONIZED');
+    });
+
+    it('should confirm resetPassword method is removed from usersService', () => {
+      expect((usersService as unknown as Record<string, unknown>).resetPassword).toBeUndefined();
     });
   });
 
@@ -283,22 +338,12 @@ describe('Frontend Service Clients', () => {
       expect(count).toBe(3);
     });
 
-    it('should broadcast announcement and mark as read', async () => {
-      vi.mocked(api.post).mockResolvedValueOnce({ data: { count: 5, success: true } });
+    it('should mark notification as read', async () => {
       vi.mocked(api.patch).mockResolvedValueOnce({ data: { data: { id: 'n1', read: true } } });
 
-      const broadcast = await notificationsService.broadcastAnnouncement({
-        title: 'Maintenance',
-        message: 'Tonight at 2am',
-      });
       const read = await notificationsService.markAsRead('n1');
 
-      expect(api.post).toHaveBeenCalledWith('/notifications/broadcast', {
-        title: 'Maintenance',
-        message: 'Tonight at 2am',
-      });
       expect(api.patch).toHaveBeenCalledWith('/notifications/n1/read');
-      expect(broadcast.count).toBe(5);
       expect(read.read).toBe(true);
     });
   });

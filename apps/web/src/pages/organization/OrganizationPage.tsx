@@ -119,7 +119,7 @@ export default function OrganizationPage() {
       }
     } catch (err) {
       console.error('Failed to load organization data:', err);
-      message.error('Failed to load enterprise structure');
+      message.error('Failed to load organization structure.');
     } finally {
       setLoading(false);
     }
@@ -249,14 +249,14 @@ export default function OrganizationPage() {
         message.success(`Organization "${values.name}" updated successfully.`);
       } else {
         await organizationService.createOrganization(values);
-        message.success(`Organization "${values.name}" registered successfully.`);
+        message.success(`Organization "${values.name}" created successfully.`);
       }
       setOrgModalOpen(false);
       loadData();
     } catch (err: unknown) {
       console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save organization entity.');
+      message.error(apiErr.response?.data?.message || 'Failed to save organization.');
     } finally {
       setModalSubmitting(false);
     }
@@ -265,11 +265,11 @@ export default function OrganizationPage() {
   const handleDeleteOrg = async (id: string) => {
     try {
       await organizationService.deleteOrganization(id);
-      message.success('Organization removed');
+      message.success('Organization deleted successfully.');
       loadData();
     } catch (err: unknown) {
       console.error(err);
-      message.error('Failed to delete organization');
+      message.error('Failed to delete organization.');
     }
   };
 
@@ -296,10 +296,10 @@ export default function OrganizationPage() {
       setModalSubmitting(true);
       if (editingDept) {
         await organizationService.updateDepartment(editingDept.id, values);
-        message.success(`Department "${values.name}" updated.`);
+        message.success(`Department "${values.name}" updated successfully.`);
       } else {
         await organizationService.createDepartment(values);
-        message.success(`Department "${values.name}" created.`);
+        message.success(`Department "${values.name}" created successfully.`);
       }
       setDeptModalOpen(false);
       loadData();
@@ -315,11 +315,11 @@ export default function OrganizationPage() {
   const handleDeleteDept = async (id: string) => {
     try {
       await organizationService.deleteDepartment(id);
-      message.success('Department deleted');
+      message.success('Department deleted successfully.');
       loadData();
     } catch (err: unknown) {
       console.error(err);
-      message.error('Failed to delete department');
+      message.error('Failed to delete department.');
     }
   };
 
@@ -346,10 +346,10 @@ export default function OrganizationPage() {
       setModalSubmitting(true);
       if (editingPos) {
         await organizationService.updatePosition(editingPos.id, values);
-        message.success(`Position "${values.title}" updated.`);
+        message.success(`Position "${values.title}" updated successfully.`);
       } else {
         await organizationService.createPosition(values);
-        message.success(`Position "${values.title}" created.`);
+        message.success(`Position "${values.title}" created successfully.`);
       }
       setPosModalOpen(false);
       loadData();
@@ -365,18 +365,18 @@ export default function OrganizationPage() {
   const handleDeletePos = async (id: string) => {
     try {
       await organizationService.deletePosition(id);
-      message.success('Position deleted');
+      message.success('Position deleted successfully.');
       loadData();
     } catch (err: unknown) {
       console.error(err);
-      message.error('Failed to delete position');
+      message.error('Failed to delete position.');
     }
   };
 
   // Table columns
   const deptColumns = [
     {
-      title: 'DEPARTMENT NAME & CODE',
+      title: 'Department Name & Code',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: Department) => (
@@ -409,7 +409,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'ORGANIZATION ENTITY',
+      title: 'Organization',
       key: 'org',
       render: (_: unknown, record: Department) => (
         <Text style={{ fontSize: 12.5 }}>
@@ -418,7 +418,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'PARENT DIVISION',
+      title: 'Parent Department',
       key: 'parent',
       render: (_: unknown, record: Department) =>
         record.parent ? (
@@ -428,7 +428,7 @@ export default function OrganizationPage() {
         ),
     },
     {
-      title: 'DEPARTMENT MANAGER',
+      title: 'Manager',
       key: 'manager',
       render: (_: unknown, record: Department) => (
         <div>
@@ -444,7 +444,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'HEADCOUNT & ROLES',
+      title: 'Headcount & Roles',
       key: 'stats',
       render: (_: unknown, record: Department) => (
         <Space size={6}>
@@ -458,7 +458,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'STATUS',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -466,7 +466,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'ACTIONS',
+      title: 'Actions',
       key: 'actions',
       render: (_: unknown, record: Department) => (
         <Space size="small">
@@ -497,7 +497,7 @@ export default function OrganizationPage() {
 
   const posColumns = [
     {
-      title: 'JOB POSITION TITLE',
+      title: 'Position Title',
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Position) => (
@@ -530,14 +530,14 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'ASSIGNED DEPARTMENT',
+      title: 'Department',
       key: 'dept',
       render: (_: unknown, record: Position) => (
         <Text style={{ fontSize: 12.5 }}>{record.department?.name || 'General Operations'}</Text>
       ),
     },
     {
-      title: 'SENIORITY LEVEL',
+      title: 'Seniority Level',
       dataIndex: 'level',
       key: 'level',
       render: (level: string) => {
@@ -550,7 +550,7 @@ export default function OrganizationPage() {
       },
     },
     {
-      title: 'CURRENT HEADCOUNT',
+      title: 'Headcount',
       dataIndex: 'headcount',
       key: 'headcount',
       render: (count: number) => (
@@ -560,7 +560,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'STATUS',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -568,7 +568,7 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'ACTIONS',
+      title: 'Actions',
       key: 'actions',
       render: (_: unknown, record: Position) => (
         <Space size="small">
@@ -618,8 +618,8 @@ export default function OrganizationPage() {
 
   return (
     <PageContainer
-      title="Enterprise Organization Structure"
-      subtitle="Comprehensive governance of enterprise entities, regional hubs, hierarchical divisions, departments, and job titles."
+      title="Organization Structure"
+      subtitle="Manage organizational units, departments, locations, and job positions."
       breadcrumbs={[{ title: 'Organization' }]}
       stats={[
         {
@@ -653,13 +653,13 @@ export default function OrganizationPage() {
             <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
           </Tooltip>
           <Button icon={<PlusOutlined />} onClick={handleOpenCreateOrg}>
-            New Entity
+            Create Organization
           </Button>
           <Button icon={<ApartmentOutlined />} onClick={() => handleOpenCreateDept()}>
-            New Department
+            Create Department
           </Button>
           <Button type="primary" icon={<IdcardOutlined />} onClick={() => handleOpenCreatePos()}>
-            New Job Position
+            Create Position
           </Button>
         </Flex>
       }
@@ -671,7 +671,7 @@ export default function OrganizationPage() {
             key: 'hierarchy',
             label: (
               <span>
-                <ClusterOutlined /> Interactive Org Hierarchy & Canvas
+                <ClusterOutlined /> Organization Hierarchy
               </span>
             ),
             children: (
@@ -734,7 +734,7 @@ export default function OrganizationPage() {
                       title={
                         <Flex justify="space-between" align="center">
                           <Text strong style={{ fontSize: 13 }}>
-                            Selected Node Inspector & Unit Details
+                            Selected Unit Details
                           </Text>
                           {selectedNode && (
                             <Tag
@@ -767,7 +767,7 @@ export default function OrganizationPage() {
                                     if (org) handleOpenEditOrg(org);
                                   }}
                                 >
-                                  Edit Entity
+                                  Edit Organization
                                 </Button>
                                 <Button
                                   size="small"
@@ -775,7 +775,7 @@ export default function OrganizationPage() {
                                   icon={<PlusOutlined />}
                                   onClick={() => handleOpenCreateDept()}
                                 >
-                                  Add Dept
+                                  Create Department
                                 </Button>
                               </>
                             )}
@@ -791,7 +791,7 @@ export default function OrganizationPage() {
                                     if (dept) handleOpenEditDept(dept);
                                   }}
                                 >
-                                  Edit Dept
+                                  Edit Department
                                 </Button>
                                 <Button
                                   size="small"
@@ -801,7 +801,7 @@ export default function OrganizationPage() {
                                     handleOpenCreateDept(deptId);
                                   }}
                                 >
-                                  Add Sub-Dept
+                                  Create Sub-Department
                                 </Button>
                                 <Button
                                   size="small"
@@ -812,7 +812,7 @@ export default function OrganizationPage() {
                                     handleOpenCreatePos(deptId);
                                   }}
                                 >
-                                  Add Position
+                                  Create Position
                                 </Button>
                               </>
                             )}
@@ -844,21 +844,21 @@ export default function OrganizationPage() {
                               <Tag color="blue">{selectedNode.code}</Tag>
                             </Flex>
                             <Paragraph type="secondary" style={{ margin: 0 }}>
-                              {selectedNode.description || 'Enterprise structural unit'}
+                              {selectedNode.description || 'Organizational unit'}
                             </Paragraph>
                           </div>
 
                           <Descriptions bordered size="small" column={2}>
-                            <Descriptions.Item label="Structural Type">
+                            <Descriptions.Item label="Type">
                               {selectedNode.type.toUpperCase()}
                             </Descriptions.Item>
-                            <Descriptions.Item label="Unit Identifier Code">
+                            <Descriptions.Item label="Code">
                               <Text code>{selectedNode.code}</Text>
                             </Descriptions.Item>
-                            <Descriptions.Item label="Manager / Custodian Lead">
+                            <Descriptions.Item label="Manager">
                               {selectedNode.manager || 'Corporate Leadership'}
                             </Descriptions.Item>
-                            <Descriptions.Item label="Direct Staff Assigned">
+                            <Descriptions.Item label="Assigned Staff">
                               <Tag color="processing">
                                 {typeof selectedNode.count === 'number'
                                   ? `${selectedNode.count} Active Users`
@@ -870,7 +870,7 @@ export default function OrganizationPage() {
                           {selectedNode.children && selectedNode.children.length > 0 && (
                             <div>
                               <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                                Sub-Units & Child Nodes ({selectedNode.children.length}):
+                                Sub-Units ({selectedNode.children.length}):
                               </Text>
                               <Row gutter={[10, 10]}>
                                 {selectedNode.children.map((child) => (
@@ -909,7 +909,7 @@ export default function OrganizationPage() {
                           )}
                         </Flex>
                       ) : (
-                        <Empty description="Select a node from the canvas to inspect" />
+                        <Empty description="Select a node from the canvas to inspect." />
                       )}
                     </Card>
                   </Flex>
@@ -922,9 +922,9 @@ export default function OrganizationPage() {
                         title={
                           <Flex justify="space-between" align="center">
                             <Text strong style={{ fontSize: 13 }}>
-                              Enterprise Tree Structure
+                              Organization Tree
                             </Text>
-                            <Tag color="blue">{treeData.length} Root Entities</Tag>
+                            <Tag color="blue">{treeData.length} Organizations</Tag>
                           </Flex>
                         }
                         styles={{ body: { padding: '12px' } }}
@@ -947,7 +947,7 @@ export default function OrganizationPage() {
                               treeData={antdTreeNodes}
                             />
                           ) : (
-                            <Empty description="No organization nodes found" />
+                            <Empty description="No organization units found." />
                           )}
                         </div>
                       </Card>
@@ -959,7 +959,7 @@ export default function OrganizationPage() {
                         title={
                           <Flex justify="space-between" align="center">
                             <Text strong style={{ fontSize: 13 }}>
-                              Node Inspector & Unit Overview
+                              Unit Details
                             </Text>
                             {selectedNode && (
                               <Tag
@@ -1036,21 +1036,21 @@ export default function OrganizationPage() {
                                 <Tag color="blue">{selectedNode.code}</Tag>
                               </Flex>
                               <Paragraph type="secondary" style={{ margin: 0 }}>
-                                {selectedNode.description || 'Enterprise structural unit'}
+                                {selectedNode.description || 'Organizational unit'}
                               </Paragraph>
                             </div>
 
                             <Descriptions bordered size="small" column={2}>
-                              <Descriptions.Item label="Structural Type">
+                              <Descriptions.Item label="Type">
                                 {selectedNode.type.toUpperCase()}
                               </Descriptions.Item>
-                              <Descriptions.Item label="Unit Identifier Code">
+                              <Descriptions.Item label="Code">
                                 <Text code>{selectedNode.code}</Text>
                               </Descriptions.Item>
-                              <Descriptions.Item label="Manager / Custodian Lead">
+                              <Descriptions.Item label="Manager">
                                 {selectedNode.manager || 'Corporate Leadership'}
                               </Descriptions.Item>
-                              <Descriptions.Item label="Direct Staff Assigned">
+                              <Descriptions.Item label="Assigned Staff">
                                 <Tag color="processing">
                                   {typeof selectedNode.count === 'number'
                                     ? `${selectedNode.count} Active Users`
@@ -1062,7 +1062,7 @@ export default function OrganizationPage() {
                             {selectedNode.children && selectedNode.children.length > 0 && (
                               <div>
                                 <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                                  Sub-Units & Child Nodes ({selectedNode.children.length}):
+                                  Sub-Units ({selectedNode.children.length}):
                                 </Text>
                                 <Row gutter={[10, 10]}>
                                   {selectedNode.children.map((child) => (
@@ -1103,7 +1103,7 @@ export default function OrganizationPage() {
                             )}
                           </Flex>
                         ) : (
-                          <Empty description="Select a node from the hierarchy tree to inspect" />
+                          <Empty description="Select a node from the tree to inspect." />
                         )}
                       </Card>
                     </Col>
@@ -1116,7 +1116,7 @@ export default function OrganizationPage() {
             key: 'departments',
             label: (
               <span>
-                <ApartmentOutlined /> Departments & Divisions ({departments.length})
+                <ApartmentOutlined /> Departments ({departments.length})
               </span>
             ),
             children: (
@@ -1143,7 +1143,7 @@ export default function OrganizationPage() {
                         icon={<PlusOutlined />}
                         onClick={() => handleOpenCreateDept()}
                       >
-                        Add Department
+                        Create Department
                       </Button>
                     </Flex>
                   </Col>
@@ -1169,8 +1169,8 @@ export default function OrganizationPage() {
             key: 'entities',
             label: (
               <span>
-                <BankOutlined /> Companies & Facilities ({orgs.length} Entities, {locations.length}{' '}
-                Facilities)
+                <BankOutlined /> Organizations & Locations ({orgs.length} Organizations,{' '}
+                {locations.length} Locations)
               </span>
             ),
             children: (
@@ -1179,9 +1179,9 @@ export default function OrganizationPage() {
                   size="small"
                   title={
                     <Flex justify="space-between" align="center">
-                      <Text strong>Corporate Entities & Subsidiaries</Text>
+                      <Text strong>Organizations</Text>
                       <Button size="small" icon={<PlusOutlined />} onClick={handleOpenCreateOrg}>
-                        Register Entity
+                        Create Organization
                       </Button>
                     </Flex>
                   }
@@ -1208,7 +1208,7 @@ export default function OrganizationPage() {
                                 onClick={() => handleOpenEditOrg(org)}
                               />
                               <Popconfirm
-                                title="Delete entity?"
+                                title="Delete organization?"
                                 onConfirm={() => handleDeleteOrg(org.id)}
                               >
                                 <Button
@@ -1224,7 +1224,7 @@ export default function OrganizationPage() {
                         >
                           <Flex vertical gap={6} style={{ fontSize: 12 }}>
                             <Flex justify="space-between">
-                              <Text type="secondary">Tax / VAT ID:</Text>
+                              <Text type="secondary">Tax ID:</Text>
                               <Text strong>{org.taxId || 'N/A'}</Text>
                             </Flex>
                             <Flex justify="space-between">
@@ -1232,18 +1232,18 @@ export default function OrganizationPage() {
                               <Text>{org.email || 'N/A'}</Text>
                             </Flex>
                             <Flex justify="space-between">
-                              <Text type="secondary">Direct Phone:</Text>
+                              <Text type="secondary">Phone:</Text>
                               <Text>{org.phone || 'N/A'}</Text>
                             </Flex>
                             <Flex justify="space-between">
-                              <Text type="secondary">Headquarters:</Text>
+                              <Text type="secondary">Address:</Text>
                               <Text style={{ maxWidth: 180 }} ellipsis>
                                 {org.address || 'N/A'}
                               </Text>
                             </Flex>
                             <Flex justify="space-between" style={{ marginTop: 6 }}>
                               <Tag color="blue">{org.departmentsCount || 0} Departments</Tag>
-                              <Tag color="green">{org.locationsCount || 0} Facilities</Tag>
+                              <Tag color="green">{org.locationsCount || 0} Locations</Tag>
                               <Tag color="processing">{org.usersCount || 0} Staff</Tag>
                             </Flex>
                           </Flex>
@@ -1255,7 +1255,7 @@ export default function OrganizationPage() {
 
                 <Card
                   size="small"
-                  title="Physical Facilities, Regional Hubs & Data Centers"
+                  title="Locations & Facilities"
                   styles={{ body: { padding: '16px' } }}
                 >
                   <Row gutter={[14, 14]}>
@@ -1273,7 +1273,7 @@ export default function OrganizationPage() {
                           }
                         >
                           <Flex vertical gap={4} style={{ fontSize: 12 }}>
-                            <Text type="secondary">{loc.address || 'Enterprise Address'}</Text>
+                            <Text type="secondary">{loc.address || 'Address'}</Text>
                             <Text type="secondary">
                               {loc.building || ''} • {loc.floor || ''}{' '}
                               {loc.room ? `(${loc.room})` : ''}
@@ -1295,7 +1295,7 @@ export default function OrganizationPage() {
             key: 'positions',
             label: (
               <span>
-                <IdcardOutlined /> Job Positions & Titles ({positions.length})
+                <IdcardOutlined /> Positions ({positions.length})
               </span>
             ),
             children: (
@@ -1322,7 +1322,7 @@ export default function OrganizationPage() {
                         icon={<PlusOutlined />}
                         onClick={() => handleOpenCreatePos()}
                       >
-                        Add Job Position
+                        Create Position
                       </Button>
                     </Flex>
                   </Col>
@@ -1349,30 +1349,30 @@ export default function OrganizationPage() {
 
       {/* Organization Modal */}
       <Modal
-        title={editingOrg ? `Edit Entity: ${editingOrg.name}` : 'Register Enterprise Entity'}
+        title={editingOrg ? `Edit Organization: ${editingOrg.name}` : 'Create Organization'}
         open={orgModalOpen}
         onOk={handleSaveOrg}
         onCancel={() => setOrgModalOpen(false)}
         confirmLoading={modalSubmitting}
         width={580}
-        okText={editingOrg ? 'Save Changes' : 'Register Entity'}
+        okText={editingOrg ? 'Save Changes' : 'Create Organization'}
       >
         <Form form={orgForm} layout="vertical" style={{ marginTop: 14 }}>
           <Row gutter={14}>
             <Col span={14}>
-              <Form.Item label="Entity Name" name="name" rules={[{ required: true }]}>
+              <Form.Item label="Organization Name" name="name" rules={[{ required: true }]}>
                 <Input placeholder="e.g. Acme Enterprise Global HQ" />
               </Form.Item>
             </Col>
             <Col span={10}>
-              <Form.Item label="Entity Code" name="code" rules={[{ required: true }]}>
+              <Form.Item label="Organization Code" name="code" rules={[{ required: true }]}>
                 <Input placeholder="e.g. ACME-HQ" />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Tax ID / VAT Registration" name="taxId">
+              <Form.Item label="Tax ID" name="taxId">
                 <Input placeholder="e.g. US-TAX-99881234" />
               </Form.Item>
             </Col>
@@ -1389,12 +1389,12 @@ export default function OrganizationPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Official Website" name="website">
+              <Form.Item label="Website" name="website">
                 <Input placeholder="e.g. https://acme.enterprise" />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Headquarters Address" name="address">
+          <Form.Item label="Address" name="address">
             <Input placeholder="e.g. 350 5th Ave, New York, NY 10118" />
           </Form.Item>
         </Form>
@@ -1402,15 +1402,13 @@ export default function OrganizationPage() {
 
       {/* Department Modal */}
       <Modal
-        title={
-          editingDept ? `Edit Department: ${editingDept.name}` : 'Create Department / Division'
-        }
+        title={editingDept ? `Edit Department: ${editingDept.name}` : 'Create Department'}
         open={deptModalOpen}
         onOk={handleSaveDept}
         onCancel={() => setDeptModalOpen(false)}
         confirmLoading={modalSubmitting}
         width={600}
-        okText={editingDept ? 'Save Department' : 'Create Department'}
+        okText={editingDept ? 'Save Changes' : 'Create Department'}
       >
         <Form form={deptForm} layout="vertical" style={{ marginTop: 14 }}>
           <Row gutter={14}>
@@ -1428,7 +1426,7 @@ export default function OrganizationPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Parent Division (Hierarchy)" name="parentId">
+              <Form.Item label="Parent Department" name="parentId">
                 <Select placeholder="None (Top-Level)" allowClear>
                   {departments
                     .filter((d) => !editingDept || d.id !== editingDept.id)
@@ -1441,8 +1439,8 @@ export default function OrganizationPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Enterprise Entity" name="organizationId">
-                <Select placeholder="Select Entity">
+              <Form.Item label="Organization" name="organizationId">
+                <Select placeholder="Select Organization">
                   {orgs.map((o) => (
                     <Option key={o.id} value={o.id}>
                       {o.name}
@@ -1455,7 +1453,7 @@ export default function OrganizationPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Department Manager Name" name="managerName">
+              <Form.Item label="Manager Name" name="managerName">
                 <Input placeholder="e.g. Sarah Chen" />
               </Form.Item>
             </Col>
@@ -1466,7 +1464,7 @@ export default function OrganizationPage() {
             </Col>
           </Row>
 
-          <Form.Item label="Division Description & Responsibility" name="description">
+          <Form.Item label="Description" name="description">
             <Input.TextArea
               rows={2}
               placeholder="Describe scope, responsibilities, and team remit..."
@@ -1477,18 +1475,18 @@ export default function OrganizationPage() {
 
       {/* Position Modal */}
       <Modal
-        title={editingPos ? `Edit Position: ${editingPos.title}` : 'Create Job Title / Position'}
+        title={editingPos ? `Edit Position: ${editingPos.title}` : 'Create Position'}
         open={posModalOpen}
         onOk={handleSavePos}
         onCancel={() => setPosModalOpen(false)}
         confirmLoading={modalSubmitting}
         width={560}
-        okText={editingPos ? 'Save Position' : 'Create Position'}
+        okText={editingPos ? 'Save Changes' : 'Create Position'}
       >
         <Form form={posForm} layout="vertical" style={{ marginTop: 14 }}>
           <Row gutter={14}>
             <Col span={14}>
-              <Form.Item label="Job Position Title" name="title" rules={[{ required: true }]}>
+              <Form.Item label="Position Title" name="title" rules={[{ required: true }]}>
                 <Input placeholder="e.g. Principal Cloud Infrastructure Architect" />
               </Form.Item>
             </Col>
@@ -1526,7 +1524,7 @@ export default function OrganizationPage() {
             </Col>
           </Row>
 
-          <Form.Item label="Job Description & Responsibilities" name="description">
+          <Form.Item label="Description" name="description">
             <Input.TextArea rows={2} placeholder="Describe duties and skill requirements..." />
           </Form.Item>
         </Form>

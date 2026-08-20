@@ -226,7 +226,7 @@ export class SearchService implements OnModuleInit {
     if (!this.isMeiliAvailable) {
       const isOnline = await this.checkHealthAndInit();
       if (!isOnline) {
-        return { success: false, message: 'Meilisearch service is unreachable' };
+        return { success: false, message: 'Search service is unreachable' };
       }
     }
 
@@ -275,7 +275,7 @@ export class SearchService implements OnModuleInit {
 
       return {
         success: true,
-        message: 'Successfully synchronized entities to Meilisearch indices',
+        message: 'Successfully synchronized search indices',
         counts: {
           assets: assetDocs.length,
           licenses: licenseDocs.length,

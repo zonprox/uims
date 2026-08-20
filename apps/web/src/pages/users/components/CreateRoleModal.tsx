@@ -59,7 +59,7 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
         permissionIds: permissionIds.length > 0 ? permissionIds : undefined,
       });
 
-      message.success(`Custom role "${values.name}" created successfully.`);
+      message.success(`Role "${values.name}" created successfully.`);
       form.resetFields();
       setPresetType('empty');
       onSuccess();
@@ -67,7 +67,7 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
     } catch (err: unknown) {
       const errorObj = err as { errorFields?: unknown; response?: { data?: { message?: string } } };
       if (errorObj?.errorFields) return;
-      message.error(errorObj?.response?.data?.message || 'Failed to create custom role.');
+      message.error(errorObj?.response?.data?.message || 'Failed to create role.');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <SafetyCertificateOutlined style={{ color: '#1677ff' }} />
-          Create New Custom RBAC Role
+          Create Role
         </span>
       }
       open={open}
@@ -86,16 +86,16 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
       onCancel={onClose}
       confirmLoading={loading}
       okText="Create Role"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" initialValues={{ preset: 'empty' }}>
         <Form.Item
           name="name"
           label="Role Name"
           rules={[
-            { required: true, message: 'Please enter unique role name' },
-            { min: 2, message: 'Role name must be at least 2 characters' },
-            { max: 50, message: 'Role name cannot exceed 50 characters' },
+            { required: true, message: 'Please enter a role name.' },
+            { min: 2, message: 'Role name must be at least 2 characters.' },
+            { max: 50, message: 'Role name cannot exceed 50 characters.' },
           ]}
         >
           <Input placeholder="e.g. Junior Network Administrator" autoFocus />
@@ -104,7 +104,7 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
         <Form.Item
           name="description"
           label="Description"
-          rules={[{ max: 255, message: 'Description cannot exceed 255 characters' }]}
+          rules={[{ max: 255, message: 'Description cannot exceed 255 characters.' }]}
         >
           <Input.TextArea
             rows={3}
@@ -112,20 +112,20 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
           />
         </Form.Item>
 
-        <Form.Item label="Initial Permissions Baseline">
+        <Form.Item label="Initial Permissions">
           <Radio.Group
             value={presetType}
             onChange={(e) => setPresetType(e.target.value)}
             style={{ marginBottom: 8 }}
           >
-            <Radio value="empty">Empty (Custom Matrix)</Radio>
-            <Radio value="readonly">Read-Only Baseline</Radio>
+            <Radio value="empty">Empty</Radio>
+            <Radio value="readonly">Read-Only</Radio>
             <Radio value="clone">Clone from Existing Role</Radio>
           </Radio.Group>
 
           {presetType === 'clone' && (
             <Select
-              placeholder="Select template role to copy permissions from..."
+              placeholder="Select role to copy permissions from..."
               value={cloneSourceId || undefined}
               onChange={setCloneSourceId}
               style={{ width: '100%', marginTop: 8 }}

@@ -11,18 +11,14 @@ export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
   @Get()
-  @ApiOperation({
-    summary: 'Global full-text search across assets, licenses, and directory',
-  })
+  @ApiOperation({ summary: 'Search across resources' })
   search(@Query() query: SearchQueryDto) {
     return this.searchService.search(query);
   }
 
   @Post('sync')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({
-    summary: 'Sync database records to Meilisearch search indices (Admin/Super Admin only)',
-  })
+  @ApiOperation({ summary: 'Synchronize search index' })
   sync() {
     return this.searchService.syncAllToMeilisearch();
   }

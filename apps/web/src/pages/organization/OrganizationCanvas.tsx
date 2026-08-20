@@ -1184,14 +1184,14 @@ export default function OrganizationCanvas({
 
           {/* Expand/Collapse All */}
           <Space size={4}>
-            <Tooltip title="Expand All Branches">
+            <Tooltip title="Expand All">
               <Button size="small" icon={<PlusSquareOutlined />} onClick={handleExpandAll}>
-                Expand
+                Expand All
               </Button>
             </Tooltip>
-            <Tooltip title="Collapse All Branches">
+            <Tooltip title="Collapse All">
               <Button size="small" icon={<MinusSquareOutlined />} onClick={handleCollapseAll}>
-                Collapse
+                Collapse All
               </Button>
             </Tooltip>
           </Space>
@@ -1202,13 +1202,13 @@ export default function OrganizationCanvas({
               items: [
                 {
                   key: 'png',
-                  label: 'Download PNG Image (Hi-Res)',
+                  label: 'Export as PNG',
                   icon: <DownloadOutlined />,
                   onClick: handleExportPNG,
                 },
                 {
                   key: 'svg',
-                  label: 'Download SVG Vector',
+                  label: 'Export as SVG',
                   icon: <BranchesOutlined />,
                   onClick: handleExportSVG,
                 },
@@ -1480,7 +1480,7 @@ export default function OrganizationCanvas({
         {/* Empty State */}
         {layout.nodes.length === 0 && !loading && (
           <Flex align="center" justify="center" style={{ width: '100%', height: '100%' }}>
-            <Empty description="No organization nodes match the selected filters" />
+            <Empty description="No organization units match the selected filters." />
           </Flex>
         )}
 

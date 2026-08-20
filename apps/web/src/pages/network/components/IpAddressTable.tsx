@@ -65,7 +65,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     const columns = useMemo(
       () => [
         {
-          title: 'IP ADDRESS & HOSTNAME',
+          title: 'IP Address & Hostname',
           dataIndex: 'ip',
           key: 'ip',
           render: (ip: string, record: IPAddress) => (
@@ -80,7 +80,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'MAC & HARDWARE VENDOR',
+          title: 'MAC Address & Vendor',
           key: 'hardware',
           render: (_: unknown, record: IPAddress) => (
             <div>
@@ -94,7 +94,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'SUBNET & VLAN',
+          title: 'Subnet & VLAN',
           key: 'network',
           render: (_: unknown, record: IPAddress) => (
             <div>
@@ -108,7 +108,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'DEVICE TYPE',
+          title: 'Device Type',
           dataIndex: 'deviceType',
           key: 'deviceType',
           render: (deviceType: string) => {
@@ -125,7 +125,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           },
         },
         {
-          title: 'ICMP & STATUS',
+          title: 'Status',
           key: 'status',
           render: (_: unknown, record: IPAddress) => (
             <div>
@@ -144,11 +144,11 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           ),
         },
         {
-          title: 'ACTIONS',
+          title: 'Actions',
           key: 'actions',
           render: (_: unknown, record: IPAddress) => (
             <Space size="small">
-              <Tooltip title="Send ICMP Ping Packet">
+              <Tooltip title="Ping Host">
                 <Button
                   type="text"
                   shape="circle"
@@ -167,8 +167,8 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
                 />
               </Tooltip>
               <Popconfirm
-                title="Release this IP address?"
-                description="Remove static reservation and return IP to DHCP pool?"
+                title="Release IP address?"
+                description="Release this IP allocation and return it to the pool?"
                 onConfirm={() => onDeleteIp(record.id)}
                 okText="Release"
                 okType="danger"

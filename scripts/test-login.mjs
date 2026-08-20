@@ -46,7 +46,7 @@ async function runTest() {
     // 4. Test Assets Page
     console.log('4️⃣ Testing Hardware Assets (/assets)...');
     await page.goto('https://localhost:5679/assets', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=Hardware Asset Management', { timeout: 10000 });
+    await page.waitForSelector('text=Asset Inventory', { timeout: 10000 });
     console.log('   ✅ Assets page loaded with live database table!');
 
     // 5. Test Licenses Page
@@ -55,7 +55,7 @@ async function runTest() {
       waitUntil: 'networkidle',
       timeout: 15000,
     });
-    await page.waitForSelector('text=Software License Governance', { timeout: 10000 });
+    await page.waitForSelector('text=Software Licenses', { timeout: 10000 });
     console.log('   ✅ Licenses page loaded successfully!');
 
     // 6. Test Inventory Page
@@ -64,7 +64,7 @@ async function runTest() {
       waitUntil: 'networkidle',
       timeout: 15000,
     });
-    await page.waitForSelector('text=Consumables & Inventory Management', { timeout: 10000 });
+    await page.waitForSelector('text=Inventory Management', { timeout: 10000 });
     console.log('   ✅ Inventory page loaded successfully!');
 
     // 7. Test Directory Page
@@ -73,31 +73,34 @@ async function runTest() {
       waitUntil: 'networkidle',
       timeout: 15000,
     });
-    await page.waitForSelector('text=Active Directory & User Governance', { timeout: 10000 });
+    await page.waitForSelector('text=Users & Access', { timeout: 10000 });
     console.log('   ✅ Directory page loaded successfully!');
 
-    // 8. Test Email Page
-    console.log('8️⃣ Testing Corporate Mailboxes (/email)...');
-    await page.goto('https://localhost:5679/email', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=Corporate Email & Exchange Routing', { timeout: 10000 });
-    console.log('   ✅ Email page loaded successfully!');
+    // 8. Test Organization Page
+    console.log('8️⃣ Testing Organization Structure (/organization)...');
+    await page.goto('https://localhost:5679/organization', {
+      waitUntil: 'networkidle',
+      timeout: 15000,
+    });
+    await page.waitForSelector('text=Organization Structure', { timeout: 10000 });
+    console.log('   ✅ Organization page loaded successfully!');
 
     // 9. Test Network Page
     console.log('9️⃣ Testing Network IPAM (/network)...');
     await page.goto('https://localhost:5679/network', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=Network IPAM & Infrastructure Topology', { timeout: 10000 });
+    await page.waitForSelector('text=Network & IPAM', { timeout: 10000 });
     console.log('   ✅ Network page loaded successfully!');
 
     // 10. Test Security Audit Trail Page
     console.log('🔟 Testing Security Audit Trail (/audit)...');
     await page.goto('https://localhost:5679/audit', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=Security & Compliance Audit Trail', { timeout: 10000 });
+    await page.waitForSelector('text=Audit Trail', { timeout: 10000 });
     console.log('   ✅ Audit Trail page loaded successfully!');
 
     // 11. Test Reports Page
     console.log('1️⃣1️⃣ Testing Executive Reports (/reports)...');
     await page.goto('https://localhost:5679/reports', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=Executive Intelligence & Reporting', { timeout: 10000 });
+    await page.waitForSelector('text=Reports & Analytics', { timeout: 10000 });
     console.log('   ✅ Reports page loaded successfully!');
 
     // 12. Test Settings Page
@@ -106,7 +109,7 @@ async function runTest() {
       waitUntil: 'networkidle',
       timeout: 15000,
     });
-    await page.waitForSelector('text=System Settings & Governance', { timeout: 10000 });
+    await page.waitForSelector('text=Settings', { timeout: 10000 });
     console.log('   ✅ Settings page loaded successfully!');
 
     console.log('\n======================================================');

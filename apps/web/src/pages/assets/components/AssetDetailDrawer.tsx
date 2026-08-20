@@ -37,7 +37,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
             <Tag color="blue">{selectedAsset.tag}</Tag>
           </Flex>
         }
-        width={540}
+        styles={{ wrapper: { width: 540 } }}
         open={open}
         onClose={onClose}
         extra={
@@ -59,11 +59,11 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
           items={[
             {
               key: 'specs',
-              label: 'Specs & Overview',
+              label: 'Specifications',
               children: (
                 <div>
                   <Descriptions
-                    title="Hardware Identification"
+                    title="Asset Information"
                     bordered
                     size="small"
                     column={1}
@@ -86,19 +86,19 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                   </Descriptions>
 
                   <Descriptions
-                    title="Hardware Specifications"
+                    title="Technical Specifications"
                     bordered
                     size="small"
                     column={1}
                     style={{ marginBottom: 16 }}
                   >
-                    <Descriptions.Item label="Processor">
+                    <Descriptions.Item label="Processor (CPU)">
                       {selectedAsset.specs?.cpu || 'N/A'}
                     </Descriptions.Item>
-                    <Descriptions.Item label="RAM / Memory">
+                    <Descriptions.Item label="Memory (RAM)">
                       {selectedAsset.specs?.ram || 'N/A'}
                     </Descriptions.Item>
-                    <Descriptions.Item label="Storage Drive">
+                    <Descriptions.Item label="Storage">
                       {selectedAsset.specs?.storage || 'N/A'}
                     </Descriptions.Item>
                     <Descriptions.Item label="Operating System">
@@ -110,22 +110,20 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     <Descriptions.Item label="Purchase Date">
                       <FormattedDate date={selectedAsset.purchaseDate} />
                     </Descriptions.Item>
-                    <Descriptions.Item label="Purchase Cost">
+                    <Descriptions.Item label="Purchase Price">
                       ${(selectedAsset.purchasePrice || 0).toLocaleString()}
                     </Descriptions.Item>
                     <Descriptions.Item label="Warranty Expiration">
                       <FormattedDate date={selectedAsset.warrantyExpiry} />
                     </Descriptions.Item>
-                    <Descriptions.Item label="Current Location">
-                      {selectedAsset.location}
-                    </Descriptions.Item>
+                    <Descriptions.Item label="Location">{selectedAsset.location}</Descriptions.Item>
                   </Descriptions>
                 </div>
               ),
             },
             {
               key: 'assignment',
-              label: 'User Assignment',
+              label: 'Assignment',
               children: (
                 <Card size="small">
                   <Flex align="center" gap={12} style={{ marginBottom: 16 }}>
@@ -139,7 +137,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                         {selectedAsset.assignedTo}
                       </Title>
                       <Text type="secondary" style={{ fontSize: 12 }}>
-                        {selectedAsset.assignedEmail || 'No corporate email linked'}
+                        {selectedAsset.assignedEmail || 'No corporate email assigned'}
                       </Text>
                     </div>
                   </Flex>
@@ -156,7 +154,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
             },
             {
               key: 'label',
-              label: 'QR Barcode',
+              label: 'QR Code',
               children: (
                 <Flex
                   vertical
@@ -184,7 +182,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     <div style={{ fontSize: 11, color: '#666' }}>{selectedAsset.serialNumber}</div>
                   </div>
                   <Button icon={<QrcodeOutlined />} onClick={() => window.print()}>
-                    Print Barcode Label
+                    Print QR Label
                   </Button>
                 </Flex>
               ),

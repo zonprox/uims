@@ -52,7 +52,7 @@ export class UsersService {
 
     if (existing) {
       throw new ConflictException(
-        'User with this email, username, or employee ID already exists in domain',
+        'A user with this email, username, or employee code already exists.',
       );
     }
 
@@ -365,7 +365,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found in directory`);
+      throw new NotFoundException(`User with ID ${id} not found`);
     }
 
     const { passwordHash: _hash, ...safeUser } = user;
@@ -459,26 +459,6 @@ export class UsersService {
 
     const { passwordHash: _hash, ...safeUser } = updated;
     return safeUser;
-  }
-
-  async resetPassword(id: string, newPassword?: string) {
-    const user = await this.findOne(id);
-    const pass = newPassword || `Ad#${user.username}2026!`;
-    const passwordHash = await bcrypt.hash(pass, 10);
-
-    await this.prisma.user.update({
-      where: { id },
-      data: {
-        passwordHash,
-        adInitialPassword: pass,
-      },
-    });
-
-    return {
-      success: true,
-      message: `Password reset successfully for ${user.email}`,
-      adInitialPassword: pass,
-    };
   }
 
   async toggleStatus(id: string, status: UserStatus) {
@@ -887,26 +867,26 @@ export class UsersService {
     return users.map((u, index) => {
       const name = u.displayName || `${u.firstName} ${u.lastName}`.trim();
       return {
-        STT: index + 1,
-        HEmploy: u.employeeCode || '',
-        HName: name,
-        HDesignation: u.jobTitle || 'Employee',
-        HGroupCompany: u.groupCompany || 'BSL',
-        Hcomp: u.company || 'BSL Others',
-        'Người Ngồi ở Xưởng': u.plant ? 'Yes' : 'No',
-        Xưởng: u.plant || 'BSL Others',
-        HDepartment: u.department || 'Production',
-        HSection: u.section || '',
-        HSubSection: u.subSection || '',
-        HEmail: u.email,
-        HTelephone: u.telephone || u.phone || '',
-        HIsclose: u.isClosed ? 'Y' : 'N',
+        'No.': index + 1,
+        'Employee Code': u.employeeCode || '',
+        'Full Name': name,
+        'Job Title': u.jobTitle || 'Employee',
+        'Group Company': u.groupCompany || 'BSL',
+        Company: u.company || 'BSL Others',
+        'Plant Workstation': u.plant ? 'Yes' : 'No',
+        Plant: u.plant || 'BSL Others',
+        Department: u.department || 'Production',
+        Section: u.section || '',
+        'Sub-Section': u.subSection || '',
+        Email: u.email,
+        Telephone: u.telephone || u.phone || '',
+        'Is Closed': u.isClosed ? 'Y' : 'N',
         'Computer Name': u.computerName || '',
         'Computer Name 2': u.computerName2 || '',
-        'Initial Pass': u.adInitialPassword || '',
-        'GR_GROUP USER': u.adGroup || '',
+        'Initial Password': u.adInitialPassword || '',
+        'Directory Group': u.adGroup || '',
         'OU Path': u.ouPath || 'OU=Production,DC=uims,DC=internal',
-        State: u.status,
+        Status: u.status,
       };
     });
   }

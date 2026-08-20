@@ -12,7 +12,7 @@ export class CreateDepartmentDto {
   @IsNotEmpty()
   code!: string;
 
-  @ApiPropertyOptional({ example: 'Responsible for Cloud Systems, VPCs, and Core Fleet' })
+  @ApiPropertyOptional({ example: 'Responsible for Cloud Systems, VPCs, and Core Infrastructure' })
   @IsString()
   @IsOptional()
   description?: string;

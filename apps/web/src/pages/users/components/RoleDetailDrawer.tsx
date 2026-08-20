@@ -67,11 +67,11 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
             </Title>
             {roleDetail?.isSystem ? (
               <Tag color="purple" style={{ margin: 0 }}>
-                System Built-in
+                System
               </Tag>
             ) : (
               <Tag color="cyan" style={{ margin: 0 }}>
-                Custom Role
+                Custom
               </Tag>
             )}
           </Flex>
@@ -84,14 +84,14 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
               onOpenMatrix();
             }}
           >
-            Configure Permissions
+            Edit Permissions
           </Button>
         </Flex>
       }
       open={open}
       onClose={onClose}
-      width={720}
       styles={{
+        wrapper: { width: 720 },
         body: { padding: '16px 20px', background: '#f8fafc' },
       }}
     >
@@ -146,7 +146,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
               Governance Tier
             </Text>
             <Text strong style={{ fontSize: 14, color: '#7c3aed', display: 'block', marginTop: 4 }}>
-              {roleDetail?.isSystem ? 'Platform Core' : 'Custom Defined'}
+              {roleDetail?.isSystem ? 'System' : 'Custom'}
             </Text>
           </Card>
         </Col>
@@ -155,7 +155,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
       {/* Role Metadata */}
       <Card
         size="small"
-        title="Role Details & Policy"
+        title="Role Details"
         style={{ borderRadius: 8, marginBottom: 16 }}
         styles={{ body: { padding: '12px 16px' } }}
       >
@@ -176,7 +176,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
           <Flex align="center" justify="space-between" style={{ width: '100%' }}>
             <Flex align="center" gap={6}>
               <TeamOutlined style={{ color: '#1677ff' }} />
-              <span>Assigned Domain Users ({filteredUsers.length})</span>
+              <span>Assigned Users ({filteredUsers.length})</span>
             </Flex>
             <Input
               placeholder="Search user..."
@@ -200,7 +200,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
           pagination={{ pageSize: 8, size: 'small', showTotal: (t) => `${t} users` }}
           columns={[
             {
-              title: 'USER',
+              title: 'User',
               dataIndex: 'name',
               key: 'name',
               render: (_: unknown, u: RoleAssignedUser) => (
@@ -222,13 +222,13 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
               ),
             },
             {
-              title: 'DEPARTMENT',
+              title: 'Department',
               dataIndex: 'department',
               key: 'department',
               render: (dept: string) => <Text style={{ fontSize: 12 }}>{dept || 'General'}</Text>,
             },
             {
-              title: 'JOB TITLE',
+              title: 'Job Title',
               dataIndex: 'jobTitle',
               key: 'jobTitle',
               render: (title: string) => (
@@ -236,7 +236,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
               ),
             },
             {
-              title: 'STATUS',
+              title: 'Status',
               dataIndex: 'status',
               key: 'status',
               render: (status: string) => {

@@ -50,7 +50,7 @@ export class AuthService {
 
     if (user.status && user.status !== 'ACTIVE') {
       throw new UnauthorizedException(
-        `Account is ${String(user.status).toLowerCase()}. Please contact your IT administrator.`,
+        `Account is ${String(user.status).toLowerCase()}. Contact your system administrator.`,
       );
     }
 
@@ -212,7 +212,7 @@ export class AuthService {
   }) {
     const userId = user.id || user.sub;
     if (!userId) {
-      throw new UnauthorizedException('Invalid token claims');
+      throw new UnauthorizedException('Invalid authentication token');
     }
 
     if (this.prisma) {
@@ -222,7 +222,9 @@ export class AuthService {
       });
 
       if (!freshUser || freshUser.status !== 'ACTIVE') {
-        throw new UnauthorizedException('Account is inactive, suspended, or revoked.');
+        throw new UnauthorizedException(
+          'Account is inactive, suspended, or revoked. Contact your system administrator.',
+        );
       }
 
       const role = freshUser.roleName || freshUser.role?.name || 'Employee';
@@ -278,6 +280,6 @@ export class AuthService {
         })
         .catch(() => {});
     }
-    return { success: true, message: 'Logged out successfully' };
+    return { success: true, message: 'Successfully logged out' };
   }
 }

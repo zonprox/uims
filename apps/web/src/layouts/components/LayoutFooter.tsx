@@ -24,9 +24,9 @@ export const LayoutFooter: React.FC<LayoutFooterProps> = React.memo(({ mode }) =
         {SYSTEM_INFO.copyright}
       </Text>
       <Space
-        split={
+        separator={
           <Divider
-            type="vertical"
+            orientation="vertical"
             style={{ margin: '0 4px', borderColor: mode === 'dark' ? '#334155' : '#e2e8f0' }}
           />
         }
@@ -46,7 +46,7 @@ export const LayoutFooter: React.FC<LayoutFooterProps> = React.memo(({ mode }) =
           System Status
         </a>
         <Tag
-          bordered={false}
+          variant="filled"
           style={{
             fontSize: 10.5,
             padding: '0 6px',

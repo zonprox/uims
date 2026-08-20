@@ -119,7 +119,7 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
         </Button>
       </Dropdown>
 
-      <Tooltip title="Security & Telemetry Alerts">
+      <Tooltip title="Notifications">
         <Badge
           count={unreadCount}
           offset={[-2, 3]}
@@ -146,7 +146,7 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
         </Badge>
       </Tooltip>
 
-      <Tooltip title="Quick Setup & Config (Theme, Timezone, System)">
+      <Tooltip title="Quick Settings">
         <Button
           type="text"
           shape="circle"
@@ -191,7 +191,7 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
                   display: 'block',
                 }}
               >
-                Master Admin
+                Super Admin
               </Text>
             </div>
           )}

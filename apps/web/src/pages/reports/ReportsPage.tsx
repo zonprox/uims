@@ -115,9 +115,9 @@ export default function ReportsPage() {
 
   return (
     <PageContainer
-      title="Executive Intelligence & Reporting"
-      subtitle="Audit-ready operational summaries, financial depreciation models, SLA metrics, and compliance exports."
-      breadcrumbs={[{ title: 'Reports' }]}
+      title="Reports & Analytics"
+      subtitle="Generate operational summaries, financial depreciation models, and compliance exports."
+      breadcrumbs={[{ title: 'Reports & Analytics' }]}
       stats={[
         {
           title: 'Scheduled Reports',
@@ -154,7 +154,7 @@ export default function ReportsPage() {
             icon={<ScheduleOutlined />}
             onClick={() => setScheduleModalOpen(true)}
           >
-            Schedule Auto-Report
+            Schedule Report
           </Button>
         </Flex>
       }
@@ -246,13 +246,13 @@ export default function ReportsPage() {
 
       {/* Schedule Modal */}
       <Modal
-        title="Schedule Automated Executive Report Delivery"
+        title="Schedule Report"
         open={scheduleModalOpen}
         onOk={handleScheduleSubmit}
         onCancel={() => setScheduleModalOpen(false)}
         confirmLoading={scheduling}
         width={540}
-        okText="Confirm Schedule"
+        okText="Schedule Report"
       >
         <Form
           form={form}
@@ -264,7 +264,7 @@ export default function ReportsPage() {
           }}
           style={{ marginTop: 14 }}
         >
-          <Form.Item label="Select Report Suite" name="reportType" rules={[{ required: true }]}>
+          <Form.Item label="Report Type" name="reportType" rules={[{ required: true }]}>
             <Select placeholder="Choose report type">
               {reportsList.map((r) => (
                 <Option key={r.id} value={r.title}>
@@ -276,7 +276,7 @@ export default function ReportsPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Delivery Cadence" name="frequency" rules={[{ required: true }]}>
+              <Form.Item label="Frequency" name="frequency" rules={[{ required: true }]}>
                 <Select>
                   <Option value="Daily (07:00 UTC)">Daily (07:00 UTC)</Option>
                   <Option value="Weekly (Mondays 08:00 UTC)">Weekly (Mondays 08:00 UTC)</Option>
@@ -286,7 +286,7 @@ export default function ReportsPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Export Format" name="format" rules={[{ required: true }]}>
+              <Form.Item label="Format" name="format" rules={[{ required: true }]}>
                 <Select>
                   <Option value="PDF">PDF Report Document</Option>
                   <Option value="PDF + Excel summary">PDF + Excel summary</Option>

@@ -115,32 +115,35 @@ export default function AuditPage() {
 
   const columns = [
     {
-      title: 'TIMESTAMP',
+      title: 'Timestamp',
       dataIndex: 'timestamp',
       key: 'timestamp',
       render: (ts: string) => <FormattedDateTime date={ts} showOffset monospace />,
     },
     {
-      title: 'ACTOR',
+      title: 'Actor',
       key: 'user',
-      render: (_: unknown, record: AuditLog) => (
-        <Flex align="center" gap={8}>
-          <Avatar size="small" style={{ backgroundColor: '#1890ff', fontSize: 11 }}>
-            {record.userName?.[0] || 'S'}
-          </Avatar>
-          <div>
-            <Text strong style={{ fontSize: 12.5, display: 'block' }}>
-              {record.userName || 'System'}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {record.userEmail || 'system@uims.internal'}
-            </Text>
-          </div>
-        </Flex>
-      ),
+      render: (_: unknown, record: AuditLog) => {
+        const actorName = record.userName || record.user || 'System Engine';
+        return (
+          <Flex align="center" gap={8}>
+            <Avatar size="small" style={{ backgroundColor: '#1890ff', fontSize: 11 }}>
+              {actorName[0] || 'S'}
+            </Avatar>
+            <div>
+              <Text strong style={{ fontSize: 12.5, display: 'block' }}>
+                {actorName}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {record.userEmail || 'system@uims.internal'}
+              </Text>
+            </div>
+          </Flex>
+        );
+      },
     },
     {
-      title: 'ACTION',
+      title: 'Action',
       dataIndex: 'action',
       key: 'action',
       render: (action: string) => {
@@ -154,7 +157,7 @@ export default function AuditPage() {
       },
     },
     {
-      title: 'TARGET ENTITY & DETAILS',
+      title: 'Target Entity & Details',
       key: 'details',
       render: (_: unknown, record: AuditLog) => (
         <div>
@@ -173,7 +176,7 @@ export default function AuditPage() {
       ),
     },
     {
-      title: 'ORIGIN IP',
+      title: 'IP Address',
       dataIndex: 'ipAddress',
       key: 'ipAddress',
       render: (ip: string) => (
@@ -183,7 +186,7 @@ export default function AuditPage() {
       ),
     },
     {
-      title: 'SEVERITY',
+      title: 'Severity',
       dataIndex: 'severity',
       key: 'severity',
       render: (sev: string) => {
@@ -195,7 +198,7 @@ export default function AuditPage() {
       },
     },
     {
-      title: 'STATUS',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -205,7 +208,7 @@ export default function AuditPage() {
       ),
     },
     {
-      title: 'INSPECT',
+      title: 'Inspect',
       key: 'inspect',
       render: (_: unknown, record: AuditLog) => (
         <Button
@@ -221,9 +224,9 @@ export default function AuditPage() {
 
   return (
     <PageContainer
-      title="Security & Compliance Audit Trail"
-      subtitle="Immutable cryptographic log records for SOC2, ISO 27001, privilege escalations, and authentication telemetry."
-      breadcrumbs={[{ title: 'Audit Logs' }]}
+      title="Audit Trail"
+      subtitle="Track security events, user access changes, and system activity records."
+      breadcrumbs={[{ title: 'Audit Trail' }]}
       stats={[
         {
           title: 'SOC2 Type II Adherence',
@@ -278,15 +281,34 @@ export default function AuditPage() {
               <Select
                 value={actionFilter}
                 onChange={setActionFilter}
-                style={{ width: 160 }}
+                style={{ width: 220 }}
                 placeholder="Action"
+                showSearch
               >
                 <Option value="all">All Actions</Option>
+                <Option value="USER_PROVISION">USER_PROVISION</Option>
+                <Option value="USER_PASSWORD_RESET">USER_PASSWORD_RESET</Option>
+                <Option value="USER_SUSPEND">USER_SUSPEND</Option>
+                <Option value="USER_LOCKOUT">USER_LOCKOUT</Option>
+                <Option value="USER_UNLOCK">USER_UNLOCK</Option>
+                <Option value="MFA_RESET">MFA_RESET</Option>
+                <Option value="ROLE_ASSIGNMENT_CHANGE">ROLE_ASSIGNMENT_CHANGE</Option>
+                <Option value="PRIVILEGE_ELEVATION_GRANT">PRIVILEGE_ELEVATION_GRANT</Option>
+                <Option value="PRIVILEGE_ELEVATION_EXPIRE">PRIVILEGE_ELEVATION_EXPIRE</Option>
+                <Option value="PERMISSION_CATALOG_UPDATE">PERMISSION_CATALOG_UPDATE</Option>
+                <Option value="BRUTE_FORCE_DETECTED">BRUTE_FORCE_DETECTED</Option>
+                <Option value="ANOMALOUS_ACCESS">ANOMALOUS_ACCESS</Option>
+                <Option value="UNAUTHORIZED_OU_ACCESS">UNAUTHORIZED_OU_ACCESS</Option>
+                <Option value="ASSET_PROVISION">ASSET_PROVISION</Option>
+                <Option value="ASSET_DECOMMISSION">ASSET_DECOMMISSION</Option>
+                <Option value="LICENSE_ALLOCATION">LICENSE_ALLOCATION</Option>
+                <Option value="LICENSE_RECLAIM">LICENSE_RECLAIM</Option>
+                <Option value="CONFIG_CHANGE">CONFIG_CHANGE</Option>
+                <Option value="SNAPSHOT_VERIFY">SNAPSHOT_VERIFY</Option>
+                <Option value="INVENTORY_REORDER">INVENTORY_REORDER</Option>
                 <Option value="CREATE">CREATE</Option>
                 <Option value="UPDATE">UPDATE</Option>
                 <Option value="DELETE">DELETE</Option>
-                <Option value="LOGIN_FAILED">LOGIN_FAILED</Option>
-                <Option value="PERMISSION_GRANT">PERMISSION_GRANT</Option>
               </Select>
 
               <Select
@@ -349,7 +371,7 @@ export default function AuditPage() {
               </Title>
             </div>
           }
-          width={520}
+          styles={{ wrapper: { width: 520 } }}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
         >
@@ -370,7 +392,7 @@ export default function AuditPage() {
             <Descriptions.Item label="Details Summary">{selectedLog.details}</Descriptions.Item>
           </Descriptions>
 
-          <Card size="small" title="Request Telemetry & Payload Diff">
+          <Card size="small" title="Payload Details">
             <pre
               style={{
                 background: '#090d16',

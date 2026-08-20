@@ -133,16 +133,11 @@ export default function UsersPage() {
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupSubmitting, setGroupSubmitting] = useState(false);
 
-  const [resetModalOpen, setResetModalOpen] = useState(false);
-  const [resettingUser, setResettingUser] = useState<User | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const [form] = Form.useForm();
   const [groupForm] = Form.useForm();
-  const [resetForm] = Form.useForm();
 
   const toggleAdPasswordVisibility = (userId: string) => {
     setVisibleAdPasswords((prev) => ({ ...prev, [userId]: !prev[userId] }));
@@ -161,29 +156,29 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 ======================================================================
 [IDENTITY & LOGON ATTRIBUTES]
 - Full Name: ${user.fullName || user.displayName || username}
-- Corporate Employee ID (HEmploy): ${user.employeeCode || 'N/A'}
+- Corporate Employee ID: ${user.employeeCode || 'N/A'}
 - sAMAccountName / Domain Logon ID: ${username}
 - UserPrincipalName (UPN): ${user.email}
 - Initial Domain Password: ${adPass}
 
 [ORGANIZATIONAL PLACEMENT]
 - Business Entity (Company): ${user.company || 'BSL Others'}
-- Manufacturing Plant / Facility (Xưởng): ${user.plant || 'BSL Others'}
+- Manufacturing Plant / Facility: ${user.plant || 'BSL Others'}
 - Department / Division: ${user.department || 'Production'}
 - Section / Sub-Section: ${user.section || 'General'}${user.subSection ? ` (Sub: ${user.subSection})` : ''}
 - Canonical OU Path: ${user.ouPath || 'OU=Production,DC=uims,DC=internal'}
 - Reporting Manager: ${user.managerName || 'Domain Administrator'}
 
-[WORKSTATION FLEET & NETWORK]
+[WORKSTATIONS & NETWORK]
 - Assigned Workstation Hostname (Computer Name): ${user.computerName || 'Unassigned'}
 - Secondary Device: ${user.computerName2 || 'None'}
 - Primary AD Security Group: ${user.adGroup || 'Standard Users'}
-- Telephone / Extension (HTelephone): ${user.telephone || user.phone || 'N/A'}
+- Telephone / Extension: ${user.telephone || user.phone || 'N/A'}
 - Primary Domain Controller: DC01-PRIMARY.corp.uims.internal
 - Kerberos Realm / Domain: uims.internal
 ======================================================================`;
     navigator.clipboard.writeText(text);
-    message.success(`Copied enterprise domain onboarding slip for ${user.fullName || username}`);
+    message.success(`Copied domain onboarding slip for ${user.fullName || username}`);
   };
 
   const loadData = useCallback(async () => {
@@ -426,31 +421,6 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
     }
   };
 
-  const handleOpenResetPassword = (user: User) => {
-    setResettingUser(user);
-    const pass = generateStrongPassword('Ad');
-    setNewPassword(pass);
-    resetForm.setFieldsValue({ password: pass });
-    setResetModalOpen(true);
-  };
-
-  const handleSaveResetPassword = async () => {
-    if (!resettingUser) return;
-    try {
-      const values = await resetForm.validateFields();
-      setModalSubmitting(true);
-      await usersService.resetPassword(resettingUser.id, values.password);
-      message.success(`Password reset successfully for ${resettingUser.email}`);
-      setResetModalOpen(false);
-      loadData();
-    } catch (err: unknown) {
-      console.error(err);
-      message.error('Failed to reset password');
-    } finally {
-      setModalSubmitting(false);
-    }
-  };
-
   const handleToggleStatus = async (user: User) => {
     const nextStatus: UserStatus =
       user.status === 'ACTIVE' ? ('SUSPENDED' as UserStatus) : ('ACTIVE' as UserStatus);
@@ -495,7 +465,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
   const userColumns = [
     {
-      title: 'EMPLOYEE ID & USER IDENTITY',
+      title: 'Employee ID & User',
       dataIndex: 'email',
       key: 'user',
       width: 290,
@@ -574,7 +544,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       },
     },
     {
-      title: 'CORPORATE EMAIL & EXT',
+      title: 'Email & Extension',
       key: 'emailExt',
       width: 230,
       render: (_: unknown, record: User) => (
@@ -582,7 +552,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           <Flex align="center" gap={4}>
             <MailOutlined style={{ color: '#0ea5e9', fontSize: 12 }} />
             <Text style={{ fontSize: 12, color: '#334155', fontWeight: 500 }}>{record.email}</Text>
-            <Tooltip title="Copy Corporate Email">
+            <Tooltip title="Copy Email">
               <Button
                 type="text"
                 size="small"
@@ -607,7 +577,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       ),
     },
     {
-      title: 'INITIAL DOMAIN PASSWORD',
+      title: 'Initial Password',
       key: 'credentials',
       width: 210,
       render: (_: unknown, record: User) => {
@@ -628,7 +598,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               maxWidth: 200,
             }}
           >
-            <Tooltip title="Initial Domain Password (Windows Workstation & Console)">
+            <Tooltip title="Initial Password">
               <Flex align="center" gap={5}>
                 <Tag
                   color="blue"
@@ -676,7 +646,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       },
     },
     {
-      title: 'DESIGNATION & ROLE',
+      title: 'Job Title & Role',
       key: 'dept',
       width: 190,
       render: (_: unknown, record: User) => {
@@ -704,7 +674,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       },
     },
     {
-      title: 'COMPANY & PLANT',
+      title: 'Company & Plant',
       key: 'companyPlant',
       width: 170,
       render: (_: unknown, record: User) => (
@@ -719,7 +689,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       ),
     },
     {
-      title: 'DEPARTMENT & SECTION',
+      title: 'Department & Section',
       key: 'section',
       width: 190,
       render: (_: unknown, record: User) => (
@@ -738,7 +708,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       ),
     },
     {
-      title: 'ASSIGNED PC / HOSTNAME',
+      title: 'Assigned Workstation',
       key: 'computer',
       width: 180,
       render: (_: unknown, record: User) => {
@@ -772,7 +742,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                 color="processing"
                 style={{ margin: 0, fontSize: 10.5 }}
               >
-                {count} Fleet Assets
+                {count} Assigned Assets
               </Tag>
             ) : (
               <Text type="secondary" style={{ fontSize: 11 }}>
@@ -789,7 +759,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       },
     },
     {
-      title: 'AD SECURITY GROUP',
+      title: 'Security Group',
       key: 'adGroup',
       width: 190,
       render: (_: unknown, record: User) => {
@@ -820,7 +790,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       },
     },
     {
-      title: 'STATUS',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       width: 110,
@@ -834,13 +804,13 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       },
     },
     {
-      title: 'ACTIONS',
+      title: 'Actions',
       key: 'actions',
       width: 170,
       fixed: 'right' as const,
       render: (_: unknown, record: User) => (
         <Space size="small">
-          <Tooltip title="Copy Complete Windows Domain Logon Slip">
+          <Tooltip title="Copy Logon Slip">
             <Button
               type="text"
               shape="circle"
@@ -849,7 +819,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               onClick={() => copyCredentials(record)}
             />
           </Tooltip>
-          <Tooltip title="View Profile & Active Directory Details">
+          <Tooltip title="View User Details">
             <Button
               type="text"
               shape="circle"
@@ -858,7 +828,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               onClick={() => handleShowDetails(record)}
             />
           </Tooltip>
-          <Tooltip title="Edit Profile & AD Attributes">
+          <Tooltip title="Edit User">
             <Button
               type="text"
               shape="circle"
@@ -867,21 +837,10 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               onClick={() => handleOpenEditModal(record)}
             />
           </Tooltip>
-          <Tooltip title="Reset Initial Domain Password">
-            <Button
-              type="text"
-              shape="circle"
-              size="small"
-              icon={<KeyOutlined style={{ color: '#f59e0b' }} />}
-              onClick={() => handleOpenResetPassword(record)}
-            />
-          </Tooltip>
           <Tooltip title={record.status === 'ACTIVE' ? 'Suspend Account' : 'Activate Account'}>
             <Popconfirm
               title={
-                record.status === 'ACTIVE'
-                  ? 'Suspend this domain account?'
-                  : 'Activate this domain account?'
+                record.status === 'ACTIVE' ? 'Suspend this account?' : 'Activate this account?'
               }
               onConfirm={() => handleToggleStatus(record)}
             >
@@ -900,8 +859,8 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             </Popconfirm>
           </Tooltip>
           <Popconfirm
-            title="Permanently remove this account from domain?"
-            description="All session tokens and Active Directory credentials will be revoked."
+            title="Delete this user account?"
+            description="All session tokens and credentials will be revoked."
             onConfirm={() => handleDeleteUser(record.id)}
             okText="Delete"
             okType="danger"
@@ -917,36 +876,36 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
   return (
     <PageContainer
-      title="Active Directory & Identity Governance"
-      subtitle="Enterprise Active Directory Domain Services (AD DS), hybrid cloud identity synchronization, workstation asset provisioning, and RBAC governance."
-      breadcrumbs={[{ title: 'Active Directory & Users' }]}
+      title="Users & Access"
+      subtitle="Manage user accounts, Active Directory synchronization, groups, and role-based permissions."
+      breadcrumbs={[{ title: 'Users & Access' }]}
       stats={[
         {
-          title: 'Total Domain Accounts',
+          title: 'Total Users',
           value: stats.totalUsers,
           prefix: <TeamOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Active Logins',
+          title: 'Active Users',
           value: stats.activeUsers,
           prefix: <CheckCircleOutlined />,
           color: '#10b981',
         },
         {
-          title: 'Assigned PC Workstations',
+          title: 'Assigned Workstations',
           value: stats.totalWorkstations ?? stats.custodiansCount ?? stats.activeUsers,
           prefix: <DesktopOutlined />,
           color: '#0ea5e9',
         },
         {
-          title: 'AD Security & Mail Groups',
+          title: 'Groups',
           value: stats.totalGroups ?? groups.length,
           prefix: <ShareAltOutlined />,
           color: '#8b5cf6',
         },
         {
-          title: 'Suspended / Closed Accounts',
+          title: 'Suspended Accounts',
           value: stats.suspendedUsers,
           prefix: <LockOutlined />,
           color: stats.suspendedUsers > 0 ? '#ef4444' : '#94a3b8',
@@ -954,30 +913,30 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       ]}
       extra={
         <Flex gap={8} wrap>
-          <Tooltip title="Trigger Active Directory Domain Replication">
+          <Tooltip title="Sync with Active Directory">
             <Button
               icon={<SyncOutlined spin={syncingDomain || loading} />}
               onClick={handleSyncDomain}
             >
-              Replicate DC
+              Sync Directory
             </Button>
           </Tooltip>
           <Button icon={<DownloadOutlined />} onClick={handleExportMaster}>
-            Export Master AD
+            Export CSV
           </Button>
           <Button icon={<UploadOutlined />} onClick={() => setImportModalOpen(true)}>
-            Import AD Master (CSV)
+            Import Users
           </Button>
           <Button icon={<ApartmentOutlined />} onClick={() => setGroupModalOpen(true)}>
-            New Group
+            Create Group
           </Button>
           <Button type="primary" icon={<UserAddOutlined />} onClick={handleOpenCreateModal}>
-            Onboard Domain User
+            Create User
           </Button>
         </Flex>
       }
     >
-      {/* Domain Controller Architecture Info Banner */}
+      {/* Active Directory & Identity Architecture Banner */}
       <Alert
         type="info"
         showIcon
@@ -986,7 +945,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
         title={
           <Flex justify="space-between" align="center" wrap gap={8}>
             <div>
-              <Text strong>Active Directory Domain Architecture (2026 Enterprise Baseline): </Text>
+              <Text strong>Active Directory & Identity Architecture: </Text>
               <Text style={{ fontSize: 13 }}>
                 Multi-tenant LDAP / Kerberos identity federation with Microsoft Entra ID and local
                 Domain Controllers. Unified identity links Windows PC login, console credentials,
@@ -1013,7 +972,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             key: 'users',
             label: (
               <span>
-                <TeamOutlined /> Domain Users & Accounts ({users.length})
+                <TeamOutlined /> Users ({users.length})
               </span>
             ),
             children: (
@@ -1085,7 +1044,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                         value={adGroupFilter}
                         onChange={setAdGroupFilter}
                         style={{ width: 170 }}
-                        placeholder="AD Security Group"
+                        placeholder="Security Group"
                       >
                         <Option value="all">All AD Groups</Option>
                         <Option value="GR_BSLOTHPrinting">GR_BSLOTHPrinting</Option>
@@ -1161,7 +1120,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                     pageSize: 15,
                     showSizeChanger: true,
                     pageSizeOptions: ['15', '30', '50', '100'],
-                    showTotal: (total) => `Total ${total} domain accounts synchronized`,
+                    showTotal: (total) => `Total ${total} accounts`,
                   }}
                 />
               </Card>
@@ -1171,7 +1130,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             key: 'groups',
             label: (
               <span>
-                <ShareAltOutlined /> Active Directory Security & Mail Groups ({groups.length})
+                <ShareAltOutlined /> Groups ({groups.length})
               </span>
             ),
             children: (
@@ -1179,7 +1138,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                 <Flex justify="space-between" align="center" style={{ marginBottom: 14 }}>
                   <div>
                     <Title level={5} style={{ margin: 0 }}>
-                      Active Directory Security & Mail Distribution Groups
+                      Security & Distribution Groups
                     </Title>
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       Synchronized distribution lists, plant access groups, and department
@@ -1191,7 +1150,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                     icon={<PlusOutlined />}
                     onClick={() => setGroupModalOpen(true)}
                   >
-                    Add Distribution Group
+                    Create Group
                   </Button>
                 </Flex>
 
@@ -1247,7 +1206,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
                             />
                           </Flex>
                           <Flex justify="space-between" style={{ fontSize: 12 }}>
-                            <Text type="secondary">Managed By / Head:</Text>
+                            <Text type="secondary">Managed By:</Text>
                             <Text strong style={{ fontSize: 11.5 }}>
                               {group.managedBy || 'Domain Admin'}
                             </Text>
@@ -1264,8 +1223,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             key: 'ous',
             label: (
               <span>
-                <BranchesOutlined /> Organizational Units & Forest Topology (
-                {organizationalUnits.length})
+                <BranchesOutlined /> Organizational Units ({organizationalUnits.length})
               </span>
             ),
             children: (
@@ -1280,7 +1238,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             key: 'roles',
             label: (
               <span>
-                <SafetyCertificateOutlined /> RBAC Roles & Permission Matrix ({roles.length})
+                <SafetyCertificateOutlined /> Roles & Permissions ({roles.length})
               </span>
             ),
             children: (
@@ -1299,35 +1257,31 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
       {/* Create / Edit User Modal */}
       <Modal
-        title={
-          editingUser
-            ? `Edit Domain Account: ${editingUser.email}`
-            : 'Onboard New Active Directory User'
-        }
+        title={editingUser ? `Edit User: ${editingUser.email}` : 'Create User'}
         open={userModalOpen}
         onOk={handleSaveUser}
         onCancel={() => setUserModalOpen(false)}
         confirmLoading={modalSubmitting}
         width={760}
-        okText={editingUser ? 'Save Changes' : 'Provision Domain User'}
+        okText={editingUser ? 'Save Changes' : 'Create User'}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item
-                label="Employee Code / ID (HEmploy)"
+                label="Employee Code"
                 name="employeeCode"
-                extra="Corporate badge identifier (e.g. 63020037)."
+                extra="Corporate badge identifier."
               >
                 <Input placeholder="e.g. 63020037" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
-                label="AD Username / sAMAccountName"
+                label="Username"
                 name="username"
-                rules={[{ required: true, message: 'Please enter AD username' }]}
-                extra="Windows domain logon identifier."
+                rules={[{ required: true, message: 'Please enter a username.' }]}
+                extra="Account logon identifier."
               >
                 <Input placeholder="e.g. thaotn.st" disabled={!!editingUser} />
               </Form.Item>
@@ -1337,7 +1291,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item
-                label="Corporate Email Address (HEmail / UPN)"
+                label="Email Address"
                 name="email"
                 rules={[{ required: true, type: 'email' }]}
               >
@@ -1345,7 +1299,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Telephone / Extension (HTelephone)" name="telephone">
+              <Form.Item label="Telephone / Extension" name="telephone">
                 <Input placeholder="e.g. 888152675" />
               </Form.Item>
             </Col>
@@ -1353,16 +1307,12 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Full Name (HName)" name="displayName" rules={[{ required: true }]}>
+              <Form.Item label="Full Name" name="displayName" rules={[{ required: true }]}>
                 <Input placeholder="e.g. Truong Ngoc Thao" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item
-                label="Designation / Title (HDesignation)"
-                name="jobTitle"
-                rules={[{ required: true }]}
-              >
+              <Form.Item label="Job Title" name="jobTitle" rules={[{ required: true }]}>
                 <Input placeholder="e.g. Asst. Officer, Pattern Marker, Supervisor" />
               </Form.Item>
             </Col>
@@ -1375,12 +1325,12 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Company / Entity (Hcomp)" name="company">
+              <Form.Item label="Company" name="company">
                 <Input placeholder="e.g. BSL Others, BSL-1" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Plant / Facility (Xưởng)" name="plant">
+              <Form.Item label="Plant / Location" name="plant">
                 <Input placeholder="e.g. BSL Others, 1 BSL-1" />
               </Form.Item>
             </Col>
@@ -1388,11 +1338,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
           <Row gutter={14}>
             <Col span={8}>
-              <Form.Item
-                label="Department (HDepartment)"
-                name="department"
-                rules={[{ required: true }]}
-              >
+              <Form.Item label="Department" name="department" rules={[{ required: true }]}>
                 <Select>
                   <Option value="Production">Production</Option>
                   <Option value="IT & Infrastructure">IT & Infrastructure</Option>
@@ -1406,12 +1352,12 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Section (HSection)" name="section">
+              <Form.Item label="Section" name="section">
                 <Input placeholder="e.g. Printing, Sample, Embroidery" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Sub-Section (HSubSection)" name="subSection">
+              <Form.Item label="Sub-Section" name="subSection">
                 <Input placeholder="e.g. Logo Embroidery, Printing" />
               </Form.Item>
             </Col>
@@ -1420,16 +1366,16 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item
-                label="Assigned PC Hostname (Computer Name)"
+                label="Assigned Workstation Hostname"
                 name="computerName"
-                extra="Workstation hostname (e.g. STOTHPR102)."
+                extra="Computer hostname."
               >
                 <Input placeholder="e.g. STOTHPR102, STOTHSAM04" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Active Directory Group (GR_GROUP USER)" name="adGroup">
-                <Select placeholder="Select AD Security Group" allowClear>
+              <Form.Item label="Security Group" name="adGroup">
+                <Select placeholder="Select Security Group" allowClear>
                   <Option value="GR_BSLOTHPrinting">GR_BSLOTHPrinting</Option>
                   <Option value="GR_BSLOTHSample">GR_BSLOTHSample</Option>
                   <Option value="GR_BSLOTHLogo Embroidery">GR_BSLOTHLogo Embroidery</Option>
@@ -1442,7 +1388,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Organizational Unit (OU Path)" name="ouPath">
+              <Form.Item label="Organizational Unit" name="ouPath">
                 <Select>
                   <Option value="OU=Production-BSLOthers,DC=uims,DC=internal">
                     OU=Production-BSLOthers,DC=uims,DC=internal
@@ -1466,7 +1412,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Reporting Line Manager" name="managerName">
+              <Form.Item label="Manager" name="managerName">
                 <Input placeholder="e.g., Nguyen Doan Quang Huy" />
               </Form.Item>
             </Col>
@@ -1476,10 +1422,10 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             <Row gutter={14}>
               <Col span={12}>
                 <Form.Item
-                  label="Initial Domain Password (AD & Windows Logon)"
+                  label="Initial Password"
                   name="adInitialPassword"
                   rules={[{ required: true, min: 6 }]}
-                  extra="Initial password for workstation and console logon."
+                  extra="Initial password for logon."
                 >
                   <Input.Password placeholder="••••••••••••" />
                 </Form.Item>
@@ -1498,7 +1444,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="RBAC Access Role" name="roleName" rules={[{ required: true }]}>
+              <Form.Item label="Role" name="roleName" rules={[{ required: true }]}>
                 <Select placeholder="Select role">
                   {roles.length > 0 ? (
                     roles.map((r) => (
@@ -1520,11 +1466,11 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Account Status" name="status" rules={[{ required: true }]}>
+              <Form.Item label="Status" name="status" rules={[{ required: true }]}>
                 <Select>
-                  <Option value="ACTIVE">ACTIVE (Active Account)</Option>
-                  <Option value="SUSPENDED">SUSPENDED (Disabled / Closed)</Option>
-                  <Option value="INACTIVE">INACTIVE</Option>
+                  <Option value="ACTIVE">Active</Option>
+                  <Option value="SUSPENDED">Suspended</Option>
+                  <Option value="INACTIVE">Inactive</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -1534,7 +1480,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
 
       {/* Distribution Group Modal */}
       <Modal
-        title="Create New Active Directory Distribution Group"
+        title="Create Group"
         open={groupModalOpen}
         onOk={handleSaveGroup}
         onCancel={() => setGroupModalOpen(false)}
@@ -1543,82 +1489,32 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
       >
         <Form form={groupForm} layout="vertical" style={{ marginTop: 14 }}>
           <Form.Item
-            label="Group Name (e.g. GR_BSLOTHPrinting)"
+            label="Group Name"
             name="name"
-            rules={[{ required: true, message: 'Please enter group name' }]}
+            rules={[{ required: true, message: 'Please enter a group name.' }]}
           >
             <Input placeholder="e.g. GR_BSLOTHPrinting" />
           </Form.Item>
-          <Form.Item
-            label="Distribution Email Address"
-            name="email"
-            rules={[{ required: true, type: 'email' }]}
-          >
+          <Form.Item label="Group Email" name="email" rules={[{ required: true, type: 'email' }]}>
             <Input prefix={<MailOutlined />} placeholder="e.g. gr-bsloth-printing@youngonevn.com" />
           </Form.Item>
           <Form.Item label="Security Scope" name="scope" initialValue="AD Security Group">
             <Select>
               <Option value="AD Security Group">AD Security Group (Access Control)</Option>
-              <Option value="Internal Only">Internal Only (Staff Broadcast)</Option>
+              <Option value="Internal Only">Internal Only (Staff Distribution)</Option>
               <Option value="Public / External Allowed">Public / External Inbound Allowed</Option>
               <Option value="Restricted / Security High">Restricted / Security High</Option>
               <Option value="Confidential / Board Level">Confidential / Board Level</Option>
             </Select>
           </Form.Item>
-          <Form.Item label="Group Description & Purpose" name="description">
+          <Form.Item label="Description" name="description">
             <Input.TextArea
               rows={2}
               placeholder="Description of the group membership and responsibilities"
             />
           </Form.Item>
-          <Form.Item label="Managed By (Lead / Contact)" name="managedBy" initialValue="IT Admin">
+          <Form.Item label="Managed By" name="managedBy" initialValue="IT Admin">
             <Input placeholder="e.g. Nguyen Doan Quang Huy" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Reset Password Modal */}
-      <Modal
-        title={`Reset Password for ${resettingUser?.email}`}
-        open={resetModalOpen}
-        onOk={handleSaveResetPassword}
-        onCancel={() => setResetModalOpen(false)}
-        confirmLoading={modalSubmitting}
-        okText="Update Password"
-      >
-        <Form form={resetForm} layout="vertical" style={{ marginTop: 14 }}>
-          <Form.Item
-            label="New Strong Password"
-            name="password"
-            rules={[{ required: true, min: 6 }]}
-            extra={
-              <Flex align="center" gap={8} style={{ marginTop: 8 }}>
-                <Button
-                  size="small"
-                  onClick={() => {
-                    const pass = generateStrongPassword('Ad');
-                    setNewPassword(pass);
-                    resetForm.setFieldsValue({ password: pass });
-                  }}
-                >
-                  Generate Strong Password
-                </Button>
-                {newPassword && (
-                  <Button
-                    size="small"
-                    icon={<CopyOutlined />}
-                    onClick={() => {
-                      navigator.clipboard.writeText(newPassword);
-                      message.success('Password copied to clipboard');
-                    }}
-                  >
-                    Copy Password
-                  </Button>
-                )}
-              </Flex>
-            }
-          >
-            <Input.Password placeholder="Enter new strong password" />
           </Form.Item>
         </Form>
       </Modal>
@@ -1653,7 +1549,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
               </Tag>
             </Flex>
           }
-          width={580}
+          styles={{ wrapper: { width: 580 } }}
           open={detailDrawerOpen}
           onClose={() => setDetailDrawerOpen(false)}
           extra={
@@ -1680,29 +1576,27 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           }
         >
           <Descriptions
-            title="Active Directory Identity & Credentials"
+            title="User Profile & Credentials"
             size="small"
             column={1}
             bordered
             style={{ marginBottom: 16 }}
           >
-            <Descriptions.Item label="Employee Code (HEmploy)">
+            <Descriptions.Item label="Employee Code">
               <Text strong code>
                 #{selectedUser.employeeCode || 'N/A'}
               </Text>
             </Descriptions.Item>
-            <Descriptions.Item label="AD Username (sAMAccountName)">
+            <Descriptions.Item label="Username">
               <Text strong code>
                 @{selectedUser.username}
               </Text>
             </Descriptions.Item>
-            <Descriptions.Item label="Corporate Email / UPN">
-              {selectedUser.email}
-            </Descriptions.Item>
-            <Descriptions.Item label="Initial Domain Password">
+            <Descriptions.Item label="Email Address">{selectedUser.email}</Descriptions.Item>
+            <Descriptions.Item label="Initial Password">
               <Text code>{selectedUser.adInitialPassword || '••••••••••'}</Text>
             </Descriptions.Item>
-            <Descriptions.Item label="Canonical OU Path">
+            <Descriptions.Item label="Organizational Unit">
               <Text code style={{ fontSize: 11 }}>
                 {selectedUser.ouPath || 'OU=Production,DC=uims,DC=internal'}
               </Text>
@@ -1710,32 +1604,32 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
             <Descriptions.Item label="Directory Source">
               <Tag color="blue">{selectedUser.source || 'LOCAL'}</Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Designation (HDesignation)">
+            <Descriptions.Item label="Job Title">
               {selectedUser.jobTitle || 'Employee'}
             </Descriptions.Item>
-            <Descriptions.Item label="Assigned Role">
+            <Descriptions.Item label="Role">
               <Tag color="blue">
                 {selectedUser.roleName || selectedUser.role?.name || 'Employee'}
               </Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="Company / Entity">
+            <Descriptions.Item label="Company">
               {selectedUser.company || selectedUser.groupCompany || 'BSL Others'}
             </Descriptions.Item>
-            <Descriptions.Item label="Plant / Facility (Xưởng)">
+            <Descriptions.Item label="Plant / Location">
               {selectedUser.plant || 'BSL Others'}
             </Descriptions.Item>
             <Descriptions.Item label="Department / Section">
               {selectedUser.department || 'Production'} • {selectedUser.section || 'General'}
               {selectedUser.subSection && ` (Sub: ${selectedUser.subSection})`}
             </Descriptions.Item>
-            <Descriptions.Item label="Assigned PC Hostname">
+            <Descriptions.Item label="Assigned Workstation">
               {selectedUser.computerName ? (
                 <Tag color="cyan">{selectedUser.computerName}</Tag>
               ) : (
                 'Unassigned'
               )}
             </Descriptions.Item>
-            <Descriptions.Item label="AD Security Group">
+            <Descriptions.Item label="Security Group">
               {selectedUser.adGroup ? (
                 <Tag color="purple">{selectedUser.adGroup}</Tag>
               ) : (
@@ -1757,7 +1651,7 @@ ACTIVE DIRECTORY IDENTITY & WINDOWS WORKSTATION ONBOARDING SLIP
           {selectedUser.role?.permissions && selectedUser.role.permissions.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                Granted RBAC Permissions ({selectedUser.role.permissions.length}):
+                Permissions ({selectedUser.role.permissions.length}):
               </Text>
               <Flex gap={6} wrap="wrap">
                 {selectedUser.role.permissions.map((p, idx) => {

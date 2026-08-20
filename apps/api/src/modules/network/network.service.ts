@@ -58,7 +58,7 @@ export class NetworkService {
 
   async findIp(id: string) {
     const ip = await this.prisma.iPAddress.findUnique({ where: { id } });
-    if (!ip) throw new NotFoundException('IP address record not found');
+    if (!ip) throw new NotFoundException(`IP address with ID ${id} not found`);
     return this.formatIp(ip);
   }
 

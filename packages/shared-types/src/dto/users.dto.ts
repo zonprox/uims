@@ -41,10 +41,6 @@ export interface CreateSystemUserDto {
 
 export interface UpdateSystemUserDto extends Partial<CreateSystemUserDto> {}
 
-export interface ResetUserPasswordDto {
-  password: string;
-}
-
 export interface ToggleUserStatusDto {
   status: UserStatus;
 }

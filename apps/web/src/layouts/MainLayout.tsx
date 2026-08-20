@@ -57,9 +57,9 @@ export default function MainLayout() {
 
   const handleLogout = useCallback(() => {
     modal.confirm({
-      title: 'Sign Out of Enterprise Console',
+      title: 'Sign Out',
       icon: <ExclamationCircleOutlined style={{ color: '#ef4444' }} />,
-      content: 'Are you sure you want to end your active session in UIMS Enterprise?',
+      content: 'Are you sure you want to sign out? Your active session will end.',
       okText: 'Sign Out',
       okType: 'danger',
       cancelText: 'Cancel',
@@ -135,8 +135,10 @@ export default function MainLayout() {
           placement="left"
           open={mobileDrawerOpen}
           onClose={handleCloseDrawer}
-          styles={{ body: { padding: 0, backgroundColor: '#0c1017' } }}
-          width={290}
+          styles={{
+            wrapper: { width: 290 },
+            body: { padding: 0, backgroundColor: '#0c1017' },
+          }}
           closable={false}
         >
           <SidebarContent

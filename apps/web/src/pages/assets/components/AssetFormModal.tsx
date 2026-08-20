@@ -27,7 +27,7 @@ export interface AssetFormModalProps {
 export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
   ({ open, editingAsset, form, submitting, onSave, onCancel }) => (
     <Modal
-      title={editingAsset ? `Edit Asset: ${editingAsset.tag}` : 'Provision New Hardware Asset'}
+      title={editingAsset ? `Edit Asset: ${editingAsset.tag}` : 'Create Asset'}
       open={open}
       onOk={onSave}
       onCancel={onCancel}
@@ -41,7 +41,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             <Form.Item
               label="Asset Tag"
               name="tag"
-              rules={[{ required: true, message: 'Asset Tag is required' }]}
+              rules={[{ required: true, message: 'Asset tag is required' }]}
             >
               <Input placeholder="e.g. AST-1042" />
             </Form.Item>
@@ -60,7 +60,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
         <Row gutter={14}>
           <Col span={12}>
             <Form.Item
-              label="Device Model Name"
+              label="Device Name"
               name="name"
               rules={[{ required: true, message: 'Device name is required' }]}
             >
@@ -77,7 +77,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             </Form.Item>
           </Col>
           <Col span={6}>
-            <Form.Item label="Model Code" name="model">
+            <Form.Item label="Model" name="model">
               <Input placeholder="e.g. A2991" />
             </Form.Item>
           </Col>
@@ -120,7 +120,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="Deployment Location" name="location">
+            <Form.Item label="Location" name="location">
               <Input placeholder="e.g. NY Office - Floor 4" />
             </Form.Item>
           </Col>
@@ -133,7 +133,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item label="Warranty Expiry Date" name="warrantyExpiry">
+            <Form.Item label="Warranty Expiration Date" name="warrantyExpiry">
               <DatePicker style={{ width: '100%' }} />
             </Form.Item>
           </Col>
@@ -164,7 +164,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
           </Col>
         </Row>
 
-        <Form.Item label="Internal Notes & Accessories" name="notes">
+        <Form.Item label="Notes" name="notes">
           <Input.TextArea rows={2} placeholder="Add deployment details or dock serial number..." />
         </Form.Item>
       </Form>

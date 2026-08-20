@@ -26,57 +26,57 @@ const SUBJECT_METADATA: Record<
   { displayName: string; description: string; category: string }
 > = {
   Asset: {
-    displayName: 'Hardware Fleet',
+    displayName: 'Assets',
     description: 'Manage physical laptops, servers, workstations, and peripherals',
     category: 'Core Assets',
   },
   License: {
-    displayName: 'SaaS & Licenses',
+    displayName: 'Licenses',
     description: 'Track software contracts, seat allocations, and vendor compliance',
     category: 'Core Assets',
   },
   Inventory: {
-    displayName: 'Spare Stockroom',
+    displayName: 'Inventory',
     description: 'Stockroom replenishment, threshold alerts, and parts transactions',
     category: 'Core Assets',
   },
   User: {
-    displayName: 'Domain Users',
+    displayName: 'Users',
     description: 'Enterprise directory users, credentials, and account statuses',
     category: 'Access & Identity',
   },
   Group: {
-    displayName: 'Security Groups',
+    displayName: 'Groups',
     description: 'Distribution lists and Active Directory security groups',
     category: 'Access & Identity',
   },
   Role: {
-    displayName: 'RBAC Roles',
+    displayName: 'Roles',
     description: 'Role-based access permissions, privilege policies, and assignments',
     category: 'Access & Identity',
   },
   Organization: {
-    displayName: 'Enterprise Org',
+    displayName: 'Organization',
     description: 'Organization structure, corporate entities, departments, and positions',
     category: 'Governance & Org',
   },
   Network: {
-    displayName: 'Network IPAM',
+    displayName: 'Network',
     description: 'VLANs, IPv4/IPv6 subnets, gateway allocations, and MAC tracking',
     category: 'Infrastructure',
   },
   Audit: {
-    displayName: 'Security Audit',
+    displayName: 'Audit',
     description: 'Tamper-evident SOC2/ISO audit log trail and export',
     category: 'Governance & Org',
   },
   Report: {
-    displayName: 'Executive Reports',
+    displayName: 'Reports',
     description: 'Automated valuation, asset lifecycle, and inventory schedules',
     category: 'Analytics',
   },
   Setting: {
-    displayName: 'System Settings',
+    displayName: 'Settings',
     description: 'Global security policy, active sessions, and environment preferences',
     category: 'Governance & Org',
   },
@@ -308,7 +308,7 @@ export class RolesService {
     const isSystem = SYSTEM_ROLES.has(existing.name.trim().toUpperCase());
 
     if (isSystem && dto.name && dto.name.trim() !== existing.name) {
-      throw new BadRequestException(`System protected role "${existing.name}" cannot be renamed`);
+      throw new BadRequestException(`System role "${existing.name}" cannot be renamed`);
     }
 
     if (dto.name && dto.name.trim() !== existing.name) {
@@ -429,12 +429,12 @@ export class RolesService {
 
     const isSystem = SYSTEM_ROLES.has(role.name.trim().toUpperCase());
     if (isSystem) {
-      throw new BadRequestException(`System protected role "${role.name}" cannot be deleted`);
+      throw new BadRequestException(`System role "${role.name}" cannot be deleted`);
     }
 
     if (role._count.users > 0) {
       throw new BadRequestException(
-        `Cannot delete role "${role.name}" because it is currently assigned to ${role._count.users} user(s). Please reassign them first.`,
+        `Cannot delete role "${role.name}" while assigned to ${role._count.users} user(s). Reassign users before deleting.`,
       );
     }
 
@@ -444,7 +444,7 @@ export class RolesService {
 
     return {
       success: true,
-      message: `Role "${role.name}" successfully deleted.`,
+      message: `Role "${role.name}" successfully deleted`,
     };
   }
 }

@@ -60,19 +60,19 @@ export default function AssetsPage() {
         color: '#1677ff',
       },
       {
-        title: 'Active in Use',
+        title: 'Active',
         value: stats.active,
         prefix: <CheckCircleOutlined />,
         color: '#10b981',
       },
       {
-        title: 'In Repair / RMA',
+        title: 'In Repair',
         value: stats.inRepair,
         prefix: <WarningOutlined />,
         color: '#f59e0b',
       },
       {
-        title: 'In Storage Vault',
+        title: 'In Storage',
         value: stats.inStorage,
         prefix: <AppstoreOutlined />,
         color: '#6366f1',
@@ -83,8 +83,8 @@ export default function AssetsPage() {
 
   return (
     <PageContainer
-      title="Hardware Asset Management"
-      subtitle="Track full lifecycle, technical specifications, user assignments, and warranty status."
+      title="Asset Inventory"
+      subtitle="Manage asset lifecycles, track allocations, and monitor depreciation across all hardware assets."
       breadcrumbs={[{ title: 'Assets' }]}
       stats={statsItems}
       extra={
@@ -92,11 +92,11 @@ export default function AssetsPage() {
           <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExportCSV}>
             Export CSV
           </Button>
-          <Tooltip title="Reload from server">
+          <Tooltip title="Refresh assets">
             <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
           </Tooltip>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
-            Provision Asset
+            Create Asset
           </Button>
         </Flex>
       }

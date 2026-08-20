@@ -187,10 +187,10 @@ export default function InventoryPage() {
 
       if (editingItem) {
         await inventoryService.updateItem(editingItem.id, payload);
-        message.success(`SKU "${payload.sku}" updated successfully.`);
+        message.success(`Item "${payload.sku}" updated successfully.`);
       } else {
         await inventoryService.createItem(payload);
-        message.success(`SKU "${payload.sku}" added to inventory.`);
+        message.success(`Item "${payload.sku}" created successfully.`);
       }
 
       setModalOpen(false);
@@ -207,7 +207,7 @@ export default function InventoryPage() {
   const handleDeleteItem = async (id: string) => {
     try {
       await inventoryService.deleteItem(id);
-      message.success('Inventory item deleted.');
+      message.success('Inventory item deleted successfully.');
       loadData();
     } catch (err: unknown) {
       console.error(err);
@@ -226,7 +226,7 @@ export default function InventoryPage() {
     setRestocking(true);
     try {
       await inventoryService.restockItem(restockItem.id, restockQty);
-      message.success(`Restocked ${restockQty} units of ${restockItem.name}`);
+      message.success(`Restocked ${restockQty} units of ${restockItem.name}.`);
       setRestockModalOpen(false);
       loadData();
     } catch (err: unknown) {
@@ -243,7 +243,7 @@ export default function InventoryPage() {
 
   const columns = [
     {
-      title: 'SKU & ITEM NAME',
+      title: 'SKU & Item Name',
       key: 'name',
       render: (_: unknown, record: InventoryItem) => (
         <div>
@@ -264,19 +264,19 @@ export default function InventoryPage() {
       ),
     },
     {
-      title: 'CATEGORY',
+      title: 'Category',
       dataIndex: 'category',
       key: 'category',
       render: (category: string) => <Tag color="blue">{category}</Tag>,
     },
     {
-      title: 'STOCK LEVEL & THRESHOLD',
+      title: 'Stock Level & Threshold',
       key: 'stock',
       width: 200,
       render: (_: unknown, record: InventoryItem) => <StockLevelCell record={record} />,
     },
     {
-      title: 'UNIT VALUATION',
+      title: 'Total Value',
       key: 'price',
       render: (_: unknown, record: InventoryItem) => (
         <div>
@@ -293,7 +293,7 @@ export default function InventoryPage() {
       ),
     },
     {
-      title: 'ACTIONS',
+      title: 'Actions',
       key: 'actions',
       render: (_: unknown, record: InventoryItem) => (
         <Space size="small">
@@ -316,8 +316,8 @@ export default function InventoryPage() {
             />
           </Tooltip>
           <Popconfirm
-            title="Delete this SKU?"
-            description="Remove this consumable from inventory?"
+            title="Delete item?"
+            description="This action cannot be undone."
             onConfirm={() => handleDeleteItem(record.id)}
             okText="Delete"
             okType="danger"
@@ -333,18 +333,18 @@ export default function InventoryPage() {
 
   return (
     <PageContainer
-      title="Consumables & Inventory Management"
-      subtitle="Track stock levels, storage bins, suppliers, and automatic restock thresholds."
+      title="Inventory Management"
+      subtitle="Track consumable parts, monitor inventory levels, and manage stock reorder thresholds."
       breadcrumbs={[{ title: 'Inventory' }]}
       stats={[
         {
-          title: 'Total Tracked SKUs',
+          title: 'Total SKUs',
           value: stats.totalSkus,
           prefix: <DatabaseOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Total Stocked Units',
+          title: 'Total Units',
           value: stats.totalUnits,
           prefix: <CheckCircleOutlined />,
           color: '#10b981',
@@ -364,11 +364,11 @@ export default function InventoryPage() {
       ]}
       extra={
         <Flex gap={8}>
-          <Tooltip title="Reload from server">
+          <Tooltip title="Refresh inventory">
             <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
           </Tooltip>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
-            Add Inventory SKU
+            Create Item
           </Button>
         </Flex>
       }
@@ -446,7 +446,7 @@ export default function InventoryPage() {
 
       {/* Add / Edit Inventory Modal */}
       <Modal
-        title={editingItem ? `Edit SKU: ${editingItem.sku}` : 'Add Inventory SKU'}
+        title={editingItem ? `Edit Item: ${editingItem.sku}` : 'Create Item'}
         open={modalOpen}
         onOk={handleSaveItem}
         onCancel={() => setModalOpen(false)}
@@ -457,12 +457,20 @@ export default function InventoryPage() {
         <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
           <Row gutter={14}>
             <Col span={10}>
-              <Form.Item label="SKU Code" name="sku" rules={[{ required: true }]}>
+              <Form.Item
+                label="SKU"
+                name="sku"
+                rules={[{ required: true, message: 'SKU is required' }]}
+              >
                 <Input placeholder="e.g. CAB-CAT6-2M" />
               </Form.Item>
             </Col>
             <Col span={14}>
-              <Form.Item label="Item Name" name="name" rules={[{ required: true }]}>
+              <Form.Item
+                label="Item Name"
+                name="name"
+                rules={[{ required: true, message: 'Item name is required' }]}
+              >
                 <Input placeholder="e.g. Cat6 Snagless RJ45 Patch Cable" />
               </Form.Item>
             </Col>
@@ -481,7 +489,11 @@ export default function InventoryPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Supplier / Vendor" name="supplier" rules={[{ required: true }]}>
+              <Form.Item
+                label="Supplier"
+                name="supplier"
+                rules={[{ required: true, message: 'Supplier is required' }]}
+              >
                 <Input placeholder="e.g. Monoprice / CDW" />
               </Form.Item>
             </Col>
@@ -489,16 +501,12 @@ export default function InventoryPage() {
 
           <Row gutter={14}>
             <Col span={8}>
-              <Form.Item label="Current Quantity" name="quantity" rules={[{ required: true }]}>
+              <Form.Item label="Quantity" name="quantity" rules={[{ required: true }]}>
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item
-                label="Min Alert Threshold"
-                name="minThreshold"
-                rules={[{ required: true }]}
-              >
+              <Form.Item label="Minimum Threshold" name="minThreshold" rules={[{ required: true }]}>
                 <InputNumber min={1} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -511,18 +519,18 @@ export default function InventoryPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Storage Location" name="location">
+              <Form.Item label="Location" name="location">
                 <Input placeholder="e.g. Storage Room A" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Bin / Shelf Number" name="binNumber">
+              <Form.Item label="Bin Number" name="binNumber">
                 <Input placeholder="e.g. Bin A-04" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item label="Notes & Replenishment Info" name="notes">
+          <Form.Item label="Notes" name="notes">
             <Input.TextArea rows={2} placeholder="Add reorder notes or package specs..." />
           </Form.Item>
         </Form>
@@ -537,7 +545,7 @@ export default function InventoryPage() {
           onCancel={() => setRestockModalOpen(false)}
           confirmLoading={restocking}
           width={400}
-          okText="Receive Stock"
+          okText="Update Stock"
         >
           <div style={{ padding: '8px 0' }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
@@ -546,7 +554,7 @@ export default function InventoryPage() {
             </Text>
             <Divider style={{ margin: '12px 0' }} />
             <Text strong style={{ display: 'block', marginBottom: 6 }}>
-              Units to Add to Stock:
+              Units to Add:
             </Text>
             <InputNumber
               min={1}

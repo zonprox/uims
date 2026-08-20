@@ -9,121 +9,227 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
   // 2. Roles & Permissions
   const superAdminRole = await prisma.role.upsert({
     where: { name: 'Super Admin' },
-    update: {},
+    update: {
+      description:
+        'Enterprise Super Administrator with unrestricted governance authority, emergency break-glass access, and full platform oversight.',
+    },
     create: {
       name: 'Super Admin',
-      description: 'Super Administrator with unrestricted enterprise access and audit authority',
+      description:
+        'Enterprise Super Administrator with unrestricted governance authority, emergency break-glass access, and full platform oversight.',
     },
   });
 
   const adminRole = await prisma.role.upsert({
     where: { name: 'Admin' },
-    update: {},
-    create: { name: 'Admin', description: 'System and Infrastructure Administrator' },
+    update: {
+      description:
+        'Infrastructure and Operations Administrator with system-wide resource management and configuration rights.',
+    },
+    create: {
+      name: 'Admin',
+      description:
+        'Infrastructure and Operations Administrator with system-wide resource management and configuration rights.',
+    },
   });
 
   const techRole = await prisma.role.upsert({
     where: { name: 'Technician' },
-    update: {},
-    create: { name: 'Technician', description: 'IT Helpdesk & Field Technician Specialist' },
+    update: {
+      description:
+        'IT Operations and Field Technician Specialist with hardware fleet, inventory stockroom, and network endpoint maintenance privileges.',
+    },
+    create: {
+      name: 'Technician',
+      description:
+        'IT Operations and Field Technician Specialist with hardware fleet, inventory stockroom, and network endpoint maintenance privileges.',
+    },
   });
 
   const auditorRole = await prisma.role.upsert({
     where: { name: 'Auditor' },
-    update: {},
-    create: { name: 'Auditor', description: 'SOC2 Type II & ISO 27001 Compliance Auditor' },
+    update: {
+      description:
+        'SOC2 Type II and ISO 27001 Compliance Auditor with read-only inspection and export authority across all governance trails.',
+    },
+    create: {
+      name: 'Auditor',
+      description:
+        'SOC2 Type II and ISO 27001 Compliance Auditor with read-only inspection and export authority across all governance trails.',
+    },
   });
 
   const managerRole = await prisma.role.upsert({
     where: { name: 'Manager' },
-    update: {},
-    create: { name: 'Manager', description: 'Department Team Lead & Resource Approver' },
+    update: {
+      description:
+        'Department Team Lead and Resource Approver with operational oversight and reporting privileges for assigned business units.',
+    },
+    create: {
+      name: 'Manager',
+      description:
+        'Department Team Lead and Resource Approver with operational oversight and reporting privileges for assigned business units.',
+    },
   });
 
   const employeeRole = await prisma.role.upsert({
     where: { name: 'Employee' },
-    update: {},
-    create: { name: 'Employee', description: 'Standard Enterprise Employee' },
+    update: {
+      description:
+        'Standard Enterprise Employee with baseline self-service directory access and assigned hardware/software visibility.',
+    },
+    create: {
+      name: 'Employee',
+      description:
+        'Standard Enterprise Employee with baseline self-service directory access and assigned hardware/software visibility.',
+    },
   });
 
-  // Seed Granular System Permissions
+  // Seed Granular Enterprise RBAC System Permissions Catalog
   const ALL_PERMISSIONS_CATALOG = [
-    // Asset Management
-    { subject: 'Asset', action: 'create' },
-    { subject: 'Asset', action: 'read' },
-    { subject: 'Asset', action: 'update' },
-    { subject: 'Asset', action: 'delete' },
-    { subject: 'Asset', action: 'export' },
-    { subject: 'Asset', action: 'manage' },
+    // 1. Asset Management Fleet
+    {
+      subject: 'Asset',
+      action: 'create',
+      conditions: { approvalRequired: false, auditLevel: 'Standard' },
+    },
+    { subject: 'Asset', action: 'read', conditions: null },
+    { subject: 'Asset', action: 'update', conditions: null },
+    {
+      subject: 'Asset',
+      action: 'delete',
+      conditions: { requiresDualAuthorization: true, auditLevel: 'High' },
+    },
+    { subject: 'Asset', action: 'export', conditions: { dataClassification: 'Internal' } },
+    { subject: 'Asset', action: 'manage', conditions: { fullFleetControl: true } },
 
-    // SaaS & Software Licenses
-    { subject: 'License', action: 'create' },
-    { subject: 'License', action: 'read' },
-    { subject: 'License', action: 'update' },
-    { subject: 'License', action: 'delete' },
-    { subject: 'License', action: 'export' },
-    { subject: 'License', action: 'manage' },
+    // 2. SaaS & Software Licenses
+    {
+      subject: 'License',
+      action: 'create',
+      conditions: { procurementCheck: true, auditLevel: 'Standard' },
+    },
+    { subject: 'License', action: 'read', conditions: null },
+    { subject: 'License', action: 'update', conditions: null },
+    {
+      subject: 'License',
+      action: 'delete',
+      conditions: { contractRevocationCheck: true, auditLevel: 'High' },
+    },
+    { subject: 'License', action: 'export', conditions: { dataClassification: 'Confidential' } },
+    { subject: 'License', action: 'manage', conditions: { seatReallocation: true } },
 
-    // Directory & Users
-    { subject: 'User', action: 'create' },
-    { subject: 'User', action: 'read' },
-    { subject: 'User', action: 'update' },
-    { subject: 'User', action: 'delete' },
-    { subject: 'User', action: 'export' },
-    { subject: 'User', action: 'manage' },
+    // 3. Enterprise Directory & Users
+    {
+      subject: 'User',
+      action: 'create',
+      conditions: { idmProvisioningWorkflow: true, auditLevel: 'High' },
+    },
+    { subject: 'User', action: 'read', conditions: null },
+    { subject: 'User', action: 'update', conditions: null },
+    {
+      subject: 'User',
+      action: 'delete',
+      conditions: { deprovisionCheck: true, retainAuditHistory: true },
+    },
+    { subject: 'User', action: 'export', conditions: { piiComplianceMasking: true } },
+    { subject: 'User', action: 'manage', conditions: { accountLockoutAuthority: true } },
 
-    // Active Directory Groups
-    { subject: 'Group', action: 'create' },
-    { subject: 'Group', action: 'read' },
-    { subject: 'Group', action: 'update' },
-    { subject: 'Group', action: 'delete' },
-    { subject: 'Group', action: 'manage' },
+    // 4. Active Directory Groups
+    { subject: 'Group', action: 'create', conditions: { directoryGovernance: true } },
+    { subject: 'Group', action: 'read', conditions: null },
+    { subject: 'Group', action: 'update', conditions: null },
+    {
+      subject: 'Group',
+      action: 'delete',
+      conditions: { directoryGovernance: true, auditLevel: 'High' },
+    },
+    { subject: 'Group', action: 'export', conditions: { dataClassification: 'Internal' } },
+    { subject: 'Group', action: 'manage', conditions: { membershipModification: true } },
 
-    // RBAC Roles & Permissions
-    { subject: 'Role', action: 'create' },
-    { subject: 'Role', action: 'read' },
-    { subject: 'Role', action: 'update' },
-    { subject: 'Role', action: 'delete' },
-    { subject: 'Role', action: 'manage' },
+    // 5. RBAC Roles & Security Grants
+    {
+      subject: 'Role',
+      action: 'create',
+      conditions: { governanceCommitteeApproval: true, auditLevel: 'Critical' },
+    },
+    { subject: 'Role', action: 'read', conditions: null },
+    {
+      subject: 'Role',
+      action: 'update',
+      conditions: { leastPrivilegePolicy: true, auditLevel: 'Critical' },
+    },
+    {
+      subject: 'Role',
+      action: 'delete',
+      conditions: { emergencyBreakGlassOnly: true, auditLevel: 'Critical' },
+    },
+    { subject: 'Role', action: 'export', conditions: { dataClassification: 'Restricted' } },
+    { subject: 'Role', action: 'manage', conditions: { rbacMatrixAuthority: true } },
 
-    // Enterprise Organization Structure
-    { subject: 'Organization', action: 'create' },
-    { subject: 'Organization', action: 'read' },
-    { subject: 'Organization', action: 'update' },
-    { subject: 'Organization', action: 'delete' },
-    { subject: 'Organization', action: 'export' },
-    { subject: 'Organization', action: 'manage' },
+    // 6. Enterprise Organizational Hierarchy
+    { subject: 'Organization', action: 'create', conditions: { executiveSignoff: true } },
+    { subject: 'Organization', action: 'read', conditions: null },
+    { subject: 'Organization', action: 'update', conditions: null },
+    { subject: 'Organization', action: 'delete', conditions: { hierarchicalIntegrityCheck: true } },
+    { subject: 'Organization', action: 'export', conditions: { dataClassification: 'Internal' } },
+    { subject: 'Organization', action: 'manage', conditions: { departmentReorgAuthority: true } },
 
-    // Network IPAM & Infrastructure
-    { subject: 'Network', action: 'create' },
-    { subject: 'Network', action: 'read' },
-    { subject: 'Network', action: 'update' },
-    { subject: 'Network', action: 'delete' },
-    { subject: 'Network', action: 'export' },
-    { subject: 'Network', action: 'manage' },
+    // 7. Network IPAM & Infrastructure
+    { subject: 'Network', action: 'create', conditions: { ipamSubnetAllocation: true } },
+    { subject: 'Network', action: 'read', conditions: null },
+    { subject: 'Network', action: 'update', conditions: null },
+    {
+      subject: 'Network',
+      action: 'delete',
+      conditions: { gatewayReservationCheck: true, auditLevel: 'High' },
+    },
+    { subject: 'Network', action: 'export', conditions: { dataClassification: 'Confidential' } },
+    { subject: 'Network', action: 'manage', conditions: { routingTopologyControl: true } },
 
-    // Spare Stockroom & Inventory
-    { subject: 'Inventory', action: 'create' },
-    { subject: 'Inventory', action: 'read' },
-    { subject: 'Inventory', action: 'update' },
-    { subject: 'Inventory', action: 'delete' },
-    { subject: 'Inventory', action: 'export' },
-    { subject: 'Inventory', action: 'manage' },
+    // 8. Stockroom & Spare Inventory
+    { subject: 'Inventory', action: 'create', conditions: null },
+    { subject: 'Inventory', action: 'read', conditions: null },
+    { subject: 'Inventory', action: 'update', conditions: null },
+    { subject: 'Inventory', action: 'delete', conditions: { writeOffThresholdApproval: true } },
+    { subject: 'Inventory', action: 'export', conditions: { dataClassification: 'Internal' } },
+    { subject: 'Inventory', action: 'manage', conditions: { stockAdjustmentAuthority: true } },
 
-    // Security & Compliance Audit
-    { subject: 'Audit', action: 'read' },
-    { subject: 'Audit', action: 'export' },
+    // 9. Security & Compliance Audit Trails
+    { subject: 'Audit', action: 'create', conditions: { appendOnlyImmutableLog: true } },
+    { subject: 'Audit', action: 'read', conditions: { complianceOfficerAccess: true } },
+    { subject: 'Audit', action: 'update', conditions: { forbiddenTamperProof: true } },
+    {
+      subject: 'Audit',
+      action: 'delete',
+      conditions: { retentionPolicyEnforced: true, auditLevel: 'Critical' },
+    },
+    {
+      subject: 'Audit',
+      action: 'export',
+      conditions: { tamperEvidentSignature: true, dataClassification: 'Restricted' },
+    },
+    { subject: 'Audit', action: 'manage', conditions: { siemIntegrationAuthority: true } },
 
-    // Executive Reports
-    { subject: 'Report', action: 'create' },
-    { subject: 'Report', action: 'read' },
-    { subject: 'Report', action: 'export' },
-    { subject: 'Report', action: 'manage' },
+    // 10. Executive & Operational Reports
+    { subject: 'Report', action: 'create', conditions: null },
+    { subject: 'Report', action: 'read', conditions: null },
+    { subject: 'Report', action: 'update', conditions: null },
+    { subject: 'Report', action: 'delete', conditions: null },
+    { subject: 'Report', action: 'export', conditions: { exportFormat: ['PDF', 'CSV', 'XLSX'] } },
+    { subject: 'Report', action: 'manage', conditions: { scheduleAutomation: true } },
 
-    // System Settings & Preferences
-    { subject: 'Setting', action: 'read' },
-    { subject: 'Setting', action: 'update' },
-    { subject: 'Setting', action: 'manage' },
+    // 11. System Configuration & Preferences
+    { subject: 'Setting', action: 'create', conditions: { globalConfiguration: true } },
+    { subject: 'Setting', action: 'read', conditions: null },
+    { subject: 'Setting', action: 'update', conditions: { dualControlVerification: true } },
+    {
+      subject: 'Setting',
+      action: 'delete',
+      conditions: { emergencyOverride: true, auditLevel: 'Critical' },
+    },
+    { subject: 'Setting', action: 'export', conditions: { maskSecrets: true } },
+    { subject: 'Setting', action: 'manage', conditions: { systemTelemetryAccess: true } },
   ];
 
   const seededPermissionsMap = new Map<string, string>();
@@ -133,39 +239,114 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       where: { subject: perm.subject, action: perm.action },
     });
     if (existing) {
+      await prisma.permission.update({
+        where: { id: existing.id },
+        data: { conditions: perm.conditions },
+      });
       seededPermissionsMap.set(`${perm.subject}:${perm.action}`, existing.id);
     } else {
       const created = await prisma.permission.create({
         data: {
           subject: perm.subject,
           action: perm.action,
+          conditions: perm.conditions,
         },
       });
       seededPermissionsMap.set(`${perm.subject}:${perm.action}`, created.id);
     }
   }
 
-  // Link Permissions to Standard Roles
+  // Link Permissions to Standard Roles reflecting Enterprise Least-Privilege Governance
   const rolePermissionAssignments: Record<string, string[]> = {
     'Super Admin': Array.from(seededPermissionsMap.keys()),
-    Admin: Array.from(seededPermissionsMap.keys()),
+    Admin: [
+      'Asset:create',
+      'Asset:read',
+      'Asset:update',
+      'Asset:delete',
+      'Asset:export',
+      'Asset:manage',
+      'License:create',
+      'License:read',
+      'License:update',
+      'License:delete',
+      'License:export',
+      'License:manage',
+      'User:create',
+      'User:read',
+      'User:update',
+      'User:delete',
+      'User:export',
+      'User:manage',
+      'Group:create',
+      'Group:read',
+      'Group:update',
+      'Group:delete',
+      'Group:export',
+      'Group:manage',
+      'Role:create',
+      'Role:read',
+      'Role:update',
+      'Role:export',
+      'Role:manage',
+      'Organization:create',
+      'Organization:read',
+      'Organization:update',
+      'Organization:delete',
+      'Organization:export',
+      'Organization:manage',
+      'Network:create',
+      'Network:read',
+      'Network:update',
+      'Network:delete',
+      'Network:export',
+      'Network:manage',
+      'Inventory:create',
+      'Inventory:read',
+      'Inventory:update',
+      'Inventory:delete',
+      'Inventory:export',
+      'Inventory:manage',
+      'Audit:read',
+      'Audit:export',
+      'Report:create',
+      'Report:read',
+      'Report:update',
+      'Report:delete',
+      'Report:export',
+      'Report:manage',
+      'Setting:create',
+      'Setting:read',
+      'Setting:update',
+      'Setting:delete',
+      'Setting:export',
+      'Setting:manage',
+    ],
     Technician: [
       'Asset:create',
       'Asset:read',
       'Asset:update',
+      'Asset:export',
       'Asset:manage',
       'Inventory:create',
       'Inventory:read',
       'Inventory:update',
+      'Inventory:export',
       'Inventory:manage',
       'Network:create',
       'Network:read',
       'Network:update',
+      'Network:export',
       'Network:manage',
       'License:read',
+      'License:export',
       'User:read',
+      'User:export',
+      'Group:read',
       'Organization:read',
       'Report:read',
+      'Report:export',
+      'Setting:read',
     ],
     Auditor: [
       'Asset:read',
@@ -175,6 +356,9 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       'User:read',
       'User:export',
       'Group:read',
+      'Group:export',
+      'Role:read',
+      'Role:export',
       'Organization:read',
       'Organization:export',
       'Network:read',
@@ -186,18 +370,26 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       'Report:read',
       'Report:export',
       'Setting:read',
+      'Setting:export',
     ],
     Manager: [
       'Asset:read',
+      'Asset:export',
       'License:read',
+      'License:export',
       'User:read',
+      'User:export',
+      'Group:read',
       'Organization:read',
       'Inventory:read',
+      'Inventory:export',
+      'Audit:read',
       'Report:create',
       'Report:read',
       'Report:export',
+      'Setting:read',
     ],
-    Employee: ['Asset:read', 'License:read', 'User:read', 'Organization:read'],
+    Employee: ['Asset:read', 'License:read', 'User:read', 'Organization:read', 'Report:read'],
   };
 
   const roleEntities = [
@@ -233,7 +425,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     }
   }
 
-  // 3. Core Enterprise Staff Data
+  // 3. Core Enterprise Staff Data with Complete Enterprise Active Directory Attributes
   const coreStaffData = [
     {
       username: 'admin',
@@ -252,7 +444,16 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       company: 'Acme Enterprise',
       groupCompany: 'Acme Global',
       plant: 'HQ Campus',
+      section: 'Infrastructure',
+      subSection: 'Directory Services',
+      computerName: 'DC00-ROOT',
+      computerName2: 'DC01-BACKUP',
+      adGroup: 'GR_HQ_ExecutiveLeadership',
+      telephone: '+1 (555) 100-2000',
       phone: '+1 (555) 100-2000',
+      ouPath: 'OU=Administrators,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: adminPasswordHash,
       adInitialPassword: 'Admin@2026',
     },
@@ -273,7 +474,16 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       company: 'Acme Enterprise',
       groupCompany: 'Acme Global',
       plant: 'HQ Campus',
+      section: 'Executive',
+      subSection: 'IT Leadership',
+      computerName: 'WS-NY-1001',
+      computerName2: 'MBP-NY-1001',
+      adGroup: 'GR_HQ_ExecutiveLeadership',
+      telephone: '+1 (555) 234-5678',
       phone: '+1 (555) 234-5678',
+      ouPath: 'OU=Management,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Executive Board',
+      isClosed: false,
       passwordHash: adminPasswordHash,
       adInitialPassword: 'Admin@2026',
     },
@@ -294,8 +504,16 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       company: 'Acme Enterprise',
       groupCompany: 'Acme Global',
       plant: 'Tech Bay',
+      section: 'Infrastructure',
+      subSection: 'Systems Administration',
       computerName: 'DC01-PRIMARY',
+      computerName2: 'WS-SF-1002',
+      adGroup: 'GR_HQ_ITInfrastructure',
+      telephone: '+1 (555) 345-6789',
       phone: '+1 (555) 345-6789',
+      ouPath: 'OU=IT,OU=Infrastructure,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Robert Torres',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#SarahChen2026!',
     },
@@ -313,7 +531,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'IT & Infrastructure',
       location: 'NY HQ - Floor 4',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'HQ Campus',
+      section: 'Infrastructure',
+      subSection: 'Network Architecture',
+      computerName: 'WS-NY-1003',
+      computerName2: 'LT-NY-1003',
+      adGroup: 'GR_HQ_ITInfrastructure',
+      telephone: '+1 (555) 345-1122',
       phone: '+1 (555) 345-1122',
+      ouPath: 'OU=IT,OU=Infrastructure,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Robert Torres',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#MichaelWong2026!',
     },
@@ -331,7 +561,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'LOCAL' as const,
       department: 'Security & Compliance',
       location: 'London Hub',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'London Campus',
+      section: 'Compliance',
+      subSection: 'Information Security',
+      computerName: 'WS-LON-1004',
+      computerName2: 'LT-LON-1004',
+      adGroup: 'GR_HQ_SecurityCompliance',
+      telephone: '+44 20 7946 0912',
       phone: '+44 20 7946 0912',
+      ouPath: 'OU=Security,OU=Compliance,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#MarcusBell2026!',
     },
@@ -349,7 +591,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'Remote - US East',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'Remote US East',
+      section: 'Cloud Operations',
+      subSection: 'Platform Infrastructure',
+      computerName: 'WS-RMT-1005',
+      computerName2: 'MBP-RMT-1005',
+      adGroup: 'GR_HQ_EngineeringCore',
+      telephone: '+1 (555) 567-8901',
       phone: '+1 (555) 567-8901',
+      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#DavidKim2026!',
     },
@@ -367,7 +621,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'SF HQ - Tech Bay',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'Tech Bay',
+      section: 'Product Engineering',
+      subSection: 'Core Applications',
+      computerName: 'WS-SF-1006',
+      computerName2: 'MBP-SF-1006',
+      adGroup: 'GR_HQ_EngineeringCore',
+      telephone: '+1 (555) 567-2233',
       phone: '+1 (555) 567-2233',
+      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
+      managerName: 'David Kim',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#SophiaPatel2026!',
     },
@@ -385,7 +651,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'Remote - US West',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'Remote US West',
+      section: 'DevOps',
+      subSection: 'Site Reliability Engineering',
+      computerName: 'WS-RMT-1007',
+      computerName2: 'LT-RMT-1007',
+      adGroup: 'GR_HQ_EngineeringCore',
+      telephone: '+1 (555) 567-4455',
       phone: '+1 (555) 567-4455',
+      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
+      managerName: 'David Kim',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#LiamNguyen2026!',
     },
@@ -403,7 +681,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Engineering',
       location: 'NY HQ - Floor 4',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'HQ Campus',
+      section: 'Platform Engineering',
+      subSection: 'API Services',
+      computerName: 'WS-NY-1008',
+      computerName2: 'LT-NY-1008',
+      adGroup: 'GR_HQ_EngineeringCore',
+      telephone: '+1 (555) 567-7788',
       phone: '+1 (555) 567-7788',
+      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
+      managerName: 'David Kim',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#CarlosMendez2026!',
     },
@@ -421,7 +711,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Product & Design',
       location: 'NY HQ - Floor 4',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'HQ Campus',
+      section: 'Design',
+      subSection: 'Design Systems',
+      computerName: 'WS-NY-1009',
+      computerName2: 'MBP-NY-1009',
+      adGroup: 'GR_HQ_ProductDesign',
+      telephone: '+1 (555) 456-7890',
       phone: '+1 (555) 456-7890',
+      ouPath: 'OU=Design,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#MarcusVance2026!',
     },
@@ -439,7 +741,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Product & Design',
       location: 'London Hub',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'London Campus',
+      section: 'Design',
+      subSection: 'UX Research',
+      computerName: 'WS-LON-1010',
+      computerName2: 'MBP-LON-1010',
+      adGroup: 'GR_HQ_ProductDesign',
+      telephone: '+44 20 7946 0881',
       phone: '+44 20 7946 0881',
+      ouPath: 'OU=Design,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Marcus Vance',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#ChloeMartin2026!',
     },
@@ -457,7 +771,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Marketing',
       location: 'London Hub',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'London Campus',
+      section: 'Growth',
+      subSection: 'Brand & Communications',
+      computerName: 'WS-LON-1011',
+      computerName2: 'LT-LON-1011',
+      adGroup: 'GR_HQ_GrowthMarketing',
+      telephone: '+1 (555) 678-9012',
       phone: '+1 (555) 678-9012',
+      ouPath: 'OU=Marketing,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#ElenaRostova2026!',
     },
@@ -475,7 +801,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'LOCAL' as const,
       department: 'IT & Infrastructure',
       location: 'NY HQ - Floor 4',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'HQ Campus',
+      section: 'Infrastructure',
+      subSection: 'Data Center Operations',
+      computerName: 'WS-NY-1012',
+      computerName2: 'LT-NY-1012',
+      adGroup: 'GR_HQ_ITInfrastructure',
+      telephone: '+1 (555) 678-3344',
       phone: '+1 (555) 678-3344',
+      ouPath: 'OU=IT,OU=Infrastructure,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#RobertTorres2026!',
     },
@@ -493,7 +831,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Finance',
       location: 'Singapore Hub',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'Singapore Campus',
+      section: 'Finance',
+      subSection: 'Financial Planning & Analysis',
+      computerName: 'WS-SGP-1013',
+      computerName2: 'LT-SGP-1013',
+      adGroup: 'GR_HQ_FinanceProcurement',
+      telephone: '+65 6789 0123',
       phone: '+65 6789 0123',
+      ouPath: 'OU=Finance,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#LisaWang2026!',
     },
@@ -511,7 +861,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Human Resources',
       location: 'NY HQ - Floor 5',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'HQ Campus',
+      section: 'Human Resources',
+      subSection: 'People Operations',
+      computerName: 'WS-NY-1014',
+      computerName2: 'LT-NY-1014',
+      adGroup: 'GR_HQ_ExecutiveLeadership',
+      telephone: '+1 (555) 890-1234',
       phone: '+1 (555) 890-1234',
+      ouPath: 'OU=HumanResources,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#RachelAdams2026!',
     },
@@ -529,7 +891,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Legal & Governance',
       location: 'NY HQ - Floor 5',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'HQ Campus',
+      section: 'Legal',
+      subSection: 'Corporate Governance',
+      computerName: 'WS-NY-1015',
+      computerName2: 'LT-NY-1015',
+      adGroup: 'GR_HQ_ExecutiveLeadership',
+      telephone: '+1 (555) 901-2345',
       phone: '+1 (555) 901-2345',
+      ouPath: 'OU=Legal,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Alex Johnson',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#JamesWilson2026!',
     },
@@ -547,7 +921,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Sales',
       location: 'Remote - US Central',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'Remote US Central',
+      section: 'Sales',
+      subSection: 'Enterprise Accounts',
+      computerName: 'WS-RMT-1016',
+      computerName2: 'LT-RMT-1016',
+      adGroup: 'GR_HQ_GrowthMarketing',
+      telephone: '+1 (555) 901-6789',
       phone: '+1 (555) 901-6789',
+      ouPath: 'OU=Sales,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Elena Rostova',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#HannahScott2026!',
     },
@@ -565,7 +951,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'LOCAL' as const,
       department: 'Engineering',
       location: 'Remote - EMEA',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'Remote EMEA',
+      section: 'Quality Assurance',
+      subSection: 'Test Automation',
+      computerName: 'WS-RMT-1017',
+      computerName2: 'LT-RMT-1017',
+      adGroup: 'GR_HQ_EngineeringCore',
+      telephone: '+1 (555) 789-0123',
       phone: '+1 (555) 789-0123',
+      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
+      managerName: 'David Kim',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#ThomasWright2026!',
     },
@@ -583,7 +981,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       source: 'AZURE_AD' as const,
       department: 'Marketing',
       location: 'London Hub',
+      company: 'Acme Enterprise',
+      groupCompany: 'Acme Global',
+      plant: 'London Campus',
+      section: 'Marketing',
+      subSection: 'Content Strategy',
+      computerName: 'WS-LON-1018',
+      computerName2: 'LT-LON-1018',
+      adGroup: 'GR_HQ_GrowthMarketing',
+      telephone: '+44 20 7946 0999',
       phone: '+44 20 7946 0999',
+      ouPath: 'OU=Marketing,OU=HQ,DC=uims,DC=internal',
+      managerName: 'Elena Rostova',
+      isClosed: false,
       passwordHash: defaultPasswordHash,
       adInitialPassword: 'Ad#JessicaTaylor2026!',
     },
@@ -1506,6 +1916,30 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       role = techRole;
     }
 
+    const sectionName = ad.section || 'Operations';
+    let defaultOuPath = 'OU=Operations,OU=Plant1,DC=company,DC=internal';
+    let defaultManagerName = 'Operations Division Head';
+
+    if (sectionName.toLowerCase().includes('printing')) {
+      defaultOuPath = 'OU=Printing,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Phung Thi Nhu Y (Asst. Officer)';
+    } else if (sectionName.toLowerCase().includes('sample')) {
+      defaultOuPath = 'OU=Sample,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Nguyen Doan Quang Huy (Asst. Manager)';
+    } else if (sectionName.toLowerCase().includes('embroidery')) {
+      defaultOuPath = 'OU=Embroidery,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Huynh Kim Ngan (Chief of Section)';
+    } else if (sectionName.toLowerCase().includes('cutting')) {
+      defaultOuPath = 'OU=Cutting,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Son Thi Ngoc Huyen (Junior Supervisor)';
+    } else if (
+      sectionName.toLowerCase().includes('production') ||
+      sectionName.toLowerCase().includes('office')
+    ) {
+      defaultOuPath = 'OU=Operations,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Le Thi Kim Chi (Junior Technician)';
+    }
+
     allSeedUsers.push({
       username: rawUsername,
       email: ad.email,
@@ -1516,20 +1950,29 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       jobTitle: ad.jobTitle,
       roleId: role.id,
       roleName: role.name,
-      status: ad.status,
-      source: 'LOCAL' as const,
-      department: ad.department,
-      location: `${ad.company} - ${ad.plant}`,
-      company: ad.company,
-      groupCompany: ad.groupCompany,
-      plant: ad.plant,
+      status: ad.status || ('ACTIVE' as const),
+      source: 'LDAP' as const,
+      department: ad.department || 'Production',
+      location: `${ad.company || 'BSL Others'} - ${ad.plant || 'Plant 1'}`,
+      company: ad.company || 'BSL Others',
+      groupCompany: ad.groupCompany || 'BSL',
+      plant: ad.plant || 'Plant 1',
+      section: ad.section || 'Production',
+      subSection: ad.subSection || 'General Operations',
+      computerName: ad.computerName || `WS-${ad.employeeCode}`,
+      computerName2: (ad as { computerName2?: string }).computerName2 || `LT-${ad.employeeCode}`,
+      adGroup: ad.adGroup || 'GR_BSL1Production Office',
+      telephone:
+        (ad as { telephone?: string }).telephone || `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
       phone: (ad as { telephone?: string }).telephone
         ? `+84 ${(ad as { telephone?: string }).telephone}`
-        : null,
+        : `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
+      ouPath: (ad as { ouPath?: string }).ouPath || defaultOuPath,
+      managerName: (ad as { managerName?: string }).managerName || defaultManagerName,
+      isClosed: Boolean(ad.isClosed),
       passwordHash: defaultPasswordHash,
       adInitialPassword: ad.adInitialPassword,
-      ...(ad as unknown as object),
-    } as unknown as (typeof coreStaffData)[0]);
+    });
   }
 
   const seededUsers: Record<string, import('@prisma/client').User> = {};
@@ -1550,17 +1993,19 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
         source: u.source,
         department: u.department,
         location: u.location,
-        company: (u as { company?: string }).company,
-        groupCompany: (u as { groupCompany?: string }).groupCompany,
-        plant: (u as { plant?: string }).plant,
-        section: (u as { section?: string }).section,
-        subSection: (u as { subSection?: string }).subSection,
-        computerName: (u as { computerName?: string }).computerName,
-        computerName2: (u as { computerName2?: string }).computerName2,
-        adGroup: (u as { adGroup?: string }).adGroup,
-        telephone: (u as { telephone?: string }).telephone || (u as { phone?: string }).phone,
-        isClosed: Boolean((u as { isClosed?: boolean }).isClosed),
+        company: u.company,
+        groupCompany: u.groupCompany,
+        plant: u.plant,
+        section: u.section,
+        subSection: u.subSection,
+        computerName: u.computerName,
+        computerName2: u.computerName2,
+        adGroup: u.adGroup,
+        telephone: u.telephone || u.phone,
+        isClosed: Boolean(u.isClosed),
         phone: u.phone,
+        ouPath: u.ouPath,
+        managerName: u.managerName,
         passwordHash: u.passwordHash,
         adInitialPassword: u.adInitialPassword,
       },
@@ -1578,45 +2023,24 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
         source: u.source,
         department: u.department,
         location: u.location,
-        company: (u as { company?: string }).company,
-        groupCompany: (u as { groupCompany?: string }).groupCompany,
-        plant: (u as { plant?: string }).plant,
-        section: (u as { section?: string }).section,
-        subSection: (u as { subSection?: string }).subSection,
-        computerName: (u as { computerName?: string }).computerName,
-        computerName2: (u as { computerName2?: string }).computerName2,
-        adGroup: (u as { adGroup?: string }).adGroup,
-        telephone: (u as { telephone?: string }).telephone || (u as { phone?: string }).phone,
-        isClosed: Boolean((u as { isClosed?: boolean }).isClosed),
+        company: u.company,
+        groupCompany: u.groupCompany,
+        plant: u.plant,
+        section: u.section,
+        subSection: u.subSection,
+        computerName: u.computerName,
+        computerName2: u.computerName2,
+        adGroup: u.adGroup,
+        telephone: u.telephone || u.phone,
+        isClosed: Boolean(u.isClosed),
         phone: u.phone,
+        ouPath: u.ouPath,
+        managerName: u.managerName,
         passwordHash: u.passwordHash,
         adInitialPassword: u.adInitialPassword,
       },
     });
     seededUsers[u.email] = userRecord;
-
-    // Link AD Group membership if present
-    const adGroupName = (u as { adGroup?: string }).adGroup;
-    if (adGroupName) {
-      const grp = await prisma.directoryGroup.findFirst({ where: { name: adGroupName } });
-      if (grp) {
-        await prisma.directoryMembership
-          .upsert({
-            where: {
-              userId_groupId: {
-                userId: userRecord.id,
-                groupId: grp.id,
-              },
-            },
-            update: {},
-            create: {
-              userId: userRecord.id,
-              groupId: grp.id,
-            },
-          })
-          .catch(() => {});
-      }
-    }
   }
 
   return {

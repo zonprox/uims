@@ -44,10 +44,10 @@ async function runResponsiveTests() {
     await mobileDrawer.waitFor({ state: 'visible', timeout: 5000 });
     console.log('   ✅ Mobile Navigation Drawer opened smoothly.');
 
-    // 1.4 Click Hardware Fleet inside Mobile Drawer
-    await mobilePage.locator('.ant-drawer .ant-menu-item:has-text("Hardware Fleet")').click();
+    // 1.4 Click Hardware Assets inside Mobile Drawer
+    await mobilePage.locator('.ant-drawer .ant-menu-item:has-text("Hardware Assets")').click();
     await mobilePage.waitForURL('**/assets', { timeout: 10000 });
-    await mobilePage.waitForSelector('text=Hardware Asset Management', { timeout: 10000 });
+    await mobilePage.waitForSelector('text=Asset Inventory', { timeout: 10000 });
     console.log('   ✅ Navigated to /assets from mobile Drawer.');
 
     // 1.5 Verify table horizontal scroll wrapper
@@ -91,7 +91,7 @@ async function runResponsiveTests() {
     await desktopPage.locator('input#login_password').fill('password123');
     await desktopPage.locator('button[type="submit"]').click();
     await desktopPage.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
-    await desktopPage.waitForSelector('text=Operations Center', { timeout: 10000 });
+    await desktopPage.waitForSelector('text=Dashboard', { timeout: 10000 });
 
     // Test Desktop Sider Collapse toggle
     const collapseBtn = desktopPage.locator('header button').first();

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NotificationsController } from './notifications.controller';
 import type { NotificationsService } from './notifications.service';
-import type { BroadcastNotificationDto } from './dto/broadcast-notification.dto';
 
 describe('NotificationsController', () => {
   let controller: NotificationsController;
@@ -12,7 +11,6 @@ describe('NotificationsController', () => {
       findAll: vi.fn(),
       getUnreadCount: vi.fn(),
       create: vi.fn(),
-      broadcast: vi.fn(),
       markAsRead: vi.fn(),
       markAllAsRead: vi.fn(),
       remove: vi.fn(),
@@ -46,16 +44,6 @@ describe('NotificationsController', () => {
       const res = await controller.getUnreadCount({ user: { id: 'u1' } });
       expect(res).toEqual({ count: 4 });
       expect(mockService.getUnreadCount).toHaveBeenCalledWith('u1');
-    });
-  });
-
-  describe('broadcast', () => {
-    it('should delegate broadcast call to service', async () => {
-      mockService.broadcast.mockResolvedValue({ count: 10, success: true });
-      const payload: BroadcastNotificationDto = { title: 'Announcement', message: 'Body' };
-      const res = await controller.broadcast(payload);
-      expect(res).toEqual({ count: 10, success: true });
-      expect(mockService.broadcast).toHaveBeenCalledWith(payload);
     });
   });
 

@@ -38,7 +38,7 @@ export function OrganizationalUnitsTab({
 
   const copyDn = (dn: string) => {
     navigator.clipboard.writeText(dn);
-    message.success(`Copied Distinguished Name: ${dn}`);
+    message.success(`Distinguished Name copied: ${dn}`);
   };
 
   return (
@@ -63,7 +63,7 @@ export function OrganizationalUnitsTab({
               </div>
               <div>
                 <Title level={5} style={{ margin: 0 }}>
-                  Active Directory Forest & Organizational Units (OU) Topology
+                  Organizational Units Topology
                 </Title>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   Canonical Distinguished Name (DN) tree:{' '}
@@ -107,7 +107,7 @@ export function OrganizationalUnitsTab({
                   </Flex>
                 }
                 extra={
-                  <Tooltip title="Copy Distinguished Name (DN)">
+                  <Tooltip title="Copy Distinguished Name">
                     <Button
                       type="text"
                       size="small"
@@ -123,7 +123,7 @@ export function OrganizationalUnitsTab({
                       type="secondary"
                       style={{ fontSize: 11, display: 'block', marginBottom: 2 }}
                     >
-                      Distinguished Name (DN):
+                      Distinguished Name:
                     </Text>
                     <Text code style={{ fontSize: 11, wordBreak: 'break-all' }}>
                       {unit.dn}
@@ -172,7 +172,7 @@ export function OrganizationalUnitsTab({
                       >
                         <Text type="secondary" style={{ fontSize: 10.5, display: 'block' }}>
                           <DesktopOutlined style={{ marginRight: 4 }} />
-                          PCs
+                          Workstations
                         </Text>
                         <Text strong style={{ fontSize: 14, color: '#0ea5e9' }}>
                           {unit.workstationCount}
@@ -220,7 +220,7 @@ export function OrganizationalUnitsTab({
                         style={{ padding: 0 }}
                         onClick={() => onFilterByOU(unit.name)}
                       >
-                        View Domain Members →
+                        View Members →
                       </Button>
                     </Flex>
                   </div>

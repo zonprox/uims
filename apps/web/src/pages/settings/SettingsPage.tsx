@@ -342,7 +342,7 @@ export default function SettingsPage() {
 
   const handlePurgeCache = () => {
     modal.confirm({
-      title: 'Purge Platform Redis Cache & Subsystem Keys',
+      title: 'Purge Platform Redis Cache',
       icon: <WarningOutlined style={{ color: '#ff4d4f' }} />,
       content: (
         <div>
@@ -366,7 +366,7 @@ export default function SettingsPage() {
         setPurgingCache(true);
         try {
           await new Promise((resolve) => setTimeout(resolve, 800));
-          message.success('Redis subsystem cache flushed and key indices rebuilt successfully.');
+          message.success('Redis cache flushed and key indices rebuilt successfully.');
         } catch (err) {
           console.error(err);
           message.error('Failed to purge cache.');
@@ -379,7 +379,7 @@ export default function SettingsPage() {
 
   const handleFactoryReset = () => {
     modal.confirm({
-      title: 'CRITICAL: Factory Reset All Enterprise Settings',
+      title: 'Reset to Factory Defaults?',
       icon: <WarningOutlined style={{ color: '#ff4d4f' }} />,
       content: (
         <div>
@@ -393,9 +393,9 @@ export default function SettingsPage() {
           </Paragraph>
         </div>
       ),
-      okText: 'Factory Reset All Settings',
+      okText: 'Reset to Factory Defaults',
       okButtonProps: { danger: true },
-      cancelText: 'Abort',
+      cancelText: 'Cancel',
       onOk: async () => {
         try {
           await Promise.all([
@@ -425,7 +425,7 @@ export default function SettingsPage() {
           setCompact(false);
           setBorderRadius(8);
           await loadSettings();
-          message.success('All enterprise system configurations restored to factory baseline.');
+          message.success('System settings restored to default baseline.');
         } catch (err) {
           console.error(err);
           message.error('Failed to execute factory reset.');
@@ -436,8 +436,8 @@ export default function SettingsPage() {
 
   return (
     <PageContainer
-      title="System Settings & Governance"
-      subtitle="Enterprise personalization, security policies, timezone synchronization, and infrastructure maintenance."
+      title="Settings"
+      subtitle="Manage system preferences, appearance, security policies, and maintenance."
       breadcrumbs={[{ title: 'Settings' }]}
       extra={
         <Space size={8}>
@@ -460,7 +460,7 @@ export default function SettingsPage() {
               label: (
                 <Space>
                   <BgColorsOutlined />
-                  <span>Theme & Design Tokens</span>
+                  <span>Appearance</span>
                   {isAppearanceDirty && <Badge dot status="warning" />}
                 </Space>
               ),
@@ -471,7 +471,7 @@ export default function SettingsPage() {
                       type="warning"
                       showIcon
                       message="Unsaved Appearance Modifications"
-                      description="You have modified design tokens in preview. Click 'Save Appearance Settings' to apply permanently."
+                      description="You have modified design tokens in preview. Click 'Save Changes' to apply permanently."
                       style={{ marginBottom: 16 }}
                       action={
                         <Space>
@@ -482,7 +482,7 @@ export default function SettingsPage() {
                             loading={savingAppearance}
                             onClick={handleSaveAppearance}
                           >
-                            Save Theme
+                            Save Changes
                           </Button>
                         </Space>
                       }
@@ -651,19 +651,19 @@ export default function SettingsPage() {
                         loading={savingAppearance}
                         onClick={handleSaveAppearance}
                       >
-                        Save Appearance Settings
+                        Save Changes
                       </Button>
                     </Space>
 
                     <Popconfirm
-                      title="Reset theme to corporate standard?"
+                      title="Reset theme to default?"
                       description="This will restore Light Minimal mode and standard Enterprise Blue tokens."
                       okText="Reset Theme"
                       cancelText="Cancel"
                       okButtonProps={{ danger: true }}
                       onConfirm={handleResetAppearance}
                     >
-                      <Button icon={<UndoOutlined />}>Reset to Default Theme</Button>
+                      <Button icon={<UndoOutlined />}>Reset to Default</Button>
                     </Popconfirm>
                   </Flex>
                 </div>
@@ -676,7 +676,7 @@ export default function SettingsPage() {
               label: (
                 <Space>
                   <SettingOutlined />
-                  <span>Enterprise Preferences</span>
+                  <span>General</span>
                   {isGeneralDirty && <Badge dot status="warning" />}
                 </Space>
               ),
@@ -686,8 +686,8 @@ export default function SettingsPage() {
                     <Alert
                       type="warning"
                       showIcon
-                      message="Unsaved Enterprise Configuration Changes"
-                      description="You have unsaved edits in General Preferences. Click 'Save Enterprise Preferences' to commit."
+                      message="Unsaved Configuration Changes"
+                      description="You have unsaved edits in General Preferences. Click 'Save Changes' to commit."
                       style={{ marginBottom: 16 }}
                     />
                   )}
@@ -708,7 +708,7 @@ export default function SettingsPage() {
                     <Row gutter={16}>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Organization Legal / Entity Name"
+                          label="Organization Name"
                           name="companyName"
                           rules={[{ required: true, message: 'Organization name is mandatory' }]}
                           tooltip="Primary legal identity displayed across invoices, exports, and UI headers."
@@ -718,7 +718,7 @@ export default function SettingsPage() {
                       </Col>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="IT Support Contact Email"
+                          label="Support Email"
                           name="supportEmail"
                           rules={[{ required: true, type: 'email' }]}
                           tooltip="Internal support destination for alert tickets and user access requests."
@@ -731,7 +731,7 @@ export default function SettingsPage() {
                     <Row gutter={16}>
                       <Col xs={24} md={14}>
                         <Form.Item
-                          label="Primary System Default Timezone (IANA)"
+                          label="Default Timezone"
                           name="timezone"
                           tooltip="All system reports, scheduled cron jobs, and global timestamps are synchronized against this standard reference timezone."
                         >
@@ -740,7 +740,7 @@ export default function SettingsPage() {
                       </Col>
                       <Col xs={24} md={10}>
                         <Form.Item
-                          label="Default Date Display Format"
+                          label="Date Format"
                           name="dateFormat"
                           tooltip="Standard date presentation format for tables, export files, and detail drawers."
                         >
@@ -758,7 +758,7 @@ export default function SettingsPage() {
                     <Row gutter={16}>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Default Clock Presentation"
+                          label="Time Format"
                           name="timeFormat"
                           tooltip="Select 24-hour military standard or 12-hour AM/PM format."
                         >
@@ -770,7 +770,7 @@ export default function SettingsPage() {
                       </Col>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Background Telemetry Polling"
+                          label="Telemetry Polling"
                           name="telemetryReporting"
                           initialValue="15s"
                           tooltip="Frequency of health metric heartbeat checks between web client and API."
@@ -795,18 +795,18 @@ export default function SettingsPage() {
                         loading={savingGeneral}
                         onClick={handleSaveGeneral}
                       >
-                        Save Enterprise Preferences
+                        Save Changes
                       </Button>
 
                       <Popconfirm
-                        title="Reset General Preferences?"
+                        title="Reset to Default?"
                         description="Restore default Acme Enterprise organization name and UTC timezone reference."
                         okText="Reset Defaults"
                         cancelText="Cancel"
                         okButtonProps={{ danger: true }}
                         onConfirm={handleResetGeneralDefaults}
                       >
-                        <Button icon={<UndoOutlined />}>Reset to Defaults</Button>
+                        <Button icon={<UndoOutlined />}>Reset to Default</Button>
                       </Popconfirm>
                     </Flex>
                   </Form>
@@ -826,7 +826,7 @@ export default function SettingsPage() {
               label: (
                 <Space>
                   <SafetyCertificateOutlined />
-                  <span>Security & Access Governance</span>
+                  <span>Security Policy</span>
                   {isSecurityDirty && <Badge dot status="warning" />}
                 </Space>
               ),
@@ -837,7 +837,7 @@ export default function SettingsPage() {
                       type="warning"
                       showIcon
                       message="Uncommitted Security Policy Modifications"
-                      description="You have modified access parameters. Click 'Deploy Security Policy' to validate and enforce."
+                      description="You have modified access parameters. Click 'Save Policy' to validate and enforce."
                       style={{ marginBottom: 16 }}
                     />
                   )}
@@ -845,7 +845,7 @@ export default function SettingsPage() {
                   <Alert
                     type="info"
                     showIcon
-                    title="Enterprise Access & Authentication Governance"
+                    title="Access & Authentication Governance"
                     description="Configure session lifecycles, two-factor enforcement policies, password standards, and network allowlists conforming to SOC 2 Type II compliance."
                     style={{ marginBottom: 20, fontSize: 12.5 }}
                   />
@@ -867,7 +867,7 @@ export default function SettingsPage() {
                     <Row gutter={16}>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Session Inactivity Timeout"
+                          label="Session Timeout"
                           name="sessionTimeout"
                           tooltip="Time after which idle web sessions are terminated and require re-authentication."
                         >
@@ -882,7 +882,7 @@ export default function SettingsPage() {
                       </Col>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Max Failed Login Lockout Attempts"
+                          label="Max Failed Login Attempts"
                           name="maxFailedAttempts"
                           tooltip="Account will be temporarily locked after consecutive failed password attempts."
                         >
@@ -898,7 +898,7 @@ export default function SettingsPage() {
                     <Row gutter={16}>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Enforce Mandatory Multi-Factor Authentication (2FA)"
+                          label="Enforce Multi-Factor Authentication (2FA)"
                           name="enforce2FA"
                           valuePropName="checked"
                           tooltip="Requires all active staff and admins to verify via TOTP authenticator app."
@@ -908,7 +908,7 @@ export default function SettingsPage() {
                       </Col>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Password Expiration Policy"
+                          label="Password Expiration"
                           name="passwordExpiryDays"
                           tooltip="Forces staff to rotate credentials periodically."
                         >
@@ -926,7 +926,7 @@ export default function SettingsPage() {
                     <Row gutter={16}>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Minimum Password Complexity Length"
+                          label="Minimum Password Length"
                           name="minPasswordLength"
                           tooltip="Minimum number of characters required for user passwords."
                         >
@@ -935,7 +935,7 @@ export default function SettingsPage() {
                       </Col>
                       <Col xs={24} md={12}>
                         <Form.Item
-                          label="Authorized IP Subnet Allowlist (CIDR)"
+                          label="IP Allowlist (CIDR)"
                           name="ipAllowlist"
                           tooltip="Restricts administrative login to authorized office/VPN CIDR subnets (comma separated). Leave empty for unrestricted access."
                         >
@@ -954,18 +954,18 @@ export default function SettingsPage() {
                         loading={savingSecurity}
                         onClick={handleSaveSecurity}
                       >
-                        Deploy Security Policy
+                        Save Policy
                       </Button>
 
                       <Popconfirm
-                        title="Reset Security Policy?"
+                        title="Reset to Default?"
                         description="Restore default ISO/SOC2 security baseline parameters."
                         okText="Reset Baseline"
                         cancelText="Cancel"
                         okButtonProps={{ danger: true }}
                         onConfirm={handleResetSecurityDefaults}
                       >
-                        <Button icon={<UndoOutlined />}>Reset Security Baseline</Button>
+                        <Button icon={<UndoOutlined />}>Reset to Default</Button>
                       </Popconfirm>
                     </Flex>
                   </Form>
@@ -979,7 +979,7 @@ export default function SettingsPage() {
               label: (
                 <Space>
                   <DatabaseOutlined />
-                  <span>Backups & Diagnostics</span>
+                  <span>Maintenance & Backups</span>
                 </Space>
               ),
               children: (
@@ -990,7 +990,7 @@ export default function SettingsPage() {
                     title={
                       <Space size={6}>
                         <CloudUploadOutlined style={{ color: '#1677ff' }} />
-                        <span>On-Demand Database Snapshot</span>
+                        <span>Database Backup</span>
                       </Space>
                     }
                     style={{ marginBottom: 16 }}
@@ -1006,17 +1006,17 @@ export default function SettingsPage() {
                       loading={backupRunning}
                       onClick={handleRunBackup}
                     >
-                      Run Instant Backup Snapshot
+                      Create Backup
                     </Button>
                   </Card>
 
-                  {/* Subsystem Health Diagnostics */}
+                  {/* System Health */}
                   <Card
                     size="small"
                     title={
                       <Space size={6}>
                         <ThunderboltOutlined style={{ color: '#10b981' }} />
-                        <span>Subsystem Health Diagnostics</span>
+                        <span>System Health</span>
                       </Space>
                     }
                     style={{ marginBottom: 16 }}
@@ -1052,7 +1052,7 @@ export default function SettingsPage() {
                     title={
                       <Space size={6}>
                         <InfoCircleOutlined style={{ color: '#1677ff' }} />
-                        <span>Platform Information & Credits</span>
+                        <span>System Information</span>
                       </Space>
                     }
                     style={{ marginBottom: 16 }}
@@ -1084,9 +1084,7 @@ export default function SettingsPage() {
                     title={
                       <Space size={6}>
                         <WarningOutlined style={{ color: '#ef4444' }} />
-                        <span style={{ color: '#dc2626', fontWeight: 600 }}>
-                          Dangerous Administrative Actions
-                        </span>
+                        <span style={{ color: '#dc2626', fontWeight: 600 }}>Danger Zone</span>
                       </Space>
                     }
                     style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}
@@ -1101,7 +1099,7 @@ export default function SettingsPage() {
                         </Text>
                       </div>
                       <Button danger loading={purgingCache} onClick={handlePurgeCache}>
-                        Purge Redis Cache
+                        Purge Cache
                       </Button>
                     </Flex>
 
@@ -1118,7 +1116,7 @@ export default function SettingsPage() {
                         </Text>
                       </div>
                       <Button danger type="primary" onClick={handleFactoryReset}>
-                        Factory Reset All
+                        Reset to Factory Defaults
                       </Button>
                     </Flex>
                   </Card>

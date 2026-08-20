@@ -125,11 +125,11 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
     async (id: string) => {
       try {
         await networkService.deleteIp(id);
-        message.success('IP address allocation released.');
+        message.success('IP address released successfully.');
         loadData();
       } catch (err: unknown) {
         console.error(err);
-        message.error('Failed to delete IP allocation.');
+        message.error('Failed to release IP address.');
       }
     },
     [loadData, message],
@@ -149,7 +149,7 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
       const values = await subnetForm.validateFields();
       setModalSubmitting(true);
       await networkService.createSubnet(values);
-      message.success(`Subnet "${values.cidr}" provisioned.`);
+      message.success(`Subnet "${values.cidr}" created successfully.`);
       setSubnetModalOpen(false);
       loadData();
     } catch (err: unknown) {

@@ -154,7 +154,7 @@ export default function LicensesPage() {
         message.success(`License "${payload.name}" updated successfully.`);
       } else {
         await licensesService.createLicense(payload);
-        message.success(`License "${payload.name}" created.`);
+        message.success(`License "${payload.name}" created successfully.`);
       }
 
       setModalOpen(false);
@@ -171,7 +171,7 @@ export default function LicensesPage() {
   const handleDeleteLicense = async (id: string) => {
     try {
       await licensesService.deleteLicense(id);
-      message.success('License removed.');
+      message.success('License deleted successfully.');
       loadData();
     } catch (err: unknown) {
       console.error(err);
@@ -201,7 +201,7 @@ export default function LicensesPage() {
         email: newUserEmail,
         department: 'Engineering',
       });
-      message.success(`Seat allocated to ${newUserName}`);
+      message.success(`Seat assigned to ${newUserName}.`);
       setNewUserName('');
       setNewUserEmail('');
 
@@ -221,7 +221,7 @@ export default function LicensesPage() {
     if (!selectedLicense) return;
     try {
       await licensesService.revokeUser(selectedLicense.id, assignmentId);
-      message.info('Seat revoked and returned to pool.');
+      message.success('Seat revoked successfully.');
 
       const freshLicense = await licensesService.getLicense(selectedLicense.id);
       setSelectedLicense(freshLicense);
@@ -234,7 +234,7 @@ export default function LicensesPage() {
 
   const columns = [
     {
-      title: 'SOFTWARE & VENDOR',
+      title: 'Software & Vendor',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: License) => (
@@ -253,7 +253,7 @@ export default function LicensesPage() {
       ),
     },
     {
-      title: 'LICENSE STATUS',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -265,7 +265,7 @@ export default function LicensesPage() {
       ),
     },
     {
-      title: 'SEAT UTILIZATION',
+      title: 'Seat Utilization',
       key: 'seats',
       width: 190,
       render: (_: unknown, record: License) => {
@@ -296,7 +296,7 @@ export default function LicensesPage() {
       },
     },
     {
-      title: 'ANNUAL SPEND',
+      title: 'Annual Spend',
       key: 'cost',
       render: (_: unknown, record: License) => (
         <div>
@@ -310,7 +310,7 @@ export default function LicensesPage() {
       ),
     },
     {
-      title: 'EXPIRY & RENEWAL',
+      title: 'Expiration Date',
       dataIndex: 'expiryDate',
       key: 'expiryDate',
       render: (expiryDate: string, record: License) => {
@@ -338,7 +338,7 @@ export default function LicensesPage() {
       },
     },
     {
-      title: 'ACTIONS',
+      title: 'Actions',
       key: 'actions',
       render: (_: unknown, record: License) => (
         <Space size="small">
@@ -361,8 +361,8 @@ export default function LicensesPage() {
             />
           </Tooltip>
           <Popconfirm
-            title="Delete this license?"
-            description="Remove this software license record?"
+            title="Delete license?"
+            description="This action cannot be undone."
             onConfirm={() => handleDeleteLicense(record.id)}
             okText="Delete"
             okType="danger"
@@ -384,18 +384,18 @@ export default function LicensesPage() {
 
   return (
     <PageContainer
-      title="Software License Governance"
-      subtitle="Track active subscriptions, seat allocations, compliance meters, and auto-renewals."
+      title="Software Licenses"
+      subtitle="Track software seat utilization, upcoming renewals, and compliance across all software licenses."
       breadcrumbs={[{ title: 'Licenses' }]}
       stats={[
         {
-          title: 'Total Subscriptions',
+          title: 'Total Licenses',
           value: stats.total,
           prefix: <SafetyCertificateOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Total Annual Spend',
+          title: 'Annual Spend',
           value: `$${stats.annualSpend.toLocaleString()}`,
           prefix: <DollarOutlined />,
           color: '#10b981',
@@ -415,11 +415,11 @@ export default function LicensesPage() {
       ]}
       extra={
         <Flex gap={8}>
-          <Tooltip title="Reload from server">
+          <Tooltip title="Refresh licenses">
             <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
           </Tooltip>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
-            Add Software License
+            Create License
           </Button>
         </Flex>
       }
@@ -497,7 +497,7 @@ export default function LicensesPage() {
 
       {/* Add / Edit License Modal */}
       <Modal
-        title={editingLicense ? `Edit License: ${editingLicense.name}` : 'Add Software License'}
+        title={editingLicense ? `Edit License: ${editingLicense.name}` : 'Create License'}
         open={modalOpen}
         onOk={handleSaveLicense}
         onCancel={() => setModalOpen(false)}
@@ -511,13 +511,17 @@ export default function LicensesPage() {
               <Form.Item
                 label="Software Name"
                 name="name"
-                rules={[{ required: true, message: 'Name is required' }]}
+                rules={[{ required: true, message: 'Software name is required' }]}
               >
                 <Input placeholder="e.g. Adobe Creative Cloud Enterprise" />
               </Form.Item>
             </Col>
             <Col span={10}>
-              <Form.Item label="Vendor / Publisher" name="vendor" rules={[{ required: true }]}>
+              <Form.Item
+                label="Vendor"
+                name="vendor"
+                rules={[{ required: true, message: 'Vendor is required' }]}
+              >
                 <Input placeholder="e.g. Adobe / Microsoft" />
               </Form.Item>
             </Col>
@@ -540,7 +544,7 @@ export default function LicensesPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Cost per Seat / Year ($)" name="costPerSeat">
+              <Form.Item label="Cost per Seat ($)" name="costPerSeat">
                 <InputNumber prefix="$" min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -548,12 +552,12 @@ export default function LicensesPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="License Key / Contract ID" name="licenseKey">
+              <Form.Item label="License Key" name="licenseKey">
                 <Input placeholder="e.g. MS-E5-9921-8834-KKL9" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Renewal / Expiration Date" name="expiryDate">
+              <Form.Item label="Expiration Date" name="expiryDate">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -570,16 +574,16 @@ export default function LicensesPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Auto-Renewal Enabled" name="autoRenew" valuePropName="checked">
+              <Form.Item label="Auto-Renewal" name="autoRenew" valuePropName="checked">
                 <Switch defaultChecked />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item label="Notes & Contract Details" name="notes">
+          <Form.Item label="Notes" name="notes">
             <Input.TextArea
               rows={2}
-              placeholder="Add contract ID, reseller or VIP agreement notes..."
+              placeholder="Add contract details, reseller agreement notes..."
             />
           </Form.Item>
         </Form>
@@ -598,15 +602,15 @@ export default function LicensesPage() {
               </Text>
             </div>
           }
-          width={480}
+          styles={{ wrapper: { width: 480 } }}
           open={seatsDrawerOpen}
           onClose={() => setSeatsDrawerOpen(false)}
         >
           {/* Quick Assign Form */}
-          <Card size="small" title="Assign Seat to User" style={{ marginBottom: 16 }}>
+          <Card size="small" title="Assign User" style={{ marginBottom: 16 }}>
             <Flex vertical gap={8}>
               <Input
-                placeholder="Employee Name (e.g. David Kim)"
+                placeholder="User Name (e.g. David Kim)"
                 prefix={<UserOutlined />}
                 value={newUserName}
                 onChange={(e) => setNewUserName(e.target.value)}
@@ -623,19 +627,19 @@ export default function LicensesPage() {
                 loading={assigningSeat}
                 onClick={handleAssignUser}
               >
-                Allocate Seat
+                Assign Seat
               </Button>
             </Flex>
           </Card>
 
           {/* Assigned Users List */}
           <Title level={5} style={{ fontSize: 13.5 }}>
-            Active Assigned Employees ({selectedLicense.assignedUsers?.length || 0})
+            Active Users ({selectedLicense.assignedUsers?.length || 0})
           </Title>
           {!selectedLicense.assignedUsers || selectedLicense.assignedUsers.length === 0 ? (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No employees currently assigned to this license."
+              description="No users assigned to this license."
               style={{ margin: '24px 0' }}
             />
           ) : (
@@ -673,8 +677,8 @@ export default function LicensesPage() {
                     </div>
                   </Flex>
                   <Popconfirm
-                    title="Revoke seat?"
-                    description="User will lose access to this license."
+                    title="Revoke license seat?"
+                    description="This user will lose access to this software license."
                     onConfirm={() => handleRevokeSeat(user.id)}
                     okText="Revoke"
                     okType="danger"

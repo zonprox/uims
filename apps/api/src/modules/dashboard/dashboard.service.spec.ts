@@ -100,7 +100,7 @@ describe('DashboardService', () => {
 
     expect(overview.actionItems).toHaveLength(2);
     expect(overview.actionItems[0].title).toBe('License Renewal Required');
-    expect(overview.actionItems[1].title).toBe('Hardware Stock Depleted');
+    expect(overview.actionItems[1].title).toBe('Low Stock Alert');
   });
 
   it('should return empty action items array when no warnings or low stock exist', async () => {

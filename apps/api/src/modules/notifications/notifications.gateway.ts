@@ -78,13 +78,12 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
       client.data = socketData;
 
-      // Join user specific room, role room, and broadcast room
+      // Join user specific room and role room
       await client.join(`user:${userId}`);
       await client.join(`role:${role}`);
-      await client.join('broadcast');
 
       this.logger.log(
-        `Socket client ${client.id} connected: user=${userId}, role=${role}, joined [user:${userId}, role:${role}, broadcast]`,
+        `Socket client ${client.id} connected: user=${userId}, role=${role}, joined [user:${userId}, role:${role}]`,
       );
 
       client.emit('connected', {
@@ -142,15 +141,6 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   /**
-   * Broadcast notification to all connected clients
-   */
-  broadcast(notification: unknown) {
-    if (this.server) {
-      this.server.to('broadcast').emit('notification:new', notification);
-    }
-  }
-
-  /**
    * Emit notification read event
    */
   emitNotificationRead(userId: string, notificationId: string) {
@@ -167,7 +157,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       if (userId) {
         this.server.to(`user:${userId}`).emit('notification:cleared', { success: true });
       } else {
-        this.server.to('broadcast').emit('notification:cleared', { success: true });
+        this.server.emit('notification:cleared', { success: true });
       }
     }
   }

@@ -24,7 +24,7 @@ export const AssetQrModal: React.FC<AssetQrModalProps> = React.memo(
             Close
           </Button>,
           <Button key="print" type="primary" onClick={() => window.print()}>
-            Print Physical Sticker
+            Print QR Label
           </Button>,
         ]}
         width={360}

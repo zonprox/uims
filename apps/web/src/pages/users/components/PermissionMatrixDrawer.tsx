@@ -219,8 +219,8 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
       }
       open={open}
       onClose={onClose}
-      width={780}
       styles={{
+        wrapper: { width: 780 },
         body: { padding: '16px 20px', background: '#f8fafc' },
         footer: { padding: '12px 20px', background: '#fff' },
       }}
@@ -242,7 +242,7 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
               disabled={!isDirty || isSuperAdminRole}
               onClick={handleSave}
             >
-              Save Permission Matrix
+              Save Permissions
             </Button>
           </Space>
         </Flex>
@@ -252,8 +252,8 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
         <Alert
           type="info"
           showIcon
-          message="Super Administrator Wildcard Policy"
-          description="Super Administrator has immutable wildcard (*:*) access across all modules, endpoints, and records. Individual permissions cannot be unassigned."
+          message="Super Admin Access"
+          description="Super Administrator has full (*:*) access across all modules and records. Permissions cannot be modified."
           style={{ marginBottom: 16 }}
         />
       )}

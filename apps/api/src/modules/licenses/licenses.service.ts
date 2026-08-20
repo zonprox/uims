@@ -132,7 +132,7 @@ export class LicensesService {
     ) {
       try {
         await this.notificationsService.notifyAdmins({
-          title: 'Software License Expiry Notice',
+          title: 'License Expiry Notice',
           message: `License "${updated.name}" status changed to ${updated.status}. Review active subscriptions.`,
           type: 'WARNING',
           link: '/licenses',
@@ -155,7 +155,7 @@ export class LicensesService {
         where: { id: licenseId },
         include: { assignments: true },
       });
-      if (!license) throw new NotFoundException('License not found');
+      if (!license) throw new NotFoundException(`License with ID ${licenseId} not found`);
 
       // Check if user exists by email
       const existingUser =
@@ -186,8 +186,8 @@ export class LicensesService {
       try {
         if (result.userId) {
           await this.notificationsService.notifyUser(result.userId, {
-            title: 'Software License Assigned',
-            message: `You have been allocated a license seat for "${result.license.name}".`,
+            title: 'License Assigned',
+            message: `You have been assigned a seat for "${result.license.name}".`,
             type: 'INFO',
             link: '/licenses',
           });
@@ -195,7 +195,7 @@ export class LicensesService {
         if (result.license.usedSeats >= result.license.totalSeats) {
           await this.notificationsService.notifyAdmins({
             title: 'License Capacity Reached',
-            message: `License "${result.license.name}" has reached 100% capacity (${result.license.usedSeats}/${result.license.totalSeats} seats assigned).`,
+            message: `License "${result.license.name}" has reached full capacity (${result.license.usedSeats}/${result.license.totalSeats} seats assigned).`,
             type: 'WARNING',
             link: '/licenses',
           });

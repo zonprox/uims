@@ -13,40 +13,40 @@ export class AssetsController {
   constructor(private readonly assetsService: AssetsService) {}
 
   @Get('stats')
-  @ApiOperation({ summary: 'Get asset KPIs and metrics' })
+  @ApiOperation({ summary: 'Get asset statistics' })
   getStats() {
     return this.assetsService.getStats();
   }
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create new asset (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Create asset' })
   create(@Body() body: CreateAssetDto) {
     return this.assetsService.create(body);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all assets with filtering' })
+  @ApiOperation({ summary: 'Get all assets' })
   findAll(@Query() query: AssetQueryDto) {
     return this.assetsService.findAll(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get asset by id' })
+  @ApiOperation({ summary: 'Get asset by ID' })
   findOne(@Param('id') id: string) {
     return this.assetsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Update asset (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Update asset' })
   update(@Param('id') id: string, @Body() body: UpdateAssetDto) {
     return this.assetsService.update(id, body);
   }
 
   @Delete(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Delete asset (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Delete asset' })
   remove(@Param('id') id: string) {
     return this.assetsService.remove(id);
   }

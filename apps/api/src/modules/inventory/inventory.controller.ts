@@ -14,14 +14,14 @@ export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Get('stats')
-  @ApiOperation({ summary: 'Get inventory stock metrics' })
+  @ApiOperation({ summary: 'Get inventory statistics' })
   getStats() {
     return this.inventoryService.getStats();
   }
 
   @Post()
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Add new inventory SKU (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Create inventory item' })
   create(@Body() body: CreateInventoryItemDto) {
     return this.inventoryService.create(body);
   }
@@ -33,28 +33,28 @@ export class InventoryController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get inventory item by id' })
+  @ApiOperation({ summary: 'Get inventory item by ID' })
   findOne(@Param('id') id: string) {
     return this.inventoryService.findOne(id);
   }
 
   @Patch(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Update inventory item (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Update inventory item' })
   update(@Param('id') id: string, @Body() body: UpdateInventoryItemDto) {
     return this.inventoryService.update(id, body);
   }
 
   @Delete(':id')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Delete inventory item (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Delete inventory item' })
   remove(@Param('id') id: string) {
     return this.inventoryService.remove(id);
   }
 
   @Post(':id/restock')
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Restock inventory SKU quantity (Admin/Super Admin only)' })
+  @ApiOperation({ summary: 'Restock inventory item' })
   restock(@Param('id') id: string, @Body() body: RestockInventoryDto) {
     return this.inventoryService.restock(id, body.quantity || 10);
   }

@@ -62,7 +62,7 @@ export default function NotFoundPage() {
                     Inventory
                   </Button>
                   <Button size="small" icon={<TeamOutlined />} onClick={() => navigate('/users')}>
-                    Active Directory & Users
+                    Users & Access
                   </Button>
                 </Space>
               </div>

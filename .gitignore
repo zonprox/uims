@@ -109,6 +109,11 @@ apps/api/prisma/migrations/**/migration_lock.toml
 .claude/
 .gemini/
 .cursor/
+.windsurf/
+.copilot/
+.antigravity/
+.agents/
+.planning/
 
 # ------------------------------------------------------------------------------
 # Operating System Artifacts

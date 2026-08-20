@@ -101,8 +101,8 @@ export class AssetsService {
     if (data.assignedToId && this.notificationsService) {
       try {
         await this.notificationsService.notifyUser(data.assignedToId, {
-          title: 'Hardware Asset Assigned',
-          message: `Asset "${formatted.name}" (Tag: ${formatted.tag}) has been assigned to your corporate profile.`,
+          title: 'Asset Assigned',
+          message: `Asset "${formatted.name}" (Tag: ${formatted.tag}) has been assigned to you.`,
           type: 'INFO',
           link: '/assets',
         });
@@ -214,7 +214,7 @@ export class AssetsService {
 
   async update(id: string, data: UpdateAssetDto) {
     const existing = await this.prisma.asset.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Asset ${id} not found`);
+    if (!existing) throw new NotFoundException(`Asset with ID ${id} not found`);
 
     const updateData = await this.buildAssetUpdateData(data);
 
@@ -252,8 +252,8 @@ export class AssetsService {
         // 1. Assignment change notification
         if (data.assignedToId && data.assignedToId !== existing.assignedToId) {
           await this.notificationsService.notifyUser(data.assignedToId, {
-            title: 'Hardware Asset Assigned',
-            message: `Asset "${formatted.name}" (Tag: ${formatted.tag}) has been assigned to your corporate profile.`,
+            title: 'Asset Assigned',
+            message: `Asset "${formatted.name}" (Tag: ${formatted.tag}) has been assigned to you.`,
             type: 'INFO',
             link: '/assets',
           });
@@ -266,7 +266,7 @@ export class AssetsService {
         ) {
           await this.notificationsService.notifyAdmins({
             title: `Asset Alert: ${formatted.name}`,
-            message: `Hardware asset ${formatted.name} (${formatted.tag}) has been marked as ${formatted.status}.`,
+            message: `Asset "${formatted.name}" (${formatted.tag}) status changed to ${formatted.status}.`,
             type: 'ALERT',
             link: '/assets',
           });
