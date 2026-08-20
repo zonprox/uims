@@ -30,7 +30,12 @@ export default function LoginPage() {
   const toggleMode = useThemeStore((state) => state.toggleMode);
   const isDark = resolvedMode === 'dark';
 
-  const from = location.state?.from?.pathname || '/';
+  const from =
+    typeof location.state?.from === 'string'
+      ? location.state.from
+      : location.state?.from?.pathname
+        ? `${location.state.from.pathname}${location.state.from.search || ''}${location.state.from.hash || ''}`
+        : '/';
 
   const onFinish = async (values: { email?: string; password?: string; remember?: boolean }) => {
     setLoading(true);

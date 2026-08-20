@@ -1,42 +1,20 @@
 # Original User Request
 
-## Initial Request — 2026-08-20T03:10:49Z
+## Initial Request — 2026-08-20T09:26:00Z
 
-Standardize and polish all UI/UX copy, navigation labels, page headers, modals, forms, action buttons, table columns, tooltips, toasts, and user-facing API messages across the UIMS platform into clean, concise, standardized Enterprise English.
+Implement an enterprise-grade, comprehensive Error Boundary and resilience system for the UIMS web application following React Router best practices, Ant Design v6 guidelines, and full error recovery workflows.
 
-Working directory: /home/user/projects/uims
-Integrity mode: development
+Requirements:
+1. R1. Comprehensive Route Error Boundary Architecture: Provide a robust RouteErrorBoundary component integrated into the React Router configuration at root and layout levels. Handle different HTTP/Route error status codes (401 Unauthorized, 403 Forbidden, 404 Not Found, 500 Server/Application Error) and unhandled runtime JS exceptions with clean, accessible Ant Design v6 <Result> layouts.
+2. R2. Global Application Error Boundary & Error Telemetry Fallbacks: Implement a top-level React Error Boundary wrapping the root app container to catch rendering errors outside router contexts, provide graceful error recovery (page reload, state reset, session refresh), and include collapsible sanitized diagnostic information with 1-click error copying.
+3. R3. Enterprise UI/UX & Resilient User Recovery Actions: Ensure all error views provide clear, verb-first recovery actions (e.g. "Reload Page", "Return to Dashboard", "Sign In Again"), seamless dark/light theme integration via App.useApp(), zero redundant prefixes, and 100% compliant Enterprise English copy.
 
-## Requirements
-
-### R1. Full-Scope UI/UX Copy Standardization
-Scan and standardize all user-facing strings across `apps/web` (views, layouts, navigation, modals, drawers, forms, tables, empty states, error boundaries, notifications) and `apps/api` (user-facing exception messages, validation feedback, email/notification templates, seed titles). Remove redundant prefixes, buzzwords, and verbose padding (e.g., replace "Enterprise Notifications" with "Notifications", "Unified Asset Inventory" with "Asset Inventory" or "Assets", "Global System Configuration" with "System Settings").
-
-### R2. Enterprise UX Phrasing Standards
-Ensure all copy adheres to professional Enterprise English conventions:
-- High-signal, action-oriented button and menu labels (e.g., "Create Asset", "Export CSV", "Save Changes").
-- Consistent title casing for page titles, menu items, tab titles, and modal headers.
-- Consistent sentence casing and active voice for alerts, helper descriptions, confirmation dialogues, and toast notifications.
-- No colloquial, awkward, non-standard, or mixed-language text.
-
-### R3. Quality and Build Integrity
-Maintain complete integrity of types, linters, tests, and formatting across the monorepo. Any test fixtures or assertions that verify specific user-facing text must be updated in tandem.
-
-## Acceptance Criteria
-
-### Copy Polish & Pattern Uniformity
-- [ ] Every page header, navigation menu item, modal title, table column, and action button in `apps/web` is verified to use concise, professional enterprise copy without redundant fluff words.
-- [ ] All user-facing alert, toast, empty state, and validation messages are clear, concise, and grammatically accurate in Enterprise English.
-
-### Code Quality & Build Verification
-- [ ] `pnpm typecheck` executes across all workspaces with zero TypeScript errors.
-- [ ] `pnpm format:check` and `pnpm lint` pass across the entire repository.
-- [ ] `pnpm test` passes cleanly across all packages.
-
-## 2026-08-20T03:13:49Z
-
-User instruction update: After finishing the copy standardization and verification, check git status/diff and ensure all ignore files (.gitignore, etc.) are properly updated if any untracked artifacts or temp files exist.
-
-## 2026-08-20T03:13:56Z
-
-User instruction update: After finishing the task and verifying builds/tests, check git diff, update .gitignore / ignore files as needed, and create a clean git commit with a standard enterprise commit message.
+Acceptance Criteria:
+- React Router default developer error screen ('Hey developer...') is replaced with custom RouteErrorBoundary on all routes.
+- 404 Not Found errors display a dedicated, styled 404 Result page with navigation back to the dashboard.
+- 401/403 Authentication/Authorization errors guide the user to sign in or request access.
+- 500 / Runtime exceptions render a graceful error UI with action buttons to reload the page or return home, preventing white-screen crashes.
+- Collapsible diagnostic details panel allows copying error stack/message for support without cluttering the main UI.
+- Dedicated unit and integration tests (pnpm --filter @uims/web test) verify error boundary rendering, status code handling, and recovery action handlers.
+- Monorepo typecheck and build (pnpm typecheck and pnpm build) pass with 0 errors.
+- All UI strings adhere strictly to AGENTS.md Enterprise English standards.

@@ -6,6 +6,7 @@ import { dayjs } from '@uims/shared-utils';
 import 'dayjs/locale/en';
 import { useMemo } from 'react';
 import { RouterProvider } from 'react-router';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useThemeStore } from '../stores/theme.store';
 import { queryClient } from './query-client';
 import { router } from './router';
@@ -33,14 +34,18 @@ export default function App() {
   }, [mode, resolvedMode, compact, preset, borderRadius]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={enUS} theme={themeConfig}>
-        <ProConfigProvider intl={enUSIntl}>
-          <AntApp>
-            <RouterProvider router={router} />
-          </AntApp>
-        </ProConfigProvider>
-      </ConfigProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider locale={enUS} theme={themeConfig}>
+          <ProConfigProvider intl={enUSIntl}>
+            <AntApp>
+              <ErrorBoundary>
+                <RouterProvider router={router} />
+              </ErrorBoundary>
+            </AntApp>
+          </ProConfigProvider>
+        </ConfigProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

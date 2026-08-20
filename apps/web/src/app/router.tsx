@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
 import PageLoader from '../components/PageLoader';
+import RouteErrorBoundary from '../components/RouteErrorBoundary';
 import AuthLayout from '../layouts/AuthLayout';
 import MainLayout from '../layouts/MainLayout';
 
@@ -26,13 +27,16 @@ export const router = createBrowserRouter([
         <LoginPage />
       </Suspense>
     ),
+    ErrorBoundary: RouteErrorBoundary,
   },
   {
     path: '/',
     element: <AuthLayout />,
+    ErrorBoundary: RouteErrorBoundary,
     children: [
       {
         element: <MainLayout />,
+        ErrorBoundary: RouteErrorBoundary,
         children: [
           {
             index: true,
