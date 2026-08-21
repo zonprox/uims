@@ -29,12 +29,10 @@ export default defineConfig(({ mode }) => {
   const apiPort = parseInt(env.APP_PORT || '3002', 10);
 
   // In Docker, proxy to internal container; otherwise localhost
-  const proxyTarget =
-    process.env.API_PROXY_URL ||
-    env.API_PROXY_URL ||
-    (process.env.HOSTNAME || process.env.NODE_ENV === 'development'
-      ? 'http://uims-api-dev:3000'
-      : `http://localhost:${apiPort}`);
+  const isDocker = fs.existsSync('/.dockerenv') || Boolean(process.env.DOCKER_CONTAINER);
+  const defaultProxyTarget = isDocker ? 'http://uims-api-dev:3000' : `http://localhost:${apiPort}`;
+
+  const proxyTarget = process.env.API_PROXY_URL || env.API_PROXY_URL || defaultProxyTarget;
 
   // SSL certs for dev HTTPS
   const certPath = path.resolve(import.meta.dirname, './certs/cert.pem');

@@ -33,7 +33,7 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-validators/node_modules
       - /app/packages/shared-utils/node_modules
-    command: sh -c "pnpm --filter @uims/api prisma:generate && pnpm --filter @uims/api dev"
+    command: sh -c "pnpm install && pnpm --filter @uims/api prisma:generate && pnpm --filter @uims/api dev"
 
   web:
     build:
@@ -47,6 +47,7 @@ services:
       NODE_ENV: development
       CI: "true"
       VITE_API_URL: /api/v1
+      API_PROXY_URL: http://uims-api-dev:3000
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
     volumes: !override
@@ -57,4 +58,4 @@ services:
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-validators/node_modules
       - /app/packages/shared-utils/node_modules
-    command: pnpm --filter @uims/web dev --host 0.0.0.0 --port 5679
+    command: sh -c "pnpm install && pnpm --filter @uims/web dev --host 0.0.0.0 --port 5679"
