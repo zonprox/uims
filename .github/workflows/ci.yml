@@ -16,6 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    env:
+      DATABASE_URL: postgresql://uims:uims_ci_test_secret_32_characters@localhost:5432/uims_test?schema=public
+      JWT_SECRET: uims_test_ci_jwt_secret_minimum_32_characters_long
+      JWT_REFRESH_SECRET: uims_test_ci_jwt_refresh_secret_minimum_32_characters_long
+      AUDIT_SIGNING_KEY: uims_test_ci_audit_signing_key_minimum_32_characters_long
+      CI: true
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
