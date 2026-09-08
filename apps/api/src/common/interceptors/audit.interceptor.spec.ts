@@ -12,6 +12,8 @@ describe('AuditInterceptor', () => {
   };
 
   beforeEach(() => {
+    process.env.AUDIT_SIGNING_KEY =
+      process.env.AUDIT_SIGNING_KEY || 'test-audit-signing-key-minimum-32-characters-spec';
     mockPrisma = {
       auditLog: {
         create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
@@ -71,8 +73,10 @@ describe('AuditInterceptor', () => {
       interceptor.intercept(context, next).subscribe(resolve);
     });
 
-    // Wait a tick for async tap execution
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for async tap execution
+    await vi.waitFor(() => {
+      expect(mockPrisma.auditLog.create).toHaveBeenCalled();
+    });
 
     expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({

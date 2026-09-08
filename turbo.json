@@ -36,5 +36,13 @@
       "cache": false
     }
   },
-  "globalEnv": ["DATABASE_URL", "REDIS_URL", "JWT_SECRET", "JWT_REFRESH_SECRET", "NODE_ENV"]
+  "globalEnv": [
+    "DATABASE_URL",
+    "REDIS_URL",
+    "JWT_SECRET",
+    "JWT_REFRESH_SECRET",
+    "AUDIT_SIGNING_KEY",
+    "JWT_EXPIRATION",
+    "NODE_ENV"
+  ]
 }
