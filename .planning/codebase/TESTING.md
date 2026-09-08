@@ -1,43 +1,57 @@
-# Codebase Testing Setup
+# Testing Strategy
+**Analysis Date:** 2026-09-08
 
-**Analysis Date:** 2026-08-20
+## Overview
+The UIMS monorepo uses Vitest as the primary test runner for both the backend (`apps/api`) and frontend (`apps/web`). The test strategy focuses heavily on unit testing core services and frontend components, with a unified testing framework across the workspace.
 
-## Test Framework
-- **Vitest**: The primary test runner for both the frontend and backend.
-  - **API Config (`apps/api/vitest.config.mts`)**: Configured for the `node` environment, targeting files matching `src/**/*.{test,spec}.ts`.
-  - **Web Config (`apps/web/vitest.config.ts`)**: Configured for the `happy-dom` environment, utilizing `@vitejs/plugin-react`, and mapping path aliases (e.g., `@/`, `@uims/*`).
-- **Playwright**: The root `package.json` includes `@playwright/test` and `playwright` (v1.62.1) in `devDependencies`. There is a `test:e2e` script, but no Playwright configuration or E2E test files are currently present in the codebase.
+## Test Framework & Tools
+- **Runner**: Vitest (v4.1.11).
+- **Environment**: Backend runs in the default Node environment, while the frontend is configured to use `happy-dom` (via `vitest.config.ts`).
+- **Assertion Library**: Vitest's built-in `expect` and mocking (`vi`).
 
-## Test Organization
-Tests are co-located with the source code they are verifying rather than being placed in a centralized `tests/` directory.
-- **Backend (API)**: Test files use the `.spec.ts` extension (e.g., `inventory.service.spec.ts`).
-- **Frontend (Web)**: Test files use `.test.ts` or `.test.tsx` extensions (e.g., `auth.store.test.ts`, `OrganizationCanvas.test.tsx`).
+## Backend Testing
+### Unit Test Patterns
+- Test files are collocated with their corresponding source files using the `*.spec.ts` naming convention (e.g., `assets.service.spec.ts`).
+- Tests rely heavily on isolated unit testing, ensuring that business logic in services is tested independently of the database.
 
-## Unit Tests
-- **API**: Controllers and services are unit tested by mocking external dependencies. For instance, in `inventory.service.spec.ts`, the Prisma client is manually mocked using `vi.fn()` for all database operations (e.g., `findMany`, `create`).
-- **Web**: Unit tests focus on state management (Zustand stores like `auth.store.test.ts`), custom hooks (`useSystemHealth.test.ts`), and utility services. These tests verify state initialization, actions, and side effects. Component testing exists (e.g., `OrganizationCanvas.test.tsx`) but is not the sole focus.
+### Mocking Strategy
+- Database dependencies (Prisma) are heavily mocked using `vi.fn()`.
+- Complex operations like `this.prisma.$transaction` are mocked by yielding the mock Prisma client instance back to the callback.
+- Service dependencies (like `NotificationsService`) are stubbed or optionally omitted if not critical to the core logic being tested.
 
-## Integration Tests
-- Dedicated integration tests (e.g., making real HTTP requests to endpoints or interacting with a test database instance) do not have a distinct pattern or directory. Most API tests are unit tests that mock the database layer.
+### Test File Organization
+- Tests reside inside the module directories alongside implementation (e.g., `apps/api/src/modules/assets/assets.service.spec.ts`).
+- Naming scheme: `*.spec.ts`.
 
-## E2E Tests
-- **Setup**: While dependencies and a `test:e2e` script exist via Turborepo, Playwright E2E tests are not yet implemented. There are no `playwright.config.ts` files or `e2e` directories.
+## Frontend Testing
+### Component Test Patterns
+- Test files are collocated with React components using the `*.test.tsx` and `*.test.ts` naming conventions (e.g., `ErrorBoundary.test.tsx`, `auth.store.test.ts`).
+- Component tests directly render React trees and validate DOM node presence, text content, and interactions.
+- Complex tests use `createRoot`, `act`, and manual DOM creation (e.g., `document.createElement`) to assert component lifecycles and error boundaries safely.
 
-## Test Utilities
-- Tests rely heavily on Vitest's built-in mocking and assertion utilities (`vi.fn()`, `expect`, `describe`, `it`, `beforeEach`).
-- Mocks and fixtures are typically constructed inline within the `beforeEach` blocks of individual test suites rather than being imported from centralized factory files or a dedicated utilities directory.
+### Mocking Strategy
+- State stores (like Zustand's `auth.store.ts`) are manually reset before each test block (`beforeEach`) to ensure test isolation.
+- Global browser APIs (e.g., `console.error`) are often spied on or stubbed using `vi.fn()` to suppress expected error output during boundary tests.
 
-## Coverage
-- **Current State**: There are 32 test files in the backend (`apps/api/src/**/*.spec.ts`) and 11 test files in the frontend (`apps/web/src/**/*.test.{ts,tsx}`). 
-- **Gaps**:
-  - E2E test coverage is currently 0%.
-  - Database integration tests are lacking, as data access layers are mocked.
-  - Frontend component testing coverage appears thin relative to the number of components; the focus is visibly skewed towards testing hooks and stores.
+### Test Utilities
+- Direct DOM manipulation is utilized heavily, though tools like `@testing-library/react` might be beneficial for standardizing queries. Test utilities primarily revolve around custom render wrappers for context providers (e.g., wrapping with Ant Design's `App` and `ConfigProvider`).
 
-## CI/CD Testing
-- Testing is orchestrated using Turborepo via the root `package.json`:
-  - `pnpm run test`: Executes `turbo run test` to run Vitest suites across all applicable workspaces concurrently and with caching.
-  - `pnpm run test:e2e`: Executes `turbo run test:e2e` (currently a no-op given the lack of E2E setup).
+## E2E Testing
+- **Status**: No End-to-End (E2E) testing configuration was found.
+- There are no `playwright.config.ts` or `cypress.config.ts` files present in the repository.
 
----
-*Analysis Date: 2026-08-20*
+## Test Scripts & CI
+- Backend test scripts (`apps/api/package.json`):
+  - `test`: Runs `vitest run`
+  - `test:watch`: Runs `vitest`
+- Frontend test scripts (`apps/web/package.json`):
+  - `test`: Runs `vitest run`
+
+## Coverage Configuration
+- There are no explicit test coverage commands or coverage threshold configurations defined in the `package.json` scripts or `vitest.config.ts` files. The focus is currently on successful test execution rather than enforcing coverage metrics.
+
+## Gaps & Recommendations
+1. **Missing E2E Tests**: There is no end-to-end test suite configured. Adopting Playwright or Cypress is highly recommended to validate user flows across the full stack.
+2. **Coverage Tracking**: Coverage reporting is not configured. Consider adding `@vitest/coverage-v8` to track code coverage metrics.
+3. **Frontend Testing Library**: Consider integrating `@testing-library/react` in the frontend to simplify DOM assertions and encourage accessible UI testing patterns.
+4. **Data Fetching Mocks**: Standardize mocking for API calls and TanStack Query interactions if the latter is broadly adopted in the future.

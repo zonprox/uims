@@ -1,40 +1,45 @@
-# External Integrations
-**Analysis Date:** 2026-08-20
+# Integrations & External Services
+**Analysis Date:** 2026-09-08
 
-## Databases
-- **Type**: PostgreSQL
-- **ORM**: Prisma (v7.9.1)
-- **Connection Patterns**: Standard connection string via `DATABASE_URL` with query parameters configuring the connection pool (`connection_limit=20&pool_timeout=30`). Prisma schema located at `apps/api/prisma/schema.prisma` models entities like `User`, `Asset`, `IPAddress`, `License`, `AuditLog`, etc.
+## Database (PostgreSQL + Prisma)
+- **Engine**: PostgreSQL 17
+- **ORM**: Prisma Client v7.9.1
+- **Key Models**: `User`, `Role`, `Asset`, `License`, `InventoryItem`, `IPAddress`, `AuditLog`, `Notification`, `DirectoryGroup`.
+- **Relations**: Comprehensive mapping of organizational hierarchy (Organization -> Department -> Position), networking (VLAN -> Subnet -> IPAddress), and asset assignment.
 
-## Caching & Queues
-- **Redis**: Used as the primary caching and message broker layer. Configured via `REDIS_URL`. Uses `ioredis` library.
-- **BullMQ**: Utilized for background task processing via `@nestjs/bullmq` (v11) and `bullmq` (v6.1.1), backed by the Redis instance.
+## Cache & Queue (Redis + BullMQ)
+- **Engine**: Redis v8 via `ioredis` v6.
+- **Caching/Throttling**: Integrated natively with NestJS (`RedisModule`, `@nestjs/throttler`).
+- **Queues**: `bullmq` v6.1.2 and `@nestjs/bullmq` are installed for background job processing.
 
-## Search
-- **MeiliSearch**: Integrated for fast, relevant full-text search capabilities.
-- **Configuration**: Connects via HTTP using `MEILISEARCH_HOST` (e.g., `http://meilisearch:7700` in dev) and authenticated with `MEILISEARCH_API_KEY`.
+## Search (MeiliSearch)
+- **Service**: MeiliSearch latest.
+- **Integration**: `SearchModule` exposed via `SearchController`.
+- **Endpoints**: `GET /api/v1/search` for querying, `POST /api/v1/search/sync` to trigger `syncAllToMeilisearch()` synchronization.
 
-## Storage
-- **File Storage**: SeaweedFS (S3-compatible storage).
-- **Configuration**: Interacts with the storage layer using standard S3 APIs. Configured via `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `S3_BUCKET` (e.g., `uims-files`).
+## File Storage (SeaweedFS)
+- **Service**: SeaweedFS running Master, Volume, and Filer nodes.
+- **Protocol**: S3-compatible API (port 8333).
+- **Environment**: Backend expects `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `S3_BUCKET` for file uploads/retrievals.
 
-## Real-time
-- **WebSocket Setup**: Powered by `socket.io` (v4.8.3).
-- **Backend**: Uses `@nestjs/platform-socket.io` and `@nestjs/websockets` for emitting and listening to real-time events.
-- **Frontend**: Connects using `socket.io-client`.
+## WebSocket (Socket.IO)
+- **Gateway**: `NotificationsGateway` at namespace `/notifications`.
+- **Authentication**: Validates JWT token from handshake (headers/query) to assign Socket ID to rooms based on `user:{userId}` and `role:{role}`.
+- **Events Emitted**: `connected`, `notification:new`, `notification:count`, `notification:read`, `notification:cleared`.
+- **Events Listened**: `ping` (replies with `pong`).
 
-## Authentication
-- **Strategy**: JWT-based authentication with access and refresh tokens.
-- **Configuration**: Secrets defined via `JWT_SECRET` and `JWT_REFRESH_SECRET`. Expiration times are configurable (`JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`).
-- **Implementation**: Utilizes `passport`, `passport-jwt`, and `@nestjs/jwt`. Passwords are hashed using `bcrypt` (v6.0.0).
+## API Endpoints Overview
+REST endpoints are prefixed with `api/v1`. Controllers identified:
+- `AssetsController`, `InventoryController`, `LicensesController` (Asset Management)
+- `AuthController`, `UsersController`, `RolesController` (IAM)
+- `NetworkController` (IPAM)
+- `OrganizationController` (Org Chart / Directory)
+- `NotificationsController`, `AuditController`, `ReportsController`, `DashboardController`, `SettingsController`, `HealthController`, `SearchController`.
+- **Security**: Secured globally by `ThrottlerGuard`, `JwtAuthGuard`, `RolesGuard`, and `PermissionsGuard`. Intercepted by `AuditInterceptor`.
 
-## External Services
-- Currently, the application primarily relies on self-hosted infrastructure components (PostgreSQL, Redis, MeiliSearch, SeaweedFS) orchestrated via Docker Compose.
-- Note on Directory sources: `DirectorySource` enum in Prisma schema hints at potential integrations with LDAP and AZURE_AD, though the default is LOCAL.
+## Inter-Package Dependencies
+- `@uims/api` and `@uims/web` strictly import types from `@uims/shared-types`, schemas from `@uims/shared-validators`, and helpers from `@uims/shared-utils`.
 
-## Integration Patterns
-- **Environment Variables**: All services are configurable via environment variables, loaded from `.env` and managed across the monorepo by Turborepo.
-- **Local Development**: `docker-compose.dev.yml` orchestrates all dependent services (`postgres`, `redis`, `meilisearch`, `seaweedfs-filer`) providing a self-contained local environment. Services communicate over the internal Docker network using host aliases.
-
----
-*2026-08-20*
+## External Service Configuration
+- **Directory Services**: Prisma enums support `LDAP` and `AZURE_AD` as Directory Sources (`DirectorySource`).
+- **CORS/Security**: Strict CORS dynamically allowing localhost or explicit `CORS_ORIGIN`. Helmet enforces strict HSTS.
