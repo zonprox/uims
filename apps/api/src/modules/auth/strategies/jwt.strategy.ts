@@ -6,13 +6,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(@Optional() configService?: ConfigService) {
+    const secret = configService?.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET is required for JwtStrategy');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService?.get<string>('JWT_SECRET') ||
-        process.env.JWT_SECRET ||
-        'uims-jwt-secret-change-in-production',
+      secretOrKey: secret,
     });
   }
 

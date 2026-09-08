@@ -5,10 +5,15 @@ import {
   Injectable,
   type NestInterceptor,
 } from '@nestjs/common';
+import dotenv from 'dotenv';
 import type { Response } from 'express';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { PrismaService } from '../../database/prisma.service';
+import { extractClientIp } from '../decorators/client-ip.decorator';
+
+dotenv.config();
+dotenv.config({ path: '../../.env' });
 
 const SENSITIVE_KEYS = new Set([
   'password',
@@ -72,7 +77,10 @@ function computeAuditHash(
   ip: string,
   payloadStr: string,
 ): string {
-  const secret = process.env.AUDIT_SIGNING_KEY || 'uims-audit-tamper-evident-hmac-2026';
+  const secret = process.env.AUDIT_SIGNING_KEY;
+  if (!secret) {
+    throw new Error('AUDIT_SIGNING_KEY is required for tamper-evident audit logging');
+  }
   return crypto
     .createHmac('sha256', secret)
     .update(`${timestamp}|${userId}|${action}|${entity}|${status}|${ip}|${payloadStr}`)
@@ -99,16 +107,7 @@ export class AuditInterceptor implements NestInterceptor {
       const user = req.user;
       const entity = resolveEntityName(path);
       const action = resolveAction(method);
-      const forwarded = req.headers?.['x-forwarded-for'];
-      const rawIp =
-        (typeof forwarded === 'string'
-          ? forwarded
-          : Array.isArray(forwarded)
-            ? forwarded[0]
-            : undefined) ||
-        req.ip ||
-        '127.0.0.1';
-      const ipAddress = typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : '127.0.0.1';
+      const ipAddress = extractClientIp(req);
       const userAgent =
         typeof req.headers?.['user-agent'] === 'string' ? req.headers['user-agent'] : undefined;
       const sanitizedBody = sanitizePayload(req.body);

@@ -109,11 +109,13 @@ export default function RouteErrorBoundary() {
     } else if (error === 401) {
       status = '403';
       title = '401 - Unauthorized';
-      subTitle = 'Your session has expired or you are not signed in. Please sign in again to continue.';
+      subTitle =
+        'Your session has expired or you are not signed in. Please sign in again to continue.';
     } else if (error === 403) {
       status = '403';
       title = '403 - Access Denied';
-      subTitle = 'You do not have permission to access this resource. Contact your administrator to request access.';
+      subTitle =
+        'You do not have permission to access this resource. Contact your administrator to request access.';
     } else if (error === 404) {
       status = '404';
       title = '404 - Page Not Found';
@@ -129,15 +131,18 @@ export default function RouteErrorBoundary() {
     } else if (error === 429) {
       status = 'warning';
       title = '429 - Too Many Requests';
-      subTitle = 'Too many requests were sent in a given amount of time. Please wait a moment and try again.';
+      subTitle =
+        'Too many requests were sent in a given amount of time. Please wait a moment and try again.';
     } else if (error === 502) {
       status = '500';
       title = '502 - Bad Gateway';
-      subTitle = 'The server encountered a temporary gateway error. Please reload the page or try again later.';
+      subTitle =
+        'The server encountered a temporary gateway error. Please reload the page or try again later.';
     } else if (error === 503) {
       status = '500';
       title = '503 - Service Unavailable';
-      subTitle = 'The service is temporarily unavailable or undergoing maintenance. Please try again shortly.';
+      subTitle =
+        'The service is temporarily unavailable or undergoing maintenance. Please try again shortly.';
     } else if (error === 504) {
       status = '500';
       title = '504 - Gateway Timeout';
@@ -145,7 +150,8 @@ export default function RouteErrorBoundary() {
     } else if (error >= 500) {
       status = '500';
       title = `${error} - Server Error`;
-      subTitle = 'An unexpected server error occurred. You can reload the page or return to the dashboard.';
+      subTitle =
+        'An unexpected server error occurred. You can reload the page or return to the dashboard.';
     } else {
       status = 'error';
       title = `${error} - Request Error`;
@@ -166,13 +172,21 @@ export default function RouteErrorBoundary() {
             ? resp.status
             : typeof resp?.statusCode === 'number'
               ? resp.statusCode
-              : typeof errObj.status === 'string' && !isNaN(Number(errObj.status)) && Number(errObj.status) > 0
+              : typeof errObj.status === 'string' &&
+                  !isNaN(Number(errObj.status)) &&
+                  Number(errObj.status) > 0
                 ? Number(errObj.status)
-                : typeof errObj.statusCode === 'string' && !isNaN(Number(errObj.statusCode)) && Number(errObj.statusCode) > 0
+                : typeof errObj.statusCode === 'string' &&
+                    !isNaN(Number(errObj.statusCode)) &&
+                    Number(errObj.statusCode) > 0
                   ? Number(errObj.statusCode)
-                  : typeof resp?.status === 'string' && !isNaN(Number(resp?.status)) && Number(resp?.status) > 0
+                  : typeof resp?.status === 'string' &&
+                      !isNaN(Number(resp?.status)) &&
+                      Number(resp?.status) > 0
                     ? Number(resp?.status)
-                    : typeof resp?.statusCode === 'string' && !isNaN(Number(resp?.statusCode)) && Number(resp?.statusCode) > 0
+                    : typeof resp?.statusCode === 'string' &&
+                        !isNaN(Number(resp?.statusCode)) &&
+                        Number(resp?.statusCode) > 0
                       ? Number(resp?.statusCode)
                       : typeof errObj.code === 'number' && errObj.code >= 100 && errObj.code <= 599
                         ? errObj.code
@@ -225,12 +239,16 @@ export default function RouteErrorBoundary() {
       statusCode = 401;
       status = '403';
       title = '401 - Unauthorized';
-      subTitle = msg || 'Your session has expired or you are not signed in. Please sign in again to continue.';
+      subTitle =
+        msg ||
+        'Your session has expired or you are not signed in. Please sign in again to continue.';
     } else if (code === 403) {
       statusCode = 403;
       status = '403';
       title = '403 - Access Denied';
-      subTitle = msg || 'You do not have permission to access this resource. Contact your administrator to request access.';
+      subTitle =
+        msg ||
+        'You do not have permission to access this resource. Contact your administrator to request access.';
     } else if (code === 404) {
       statusCode = 404;
       status = '404';
@@ -245,32 +263,42 @@ export default function RouteErrorBoundary() {
       statusCode = 422;
       status = 'warning';
       title = '422 - Unprocessable Entity';
-      subTitle = msg || 'The submitted data failed validation. Please check your inputs and try again.';
+      subTitle =
+        msg || 'The submitted data failed validation. Please check your inputs and try again.';
     } else if (code === 429) {
       statusCode = 429;
       status = 'warning';
       title = '429 - Too Many Requests';
-      subTitle = msg || 'Too many requests were sent in a given amount of time. Please wait a moment and try again.';
+      subTitle =
+        msg ||
+        'Too many requests were sent in a given amount of time. Please wait a moment and try again.';
     } else if (code === 502) {
       statusCode = 502;
       status = '500';
       title = '502 - Bad Gateway';
-      subTitle = msg || 'The server encountered a temporary gateway error. Please reload the page or try again later.';
+      subTitle =
+        msg ||
+        'The server encountered a temporary gateway error. Please reload the page or try again later.';
     } else if (code === 503) {
       statusCode = 503;
       status = '500';
       title = '503 - Service Unavailable';
-      subTitle = msg || 'The service is temporarily unavailable or undergoing maintenance. Please try again shortly.';
+      subTitle =
+        msg ||
+        'The service is temporarily unavailable or undergoing maintenance. Please try again shortly.';
     } else if (code === 504) {
       statusCode = 504;
       status = '500';
       title = '504 - Gateway Timeout';
-      subTitle = msg || 'The upstream gateway timed out. Please reload the page or try again shortly.';
+      subTitle =
+        msg || 'The upstream gateway timed out. Please reload the page or try again shortly.';
     } else if (code && code >= 500) {
       statusCode = code;
       status = '500';
       title = `${code} - Server Error`;
-      subTitle = msg || 'An unexpected server error occurred. You can reload the page or return to the dashboard.';
+      subTitle =
+        msg ||
+        'An unexpected server error occurred. You can reload the page or return to the dashboard.';
     } else if (code) {
       statusCode = code;
       status = 'error';

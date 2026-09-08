@@ -1,7 +1,10 @@
+import { Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 
+const logger = new Logger('OrganizationSeeder');
+
 export async function seedOrganizations(prisma: PrismaClient) {
-  console.log('🏢 Seeding Enterprise Organizations, Hierarchical Departments & Positions...');
+  logger.log('🏢 Seeding Enterprise Organizations, Hierarchical Departments & Positions...');
 
   // 1. Organizations / Entities
   const orgHQ = await prisma.organization.upsert({

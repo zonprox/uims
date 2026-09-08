@@ -10,6 +10,7 @@ describe('AuthService', () => {
     findByEmail: ReturnType<typeof vi.fn>;
   };
   let mockJwtService: { sign: ReturnType<typeof vi.fn> };
+  let mockConfigService: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     mockUsersService = {
@@ -21,9 +22,20 @@ describe('AuthService', () => {
       sign: vi.fn(() => 'mock-jwt-token'),
     };
 
+    mockConfigService = {
+      get: vi.fn((key: string) => {
+        if (key === 'JWT_REFRESH_SECRET') {
+          return 'test-jwt-refresh-secret-min-32-chars-long';
+        }
+        return undefined;
+      }),
+    };
+
     service = new AuthService(
       mockUsersService as unknown as import('../users/users.service').UsersService,
       mockJwtService as unknown as import('@nestjs/jwt').JwtService,
+      undefined,
+      mockConfigService as unknown as import('@nestjs/config').ConfigService,
     );
   });
 
@@ -76,7 +88,7 @@ describe('AuthService', () => {
       expect(result.user.role).toBe('IT Specialist');
     });
 
-    it('should default to least privileged Employee role if roleName is not set', async () => {
+    it('should throw UnauthorizedException if user has no assigned role', async () => {
       const passwordHash = await bcrypt.hash('secret123', 10);
       mockUsersService.findByIdentifier.mockResolvedValue({
         id: 'user-2',
@@ -88,21 +100,12 @@ describe('AuthService', () => {
         roleName: null,
       });
 
-      const result = await service.login({
-        email: 'employee@uims.internal',
-        password: 'secret123',
-      });
-
-      expect(result.token).toBe('mock-jwt-token');
-      expect(result.user.role).toBe('Employee');
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        email: 'employee@uims.internal',
-        sub: 'user-2',
-        role: 'Employee',
-        permissions: [],
-        username: 'jane.doe',
-        type: 'access',
-      });
+      await expect(
+        service.login({
+          email: 'employee@uims.internal',
+          password: 'secret123',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw UnauthorizedException on invalid password', async () => {
@@ -138,11 +141,22 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
-    it('should refresh token and preserve user info with least privileged default role', async () => {
+    it('should throw UnauthorizedException if user has no assigned role on refresh', async () => {
+      await expect(
+        service.refresh({
+          id: 'user-3',
+          username: 'user3',
+          email: 'user3@uims.internal',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should refresh token and preserve user info when role is assigned', async () => {
       const result = await service.refresh({
         id: 'user-3',
         username: 'user3',
         email: 'user3@uims.internal',
+        role: 'Employee',
       });
 
       expect(result.token).toBe('mock-jwt-token');

@@ -244,7 +244,10 @@ export class LicensesService {
         _sum: { totalSeats: true, usedSeats: true },
       }),
       this.prisma.license.count({ where: { status: 'EXPIRING_SOON' } }),
-      this.prisma.license.findMany({ select: { usedSeats: true, costPerSeat: true } }),
+      this.prisma.license.findMany({
+        take: 1000,
+        select: { usedSeats: true, costPerSeat: true },
+      }),
     ]);
 
     const totalSeats = aggregateSeats._sum.totalSeats || 0;

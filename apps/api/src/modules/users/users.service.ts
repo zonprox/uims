@@ -109,7 +109,6 @@ export class UsersService {
         isClosed: Boolean(userData.isClosed),
         status,
         source: userData.source || 'LOCAL',
-        adInitialPassword,
         roleId,
         roleName: roleName || 'Employee',
         passwordHash,
@@ -248,7 +247,6 @@ export class UsersService {
           telephone: true,
           isClosed: true,
           source: true,
-          adInitialPassword: true,
           roleId: true,
           roleName: true,
           role: {
@@ -409,9 +407,6 @@ export class UsersService {
     if (updateUserDto.phone !== undefined) updateData.phone = updateUserDto.phone;
     if (updateUserDto.avatar !== undefined) updateData.avatar = updateUserDto.avatar;
     if (updateUserDto.source !== undefined) updateData.source = updateUserDto.source;
-    if (updateUserDto.adInitialPassword !== undefined)
-      updateData.adInitialPassword = updateUserDto.adInitialPassword;
-
     if (updateUserDto.isClosed !== undefined) {
       updateData.isClosed = updateUserDto.isClosed;
       if (updateUserDto.isClosed) updateData.status = 'SUSPENDED';
@@ -518,6 +513,7 @@ export class UsersService {
 
   async getOrganizationalUnits() {
     const users = await this.prisma.user.findMany({
+      take: 1000,
       select: {
         department: true,
         section: true,
@@ -529,6 +525,7 @@ export class UsersService {
     });
 
     const groups = await this.prisma.directoryGroup.findMany({
+      take: 1000,
       select: { name: true, scope: true, memberCount: true },
     });
 
@@ -678,6 +675,7 @@ export class UsersService {
 
   async findAllGroups() {
     return this.prisma.directoryGroup.findMany({
+      take: 100,
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -762,7 +760,6 @@ export class UsersService {
               ouPath: row.ouPath || existingUser.ouPath || 'OU=Production,DC=uims,DC=internal',
               managerName: row.managerName || existingUser.managerName,
               telephone: row.telephone || existingUser.telephone,
-              adInitialPassword: row.initialPassword || existingUser.adInitialPassword,
               isClosed,
               status,
             },
@@ -802,7 +799,6 @@ export class UsersService {
               ouPath: row.ouPath || 'OU=Production,DC=uims,DC=internal',
               managerName: row.managerName || null,
               telephone: row.telephone || null,
-              adInitialPassword: adPass,
               passwordHash,
               isClosed,
               status,
@@ -834,6 +830,7 @@ export class UsersService {
 
   async exportMaster() {
     const users = await this.prisma.user.findMany({
+      take: 10000,
       orderBy: { employeeCode: 'asc' },
       select: {
         id: true,
@@ -857,7 +854,6 @@ export class UsersService {
         isClosed: true,
         computerName: true,
         computerName2: true,
-        adInitialPassword: true,
         adGroup: true,
         status: true,
         roleName: true,
@@ -883,7 +879,7 @@ export class UsersService {
         'Is Closed': u.isClosed ? 'Y' : 'N',
         'Computer Name': u.computerName || '',
         'Computer Name 2': u.computerName2 || '',
-        'Initial Password': u.adInitialPassword || '',
+        'Initial Password': (u as { adInitialPassword?: string }).adInitialPassword || '',
         'Directory Group': u.adGroup || '',
         'OU Path': u.ouPath || 'OU=Production,DC=uims,DC=internal',
         Status: u.status,

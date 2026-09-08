@@ -88,7 +88,6 @@ model User {
   phone              String?
   department         String?
   location           String?
-  adInitialPassword  String?
   ouPath             String?
   managerName        String?
   isLocked           Boolean             @default(false)
@@ -291,6 +290,8 @@ model DirectoryGroup {
   updatedAt   DateTime              @updatedAt
 
   memberships DirectoryMembership[]
+
+  @@index([name])
 }
 
 model DirectoryMembership {
@@ -443,6 +444,10 @@ model ReportSchedule {
   recipients String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([frequency])
+  @@index([category])
 }
 
 model Location {

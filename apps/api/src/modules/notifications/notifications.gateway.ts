@@ -50,10 +50,13 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         return;
       }
 
-      const secret =
-        this.configService.get<string>('JWT_SECRET') ||
-        process.env.JWT_SECRET ||
-        'uims-jwt-secret-change-in-production';
+      const secret = this.configService?.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
+
+      if (!secret) {
+        this.logger.error('JWT_SECRET is required for socket authentication');
+        client.disconnect(true);
+        return;
+      }
 
       const payload = this.jwtService.verify<{
         sub?: string;

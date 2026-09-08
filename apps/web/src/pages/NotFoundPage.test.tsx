@@ -47,7 +47,9 @@ describe('NotFoundPage component', () => {
     const root = await renderWithApp();
 
     expect(container.textContent).toContain('404 - Page Not Found');
-    expect(container.textContent).toContain('The page or resource you requested could not be located.');
+    expect(container.textContent).toContain(
+      'The page or resource you requested could not be located.',
+    );
 
     const homeBtn = Array.from(container.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Return to Dashboard'),

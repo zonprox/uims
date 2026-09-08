@@ -35,6 +35,7 @@ export class OrganizationService {
   // 2. Organizations
   async findAllOrganizations() {
     const orgs = await this.prisma.organization.findMany({
+      take: 100,
       include: {
         _count: {
           select: {
@@ -130,6 +131,7 @@ export class OrganizationService {
   // 3. Departments
   async findAllDepartments() {
     const depts = await this.prisma.department.findMany({
+      take: 100,
       include: {
         organization: { select: { id: true, name: true, code: true } },
         parent: { select: { id: true, name: true, code: true } },
@@ -219,6 +221,7 @@ export class OrganizationService {
   // 4. Positions
   async findAllPositions() {
     const positions = await this.prisma.position.findMany({
+      take: 100,
       include: {
         department: { select: { id: true, name: true, code: true } },
         _count: { select: { users: true } },
@@ -293,6 +296,7 @@ export class OrganizationService {
   // 5. Locations / Branches
   async findAllLocations() {
     return this.prisma.location.findMany({
+      take: 100,
       include: {
         organization: { select: { id: true, name: true, code: true } },
         _count: { select: { assets: true, users: true } },
@@ -304,6 +308,7 @@ export class OrganizationService {
   // 6. Interactive Org Tree Hierarchy
   async getHierarchyTree(): Promise<OrgNode[]> {
     const orgs = await this.prisma.organization.findMany({
+      take: 50,
       include: {
         locations: true,
         departments: {

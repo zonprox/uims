@@ -22,13 +22,7 @@ describe('ErrorResultView component', () => {
   const renderWithApp = async (element: React.ReactElement) => {
     const root = createRoot(container);
     await act(async () => {
-      root.render(
-        createElement(
-          ConfigProvider,
-          null,
-          createElement(AntApp, null, element),
-        ),
-      );
+      root.render(createElement(ConfigProvider, null, createElement(AntApp, null, element)));
     });
     return root;
   };
@@ -118,7 +112,9 @@ describe('ErrorResultView component', () => {
     );
 
     expect(container.textContent).toContain('404 - Page Not Found');
-    expect(container.textContent).toContain('The page or resource you requested could not be located.');
+    expect(container.textContent).toContain(
+      'The page or resource you requested could not be located.',
+    );
     expect(container.textContent).toContain('Or jump directly to:');
 
     const assetsBtn = Array.from(container.querySelectorAll('button')).find((b) =>
@@ -388,20 +384,18 @@ describe('ErrorResultView component', () => {
   });
 
   it('renders standard titles and subtitles for 422, 429, 502, 503, 504 errors', async () => {
-    const root422 = await renderWithApp(
-      createElement(ErrorResultView, { statusCode: 422 }),
-    );
+    const root422 = await renderWithApp(createElement(ErrorResultView, { statusCode: 422 }));
     expect(container.textContent).toContain('422 - Unprocessable Entity');
     expect(container.textContent).toContain('The submitted data failed validation.');
     act(() => {
       root422.unmount();
     });
 
-    const root503 = await renderWithApp(
-      createElement(ErrorResultView, { statusCode: 503 }),
-    );
+    const root503 = await renderWithApp(createElement(ErrorResultView, { statusCode: 503 }));
     expect(container.textContent).toContain('503 - Service Unavailable');
-    expect(container.textContent).toContain('The service is temporarily unavailable or undergoing maintenance.');
+    expect(container.textContent).toContain(
+      'The service is temporarily unavailable or undergoing maintenance.',
+    );
     act(() => {
       root503.unmount();
     });
@@ -411,7 +405,11 @@ describe('ErrorResultView component', () => {
     const root = await renderWithApp(
       createElement(ErrorResultView, {
         statusCode: 500,
-        extraActions: createElement('button', { id: 'custom-contact-support' }, 'Contact Enterprise Support'),
+        extraActions: createElement(
+          'button',
+          { id: 'custom-contact-support' },
+          'Contact Enterprise Support',
+        ),
       }),
     );
 
@@ -573,7 +571,9 @@ describe('ErrorResultView component', () => {
     );
 
     expect(container.textContent).toContain('403 - Access Denied');
-    expect(container.textContent).toContain('Subnet 10.240.0.0/16 is reserved for cloud infrastructure peering.');
+    expect(container.textContent).toContain(
+      'Subnet 10.240.0.0/16 is reserved for cloud infrastructure peering.',
+    );
 
     act(() => {
       root.unmount();

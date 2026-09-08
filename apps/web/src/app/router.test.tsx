@@ -33,7 +33,9 @@ describe('Router Error Boundary Integration', () => {
             {
               path: 'assets/:id',
               loader: () => {
-                throw new Response('Asset with ID ast-9999 was not found in inventory.', { status: 404 });
+                throw new Response('Asset with ID ast-9999 was not found in inventory.', {
+                  status: 404,
+                });
               },
               element: createElement('div', null, 'Asset Detail Page'),
             },
@@ -105,7 +107,10 @@ describe('Router Error Boundary Integration', () => {
   });
 
   it('renders RouteErrorBoundary when a deep nested loader throws a custom non-standard error object', async () => {
-    const customErrorObj = { status: 403, detail: 'Access to this nested resource is restricted to SuperAdmins.' };
+    const customErrorObj = {
+      status: 403,
+      detail: 'Access to this nested resource is restricted to SuperAdmins.',
+    };
 
     const router = createMemoryRouter(
       [
@@ -143,7 +148,9 @@ describe('Router Error Boundary Integration', () => {
     });
 
     expect(container.textContent).toContain('403 - Access Denied');
-    expect(container.textContent).toContain('Access to this nested resource is restricted to SuperAdmins.');
+    expect(container.textContent).toContain(
+      'Access to this nested resource is restricted to SuperAdmins.',
+    );
     expect(container.textContent).not.toContain('Hey developer');
 
     act(() => {
@@ -251,7 +258,9 @@ describe('Router Error Boundary Integration', () => {
             {
               path: 'reports',
               loader: () => {
-                throw new Response('Report analytics engine is temporarily overloaded.', { status: 500 });
+                throw new Response('Report analytics engine is temporarily overloaded.', {
+                  status: 500,
+                });
               },
               element: createElement('div', null, 'Reports Page'),
             },
@@ -314,7 +323,9 @@ describe('Router Error Boundary Integration', () => {
     });
 
     expect(container.textContent).toContain('404 - Page Not Found');
-    expect(container.textContent).toContain('The page or resource you requested could not be located.');
+    expect(container.textContent).toContain(
+      'The page or resource you requested could not be located.',
+    );
     expect(container.textContent).toContain('Return to Dashboard');
     expect(container.textContent).not.toContain('Hey developer');
 

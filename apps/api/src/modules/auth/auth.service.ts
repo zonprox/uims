@@ -127,7 +127,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const role = user.roleName || 'Employee';
+    const role = user.roleName || (user as { role?: { name?: string } }).role?.name;
+    if (!role) {
+      throw new UnauthorizedException(
+        'User account has no assigned role. Contact your system administrator.',
+      );
+    }
     const permissions = await this.resolvePermissions(user.roleId, role);
 
     const payload = {
@@ -139,14 +144,17 @@ export class AuthService {
       type: 'access',
     };
 
+    const refreshSecret =
+      this.configService?.get<string>('JWT_REFRESH_SECRET') || process.env.JWT_REFRESH_SECRET;
+    if (!refreshSecret) {
+      throw new Error('JWT_REFRESH_SECRET is required');
+    }
+
     const token = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(
       { sub: user.id, type: 'refresh' },
       {
-        secret:
-          this.configService?.get<string>('JWT_REFRESH_SECRET') ||
-          process.env.JWT_REFRESH_SECRET ||
-          'uims-refresh-secret-2026',
+        secret: refreshSecret,
         expiresIn: '7d',
       },
     );
@@ -227,7 +235,12 @@ export class AuthService {
         );
       }
 
-      const role = freshUser.roleName || freshUser.role?.name || 'Employee';
+      const role = freshUser.roleName || freshUser.role?.name;
+      if (!role) {
+        throw new UnauthorizedException(
+          'User account has no assigned role. Contact your system administrator.',
+        );
+      }
       const permissions = await this.resolvePermissions(freshUser.roleId, role);
 
       const payload = {
@@ -255,7 +268,12 @@ export class AuthService {
       };
     }
 
-    const role = user.role || 'Employee';
+    const role = user.role;
+    if (!role) {
+      throw new UnauthorizedException(
+        'User account has no assigned role. Contact your system administrator.',
+      );
+    }
     const permissions = user.permissions || [];
     const payload = { email: user.email, sub: userId, role, permissions, username: user.username };
     const token = this.jwtService.sign(payload);

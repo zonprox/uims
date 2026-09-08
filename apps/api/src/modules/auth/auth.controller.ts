@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Post, Req, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Request as ExpressRequest } from 'express';
+import { ClientIP } from '../../common/decorators/client-ip.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
@@ -26,14 +26,11 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'User login' })
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Req() req: ExpressRequest) {
-    const ip =
-      (typeof req.headers['x-forwarded-for'] === 'string'
-        ? req.headers['x-forwarded-for'].split(',')[0].trim()
-        : undefined) ||
-      req.ip ||
-      '127.0.0.1';
-    const userAgent = req.headers['user-agent'] || 'UIMS Browser Client';
+  async login(
+    @Body() loginDto: LoginDto,
+    @ClientIP() ip: string,
+    @Headers('user-agent') userAgent = 'UIMS Browser Client',
+  ) {
     return this.authService.login(loginDto, ip, userAgent);
   }
 

@@ -13,9 +13,17 @@ vi.mock('react-router', async () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useLocation: () => ({ pathname: '/protected/admin-panel', search: '', hash: '', state: null, key: 'test' }),
+    useLocation: () => ({
+      pathname: '/protected/admin-panel',
+      search: '',
+      hash: '',
+      state: null,
+      key: 'test',
+    }),
     useRouteError: () => mockRouteError,
-    isRouteErrorResponse: (err: unknown): err is { status: number; statusText: string; data: unknown } => {
+    isRouteErrorResponse: (
+      err: unknown,
+    ): err is { status: number; statusText: string; data: unknown } => {
       return Boolean(
         typeof err === 'object' &&
           err !== null &&
@@ -85,7 +93,15 @@ describe('RouteErrorBoundary component', () => {
 
     expect(useAuthStore.getState().token).toBeNull();
     expect(mockNavigate).toHaveBeenCalledWith('/login', {
-      state: { from: { pathname: '/protected/admin-panel', search: '', hash: '', state: null, key: 'test' } },
+      state: {
+        from: {
+          pathname: '/protected/admin-panel',
+          search: '',
+          hash: '',
+          state: null,
+          key: 'test',
+        },
+      },
     });
 
     act(() => {
@@ -103,7 +119,9 @@ describe('RouteErrorBoundary component', () => {
     const root = await renderWithApp();
 
     expect(container.textContent).toContain('403 - Access Denied');
-    expect(container.textContent).toContain('You lack the required Admin permission to access this route.');
+    expect(container.textContent).toContain(
+      'You lack the required Admin permission to access this route.',
+    );
 
     const homeBtn = Array.from(container.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Return to Dashboard'),
@@ -194,7 +212,9 @@ describe('RouteErrorBoundary component', () => {
   });
 
   it('handles unhandled JS runtime Error in route context', async () => {
-    const errorInstance = new TypeError('Cannot read properties of undefined (reading "inventory")');
+    const errorInstance = new TypeError(
+      'Cannot read properties of undefined (reading "inventory")',
+    );
     errorInstance.stack = 'TypeError: Cannot read properties\n    at AssetsView.render';
     mockRouteError = errorInstance;
 
@@ -264,7 +284,9 @@ describe('RouteErrorBoundary component', () => {
     const root = await renderWithApp();
 
     expect(container.textContent).toContain('404 - Page Not Found');
-    expect(container.textContent).toContain('The page or resource you requested could not be located.');
+    expect(container.textContent).toContain(
+      'The page or resource you requested could not be located.',
+    );
 
     act(() => {
       root.unmount();
@@ -277,7 +299,9 @@ describe('RouteErrorBoundary component', () => {
     const root = await renderWithApp();
 
     expect(container.textContent).toContain('Application Error');
-    expect(container.textContent).toContain('An unexpected error occurred while loading this page.');
+    expect(container.textContent).toContain(
+      'An unexpected error occurred while loading this page.',
+    );
 
     act(() => {
       root.unmount();
@@ -319,9 +343,12 @@ describe('RouteErrorBoundary component', () => {
   });
 
   it('handles thrown object with string status code and clears auth on Sign In Again', async () => {
-    useAuthStore
-      .getState()
-      .login('token-to-clear', { id: '2', email: 'session@uims.internal', name: 'User2', role: 'User' });
+    useAuthStore.getState().login('token-to-clear', {
+      id: '2',
+      email: 'session@uims.internal',
+      name: 'User2',
+      role: 'User',
+    });
 
     mockRouteError = {
       status: '401',
@@ -344,7 +371,15 @@ describe('RouteErrorBoundary component', () => {
 
     expect(useAuthStore.getState().token).toBeNull();
     expect(mockNavigate).toHaveBeenCalledWith('/login', {
-      state: { from: { pathname: '/protected/admin-panel', search: '', hash: '', state: null, key: 'test' } },
+      state: {
+        from: {
+          pathname: '/protected/admin-panel',
+          search: '',
+          hash: '',
+          state: null,
+          key: 'test',
+        },
+      },
     });
 
     act(() => {

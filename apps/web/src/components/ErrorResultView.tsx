@@ -1,5 +1,17 @@
 import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
-import { Button, Card, Collapse, Descriptions, Flex, Result, Space, Typography, theme, App, message as staticMessage } from 'antd';
+import {
+  Button,
+  Card,
+  Collapse,
+  Descriptions,
+  Flex,
+  Result,
+  Space,
+  Typography,
+  theme,
+  App,
+  message as staticMessage,
+} from 'antd';
 import type { ResultStatusType } from 'antd/es/result';
 import {
   HomeOutlined,
@@ -161,20 +173,37 @@ export default function ErrorResultView({
       const errObj = error as Record<string, unknown>;
       if (typeof errObj.status === 'number') return errObj.status;
       if (typeof errObj.statusCode === 'number') return errObj.statusCode;
-      if (typeof errObj.status === 'string' && !isNaN(Number(errObj.status)) && Number(errObj.status) > 0)
+      if (
+        typeof errObj.status === 'string' &&
+        !isNaN(Number(errObj.status)) &&
+        Number(errObj.status) > 0
+      )
         return Number(errObj.status);
-      if (typeof errObj.statusCode === 'string' && !isNaN(Number(errObj.statusCode)) && Number(errObj.statusCode) > 0)
+      if (
+        typeof errObj.statusCode === 'string' &&
+        !isNaN(Number(errObj.statusCode)) &&
+        Number(errObj.statusCode) > 0
+      )
         return Number(errObj.statusCode);
       const resp = errObj.response as Record<string, unknown> | undefined;
       if (resp) {
         if (typeof resp.status === 'number') return resp.status;
         if (typeof resp.statusCode === 'number') return resp.statusCode;
-        if (typeof resp.status === 'string' && !isNaN(Number(resp.status)) && Number(resp.status) > 0)
+        if (
+          typeof resp.status === 'string' &&
+          !isNaN(Number(resp.status)) &&
+          Number(resp.status) > 0
+        )
           return Number(resp.status);
-        if (typeof resp.statusCode === 'string' && !isNaN(Number(resp.statusCode)) && Number(resp.statusCode) > 0)
+        if (
+          typeof resp.statusCode === 'string' &&
+          !isNaN(Number(resp.statusCode)) &&
+          Number(resp.statusCode) > 0
+        )
           return Number(resp.statusCode);
       }
-      if (typeof errObj.code === 'number' && errObj.code >= 100 && errObj.code <= 599) return errObj.code;
+      if (typeof errObj.code === 'number' && errObj.code >= 100 && errObj.code <= 599)
+        return errObj.code;
       if (
         typeof errObj.code === 'string' &&
         !isNaN(Number(errObj.code)) &&
@@ -191,8 +220,10 @@ export default function ErrorResultView({
     if (status) return status;
     if (resolvedCode === 401 || resolvedCode === 403) return '403';
     if (resolvedCode === 404) return '404';
-    if (resolvedCode === 500 || (typeof resolvedCode === 'number' && resolvedCode >= 500)) return '500';
-    if (typeof resolvedCode === 'number' && resolvedCode >= 400 && resolvedCode < 500) return 'warning';
+    if (resolvedCode === 500 || (typeof resolvedCode === 'number' && resolvedCode >= 500))
+      return '500';
+    if (typeof resolvedCode === 'number' && resolvedCode >= 400 && resolvedCode < 500)
+      return 'warning';
     return '500';
   }, [status, resolvedCode]);
 
@@ -210,7 +241,8 @@ export default function ErrorResultView({
     if (resolvedCode === 502) return '502 - Bad Gateway';
     if (resolvedCode === 503) return '503 - Service Unavailable';
     if (resolvedCode === 504) return '504 - Gateway Timeout';
-    if (typeof resolvedCode === 'number' && resolvedCode > 500) return `${resolvedCode} - Server Error`;
+    if (typeof resolvedCode === 'number' && resolvedCode > 500)
+      return `${resolvedCode} - Server Error`;
     if (typeof resolvedCode === 'number') return `${resolvedCode} - Error`;
     return 'Application Error';
   }, [title, resolvedCode]);
@@ -237,7 +269,8 @@ export default function ErrorResultView({
       const resp = errObj.response as Record<string, unknown> | undefined;
       if (resp && typeof resp.data === 'object' && resp.data !== null) {
         const respData = resp.data as Record<string, unknown>;
-        if (typeof respData.message === 'string' && respData.message.trim()) return respData.message;
+        if (typeof respData.message === 'string' && respData.message.trim())
+          return respData.message;
         if (typeof respData.error === 'string' && respData.error.trim()) return respData.error;
         if (typeof respData.detail === 'string' && respData.detail.trim()) return respData.detail;
         if (typeof respData.reason === 'string' && respData.reason.trim()) return respData.reason;
@@ -261,7 +294,8 @@ export default function ErrorResultView({
       if (typeof errObj.detail === 'string' && errObj.detail.trim()) return errObj.detail;
       if (typeof errObj.reason === 'string' && errObj.reason.trim()) return errObj.reason;
       if (typeof errObj.title === 'string' && errObj.title.trim()) return errObj.title;
-      if (typeof errObj.statusText === 'string' && errObj.statusText.trim()) return errObj.statusText;
+      if (typeof errObj.statusText === 'string' && errObj.statusText.trim())
+        return errObj.statusText;
     }
     if (typeof error === 'string' && error.trim().length > 0) {
       return error;
@@ -486,7 +520,10 @@ export default function ErrorResultView({
 
   const shouldShowQuickLinks = showQuickLinks ?? (resolvedCode === 404 || resolvedStatus === '404');
   const hasDiagnosticData = Boolean(
-    diagnostics.errorMessage || diagnostics.stack || diagnostics.componentStack || diagnostics.statusCode,
+    diagnostics.errorMessage ||
+      diagnostics.stack ||
+      diagnostics.componentStack ||
+      diagnostics.statusCode,
   );
 
   const is401 = resolvedCode === 401;
@@ -533,7 +570,12 @@ export default function ErrorResultView({
               <Space wrap size="middle" style={{ justifyContent: 'center' }}>
                 {is401 ? (
                   <>
-                    <Button type="primary" size="large" icon={<LoginOutlined />} onClick={handleSignIn}>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<LoginOutlined />}
+                      onClick={handleSignIn}
+                    >
                       Sign In Again
                     </Button>
                     <Button size="large" icon={<HomeOutlined />} onClick={handleGoHome}>
@@ -545,7 +587,12 @@ export default function ErrorResultView({
                   </>
                 ) : is403 ? (
                   <>
-                    <Button type="primary" size="large" icon={<HomeOutlined />} onClick={handleGoHome}>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<HomeOutlined />}
+                      onClick={handleGoHome}
+                    >
                       Return to Dashboard
                     </Button>
                     <Button size="large" icon={<LoginOutlined />} onClick={handleSignIn}>
@@ -557,7 +604,12 @@ export default function ErrorResultView({
                   </>
                 ) : is404 ? (
                   <>
-                    <Button type="primary" size="large" icon={<HomeOutlined />} onClick={handleGoHome}>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<HomeOutlined />}
+                      onClick={handleGoHome}
+                    >
                       Return to Dashboard
                     </Button>
                     <Button size="large" icon={<ReloadOutlined />} onClick={handleReload}>
@@ -566,7 +618,12 @@ export default function ErrorResultView({
                   </>
                 ) : (
                   <>
-                    <Button type="primary" size="large" icon={<ReloadOutlined />} onClick={handleReload}>
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<ReloadOutlined />}
+                      onClick={handleReload}
+                    >
                       Reload Page
                     </Button>
                     {onReset && (
@@ -587,7 +644,10 @@ export default function ErrorResultView({
 
               {shouldShowQuickLinks && (
                 <div style={{ marginTop: 4, width: '100%' }}>
-                  <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 10 }}>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 13, display: 'block', marginBottom: 10 }}
+                  >
                     Or jump directly to:
                   </Text>
                   <Space wrap size="small" style={{ justifyContent: 'center' }}>
@@ -627,7 +687,11 @@ export default function ErrorResultView({
                   {
                     key: 'diagnostics',
                     label: (
-                      <Flex justify="space-between" align="center" style={{ width: '100%', paddingRight: 8 }}>
+                      <Flex
+                        justify="space-between"
+                        align="center"
+                        style={{ width: '100%', paddingRight: 8 }}
+                      >
                         <Space size="small">
                           <CodeOutlined />
                           <Text strong style={{ fontSize: 13 }}>
@@ -704,7 +768,10 @@ export default function ErrorResultView({
 
                         {diagnostics.stack && (
                           <div>
-                            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                            <Text
+                              strong
+                              style={{ fontSize: 12, display: 'block', marginBottom: 4 }}
+                            >
                               Stack Trace:
                             </Text>
                             <Paragraph
@@ -730,7 +797,10 @@ export default function ErrorResultView({
 
                         {diagnostics.componentStack && (
                           <div>
-                            <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                            <Text
+                              strong
+                              style={{ fontSize: 12, display: 'block', marginBottom: 4 }}
+                            >
                               Component Stack:
                             </Text>
                             <Paragraph

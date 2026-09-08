@@ -1,6 +1,11 @@
 import { defineConfig } from '@prisma/config';
 import 'dotenv/config';
 
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL environment variable is required in prisma.config.ts');
+}
+
 export default defineConfig({
   schema: './prisma/schema.prisma',
   migrations: {
@@ -8,8 +13,6 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url:
-      process.env.DATABASE_URL ||
-      'postgresql://uims:uims_secret_2026@localhost:5433/uims_db?schema=public',
+    url: databaseUrl,
   },
 });

@@ -28,13 +28,7 @@ describe('ErrorBoundary component', () => {
   const renderWithApp = async (element: React.ReactElement) => {
     const root = createRoot(container);
     await act(async () => {
-      root.render(
-        createElement(
-          ConfigProvider,
-          null,
-          createElement(AntApp, null, element),
-        ),
-      );
+      root.render(createElement(ConfigProvider, null, createElement(AntApp, null, element)));
     });
     return root;
   };
@@ -180,7 +174,11 @@ describe('ErrorBoundary component', () => {
       createElement(
         ErrorBoundary,
         {
-          fallback: createElement('div', { id: 'custom-static-fallback' }, 'Custom Static Fallback View'),
+          fallback: createElement(
+            'div',
+            { id: 'custom-static-fallback' },
+            'Custom Static Fallback View',
+          ),
         },
         createElement(ThrowingComponent),
       ),
@@ -224,9 +222,12 @@ describe('ErrorBoundary component', () => {
   });
 
   it('clears session on Sign In Again button click', async () => {
-    useAuthStore
-      .getState()
-      .login('active-token', { id: '1', email: 'admin@uims.internal', name: 'Admin', role: 'Admin' });
+    useAuthStore.getState().login('active-token', {
+      id: '1',
+      email: 'admin@uims.internal',
+      name: 'Admin',
+      role: 'Admin',
+    });
     expect(useAuthStore.getState().isAuthenticated()).toBe(true);
 
     const ThrowingComponent = () => {
@@ -234,11 +235,7 @@ describe('ErrorBoundary component', () => {
     };
 
     const root = await renderWithApp(
-      createElement(
-        ErrorBoundary,
-        null,
-        createElement(ThrowingComponent),
-      ),
+      createElement(ErrorBoundary, null, createElement(ThrowingComponent)),
     );
 
     const signInBtn = Array.from(container.querySelectorAll('button')).find((b) =>
@@ -325,11 +322,7 @@ describe('ErrorBoundary component', () => {
     };
 
     const root = await renderWithApp(
-      createElement(
-        ErrorBoundary,
-        { compact: true },
-        createElement(ThrowingComponent),
-      ),
+      createElement(ErrorBoundary, { compact: true }, createElement(ThrowingComponent)),
     );
 
     expect(container.textContent).toContain('Compact error');
@@ -350,7 +343,9 @@ describe('ErrorBoundary component', () => {
     );
 
     expect(container.textContent).toContain('403 - Access Denied');
-    expect(container.textContent).toContain('Tenant subscription has expired. Please contact sales.');
+    expect(container.textContent).toContain(
+      'Tenant subscription has expired. Please contact sales.',
+    );
 
     act(() => {
       root.unmount();
@@ -367,7 +362,9 @@ describe('ErrorBoundary component', () => {
     );
 
     expect(container.textContent).toContain('404 - Page Not Found');
-    expect(container.textContent).toContain('The page or resource you requested could not be located.');
+    expect(container.textContent).toContain(
+      'The page or resource you requested could not be located.',
+    );
 
     act(() => {
       root.unmount();

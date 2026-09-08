@@ -1,14 +1,92 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ScheduledAlertsWorker } from './scheduled-alerts.worker';
+import { ScheduledAlertsWorker, type ScanResult } from './scheduled-alerts.worker';
 import { NotificationsService } from './notifications.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { LicensesService } from '../licenses/licenses.service';
 import { AssetsService } from '../assets/assets.service';
+import type { PrismaService } from '../../database/prisma.service';
+import type { NotificationsGateway } from './notifications.gateway';
+import type { RedisService } from '../../common/redis/redis.service';
+
+interface MockPrismaClient {
+  notification: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    deleteMany: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+  };
+  user: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  license: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+  licenseAssignment: {
+    create: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
+  };
+  asset: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+  };
+  assetCategory: {
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  location: {
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  assetHistory: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  inventoryItem: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+    aggregate: ReturnType<typeof vi.fn>;
+  };
+  $transaction: ReturnType<typeof vi.fn>;
+}
+
+interface MockGateway {
+  sendToUser: ReturnType<typeof vi.fn>;
+  sendCountToUser: ReturnType<typeof vi.fn>;
+  sendToRole: ReturnType<typeof vi.fn>;
+  sendCountToRole: ReturnType<typeof vi.fn>;
+  emitNotificationRead: ReturnType<typeof vi.fn>;
+  emitNotificationsCleared: ReturnType<typeof vi.fn>;
+}
+
+interface MockRedis {
+  get: ReturnType<typeof vi.fn>;
+  set: ReturnType<typeof vi.fn>;
+  del: ReturnType<typeof vi.fn>;
+  flush: () => void;
+}
+
+function isScanResult(res: ScanResult | { error: unknown }): res is ScanResult {
+  return typeof res === 'object' && res !== null && 'scanned' in res;
+}
 
 describe('Adversarial E2E Integration & Stress Testing', () => {
-  let mockPrisma: any;
-  let mockGateway: any;
-  let mockRedis: any;
+  let mockPrisma: MockPrismaClient;
+  let mockGateway: MockGateway;
+  let mockRedis: MockRedis;
   let notificationsService: NotificationsService;
   let scheduledWorker: ScheduledAlertsWorker;
   let inventoryService: InventoryService;
@@ -20,25 +98,36 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
       notification: {
         findMany: vi.fn().mockResolvedValue([]),
         findUnique: vi.fn(),
-        create: vi.fn().mockImplementation(({ data }: any) =>
-          Promise.resolve({
-            id: `notif-${Math.random().toString(36).substring(7)}`,
-            ...data,
-            isRead: data.isRead ?? false,
-            createdAt: new Date(),
-          }),
-        ),
-        update: vi.fn().mockImplementation(({ where, data }: any) =>
-          Promise.resolve({
-            id: where.id,
-            userId: 'user-1',
-            title: 'Test',
-            message: 'Test message',
-            type: 'INFO',
-            isRead: data.isRead ?? true,
-            createdAt: new Date(),
-          }),
-        ),
+        create: vi
+          .fn()
+          .mockImplementation(({ data }: { data: { isRead?: boolean; [key: string]: unknown } }) =>
+            Promise.resolve({
+              id: `notif-${Math.random().toString(36).substring(7)}`,
+              ...data,
+              isRead: data.isRead ?? false,
+              createdAt: new Date(),
+            }),
+          ),
+        update: vi
+          .fn()
+          .mockImplementation(
+            ({
+              where,
+              data,
+            }: {
+              where: { id: string };
+              data: { isRead?: boolean; [key: string]: unknown };
+            }) =>
+              Promise.resolve({
+                id: where.id,
+                userId: 'user-1',
+                title: 'Test',
+                message: 'Test message',
+                type: 'INFO',
+                isRead: data.isRead ?? true,
+                createdAt: new Date(),
+              }),
+          ),
         updateMany: vi.fn().mockResolvedValue({ count: 3 }),
         delete: vi.fn().mockResolvedValue({ id: 'notif-1' }),
         deleteMany: vi.fn().mockResolvedValue({ count: 5 }),
@@ -57,12 +146,17 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
         findUnique: vi.fn(),
         update: vi
           .fn()
-          .mockImplementation(({ where, data }: any) => Promise.resolve({ id: where.id, ...data })),
+          .mockImplementation(
+            ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
+              Promise.resolve({ id: where.id, ...data }),
+          ),
       },
       licenseAssignment: {
         create: vi
           .fn()
-          .mockImplementation(({ data }: any) => Promise.resolve({ id: 'assign-1', ...data })),
+          .mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+            Promise.resolve({ id: 'assign-1', ...data }),
+          ),
         delete: vi.fn().mockResolvedValue({ id: 'assign-1' }),
         findMany: vi.fn().mockResolvedValue([]),
       },
@@ -86,37 +180,65 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
       inventoryItem: {
         findMany: vi.fn().mockResolvedValue([]),
         findUnique: vi.fn(),
-        create: vi.fn().mockImplementation(({ data }: any) =>
-          Promise.resolve({
-            id: 'inv-item-1',
-            sku: data.sku || 'SKU-001',
-            name: data.name,
-            category: data.category,
-            quantity: data.quantity,
-            minThreshold: data.minThreshold,
-            unitCost: data.unitCost,
-            location: data.location,
-            binNumber: data.binNumber,
-            supplier: data.supplier,
-            notes: data.notes,
-            createdAt: new Date(),
-          }),
+        create: vi.fn().mockImplementation(
+          ({
+            data,
+          }: {
+            data: {
+              sku?: string;
+              name: string;
+              category?: string;
+              quantity: number;
+              minThreshold?: number;
+              unitCost?: number;
+              location?: string;
+              binNumber?: string;
+              supplier?: string;
+              notes?: string;
+            };
+          }) =>
+            Promise.resolve({
+              id: 'inv-item-1',
+              sku: data.sku || 'SKU-001',
+              name: data.name,
+              category: data.category,
+              quantity: data.quantity,
+              minThreshold: data.minThreshold,
+              unitCost: data.unitCost,
+              location: data.location,
+              binNumber: data.binNumber,
+              supplier: data.supplier,
+              notes: data.notes,
+              createdAt: new Date(),
+            }),
         ),
-        update: vi.fn().mockImplementation(({ where, data }: any) =>
-          Promise.resolve({
-            id: where.id,
-            sku: 'SKU-001',
-            name: 'Item 1',
-            quantity: typeof data.quantity === 'object' ? data.quantity.increment : data.quantity,
-            minThreshold: 5,
-            unitCost: 10,
-          }),
-        ),
+        update: vi
+          .fn()
+          .mockImplementation(
+            ({
+              where,
+              data,
+            }: {
+              where: { id: string };
+              data: { quantity?: number | { increment: number }; [key: string]: unknown };
+            }) =>
+              Promise.resolve({
+                id: where.id,
+                sku: 'SKU-001',
+                name: 'Item 1',
+                quantity:
+                  typeof data.quantity === 'object' && data.quantity !== null
+                    ? data.quantity.increment
+                    : data.quantity,
+                minThreshold: 5,
+                unitCost: 10,
+              }),
+          ),
         delete: vi.fn(),
         count: vi.fn().mockResolvedValue(5),
         aggregate: vi.fn().mockResolvedValue({ _sum: { quantity: 50 } }),
       },
-      $transaction: vi.fn((cb: any) =>
+      $transaction: vi.fn((cb: ((tx: unknown) => Promise<unknown>) | Promise<unknown>[]) =>
         typeof cb === 'function' ? cb(mockPrisma) : Promise.all(cb),
       ),
     };
@@ -130,7 +252,7 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
       emitNotificationsCleared: vi.fn(),
     };
 
-    const redisStore = new Map<string, { value: any; expiresAt: number }>();
+    const redisStore = new Map<string, { value: unknown; expiresAt: number }>();
     mockRedis = {
       get: vi.fn().mockImplementation((key: string) => {
         const item = redisStore.get(key);
@@ -141,7 +263,7 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
         }
         return Promise.resolve(item.value);
       }),
-      set: vi.fn().mockImplementation((key: string, value: any, ttlSec: number) => {
+      set: vi.fn().mockImplementation((key: string, value: unknown, ttlSec: number) => {
         redisStore.set(key, { value, expiresAt: Date.now() + ttlSec * 1000 });
         return Promise.resolve(undefined);
       }),
@@ -152,11 +274,24 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
       flush: () => redisStore.clear(),
     };
 
-    notificationsService = new NotificationsService(mockPrisma, mockGateway);
-    scheduledWorker = new ScheduledAlertsWorker(mockPrisma, notificationsService, mockRedis);
-    inventoryService = new InventoryService(mockPrisma, notificationsService);
-    licensesService = new LicensesService(mockPrisma, notificationsService);
-    assetsService = new AssetsService(mockPrisma, notificationsService);
+    notificationsService = new NotificationsService(
+      mockPrisma as unknown as PrismaService,
+      mockGateway as unknown as NotificationsGateway,
+    );
+    scheduledWorker = new ScheduledAlertsWorker(
+      mockPrisma as unknown as PrismaService,
+      notificationsService,
+      mockRedis as unknown as RedisService,
+    );
+    inventoryService = new InventoryService(
+      mockPrisma as unknown as PrismaService,
+      notificationsService,
+    );
+    licensesService = new LicensesService(
+      mockPrisma as unknown as PrismaService,
+      notificationsService,
+    );
+    assetsService = new AssetsService(mockPrisma as unknown as PrismaService, notificationsService);
   });
 
   describe('1. ScheduledAlertsWorker Complete Tier Progression & Throttling', () => {
@@ -299,30 +434,36 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
           status: 'ACTIVE',
         },
       ]);
-      mockPrisma.asset.findMany.mockImplementation(({ where }: any) => {
-        if (where.warrantyExpiry) {
-          return Promise.resolve([
-            {
-              id: 'ast-1',
-              name: 'A1',
-              assetTag: 'TAG-1',
-              warrantyExpiry: new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000),
-            },
-          ]);
-        }
-        if (where.status === 'MAINTENANCE') {
-          return Promise.resolve([
-            {
-              id: 'ast-m',
-              name: 'Server Rack',
-              assetTag: 'TAG-SRV',
-              status: 'MAINTENANCE',
-              updatedAt: new Date(now.getTime() - 25 * 24 * 60 * 60 * 1000),
-            },
-          ]);
-        }
-        return Promise.resolve([]);
-      });
+      mockPrisma.asset.findMany.mockImplementation(
+        ({
+          where,
+        }: {
+          where: { warrantyExpiry?: unknown; status?: string; [key: string]: unknown };
+        }) => {
+          if (where.warrantyExpiry) {
+            return Promise.resolve([
+              {
+                id: 'ast-1',
+                name: 'A1',
+                assetTag: 'TAG-1',
+                warrantyExpiry: new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000),
+              },
+            ]);
+          }
+          if (where.status === 'MAINTENANCE') {
+            return Promise.resolve([
+              {
+                id: 'ast-m',
+                name: 'Server Rack',
+                assetTag: 'TAG-SRV',
+                status: 'MAINTENANCE',
+                updatedAt: new Date(now.getTime() - 25 * 24 * 60 * 60 * 1000),
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        },
+      );
       mockPrisma.inventoryItem.findMany.mockResolvedValue([
         { id: 'inv-1', name: 'Item Low', sku: 'SKU-LOW', quantity: 2, minThreshold: 5 },
         { id: 'inv-2', name: 'Item Out', sku: 'SKU-OUT', quantity: 0, minThreshold: 5 },
@@ -330,14 +471,26 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
 
       const summary = await scheduledWorker.runDailyAlertScans();
 
-      expect((summary.licenses as any).scanned).toBe(2);
-      expect((summary.licenses as any).notified).toBe(2);
-      expect((summary.warranties as any).scanned).toBe(1);
-      expect((summary.warranties as any).notified).toBe(1);
-      expect((summary.maintenance as any).scanned).toBe(1);
-      expect((summary.maintenance as any).notified).toBe(1);
-      expect((summary.lowStock as any).scanned).toBe(2);
-      expect((summary.lowStock as any).notified).toBe(2);
+      expect(isScanResult(summary.licenses)).toBe(true);
+      if (isScanResult(summary.licenses)) {
+        expect(summary.licenses.scanned).toBe(2);
+        expect(summary.licenses.notified).toBe(2);
+      }
+      expect(isScanResult(summary.warranties)).toBe(true);
+      if (isScanResult(summary.warranties)) {
+        expect(summary.warranties.scanned).toBe(1);
+        expect(summary.warranties.notified).toBe(1);
+      }
+      expect(isScanResult(summary.maintenance)).toBe(true);
+      if (isScanResult(summary.maintenance)) {
+        expect(summary.maintenance.scanned).toBe(1);
+        expect(summary.maintenance.notified).toBe(1);
+      }
+      expect(isScanResult(summary.lowStock)).toBe(true);
+      if (isScanResult(summary.lowStock)) {
+        expect(summary.lowStock.scanned).toBe(2);
+        expect(summary.lowStock.notified).toBe(2);
+      }
     });
 
     it('isolates scanner failure and returns error summary without throwing unhandled exceptions', async () => {
@@ -347,10 +500,19 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
 
       const summary = await scheduledWorker.runDailyAlertScans();
 
-      expect((summary.licenses as any).error).toBeDefined();
-      expect((summary.warranties as any).scanned).toBe(0);
-      expect((summary.maintenance as any).scanned).toBe(0);
-      expect((summary.lowStock as any).scanned).toBe(0);
+      expect('error' in summary.licenses && summary.licenses.error).toBeDefined();
+      expect(isScanResult(summary.warranties)).toBe(true);
+      if (isScanResult(summary.warranties)) {
+        expect(summary.warranties.scanned).toBe(0);
+      }
+      expect(isScanResult(summary.maintenance)).toBe(true);
+      if (isScanResult(summary.maintenance)) {
+        expect(summary.maintenance.scanned).toBe(0);
+      }
+      expect(isScanResult(summary.lowStock)).toBe(true);
+      if (isScanResult(summary.lowStock)) {
+        expect(summary.lowStock.scanned).toBe(0);
+      }
     });
   });
 

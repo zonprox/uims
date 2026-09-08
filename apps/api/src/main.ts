@@ -31,27 +31,31 @@ async function bootstrap() {
 
   // Enterprise Strict CORS Configuration
   const rawOrigins = process.env.CORS_ORIGIN || process.env.ALLOWED_ORIGINS;
+  const defaultDevOrigins = [
+    'http://localhost:5679',
+    'https://localhost:5679',
+    'http://localhost:3000',
+    'http://localhost:3002',
+  ];
   const allowedOrigins = rawOrigins
-    ? rawOrigins.split(',').map((s) => s.trim())
-    : [
-        'http://localhost:5679',
-        'https://localhost:5679',
-        'http://localhost:3000',
-        'http://localhost:3002',
-      ];
+    ? rawOrigins
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : process.env.NODE_ENV === 'production'
+      ? []
+      : defaultDevOrigins;
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        allowedOrigins.includes('*') ||
-        process.env.NODE_ENV !== 'production'
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error('Origin is not allowed by CORS policy'));
+      // Allow non-browser requests without origin (e.g. mobile apps, cURL, server-to-server)
+      if (!origin) {
+        return callback(null, true);
       }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin '${origin}' is not allowed by CORS policy`), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

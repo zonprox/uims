@@ -9,10 +9,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly pool: Pool;
 
   constructor(@Optional() private readonly configService?: ConfigService) {
-    const connectionString =
-      configService?.get<string>('DATABASE_URL') ||
-      process.env.DATABASE_URL ||
-      'postgresql://uims:uims_secret_2026@localhost:5433/uims_db?schema=public';
+    const connectionString = configService?.get<string>('DATABASE_URL') || process.env.DATABASE_URL;
+
+    if (!connectionString) {
+      throw new Error(
+        'DATABASE_URL environment variable is required and was not provided to PrismaService',
+      );
+    }
 
     const pool = new Pool({
       connectionString,
