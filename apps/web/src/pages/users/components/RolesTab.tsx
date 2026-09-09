@@ -83,9 +83,17 @@ export const RolesTab: React.FC<RolesTabProps> = ({
   const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [createRoleOpen, setCreateRoleOpen] = useState(false);
 
+  const safeRoles = useMemo(() => {
+    if (Array.isArray(roles)) return roles;
+    if (roles && Array.isArray((roles as unknown as { data?: Role[] }).data)) {
+      return (roles as unknown as { data: Role[] }).data;
+    }
+    return [];
+  }, [roles]);
+
   // Filtered Roles
   const filteredRoles = useMemo(() => {
-    return roles.filter((r) => {
+    return safeRoles.filter((r) => {
       const isSystem = r.isSystem;
       const matchesTier =
         tierFilter === 'all' ||
@@ -100,7 +108,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
 
       return matchesTier && matchesSearch;
     });
-  }, [roles, search, tierFilter]);
+  }, [safeRoles, search, tierFilter]);
 
   const handleOpenDetail = async (role: Role) => {
     setDetailLoading(true);
@@ -529,7 +537,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
       <AccessSimulatorModal
         open={simulatorOpen}
         users={users}
-        roles={roles}
+        roles={safeRoles}
         catalog={catalog}
         onClose={() => setSimulatorOpen(false)}
       />
@@ -538,7 +546,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
       <CreateRoleModal
         open={createRoleOpen}
         catalog={catalog}
-        existingRoles={roles}
+        existingRoles={safeRoles}
         onClose={() => setCreateRoleOpen(false)}
         onSuccess={onRefresh}
       />

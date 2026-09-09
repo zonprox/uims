@@ -213,7 +213,7 @@ export default function DirectoryPage() {
         showIcon
         icon={<CloudSyncOutlined />}
         style={{ marginBottom: 16 }}
-        message={
+        title={
           <Flex justify="space-between" align="center" wrap gap={8}>
             <Text strong style={{ fontSize: 13 }}>
               Active Directory Domain Federation • Domain: <Text code>uims.internal</Text>

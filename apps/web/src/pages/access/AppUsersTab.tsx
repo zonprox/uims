@@ -83,6 +83,14 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
   const [editForm] = Form.useForm();
   const [resetForm] = Form.useForm();
 
+  const safeRoles = useMemo(() => {
+    if (Array.isArray(roles)) return roles;
+    if (roles && Array.isArray((roles as unknown as { data?: Role[] }).data)) {
+      return (roles as unknown as { data: Role[] }).data;
+    }
+    return [];
+  }, [roles]);
+
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const s = search.toLowerCase().trim();
@@ -119,7 +127,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
   }) => {
     setModalSubmitting(true);
     try {
-      const selectedRole = roles.find((r) => r.id === values.roleId);
+      const selectedRole = safeRoles.find((r) => r.id === values.roleId);
       await usersService.createUser({
         username: values.username.trim(),
         email: values.email.trim(),
@@ -160,7 +168,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
     if (!editingUser) return;
     setModalSubmitting(true);
     try {
-      const selectedRole = roles.find((r) => r.id === values.roleId);
+      const selectedRole = safeRoles.find((r) => r.id === values.roleId);
       await usersService.updateUser(editingUser.id, {
         displayName: values.displayName?.trim(),
         email: values.email?.trim(),
@@ -440,7 +448,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
                 placeholder="Filter by Role"
               >
                 <Option value="all">All Roles</Option>
-                {roles.map((r) => (
+                {safeRoles.map((r) => (
                   <Option key={r.id} value={r.id}>
                     {r.name}
                   </Option>
@@ -494,7 +502,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         confirmLoading={modalSubmitting}
         okText="Create User"
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
         styles={{ body: { paddingTop: 16 } }}
       >
         <Form
@@ -547,7 +555,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
                 rules={[{ required: true, message: 'Please assign a role.' }]}
               >
                 <Select placeholder="Select role">
-                  {roles.map((r) => (
+                  {safeRoles.map((r) => (
                     <Option key={r.id} value={r.id}>
                       {r.name}
                     </Option>
@@ -580,7 +588,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         confirmLoading={modalSubmitting}
         okText="Save Changes"
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
         styles={{ body: { paddingTop: 16 } }}
       >
         <Form form={editForm} layout="vertical" onFinish={handleUpdateUser}>
@@ -603,7 +611,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
             <Col span={12}>
               <Form.Item name="roleId" label="Assigned Role">
                 <Select placeholder="Select role">
-                  {roles.map((r) => (
+                  {safeRoles.map((r) => (
                     <Option key={r.id} value={r.id}>
                       {r.name}
                     </Option>
@@ -636,7 +644,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         confirmLoading={modalSubmitting}
         okText="Update Password"
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
         styles={{ body: { paddingTop: 16 } }}
       >
         <Form form={resetForm} layout="vertical" onFinish={handleResetPassword}>

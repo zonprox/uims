@@ -48,12 +48,18 @@ export default function AccessControlPage() {
         rolesService.getStats().catch(() => null),
       ]);
 
-      const items = Array.isArray(usersRes) ? usersRes : usersRes.items || [];
+      const items = Array.isArray(usersRes) ? usersRes : usersRes?.items || [];
       setUsers(items as AppUser[]);
-      setRoles(rolesRes || []);
-      setStats(statsRes);
-      setRolesCatalog(catalogRes || []);
-      setRolesStats(rStatsRes);
+      const roleItems = Array.isArray(rolesRes)
+        ? rolesRes
+        : (rolesRes as { data?: Role[] })?.data || [];
+      setRoles(roleItems);
+      setStats(statsRes?.data ?? statsRes);
+      const catalogItems = Array.isArray(catalogRes)
+        ? catalogRes
+        : (catalogRes as { data?: PermissionCatalogSubject[] })?.data || [];
+      setRolesCatalog(catalogItems);
+      setRolesStats(rStatsRes?.data ?? rStatsRes);
     } catch {
       message.error('Failed to load access control data.');
     } finally {

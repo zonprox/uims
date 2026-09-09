@@ -35,6 +35,12 @@
     "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d",
     "docker:dev:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "docker:dev:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f",
+    "stack:start": "./scripts/dev.sh start",
+    "stack:stop": "./scripts/dev.sh stop",
+    "stack:restart": "./scripts/dev.sh restart",
+    "stack:status": "./scripts/dev.sh status",
+    "stack:logs": "./scripts/dev.sh logs",
+    "stack:url": "./scripts/dev.sh url",
     "clean": "turbo run clean && rm -rf node_modules",
     "prepare": "echo 'Ready'"
   },

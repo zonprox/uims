@@ -10,6 +10,7 @@ import { networkService } from './network.service';
 import { organizationService } from './organization.service';
 import { notificationsService } from './notifications.service';
 import { reportsService } from './reports.service';
+import { rolesService } from './roles.service';
 import { settingsService } from './settings.service';
 import { usersService } from './users.service';
 
@@ -342,6 +343,63 @@ describe('Frontend Service Clients', () => {
 
       expect(api.patch).toHaveBeenCalledWith('/notifications/n1/read');
       expect(read.read).toBe(true);
+    });
+  });
+
+  describe('rolesService', () => {
+    it('should unwrap getRoles and getStats from transformed response envelope', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: [{ id: 'role-1', name: 'Super Admin', isSystem: true, permissions: [] }],
+        },
+      });
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: { totalRoles: 5, systemRoles: 3, customRoles: 2, totalPermissions: 50 },
+        },
+      });
+
+      const roles = await rolesService.getRoles();
+      const stats = await rolesService.getStats();
+
+      expect(api.get).toHaveBeenCalledWith('/roles');
+      expect(api.get).toHaveBeenCalledWith('/roles/stats');
+      expect(Array.isArray(roles)).toBe(true);
+      expect(roles).toHaveLength(1);
+      expect(roles[0].name).toBe('Super Admin');
+      expect(stats.totalRoles).toBe(5);
+    });
+
+    it('should handle catalog, getRole, createRole, updateRole, and deleteRole', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: { data: [{ subject: 'Asset', actions: [] }] },
+      });
+      vi.mocked(api.get).mockResolvedValueOnce({
+        data: { data: { id: 'role-1', name: 'Admin', users: [] } },
+      });
+      vi.mocked(api.post).mockResolvedValueOnce({
+        data: { data: { id: 'role-new', name: 'Operator' } },
+      });
+      vi.mocked(api.patch).mockResolvedValueOnce({
+        data: { data: { id: 'role-1', name: 'Admin Updated' } },
+      });
+      vi.mocked(api.delete).mockResolvedValueOnce({
+        data: { data: { success: true, message: 'Deleted' } },
+      });
+
+      const catalog = await rolesService.getCatalog();
+      const role = await rolesService.getRole('role-1');
+      const created = await rolesService.createRole({ name: 'Operator' });
+      const updated = await rolesService.updateRole('role-1', { name: 'Admin Updated' });
+      const deleted = await rolesService.deleteRole('role-1');
+
+      expect(catalog).toHaveLength(1);
+      expect(role.id).toBe('role-1');
+      expect(created.name).toBe('Operator');
+      expect(updated.name).toBe('Admin Updated');
+      expect(deleted.success).toBe(true);
     });
   });
 });

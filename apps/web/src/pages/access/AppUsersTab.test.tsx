@@ -444,5 +444,14 @@ describe('AppUsersTab Adversarial Component Tests', () => {
 
       expect(createBtn).toBeDefined();
     });
+
+    it('should render safely without error when roles is wrapped in a data object', async () => {
+      await renderComponent({
+        roles: { data: mockRoles } as unknown as Role[],
+      });
+
+      expect(container.textContent).toContain('secadmin');
+      expect(container.textContent).toContain('auditor01');
+    });
   });
 });

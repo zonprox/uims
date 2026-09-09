@@ -229,7 +229,7 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
         confirmLoading={submitting}
         okText="Create Group"
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
         styles={{ body: { paddingTop: 16 } }}
       >
         <Form

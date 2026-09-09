@@ -418,7 +418,7 @@ export default function SettingsPage() {
           <Alert
             type="warning"
             showIcon
-            message="Temporary Latency Impact"
+            title="Temporary Latency Impact"
             description="Active users may experience a temporary response latency increase while cache warming re-indexes dashboard metrics."
             style={{ fontSize: 12 }}
           />
@@ -533,7 +533,7 @@ export default function SettingsPage() {
                     <Alert
                       type="warning"
                       showIcon
-                      message="Unsaved Appearance Modifications"
+                      title="Unsaved Appearance Modifications"
                       description="You have modified design tokens in preview. Click 'Save Changes' to apply permanently."
                       style={{ marginBottom: 16 }}
                       action={
@@ -984,7 +984,7 @@ export default function SettingsPage() {
                     <Alert
                       type="warning"
                       showIcon
-                      message="Unsaved Configuration Changes"
+                      title="Unsaved Configuration Changes"
                       description="You have unsaved edits in General Preferences. Click 'Save Changes' to commit."
                       style={{ marginBottom: 16 }}
                     />
@@ -1128,7 +1128,7 @@ export default function SettingsPage() {
                     <Alert
                       type="warning"
                       showIcon
-                      message="Uncommitted Security Policy Modifications"
+                      title="Uncommitted Security Policy Modifications"
                       description="You have modified access parameters. Click 'Save Policy' to validate and enforce."
                       style={{ marginBottom: 16 }}
                     />

@@ -484,7 +484,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message={
+          title={
             <Flex justify="space-between" align="center" style={{ width: '100%' }}>
               <span>
                 Filtering directory employees by Organizational Unit: <Text code>{ouFilter}</Text>
@@ -586,7 +586,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         confirmLoading={modalSubmitting}
         okText="Add Employee"
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
         width={680}
         styles={{ body: { paddingTop: 16 } }}
       >
@@ -726,7 +726,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         confirmLoading={modalSubmitting}
         okText="Save Changes"
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
         width={680}
         styles={{ body: { paddingTop: 16 } }}
       >
@@ -857,14 +857,14 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         okText="Execute Import"
         cancelText="Cancel"
         width={720}
-        destroyOnClose
+        destroyOnHidden
         styles={{ body: { paddingTop: 16 } }}
       >
         <Flex vertical gap={12}>
           <Alert
             type="info"
             showIcon
-            message="CSV Format Guidelines"
+            title="CSV Format Guidelines"
             description="Paste tabular CSV data containing headers (Name, Email, ID/EmployeeCode, Designation, Department, Plant, Computer Name, Group). Initial passwords and application login capability are strictly prohibited for directory records."
           />
 
@@ -906,7 +906,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         title="Employee Directory Profile"
         open={Boolean(detailEmployee)}
         onClose={() => setDetailEmployee(null)}
-        width={540}
+        styles={{ wrapper: { width: 540 } }}
       >
         {detailEmployee && (
           <Flex vertical gap={16}>
@@ -1007,7 +1007,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             <Alert
               type="info"
               showIcon
-              message="Directory Record Isolation"
+              title="Directory Record Isolation"
               description="This record represents a corporate employee and hardware custodian. Directory records do not hold console passwords or application login rights."
             />
           </Flex>

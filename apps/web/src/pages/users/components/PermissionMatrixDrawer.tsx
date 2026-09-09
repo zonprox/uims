@@ -254,7 +254,7 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
         <Alert
           type="info"
           showIcon
-          message="Super Admin Access"
+          title="Super Admin Access"
           description="Super Administrator has full (*:*) access across all modules and records. Permissions cannot be modified."
           style={{ marginBottom: 16 }}
         />

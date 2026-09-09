@@ -43,29 +43,38 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
   onClose,
 }) => {
   const { token } = theme.useToken();
+  const safeUsers = useMemo(() => (Array.isArray(users) ? users : []), [users]);
+  const safeRoles = useMemo(() => {
+    if (Array.isArray(roles)) return roles;
+    if (roles && Array.isArray((roles as unknown as { data?: Role[] }).data)) {
+      return (roles as unknown as { data: Role[] }).data;
+    }
+    return [];
+  }, [roles]);
+
   const [simulationMode, setSimulationMode] = useState<'user' | 'role'>('user');
-  const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || '');
-  const [selectedRoleId, setSelectedRoleId] = useState<string>(roles[0]?.id || '');
+  const [selectedUserId, setSelectedUserId] = useState<string>(safeUsers[0]?.id || '');
+  const [selectedRoleId, setSelectedRoleId] = useState<string>(safeRoles[0]?.id || '');
   const [search, setSearch] = useState('');
 
   // Selected User / Role resolution
   const selectedUser = useMemo(() => {
-    return users.find((u) => u.id === selectedUserId) || users[0] || null;
-  }, [users, selectedUserId]);
+    return safeUsers.find((u) => u.id === selectedUserId) || safeUsers[0] || null;
+  }, [safeUsers, selectedUserId]);
 
   const activeRole = useMemo(() => {
     if (simulationMode === 'role') {
-      return roles.find((r) => r.id === selectedRoleId) || roles[0] || null;
+      return safeRoles.find((r) => r.id === selectedRoleId) || safeRoles[0] || null;
     }
     if (!selectedUser) return null;
     return (
-      roles.find(
+      safeRoles.find(
         (r) =>
           r.id === selectedUser.roleId ||
           r.name.trim().toLowerCase() === (selectedUser.roleName || '').trim().toLowerCase(),
       ) || null
     );
-  }, [simulationMode, selectedUser, selectedRoleId, roles]);
+  }, [simulationMode, selectedUser, selectedRoleId, safeRoles]);
 
   const isSuperAdmin = useMemo(() => {
     if (!activeRole) return false;
@@ -179,7 +188,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
                 onChange={setSelectedRoleId}
                 placeholder="Select a security role..."
                 style={{ width: '100%' }}
-                options={roles.map((r) => ({
+                options={safeRoles.map((r) => ({
                   value: r.id,
                   label: `${r.name} (${r.isSystem ? 'System' : 'Custom'} - ${r.userCount || 0} users)`,
                 }))}
