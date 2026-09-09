@@ -143,7 +143,7 @@ Whenever the user requests to start, launch, or run the system (e.g., "khởi đ
 - **Automated Stack Startup**:
   1. Ensure the backend database (PostgreSQL 17 / Docker) is healthy and start the NestJS API server (`PORT=3002 node dist/main.js` or `pnpm --filter @uims/api start:dev`).
   2. Start the Vite web frontend with Hot Module Replacement (HMR) enabled (`pnpm --filter @uims/web dev`).
-  3. **Auto-start Cloudflare Tunnel**: Launch the Cloudflare quick tunnel in the background (`cloudflared tunnel --url https://localhost:5679 --no-tls-verify`) pointing to the active Vite dev server.
+  3. **Auto-start Cloudflare Tunnel**: Launch the Cloudflare quick tunnel in the background (`cloudflared tunnel --url https://localhost:5679 --no-tls-verify < /dev/null`) pointing to the active Vite dev server.
 - **Immediate Public URL Display**: Extract and output the public `.trycloudflare.com` URL to the user in chat immediately so they can inspect and test changes live with hot reload.
 
 ---
