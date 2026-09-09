@@ -79,6 +79,15 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Use `<PageContainer>` for all views to maintain consistent breadcrumbs, KPI statistics, search controls, and primary action buttons.
 - Keep table density high and information readable with dedicated quick actions (e.g., 1-click credential/email copying, status tags, responsive drawers).
 
+## 7. System Startup & Hot Reload via Cloudflare Tunnel Directives
+
+Whenever the user requests to start, launch, or run the system (e.g., "khởi động hệ thống", "start system", "chạy app", "deploy hot reload"):
+- **Automated Stack Startup**:
+  1. Ensure the backend database (PostgreSQL 17 / Docker) is healthy and start the NestJS API server (`PORT=3002 node dist/main.js` or `pnpm --filter @uims/api start:dev`).
+  2. Start the Vite web frontend with Hot Module Replacement (HMR) enabled (`pnpm --filter @uims/web dev`).
+  3. **Auto-start Cloudflare Tunnel**: Launch the Cloudflare quick tunnel in the background (`cloudflared tunnel --url https://localhost:5679 --no-tls-verify`) pointing to the active Vite dev server.
+- **Immediate Public URL Display**: Extract and output the public `.trycloudflare.com` URL to the user in chat immediately so they can inspect and test changes live with hot reload.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
