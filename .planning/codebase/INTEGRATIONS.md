@@ -1,128 +1,119 @@
-# Integrations & External Services
+# External Integrations
+
 **Analysis Date:** 2026-09-09
 
-## Database
-- **Engine**: PostgreSQL 17 (`postgres:17-alpine`, container `uims-postgres`, default port `5433:5432`).
-- **Prisma Driver Adapter**: `@prisma/adapter-pg` `^7.10.0` with `pg` `^8.23.0` native connection pooling.
-- **Connection Pool Configuration (`apps/api/src/database/prisma.service.ts`)**:
-  - `Pool` constructed from `pg` with `max: Number(process.env.DB_POOL_MAX || 20)`, `idleTimeoutMillis: 30000`, `connectionTimeoutMillis: 5000`.
-  - Instantiates `PrismaPg(pool)` adapter passed to `super({ adapter })`.
-  - Lifecycle: `onModuleInit` invokes `await this.$connect()`; `onModuleDestroy` cleanly shuts down `await this.$disconnect()` and `await this.pool.end()`.
-- **Configuration & Seed**:
-  - `apps/api/prisma.config.ts`: Prisma 7 `defineConfig` pointing to `schema: './prisma/schema.prisma'` and `seed: 'tsx prisma/seed.ts'`.
-  - Database Extensions: `docker/postgres/init.sql` enables `uuid-ossp`, `pg_trgm`, and `citext`.
-- **Core Entities & Data Models**:
-  - IAM & Security: `AppUser`, `Role`, `Permission`, `RolePermission`, `RefreshToken`, `AuditLog`.
-  - Directory & Organization: `DirectoryUser`, `DirectoryGroup`, `DirectoryMembership`, `Organization`, `Department`, `Position`, `Location`.
-  - Asset & Lifecycle: `Asset`, `AssetCategory`, `AssetAssignment`, `MaintenanceLog`, `Warranty`.
-  - Software Licensing: `License`, `LicenseAssignment`, `LicenseKey`.
-  - Consumable Inventory: `Consumable`, `StockTransaction`, `Supplier`.
-  - Network & IPAM: `NetworkDevice`, `Vlan`, `Subnet`, `IPAssignment`.
-  - Alerts: `Notification`.
+## Data Storage & Infrastructure
 
-## Cache & Queue
-- **Redis Engine**: Redis 8 (`redis:8-alpine`, container `uims-redis`, port `6381:6379`, `--appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru`).
-- **Client & Fallback (`apps/api/src/common/redis/redis.service.ts`)**:
-  - Implemented via `ioredis` `^6.0.0` with lazy connect, 3-attempt reconnect cap (`retryStrategy`), and automatic fallback to an in-memory `Map<string, { value: string; expiresAt: number }>` if Redis is unavailable.
-  - Methods: `get<T>()`, `set(key, val, ttlSeconds)`, `del()`, `delPattern()` (using Redis scan stream `scanStream`), `incr()`, `isHealthy()`.
-- **Caching Usage Patterns**:
-  - **Dashboard Metrics**: `apps/api/src/modules/dashboard/dashboard.service.ts` caches aggregated counts and status statistics with 60-second TTL.
-  - **Role Permissions**: `apps/api/src/modules/roles/roles.service.ts` caches resolved subject:action permission matrices per role.
-  - **User Sessions**: `apps/api/src/modules/users/users.service.ts` caches active user lookups.
-  - **System Settings**: `apps/api/src/modules/settings/settings.service.ts` caches tenant/system configurations.
-  - **Alert Deduplication**: `apps/api/src/modules/notifications/scheduled-alerts.worker.ts` tracks alert idempotency keys with 24-hour TTL (`alert:<category>:<id>:<state>`).
-- **Queue Framework & Scheduled Jobs**:
-  - Framework: `bullmq` `^6.3.4` and `@nestjs/bullmq` `^11.0.5` are installed as the asynchronous queue architecture.
-  - Scheduled Background Worker: `ScheduledAlertsWorker` (`apps/api/src/modules/notifications/scheduled-alerts.worker.ts`) executing daily midnight scans via `@Cron('0 0 * * *')`.
-- **Scheduled Queue & Scan Routines**:
-  - `scanExpiringLicenses`: Scans for software licenses expiring within 30, 60, or 90 days. Emits notification warnings and throttles repeat alerts via Redis.
-  - `scanExpiringWarranties`: Scans hardware assets whose warranty expires within 30 days.
-  - `scanOverdueMaintenance`: Scans scheduled maintenance records past due date.
-  - `scanLowStock`: Scans inventory items where `quantityAvailable <= reorderLevel`, generating replenishment tasks.
+- **PostgreSQL Database**: 
+  - Deployed as PostgreSQL 17 (Alpine) via Docker container `uims-postgres`. 
+  - Exposed locally on port 5433 mapped to 5432 internally.
+  - Integrated via Prisma ORM 7. The comprehensive schema is defined in `apps/api/prisma/schema.prisma`. 
+  - Configuration relies on the `DATABASE_URL` via environment variables. The connection string includes parameters for schema definitions and connection pooling.
+- **Redis & Caching**: 
+  - Deployed as Redis 8 (Alpine) via Docker container `uims-redis`. 
+  - Exposed locally on port 6381.
+  - Integrated into the API via the `ioredis` (v6) library. 
+  - Redis serves multiple purposes: it acts as a high-speed application-level cache, manages state for rate limiters, and serves as the crucial backing store for BullMQ background job queues.
+- **Full-Text Search Engine**: 
+  - Meilisearch (`getmeili/meilisearch:latest`) is provisioned within the local infrastructure.
+  - Accessible via internal port `7700`. 
+  - Integrated using the `MEILISEARCH_HOST` and `MEILISEARCH_API_KEY` environment variables.
+- **Object Storage (File Uploads)**: 
+  - The system utilizes SeaweedFS, which provides an S3-Compatible API for highly scalable object storage.
+  - The stack deploys three distinct components via Docker: `seaweedfs-master` (port 9333), `seaweedfs-volume` (port 8080), and `seaweedfs-filer`.
+  - The application interfaces with the `seaweedfs-filer` gateway on port `8333`.
+  - Configured via environment variables: `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `S3_BUCKET`.
+  - Note: While explicit storage controller modules (e.g., `apps/api/src/modules/storage`) are currently missing or WIP, the infrastructure is completely provisioned for standard S3 client interaction using the AWS SDK or similar clients.
 
-## Search
-- **Search Engine**: Meilisearch (`getmeili/meilisearch:latest`, container `uims-meilisearch`, port `7700:7700`).
-- **Service Integration (`apps/api/src/modules/search/search.service.ts`)**:
-  - Direct HTTP client using native `fetch` with `MEILISEARCH_HOST` and `MEILISEARCH_API_KEY`.
-  - Health check verification during startup: `checkHealthAndInit()` queries `GET /health` with a 2000ms abort signal.
-- **Search Execution & Multi-Search**:
-  - Endpoint `POST /multi-search` queries multiple indexes in a single roundtrip with pagination (`limit`).
-  - Indexed Models:
-    - `assets`: Index mapped from `Asset` (`id`, `name`, `assetTag`, `serialNumber`, `model`, `manufacturer`, `category`, `status`).
-    - `licenses`: Index mapped from `License` (`id`, `name`, `vendor`, `type`, `totalSeats`, `status`).
-    - `users`: Index mapped from `DirectoryUser` (`id`, `name`, `username`, `email`, `jobTitle`, `department`, `status`).
-- **Synchronization Endpoint**:
-  - `POST /api/v1/search/sync` triggers `syncAllToMeilisearch()`, synchronizing up to 1000 records per model to `/indexes/{indexUid}/documents`.
-- **Resilient Fallback**:
-  - When Meilisearch is offline or returns an error, `searchDatabaseFallback()` executes ILIKE/contains queries directly across PostgreSQL tables (`Asset`, `License`, `DirectoryUser`), formatting results into the standardized `SearchResultItem` schema.
+## Authentication & Identity
 
-## File Storage
-- **Object Storage Service**: SeaweedFS (`chrislusf/seaweedfs:latest`) running in Docker Compose:
-  - `uims-seaweedfs-master`: Master cluster coordinator on port `9333`.
-  - `uims-seaweedfs-volume`: Volume server on port `8080` bound to master.
-  - `uims-seaweedfs-filer`: Distributed filer and S3 gateway on ports `8888` (filer HTTP) and `8333` (`-s3 -s3.port=8333`).
-- **Configuration & Integration Status**:
-  - Environment variables: `S3_ENDPOINT` (default `http://seaweedfs-filer:8333`), `S3_ACCESS_KEY` (`uims_s3_access`), `S3_SECRET_KEY` (`uims_s3_secret`), `S3_BUCKET` (`uims-files`).
-  - Data records store file URLs and paths as strings in PostgreSQL (`avatar`, `documentUrl`). Infrastructure is prepared for direct S3 client upload and download streaming.
+- **JWT Authentication Flow**: 
+  - The core authentication implementation resides in `apps/api/src/modules/auth/`.
+  - It utilizes Passport.js (`@nestjs/passport` and `passport-jwt`) to manage identity safely.
+  - **Access & Refresh Tokens**: Managed by `AuthModule` (`apps/api/src/modules/auth/auth.module.ts`). The module configures the `JwtModule` asynchronously using the `ConfigService` to read `JWT_SECRET` and `JWT_ACCESS_EXPIRATION`.
+  - **Guard Chain**: Access control is enforced by custom guards (`apps/api/src/modules/auth/auth.guard.ts`) mapped globally, and specific public endpoints can bypass this using the `@Public()` decorator.
+  - **Token Rotation & Hashing**: Handled securely via `bcrypt` (v6) for password encryption before storage in PostgreSQL.
+- **Enterprise Directories**: 
+  - The Prisma schema (`apps/api/prisma/schema.prisma`) defines a `DirectoryUser` model mapping to an Active Directory or similar structure.
+  - This model includes a `DirectorySource` enum covering `LOCAL`, `LDAP`, and `AZURE_AD`. 
+  - Currently, no specific LDAP libraries (like `ldapjs`) are present in `package.json`, indicating that directory synchronization logic is either pending implementation or abstracted elsewhere in another microservice.
+
+## Monitoring & Observability
+
+- **Structured Logging**: 
+  - Traditional `console.log` is strictly prohibited throughout the codebase. 
+  - Logging is handled via `pino` (v10) and `pino-http` (v11). 
+  - This enforces machine-readable JSON logging suitable for production log aggregators (e.g., ELK stack, Datadog, Splunk).
+- **NestJS Logger Integration**: 
+  - The API intercepts the default NestJS logger and replaces it with Pino, ensuring that even framework-level startup messages and error traces are structured.
+- **Health Checks & Diagnostics**: 
+  - Implemented in `apps/api/src/modules/health/health.controller.ts`.
+  - Exposed publicly at the `/health` endpoint via the `@Public()` decorator.
+  - **Validations**: 
+    - Verifies PostgreSQL connectivity using a lightweight query: `this.prisma.$queryRaw\`SELECT 1\``.
+    - Verifies Redis connectivity using the standard ping command: `this.redisService.ping()`.
+  - **Metrics Returned**: Returns highly structured diagnostics including memory usage (`process.memoryUsage()`), system uptime (`process.uptime()`), Node version, and dynamic `status` strings (`ok`, `degraded`, `error`) calculated based on latency thresholds (e.g., degraded if latency > 500ms).
+
+## WebSockets & Real-Time
+
+- **Socket.io Gateway**: 
+  - The API leverages `@nestjs/platform-socket.io` and `@nestjs/websockets` to spin up a WebSocket server alongside the HTTP server.
+- **Implementation Location**: 
+  - WebSockets are heavily utilized in `apps/api/src/modules/notifications/notifications.gateway.ts` to broadcast events.
+- **Client Usage**: 
+  - The React frontend (`@uims/web`) uses the `socket.io-client` v4.8.3 library to maintain a persistent connection, listening for real-time state changes and user notifications without the need for manual polling.
 
 ## Email / Notifications
-- **Email Service Integration**:
-  - No external transactional email provider (e.g. SES, SendGrid, SMTP) is configured in `@uims/api`. System communications operate in-app.
-- **Notification Channels**:
-  - **Database Persistence**: Notifications stored in `Notification` table (`id`, `userId`, `title`, `message`, `type: INFO|WARNING|ALERT`, `link`, `isRead`, `createdAt`).
-  - **Real-Time WebSocket Push**: Broadcasts live notifications directly to connected user browser sessions via Socket.IO.
-  - **Role-Based Fanout**: Notifications can be dispatched to specific users or broadcast across entire roles (e.g., all `Admin` or `IT Staff` users).
-  - **Proactive Cron Notifications**: Automated alerts from `ScheduledAlertsWorker` for impending expirations and stock shortages.
 
-## WebSocket
-- **Gateway**: `NotificationsGateway` (`apps/api/src/modules/notifications/notifications.gateway.ts`).
-- **Namespace**: `/notifications`.
-- **Transport & Proxy**: Socket.IO 4.8.3 with WebSocket transport. Proxied through Nginx (`/socket.io/` with `Upgrade $http_upgrade` and `Connection "upgrade"`) and Vite dev server (`ws: true`).
-- **Authentication**:
-  - Handshake middleware intercepts connection requests, extracting JWT bearer tokens from `auth.token`, `query.token`, or `headers.authorization`.
-  - Verifies token cryptographically using `JwtService` and `JWT_SECRET`.
-  - Rejects unauthenticated connections and populates socket data with `{ userId, role, email }`.
-- **Room Subscriptions**:
-  - `user:{userId}`: Dedicated room for targeted individual notifications.
-  - `role:{role}`: Broadcast room for role-specific events.
-- **Events Emitted**:
-  - `connected`: Handshake success `{ status: 'ready', userId, role, timestamp }`.
-  - `notification:new`: Dispatched when a notification is created.
-  - `notification:count`: Real-time update of unread notification badge count.
-  - `notification:read`: Emitted when an individual notification is marked read.
-  - `notification:cleared`: Emitted when all notifications are dismissed.
-- **Events Listened**:
-  - `ping`: Healthcheck heartbeat from frontend, responding with `{ pong: 'pong', time: ISOString }`.
+- **Notifications Module**: 
+  - Located at `apps/api/src/modules/notifications/`. 
+  - Handles the creation, reading, and broadcasting of internal system alerts (stored in the `Notification` PostgreSQL table).
+  - Background scheduling is managed by BullMQ workers (e.g., `scheduled-alerts.worker.ts`).
+- **External Email Delivery**: 
+  - An audit of the dependencies shows no explicit external email provider SDKs (like SendGrid or Mailgun) and no `nodemailer` package installed in `apps/api/package.json`. 
+  - Email delivery capabilities are either pending implementation or intentionally decoupled into an external microservice.
 
-## External APIs
-- **Active Directory / LDAP Services (`apps/api/src/modules/directory/directory.service.ts`)**:
-  - Configured for corporate domain `uims.internal` and primary controller `DC01-PRIMARY.corp.uims.internal`.
-  - Organizational Units (OUs): Corporate HQ, IT & Infrastructure, Engineering, Production & Manufacturing, Operations & Supply Chain, Commercial & Sales.
-  - Security Groups: AD Security Groups managed with domain local scope (`ensureAndLinkAdGroup`).
-  - Batch Import / Export:
-    - `POST /api/v1/directory/import`: Ingests batch LDAP/AD export records, upserting `DirectoryUser` records and auto-linking security groups.
-    - `GET /api/v1/directory/export`: Exports 18-column master directory roster with employment status, hardware computer bindings, and OU assignments.
-  - Domain Sync Probe: `GET /api/v1/directory/sync` simulates and reports domain controller replication metrics (`replicatedObjects`, `latencyMs`, `activeIdentities`).
-- **Adversarial Identity Isolation**:
-  - Strict security boundary separating internal directory users (`DirectoryUser`) from application administrators (`AppUser`).
-  - Attempts by directory accounts to authenticate at `/api/v1/auth/login` are explicitly blocked, raising `LOGIN_REJECTED_DIRECTORY_RECORD` in the tamper-evident audit log.
-- **Network Infrastructure & IPAM (`apps/api/src/modules/network`)**:
-  - Tracks network devices, VLANs, subnets, and IP assignments.
-  - Network probe functions monitor device availability and response latency.
+## Webhooks & Callbacks
 
-## Authentication Providers
-- **Strategy**: JSON Web Token (JWT) using Passport (`passport-jwt` `^4.0.1` and `@nestjs/jwt` `^11.0.2` via `JwtStrategy`).
-- **Token Specifications**:
-  - **Access Token**: Short-lived (`JWT_ACCESS_EXPIRATION` default 15m), HMAC-SHA256 signed using `JWT_SECRET`. Contains claims: `sub` (user ID), `email`, `role`, `permissions` (subject:action array), `username`, and `type: 'access'`.
-  - **Refresh Token**: Long-lived (`JWT_REFRESH_EXPIRATION` default 7d), signed using `JWT_REFRESH_SECRET`.
-- **Token Refresh & Revocation Lifecycle**:
-  - Refresh tokens are hashed using SHA-256 (`crypto.createHash('sha256').update(token).digest('hex')`) and persisted in the `RefreshToken` database table with device user-agent, IP address, and expiry timestamp.
-  - `POST /api/v1/auth/refresh` validates the caller's active user status, dynamically re-resolves up-to-date permissions from database role assignments, and issues a new access token.
-  - `POST /api/v1/auth/logout` revokes all active refresh tokens for the user session (`isRevoked: true`).
-- **Password Security**: `bcrypt` (version 6.0.0) with salt rounds.
-- **Rate Limiting & Abuse Defense**:
-  - `@Throttle({ default: { limit: 5, ttl: 60000 } })` applied to `POST /api/v1/auth/login`.
-  - `@Throttle({ default: { limit: 10, ttl: 60000 } })` applied to `POST /api/v1/auth/refresh`.
-  - Client IP extracted reliably via `ClientIP` decorator handling `X-Forwarded-For` through reverse proxies.
-- **Tamper-Evident Audit Trail**:
-  - Every login success, login failure, and directory rejection is committed to the database with HMAC-SHA256 signature calculated from `AUDIT_SIGNING_KEY`.
+- **Incoming/Outgoing Webhooks**: 
+  - A thorough search across the API source code (`apps/api/src`) did not reveal explicit webhook endpoint controllers or specialized webhook signature validation utilities (such as Stripe or GitHub webhook handlers). 
+  - However, standard HTTP controllers are fully capable of accepting generic POST callbacks if integrated in the future.
+- **Audit Logging**: 
+  - Changes triggered by internal actions (and potentially future webhooks) are captured in the `AuditLog` model in Prisma.
+  - These logs incorporate an `AUDIT_SIGNING_KEY` environment variable for cryptographic verification of log integrity.
+
+## Secrets Location
+
+- **Docker Environment**: 
+  - During local orchestration, secrets are injected dynamically into containers via `docker-compose.yml`.
+- **Environment Files**: 
+  - Configured locally via `.env` files located at the repository root and inside `apps/api/.env`.
+- **Security Constraint**: 
+  - The contents of these secret files (e.g., `DATABASE_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `S3_SECRET_KEY`, `MEILISEARCH_API_KEY`) are highly sensitive and are NEVER to be committed, logged, or read by analysis tools. They are parsed safely at runtime by the `@nestjs/config` `ConfigModule`.
+
+*Integration audit: 2026-09-09*
+
+### SeaweedFS Configuration Details
+```yaml
+seaweedfs-master:
+  image: chrislusf/seaweedfs:latest
+  ports:
+    - "9333:9333"
+
+seaweedfs-volume:
+  image: chrislusf/seaweedfs:latest
+  ports:
+    - "8080:8080"
+  depends_on:
+    - seaweedfs-master
+
+seaweedfs-filer:
+  image: chrislusf/seaweedfs:latest
+  command: filer -master="seaweedfs-master:9333" -ip.bind=0.0.0.0 -s3 -s3.port=8333
+  ports:
+    - "8888:8888"
+    - "8333:8333"
+  depends_on:
+    - seaweedfs-master
+    - seaweedfs-volume
+```

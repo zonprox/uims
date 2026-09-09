@@ -1,493 +1,152 @@
-# Project Structure
-**Analysis Date:** 2026-09-09
+# UIMS Structure Analysis
 
-## Root Layout
-```
-uims/
-├── apps/
-│   ├── api/                          # NestJS 11 backend service
-│   └── web/                          # React 19 SPA frontend
-├── packages/
-│   ├── eslint-config/                # Centralized ESLint 10 flat configuration
-│   ├── shared-types/                 # Shared TypeScript interfaces, DTOs & enums
-│   ├── shared-utils/                 # Reusable utility functions & formatters
-│   └── shared-validators/            # Universal Zod validation schemas
-├── docker/
-│   ├── nginx/                        # Nginx reverse proxy configuration & SSL certs
-│   │   ├── nginx.conf
-│   │   └── ssl/
-│   └── postgres/                     # Database initialization scripts
-│       └── init.sql
-├── scripts/                          # Automation & test scripts
-│   ├── test-login.mjs                # Automated login flow test
-│   └── test-responsive.mjs           # Automated responsive layout test
-├── docs/                             # Engineering documentation
-│   ├── ARCHITECTURE.md
-│   ├── CONFIGURATION.md
-│   ├── DEPLOYMENT.md
-│   ├── DEVELOPMENT.md
-│   ├── GETTING-STARTED.md
-│   └── TESTING.md
-├── .planning/                        # Project planning & codebase analysis
-│   └── codebase/                     # In-depth architectural documentation
-├── biome.json                        # Biome formatting and linting rules
-├── docker-compose.yml                # Production multi-container Docker compose
-├── docker-compose.dev.yml            # Local development Docker compose override
-├── package.json                      # Monorepo root scripts & dev dependencies
-├── pnpm-lock.yaml                    # Strict pnpm lockfile (pnpm v11)
-├── pnpm-workspace.yaml               # pnpm workspace configuration
-├── README.md                         # Project overview and quickstart
-└── turbo.json                        # Turborepo task pipeline definitions
-```
+## Full Directory Tree
 
----
-
-## Backend Structure (`apps/api/`)
-
-### Directory Tree
-```
-apps/api/
-├── Dockerfile                        # Multi-stage production container build
-├── Dockerfile.dev                    # Hot-reloading development container build
-├── package.json                      # NestJS dependencies & script definitions
-├── prisma.config.ts                  # Prisma CLI configuration
-├── tsconfig.json                     # TypeScript compilation settings
-├── prisma/
-│   ├── migrations/                   # Sequential SQL schema migrations
-│   ├── schema.prisma                 # Prisma schema (26 models, 7 enums)
-│   ├── seed.ts                       # Master modular database seeder runner
-│   └── seeders/                      # Domain-specific seeder modules
-│       ├── ad-directory-data.ts      # Active Directory sample datasets
-│       ├── assets.seeder.ts          # Hardware asset seeds
-│       ├── audit.seeder.ts           # Tamper-evident audit log seeds
-│       ├── directory.seeder.ts       # Employee and group seeds
-│       ├── inventory.seeder.ts       # Stockroom inventory seeds
-│       ├── licenses.seeder.ts        # Software license & seat seeds
-│       ├── network.seeder.ts         # IPAM, subnet & VLAN seeds
-│       ├── notifications.seeder.ts   # System notification seeds
-│       ├── organization.seeder.ts    # Enterprise department & location seeds
-│       ├── roles-users.seeder.ts     # RBAC roles & application user seeds
-│       ├── settings-reports.seeder.ts# System settings & report schedule seeds
-│       └── taxonomy.seeder.ts        # Categories and location taxonomy seeds
-└── src/
-    ├── app.module.ts                 # Root NestJS module importing all feature modules
-    ├── main.ts                       # Application entry point, bootstrap & middleware
-    ├── config/
-    │   └── app.config.ts             # Zod environment variable schema & validator
-    ├── database/
-    │   ├── prisma.module.ts          # Global Prisma provider module
-    │   └── prisma.service.ts         # PrismaClient extension with @prisma/adapter-pg
-    ├── common/                       # Cross-cutting framework concerns
-    │   ├── decorators/
-    │   │   ├── client-ip.decorator.ts       # Proxy-aware client IP extractor
-    │   │   ├── public.decorator.ts          # Exemption from JWT auth
-    │   │   ├── require-permissions.decorator.ts # Action:subject permission metadata
-    │   │   └── roles.decorator.ts           # RBAC role requirements metadata
-    │   ├── dto/
-    │   │   └── pagination.dto.ts            # Global page and limit query schema
-    │   ├── filters/
-    │   │   ├── http-exception.filter.ts     # Standardized HTTP error formatter
-    │   │   └── prisma-exception.filter.ts   # Prisma error code mapper (P2002, etc.)
-    │   ├── guards/
-    │   │   ├── jwt-auth.guard.ts            # Passport JWT bearer guard
-    │   │   ├── permissions.guard.ts         # Fine-grained permission checker
-    │   │   └── roles.guard.ts               # Role-based access control guard
-    │   ├── interceptors/
-    │   │   ├── audit.interceptor.ts         # HMAC SHA-256 mutation audit logger
-    │   │   └── transform.interceptor.ts     # Envelope formatter { success, data }
-    │   └── redis/
-    │       ├── redis.module.ts              # Redis provider module
-    │       └── redis.service.ts             # ioredis client with memory fallback
-    └── modules/                      # 16 domain feature modules
-        ├── assets/                   # Hardware asset lifecycle management
-        │   ├── assets.controller.ts
-        │   ├── assets.service.ts
-        │   ├── assets.module.ts
-        │   └── dto/
-        │       ├── create-asset.dto.ts
-        │       └── update-asset.dto.ts
-        ├── audit/                    # Compliance & audit logging
-        │   ├── audit.controller.ts
-        │   ├── audit.service.ts
-        │   └── audit.module.ts
-        ├── auth/                     # Authentication & JWT issuance
-        │   ├── auth.controller.ts
-        │   ├── auth.service.ts
-        │   ├── auth.module.ts
-        │   ├── auth.guard.ts
-        │   ├── dto/
-        │   │   └── login.dto.ts
-        │   └── strategies/
-        │       └── jwt.strategy.ts
-        ├── dashboard/                # Telemetry & executive statistics
-        │   ├── dashboard.controller.ts
-        │   ├── dashboard.service.ts
-        │   └── dashboard.module.ts
-        ├── directory/                # Corporate employee directory & AD sync
-        │   ├── directory.controller.ts
-        │   ├── directory.service.ts
-        │   ├── directory.module.ts
-        │   └── dto/
-        │       ├── create-directory-group.dto.ts
-        │       ├── create-directory-user.dto.ts
-        │       ├── directory-query.dto.ts
-        │       ├── import-directory.dto.ts
-        │       └── update-directory-user.dto.ts
-        ├── health/                   # Infrastructure liveness & readiness
-        │   ├── health.controller.ts
-        │   └── health.module.ts
-        ├── inventory/                # Stockroom consumables & spare parts
-        │   ├── inventory.controller.ts
-        │   ├── inventory.service.ts
-        │   ├── inventory.module.ts
-        │   └── dto/
-        │       ├── create-inventory-item.dto.ts
-        │       ├── restock-inventory.dto.ts
-        │       └── update-inventory-item.dto.ts
-        ├── licenses/                 # Software licenses & seat allocation
-        │   ├── licenses.controller.ts
-        │   ├── licenses.service.ts
-        │   ├── licenses.module.ts
-        │   └── dto/
-        │       ├── create-license.dto.ts
-        │       └── update-license.dto.ts
-        ├── network/                  # IPAM, subnets & VLAN management
-        │   ├── network.controller.ts
-        │   ├── network.service.ts
-        │   ├── network.module.ts
-        │   └── dto/
-        │       ├── create-ip.dto.ts
-        │       ├── create-subnet.dto.ts
-        │       └── update-ip.dto.ts
-        ├── notifications/            # Alerts, WebSockets & cron workers
-        │   ├── notifications.controller.ts
-        │   ├── notifications.service.ts
-        │   ├── notifications.gateway.ts     # Socket.io gateway (/notifications)
-        │   ├── scheduled-alerts.worker.ts   # Daily cron worker (@Cron)
-        │   ├── notifications.module.ts
-        │   └── dto/
-        │       ├── create-notification.dto.ts
-        │       └── notification-query.dto.ts
-        ├── organization/             # Organizational hierarchy (depts, locations)
-        │   ├── organization.controller.ts
-        │   ├── organization.service.ts
-        │   ├── organization.module.ts
-        │   └── dto/
-        │       ├── create-department.dto.ts
-        │       ├── create-organization.dto.ts
-        │       ├── create-position.dto.ts
-        │       ├── update-department.dto.ts
-        │       ├── update-organization.dto.ts
-        │       └── update-position.dto.ts
-        ├── reports/                  # Analytics & scheduled report exports
-        │   ├── reports.controller.ts
-        │   ├── reports.service.ts
-        │   ├── reports.module.ts
-        │   └── dto/
-        │       └── schedule-report.dto.ts
-        ├── roles/                    # RBAC role management & permissions
-        │   ├── roles.controller.ts
-        │   ├── roles.service.ts
-        │   ├── roles.module.ts
-        │   └── dto/
-        │       ├── clone-role.dto.ts
-        │       ├── create-role.dto.ts
-        │       ├── sync-permissions.dto.ts
-        │       └── update-role.dto.ts
-        ├── search/                   # Omni-search engine across all entities
-        │   ├── search.controller.ts
-        │   ├── search.service.ts
-        │   └── search.module.ts
-        ├── settings/                 # Global system configuration key-values
-        │   ├── settings.controller.ts
-        │   ├── settings.service.ts
-        │   └── settings.module.ts
-        └── users/                    # Platform administration users
-            ├── users.controller.ts
-            ├── users.service.ts
-            ├── users.module.ts
-            └── dto/
-                ├── create-group.dto.ts
-                ├── create-user.dto.ts
-                ├── import-users.dto.ts
-                ├── toggle-status.dto.ts
-                ├── update-user.dto.ts
-                └── user-query.dto.ts
+```text
+/home/user/projects/uims/
+├── .agents/                 # AI Agent operational configurations
+├── .github/                 # GitHub Actions workflows and templates
+├── .planning/               # Architectural plans, codebase mapping, and strategic documents
+├── .turbo/                  # TurboRepo local cache (auto-generated)
+├── apps/                    # Core executable applications
+│   ├── api/                 # Backend NestJS Application
+│   │   ├── prisma/          # Database schema (schema.prisma), migrations, and seeds
+│   │   └── src/             # API Source code
+│   │       ├── common/      # Global cross-cutting concerns (guards, filters, etc.)
+│   │       ├── config/      # Environment loading and runtime configuration validation
+│   │       ├── database/    # Prisma service instantiation and database modules
+│   │       ├── modules/     # Feature-driven business logic modules
+│   │       └── main.ts      # API application entry point
+│   └── web/                 # Frontend React SPA Application
+│       ├── certs/           # TLS certificates for local HTTPS development
+│       └── src/             # SPA Source code
+│           ├── app/         # App initialization, routing config, theming, and providers
+│           ├── components/  # Reusable UI building blocks and common views
+│           ├── hooks/       # Custom React hooks encapsulating UI/API logic
+│           ├── layouts/     # High-level page structures (Main, Auth, Sidebar)
+│           ├── pages/       # Feature-specific route views and page-level components
+│           ├── services/    # Axios-based API client classes mapping to backend endpoints
+│           ├── stores/      # Zustand state management definitions
+│           ├── styles/      # Global CSS files and base variables
+│           └── main.tsx     # SPA DOM mounting entry point
+├── packages/                # Shared monorepo packages (internal libraries)
+│   ├── eslint-config/       # Unified ESLint rules applied across all apps/packages
+│   ├── shared-types/        # DTOs, Entities, and Enums used by both API and Web
+│   ├── shared-utils/        # Common utility functions (date manipulation, brands)
+│   └── shared-validators/   # Zod validation schemas shared between frontend/backend
+├── docs/                    # Extensive technical documentation and guides
+├── docker/                  # Dockerfiles, compose files, and infrastructure scripts
+└── scripts/                 # Maintenance, build, and deployment bash/node scripts
 ```
 
-### Module Organization Pattern
-Every feature module follows NestJS separation of concerns:
-1. `*.module.ts`: Declares controllers, providers, and imports needed for the module.
-2. `*.controller.ts`: Declares REST routes, swagger decorators, guards, and parameter validation pipes.
-3. `*.service.ts`: Implements business logic, database transactions (`PrismaService`), and cache operations.
-4. `dto/*.dto.ts`: Declares input validation classes using `class-validator` and `class-transformer`.
-5. `*.spec.ts`: Unit and adversarial test specifications co-located with implementation files.
+## Complete Module Listing (apps/api/src/modules/)
 
----
+- **`assets/`**: Manages hardware/software assets, lifecycle tracking, assignments, and QR code generation.
+- **`audit/`**: Provides the audit log query interface for tracking system-wide mutations and user activities.
+- **`auth/`**: Handles authentication, login, token generation, and secure session management.
+- **`dashboard/`**: Aggregates high-level metrics, system status, and widgets for the main landing page.
+- **`directory/`**: Manages organizational directory sync, employee lists, and group hierarchies.
+- **`health/`**: Exposes system health checks for infrastructure monitoring (DB, Redis, Memory).
+- **`inventory/`**: Tracks consumables, stock levels, restocking workflows, and threshold alerts.
+- **`licenses/`**: Manages software license keys, seat allocations, expirations, and compliance tracking.
+- **`network/`**: Manages IP address allocations, subnet configurations, and basic network mapping.
+- **`notifications/`**: Orchestrates real-time WebSocket alerts, email dispatches, and background alert workers.
+- **`organization/`**: Defines the corporate structure, departments, and positions.
+- **`reports/`**: Handles asynchronous generation of system reports (PDF, CSV) using BullMQ.
+- **`roles/`**: Manages the Role-Based Access Control (RBAC) definitions and permission matrices.
+- **`search/`**: Provides global search capabilities across multiple entities (assets, users, IPs).
+- **`settings/`**: Manages global application settings, integrations, and environment flags.
+- **`users/`**: Manages application user accounts, status toggles, and user-specific configurations.
 
-## Frontend Structure (`apps/web/`)
+## Complete Page/Feature Listing (apps/web/src/pages/)
 
-### Directory Tree
-```
-apps/web/
-├── Dockerfile                        # Multi-stage production container build
-├── Dockerfile.dev                    # Hot-reloading development container build
-├── index.html                        # HTML application shell
-├── package.json                      # React 19 & Ant Design v6 dependencies
-├── tsconfig.json                     # TypeScript config with path aliases
-├── vite.config.ts                    # Vite bundle config, manual chunks & proxy
-├── certs/                            # Local HTTPS certificates for dev server
-│   ├── cert.pem
-│   └── key.pem
-└── src/
-    ├── main.tsx                      # DOM root mount
-    ├── vite-env.d.ts                 # Vite environment definitions
-    ├── app/                          # Core application providers & bootstrap
-    │   ├── App.tsx                   # Top-level provider wrapper (Theme, Query, Auth)
-    │   ├── query-client.ts           # TanStack QueryClient with retry & cache rules
-    │   ├── router.tsx                # React Router v8 lazy routes & boundaries
-    │   └── theme.ts                  # Ant Design v6 design token & theme generator
-    ├── components/                   # Shared UI primitives
-    │   ├── Access/
-    │   │   ├── Can.tsx               # Declarative RBAC permission gate wrapper
-    │   │   └── index.ts
-    │   ├── CommandPalette.tsx        # Cmd+K omni-search modal
-    │   ├── ErrorBoundary.tsx         # React class error boundary
-    │   ├── ErrorResultView.tsx       # Ant Design error presentation component
-    │   ├── FormattedDate.tsx         # Timezone-aware date renderer
-    │   ├── NotificationDrawer.tsx    # Slide-over real-time notification drawer
-    │   ├── PageContainer.tsx         # View header with breadcrumbs and action buttons
-    │   ├── PageLoader.tsx            # Suspense loading spinner
-    │   ├── RouteErrorBoundary.tsx    # React Router 404/500 fault barrier
-    │   └── TimezoneSelector.tsx      # Timezone configuration selector
-    ├── hooks/                        # Custom application hooks
-    │   ├── useAccess.ts              # RBAC evaluation hook (can, hasRole, hasPermission)
-    │   ├── useRealtimeNotifications.ts# Socket.io alert listener & chime player
-    │   └── useSystemHealth.ts        # Telemetry polling with connectivity awareness
-    ├── layouts/                      # Layout templates
-    │   ├── AuthLayout.tsx            # Authentication check & login redirector
-    │   ├── MainLayout.tsx            # Application shell with header, sidebar, footer
-    │   ├── menuConfig.tsx            # Navigation sidebar menu items & permission filters
-    │   ├── components/               # Subcomponents for layout shell
-    │   │   ├── LayoutFooter.tsx
-    │   │   ├── MenuCountBadge.tsx
-    │   │   ├── NavIconWithBadge.tsx
-    │   │   ├── NavbarSections.tsx
-    │   │   ├── SidebarBrandHeader.tsx
-    │   │   ├── SidebarContent.tsx
-    │   │   ├── SidebarFooter.tsx
-    │   │   └── SidebarOrgSelector.tsx
-    │   └── hooks/
-    │       └── useLayoutTelemetry.ts # Telemetry metrics for layout
-    ├── pages/                        # Route pages and co-located subcomponents
-    │   ├── NotFoundPage.tsx          # 404 fallback page
-    │   ├── access/                   # Access Control management
-    │   │   ├── AccessControlPage.tsx
-    │   │   └── AppUsersTab.tsx
-    │   ├── assets/                   # Hardware asset management
-    │   │   ├── AssetsPage.tsx
-    │   │   ├── components/
-    │   │   │   ├── AssetDetailDrawer.tsx
-    │   │   │   ├── AssetFilterBar.tsx
-    │   │   │   ├── AssetFormModal.tsx
-    │   │   │   ├── AssetQrModal.tsx
-    │   │   │   ├── AssetScannerModal.tsx
-    │   │   │   └── AssetTable.tsx
-    │   │   ├── hooks/
-    │   │   │   └── useAssetManagement.ts
-    │   │   └── utils/
-    │   │       └── qrDecoder.ts
-    │   ├── audit/                    # Audit log trail viewer
-    │   │   └── AuditPage.tsx
-    │   ├── auth/                     # Authentication
-    │   │   └── LoginPage.tsx
-    │   ├── dashboard/                # Metric KPI cards & charts
-    │   │   └── DashboardPage.tsx
-    │   ├── directory/                # Corporate directory
-    │   │   ├── DirectoryPage.tsx
-    │   │   ├── DirectoryGroupsTab.tsx
-    │   │   └── EmployeesTab.tsx
-    │   ├── inventory/                # Stock inventory
-    │   │   └── InventoryPage.tsx
-    │   ├── licenses/                 # Software licenses
-    │   │   └── LicensesPage.tsx
-    │   ├── network/                  # IPAM & network
-    │   │   ├── NetworkPage.tsx
-    │   │   └── components/
-    │   │       ├── IpAddressTable.tsx
-    │   │       ├── IpFormModal.tsx
-    │   │       ├── PingToolModal.tsx
-    │   │       ├── SubnetCardList.tsx
-    │   │       └── SubnetFormModal.tsx
-    │   ├── notifications/            # Notification center
-    │   │   └── NotificationsPage.tsx
-    │   ├── organization/             # Org hierarchy canvas
-    │   │   ├── OrganizationPage.tsx
-    │   │   └── OrganizationCanvas.tsx
-    │   ├── reports/                  # Analytics & exports
-    │   │   └── ReportsPage.tsx
-    │   ├── settings/                 # System preferences
-    │   │   └── SettingsPage.tsx
-    │   └── users/                    # Role & permission matrix
-    │       ├── UsersPage.tsx
-    │       └── components/
-    │           ├── AccessSimulatorModal.tsx
-    │           ├── CreateRoleModal.tsx
-    │           ├── OrganizationalUnitsTab.tsx
-    │           ├── PermissionMatrixDrawer.tsx
-    │           ├── RoleCloneModal.tsx
-    │           ├── RoleDetailDrawer.tsx
-    │           └── RolesTab.tsx
-    ├── services/                     # Typed API client wrappers
-    │   ├── api.ts                    # Axios instance with 401 refresh queue
-    │   ├── assets.service.ts
-    │   ├── audit.service.ts
-    │   ├── auth.service.ts
-    │   ├── dashboard.service.ts
-    │   ├── directory.service.ts
-    │   ├── health.service.ts
-    │   ├── inventory.service.ts
-    │   ├── licenses.service.ts
-    │   ├── network.service.ts
-    │   ├── notifications.service.ts
-    │   ├── organization.service.ts
-    │   ├── reports.service.ts
-    │   ├── roles.service.ts
-    │   ├── settings.service.ts
-    │   └── users.service.ts
-    ├── stores/                       # Zustand state management
-    │   ├── auth.store.ts             # Auth credentials & RBAC permissions
-    │   ├── notification-settings.store.ts # Toast & sound alert preferences
-    │   ├── theme.store.ts            # Dark/light theme & color presets
-    │   └── timezone.store.ts         # User timezone & date format store
-    └── styles/                       # CSS style sheets
-        └── globals.css               # Global baseline stylesheet
-```
+- **`access/`**: UI for managing app users, assigning roles, and viewing access logs. (`AccessControlPage.tsx`)
+- **`assets/`**: Comprehensive hardware/software asset management, including scanner modals and QR printing. (`AssetsPage.tsx`)
+- **`audit/`**: View for the system audit trail, providing advanced filtering of historical actions. (`AuditPage.tsx`)
+- **`auth/`**: The login view and authentication workflows. (`LoginPage.tsx`)
+- **`dashboard/`**: The primary landing view showing aggregated metrics and system status. (`DashboardPage.tsx`)
+- **`directory/`**: Display of company employees, organizational hierarchy, and groups. (`DirectoryPage.tsx`)
+- **`inventory/`**: Management of consumable stock levels and alerts. (`InventoryPage.tsx`)
+- **`licenses/`**: Interface for tracking software licenses, renewals, and seat distribution. (`LicensesPage.tsx`)
+- **`network/`**: Network management UI, including IP address tables, subnet forms, and ping tools. (`NetworkPage.tsx`)
+- **`notifications/`**: User's notification inbox and preference settings. (`NotificationsPage.tsx`)
+- **`organization/`**: Canvas and views for defining departments, units, and corporate structure. (`OrganizationPage.tsx`, `OrganizationCanvas.tsx`)
+- **`reports/`**: UI for triggering, scheduling, and downloading system reports. (`ReportsPage.tsx`)
+- **`settings/`**: System configuration forms and integration management. (`SettingsPage.tsx`)
+- **`users/`**: Advanced role management, permission matrices, and role cloning tools. (`UsersPage.tsx`)
+- **`NotFoundPage.tsx`**: Standard 404 fallback page.
 
----
+## Key File Locations
 
-## Shared Packages Structure
+- **Entry Points**: 
+  - Backend: `apps/api/src/main.ts`
+  - Frontend: `apps/web/src/main.tsx`, `apps/web/src/app/App.tsx`
+- **Configuration**: 
+  - Backend validation: `apps/api/src/config/app.config.ts`
+  - Database schema: `apps/api/prisma/schema.prisma`
+  - Vite config: `apps/web/vite.config.ts`
+  - Monorepo tooling: root `package.json`, `turbo.json`, `pnpm-workspace.yaml`
+- **Core Logic**:
+  - Global guards: `apps/api/src/common/guards/`
+  - Frontend Router: `apps/web/src/app/router.tsx`
+  - API Client mapping: `apps/web/src/services/`
+- **Testing**:
+  - Backend Unit/Integration: Beside the implementation files (e.g., `*.spec.ts`, `*.adversarial.spec.ts`)
+  - Frontend Component: Beside the components (e.g., `*.test.tsx`)
+  - Configs: `vitest.config.mts` (API) / `vitest.config.ts` (Web)
 
-### 1. `packages/shared-types/`
-```
-packages/shared-types/
-├── package.json
-├── tsconfig.json
-└── src/
-    ├── index.ts                      # Root re-export barrel
-    ├── dto/                          # 17 DTO definition files
-    │   ├── api-response.ts
-    │   ├── assets.dto.ts
-    │   ├── audit.dto.ts
-    │   ├── auth.ts
-    │   ├── common.ts
-    │   ├── dashboard.dto.ts
-    │   ├── directory.dto.ts
-    │   ├── health.dto.ts
-    │   ├── inventory.dto.ts
-    │   ├── licenses.dto.ts
-    │   ├── network.dto.ts
-    │   ├── notification.dto.ts
-    │   ├── organization.dto.ts
-    │   ├── pagination.ts
-    │   ├── roles.dto.ts
-    │   ├── search.dto.ts
-    │   └── users.dto.ts
-    ├── entities/                     # 12 Entity definition files
-    │   ├── asset.ts
-    │   ├── audit.ts
-    │   ├── common.ts
-    │   ├── directory.ts
-    │   ├── inventory.ts
-    │   ├── license.ts
-    │   ├── network.ts
-    │   ├── notification.ts
-    │   ├── organization.ts
-    │   ├── role.ts
-    │   ├── timezone.ts
-    │   └── user.ts
-    └── enums/
-        ├── index.ts
-        └── permissions.ts            # Permission action and subject constants
-```
+## Naming Conventions
 
-### 2. `packages/shared-validators/`
-```
-packages/shared-validators/
-├── package.json
-├── tsconfig.json
-└── src/
-    ├── index.ts                      # Barrel re-exporting all schemas
-    ├── asset.validator.ts            # Zod validation for asset creation/editing
-    ├── auth.validator.ts             # Zod validation for login & credentials
-    ├── common.validator.ts           # Shared primitives (UUIDs, dates)
-    ├── directory.validator.ts        # Zod validation for employees & AD groups
-    ├── license.validator.ts          # Zod validation for licenses & seats
-    ├── notification.validator.ts     # Zod validation for notification payloads
-    ├── organization.validator.ts     # Zod validation for depts, orgs & positions
-    ├── pagination.validator.ts       # Zod validation for pagination parameters
-    ├── role.validator.ts             # Zod validation for roles & permissions
-    └── user.validator.ts             # Zod validation for user profiles
-```
+- **Directories**: Always `kebab-case`. Examples: `shared-validators`, `auth`, `components`.
+- **Backend Files**: `kebab-case` with specific structural suffixes:
+  - Modules: `*.module.ts`
+  - Controllers: `*.controller.ts`
+  - Services: `*.service.ts`
+  - Guards/Filters/Interceptors: `*.guard.ts`, `*.filter.ts`, `*.interceptor.ts`
+- **Frontend Components**: Always `PascalCase`. Examples: `AccessControlPage.tsx`, `AssetScannerModal.tsx`.
+- **Frontend Hooks**: `camelCase`, explicitly prefixed with `use`. Examples: `useAssetManagement.ts`, `useRealtimeNotifications.ts`.
+- **Frontend Stores**: `kebab-case` with `.store.ts` suffix. Examples: `auth.store.ts`, `theme.store.ts`.
+- **Types and Interfaces**: `PascalCase`. Examples: `AssetEntity`, `CreateUserDto`.
+- **Validation Schemas**: `camelCase` ending in `Schema`. Located in `shared-validators/src/*.validator.ts`.
 
-### 3. `packages/shared-utils/`
-```
-packages/shared-utils/
-├── package.json
-├── tsconfig.json
-└── src/
-    ├── index.ts                      # Barrel re-exporting all utility helpers
-    ├── brand.ts                      # System branding tokens & metadata constants
-    ├── enum.ts                       # Enum-to-label conversion & mapping helpers
-    ├── format.ts                     # String, currency, and numeric formatters
-    ├── string.ts                     # Slugs, capitalization, and SKU utilities
-    ├── timezone.ts                   # Dayjs wrapper, timezone conversions & arithmetic
-    └── validation.ts                 # Type guards and assertion functions
-```
+## Where to Add New Code
 
-### 4. `packages/eslint-config/`
-```
-packages/eslint-config/
-├── package.json
-├── README.md
-└── index.js                          # Shared ESLint flat config combining
-                                      # typescript-eslint and eslint-config-prettier
-```
+### 1. New Backend NestJS Module
+- Create `apps/api/src/modules/<feature-name>/`.
+- Define `<feature-name>.module.ts`, `<feature-name>.controller.ts`, and `<feature-name>.service.ts`.
+- Add local DTOs to a `dto/` subfolder only if they are not needed by the frontend. Otherwise, place them in `shared-types`.
+- Register the new module in `apps/api/src/app.module.ts`.
 
----
+### 2. New Frontend React Page
+- Create a directory `apps/web/src/pages/<feature-name>/`.
+- Define `<FeatureName>Page.tsx` as the main entry point.
+- Place feature-specific UI components in `apps/web/src/pages/<feature-name>/components/`.
+- Add the route to `apps/web/src/app/router.tsx`.
+- Add a navigation entry in `apps/web/src/layouts/menuConfig.tsx`.
 
-## Configuration Files
+### 3. New Shared Type or DTO
+- Navigate to `packages/shared-types/src/`.
+- Add to the relevant domain file (e.g., `dto/<feature>.dto.ts` or `entities/<feature>.ts`).
+- Ensure the type is exported in `packages/shared-types/src/index.ts`.
 
-| File | Location | Purpose |
-| :--- | :--- | :--- |
-| `package.json` | `/` (root) | Monorepo root definition, workspace dependencies, and top-level execution scripts |
-| `pnpm-workspace.yaml`| `/` (root) | Defines workspace packages (`apps/*`, `packages/*`), build settings, and release policies |
-| `turbo.json` | `/` (root) | Configures Turborepo build/dev/lint pipeline dependencies and global environment caching |
-| `biome.json` | `/` (root) | Biome code formatter and linter rules with ignores for generated files and migrations |
-| `docker-compose.yml` | `/` (root) | Multi-container production deployment (PostgreSQL, Redis, Meilisearch, SeaweedFS, API, Web) |
-| `docker-compose.dev.yml`| `/` (root)| Development Docker override providing volume binds, debug ports, and hot-reloading |
-| `.env.example` | `/` (root) | Template defining required and optional environment variables with default values |
-| `.gitignore` | `/` (root) | Git exclusion patterns (node_modules, build outputs, coverage, environment secrets) |
-| `.dockerignore` | `/` (root) | Exclusions for Docker context builds to minimize image sizes |
-| `ant-design-guide.md`| `/` (root) | Engineering guidelines for Ant Design v6 migration, tokens, and components |
+### 4. New Shared Validator
+- Navigate to `packages/shared-validators/src/`.
+- Create or update `<feature>.validator.ts`.
+- Export the Zod schema in `packages/shared-validators/src/index.ts`.
+- Use this schema in the frontend forms (via Hook Form + Zod resolver) and backend (via ValidationPipe).
 
----
+### 5. New Shared Utility
+- Navigate to `packages/shared-utils/src/`.
+- Define the utility (e.g., date formatting, string manipulation).
+- Write a corresponding `*.test.ts` file.
+- Export in `packages/shared-utils/src/index.ts`.
 
-## Key Directories
+## Special Directories
 
-### `docker/`
-- **`docker/nginx/nginx.conf`**: Nginx configuration terminating HTTPS (port 443), serving production SPA static assets, and reverse-proxying `/api/v1` to the API service and `/socket.io` to the WebSocket gateway.
-- **`docker/nginx/ssl/`**: Self-signed development certificates for local HTTPS encryption.
-- **`docker/postgres/init.sql`**: Database initialization script enabling required PostgreSQL extensions (e.g. `uuid-ossp`, `pgcrypto`) upon container startup.
+- **`node_modules/`**: Contains external dependencies. Ignored by git. Managed by pnpm at the workspace root and linked to apps.
+- **`dist/`**: The compiled output directory for both the NestJS application and the Vite React build. Ignored by git.
+- **`.planning/`**: The designated location for AI agent planning outputs, architecture snapshots, and project-wide documentation generation.
+- **`docker/`**: Contains infrastructure-as-code assets, including specialized `docker-compose` topologies for development, testing, and production environments.
+- **`apps/api/prisma/`**: Crucial directory holding `schema.prisma`. It is the absolute source of truth for the database schema. All migrations (`migrations/` subfolder) and seed scripts (`seed.ts`) reside here.
 
-### `scripts/`
-- **`scripts/test-login.mjs`**: Standalone Node.js automation script using Playwright to execute end-to-end authentication, form validation, and credential submission.
-- **`scripts/test-responsive.mjs`**: Automated script testing frontend viewport breakpoints (desktop, tablet, mobile) and checking for layout regressions or overflow issues.
-
-### `docs/`
-- **`docs/ARCHITECTURE.md`**: High-level architectural specification and component boundaries.
-- **`docs/CONFIGURATION.md`**: Detailed guide to environment variables and application runtime options.
-- **`docs/DEPLOYMENT.md`**: Production deployment procedures, Docker Compose orchestration, and reverse proxy setup.
-- **`docs/DEVELOPMENT.md`**: Local development setup, workspace commands, and workflow guidelines.
-- **`docs/GETTING-STARTED.md`**: Quick-start guide for onboarding new developers.
-- **`docs/TESTING.md`**: Unit, integration, and end-to-end testing guidelines using Vitest and Playwright.
+*Structure analysis: 2026-09-09*

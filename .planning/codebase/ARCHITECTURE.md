@@ -1,365 +1,156 @@
-# Architecture Overview
-**Analysis Date:** 2026-09-09
+<!-- refreshed: 2026-09-09 -->
+# UIMS Architecture Analysis
 
 ## System Overview
-UIMS (Unified IT Management System) is an enterprise-grade IT infrastructure, asset, and identity management platform. Built on a high-performance TypeScript monorepo, UIMS provides unified lifecycle management across hardware assets, software licenses, organizational directories, network IPAM (IP Address Management), role-based access control (RBAC), and automated compliance auditing.
 
-The system features a decoupled, multi-tier architecture:
-- **Presentation Tier**: React 19 Single Page Application (SPA) styled with Ant Design v6 and Ant Design Pro Components, utilizing Vite for HMR and optimized production chunking.
-- **API & Application Tier**: NestJS 11 backend framework running on Node.js (>=22.0.0), exposing a modular REST API (`/api/v1`) along with a real-time WebSocket Gateway (`/notifications`) via Socket.io.
-- **Data & Persistence Tier**: PostgreSQL 17 managed via Prisma ORM 7 with native connection pooling (`@prisma/adapter-pg`), Redis 8 for distributed caching and alert throttling, Meilisearch for indexed omni-search, and SeaweedFS for S3-compatible asset document and attachment storage.
-- **Proxy & Edge Tier**: Nginx reverse proxy terminating TLS and routing requests to web and API upstream services.
+UIMS (Unified IT Management System) is an enterprise-grade modular monolith application designed to manage IT infrastructure, assets, and users. The system leverages a classic three-tier architecture with a strictly typed boundary between the frontend and backend.
 
-```mermaid
-flowchart TD
-    subgraph Clients["Clients & Edge"]
-        Browser["Web Browser (React 19 SPA)"]
-        Nginx["Nginx Reverse Proxy (:443 / :5679)"]
-    end
-
-    subgraph AppTier["Backend Application Tier (NestJS 11 / Node.js 22)"]
-        API["NestJS Core App (:3000)"]
-        WS["Socket.io Gateway (/notifications)"]
-        Worker["ScheduledAlertsWorker (@Cron)"]
-        Interceptors["Audit & Transform Interceptors"]
-        Guards["Throttler, JWT, Roles & Permissions Guards"]
-    end
-
-    subgraph DataTier["Data & State Persistence Tier"]
-        PG[("PostgreSQL 17\n(Prisma ORM 7 + pg Pool)")]
-        Redis[("Redis 8\n(ioredis + Cache / Throttling)")]
-        Meili[("Meilisearch\n(Omni-search Index)")]
-        S3[("SeaweedFS S3\n(Object / Attachment Storage)")]
-    end
-
-    Browser -->|HTTPS / API Requests| Nginx
-    Browser <-->|WSS / Socket.io| Nginx
-    Nginx -->|Proxy HTTP /api/v1| API
-    Nginx -->|Proxy WS /socket.io| WS
-
-    API --> Guards
-    Guards --> Interceptors
-    Interceptors --> PG
-    API --> Redis
-    API --> Meili
-    API --> S3
-    Worker --> PG
-    Worker --> Redis
-    Worker --> WS
-    WS <--> Browser
+```text
++-------------------+       +-------------------+       +-------------------+
+|                   |       |                   |       |                   |
+|   Client Browser  +------>|       Nginx       +------>|     Vite SPA      |
+|                   | HTTP  |  (Reverse Proxy)  |       |   (React 19)      |
++-------------------+       +--------+----------+       +-------------------+
+                                     |
+                                     | API / WebSocket
+                                     v
+                            +--------+----------+
+                            |                   |
+                            |    NestJS API     |
+                            |   (Node.js 22)    |
+                            |                   |
+                            +----+----+----+----+
+                                 |    |    |
+          +----------------------+    |    +----------------------+
+          |                           |                           |
+          v                           v                           v
++---------+---------+       +---------+---------+       +---------+---------+
+|                   |       |                   |       |                   |
+|  PostgreSQL 17    |       |      Redis 8      |       |  Background Jobs  |
+| (Primary Storage) |       | (Cache/PubSub/MQ) |       |     (BullMQ)      |
++-------------------+       +-------------------+       +-------------------+
 ```
 
-## Monorepo Structure
-The repository is managed using **pnpm workspaces** (`pnpm@11.21.0`) coordinated by **Turborepo** (`turbo@^2.10.12`). All packages reside either in `apps/` or `packages/`.
+## Component Responsibilities
 
-```mermaid
-flowchart TD
-    subgraph Apps
-        API["@uims/api\n(apps/api)"]
-        Web["@uims/web\n(apps/web)"]
-    end
+| Component | Responsibility | Key File Location(s) |
+|-----------|----------------|----------------------|
+| **API Gateway** | Handles incoming HTTP requests, route mapping, request validation, global error handling, rate limiting. | `apps/api/src/main.ts`, `apps/api/src/app.module.ts` |
+| **Authentication** | Manages user sessions, JWT issuance/validation, and password hashing via Passport. | `apps/api/src/modules/auth/auth.service.ts`, `apps/api/src/modules/auth/strategies/jwt.strategy.ts` |
+| **Authorization** | Enforces RBAC/PBAC at the route level based on the user's assigned roles and permissions. | `apps/api/src/common/guards/roles.guard.ts`, `apps/api/src/common/guards/permissions.guard.ts` |
+| **Business Logic** | Core domain logic encapsulated within isolated feature modules. | `apps/api/src/modules/*/` (e.g., `apps/api/src/modules/assets/assets.service.ts`) |
+| **Data Access (ORM)** | Executes database queries, handles transactions, connection pooling, and bounded pagination. | `apps/api/src/database/prisma.service.ts` |
+| **Background Processing** | Handles asynchronous tasks like scheduled reports, alerting, and data synchronization. | `apps/api/src/modules/notifications/scheduled-alerts.worker.ts` |
+| **Real-time Engine** | Manages WebSocket connections for real-time notifications and live updates. | `apps/api/src/modules/notifications/notifications.gateway.ts` |
+| **Frontend Routing** | Client-side routing, code splitting, and layout wrapping. | `apps/web/src/app/router.tsx` |
+| **State Management** | Global client-side state for theming, user sessions, and localized user preferences. | `apps/web/src/stores/theme.store.ts`, `apps/web/src/stores/auth.store.ts` |
+| **Data Fetching** | Server-state synchronization, caching, and optimistic UI updates via TanStack Query. | `apps/web/src/app/query-client.ts`, `apps/web/src/services/*.ts` |
+| **Shared Contracts** | Single source of truth for DTOs, Entities, and Enums ensuring end-to-end type safety. | `packages/shared-types/src/index.ts` |
+| **Shared Validation** | Zod schemas used by both frontend forms and backend API pipes. | `packages/shared-validators/src/index.ts` |
 
-    subgraph SharedPackages["Shared Packages"]
-        Types["@uims/shared-types\n(packages/shared-types)"]
-        Validators["@uims/shared-validators\n(packages/shared-validators)"]
-        Utils["@uims/shared-utils\n(packages/shared-utils)"]
-        ESLint["@uims/eslint-config\n(packages/eslint-config)"]
-    end
+## Pattern Overview
 
-    Web -->|workspace:*| Types
-    Web -->|workspace:*| Validators
-    Web -->|workspace:*| ESLint
+### Modular Monolith
+The backend is structured as a Modular Monolith. Rather than grouping files by technical layer (e.g., all controllers in one folder, all services in another), files are grouped by feature domains (e.g., `users`, `assets`, `inventory`). Each module encapsulates its own controllers, services, DTOs, and internal logic. This structure enables clear boundaries and facilitates potential future extraction into microservices if needed.
 
-    API -->|workspace:*| Types
-    API -->|workspace:*| Validators
-    API -->|workspace:*| Utils
-    API -->|workspace:*| ESLint
+### REST API
+Communication between the SPA and the NestJS backend strictly follows RESTful principles. Endpoints are resource-oriented, use standard HTTP verbs (GET, POST, PUT, PATCH, DELETE), and rely on standard status codes. Bounded queries are mandatory for all collection endpoints.
 
-    Validators -->|workspace:*| Types
-    Utils -->|workspace:*| Types
-```
+### Single Page Application (SPA)
+The frontend is a React 19 SPA built with Vite. It handles routing internally via React Router, reducing full page reloads and providing a highly interactive user experience.
 
-### Dependency Graph & Workspace Rules
-- `apps/api`: Consumes `@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`, and `@uims/eslint-config`.
-- `apps/web`: Consumes `@uims/shared-types`, `@uims/shared-validators`, and `@uims/eslint-config`. In development, Vite resolves package source files directly via path aliases (`@uims/shared-* -> ../../packages/shared-*/src`).
-- `packages/shared-validators`: Depends on `@uims/shared-types` and `zod`.
-- `packages/shared-utils`: Depends on `@uims/shared-types`, `dayjs`, and `dayjs/plugin/*`.
-- `packages/shared-types`: Pure TypeScript contract definitions with zero runtime dependencies.
-- `packages/eslint-config`: Shared `typescript-eslint` recommended config and `eslint-config-prettier`.
+## Detailed Layers
 
----
+### 1. Presentation Layer (React / Ant Design)
+Located primarily in `apps/web/src/`. This layer is responsible for presenting data to the user and capturing input. It heavily utilizes Ant Design v6+ components, customized via the global ConfigProvider and App wrapper. The Presentation layer does not hold business logic; it merely dispatches actions to Zustand stores or triggers TanStack Query mutations.
 
-## Backend Architecture
+### 2. Application Layer (NestJS Controllers / Gateways)
+Located in `apps/api/src/modules/*/*.controller.ts` and `*.gateway.ts`. The Application Layer is the entry point for all external requests. Controllers are intentionally kept thin: they define route definitions, apply decorators for guards/swagger, extract parameters, trigger validation (via DTOs), and immediately delegate to the Domain Layer.
 
-### Bootstrap
-The API application boots from `apps/api/src/main.ts`:
-1. **NestFactory Initialization**: Instantiates `AppModule` with buffered logs (`bufferLogs: true`).
-2. **Shutdown Hooks**: `app.enableShutdownHooks()` enables graceful termination on SIGINT/SIGTERM.
-3. **Global Prefix**: All REST endpoints are prefixed under `api/v1`.
-4. **Security Headers**: `helmet` is registered globally with strict HSTS (1 year maxAge, includeSubDomains, preload).
-5. **CORS Policy**: Configured strictly against `CORS_ORIGIN` / `ALLOWED_ORIGINS`, permitting development origins (`http://localhost:5679`, `https://localhost:5679`, `http://localhost:3000`, `http://localhost:3002`), Cloudflare tunnel domains (`*.trycloudflare.com`), with credentials enabled.
-6. **Compression & Cookies**: Express middleware `compression()` and `cookie-parser()` handle Gzip/Brotli payload compression and cookie parsing.
-7. **Global Validation Pipe**: `ValidationPipe` enforces `whitelist: true`, `transform: true`, and `forbidNonWhitelisted: true`.
-8. **Global Interceptors & Filters**:
-   - `TransformInterceptor`: Enforces consistent JSON envelope formatting.
-   - `HttpExceptionFilter` & `PrismaExceptionFilter`: Standardizes exception payloads and transforms Prisma errors.
-9. **OpenAPI / Swagger**: Configured at `/api/v1/docs` with Bearer authentication for interactive testing.
-10. **Port & Binding**: Binds to `0.0.0.0` on port specified by `PORT` or `APP_PORT` (default: 3000).
+### 3. Domain Layer (NestJS Services)
+Located in `apps/api/src/modules/*/*.service.ts`. This is where the core business rules of UIMS reside. Services are responsible for domain logic, orchestrating calls between different repositories, triggering events, and ensuring data integrity. Cross-module dependencies are handled via Dependency Injection.
 
-### Module Graph
-All feature and core modules are registered in `apps/api/src/app.module.ts`:
+### 4. Infrastructure Layer (Prisma / Redis / BullMQ)
+Located in `apps/api/src/database/` and `apps/api/src/common/redis/`. This layer provides technical capabilities that the domain needs but shouldn't implement directly. It includes the `PrismaService` for relational data access, Redis client for caching/rate-limiting, and BullMQ setup for queuing.
 
-#### Core & Infrastructure Modules
-| Module | Location | Purpose | Key Providers / Services |
-| :--- | :--- | :--- | :--- |
-| `ConfigModule` | `@nestjs/config` | Global environment configuration and Zod validation | `ConfigService`, `getAppConfig` |
-| `ScheduleModule` | `@nestjs/schedule` | Cron scheduling engine | `SchedulerRegistry` |
-| `ThrottlerModule` | `@nestjs/throttler` | Rate limiting protection (1000 req / 60s) | `ThrottlerGuard` |
-| `RedisModule` | `src/common/redis/redis.module.ts` | Redis connection management with in-memory fallback | `RedisService` |
-| `PrismaModule` | `src/database/prisma.module.ts` | Database connection pool via `@prisma/adapter-pg` | `PrismaService` |
+## Key Data Flows
 
-#### Feature Modules (16 Registered Modules)
-| Feature Module | Controller | Service / Gateway / Worker | Prisma Entities Involved |
-| :--- | :--- | :--- | :--- |
-| **`AuthModule`** | `AuthController` | `AuthService`, `JwtStrategy`, `AuthGuard` | `AppUser`, `RefreshToken`, `Role` |
-| **`RolesModule`** | `RolesController` | `RolesService` | `Role`, `Permission`, `RolePermission` |
-| **`UsersModule`** | `UsersController` | `UsersService` | `AppUser`, `Role` |
-| **`DirectoryModule`** | `DirectoryController` | `DirectoryService` | `DirectoryUser`, `DirectoryGroup`, `DirectoryMembership`, `Department`, `Position`, `Location`, `Organization` |
-| **`OrganizationModule`** | `OrganizationController` | `OrganizationService` | `Organization`, `Department`, `Position`, `Location`, `Vendor` |
-| **`AssetsModule`** | `AssetsController` | `AssetsService` | `Asset`, `AssetCategory`, `AssetHistory`, `DirectoryUser`, `Location` |
-| **`LicensesModule`** | `LicensesController` | `LicensesService` | `License`, `LicenseAssignment`, `DirectoryUser` |
-| **`InventoryModule`** | `InventoryController` | `InventoryService` | `InventoryItem` |
-| **`NetworkModule`** | `NetworkController` | `NetworkService` | `IPAddress`, `Subnet`, `VLAN` |
-| **`AuditModule`** | `AuditController` | `AuditService` | `AuditLog`, `AppUser` |
-| **`ReportsModule`** | `ReportsController` | `ReportsService` | `ReportSchedule`, `Asset`, `License`, `InventoryItem` |
-| **`SettingsModule`** | `SettingsController` | `SettingsService` | `Setting` |
-| **`DashboardModule`** | `DashboardController` | `DashboardService` | `Asset`, `License`, `InventoryItem`, `IPAddress` |
-| **`HealthModule`** | `HealthController` | Internal health probes | Database, Redis status |
-| **`SearchModule`** | `SearchController` | `SearchService` | Cross-entity search (Assets, Licenses, Users, Inventory, Network) |
-| **`NotificationsModule`**| `NotificationsController` | `NotificationsService`, `NotificationsGateway`, `ScheduledAlertsWorker` | `Notification`, `AppUser` |
+### Primary Request Path (Synchronous)
+1. **HTTP Request**: Client sends a request to `/api/v1/assets`.
+2. **Middleware**: Request passes through `helmet`, CORS, and `compression` middleware.
+3. **Guard Chain**: `JwtAuthGuard` validates the token, `RolesGuard`/`PermissionsGuard` authorize the request, and `ThrottlerGuard` applies rate limits.
+4. **Validation Pipe**: `ValidationPipe` intercepts the request body/query, validating it against shared DTOs/Zod schemas.
+5. **Controller**: `AssetsController` receives the strictly typed payload.
+6. **Service**: `AssetsService` applies business rules and calculates required state changes.
+7. **Prisma**: `PrismaService` translates the operation into a deterministic, bounded SQL query.
+8. **PostgreSQL**: The database executes the query and returns the results.
+9. **Interceptor**: `TransformInterceptor` formats the output into a standard `ApiResponse` format, while `AuditInterceptor` logs the action.
+10. **Response**: HTTP 200/201 response is sent back to the client.
 
-### Guards & Middleware
-Execution flow follows a deterministic order via global providers in `AppModule`:
-1. **`ThrottlerGuard`** (`APP_GUARD`): Enforces IP-based and user-based rate limiting (1000 requests per 60 seconds).
-2. **`JwtAuthGuard`** (`APP_GUARD`): Extends Passport JWT auth. Inspects incoming `Authorization: Bearer <token>`. Allows unauthenticated requests only if the handler is decorated with `@Public()`.
-3. **`RolesGuard`** (`APP_GUARD`): Evaluates `@Roles('ADMIN', ...)` decorators against the user's role. Automatically bypasses checks for `SUPER ADMIN`.
-4. **`PermissionsGuard`** (`APP_GUARD`): Evaluates granular permissions required by `@RequirePermissions('asset:create', ...)` by resolving assigned role permissions from DB/cache.
+### Authentication Flow
+1. **Login**: Client submits credentials to `/api/v1/auth/login`.
+2. **Validation**: `auth.controller.ts` receives payload, delegates to `auth.service.ts`.
+3. **Verification**: Service fetches the user, verifies password via `bcrypt`.
+4. **JWT Generation**: Service generates an access token (and optionally a refresh token) containing user claims.
+5. **Session**: Token is returned. Future requests include the token in the `Authorization` header.
+6. **Guard Chain**: `jwt.strategy.ts` extracts and validates the token on subsequent requests, attaching the `User` object to the request context.
 
-#### Interceptors
-- **`AuditInterceptor`** (`APP_INTERCEPTOR`): Intercepts all mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`). Extracts user identity, target resource, client IP (supporting reverse proxy headers), sanitizes sensitive parameters (`password`, `token`, `secret`, `apiKey`), computes HMAC SHA-256 cryptographic checksums for tamper evidence, and persists an `AuditLog` entry.
-- **`TransformInterceptor`** (`main.ts`): Envelopes all successful outgoing HTTP responses into `{ success: true, data: T, timestamp: string }`.
+### WebSocket Flow
+1. **Socket.io Connection**: Client connects to `/`.
+2. **Gateway**: `NotificationsGateway` (`apps/api/src/modules/notifications/notifications.gateway.ts`) accepts the connection and performs auth handshake.
+3. **Subscription**: Client subscribes to specific rooms (e.g., `user_${userId}`).
+4. **Event Generation**: System events trigger `NotificationsService.emit(...)`.
+5. **Broadcast**: Gateway pushes real-time events to connected sockets, triggering UI updates via `useRealtimeNotifications` hook.
 
-#### Filters
-- **`HttpExceptionFilter`**: Traps NestJS `HttpException` instances and renders a structured error format with accurate HTTP status, error codes, and validation details.
-- **`PrismaExceptionFilter`**: Translates Prisma errors into standard HTTP responses:
-  - `P2002` (Unique constraint) -> `409 Conflict`
-  - `P2025` (Record not found) -> `404 Not Found`
-  - `P2003`, `P2014`, `P2000` (Foreign key constraint, relation violation, value length) -> `400 Bad Request`
+### Background Job Flow
+1. **Job Enqueue**: A service (e.g., `ReportsService`) enqueues a job into a BullMQ queue backed by Redis.
+2. **BullMQ Queue**: Job waits in the queue based on priority and scheduling constraints.
+3. **Worker**: A dedicated worker class (e.g., `scheduled-alerts.worker.ts`) pulls the job from the queue.
+4. **Processing**: Worker executes the long-running task (e.g., PDF generation, external API sync).
+5. **Completion**: Job status is updated, optionally triggering a WebSocket notification to the initiating user.
 
-#### Custom Decorators
-- `@Public()`: Marks a controller or route method as public, bypassing `JwtAuthGuard`.
-- `@Roles(...roles: string[])`: Declares role requirements for the endpoint.
-- `@RequirePermissions(...permissions: string[])`: Declares fine-grained permission requirements (`<subject>:<action>`).
-- `@ClientIp()`: Resolves true client IP from `X-Forwarded-For`, `X-Real-IP`, or TCP socket.
+## Key Abstractions
 
-### Data Access Patterns
-- **Prisma 7 Adapter Connection Pooling**: `PrismaService` extends `PrismaClient` configured with `@prisma/adapter-pg` and a `pg.Pool` instance (default pool size: 20 connections, idle timeout: 30s).
-- **Transactions**: Multi-table operations utilize interactive transactions via `this.prisma.$transaction(async (tx) => { ... })` (e.g. creating an asset while auto-resolving or creating its category, location, and history entry).
-- **Soft vs. Lifecycle Statuses**: Rather than blanket `deletedAt` timestamps, entities track explicit business lifecycles using database enums and boolean flags:
-  - `Asset`: `AssetStatus` (`AVAILABLE`, `IN_USE`, `MAINTENANCE`, `RETIRED`, `LOST`)
-  - `License`: `LicenseStatus` (`ACTIVE`, `EXPIRED`, `EXPIRING_SOON`, `REVOKED`)
-  - `AppUser`: `UserStatus` (`ACTIVE`, `INACTIVE`, `SUSPENDED`) + `isLocked`
-  - `DirectoryUser`: `AccountStatus` (`ACTIVE`, `DISABLED`, `LOCKED`, `SUSPENDED`) + `isClosed`
-  - `RefreshToken`: `isRevoked`
-- **Pagination Pattern**: Standardized via `PaginationDto` (`page?: number = 1`, `limit?: number = 10`), computing `skip = (page - 1) * limit` and `take: limit`.
+- **NestJS Modules**: Boundaries for encapsulation (`AssetsModule`, `AuthModule`). They declare imports, controllers, and providers.
+- **Guards**: Intercept requests early for security (`JwtAuthGuard`, `RolesGuard`, `PermissionsGuard`).
+- **Decorators**: Custom annotations like `@RequirePermissions()`, `@Public()`, and `@ClientIp()` to declaratively manage route behavior without boilerplate.
+- **Pipes**: Data transformation and validation (`ValidationPipe` paired with `class-validator`).
+- **Filters**: Catch and standardize exceptions (`HttpExceptionFilter`, `PrismaExceptionFilter`).
+- **Interceptors**: Bind extra logic before/after execution (`TransformInterceptor`, `AuditInterceptor`).
 
-### Background Jobs & Workers
-- **Engine**: `@nestjs/schedule` (`ScheduleModule.forRoot()`).
-- **`ScheduledAlertsWorker`** (`src/modules/notifications/scheduled-alerts.worker.ts`):
-  - Cron trigger: `@Cron('0 0 * * *')` (midnight UTC daily).
-  - Tasks executed concurrently via `Promise.allSettled`:
-    1. `scanExpiringLicenses()`: Detects licenses expiring within 30, 15, 7, or 1 days, and transitions expired ones to `EXPIRED`.
-    2. `scanExpiringWarranties()`: Scans active hardware assets with warranty expiring within 30, 15, or 7 days.
-    3. `scanOverdueMaintenance()`: Detects assets in `MAINTENANCE` status exceeding 14 days.
-    4. `scanLowStock()`: Scans inventory items where `quantity <= minThreshold` (flags out of stock when `0`).
-  - **Deduplication & Throttling**: Uses `RedisService` to store alert keys (e.g., `alert:license:expiring:${id}:7d`) with TTL cooldowns (e.g., 3 to 14 days) to prevent notification fatigue.
-  - **Live Dispatch**: Emits real-time alerts to admins via `NotificationsGateway` and creates database `Notification` records.
-- **Queue Architecture (BullMQ)**: BullMQ (`bullmq@^6.3.4` and `@nestjs/bullmq@^11.0.5`) is present in the project dependencies, prepared for asynchronous queue processing.
+## Entry Points
 
----
+- **Backend API**: `apps/api/src/main.ts` - Bootstraps the NestJS application, configures global middleware, swagger, and starts the server.
+- **Frontend SPA**: `apps/web/src/main.tsx` - Bootstraps React into the DOM, applying font and global CSS.
+- **Frontend Root App**: `apps/web/src/app/App.tsx` - Wraps the application in crucial providers (QueryClient, ConfigProvider, ProConfigProvider, Router).
 
-## Frontend Architecture
+## Architectural Constraints
 
-### Routing & Code Splitting
-Implemented in `apps/web/src/app/router.tsx` using `createBrowserRouter` from `react-router` (v8.3.1):
-- **Lazy Loading**: Every page route is wrapped with `React.lazy()` and rendered inside `React.Suspense` with a custom `PageLoader` indicator.
-- **Error Boundaries**: Every top-level route and layout defines `ErrorBoundary: RouteErrorBoundary` to isolate errors and prevent white-screen crashes.
-- **Layout Architecture**:
-  - `AuthLayout`: Root layout managing user session authentication and redirection.
-  - `MainLayout`: Authenticated master layout containing the responsive sidebar, navigation bar, command palette, notification drawer, and dynamic breadcrumbs.
+- **Bounded Queries Mandatory**: Unbounded `findMany()` calls are strictly prohibited to protect the database and application memory. All list endpoints must use `PaginationDto`.
+- **Deterministic Sorting**: Every query must have a deterministic `orderBy` clause (e.g., `orderBy: { createdAt: 'desc' }`).
+- **Single-threaded Event Loop**: Node.js is single-threaded. CPU-intensive tasks must be delegated to background workers to prevent blocking the event loop.
+- **Prisma Connection Pooling**: Direct database queries must respect Prisma's connection limits. Transactions should be kept short to avoid pool exhaustion.
 
-#### Route Table
-| Route Path | Layout | Component / Page | Description |
-| :--- | :--- | :--- | :--- |
-| `/login` | None | `LoginPage` | User login and authentication entry |
-| `/` | `MainLayout` | `DashboardPage` | Executive telemetry and KPI dashboard |
-| `/assets` | `MainLayout` | `AssetsPage` | Hardware asset lifecycle, table, QR scanner |
-| `/licenses` | `MainLayout` | `LicensesPage` | Software licenses and seat allocations |
-| `/access-control`| `MainLayout` | `AccessControlPage` | RBAC roles, permission matrix, app users |
-| `/directory` | `MainLayout` | `DirectoryPage` | Employee directory and AD/LDAP groups |
-| `/organization` | `MainLayout` | `OrganizationPage` | Visual organizational hierarchy tree canvas |
-| `/users` | `MainLayout` | Navigate (`/access-control`) | Legacy alias redirecting to Access Control |
-| `/network` | `MainLayout` | `NetworkPage` | IPAM, subnets, IP allocation, ping tools |
-| `/inventory` | `MainLayout` | `InventoryPage` | Stockroom inventory, SKUs, and restock levels |
-| `/audit` | `MainLayout` | `AuditPage` | Tamper-evident audit logs and diff inspections |
-| `/reports` | `MainLayout` | `ReportsPage` | System analytics and scheduled report exports |
-| `/notifications`| `MainLayout` | `NotificationsPage` | Notification center and alert logs |
-| `/settings` | `MainLayout` | `SettingsPage` | System settings, security, and preferences |
-| `*` | `MainLayout` | `NotFoundPage` | 404 fallback page |
+## Anti-Patterns
 
-### State Management
-State management is cleanly divided into client UI state and server state:
+- **Silent Catch Blocks**: `catch (e: any) { }` is prohibited. All errors must be explicitly typed and handled or logged.
+- **Cross-Service Circular Dependencies**: Services should not circularly inject each other. If circular dependencies arise, extract the shared logic into a new provider or emit events.
+- **Bypassing Shared Packages**: Redefining types or validation schemas locally in `apps/api` or `apps/web` instead of updating `packages/shared-types` or `packages/shared-validators`.
+- **Fat Controllers**: Placing business logic or direct Prisma calls inside controllers. Controllers must delegate to services.
+- **Hardcoding Magic Strings**: Role names or permission keys should be referenced from `packages/shared-types/src/enums/`.
 
-#### Zustand Stores (`apps/web/src/stores/`)
-1. **`useAuthStore`** (`auth.store.ts`):
-   - State: `user: AuthUser | null`, `token: string | null`, `permissions: string[]`.
-   - Actions: `login()`, `logout()`, `isAuthenticated()`, `isSuperAdmin()`, `hasRole()`, `hasPermission()`, `can()`, `setPermissions()`.
-   - Persistence: LocalStorage under key `uims-auth-storage`.
-2. **`useThemeStore`** (`theme.store.ts`):
-   - State: Theme mode (`light`, `dark`, `auto`), compact density, primary color preset, border radius.
-   - Persistence: LocalStorage under key `uims-theme-settings`.
-3. **`useTimezoneStore`** (`timezone.store.ts`):
-   - State: Active timezone, 12h/24h time format, custom date format preferences.
-   - Persistence: LocalStorage under key `uims-timezone-storage`.
-4. **`useNotificationSettingsStore`** (`notification-settings.store.ts`):
-   - State: In-app toast popups, audio chimes, volume slider, category-level subscriptions.
-   - Persistence: LocalStorage under key `uims-notification-settings`.
+## Error Handling
 
-#### Server State (`@tanstack/react-query`)
-- Initialized in `apps/web/src/app/query-client.ts` with:
-  - `staleTime: 60 * 1000` (1 minute freshness)
-  - `gcTime: 10 * 60 * 1000` (10 minutes retention)
-  - `retry`: Skips 401 Unauthorized and 403 Forbidden errors; max 2 attempts for transient failures
-  - `refetchOnWindowFocus: false`
-  - `refetchOnReconnect: 'always'`
-- Injected via `QueryClientProvider` at the root of `App.tsx`.
+- **Global HttpExceptionFilter**: Catches all standard HTTP exceptions, formatting them into a standard `{ statusCode, message, timestamp, path }` structure. `apps/api/src/common/filters/http-exception.filter.ts`.
+- **PrismaExceptionFilter**: Catches Prisma-specific ORM errors (e.g., unique constraint violations) and translates them into appropriate HTTP responses (e.g., 409 Conflict). `apps/api/src/common/filters/prisma-exception.filter.ts`.
+- **Typed Catches**: The codebase strictly types catch blocks.
+- **Frontend ErrorBoundary**: React Error Boundaries (`apps/web/src/components/ErrorBoundary.tsx`) prevent whole-app crashes on render errors. API errors trigger notification toasts or inline `ErrorResultView` components.
 
-### API Client Pattern
-Defined in `apps/web/src/services/api.ts`:
-- **Axios Instance**: Base URL configured to `/api/v1` with JSON headers.
-- **Request Interceptor**: Synchronously pulls the access token from `useAuthStore.getState().token` and injects `Authorization: Bearer <token>`.
-- **Response Interceptor & Transparent Token Refresh**:
-  - Catches `401 Unauthorized` responses on non-auth endpoints.
-  - Enqueues concurrent failing requests into an internal `failedQueue`.
-  - Sends a single `POST /auth/refresh` request to obtain a new token.
-  - On refresh success: Updates `useAuthStore` and drains `failedQueue`, replaying all original requests with the new bearer token.
-  - On refresh failure: Clears credentials via `useAuthStore.getState().logout()` and forces navigation to `/login`.
+## Cross-Cutting Concerns
 
-#### Service Modules Pattern
-Each domain feature exports a typed service class or object consuming the unified `api` instance:
-- `assets.service.ts`, `licenses.service.ts`, `directory.service.ts`, `network.service.ts`, `inventory.service.ts`
-- `audit.service.ts`, `auth.service.ts`, `users.service.ts`, `roles.service.ts`, `organization.service.ts`
-- `notifications.service.ts`, `reports.service.ts`, `settings.service.ts`, `dashboard.service.ts`, `health.service.ts`
+- **Logging**: The system uses NestJS's structured `Logger` (often backed by Pino in production) for comprehensive telemetry. `console.log` is strictly avoided.
+- **Validation**: Enforced uniformly across boundaries using `Zod` (for complex shared schemas in `shared-validators`) and `class-validator` (integrated natively with NestJS pipes).
+- **Authentication**: Managed via standard `Passport JWT` strategies.
+- **Audit Logging**: Handled declaratively via `AuditInterceptor` (`apps/api/src/common/interceptors/audit.interceptor.ts`), automatically tracking mutations (POST/PUT/DELETE) without cluttering service methods.
 
-### Component Architecture
-- **Feature-Centric Structure**: Complex pages encapsulate subcomponents, feature hooks, and utilities in local directories (e.g. `pages/assets/components/AssetTable.tsx`, `pages/assets/hooks/useAssetManagement.ts`, `pages/assets/utils/qrDecoder.ts`).
-- **Shared Primitives**: Located in `apps/web/src/components/`:
-  - `PageContainer`: Standardized page layout with title, breadcrumb, extra actions, and responsive gutter.
-  - `PageLoader`: Consistent loading spinner with customizable tips.
-  - `CommandPalette`: Global `Cmd+K` / `Ctrl+K` omni-search modal.
-  - `NotificationDrawer`: Slide-over drawer displaying live notifications.
-  - `Can`: Conditional RBAC wrapper component (`<Can I="create" a="asset">...</Can>`).
-  - `FormattedDate`: Timezone-aware date renderer.
-- **Custom Global Hooks**: Located in `apps/web/src/hooks/`:
-  - `useAccess`: Exposes reactive authorization helpers (`can`, `hasRole`, `hasPermission`).
-  - `useSystemHealth`: Periodic telemetry polling with document visibility and online/offline event detection.
-  - `useRealtimeNotifications`: Manages the Socket.io connection to `/notifications`, plays Web Audio chimes, and triggers Ant Design toast popups.
-
----
-
-## Shared Packages
-
-### 1. `@uims/shared-types` (`packages/shared-types`)
-Centralized TypeScript contract definitions:
-- **`dto/`** (17 files): Typed schemas for API request payloads and responses (`api-response.ts`, `assets.dto.ts`, `directory.dto.ts`, `network.dto.ts`, `auth.ts`, `dashboard.dto.ts`, `users.dto.ts`, `roles.dto.ts`, etc.).
-- **`entities/`** (12 files): Domain model definitions mirroring database schemas (`asset.ts`, `directory.ts`, `network.ts`, `license.ts`, `audit.ts`, `user.ts`, `organization.ts`, etc.).
-- **`enums/`**: Canonical system enums and permission constants (`permissions.ts`).
-
-### 2. `@uims/shared-validators` (`packages/shared-validators`)
-Universal Zod validation schemas for cross-tier data validation:
-- Schemas: `asset.validator.ts`, `auth.validator.ts`, `directory.validator.ts`, `license.validator.ts`, `notification.validator.ts`, `organization.validator.ts`, `role.validator.ts`, `user.validator.ts`, `pagination.validator.ts`, `common.validator.ts`.
-- Consumed by frontend forms and backend validation pipes.
-
-### 3. `@uims/shared-utils` (`packages/shared-utils`)
-Universal helper libraries:
-- `timezone.ts`: Timezone conversions, formatting utilities, and date-time arithmetic via `dayjs`.
-- `enum.ts`: Status mappers and human-readable label converters (`mapAssetStatus`, `mapAssetStatusToLabel`).
-- `string.ts` & `format.ts`: Currency formatting, SKU generators, and slug utilities.
-- `brand.ts`: Enterprise branding tokens and platform constants.
-
-### 4. `@uims/eslint-config` (`packages/eslint-config`)
-Unified linting configuration:
-- Flat config based on `typescript-eslint` recommended rules and `eslint-config-prettier`.
-- Enforces strict variable checks while ignoring underscore-prefixed variables (`_unused`).
-
----
-
-## Data Flow
-A complete request lifecycle from the UI to the database and back:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Client (Browser)
-    participant Axios as Axios Client (api.ts)
-    participant Nginx as Nginx Proxy
-    participant Guard as NestJS Guards (Throttle/JWT/Roles)
-    participant Pipe as Validation Pipe
-    participant Ctrl as Controller
-    participant Interceptor as Audit Interceptor
-    participant Svc as Service Layer
-    participant Prisma as Prisma 7 (pg Pool)
-    participant DB as PostgreSQL 17
-    participant WS as Socket.io Gateway
-
-    User->>Axios: Triggers Action (e.g. Create Asset)
-    Axios->>Axios: Attach Authorization: Bearer <token>
-    Axios->>Nginx: POST /api/v1/assets
-    Nginx->>Guard: Forward Request
-    Guard->>Guard: Verify Rate Limit, JWT, & Permissions
-    Guard->>Pipe: Passed Authorization
-    Pipe->>Pipe: Validate & Transform DTO (whitelist/strip)
-    Pipe->>Ctrl: Invoke AssetsController.create()
-    Ctrl->>Interceptor: Enter Interceptor Pipeline
-    Interceptor->>Svc: AssetsService.create()
-    Svc->>Prisma: $transaction(async tx => {...})
-    Prisma->>DB: INSERT INTO "Asset", "AssetHistory"
-    DB-->>Prisma: Return Created Records
-    Prisma-->>Svc: Transaction Committed
-    Svc-->>WS: notifyAdmins() / notifyUser()
-    WS-->>User: Real-time Socket Event (notification:new)
-    Svc-->>Interceptor: Return created entity
-    Interceptor->>DB: INSERT INTO "AuditLog" (diff + SHA-256 hash)
-    Interceptor->>Ctrl: Response payload
-    Ctrl->>Axios: HTTP 201 { success: true, data: {...} }
-    Axios-->>User: Resolve Promise & Update React UI
-```
-
----
-
-## Key Architectural Decisions
-
-1. **Strict Monorepo Isolation with Turborepo**:
-   - Packages follow single-direction dependencies: apps depend on shared packages, but shared packages never depend on apps or each other cyclically.
-   - Turborepo pipelines ensure caching of builds, typechecks, and tests with explicit input/output boundaries.
-2. **Dual Transport Architecture (REST + WebSockets)**:
-   - High-volume data operations (CRUD, filtering, sorting) use deterministic HTTP REST endpoints under `/api/v1`.
-   - Real-time updates (notifications, unread badge counts, alert broadcasts) use Socket.io under the `/notifications` namespace with JWT room-based isolation (`user:<id>`, `role:<role>`).
-3. **Resilient In-Memory Fallbacks for Infrastructure**:
-   - `RedisService` automatically detects connection health and falls back to a thread-safe local memory cache (`Map`) if Redis is unavailable in local development or test runners, eliminating single-point-of-failure startup crashes.
-4. **Tamper-Evident Audit Logging**:
-   - `AuditInterceptor` generates a SHA-256 hash incorporating the previous log hash, timestamp, actor ID, action, and payload diff, providing immutable audit trail verification for compliance standards (SOC 2, ISO 27001).
-5. **Transparent Token Refresh in Axios**:
-   - Token refresh occurs seamlessly in an interceptor queue, preventing race conditions when multiple concurrent asynchronous calls encounter an expired access token.
-6. **Adapter-Based Connection Pooling (Prisma 7)**:
-   - Uses `@prisma/adapter-pg` alongside `pg.Pool`, enabling fine-grained control over database pool limits, connection timeouts, and connection reuse.
+*Architecture analysis: 2026-09-09*

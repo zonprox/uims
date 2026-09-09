@@ -1,92 +1,132 @@
 # Technology Stack
+
 **Analysis Date:** 2026-09-09
 
-## Languages
-- **TypeScript**: `7.0.2` (`^7.0.2` across `apps/api`, `apps/web`, `packages/shared-types`, `packages/shared-validators`, `packages/shared-utils`). Target: `ES2022` across all packages.
-- **JavaScript / Node.js**: Node.js `>=22.0.0` engine requirement in root `package.json` (active runtime: `v22.23.2`).
-- **SQL**: PostgreSQL 17 dialect with extensions `uuid-ossp`, `pg_trgm`, and `citext` initialized via `docker/postgres/init.sql`.
+## Platform Requirements
 
-## Runtime & Build
-- **Package Manager**: `pnpm` `11.21.0` (configured via root `package.json` `"packageManager": "pnpm@11.21.0"`, workspaces enabled in `pnpm-workspace.yaml`).
-- **Monorepo Build System**: Turborepo `turbo` `^2.10.12` (installed: `2.10.12`), configured in `turbo.json` with pipeline dependency tracking, build caching (`dist/**`), and environment variable pass-through.
-- **Frontend Bundler**: Vite `^8.2.2` (installed: `8.2.2`, `@vitejs/plugin-react` `^6.1.1`) with custom vendor chunk splitting (`vendor-react`, `vendor-antd-icons`, `vendor-rc`, `vendor-antd-pro`, `vendor-antd-core`, `vendor-query`, `vendor-utils`), path aliases (`@/*`, `@uims/*`), and development HTTPS/proxy settings.
-- **Shared Packages Bundler**: `tsdown` `^0.23.0` compiling `packages/*` to Dual ESM output (`dist/index.mjs` and declarations `dist/index.d.mts`).
-- **Backend Compiler / Execution**: TypeScript compiler `tsc` (`7.0.2`) with `nodemon` `^3.1.14` in dev, `tsx` `^4.23.13` for database seeding (`prisma/seed.ts`).
+### Development Environment
+The monorepo enforces a strict development environment to ensure consistency across all developer machines and CI pipelines.
+- **Node.js**: The system strictly requires Node.js `>=22.0.0`. This is strictly enforced in the `engines` field of the root `package.json`. Developers should use `nvm` or `fnm` to manage this.
+- **Package Manager**: The project exclusively uses `pnpm` (version `>=11.0.0`, specifically testing against `11.21.0`). npm and yarn are discouraged and will fail the engine check.
+- **Monorepo Tool**: Turborepo (`turbo` v2.10.12) is utilized to manage the workspace, providing caching and pipeline execution. It drastically speeds up build times by utilizing local caching.
+- **Docker**: Local development relies heavily on Docker and Docker Compose. `docker-compose.yml` and `docker-compose.dev.yml` must be used to spin up the backing services (PostgreSQL, Redis, Meilisearch, SeaweedFS) before running the applications locally.
 
-## Frameworks
-### Backend (`apps/api`)
-- **Framework**: NestJS 11.2.3 (`@nestjs/core` `^11.2.3`, `@nestjs/common` `^11.2.3`, `@nestjs/platform-express` `^11.2.3`, `@nestjs/cli` `^11.0.24`).
-- **ORM**: Prisma 7.10.0 (`@prisma/client` `^7.10.0`, `prisma` `^7.10.0`, `@prisma/config` `^7.10.0`) using the PostgreSQL driver adapter `@prisma/adapter-pg` `^7.10.0` with `pg` `^8.23.0`.
-- **WebSocket Engine**: `@nestjs/websockets` `^11.2.3`, `@nestjs/platform-socket.io` `^11.2.3`, `socket.io` `^4.8.3`.
-- **Task Scheduling**: `@nestjs/schedule` `^6.1.3` (cron worker for alert scans).
-- **Rate Limiting**: `@nestjs/throttler` `^6.5.0` (global throttler `ttl: 60000, limit: 1000`, route-specific overrides).
-- **API Documentation**: `@nestjs/swagger` `^11.4.7` (OpenAPI specification mounted at `/api/v1/docs`).
-- **Validation Libraries**:
-  - `class-validator` `^0.15.1` and `class-transformer` `^0.5.1` powering global NestJS `ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true })`.
-  - `zod` `^4.5.4` validating environment configuration in `apps/api/src/config/app.config.ts`.
+### Production Environment
+- **Node.js Environment**: The production runtime targets Node 22+ for server-side execution.
+- **Containers**: Production deployment relies entirely on Docker containers for both the API and Web applications. See `apps/api/Dockerfile` and `apps/web/Dockerfile` for the multi-stage build processes that minimize the final image size.
+- **Database**: PostgreSQL 17 (alpine image in Docker).
+- **Cache/Broker**: Redis 8 (alpine image in Docker).
 
-### Frontend (`apps/web`)
-- **Framework**: React 19.2.8 (`react` `^19.2.8`, `react-dom` `^19.2.8`, `@types/react` `^19.2.18`, `@types/react-dom` `^19.2.7`).
-- **Routing**: React Router 8.3.1 (`react-router` `^8.3.1`).
-- **UI Library**: Ant Design 6.6.2 (`antd` `^6.6.2`) and Ant Design Pro Components 2.8.10 (`@ant-design/pro-components` `^2.8.10`).
-- **State Management**: Zustand 5.0.15 (`zustand` `^5.0.15`).
-- **Data Fetching & Server State**: TanStack React Query 5.102.8 (`@tanstack/react-query` `^5.102.8`, `@tanstack/react-query-devtools` `^5.102.8`).
-- **HTTP Client**: Axios 1.20.0 (`axios` `^1.20.0`).
-- **Real-Time Client**: Socket.IO Client 4.8.3 (`socket.io-client` `^4.8.3`).
+## Runtime
 
-## Key Dependencies
-### Shared Packages
-- `packages/shared-types`: Shared TypeScript domain types, DTOs, enums, and entity interfaces (`ApiResponse`, `AuthDto`, `LoginDto`, `PaginationDto`, `AssetDto`, `LicenseDto`, `DirectoryDto`, `NetworkDto`, `InventoryDto`, `AuditDto`, `SearchQueryDto`, `SearchResponseDto`, `SearchResultItem`, `DashboardDto`, `HealthDto`, `OrganizationDto`, `UserDto`, `RoleDto`, `NotificationItem`, `NotificationListResponseDto`, `Asset`, `AuditLog`, `DirectoryUser`, `DirectoryGroup`, `License`, `NetworkDevice`, `AppUser`).
-- `packages/shared-validators`: Reusable Zod schemas for runtime request validation and form validation (`asset.validator`, `auth.validator`, `common.validator`, `directory.validator`, `license.validator`, `notification.validator`, `organization.validator`, `pagination.validator`, `role.validator`, `user.validator`).
-- `packages/shared-utils`: Shared runtime utilities including brand typing helpers (`Brand<T, B>`), enum inspection, number/currency/date formatting, string helpers, and timezone manipulation using `dayjs` `^1.11.23`.
-- `packages/eslint-config`: Shared flat ESLint configuration module exporting `@typescript-eslint/eslint-plugin` `^8.69.0`, `@typescript-eslint/parser` `^8.69.0`, and `eslint-config-prettier` `^10.1.8`.
-
-### API Dependencies
-- **Security & Headers**: `helmet` `^8.3.0` (configured with strict HSTS `maxAge: 31536000`), `compression` `^1.8.1`, `cookie-parser` `^1.4.7`.
-- **Authentication**: `bcrypt` `^6.0.0` (password hashing), `@nestjs/jwt` `^11.0.2`, `passport` `^0.7.0`, `passport-jwt` `^4.0.1`, `@nestjs/passport` `^11.0.5`.
-- **Queue / Cache**:
-  - `ioredis` `^6.0.0` (direct Redis client in `RedisService` with in-memory resilient fallback).
-  - `bullmq` `^6.3.4` and `@nestjs/bullmq` `^11.0.5` (queue framework dependencies installed).
-- **Logging**: `pino` `^10.3.1`, `pino-http` `^11.0.0`, NestJS `Logger`.
-- **Audit Signing**: Native Node.js `crypto` module implementing HMAC-SHA256 tamper-evident audit record hashing using `AUDIT_SIGNING_KEY`.
-- **Mail**: No external SMTP library installed in `@uims/api`; notifications are maintained in-app and pushed over WebSocket.
-- **File Storage**: SeaweedFS S3-compatible service (endpoint `http://seaweedfs-filer:8333` configured via `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`).
-
-### Web Dependencies
-- **Icons**: `@ant-design/icons` `^6.3.4`.
-- **Typography & Styling**: `@fontsource-variable/inter` `^5.3.0`, `@fontsource/inter` `^5.3.0`, Ant Design v6 dynamic design tokens.
-- **Charts**: Custom Canvas / SVG visualization (`apps/web/src/pages/organization/OrganizationCanvas.tsx` using HTML5 Canvas, Ant Design `Progress` and `Statistic` components; no external chart package installed).
-- **Rich Text**: None installed (standard Ant Design `Input.TextArea` used for multi-line inputs).
-- **Date Handling**: `dayjs` `^1.11.23`.
-- **Barcode / QR Scanning**: `jsqr` `^1.4.0`.
-- **Form / Schema Validation**: `zod` `^4.5.4`.
-
-## Infrastructure
-- **Database**: PostgreSQL 17 (`postgres:17-alpine`, container: `uims-postgres`, port `5433:5432`). Includes tuned database parameters (`max_connections=200`, `shared_buffers=256MB`, `effective_cache_size=768MB`, `maintenance_work_mem=64MB`) and initialization script `docker/postgres/init.sql`.
-- **Cache & Key-Value Store**: Redis 8 (`redis:8-alpine`, container: `uims-redis`, port `6381:6379`, command: `redis-server --requirepass --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru`).
-- **Search Engine**: Meilisearch (`getmeili/meilisearch:latest`, container: `uims-meilisearch`, port `7700:7700`, healthcheck on `/health`).
-- **Distributed Object / File Storage**: SeaweedFS (`chrislusf/seaweedfs:latest`):
-  - Master node: `uims-seaweedfs-master` (port `9333:9333`).
-  - Volume server: `uims-seaweedfs-volume` (port `8080:8080`).
-  - Filer / S3 Gateway: `uims-seaweedfs-filer` (ports `8888:8888` for filer HTTP, `8333:8333` for S3 API).
-- **Reverse Proxy & Gateway**: Nginx Alpine (`docker/nginx/nginx.conf`, container: `uims-web`, port `5679:443`, TLS 1.2/1.3, HTTP/2, Gzip, reverse proxying `/api/` and `/socket.io/` to backend `uims-api:3000`).
-
-## Dev & Testing
-- **Linter & Formatter**:
-  - Biome `^2.5.12` (`@biomejs/biome` `^2.5.12`, configured in `biome.json` with recommended rules, 2-space indentation, single quotes, 100 character line length).
-  - ESLint `^10.10.0` with `typescript-eslint` `^8.69.0` and `eslint-config-prettier` `^10.1.8` (`packages/eslint-config`).
-- **Unit & Integration Test Runner**: Vitest `^5.0.0` (`vitest` installed in root and workspace packages):
-  - Backend configuration: `apps/api/vitest.config.mts` (`environment: 'node'`, matching `src/**/*.{test,spec}.ts`).
-  - Frontend configuration: `apps/web/vitest.config.ts` (`environment: 'happy-dom'` `^20.14.0`, test timeout: 20000ms).
-- **End-to-End (E2E) Testing**: Playwright `^1.63.0` (`@playwright/test` `^1.63.0`, `playwright` `^1.63.0`).
+- **Node.js Environment**: Configured dynamically. `NODE_ENV=production` is used in the `docker-compose.yml` for API containers to ensure optimized execution (disabling debug logs, enabling prod mode in React, etc).
+- **Lockfile Status**: The lockfile `pnpm-lock.yaml` (lockfileVersion: '9.0') is present at the root of the repository. It manages exact dependency trees and ensures deterministic builds across all workspaces. This file should never be manually edited.
+- **Workspace Tooling**: `pnpm-workspace.yaml` maps the monorepo structure, specifically including the `apps/*` and `packages/*` directories.
 
 ## Configuration
-- **Monorepo Pipeline (`turbo.json`)**: Configured with tasks `build`, `dev`, `lint`, `lint:fix`, `test`, `test:e2e`, `typecheck`, and `clean`. Tracks inputs, outputs (`dist/**`), and defines `globalEnv` variables: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AUDIT_SIGNING_KEY`, `JWT_EXPIRATION`, `NODE_ENV`.
-- **Environment Variable Validation (`apps/api/src/config/app.config.ts`)**: Validated via Zod `envSchema` at application startup. Enforces required `DATABASE_URL`, minimum 32-character strings for `JWT_SECRET`, `JWT_REFRESH_SECRET`, and `AUDIT_SIGNING_KEY`.
-- **TypeScript Compilers (`tsconfig.json`)**:
-  - `apps/api/tsconfig.json`: CommonJS module, ES2022 target, `emitDecoratorMetadata: true`, `experimentalDecorators: true`, `strictNullChecks: true`.
-  - `apps/web/tsconfig.json`: ESNext module, `bundler` resolution, ES2022 target, `jsx: react-jsx`, path alias mapping (`@/*`, `@uims/*`).
-  - `packages/*/tsconfig.json`: Bundler resolution, declaration generation enabled.
-- **Docker Compose Profiles**:
-  - `docker-compose.yml`: Production deployment definition with container healthchecks, internal networks, and named local volumes.
-  - `docker-compose.dev.yml`: Development overrides enabling hot reloading with volume binding, Chokidar polling (`CHOKIDAR_USEPOLLING=true`), and port bindings.
+
+### Environment Variables
+- **Loading Mechanism**: The NestJS application uses the `@nestjs/config` `ConfigModule` to parse and validate environment variables dynamically at startup.
+- **Key Variables**: Standard variables include `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `REDIS_URL`, `S3_ENDPOINT`, and `MEILISEARCH_API_KEY`.
+- **Locations**: Stored in `.env` and `.env.example` at the repository root, as well as `apps/api/.env`. These files are explicitly ignored by `.gitignore`.
+
+### Build Configurations
+- **TypeScript**: The root `tsconfig.json` provides the baseline configuration. Each application and shared package extends this or implements its own (e.g., `apps/api/tsconfig.json`, `packages/shared-types/tsconfig.json`). Shared packages build using the standard `tsc` compiler.
+- **NestJS**: The API leverages `nest-cli.json` and standard `tsc` for building the production artifacts into the `dist/` directory.
+- **Vite**: The frontend web application is bundled using `vite.config.ts` powered by Vite v8.2.2. It utilizes `@vitejs/plugin-react` for React support.
+
+### Turborepo Pipeline
+- **Definition**: The pipeline is defined in `turbo.json` at the root.
+- **Tasks**: It contains optimized tasks for `build`, `dev`, `lint`, `test`, and `typecheck`. Each task defines its outputs and inputs for maximum caching efficiency.
+- **Usage**: npm scripts heavily utilize turbo filters. For example, `turbo run dev --filter=@uims/api` scopes execution to only the API application and its internal dependencies.
+
+## Key Dependencies
+
+### Infrastructure & Framework
+- **Backend Framework**: NestJS v11.2.3 (`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`). Used for robust, structured backend architecture.
+- **Object Relational Mapper**: Prisma ORM v7.10.0 (`@prisma/client`, `@prisma/adapter-pg`). Provides type-safe database access.
+- **Frontend Framework**: React v19.2.8 (with `react-dom`).
+- **Frontend Build Tool**: Vite v8.2.2 (`@vitejs/plugin-react` v6.1.1).
+
+### Critical Utilities
+- **Validation & Transformation**:
+  - `zod` (v4.5.4) is used for robust runtime schema validation across both frontend and backend.
+  - `class-validator` (v0.15.1) and `class-transformer` (v0.5.1) are used heavily in NestJS for DTO class validation and transformation, parsing incoming HTTP requests.
+- **Security & Headers**:
+  - `helmet` (v8.3.0) secures the Express application by setting various HTTP response headers.
+  - `bcrypt` (v6.0.0) is utilized for secure password hashing.
+  - `passport` (v0.7.0) and `passport-jwt` (v4.0.1) provide the core authentication strategies.
+- **Performance & Optimization**:
+  - `compression` (v1.8.1) is implemented for HTTP response compression, reducing payload sizes.
+  - `@nestjs/throttler` (v6.5.0) provides rate limiting capabilities to protect API endpoints against abuse and brute-force attacks.
+- **Logging & Monitoring**:
+  - `pino` (v10.3.1) and `pino-http` (v11.0.0) handle structured, highly performant logging. While `nestjs-pino` is omitted from the `package.json`, `pino-http` directly integrates with the NestJS middleware chain.
+- **Task Queues**:
+  - `bullmq` (v6.3.4) and `@nestjs/bullmq` (v11.0.5) manage background job processing, recurring tasks, and delayed job execution using Redis.
+- **Real-time Communication**:
+  - `socket.io` (v4.8.3) and `@nestjs/platform-socket.io` / `@nestjs/websockets` facilitate bidirectional communication between the client and server.
+- **Ecosystem Gaps (Notes)**: As of the current `package.json` state, `ldapjs`, `sharp`, `exceljs`, and `nodemailer` are conspicuously missing. While database schemas (like `DirectorySource.LDAP`) imply these features exist or are planned, their dependencies are not yet installed in the current environment snapshot.
+
+## Shared Packages
+
+The monorepo contains a set of internal shared packages used by both the `api` and `web` applications to ensure consistency and code reuse across the stack:
+- **`@uims/eslint-config`** (Version `1.0.0`): Provides shared ESLint configuration rules enforced across all workspaces to maintain code consistency.
+- **`@uims/shared-types`** (Version `1.0.0`): Contains shared TypeScript interfaces, types, and enums, ensuring the frontend and backend agree on data structures (e.g., API response types).
+- **`@uims/shared-validators`** (Version `1.0.0`): Houses shared Zod validation schemas to unify validation logic on the client and server, preventing duplication.
+- **`@uims/shared-utils`** (Version `1.0.0`): Contains shared helper functions, date formatters, string manipulators, and standard utilities.
+
+## Frontend Stack Specifics
+
+- **UI Component Library**: Ant Design v6.6.3 (`antd`), supplemented heavily by `@ant-design/pro-components` v2.8.10 for complex data tables, forms, and enterprise layouts.
+- **State Management**: `zustand` v5.0.15 is used for global state management, replacing older Redux patterns with a simpler, hook-based approach.
+- **Data Fetching**: `@tanstack/react-query` v5.102.8 provides robust async state management, caching, and polling, communicating with the backend via `axios` v1.20.0.
+- **Routing**: Client-side routing is handled by `react-router` v8.3.1.
+- **Icons & Typography**: Visuals are powered by `@ant-design/icons` v6.3.4 and the `@fontsource/inter` / `@fontsource-variable/inter` v5.3.0 font packages.
+- **Utilities**: `dayjs` v1.11.23 handles all complex date manipulations, while `jsqr` v1.4.0 is present for QR code processing within the UI.
+
+## Quality Assurance & Testing
+
+- **Linting**: ESLint v10.10.0 is utilized across all packages to maintain strict code quality standards.
+- **Formatting**: Biome v2.5.12 (`@biomejs/biome`) is used exclusively for lightning-fast code formatting. Prettier has been completely removed in favor of Biome.
+- **Unit Testing**: Vitest v5.0.0 acts as the primary test runner for unit and integration tests across both the frontend and backend, providing high speed and native TypeScript support.
+- **E2E Testing**: Playwright v1.63.0 (`@playwright/test`) is configured for comprehensive end-to-end browser testing, simulating real user interactions against the fully built application.
+
+*Stack analysis: 2026-09-09*
+
+### Core API Dependencies (Snapshot)
+```json
+{
+  "dependencies": {
+    "@nestjs/bullmq": "^11.0.5",
+    "@nestjs/common": "^11.2.3",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.2.3",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.2.3",
+    "@nestjs/platform-socket.io": "^11.2.3",
+    "@nestjs/schedule": "^6.1.3",
+    "@nestjs/swagger": "^11.4.7",
+    "@nestjs/throttler": "^6.5.0",
+    "@nestjs/websockets": "^11.2.3",
+    "@prisma/adapter-pg": "^7.10.0",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^6.3.4",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.3",
+    "zod": "^4.5.4"
+  }
+}
+```
