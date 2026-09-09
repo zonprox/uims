@@ -5,13 +5,13 @@ import type {
   TimezoneRegion,
 } from '@uims/shared-types';
 import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
-import duration from 'dayjs/plugin/duration';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
+import advancedFormat from 'dayjs/plugin/advancedFormat.js';
+import customParseFormat from 'dayjs/plugin/customParseFormat.js';
+import duration from 'dayjs/plugin/duration.js';
+import localizedFormat from 'dayjs/plugin/localizedFormat.js';
+import relativeTime from 'dayjs/plugin/relativeTime.js';
+import timezone from 'dayjs/plugin/timezone.js';
+import utc from 'dayjs/plugin/utc.js';
 
 // Initialize plugins
 dayjs.extend(utc);

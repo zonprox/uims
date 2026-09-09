@@ -139,8 +139,8 @@ export class RolesService {
         },
       }),
       this.prisma.permission.count(),
-      this.prisma.user.count(),
-      this.prisma.user.count({
+      this.prisma.appUser.count(),
+      this.prisma.appUser.count({
         where: {
           role: { name: { in: ['Super Admin', 'SuperAdmin'] } },
         },

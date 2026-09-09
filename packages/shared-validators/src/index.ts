@@ -7,3 +7,4 @@ export * from './user.validator';
 export * from './organization.validator';
 export * from './role.validator';
 export * from './notification.validator';
+export * from './directory.validator';

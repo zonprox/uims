@@ -20,6 +20,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import React, { useMemo, useState } from 'react';
 
@@ -40,6 +41,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
   onClose,
   onOpenMatrix,
 }) => {
+  const { token } = theme.useToken();
   const [userSearch, setUserSearch] = useState('');
 
   const filteredUsers = useMemo(() => {
@@ -92,7 +94,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
       onClose={onClose}
       styles={{
         wrapper: { width: 720 },
-        body: { padding: '16px 20px', background: '#f8fafc' },
+        body: { padding: '16px 20px', background: token.colorBgLayout },
       }}
     >
       {/* Role KPI Cards */}

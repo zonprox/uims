@@ -6,16 +6,28 @@ describe('UsersService', () => {
   let mockPrisma: Record<string, unknown>;
 
   beforeEach(() => {
+    const userMock = {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn(),
+    };
+    const dirMock = {
+      findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn(),
+    };
     mockPrisma = {
-      user: {
-        findMany: vi.fn(),
-        findUnique: vi.fn(),
-        findFirst: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        count: vi.fn(),
-      },
+      appUser: userMock,
+      user: userMock,
+      directoryUser: dirMock,
       asset: {
         count: vi.fn(),
       },
@@ -43,14 +55,17 @@ describe('UsersService', () => {
 
   describe('getStats', () => {
     it('should aggregate system login user metrics', async () => {
-      (mockPrisma.user as { count: ReturnType<typeof vi.fn> }).count
-        .mockResolvedValueOnce(50) // total
-        .mockResolvedValueOnce(45) // active
-        .mockResolvedValueOnce(5) // admin
-        .mockResolvedValueOnce(2) // suspended
-        .mockResolvedValueOnce(38) // totalWorkstations
+      (mockPrisma.appUser as { count: ReturnType<typeof vi.fn> }).count
+        .mockResolvedValueOnce(50) // totalUsers
+        .mockResolvedValueOnce(45) // activeUsers
+        .mockResolvedValueOnce(5) // adminUsers
+        .mockResolvedValueOnce(2) // suspendedUsers
         .mockResolvedValueOnce(0); // lockedCount
-      (mockPrisma.asset as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(38); // custodians
+      (mockPrisma.directoryUser as { count: ReturnType<typeof vi.fn> }).count
+        .mockResolvedValueOnce(38) // totalEmployees (custodians)
+        .mockResolvedValueOnce(38) // activeEmployees
+        .mockResolvedValueOnce(38) // assignedWorkstations
+        .mockResolvedValueOnce(0); // closedAccounts
       (
         mockPrisma.directoryGroup as { count: ReturnType<typeof vi.fn> }
       ).count.mockResolvedValueOnce(12); // totalGroups
@@ -67,6 +82,7 @@ describe('UsersService', () => {
         totalGroups: 12,
         totalWorkstations: 38,
         lockedCount: 0,
+        lockedUsers: 0,
         totalOUs: 6,
       });
     });
@@ -117,7 +133,7 @@ describe('UsersService', () => {
           email: 'dup@example.com',
           username: 'dup',
         }),
-      ).rejects.toThrow('A user with this email, username, or employee code already exists.');
+      ).rejects.toThrow('A user with this email or username already exists.');
     });
   });
 
@@ -201,7 +217,7 @@ describe('UsersService', () => {
 
   describe('syncDomain', () => {
     it('should simulate active directory replication telemetry', async () => {
-      (mockPrisma.user as { count: ReturnType<typeof vi.fn> }).count
+      (mockPrisma.directoryUser as { count: ReturnType<typeof vi.fn> }).count
         .mockResolvedValueOnce(50) // total
         .mockResolvedValueOnce(45); // active
       (
@@ -218,8 +234,10 @@ describe('UsersService', () => {
   });
 
   describe('exportMaster', () => {
-    it('should export all user attributes including Initial Pass correctly', async () => {
-      (mockPrisma.user as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValueOnce([
+    it('should export all user attributes correctly without passwords', async () => {
+      (
+        mockPrisma.directoryUser as { findMany: ReturnType<typeof vi.fn> }
+      ).findMany.mockResolvedValueOnce([
         {
           id: 'usr-1',
           employeeCode: '63020037',
@@ -236,7 +254,6 @@ describe('UsersService', () => {
           isClosed: false,
           computerName: 'STOTHPR102',
           computerName2: null,
-          adInitialPassword: 'kPm#*Ed8',
           adGroup: 'GR_BSLOTHPrinting',
           ouPath: 'OU=Production,DC=uims,DC=internal',
           status: 'ACTIVE',
@@ -246,24 +263,18 @@ describe('UsersService', () => {
       const records = await service.exportMaster();
       expect(records).toHaveLength(1);
       expect(records[0]['Employee Code']).toBe('63020037');
-      expect(records[0]['Initial Password']).toBe('kPm#*Ed8');
       expect(records[0]['Directory Group']).toBe('GR_BSLOTHPrinting');
     });
   });
 
   describe('importBatch', () => {
-    it('should create new users during batch import with generated or provided initial password', async () => {
-      (mockPrisma.role as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValueOnce({
-        id: 'role-emp',
-        name: 'Employee',
-      });
-      (mockPrisma.user as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValueOnce(
-        null,
-      );
+    it('should create new directory users during batch import', async () => {
       (
-        mockPrisma.user as { findUnique: ReturnType<typeof vi.fn> }
-      ).findUnique.mockResolvedValueOnce(null);
-      (mockPrisma.user as { create: ReturnType<typeof vi.fn> }).create.mockResolvedValueOnce({
+        mockPrisma.directoryUser as { findFirst: ReturnType<typeof vi.fn> }
+      ).findFirst.mockResolvedValueOnce(null);
+      (
+        mockPrisma.directoryUser as { create: ReturnType<typeof vi.fn> }
+      ).create.mockResolvedValueOnce({
         id: 'new-u1',
         email: 'imported@youngonevn.com',
       });
@@ -273,7 +284,6 @@ describe('UsersService', () => {
           {
             email: 'imported@youngonevn.com',
             name: 'Imported User',
-            initialPassword: 'Custom#Pass123',
             employeeCode: '99001122',
           },
         ],

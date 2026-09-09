@@ -73,9 +73,14 @@ export default function NotificationsPage() {
   const [pageSize, setPageSize] = useState<number>(10);
   const [batchLoading, setBatchLoading] = useState<boolean>(false);
 
+  // Safe notification list
+  const safeNotifications = useMemo(() => {
+    return Array.isArray(notifications) ? notifications : [];
+  }, [notifications]);
+
   // Filter logic
   const filteredNotifications = useMemo(() => {
-    return notifications.filter((item) => {
+    return safeNotifications.filter((item) => {
       // Category filter
       if (categoryFilter !== 'all' && item.category !== categoryFilter) {
         return false;
@@ -111,16 +116,16 @@ export default function NotificationsPage() {
 
       return true;
     });
-  }, [notifications, categoryFilter, statusFilter, typeFilter, searchQuery, dateRange]);
+  }, [safeNotifications, categoryFilter, statusFilter, typeFilter, searchQuery, dateRange]);
 
   // KPI statistics calculation
   const stats = useMemo(() => {
-    const total = notifications.length;
-    const unread = notifications.filter((n) => !n.read).length;
-    const alerts = notifications.filter(
+    const total = safeNotifications.length;
+    const unread = safeNotifications.filter((n) => !n.read).length;
+    const alerts = safeNotifications.filter(
       (n) => n.category === 'alerts' || n.type === 'error' || n.type === 'warning',
     ).length;
-    const tasks = notifications.filter((n) => n.category === 'tasks').length;
+    const tasks = safeNotifications.filter((n) => n.category === 'tasks').length;
 
     return [
       {
@@ -365,7 +370,7 @@ export default function NotificationsPage() {
               Mark All Read
             </Button>
           )}
-          {notifications.length > 0 && (
+          {safeNotifications.length > 0 && (
             <Popconfirm
               title="Clear all notifications?"
               description="This will permanently remove all notifications for your account."

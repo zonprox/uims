@@ -4,9 +4,15 @@ export interface DashboardOverviewDto {
       total: number;
       active: number;
       growthMoM: string;
+      inUse: number;
+      inStock: number;
+      inRepair: number;
+      decommissioned: number;
     };
     licenses: {
       total: number;
+      totalSeats: number;
+      usedSeats: number;
       seatUsagePercent: string;
       expiringCount: number;
     };
@@ -14,12 +20,20 @@ export interface DashboardOverviewDto {
       totalItems: number;
       lowStockCount: number;
       totalUnits: number;
+      healthyCount: number;
     };
     ipam: {
       used: number;
       total: number;
       free: number;
       usagePercent: number;
+    };
+    audit: {
+      totalEvents: number;
+      recent24h: number;
+      securityAlerts: number;
+      complianceScore: number;
+      status: 'Compliant' | 'Warning' | 'Critical';
     };
   };
   health: {
@@ -60,8 +74,11 @@ export interface DashboardOverviewDto {
     avatarColor: string;
     action: string;
     entity: string;
+    entityType?: string;
     details: string;
     time: string;
+    timestamp?: string;
+    linkUrl?: string;
   }>;
   actionItems: Array<{
     id: string;

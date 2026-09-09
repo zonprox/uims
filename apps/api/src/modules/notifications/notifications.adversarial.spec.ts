@@ -513,9 +513,15 @@ describe('Milestone 1 Adversarial Challenge: Notifications Gateway & Persistence
       user: {
         findMany: ReturnType<typeof vi.fn>;
       };
+      appUser: {
+        findMany: ReturnType<typeof vi.fn>;
+      };
     };
 
     beforeEach(() => {
+      const userMock = {
+        findMany: vi.fn().mockResolvedValue([]),
+      };
       mockPrisma = {
         notification: {
           create: vi.fn(),
@@ -527,9 +533,8 @@ describe('Milestone 1 Adversarial Challenge: Notifications Gateway & Persistence
           deleteMany: vi.fn(),
           count: vi.fn().mockResolvedValue(3),
         },
-        user: {
-          findMany: vi.fn().mockResolvedValue([]),
-        },
+        user: userMock,
+        appUser: userMock,
       };
 
       service = new NotificationsService(mockPrisma as unknown as PrismaService, gateway);
@@ -662,7 +667,7 @@ describe('Milestone 1 Adversarial Challenge: Notifications Gateway & Persistence
         type: 'ALERT',
       });
 
-      expect(mockPrisma.user.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.appUser.findMany).toHaveBeenCalledTimes(1);
       expect(res).toHaveLength(2);
       expect(mockServer.to).toHaveBeenCalledWith('user:admin-1');
       expect(mockServer.to).toHaveBeenCalledWith('user:admin-2');

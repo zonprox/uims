@@ -9,7 +9,6 @@ import {
 import { Button, Flex, Form, Tabs, Tooltip } from 'antd';
 import { useMemo } from 'react';
 import PageContainer from '../../components/PageContainer';
-import { DnsTable } from './components/DnsTable';
 import { IpAddressTable } from './components/IpAddressTable';
 import { IpFormModal } from './components/IpFormModal';
 import { PingToolModal } from './components/PingToolModal';
@@ -24,7 +23,6 @@ export default function NetworkPage() {
   const {
     ips,
     subnets,
-    dnsRecords,
     stats,
     loading,
     searchQuery,
@@ -119,15 +117,6 @@ export default function NetworkPage() {
         ),
         children: <SubnetCardList subnets={subnets} />,
       },
-      {
-        key: 'dns',
-        label: (
-          <span>
-            <GlobalOutlined /> DNS Records
-          </span>
-        ),
-        children: <DnsTable dnsRecords={dnsRecords} />,
-      },
     ],
     [
       ips,
@@ -143,14 +132,13 @@ export default function NetworkPage() {
       handleOpenEditIpModal,
       handleDeleteIp,
       subnets,
-      dnsRecords,
     ],
   );
 
   return (
     <PageContainer
       title="Network & IPAM"
-      subtitle="Manage IP address allocations, subnet CIDR blocks, DNS records, and network diagnostics."
+      subtitle="Manage IP address allocations, subnet CIDR blocks, and network diagnostics."
       breadcrumbs={[{ title: 'Network' }]}
       stats={statsItems}
       extra={

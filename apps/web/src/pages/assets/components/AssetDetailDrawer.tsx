@@ -1,4 +1,4 @@
-import { EditOutlined, LaptopOutlined, QrcodeOutlined, UserOutlined } from '@ant-design/icons';
+import { EditOutlined, LaptopOutlined, PrinterOutlined, UserOutlined } from '@ant-design/icons';
 import {
   Avatar,
   Button,
@@ -10,10 +10,12 @@ import {
   Tabs,
   Tag,
   Typography,
+  theme,
 } from 'antd';
-import React from 'react';
+import React, { useRef } from 'react';
 import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
+import { printAssetLabel } from '../utils/printAssetLabel';
 
 const { Text, Title } = Typography;
 
@@ -27,12 +29,14 @@ export interface AssetDetailDrawerProps {
 export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
   ({ open, selectedAsset, onClose, onOpenEditModal }) => {
     if (!selectedAsset) return null;
+    const { token } = theme.useToken();
+    const qrContainerRef = useRef<HTMLDivElement>(null);
 
     return (
       <Drawer
         title={
           <Flex align="center" gap={8}>
-            <LaptopOutlined style={{ color: '#1677ff' }} />
+            <LaptopOutlined style={{ color: token.colorPrimary }} />
             <span>{selectedAsset.name}</span>
             <Tag color="blue">{selectedAsset.tag}</Tag>
           </Flex>
@@ -160,28 +164,49 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                   vertical
                   align="center"
                   justify="center"
-                  gap={14}
+                  gap={16}
                   style={{ padding: '20px 0' }}
                 >
                   <div
+                    ref={qrContainerRef}
+                    className="printable-asset-label"
                     style={{
-                      padding: 14,
-                      border: '1px dashed #1677ff',
-                      borderRadius: 8,
-                      background: '#fff',
+                      padding: token.paddingLG,
+                      border: `1px solid ${token.colorBorderSecondary}`,
+                      borderRadius: token.borderRadiusLG,
+                      backgroundColor: token.colorFillAlter,
                       textAlign: 'center',
+                      maxWidth: 280,
+                      width: '100%',
+                      boxSizing: 'border-box',
                     }}
                   >
-                    <QRCode
-                      value={`https://uims.internal/assets/${selectedAsset.tag}`}
-                      size={150}
-                    />
-                    <div style={{ marginTop: 6, fontWeight: 700, fontSize: 15, color: '#000' }}>
+                    <Flex justify="center" align="center" style={{ marginBottom: 12 }}>
+                      <QRCode
+                        value={`https://uims.internal/assets/${selectedAsset.tag}`}
+                        size={160}
+                        bordered={false}
+                        color={token.colorText}
+                        bgColor="transparent"
+                      />
+                    </Flex>
+                    <Text strong style={{ fontSize: 16, display: 'block' }}>
                       {selectedAsset.tag}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#666' }}>{selectedAsset.serialNumber}</div>
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
+                      {selectedAsset.name}
+                    </Text>
+                    {selectedAsset.serialNumber && (
+                      <Text code style={{ fontSize: 11, display: 'inline-block', marginTop: 6 }}>
+                        {selectedAsset.serialNumber}
+                      </Text>
+                    )}
                   </div>
-                  <Button icon={<QrcodeOutlined />} onClick={() => window.print()}>
+                  <Button
+                    type="primary"
+                    icon={<PrinterOutlined />}
+                    onClick={() => printAssetLabel(selectedAsset, qrContainerRef.current)}
+                  >
                     Print QR Label
                   </Button>
                 </Flex>

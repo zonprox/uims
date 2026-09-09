@@ -9,11 +9,15 @@ describe('NotificationsService', () => {
   let mockPrisma: {
     notification: Record<string, ReturnType<typeof vi.fn>>;
     user: Record<string, ReturnType<typeof vi.fn>>;
+    appUser: Record<string, ReturnType<typeof vi.fn>>;
     $transaction: ReturnType<typeof vi.fn>;
   };
   let mockGateway: Record<string, ReturnType<typeof vi.fn>>;
 
   beforeEach(() => {
+    const userMock = {
+      findMany: vi.fn(),
+    };
     mockPrisma = {
       notification: {
         findMany: vi.fn(),
@@ -25,9 +29,8 @@ describe('NotificationsService', () => {
         deleteMany: vi.fn(),
         count: vi.fn(),
       },
-      user: {
-        findMany: vi.fn(),
-      },
+      user: userMock,
+      appUser: userMock,
       $transaction: vi.fn((cb) => (typeof cb === 'function' ? cb(mockPrisma) : Promise.all(cb))),
     };
 

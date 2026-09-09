@@ -25,6 +25,7 @@ import { RolesModule } from './modules/roles/roles.module';
 import { SearchModule } from './modules/search/search.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { UsersModule } from './modules/users/users.module';
+import { DirectoryModule } from './modules/directory/directory.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     RolesModule,
     UsersModule,
+    DirectoryModule,
     OrganizationModule,
     AssetsModule,
     LicensesModule,

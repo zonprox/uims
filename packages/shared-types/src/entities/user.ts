@@ -1,4 +1,3 @@
-import type { DirectorySource } from './directory';
 import type { Role } from './role';
 
 export enum UserStatus {
@@ -7,58 +6,42 @@ export enum UserStatus {
   SUSPENDED = 'SUSPENDED',
 }
 
-export interface User {
+export interface AppUser {
   id: string;
   username: string;
   email: string;
-  employeeCode?: string | null;
   firstName: string;
   lastName: string;
   fullName?: string;
   displayName?: string | null;
-  jobTitle?: string | null;
-  company?: string | null;
-  groupCompany?: string | null;
-  plant?: string | null;
-  section?: string | null;
-  subSection?: string | null;
-  computerName?: string | null;
-  computerName2?: string | null;
-  adGroup?: string | null;
-  telephone?: string | null;
-  isClosed?: boolean;
-  ouPath?: string | null;
-  managerName?: string | null;
-  isLocked?: boolean;
-  accountExpiresAt?: string | null;
-  source?: DirectorySource;
-  adInitialPassword?: string | null;
-  roleId?: string | null;
-  roleName?: string | null;
   avatar?: string | null;
   phone?: string | null;
-  department?: string | null;
-  location?: string | null;
-  departmentId?: string | null;
-  positionId?: string | null;
-  organizationId?: string | null;
-  locationId?: string | null;
-  status: UserStatus;
+  roleId?: string | null;
+  roleName?: string | null;
   role?: Role | null;
-  assignedAssetsCount?: number;
-  assignedLicensesCount?: number;
+  status: UserStatus;
+  isLocked: boolean;
+  failedLoginAttempts?: number;
   lastLoginAt?: string | null;
+  lastLoginIp?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface UserSummaryStats {
+// Backward-compatible alias for existing consumers during transition
+export type User = AppUser;
+
+export interface AppUserSummaryStats {
   totalUsers: number;
   activeUsers: number;
   adminUsers: number;
-  custodiansCount?: number;
+  lockedUsers?: number;
   suspendedUsers: number;
   recentActiveCount: number;
+}
+
+export interface UserSummaryStats extends AppUserSummaryStats {
+  custodiansCount?: number;
   totalGroups?: number;
   totalWorkstations?: number;
   lockedCount?: number;

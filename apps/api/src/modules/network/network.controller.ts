@@ -70,10 +70,4 @@ export class NetworkController {
   createSubnet(@Body() body: CreateSubnetDto) {
     return this.networkService.createSubnet(body);
   }
-
-  @Get('dns')
-  @ApiOperation({ summary: 'Get DNS records' })
-  getDnsRecords() {
-    return this.networkService.getDnsRecords();
-  }
 }

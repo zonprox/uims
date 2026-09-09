@@ -107,8 +107,7 @@ apps/web/
 │   │   ├── NotificationDrawer.tsx # Real-time Socket.IO notification panel
 │   │   ├── PageContainer.tsx  # Standardized page layout wrapper
 │   │   ├── PageLoader.tsx     # Loading fallback spinner for lazy components
-│   │   ├── TimezoneSelector.tsx  # Global timezone picker
-│   │   └── WorldClockWidget.tsx  # Multi-region operational world clock
+│   │   └── TimezoneSelector.tsx  # Global timezone picker
 │   ├── hooks/             # Custom React hooks (auth, access, health, notifications)
 │   ├── layouts/           # Page layouts (MainLayout, AuthLayout, sidebar navigation)
 │   ├── pages/             # Route page views (Dashboard, Assets, Licenses, Users, etc.)
@@ -127,12 +126,12 @@ apps/web/
 
 All routes are lazily loaded and defined in `src/app/router.tsx`:
 
-- **Dashboard (`/`)**: Real-time KPI summaries, system health telemetry, activity cards, and world clock widgets.
+- **Dashboard (`/`)**: Real-time KPI summaries, system health telemetry, activity cards, and operational queue.
 - **Hardware Assets (`/assets`)**: Asset inventory table, advanced filters, asset detail drawers, QR code generation, and lifecycle management modals.
 - **Software Licenses (`/licenses`)**: Software seat allocation tracking, license expiration alerts, and compliance overviews.
 - **Organization Structure (`/organization`)**: Interactive hierarchical organization canvas for company units, departments, and positions.
 - **Users & Access (`/users`)**: RBAC administration, role matrix inspection, custom role creation/cloning, access simulation, and directory integration.
-- **Network & IPAM (`/network`)**: IP address management, subnet visualization, DNS record tables, and connectivity diagnostics.
+- **Network & IPAM (`/network`)**: IP address management, subnet visualization, and connectivity diagnostics.
 - **Inventory Management (`/inventory`)**: Consumable parts tracking, stock thresholds, and check-in/check-out audit workflows.
 - **Audit Trail (`/audit`)**: Security audit logs, user action tracking, entity diff inspection, and event filtering.
 - **Reports & Analytics (`/reports`)**: Customizable operational reports, cost analytics, and data exports.

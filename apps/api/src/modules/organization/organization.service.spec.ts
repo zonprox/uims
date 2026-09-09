@@ -38,7 +38,11 @@ describe('OrganizationService', () => {
       user: {
         count: vi.fn(),
       },
+      directoryUser: {
+        count: vi.fn(),
+      },
     };
+    mockPrisma.directoryUser = mockPrisma.user;
 
     service = new OrganizationService(
       mockPrisma as unknown as import('../../database/prisma.service').PrismaService,

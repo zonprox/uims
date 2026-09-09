@@ -1,85 +1,16 @@
+import type { DashboardOverviewDto } from '@uims/shared-types';
 import { api } from './api';
 
-export interface DashboardOverview {
-  kpi: {
-    managedAssets: {
-      total: number;
-      active: number;
-      growthMoM: string;
-    };
-    licenses: {
-      total: number;
-      seatUsagePercent: string;
-      expiringCount: number;
-    };
-    inventory: {
-      totalItems: number;
-      lowStockCount: number;
-      totalUnits: number;
-    };
-    ipam: {
-      used: number;
-      total: number;
-      free: number;
-      usagePercent: number;
-    };
-  };
-  health: {
-    uptimePercent: string;
-    directory: {
-      name: string;
-      status: string;
-      usersCount: number;
-      syncTime: string;
-      percent: number;
-    };
-    mail: {
-      name: string;
-      status: string;
-      throughput: string;
-      latency: string;
-      percent: number;
-    };
-    vpn: {
-      name: string;
-      status: string;
-      tunnels: number;
-      load: string;
-      percent: number;
-    };
-    backups: {
-      name: string;
-      status: string;
-      snapshots: string;
-      nextRun: string;
-      percent: number;
-    };
-  };
-  recentActivity: Array<{
-    key: string;
-    user: string;
-    role: string;
-    avatarColor: string;
-    action: string;
-    entity: string;
-    details: string;
-    time: string;
-  }>;
-  actionItems: Array<{
-    id: string;
-    type: string;
-    title: string;
-    tag: string;
-    tagColor: string;
-    description: string;
-    linkText: string;
-    linkUrl: string;
-  }>;
-}
+export type DashboardOverview = DashboardOverviewDto;
 
 export const dashboardService = {
-  getOverview: async (period?: string): Promise<DashboardOverview> => {
-    const res = await api.get('/dashboard/overview', { params: { period } });
+  getOverview: async (period?: string, refresh?: boolean): Promise<DashboardOverview> => {
+    const res = await api.get('/dashboard/overview', {
+      params: {
+        period,
+        refresh: refresh ? 'true' : undefined,
+      },
+    });
     return res.data.data;
   },
 };

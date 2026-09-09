@@ -4,6 +4,7 @@ import {
   DownloadOutlined,
   LaptopOutlined,
   PlusOutlined,
+  QrcodeOutlined,
   ReloadOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
@@ -14,6 +15,7 @@ import { AssetDetailDrawer } from './components/AssetDetailDrawer';
 import { AssetFilterBar } from './components/AssetFilterBar';
 import { AssetFormModal } from './components/AssetFormModal';
 import { AssetQrModal } from './components/AssetQrModal';
+import { AssetScannerModal } from './components/AssetScannerModal';
 import { AssetTable } from './components/AssetTable';
 import { useAssetManagement } from './hooks/useAssetManagement';
 
@@ -39,6 +41,10 @@ export default function AssetsPage() {
     qrModalOpen,
     setQrModalOpen,
     qrAsset,
+    scannerModalOpen,
+    setScannerModalOpen,
+    handleScanQr,
+    handleOpenCreateWithTag,
     exporting,
     loadData,
     handleOpenCreateModal,
@@ -89,6 +95,9 @@ export default function AssetsPage() {
       stats={statsItems}
       extra={
         <Flex gap={8}>
+          <Button icon={<QrcodeOutlined />} onClick={() => setScannerModalOpen(true)}>
+            Scan QR
+          </Button>
           <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExportCSV}>
             Export CSV
           </Button>
@@ -110,6 +119,7 @@ export default function AssetsPage() {
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
           onReset={handleResetFilters}
+          onScanQr={() => setScannerModalOpen(true)}
         />
 
         <AssetTable
@@ -139,6 +149,13 @@ export default function AssetsPage() {
       />
 
       <AssetQrModal open={qrModalOpen} qrAsset={qrAsset} onClose={() => setQrModalOpen(false)} />
+
+      <AssetScannerModal
+        open={scannerModalOpen}
+        onClose={() => setScannerModalOpen(false)}
+        onScanSuccess={handleScanQr}
+        onRegisterAsset={handleOpenCreateWithTag}
+      />
     </PageContainer>
   );
 }

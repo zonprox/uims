@@ -10,7 +10,8 @@ const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
 const LicensesPage = lazy(() => import('../pages/licenses/LicensesPage'));
 const OrganizationPage = lazy(() => import('../pages/organization/OrganizationPage'));
-const UsersPage = lazy(() => import('../pages/users/UsersPage'));
+const AccessControlPage = lazy(() => import('../pages/access/AccessControlPage'));
+const DirectoryPage = lazy(() => import('../pages/directory/DirectoryPage'));
 const NetworkPage = lazy(() => import('../pages/network/NetworkPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
 const AuditPage = lazy(() => import('../pages/audit/AuditPage'));
@@ -63,8 +64,20 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: 'access-control',
+            element: (
+              <Suspense fallback={<PageLoader tip="Loading Access Control..." />}>
+                <AccessControlPage />
+              </Suspense>
+            ),
+          },
+          {
             path: 'directory',
-            element: <Navigate to="/users" replace />,
+            element: (
+              <Suspense fallback={<PageLoader tip="Loading Directory..." />}>
+                <DirectoryPage />
+              </Suspense>
+            ),
           },
           {
             path: 'organization',
@@ -76,11 +89,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'users',
-            element: (
-              <Suspense fallback={<PageLoader tip="Loading Users & Access..." />}>
-                <UsersPage />
-              </Suspense>
-            ),
+            element: <Navigate to="/access-control" replace />,
           },
           {
             path: 'network',

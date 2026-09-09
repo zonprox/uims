@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 export async function seedAudit(prisma: PrismaClient) {
   // Fetch related records to establish full relational integrity
   const [users, roles, assets, licenses, inventory, directoryGroups] = await Promise.all([
-    prisma.user.findMany(),
+    prisma.appUser.findMany(),
     prisma.role.findMany(),
     prisma.asset.findMany(),
     prisma.license.findMany(),

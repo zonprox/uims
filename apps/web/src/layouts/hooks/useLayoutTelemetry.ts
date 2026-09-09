@@ -14,7 +14,8 @@ export function useLayoutTelemetry(intervalMs = 15000) {
   const fetchLiveTelemetry = useCallback(async () => {
     try {
       const notifs = await notificationsService.getNotifications().catch(() => []);
-      setUnreadNotifCount(notifs.filter((n) => !n.read).length);
+      const notifList = Array.isArray(notifs) ? notifs : [];
+      setUnreadNotifCount(notifList.filter((n) => !n.read).length);
 
       const overview = await dashboardService.getOverview().catch(() => null);
       if (overview) {

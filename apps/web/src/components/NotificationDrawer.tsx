@@ -62,7 +62,13 @@ export default function NotificationDrawer({
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredNotifications = notifications.filter((item) => {
+  const safeNotifications = Array.isArray(notifications)
+    ? notifications
+    : Array.isArray((notifications as unknown as { data?: Array<NotificationItem> })?.data)
+      ? (notifications as unknown as { data: Array<NotificationItem> }).data
+      : [];
+
+  const filteredNotifications = safeNotifications.filter((item) => {
     // Tab filter
     if (activeTab === 'alerts' && item.category !== 'alerts') return false;
     if (activeTab === 'tasks' && item.category !== 'tasks') return false;
@@ -160,7 +166,7 @@ export default function NotificationDrawer({
                 Mark all as read
               </Button>
             )}
-            {notifications.length > 0 && (
+            {safeNotifications.length > 0 && (
               <Popconfirm
                 title="Clear all notifications?"
                 description="This action cannot be undone."
@@ -230,7 +236,7 @@ export default function NotificationDrawer({
         style={{ marginBottom: 12 }}
       />
 
-      {loading && notifications.length === 0 ? (
+      {loading && safeNotifications.length === 0 ? (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
           <Spin size="default" />
         </div>

@@ -305,7 +305,7 @@ export class NotificationsService {
     link?: string;
   }) {
     try {
-      const adminUsers = await this.prisma.user.findMany({
+      const adminUsers = await this.prisma.appUser.findMany({
         where: {
           OR: [
             { roleName: { in: ['Admin', 'Super Admin'] } },
@@ -313,6 +313,7 @@ export class NotificationsService {
           ],
           status: 'ACTIVE',
         },
+        take: 100,
         select: { id: true },
       });
 

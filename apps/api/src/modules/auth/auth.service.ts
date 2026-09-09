@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto';
-import { Injectable, Optional, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -13,6 +13,8 @@ function hashToken(token: string): string {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
@@ -24,11 +26,49 @@ export class AuthService {
     identifier: string,
     pass: string,
     ipAddress = '127.0.0.1',
-  ): Promise<Omit<import('@prisma/client').User, 'passwordHash'> | null> {
+  ): Promise<Omit<import('@prisma/client').AppUser, 'passwordHash'> | null> {
     const clean = identifier.trim().toLowerCase();
     const user = await this.usersService.findByIdentifier(clean);
     if (!user) {
       if (this.prisma) {
+        // Strict Directory Record Isolation: Corporate directory employees cannot log into UIMS
+        const directoryRecord = await this.prisma.directoryUser.findFirst({
+          where: {
+            OR: [
+              { email: { equals: clean, mode: 'insensitive' } },
+              { employeeCode: { equals: clean, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true, email: true, employeeCode: true, displayName: true },
+        });
+
+        if (directoryRecord) {
+          await this.prisma.auditLog
+            .create({
+              data: {
+                userName: clean,
+                userEmail: directoryRecord.email,
+                action: 'LOGIN_REJECTED_DIRECTORY_RECORD',
+                severity: 'Warning',
+                entity: 'Authentication',
+                entityType: 'Security',
+                ipAddress,
+                status: 'Failed',
+                details: `Authentication strictly rejected: identity ${clean} is a corporate directory record without application access privileges.`,
+              },
+            })
+            .catch((error: unknown) => {
+              this.logger.error(
+                'Failed to record audit log for directory rejection',
+                error instanceof Error ? error.stack : error,
+              );
+            });
+
+          throw new UnauthorizedException(
+            'Corporate directory accounts do not have application login privileges. Contact your system administrator for access.',
+          );
+        }
+
         await this.prisma.auditLog
           .create({
             data: {
@@ -43,7 +83,12 @@ export class AuthService {
               details: `Failed authentication attempt for non-existent identity: ${clean}`,
             },
           })
-          .catch(() => {});
+          .catch((error: unknown) => {
+            this.logger.error(
+              'Failed to record audit log for failed login',
+              error instanceof Error ? error.stack : error,
+            );
+          });
       }
       return null;
     }
@@ -52,6 +97,10 @@ export class AuthService {
       throw new UnauthorizedException(
         `Account is ${String(user.status).toLowerCase()}. Contact your system administrator.`,
       );
+    }
+
+    if (user.isLocked) {
+      throw new UnauthorizedException('Account is locked. Contact your system administrator.');
     }
 
     const isMatch = await bcrypt.compare(pass, user.passwordHash);
@@ -76,7 +125,12 @@ export class AuthService {
             details: `Invalid password attempt for account: ${user.email}`,
           },
         })
-        .catch(() => {});
+        .catch((error: unknown) => {
+          this.logger.error(
+            'Failed to record audit log for invalid password attempt',
+            error instanceof Error ? error.stack : error,
+          );
+        });
     }
 
     return null;
@@ -224,7 +278,7 @@ export class AuthService {
     }
 
     if (this.prisma) {
-      const freshUser = await this.prisma.user.findUnique({
+      const freshUser = await this.prisma.appUser.findUnique({
         where: { id: userId },
         include: { role: true },
       });

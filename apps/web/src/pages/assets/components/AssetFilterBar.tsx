@@ -1,5 +1,5 @@
-import { FilterOutlined } from '@ant-design/icons';
-import { Button, Col, Flex, Input, Row, Select } from 'antd';
+import { FilterOutlined, QrcodeOutlined } from '@ant-design/icons';
+import { Button, Col, Flex, Input, Row, Select, Tooltip } from 'antd';
 import React from 'react';
 
 const { Option } = Select;
@@ -12,6 +12,7 @@ export interface AssetFilterBarProps {
   statusFilter: string;
   onStatusChange: (val: string) => void;
   onReset: () => void;
+  onScanQr?: () => void;
 }
 
 export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
@@ -23,19 +24,29 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
     statusFilter,
     onStatusChange,
     onReset,
+    onScanQr,
   }) => {
     const isFiltered = searchQuery || categoryFilter !== 'all' || statusFilter !== 'all';
 
     return (
       <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
         <Col xs={24} md={10}>
-          <Input
-            placeholder="Search tag, serial, model, user, location..."
-            prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            allowClear
-          />
+          <Flex gap={8}>
+            <Input
+              placeholder="Search tag, serial, model, user, location..."
+              prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              allowClear
+            />
+            {onScanQr && (
+              <Tooltip title="Scan Asset QR Code">
+                <Button icon={<QrcodeOutlined />} onClick={onScanQr}>
+                  Scan QR
+                </Button>
+              </Tooltip>
+            )}
+          </Flex>
         </Col>
         <Col xs={24} md={14}>
           <Flex gap={10} justify="flex-end" wrap>

@@ -27,6 +27,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
@@ -50,6 +51,7 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
   onSuccess,
 }) => {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const [selectedPermIds, setSelectedPermIds] = useState<Set<string>>(new Set());
   const [initialPermIds, setInitialPermIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
@@ -221,8 +223,8 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
       onClose={onClose}
       styles={{
         wrapper: { width: 780 },
-        body: { padding: '16px 20px', background: '#f8fafc' },
-        footer: { padding: '12px 20px', background: '#fff' },
+        body: { padding: '16px 20px', background: token.colorBgLayout },
+        footer: { padding: '12px 20px', background: token.colorBgContainer },
       }}
       footer={
         <Flex justify="space-between" align="center">

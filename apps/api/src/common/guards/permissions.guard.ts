@@ -73,7 +73,7 @@ export class PermissionsGuard implements CanActivate {
     // 2. Fallback: Query Prisma for user's role permissions if available
     if (this.prisma && (user.id || user.sub)) {
       const userId = user.id || user.sub;
-      const userRecord = await this.prisma.user.findUnique({
+      const userRecord = await this.prisma.appUser.findUnique({
         where: { id: userId },
         include: {
           role: {

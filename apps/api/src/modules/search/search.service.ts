@@ -171,14 +171,14 @@ export class SearchService implements OnModuleInit {
         },
         take: limit,
       }),
-      this.prisma.user.findMany({
+      this.prisma.directoryUser.findMany({
         where: {
           OR: [
             { displayName: { contains: q, mode: 'insensitive' } },
             { firstName: { contains: q, mode: 'insensitive' } },
             { lastName: { contains: q, mode: 'insensitive' } },
             { email: { contains: q, mode: 'insensitive' } },
-            { username: { contains: q, mode: 'insensitive' } },
+            { employeeCode: { contains: q, mode: 'insensitive' } },
             { department: { contains: q, mode: 'insensitive' } },
             { jobTitle: { contains: q, mode: 'insensitive' } },
           ],
@@ -191,8 +191,7 @@ export class SearchService implements OnModuleInit {
       ...assets.map((a) => ({
         id: a.id,
         title: `${a.name} (${a.assetTag})`,
-        subtitle:
-          `${a.manufacturer || ''} ${a.model || ''} • ${a.category?.name || 'Asset'}`.trim(),
+        subtitle: `${[a.manufacturer, a.model].filter(Boolean).join(' ') || 'Hardware'} • ${a.category?.name || 'Uncategorized'}`,
         category: 'Asset' as const,
         path: '/assets',
         status: a.status,
@@ -207,7 +206,7 @@ export class SearchService implements OnModuleInit {
       })),
       ...users.map((u) => ({
         id: u.id,
-        title: u.displayName || `${u.firstName} ${u.lastName}`.trim() || u.username,
+        title: u.displayName || `${u.firstName} ${u.lastName}`.trim() || u.email,
         subtitle: `${u.email} • ${u.jobTitle || u.department || 'Directory'}`,
         category: 'Directory' as const,
         path: '/users',
@@ -232,9 +231,9 @@ export class SearchService implements OnModuleInit {
 
     try {
       const [assets, licenses, users] = await Promise.all([
-        this.prisma.asset.findMany({ include: { category: true } }),
-        this.prisma.license.findMany(),
-        this.prisma.user.findMany(),
+        this.prisma.asset.findMany({ include: { category: true }, take: 1000 }),
+        this.prisma.license.findMany({ take: 1000 }),
+        this.prisma.directoryUser.findMany({ take: 1000 }),
       ]);
 
       const assetDocs = assets.map((a) => ({
@@ -260,7 +259,7 @@ export class SearchService implements OnModuleInit {
       const userDocs = users.map((u) => ({
         id: u.id,
         name: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
-        username: u.username,
+        username: u.employeeCode || u.email.split('@')[0],
         email: u.email,
         jobTitle: u.jobTitle,
         department: u.department,

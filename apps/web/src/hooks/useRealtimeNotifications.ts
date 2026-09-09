@@ -44,8 +44,9 @@ export function useRealtimeNotifications() {
     try {
       setLoading(true);
       const data = await notificationsService.getNotifications();
-      setNotifications(data);
-      const count = data.filter((n) => !n.read).length;
+      const list = Array.isArray(data) ? data : [];
+      setNotifications(list);
+      const count = list.filter((n) => !n.read).length;
       setUnreadCount(count);
     } catch (err) {
       console.error('Failed to load notifications:', err);
@@ -78,9 +79,9 @@ export function useRealtimeNotifications() {
     const socketUrl = getSocketUrl();
     const socket: Socket = io(`${socketUrl}/notifications`, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 10000,
@@ -96,8 +97,15 @@ export function useRealtimeNotifications() {
       setIsConnected(false);
     });
 
-    socket.on('connect_error', () => {
+    socket.on('connect_error', (err: Error) => {
       setIsConnected(false);
+      // Abort reconnection on authentication failure to prevent console flooding
+      if (
+        err.message?.toLowerCase().includes('auth') ||
+        err.message?.toLowerCase().includes('token')
+      ) {
+        socket.disconnect();
+      }
     });
 
     // Handle real-time incoming notification

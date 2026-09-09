@@ -1,4 +1,5 @@
 import React from 'react';
+import { useThemeStore } from '../../stores/theme.store';
 
 export interface NavIconWithBadgeProps {
   icon: React.ReactNode;
@@ -22,6 +23,10 @@ export const NavIconWithBadge: React.FC<NavIconWithBadgeProps> = React.memo(
     className,
     style,
   }) => {
+    const resolvedMode = useThemeStore((state) => state.resolvedMode);
+    const isDark = resolvedMode === 'dark';
+    const borderColor = isDark ? '#0c1017' : '#ffffff';
+
     if (!isCollapsed || (!count && !dot)) {
       return (
         <span
@@ -62,7 +67,7 @@ export const NavIconWithBadge: React.FC<NavIconWithBadgeProps> = React.memo(
               height: 6,
               borderRadius: '50%',
               backgroundColor: color,
-              border: '1.5px solid #0c1017',
+              border: `1.5px solid ${borderColor}`,
             }}
           />
         )}
@@ -82,7 +87,7 @@ export const NavIconWithBadge: React.FC<NavIconWithBadgeProps> = React.memo(
               fontWeight: 800,
               lineHeight: '13px',
               textAlign: 'center',
-              border: '1.5px solid #0c1017',
+              border: `1.5px solid ${borderColor}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

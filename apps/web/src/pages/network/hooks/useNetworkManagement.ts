@@ -2,7 +2,6 @@ import { App } from 'antd';
 import type { FormInstance } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  type DNSRecord,
   type IPAddress,
   type NetworkStats,
   type Subnet,
@@ -13,7 +12,6 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
   const { message } = App.useApp();
   const [ips, setIps] = useState<Array<IPAddress>>([]);
   const [subnets, setSubnets] = useState<Array<Subnet>>([]);
-  const [dnsRecords, setDnsRecords] = useState<Array<DNSRecord>>([]);
   const [stats, setStats] = useState<NetworkStats>({
     managedSubnets: 0,
     allocatedStaticIps: 0,
@@ -37,19 +35,17 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [ipList, subnetList, dnsList, statsData] = await Promise.all([
+      const [ipList, subnetList, statsData] = await Promise.all([
         networkService.getIps({
           search: searchQuery || undefined,
           vlan: vlanFilter !== 'all' ? vlanFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
         }),
         networkService.getSubnets(),
-        networkService.getDnsRecords(),
         networkService.getStats().catch(() => null),
       ]);
       setIps(ipList);
       setSubnets(subnetList);
-      setDnsRecords(dnsList);
       if (statsData) {
         setStats(statsData);
       } else {
@@ -185,7 +181,6 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
   return {
     ips,
     subnets,
-    dnsRecords,
     stats,
     loading,
     searchQuery,

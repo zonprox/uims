@@ -77,21 +77,21 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     description: 'Corporate entities, facilities, hierarchical departments, and job titles',
   },
   {
-    key: 'users',
-    title: 'Users & Access',
+    key: 'access-control',
+    title: 'Access Control',
     category: 'Access',
-    path: '/users',
-    icon: <TeamOutlined />,
-    description: 'Manage console login users, RBAC roles, security status, and domain attributes',
+    path: '/access-control',
+    icon: <SafetyCertificateOutlined />,
+    description: 'Manage console login users, RBAC roles, security status, and permission matrix',
   },
   {
     key: 'directory',
-    title: 'Active Directory & Domain Accounts',
+    title: 'Directory',
     category: 'Directory',
     path: '/directory',
     icon: <TeamOutlined />,
     description:
-      'Domain controller users, initial Active Directory credentials, and custodian records',
+      'Corporate employee directory records, Active Directory synchronization, and workstation custodians',
   },
   {
     key: 'reports',

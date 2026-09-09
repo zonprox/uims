@@ -78,9 +78,18 @@ export function getQuickCreateMenu(
   if (allow('create', 'User')) {
     items.push({
       key: 'new-user',
-      icon: <TeamOutlined style={{ color: '#1677ff' }} />,
+      icon: <SafetyCertificateOutlined style={{ color: '#1677ff' }} />,
       label: 'Create User',
-      onClick: () => navigate('/users'),
+      onClick: () => navigate('/access-control'),
+    });
+  }
+
+  if (allow('create', 'Directory') || allow('create', 'User')) {
+    items.push({
+      key: 'new-employee',
+      icon: <TeamOutlined style={{ color: '#0ea5e9' }} />,
+      label: 'Add Employee',
+      onClick: () => navigate('/directory'),
     });
   }
 
@@ -148,10 +157,16 @@ export function getUserMenuItems(
     },
     { type: 'divider' },
     {
-      key: 'manage-users',
+      key: 'access-control',
+      icon: <SafetyCertificateOutlined />,
+      label: 'Access Control',
+      onClick: () => navigate('/access-control'),
+    },
+    {
+      key: 'directory',
       icon: <TeamOutlined />,
-      label: 'Users & Access',
-      onClick: () => navigate('/users'),
+      label: 'Directory',
+      onClick: () => navigate('/directory'),
     },
     {
       key: 'notifications',
@@ -192,6 +207,7 @@ export function getNavMenuItems(
   isMobile: boolean,
   counts?: NavBadgeCounts,
   can?: (action: string, subject: string) => boolean,
+  isDark: boolean = true,
 ): MenuProps['items'] {
   const isCollapsedDesktop = collapsed && !isMobile;
   const showLabels = !collapsed || isMobile;
@@ -211,6 +227,14 @@ export function getNavMenuItems(
 
   // Organization & Access Group
   const orgChildren: NonNullable<MenuProps['items']> = [];
+  if (allow('read', 'Directory') || allow('read', 'User')) {
+    orgChildren.push({
+      key: '/directory',
+      icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
+      label: 'Directory',
+      title: 'Directory',
+    });
+  }
   if (allow('read', 'Organization')) {
     orgChildren.push({
       key: '/organization',
@@ -221,10 +245,12 @@ export function getNavMenuItems(
   }
   if (allow('read', 'User') || allow('read', 'Role')) {
     orgChildren.push({
-      key: '/users',
-      icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Users & Access',
-      title: 'Users & Access',
+      key: '/access-control',
+      icon: (
+        <NavIconWithBadge icon={<SafetyCertificateOutlined />} isCollapsed={isCollapsedDesktop} />
+      ),
+      label: 'Access Control',
+      title: 'Access Control',
     });
   }
 
@@ -239,7 +265,7 @@ export function getNavMenuItems(
             fontSize: 10,
             fontWeight: 700,
             letterSpacing: '0.08em',
-            color: 'rgba(255,255,255,0.4)',
+            color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,23,42,0.5)',
             textTransform: 'uppercase',
           }}
         >
@@ -347,7 +373,7 @@ export function getNavMenuItems(
             fontSize: 10,
             fontWeight: 700,
             letterSpacing: '0.08em',
-            color: 'rgba(255,255,255,0.4)',
+            color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,23,42,0.5)',
             textTransform: 'uppercase',
           }}
         >
@@ -396,7 +422,7 @@ export function getNavMenuItems(
             fontSize: 10,
             fontWeight: 700,
             letterSpacing: '0.08em',
-            color: 'rgba(255,255,255,0.4)',
+            color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,23,42,0.5)',
             textTransform: 'uppercase',
           }}
         >

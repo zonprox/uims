@@ -1,6 +1,33 @@
-import type { PrismaClient } from '@prisma/client';
+import { AccountStatus, DirectorySource, type PrismaClient } from '@prisma/client';
+import { enterpriseAdMasterData } from './ad-directory-data';
 
-export async function seedDirectory(prisma: PrismaClient) {
+export interface StaffProfile {
+  email: string;
+  employeeCode?: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  jobTitle?: string;
+  department?: string;
+  location?: string;
+  company?: string;
+  groupCompany?: string;
+  plant?: string;
+  section?: string;
+  subSection?: string;
+  computerName?: string;
+  computerName2?: string;
+  adGroup?: string;
+  telephone?: string;
+  phone?: string;
+  ouPath?: string;
+  managerName?: string;
+  isClosed?: boolean;
+  status?: string;
+  source?: string;
+}
+
+export async function seedDirectory(prisma: PrismaClient, staffProfiles?: StaffProfile[]) {
   // Directory Groups (Enterprise Mail Distribution & Active Directory Security Groups)
   const directoryGroups = [
     // 1. Corporate HQ Distribution & Functional Groups
@@ -251,8 +278,159 @@ export async function seedDirectory(prisma: PrismaClient) {
     });
   }
 
-  // 2. Fetch All Seeded Users to Build Complete Directory Memberships
-  const allUsers = await prisma.user.findMany();
+  // 1b. Seed Corporate Staff Profiles into Directory
+  if (staffProfiles && staffProfiles.length > 0) {
+    for (const s of staffProfiles) {
+      const status: AccountStatus =
+        s.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED;
+      await prisma.directoryUser.upsert({
+        where: { email: s.email },
+        update: {
+          employeeCode: s.employeeCode || null,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          displayName: s.displayName,
+          jobTitle: s.jobTitle || 'Employee',
+          company: s.company || 'Acme Enterprise',
+          groupCompany: s.groupCompany || 'Acme Global',
+          plant: s.plant || 'HQ Campus',
+          department: s.department || 'IT & Infrastructure',
+          location: s.location || 'NY HQ - Floor 4',
+          section: s.section || null,
+          subSection: s.subSection || null,
+          computerName: s.computerName || null,
+          computerName2: s.computerName2 || null,
+          adGroup: s.adGroup || null,
+          telephone: s.telephone || s.phone || null,
+          phone: s.phone || null,
+          ouPath: s.ouPath || 'OU=Management,OU=HQ,DC=uims,DC=internal',
+          managerName: s.managerName || null,
+          isClosed: Boolean(s.isClosed),
+          status,
+          source: (s.source as DirectorySource) || DirectorySource.LOCAL,
+        },
+        create: {
+          email: s.email,
+          employeeCode: s.employeeCode || null,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          displayName: s.displayName,
+          jobTitle: s.jobTitle || 'Employee',
+          company: s.company || 'Acme Enterprise',
+          groupCompany: s.groupCompany || 'Acme Global',
+          plant: s.plant || 'HQ Campus',
+          department: s.department || 'IT & Infrastructure',
+          location: s.location || 'NY HQ - Floor 4',
+          section: s.section || null,
+          subSection: s.subSection || null,
+          computerName: s.computerName || null,
+          computerName2: s.computerName2 || null,
+          adGroup: s.adGroup || null,
+          telephone: s.telephone || s.phone || null,
+          phone: s.phone || null,
+          ouPath: s.ouPath || 'OU=Management,OU=HQ,DC=uims,DC=internal',
+          managerName: s.managerName || null,
+          isClosed: Boolean(s.isClosed),
+          status,
+          source: (s.source as DirectorySource) || DirectorySource.LOCAL,
+        },
+      });
+    }
+  }
+
+  // 1c. Seed Production / Enterprise Active Directory Dataset
+  for (const ad of enterpriseAdMasterData) {
+    const nameParts = ad.displayName.trim().split(' ');
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+    const sectionName = ad.section || 'Operations';
+    let defaultOuPath = 'OU=Operations,OU=Plant1,DC=company,DC=internal';
+    let defaultManagerName = 'Operations Division Head';
+
+    if (sectionName.toLowerCase().includes('printing')) {
+      defaultOuPath = 'OU=Printing,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Phung Thi Nhu Y (Asst. Officer)';
+    } else if (sectionName.toLowerCase().includes('sample')) {
+      defaultOuPath = 'OU=Sample,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Nguyen Doan Quang Huy (Asst. Manager)';
+    } else if (sectionName.toLowerCase().includes('embroidery')) {
+      defaultOuPath = 'OU=Embroidery,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Huynh Kim Ngan (Chief of Section)';
+    } else if (sectionName.toLowerCase().includes('cutting')) {
+      defaultOuPath = 'OU=Cutting,OU=Production,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Son Thi Ngoc Huyen (Junior Supervisor)';
+    } else if (
+      sectionName.toLowerCase().includes('production') ||
+      sectionName.toLowerCase().includes('office')
+    ) {
+      defaultOuPath = 'OU=Operations,OU=Plant1,DC=company,DC=internal';
+      defaultManagerName = 'Le Thi Kim Chi (Junior Technician)';
+    }
+
+    const isClosed = Boolean(ad.isClosed);
+    const status: AccountStatus = isClosed ? AccountStatus.DISABLED : AccountStatus.ACTIVE;
+
+    await prisma.directoryUser.upsert({
+      where: { email: ad.email },
+      update: {
+        employeeCode: ad.employeeCode,
+        firstName,
+        lastName,
+        displayName: ad.displayName,
+        jobTitle: ad.jobTitle,
+        company: ad.company || 'BSL Others',
+        groupCompany: ad.groupCompany || 'BSL',
+        plant: ad.plant || 'Plant 1',
+        department: ad.department || 'Production',
+        section: ad.section || 'Production',
+        subSection: ad.subSection || 'General Operations',
+        computerName: ad.computerName || `WS-${ad.employeeCode}`,
+        computerName2: (ad as { computerName2?: string }).computerName2 || `LT-${ad.employeeCode}`,
+        adGroup: ad.adGroup || 'GR_BSL1Production Office',
+        telephone:
+          (ad as { telephone?: string }).telephone || `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
+        phone: (ad as { telephone?: string }).telephone
+          ? `+84 ${(ad as { telephone?: string }).telephone}`
+          : `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
+        ouPath: (ad as { ouPath?: string }).ouPath || defaultOuPath,
+        managerName: (ad as { managerName?: string }).managerName || defaultManagerName,
+        isClosed,
+        status,
+        source: DirectorySource.LDAP,
+      },
+      create: {
+        email: ad.email,
+        employeeCode: ad.employeeCode,
+        firstName,
+        lastName,
+        displayName: ad.displayName,
+        jobTitle: ad.jobTitle,
+        company: ad.company || 'BSL Others',
+        groupCompany: ad.groupCompany || 'BSL',
+        plant: ad.plant || 'Plant 1',
+        department: ad.department || 'Production',
+        section: ad.section || 'Production',
+        subSection: ad.subSection || 'General Operations',
+        computerName: ad.computerName || `WS-${ad.employeeCode}`,
+        computerName2: (ad as { computerName2?: string }).computerName2 || `LT-${ad.employeeCode}`,
+        adGroup: ad.adGroup || 'GR_BSL1Production Office',
+        telephone:
+          (ad as { telephone?: string }).telephone || `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
+        phone: (ad as { telephone?: string }).telephone
+          ? `+84 ${(ad as { telephone?: string }).telephone}`
+          : `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
+        ouPath: (ad as { ouPath?: string }).ouPath || defaultOuPath,
+        managerName: (ad as { managerName?: string }).managerName || defaultManagerName,
+        isClosed,
+        status,
+        source: DirectorySource.LDAP,
+      },
+    });
+  }
+
+  // 2. Fetch All Seeded Directory Users to Build Complete Directory Memberships
+  const allUsers = await prisma.directoryUser.findMany({ take: 10000 });
 
   for (const group of directoryGroups) {
     let eligibleUsers: typeof allUsers = [];
@@ -262,7 +440,7 @@ export async function seedDirectory(prisma: PrismaClient) {
       eligibleUsers = allUsers.filter((u) => u.adGroup === group.name);
     } else if (group.id === 'grp-all-company') {
       // All active enterprise personnel
-      eligibleUsers = allUsers.filter((u) => u.status === 'ACTIVE');
+      eligibleUsers = allUsers.filter((u) => u.status === AccountStatus.ACTIVE);
     } else if (group.id === 'grp-engineering-core') {
       eligibleUsers = allUsers.filter(
         (u) =>
@@ -284,7 +462,7 @@ export async function seedDirectory(prisma: PrismaClient) {
         (u) =>
           u.department === 'Security & Compliance' ||
           u.adGroup === 'GR_HQ_SecurityCompliance' ||
-          u.roleName === 'Auditor' ||
+          u.jobTitle?.includes('Auditor') ||
           u.jobTitle?.includes('Security'),
       );
     } else if (group.id === 'grp-product-design') {
@@ -309,13 +487,14 @@ export async function seedDirectory(prisma: PrismaClient) {
     } else if (group.id === 'grp-executive-steering') {
       eligibleUsers = allUsers.filter(
         (u) =>
-          u.roleName === 'Super Admin' ||
-          u.roleName === 'Manager' ||
+          u.email === 'admin@uims.local' ||
+          u.email === 'admin@uims.internal' ||
           u.jobTitle?.includes('VP') ||
           u.jobTitle?.includes('Director') ||
           u.jobTitle?.includes('Head') ||
           u.jobTitle?.includes('Counsel') ||
-          u.jobTitle?.includes('Controller'),
+          u.jobTitle?.includes('Controller') ||
+          u.jobTitle?.includes('Administrator'),
       );
     }
 
@@ -342,4 +521,34 @@ export async function seedDirectory(prisma: PrismaClient) {
       data: { memberCount: eligibleUsers.length },
     });
   }
+
+  const seededDirUsers: Record<string, import('@prisma/client').DirectoryUser> = {};
+  for (const u of allUsers) {
+    seededDirUsers[u.email] = u;
+  }
+
+  return {
+    users: {
+      userAdminLocal: seededDirUsers['admin@uims.local'],
+      userAlex: seededDirUsers['admin@uims.internal'],
+      userSarah: seededDirUsers['sarah.chen@company.com'],
+      userMichael: seededDirUsers['michael.wong@company.com'],
+      userMarcusBell: seededDirUsers['compliance@uims.internal'],
+      userDavidKim: seededDirUsers['david.kim@company.com'],
+      userSophiaPatel: seededDirUsers['sophia.patel@company.com'],
+      userLiamNguyen: seededDirUsers['liam.nguyen@company.com'],
+      userCarlosMendez: seededDirUsers['carlos.mendez@company.com'],
+      userMarcusVance: seededDirUsers['marcus.vance@company.com'],
+      userChloeMartin: seededDirUsers['chloe.martin@company.com'],
+      userElena: seededDirUsers['elena.rostova@company.com'],
+      userRobertTorres: seededDirUsers['robert.torres@company.com'],
+      userLisaWang: seededDirUsers['lisa.wang@company.com'],
+      userRachelAdams: seededDirUsers['rachel.adams@company.com'],
+      userJamesWilson: seededDirUsers['james.wilson@company.com'],
+      userHannahScott: seededDirUsers['hannah.scott@company.com'],
+      userThomas: seededDirUsers['thomas.wright@company.com'],
+      userJessica: seededDirUsers['jessica.taylor@company.com'],
+      ...seededDirUsers,
+    },
+  };
 }

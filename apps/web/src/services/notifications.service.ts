@@ -15,7 +15,19 @@ export interface NotificationItem {
 export const notificationsService = {
   getNotifications: async (): Promise<Array<NotificationItem>> => {
     const res = await api.get('/notifications');
-    return res.data?.data ?? res.data ?? [];
+    const raw = res.data?.data ?? res.data;
+    if (Array.isArray(raw)) {
+      return raw;
+    }
+    if (raw && typeof raw === 'object') {
+      if (Array.isArray((raw as { data?: unknown }).data)) {
+        return (raw as { data: Array<NotificationItem> }).data;
+      }
+      if (Array.isArray((raw as { items?: unknown }).items)) {
+        return (raw as { items: Array<NotificationItem> }).items;
+      }
+    }
+    return [];
   },
 
   getUnreadCount: async (): Promise<number> => {

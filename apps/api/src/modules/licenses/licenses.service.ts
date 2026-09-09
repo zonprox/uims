@@ -157,10 +157,12 @@ export class LicensesService {
       });
       if (!license) throw new NotFoundException(`License with ID ${licenseId} not found`);
 
-      // Check if user exists by email
+      // Check if directory employee exists by email
+      const directoryDelegate =
+        tx.directoryUser || (tx as unknown as { user?: typeof tx.directoryUser }).user;
       const existingUser =
-        payload.email && tx.user
-          ? await tx.user.findUnique({ where: { email: payload.email } })
+        payload.email && directoryDelegate
+          ? await directoryDelegate.findUnique({ where: { email: payload.email } })
           : null;
 
       const newAssignment = await tx.licenseAssignment.create({

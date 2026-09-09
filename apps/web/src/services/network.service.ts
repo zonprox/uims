@@ -25,14 +25,6 @@ export interface Subnet {
   location: string;
 }
 
-export interface DNSRecord {
-  key: string;
-  host: string;
-  type: string;
-  target: string;
-  ttl: string;
-}
-
 export interface NetworkStats {
   managedSubnets: number;
   allocatedStaticIps: number;
@@ -76,10 +68,6 @@ export const networkService = {
   },
   createSubnet: async (data: Partial<Subnet>): Promise<Subnet> => {
     const res = await api.post('/network/subnets', data);
-    return res.data.data;
-  },
-  getDnsRecords: async (): Promise<Array<DNSRecord>> => {
-    const res = await api.get('/network/dns');
     return res.data.data;
   },
   getStats: async (): Promise<NetworkStats> => {

@@ -30,6 +30,8 @@ export default function MainLayout() {
   const screens = useBreakpoint();
 
   const mode = useThemeStore((state) => state.mode);
+  const resolvedMode = useThemeStore((state) => state.resolvedMode);
+  const isDark = resolvedMode === 'dark';
 
   const isMobile = screens.md === false;
   const isXs = screens.xs === true;
@@ -82,8 +84,8 @@ export default function MainLayout() {
 
   const orgMenuItems = useMemo(() => getOrgMenuItems(setActiveOrg), []);
   const menuItems = useMemo(
-    () => getNavMenuItems(collapsed, isMobile, navBadges, can),
-    [collapsed, isMobile, navBadges, can, permissions],
+    () => getNavMenuItems(collapsed, isMobile, navBadges, can, isDark),
+    [collapsed, isMobile, navBadges, can, permissions, isDark],
   );
   const quickCreateMenu = useMemo(
     () => getQuickCreateMenu(navigate, can),
@@ -104,15 +106,16 @@ export default function MainLayout() {
           trigger={null}
           width={280}
           collapsedWidth={80}
-          theme="dark"
+          theme={isDark ? 'dark' : 'light'}
           style={{
             height: '100vh',
             position: 'sticky',
             top: 0,
             left: 0,
             zIndex: 100,
-            borderRight: '1px solid rgba(255, 255, 255, 0.08)',
-            boxShadow: '2px 0 12px rgba(0, 0, 0, 0.25)',
+            backgroundColor: isDark ? '#080c14' : '#ffffff',
+            borderRight: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+            boxShadow: isDark ? '2px 0 12px rgba(0, 0, 0, 0.25)' : '2px 0 8px rgba(0, 0, 0, 0.04)',
           }}
         >
           <SidebarContent
@@ -135,7 +138,7 @@ export default function MainLayout() {
           onClose={handleCloseDrawer}
           styles={{
             wrapper: { width: 290 },
-            body: { padding: 0, backgroundColor: '#0c1017' },
+            body: { padding: 0, backgroundColor: isDark ? '#0c1017' : '#ffffff' },
           }}
           closable={false}
         >

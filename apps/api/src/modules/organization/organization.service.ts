@@ -20,7 +20,7 @@ export class OrganizationService {
         this.prisma.department.count(),
         this.prisma.position.count(),
         this.prisma.location.count(),
-        this.prisma.user.count(),
+        this.prisma.directoryUser.count(),
       ]);
 
     return {

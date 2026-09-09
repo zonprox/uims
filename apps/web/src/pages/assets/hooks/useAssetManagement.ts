@@ -1,9 +1,10 @@
-import { App } from 'antd';
+import { App, Button } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs from 'dayjs';
-import { useCallback, useEffect, useState } from 'react';
+import { createElement, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { type Asset, type AssetStats, assetsService } from '../../../services/assets.service';
+import { parseAssetQrPayload, playSuccessChime, triggerHapticFeedback } from '../utils/qrDecoder';
 
 export interface AssetFormValues {
   tag?: string;
@@ -58,7 +59,7 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
 }
 
 export function useAssetManagement(form: FormInstance) {
-  const { message } = App.useApp();
+  const { message, notification } = App.useApp();
   const [assets, setAssets] = useState<Array<Asset>>([]);
   const [stats, setStats] = useState<AssetStats>({
     total: 0,
@@ -80,6 +81,7 @@ export function useAssetManagement(form: FormInstance) {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrAsset, setQrAsset] = useState<Asset | null>(null);
+  const [scannerModalOpen, setScannerModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -115,6 +117,7 @@ export function useAssetManagement(form: FormInstance) {
 
   const [searchParams] = useSearchParams();
   const deepLinkId = searchParams.get('id') || searchParams.get('tag');
+  const scanParam = searchParams.get('scan');
 
   useEffect(() => {
     loadData();
@@ -132,6 +135,96 @@ export function useAssetManagement(form: FormInstance) {
       }
     }
   }, [deepLinkId, assets]);
+
+  // Deep linking: auto-open scanner modal if ?scan=true
+  useEffect(() => {
+    if (scanParam === 'true') {
+      setScannerModalOpen(true);
+    }
+  }, [scanParam]);
+
+  const handleOpenCreateWithTag = useCallback(
+    (tag: string) => {
+      setEditingAsset(null);
+      form.resetFields();
+      form.setFieldsValue({
+        tag,
+        status: 'Active',
+        category: 'Laptop',
+        purchaseDate: dayjs(),
+        warrantyExpiry: dayjs().add(3, 'year'),
+        purchasePrice: 1500,
+        location: 'NY Office - Floor 4',
+      });
+      setModalOpen(true);
+    },
+    [form],
+  );
+
+  const handleScanQr = useCallback(
+    async (scannedRaw: string) => {
+      const parsedTag = parseAssetQrPayload(scannedRaw);
+      if (!parsedTag) {
+        message.warning('No valid asset tag found in the scanned payload.');
+        return;
+      }
+
+      // 1. Check local assets list first for instant resolution
+      let match = assets.find(
+        (a) =>
+          (a.tag || '').toLowerCase() === parsedTag.toLowerCase() ||
+          (a.serialNumber || '').toLowerCase() === parsedTag.toLowerCase() ||
+          (a.id || '').toLowerCase() === parsedTag.toLowerCase(),
+      );
+
+      // 2. Query server if not found in local state
+      if (!match) {
+        try {
+          const results = await assetsService.getAssets({ search: parsedTag });
+          match = results.find(
+            (a) =>
+              (a.tag || '').toLowerCase() === parsedTag.toLowerCase() ||
+              (a.serialNumber || '').toLowerCase() === parsedTag.toLowerCase() ||
+              (a.id || '').toLowerCase() === parsedTag.toLowerCase(),
+          );
+        } catch {
+          message.error('Failed to verify asset with server. Please try again.');
+          return;
+        }
+      }
+
+      if (match) {
+        playSuccessChime();
+        triggerHapticFeedback();
+        setScannerModalOpen(false);
+        setSelectedAsset(match);
+        setDetailDrawerOpen(true);
+        message.success(`Asset "${match.tag}" (${match.name}) identified.`);
+      } else {
+        setScannerModalOpen(false);
+        const notifKey = `asset-not-found-${parsedTag}`;
+        notification.warning({
+          key: notifKey,
+          message: 'Asset Not Found',
+          description: `Asset tag "${parsedTag}" was not found in inventory.`,
+          btn: createElement(
+            Button,
+            {
+              type: 'primary',
+              size: 'small',
+              onClick: () => {
+                notification.destroy(notifKey);
+                handleOpenCreateWithTag(parsedTag);
+              },
+            },
+            'Register Asset',
+          ),
+          duration: 8,
+        });
+      }
+    },
+    [assets, handleOpenCreateWithTag, message, notification],
+  );
 
   const handleOpenCreateModal = useCallback(() => {
     setEditingAsset(null);
@@ -261,6 +354,10 @@ export function useAssetManagement(form: FormInstance) {
     qrModalOpen,
     setQrModalOpen,
     qrAsset,
+    scannerModalOpen,
+    setScannerModalOpen,
+    handleScanQr,
+    handleOpenCreateWithTag,
     exporting,
     loadData,
     handleOpenCreateModal,

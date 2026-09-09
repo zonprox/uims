@@ -19,14 +19,22 @@ describe('menuConfig', () => {
     expect(setActiveOrg).toHaveBeenCalledWith('Acme Enterprise Global HQ');
   });
 
-  it('should generate quick create menu items and navigate', () => {
+  it('should generate quick create menu items and navigate to decoupled routes', () => {
     const navigate = vi.fn();
     const items = getQuickCreateMenu(navigate);
-    expect(items?.length).toBe(5);
+    expect(items?.length).toBe(6);
 
-    const firstItem = items?.[0] as { onClick?: () => void };
+    // First item: Create User -> /access-control
+    const firstItem = items?.[0] as { onClick?: () => void; label?: string };
+    expect(firstItem?.label).toBe('Create User');
     firstItem?.onClick?.();
-    expect(navigate).toHaveBeenCalledWith('/users');
+    expect(navigate).toHaveBeenCalledWith('/access-control');
+
+    // Second item: Add Employee -> /directory
+    const secondItem = items?.[1] as { onClick?: () => void; label?: string };
+    expect(secondItem?.label).toBe('Add Employee');
+    secondItem?.onClick?.();
+    expect(navigate).toHaveBeenCalledWith('/directory');
   });
 
   it('should filter quick create menu items based on user permissions', () => {
@@ -38,7 +46,7 @@ describe('menuConfig', () => {
     expect((items?.[0] as { key: string }).key).toBe('new-asset');
   });
 
-  it('should generate user menu items and handle logout', () => {
+  it('should generate user menu items with Access Control and Directory and handle logout', () => {
     const navigate = vi.fn();
     const handleLogout = vi.fn();
     const items = getUserMenuItems(
@@ -48,6 +56,23 @@ describe('menuConfig', () => {
     );
 
     expect(items).toBeDefined();
+    expect(items?.some((item) => (item as { key?: string })?.key === 'access-control')).toBe(true);
+    expect(items?.some((item) => (item as { key?: string })?.key === 'directory')).toBe(true);
+
+    const accessItem = items?.find(
+      (item) => (item as { key?: string })?.key === 'access-control',
+    ) as {
+      onClick?: () => void;
+    };
+    accessItem?.onClick?.();
+    expect(navigate).toHaveBeenCalledWith('/access-control');
+
+    const dirItem = items?.find((item) => (item as { key?: string })?.key === 'directory') as {
+      onClick?: () => void;
+    };
+    dirItem?.onClick?.();
+    expect(navigate).toHaveBeenCalledWith('/directory');
+
     const logoutItem = items?.find((item) => (item as { key?: string })?.key === 'logout') as {
       onClick?: () => void;
     };
@@ -55,7 +80,7 @@ describe('menuConfig', () => {
     expect(handleLogout).toHaveBeenCalled();
   });
 
-  it('should generate nav menu items with telemetry badge counts', () => {
+  it('should generate nav menu items with telemetry badge counts and decoupled routes', () => {
     const items = getNavMenuItems(false, false, {
       expiringLicenses: 3,
       lowStockItems: 2,
@@ -63,6 +88,14 @@ describe('menuConfig', () => {
 
     expect(items).toBeDefined();
     expect(items?.length).toBeGreaterThan(5);
+
+    const groupOrg = items?.find((item) => (item as { key?: string })?.key === 'group-org') as {
+      children?: Array<{ key: string }>;
+    };
+    expect(groupOrg).toBeDefined();
+    expect(groupOrg.children?.some((c) => c.key === '/directory')).toBe(true);
+    expect(groupOrg.children?.some((c) => c.key === '/access-control')).toBe(true);
+    expect(groupOrg.children?.some((c) => c.key === '/organization')).toBe(true);
   });
 
   it('should filter nav menu items dynamically when permissions are restricted', () => {
@@ -73,7 +106,7 @@ describe('menuConfig', () => {
     const items = getNavMenuItems(false, false, undefined, can);
     expect(items).toBeDefined();
 
-    // Check that group-org is omitted because user cannot read Organization or User
+    // Check that group-org is omitted because user cannot read Organization, Directory, or User
     const groupOrg = items?.find((item) => (item as { key?: string })?.key === 'group-org');
     expect(groupOrg).toBeUndefined();
 

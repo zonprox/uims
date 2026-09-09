@@ -19,6 +19,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 
 const { Text, Title, Paragraph } = Typography;
@@ -35,6 +36,7 @@ export function OrganizationalUnitsTab({
   onFilterByOU,
 }: OrganizationalUnitsTabProps) {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
 
   const copyDn = (dn: string) => {
     navigator.clipboard.writeText(dn);
@@ -44,7 +46,7 @@ export function OrganizationalUnitsTab({
   return (
     <div>
       {/* Topology Header */}
-      <Card size="small" style={{ marginBottom: 16, backgroundColor: '#f8fafc' }}>
+      <Card size="small" style={{ marginBottom: 16, backgroundColor: token.colorFillAlter }}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} md={16}>
             <Flex align="center" gap={12}>

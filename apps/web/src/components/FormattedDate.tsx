@@ -1,7 +1,7 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
 import type { DateFormatPattern } from '@uims/shared-types';
 import { Tooltip, Typography } from 'antd';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTimezoneStore } from '../stores/timezone.store';
 
 const { Text } = Typography;
@@ -16,7 +16,14 @@ export interface FormattedDateProps {
 export const FormattedDate: React.FC<FormattedDateProps> = React.memo(
   ({ date, format, className, style }) => {
     const formatDate = useTimezoneStore((state) => state.formatDate);
-    const timezone = useTimezoneStore((state) => state.getEffectiveTimezone());
+    const mode = useTimezoneStore((state) => state.mode);
+    const storeTz = useTimezoneStore((state) => state.timezone);
+    const systemTz = useTimezoneStore((state) => state.systemTimezone);
+    const getEffectiveTimezone = useTimezoneStore((state) => state.getEffectiveTimezone);
+    const timezone = useMemo(
+      () => getEffectiveTimezone(),
+      [getEffectiveTimezone, mode, storeTz, systemTz],
+    );
 
     if (!date)
       return (
@@ -60,8 +67,20 @@ export const FormattedDateTime: React.FC<FormattedDateTimeProps> = React.memo(
     style,
   }) => {
     const formatDateTime = useTimezoneStore((state) => state.formatDateTime);
-    const timezone = useTimezoneStore((state) => state.getEffectiveTimezone());
-    const timezoneInfo = useTimezoneStore((state) => state.getTimezoneInfo());
+    const mode = useTimezoneStore((state) => state.mode);
+    const storeTz = useTimezoneStore((state) => state.timezone);
+    const systemTz = useTimezoneStore((state) => state.systemTimezone);
+    const getEffectiveTimezone = useTimezoneStore((state) => state.getEffectiveTimezone);
+    const getTimezoneInfo = useTimezoneStore((state) => state.getTimezoneInfo);
+
+    const timezone = useMemo(
+      () => getEffectiveTimezone(),
+      [getEffectiveTimezone, mode, storeTz, systemTz],
+    );
+    const timezoneInfo = useMemo(
+      () => getTimezoneInfo(),
+      [getTimezoneInfo, mode, storeTz, systemTz],
+    );
 
     if (!date)
       return (
@@ -132,7 +151,14 @@ export interface TimeAgoProps {
 export const TimeAgo: React.FC<TimeAgoProps> = React.memo(({ date, showIcon = false, style }) => {
   const fromNow = useTimezoneStore((state) => state.fromNow);
   const formatDateTime = useTimezoneStore((state) => state.formatDateTime);
-  const timezone = useTimezoneStore((state) => state.getEffectiveTimezone());
+  const mode = useTimezoneStore((state) => state.mode);
+  const storeTz = useTimezoneStore((state) => state.timezone);
+  const systemTz = useTimezoneStore((state) => state.systemTimezone);
+  const getEffectiveTimezone = useTimezoneStore((state) => state.getEffectiveTimezone);
+  const timezone = useMemo(
+    () => getEffectiveTimezone(),
+    [getEffectiveTimezone, mode, storeTz, systemTz],
+  );
 
   if (!date)
     return (

@@ -10,7 +10,7 @@ export class DashboardController {
 
   @Get('overview')
   @ApiOperation({ summary: 'Get dashboard overview' })
-  getOverview(@Query('period') period?: string) {
-    return this.dashboardService.getOverview(period);
+  getOverview(@Query('period') period?: string, @Query('refresh') refresh?: string) {
+    return this.dashboardService.getOverview(period, refresh === 'true');
   }
 }

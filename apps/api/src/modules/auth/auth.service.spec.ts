@@ -11,6 +11,13 @@ describe('AuthService', () => {
   };
   let mockJwtService: { sign: ReturnType<typeof vi.fn> };
   let mockConfigService: { get: ReturnType<typeof vi.fn> };
+  let mockPrismaService: {
+    directoryUser: { findFirst: ReturnType<typeof vi.fn> };
+    auditLog: { create: ReturnType<typeof vi.fn> };
+    refreshToken: { create: ReturnType<typeof vi.fn> };
+    role: { findFirst: ReturnType<typeof vi.fn> };
+    appUser: { findUnique: ReturnType<typeof vi.fn> };
+  };
 
   beforeEach(() => {
     mockUsersService = {
@@ -31,10 +38,32 @@ describe('AuthService', () => {
       }),
     };
 
+    mockPrismaService = {
+      directoryUser: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      auditLog: {
+        create: vi.fn().mockResolvedValue({ id: 'audit-log-1' }),
+      },
+      refreshToken: {
+        create: vi.fn().mockResolvedValue({ id: 'rt-1' }),
+      },
+      role: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'role-1', name: 'Staff', permissions: [] }),
+      },
+      appUser: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'user-3',
+          status: 'ACTIVE',
+          role: { name: 'Employee' },
+        }),
+      },
+    };
+
     service = new AuthService(
       mockUsersService as unknown as import('../users/users.service').UsersService,
       mockJwtService as unknown as import('@nestjs/jwt').JwtService,
-      undefined,
+      mockPrismaService as unknown as import('../../database/prisma.service').PrismaService,
       mockConfigService as unknown as import('@nestjs/config').ConfigService,
     );
   });
@@ -138,10 +167,84 @@ describe('AuthService', () => {
         }),
       ).rejects.toThrow(UnauthorizedException);
     });
+
+    it('should strictly reject login if identifier belongs to a DirectoryUser and record audit log', async () => {
+      mockUsersService.findByIdentifier.mockResolvedValue(null);
+      mockPrismaService.directoryUser.findFirst.mockResolvedValue({
+        id: 'dir-user-101',
+        email: 'employee@uims.internal',
+        employeeCode: 'EMP101',
+        displayName: 'John Employee',
+      });
+
+      await expect(
+        service.login({
+          email: 'employee@uims.internal',
+          password: 'password123',
+        }),
+      ).rejects.toThrow(
+        'Corporate directory accounts do not have application login privileges. Contact your system administrator for access.',
+      );
+
+      expect(mockPrismaService.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userName: 'employee@uims.internal',
+          userEmail: 'employee@uims.internal',
+          action: 'LOGIN_REJECTED_DIRECTORY_RECORD',
+          severity: 'Warning',
+          entity: 'Authentication',
+          entityType: 'Security',
+          status: 'Failed',
+          details: expect.stringContaining(
+            'strictly rejected: identity employee@uims.internal is a corporate directory record',
+          ),
+        }),
+      });
+    });
+
+    it('should strictly reject login if identifier is an employee code belonging to a DirectoryUser', async () => {
+      mockUsersService.findByIdentifier.mockResolvedValue(null);
+      mockPrismaService.directoryUser.findFirst.mockResolvedValue({
+        id: 'dir-user-102',
+        email: 'jane.smith@uims.internal',
+        employeeCode: 'EMP102',
+        displayName: 'Jane Smith',
+      });
+
+      await expect(
+        service.login({
+          email: 'EMP102',
+          password: 'password123',
+        }),
+      ).rejects.toThrow(
+        'Corporate directory accounts do not have application login privileges. Contact your system administrator for access.',
+      );
+
+      expect(mockPrismaService.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userName: 'emp102',
+          userEmail: 'jane.smith@uims.internal',
+          action: 'LOGIN_REJECTED_DIRECTORY_RECORD',
+          severity: 'Warning',
+          entity: 'Authentication',
+          entityType: 'Security',
+          status: 'Failed',
+        }),
+      });
+    });
   });
 
   describe('refresh', () => {
     it('should throw UnauthorizedException if user has no assigned role on refresh', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-3',
+        username: 'user3',
+        email: 'user3@uims.internal',
+        status: 'ACTIVE',
+        role: null,
+        roleName: null,
+      });
+
       await expect(
         service.refresh({
           id: 'user-3',
@@ -152,6 +255,19 @@ describe('AuthService', () => {
     });
 
     it('should refresh token and preserve user info when role is assigned', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-3',
+        username: 'user3',
+        email: 'user3@uims.internal',
+        firstName: 'User',
+        lastName: 'Three',
+        displayName: 'User Three',
+        status: 'ACTIVE',
+        role: { id: 'role-emp', name: 'Employee' },
+        roleName: 'Employee',
+        roleId: 'role-emp',
+      });
+
       const result = await service.refresh({
         id: 'user-3',
         username: 'user3',
@@ -167,6 +283,7 @@ describe('AuthService', () => {
         role: 'Employee',
         permissions: [],
         username: 'user3',
+        type: 'access',
       });
     });
   });

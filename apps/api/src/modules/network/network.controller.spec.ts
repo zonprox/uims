@@ -13,7 +13,6 @@ describe('NetworkController', () => {
     mockNetworkService = {
       findAllIps: vi.fn(),
       findAllSubnets: vi.fn(),
-      findAllDns: vi.fn(),
       getStats: vi.fn(),
       createIp: vi.fn(),
       updateIp: vi.fn(),

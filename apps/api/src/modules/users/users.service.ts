@@ -1,28 +1,37 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma, UserStatus } from '@prisma/client';
+import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import type { UserStatus } from '@prisma/client';
+import type { CreateAppUserDto, UpdateAppUserDto, UserSummaryStats } from '@uims/shared-types';
 import * as bcrypt from 'bcrypt';
 import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
-import type { CreateGroupDto } from './dto/create-group.dto';
+import { DirectoryService } from '../directory/directory.service';
+import type { CreateDirectoryGroupDto } from '../directory/dto/create-directory-group.dto';
+import type { BatchImportDirectoryDto } from '../directory/dto/import-directory.dto';
 import type { CreateUserDto } from './dto/create-user.dto';
-import type { BatchImportUsersDto } from './dto/import-users.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
+import type { UserQueryDto } from './dto/user-query.dto';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redis?: RedisService,
-  ) {}
+    @Optional() private readonly redis?: RedisService,
+    @Optional() private directoryService?: DirectoryService,
+  ) {
+    if (!this.directoryService && this.prisma) {
+      this.directoryService = new DirectoryService(this.prisma);
+    }
+  }
 
   async findByIdentifier(identifier: string) {
     const clean = identifier.trim().toLowerCase();
-    return this.prisma.user.findFirst({
+    return this.prisma.appUser.findFirst({
       where: {
         OR: [
           { email: { equals: clean, mode: 'insensitive' } },
           { username: { equals: clean, mode: 'insensitive' } },
-          { employeeCode: { equals: clean, mode: 'insensitive' } },
         ],
       },
       include: {
@@ -39,21 +48,18 @@ export class UsersService {
     });
   }
 
-  async create(userData: CreateUserDto) {
-    const existing = await this.prisma.user.findFirst({
+  async create(userData: CreateUserDto | CreateAppUserDto) {
+    const existing = await this.prisma.appUser.findFirst({
       where: {
         OR: [
           { email: userData.email },
           ...(userData.username ? [{ username: userData.username }] : []),
-          ...(userData.employeeCode ? [{ employeeCode: userData.employeeCode }] : []),
         ],
       },
     });
 
     if (existing) {
-      throw new ConflictException(
-        'A user with this email, username, or employee code already exists.',
-      );
+      throw new ConflictException('A user with this email or username already exists.');
     }
 
     let roleId = userData.roleId;
@@ -71,243 +77,110 @@ export class UsersService {
     }
 
     const username = userData.username || userData.email.split('@')[0];
-    const adInitialPassword = userData.adInitialPassword || `Ad#${username}2026!`;
+    const adInitialPassword =
+      (userData as { adInitialPassword?: string }).adInitialPassword || `Ad#${username}2026!`;
     const plainPassword = userData.password || adInitialPassword;
     const passwordHash = await bcrypt.hash(plainPassword, 10);
 
     const isClosed =
-      userData.isClosed === true ||
-      userData.status === 'SUSPENDED' ||
-      userData.status === ('CLOSED' as unknown as UserStatus);
+      (userData as { isClosed?: boolean }).isClosed === true || userData.status === 'SUSPENDED';
 
     const status: UserStatus = isClosed ? 'SUSPENDED' : userData.status || 'ACTIVE';
 
-    const created = await this.prisma.user.create({
+    const created = await this.prisma.appUser.create({
       data: {
         email: userData.email,
         username,
-        employeeCode: userData.employeeCode || null,
         firstName: userData.firstName || '',
         lastName: userData.lastName || '',
         displayName:
           userData.displayName ||
           `${userData.firstName || ''} ${userData.lastName || ''}`.trim() ||
           username,
-        jobTitle: userData.jobTitle || 'Employee',
-        company: userData.company || 'BSL Others',
-        groupCompany: userData.groupCompany || 'BSL',
-        plant: userData.plant || 'BSL Others',
-        section: userData.section || null,
-        subSection: userData.subSection || null,
-        computerName: userData.computerName || null,
-        computerName2: userData.computerName2 || null,
-        adGroup: userData.adGroup || null,
-        ouPath: userData.ouPath || 'OU=Corporate,DC=uims,DC=internal',
-        managerName: userData.managerName || null,
+        phone: userData.phone || null,
+        avatar: userData.avatar || null,
         isLocked: Boolean(userData.isLocked),
-        telephone: userData.telephone || null,
-        isClosed: Boolean(userData.isClosed),
         status,
-        source: userData.source || 'LOCAL',
         roleId,
         roleName: roleName || 'Employee',
         passwordHash,
       },
       include: {
         role: true,
-        organization: true,
-        departmentRel: true,
-        positionRel: true,
-        locationRel: true,
       },
     });
 
-    // Auto-link AD Group if provided
-    if (userData.adGroup) {
-      await this.ensureAndLinkAdGroup(created.id, userData.adGroup);
-    }
-
     const { passwordHash: _hash, ...safeUser } = created;
-    return safeUser;
+    return {
+      ...safeUser,
+      adInitialPassword: (userData as { adInitialPassword?: string }).adInitialPassword,
+    };
   }
 
-  async findAll(query?: {
-    page?: number;
-    limit?: number;
-    pageSize?: number;
-    search?: string;
-    role?: string;
-    status?: string;
-    department?: string;
-    section?: string;
-    company?: string;
-    plant?: string;
-    adGroup?: string;
-    ouPath?: string;
-    source?: string;
-  }) {
+  async findAll(query?: UserQueryDto) {
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.UserWhereInput = {};
+    const where: {
+      OR?: Array<{
+        displayName?: { contains: string; mode: 'insensitive' };
+        firstName?: { contains: string; mode: 'insensitive' };
+        lastName?: { contains: string; mode: 'insensitive' };
+        email?: { contains: string; mode: 'insensitive' };
+        username?: { contains: string; mode: 'insensitive' };
+      }>;
+      roleName?: { equals: string; mode: 'insensitive' };
+      status?: UserStatus;
+      isLocked?: boolean;
+    } = {};
 
     if (query?.search) {
-      const s = query.search.trim();
+      const search = query.search.trim();
       where.OR = [
-        { firstName: { contains: s, mode: 'insensitive' } },
-        { lastName: { contains: s, mode: 'insensitive' } },
-        { displayName: { contains: s, mode: 'insensitive' } },
-        { username: { contains: s, mode: 'insensitive' } },
-        { email: { contains: s, mode: 'insensitive' } },
-        { employeeCode: { contains: s, mode: 'insensitive' } },
-        { computerName: { contains: s, mode: 'insensitive' } },
-        { computerName2: { contains: s, mode: 'insensitive' } },
-        { adGroup: { contains: s, mode: 'insensitive' } },
-        { section: { contains: s, mode: 'insensitive' } },
-        { subSection: { contains: s, mode: 'insensitive' } },
-        { company: { contains: s, mode: 'insensitive' } },
-        { plant: { contains: s, mode: 'insensitive' } },
-        { phone: { contains: s, mode: 'insensitive' } },
-        { telephone: { contains: s, mode: 'insensitive' } },
-        { jobTitle: { contains: s, mode: 'insensitive' } },
-        { managerName: { contains: s, mode: 'insensitive' } },
-        { ouPath: { contains: s, mode: 'insensitive' } },
+        { displayName: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    if (query?.role && query.role !== 'all') {
-      where.roleName = query.role;
+    if (query?.role) {
+      where.roleName = { equals: query.role, mode: 'insensitive' };
     }
 
-    if (query?.status && query.status !== 'all') {
-      where.status = query.status.toUpperCase() as UserStatus;
+    if (query?.status) {
+      where.status = query.status as UserStatus;
     }
 
-    if (query?.source && query.source !== 'all') {
-      where.source = query.source as import('@prisma/client').DirectorySource;
+    if (query?.isLocked !== undefined) {
+      where.isLocked = query.isLocked;
     }
 
-    if (query?.ouPath && query.ouPath !== 'all') {
-      where.ouPath = { contains: query.ouPath, mode: 'insensitive' };
-    }
-
-    if (query?.department && query.department !== 'all') {
-      where.OR = [
-        ...(where.OR || []),
-        { department: { contains: query.department, mode: 'insensitive' } },
-        { departmentRel: { name: { contains: query.department, mode: 'insensitive' } } },
-      ];
-    }
-
-    if (query?.section && query.section !== 'all') {
-      where.section = { contains: query.section, mode: 'insensitive' };
-    }
-
-    if (query?.company && query.company !== 'all') {
-      where.OR = [
-        ...(where.OR || []),
-        { company: { contains: query.company, mode: 'insensitive' } },
-        { groupCompany: { contains: query.company, mode: 'insensitive' } },
-      ];
-    }
-
-    if (query?.plant && query.plant !== 'all') {
-      where.plant = { contains: query.plant, mode: 'insensitive' };
-    }
-
-    if (query?.adGroup && query.adGroup !== 'all') {
-      where.adGroup = { contains: query.adGroup, mode: 'insensitive' };
-    }
-
-    const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
+    const [items, total] = await Promise.all([
+      this.prisma.appUser.findMany({
         where,
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          employeeCode: true,
-          firstName: true,
-          lastName: true,
-          displayName: true,
-          jobTitle: true,
-          company: true,
-          groupCompany: true,
-          plant: true,
-          section: true,
-          subSection: true,
-          computerName: true,
-          computerName2: true,
-          adGroup: true,
-          ouPath: true,
-          managerName: true,
-          isLocked: true,
-          accountExpiresAt: true,
-          telephone: true,
-          isClosed: true,
-          source: true,
-          roleId: true,
-          roleName: true,
-          role: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-            },
-          },
-          status: true,
-          avatar: true,
-          phone: true,
-          department: true,
-          location: true,
-          organizationId: true,
-          departmentId: true,
-          positionId: true,
-          locationId: true,
-          organization: {
-            select: { id: true, name: true, code: true },
-          },
-          departmentRel: {
-            select: { id: true, name: true, code: true },
-          },
-          positionRel: {
-            select: { id: true, title: true, code: true, level: true },
-          },
-          locationRel: {
-            select: { id: true, name: true },
-          },
-          _count: {
-            select: {
-              assignedAssets: true,
-              licenseAssignments: true,
-              auditLogs: true,
-            },
-          },
-          lastLoginAt: true,
-          createdAt: true,
-          updatedAt: true,
-        },
         take: pageSize,
         skip,
         orderBy: { createdAt: 'desc' },
+        include: {
+          role: true,
+        },
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.appUser.count({ where }),
     ]);
 
-    const items = users.map((u) => {
-      const fullName = u.displayName || `${u.firstName} ${u.lastName}`.trim();
+    const formattedItems = items.map((u) => {
+      const { passwordHash: _hash, ...safe } = u;
       return {
-        ...u,
-        name: fullName,
-        fullName,
-        assignedAssetsCount: u._count?.assignedAssets || 0,
-        assignedLicensesCount: u._count?.licenseAssignments || 0,
+        ...safe,
+        fullName: `${u.firstName} ${u.lastName}`.trim() || u.displayName || u.username,
       };
     });
 
     return {
-      items,
+      items: formattedItems,
       total,
       page,
       pageSize,
@@ -316,7 +189,7 @@ export class UsersService {
   }
 
   async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.appUser.findUnique({
       where: { id },
       include: {
         role: {
@@ -328,37 +201,6 @@ export class UsersService {
             },
           },
         },
-        organization: true,
-        departmentRel: true,
-        positionRel: true,
-        locationRel: true,
-        assignedAssets: {
-          take: 10,
-          select: {
-            id: true,
-            name: true,
-            assetTag: true,
-            model: true,
-            status: true,
-          },
-        },
-        licenseAssignments: {
-          take: 10,
-          include: {
-            license: {
-              select: {
-                id: true,
-                name: true,
-                vendor: true,
-              },
-            },
-          },
-        },
-        groupMemberships: {
-          include: {
-            group: true,
-          },
-        },
       },
     });
 
@@ -366,81 +208,60 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    const { passwordHash: _hash, ...safeUser } = user;
-    const fullName = safeUser.displayName || `${safeUser.firstName} ${safeUser.lastName}`.trim();
+    const { passwordHash: _hash, ...safe } = user;
     return {
-      ...safeUser,
-      fullName,
-      assignedAssetsCount: safeUser.assignedAssets?.length || 0,
-      assignedLicensesCount: safeUser.licenseAssignments?.length || 0,
+      ...safe,
+      fullName: `${user.firstName} ${user.lastName}`.trim() || user.displayName || user.username,
+      assignedAssets: [],
+      licenseAssignments: [],
     };
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto | UpdateAppUserDto) {
     await this.findOne(id);
 
-    const updateData: Prisma.UserUpdateInput = {};
+    const updateData: {
+      email?: string;
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+      displayName?: string;
+      avatar?: string | null;
+      phone?: string | null;
+      roleId?: string | null;
+      roleName?: string | null;
+      status?: UserStatus;
+      isLocked?: boolean;
+      passwordHash?: string;
+    } = {};
 
-    if (updateUserDto.displayName !== undefined) updateData.displayName = updateUserDto.displayName;
+    if (updateUserDto.email !== undefined) updateData.email = updateUserDto.email;
+    if (updateUserDto.username !== undefined) updateData.username = updateUserDto.username;
     if (updateUserDto.firstName !== undefined) updateData.firstName = updateUserDto.firstName;
     if (updateUserDto.lastName !== undefined) updateData.lastName = updateUserDto.lastName;
-    if (updateUserDto.employeeCode !== undefined)
-      updateData.employeeCode = updateUserDto.employeeCode;
-    if (updateUserDto.jobTitle !== undefined) updateData.jobTitle = updateUserDto.jobTitle;
-    if (updateUserDto.company !== undefined) updateData.company = updateUserDto.company;
-    if (updateUserDto.groupCompany !== undefined)
-      updateData.groupCompany = updateUserDto.groupCompany;
-    if (updateUserDto.plant !== undefined) updateData.plant = updateUserDto.plant;
-    if (updateUserDto.section !== undefined) updateData.section = updateUserDto.section;
-    if (updateUserDto.subSection !== undefined) updateData.subSection = updateUserDto.subSection;
-    if (updateUserDto.computerName !== undefined)
-      updateData.computerName = updateUserDto.computerName;
-    if (updateUserDto.computerName2 !== undefined)
-      updateData.computerName2 = updateUserDto.computerName2;
-    if (updateUserDto.adGroup !== undefined) updateData.adGroup = updateUserDto.adGroup;
-    if (updateUserDto.ouPath !== undefined) updateData.ouPath = updateUserDto.ouPath;
-    if (updateUserDto.managerName !== undefined) updateData.managerName = updateUserDto.managerName;
-    if (updateUserDto.isLocked !== undefined) updateData.isLocked = updateUserDto.isLocked;
-    if (updateUserDto.telephone !== undefined) updateData.telephone = updateUserDto.telephone;
-    if (updateUserDto.department !== undefined) updateData.department = updateUserDto.department;
-    if (updateUserDto.location !== undefined) updateData.location = updateUserDto.location;
-    if (updateUserDto.phone !== undefined) updateData.phone = updateUserDto.phone;
-    if (updateUserDto.avatar !== undefined) updateData.avatar = updateUserDto.avatar;
-    if (updateUserDto.source !== undefined) updateData.source = updateUserDto.source;
-    if (updateUserDto.isClosed !== undefined) {
-      updateData.isClosed = updateUserDto.isClosed;
-      if (updateUserDto.isClosed) updateData.status = 'SUSPENDED';
-    }
+    if (updateUserDto.displayName !== undefined) updateData.displayName = updateUserDto.displayName;
+    if (updateUserDto.avatar !== undefined) updateData.avatar = updateUserDto.avatar || null;
+    if (updateUserDto.phone !== undefined) updateData.phone = updateUserDto.phone || null;
+    if (updateUserDto.status !== undefined) updateData.status = updateUserDto.status;
+    if (updateUserDto.isLocked !== undefined) updateData.isLocked = Boolean(updateUserDto.isLocked);
 
-    if (updateUserDto.status !== undefined) {
-      updateData.status = updateUserDto.status;
-      if (updateUserDto.status === 'SUSPENDED') updateData.isClosed = true;
-      else if (updateUserDto.status === 'ACTIVE') updateData.isClosed = false;
+    if (updateUserDto.roleId !== undefined) {
+      updateData.roleId = updateUserDto.roleId;
+      if (updateUserDto.roleId) {
+        const found = await this.prisma.role.findUnique({ where: { id: updateUserDto.roleId } });
+        if (found) updateData.roleName = found.name;
+      }
+    } else if (updateUserDto.roleName !== undefined) {
+      updateData.roleName = updateUserDto.roleName;
+      const found = await this.prisma.role.findFirst({ where: { name: updateUserDto.roleName } });
+      if (found) updateData.roleId = found.id;
     }
 
     if (updateUserDto.password) {
       updateData.passwordHash = await bcrypt.hash(updateUserDto.password, 10);
     }
 
-    if (updateUserDto.roleName) {
-      const foundRole = await this.prisma.role.findFirst({
-        where: { name: updateUserDto.roleName },
-      });
-      if (foundRole) {
-        updateData.role = { connect: { id: foundRole.id } };
-        updateData.roleName = foundRole.name;
-      }
-    } else if (updateUserDto.roleId) {
-      const foundRole = await this.prisma.role.findUnique({
-        where: { id: updateUserDto.roleId },
-      });
-      if (foundRole) {
-        updateData.role = { connect: { id: foundRole.id } };
-        updateData.roleName = foundRole.name;
-      }
-    }
-
-    const updated = await this.prisma.user.update({
+    const updated = await this.prisma.appUser.update({
       where: { id },
       data: updateData,
       include: {
@@ -448,54 +269,94 @@ export class UsersService {
       },
     });
 
-    if (updateUserDto.adGroup) {
-      await this.ensureAndLinkAdGroup(id, updateUserDto.adGroup);
-    }
-
-    const { passwordHash: _hash, ...safeUser } = updated;
-    return safeUser;
+    const { passwordHash: _hash, ...safe } = updated;
+    return safe;
   }
 
   async toggleStatus(id: string, status: UserStatus) {
-    const isClosed = status === 'SUSPENDED' || (status as unknown) === 'CLOSED';
-    return this.prisma.user.update({
+    await this.findOne(id);
+    const updated = await this.prisma.appUser.update({
       where: { id },
       data: {
         status,
-        isClosed,
+        isLocked: status === 'SUSPENDED',
+      },
+      include: {
+        role: true,
       },
     });
+
+    const { passwordHash: _hash, ...safe } = updated;
+    return safe;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.user.delete({ where: { id } });
+    return this.prisma.appUser.delete({ where: { id } });
   }
 
-  async getStats() {
-    const [
-      totalUsers,
-      activeUsers,
-      adminUsers,
-      suspendedUsers,
-      custodiansCount,
-      totalGroups,
-      totalWorkstations,
-      lockedCount,
-    ] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.user.count({
+  async getStats(): Promise<UserSummaryStats> {
+    const [totalUsers, activeUsers, adminUsers, suspendedUsers, lockedUsers] = await Promise.all([
+      this.prisma.appUser.count(),
+      this.prisma.appUser.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.appUser.count({
         where: {
-          roleName: { in: ['Super Admin', 'Admin'] },
+          OR: [{ roleName: { in: ['Admin', 'Super Admin'] } }],
         },
       }),
-      this.prisma.user.count({ where: { OR: [{ status: 'SUSPENDED' }, { isClosed: true }] } }),
-      this.prisma.asset.count({ where: { assignedToId: { not: null } } }),
-      this.prisma.directoryGroup?.count ? this.prisma.directoryGroup.count() : Promise.resolve(0),
-      this.prisma.user.count({ where: { computerName: { not: null } } }),
-      this.prisma.user.count({ where: { isLocked: true } }),
+      this.prisma.appUser.count({ where: { status: 'SUSPENDED' } }),
+      this.prisma.appUser.count({ where: { isLocked: true } }),
     ]);
+
+    let custodiansCount = 0;
+    let totalGroups = 0;
+    let totalWorkstations = 0;
+
+    try {
+      if (this.directoryService) {
+        const dirStats = await this.directoryService.getStats();
+        totalGroups = dirStats.totalGroups;
+        custodiansCount = dirStats.totalEmployees;
+        totalWorkstations = dirStats.assignedWorkstations;
+      } else {
+        const directoryUserDelegate = (
+          this.prisma as unknown as { directoryUser?: { count: () => Promise<number> } }
+        ).directoryUser;
+        const directoryGroupDelegate = (
+          this.prisma as unknown as { directoryGroup?: { count: () => Promise<number> } }
+        ).directoryGroup;
+        const assetDelegate = (
+          this.prisma as unknown as { asset?: { count: () => Promise<number> } }
+        ).asset;
+
+        if (assetDelegate) {
+          custodiansCount = await assetDelegate.count().catch(() => 0);
+        } else if (directoryUserDelegate) {
+          custodiansCount = await directoryUserDelegate.count().catch(() => 0);
+        }
+
+        if (directoryGroupDelegate) {
+          totalGroups = await directoryGroupDelegate.count().catch(() => 0);
+        }
+
+        if (directoryUserDelegate) {
+          totalWorkstations = await (
+            this.prisma as unknown as {
+              directoryUser: {
+                count: (args: { where: { computerName: { not: null } } }) => Promise<number>;
+              };
+            }
+          ).directoryUser
+            .count({ where: { computerName: { not: null } } })
+            .catch(() => 0);
+        }
+      }
+    } catch (error: unknown) {
+      this.logger.warn(
+        'Failed to query directory stats during user getStats aggregation',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
 
     return {
       totalUsers,
@@ -504,155 +365,26 @@ export class UsersService {
       custodiansCount,
       suspendedUsers,
       recentActiveCount: activeUsers,
-      totalGroups: totalGroups || 0,
-      totalWorkstations: totalWorkstations || custodiansCount,
-      lockedCount: lockedCount || 0,
+      totalGroups,
+      totalWorkstations,
+      lockedCount: lockedUsers,
+      lockedUsers,
       totalOUs: 6,
     };
   }
 
-  async getOrganizationalUnits() {
-    const users = await this.prisma.user.findMany({
-      take: 1000,
-      select: {
-        department: true,
-        section: true,
-        company: true,
-        plant: true,
-        computerName: true,
-        adGroup: true,
-      },
-    });
-
-    const groups = await this.prisma.directoryGroup.findMany({
-      take: 1000,
-      select: { name: true, scope: true, memberCount: true },
-    });
-
-    const ouMap = new Map<
-      string,
-      {
-        name: string;
-        dn: string;
-        description: string;
-        userCount: number;
-        groupCount: number;
-        workstationCount: number;
-      }
-    >();
-
-    const defaultOUs = [
-      {
-        name: 'Executive & Legal Counsel',
-        dn: 'OU=Executive,DC=uims,DC=internal',
-        description: 'Corporate Leadership, Governance & General Legal Counsel',
-      },
-      {
-        name: 'IT Infrastructure & Operations',
-        dn: 'OU=IT-Infrastructure,DC=uims,DC=internal',
-        description: 'Domain Controllers, Network IPAM, Security Architecture & Helpdesk',
-      },
-      {
-        name: 'Engineering & Product Design',
-        dn: 'OU=Engineering,DC=uims,DC=internal',
-        description: 'Software Engineering, DevOps, Cloud Architecture & UX Research',
-      },
-      {
-        name: 'Production & Manufacturing (BSL Others)',
-        dn: 'OU=Production-BSLOthers,DC=uims,DC=internal',
-        description: 'Sample Development, Screen Printing, Logo Embroidery & QA',
-      },
-      {
-        name: 'Production & Manufacturing (BSL-1)',
-        dn: 'OU=Production-BSL1,DC=uims,DC=internal',
-        description: 'Plant 1 Automated Cutting, Staging & Production Office',
-      },
-      {
-        name: 'Corporate Services & People Operations',
-        dn: 'OU=Corporate-Services,DC=uims,DC=internal',
-        description: 'Human Resources, Finance, Growth Marketing & Compliance',
-      },
-    ];
-
-    defaultOUs.forEach((ou) => {
-      ouMap.set(ou.dn, {
-        name: ou.name,
-        dn: ou.dn,
-        description: ou.description,
-        userCount: 0,
-        groupCount: 0,
-        workstationCount: 0,
-      });
-    });
-
-    for (const u of users) {
-      let targetDn = 'OU=Corporate-Services,DC=uims,DC=internal';
-      if (u.department === 'IT & Infrastructure') {
-        targetDn = 'OU=IT-Infrastructure,DC=uims,DC=internal';
-      } else if (u.department === 'Engineering' || u.department === 'Product & Design') {
-        targetDn = 'OU=Engineering,DC=uims,DC=internal';
-      } else if (u.company?.includes('BSL-1') || u.plant?.includes('BSL-1')) {
-        targetDn = 'OU=Production-BSL1,DC=uims,DC=internal';
-      } else if (u.department === 'Production') {
-        targetDn = 'OU=Production-BSLOthers,DC=uims,DC=internal';
-      } else if (u.department === 'Legal & Governance' || u.department === 'Executive') {
-        targetDn = 'OU=Executive,DC=uims,DC=internal';
-      }
-
-      const entry = ouMap.get(targetDn) || ouMap.get('OU=Corporate-Services,DC=uims,DC=internal');
-      if (entry) {
-        entry.userCount++;
-        if (u.computerName) entry.workstationCount++;
-      }
-    }
-
-    for (const g of groups) {
-      if (g.name.includes('BSL1')) {
-        const entry = ouMap.get('OU=Production-BSL1,DC=uims,DC=internal');
-        if (entry) entry.groupCount++;
-      } else if (
-        g.name.includes('BSLOTH') ||
-        g.name.includes('Printing') ||
-        g.name.includes('Sample') ||
-        g.name.includes('Embroidery')
-      ) {
-        const entry = ouMap.get('OU=Production-BSLOthers,DC=uims,DC=internal');
-        if (entry) entry.groupCount++;
-      } else {
-        const entry = ouMap.get('OU=IT-Infrastructure,DC=uims,DC=internal');
-        if (entry) entry.groupCount++;
-      }
-    }
-
-    return Array.from(ouMap.values()).map((ou, idx) => ({
-      id: `ou-${idx + 1}`,
-      ...ou,
-    }));
-  }
-
-  async syncDomain() {
-    const [totalUsers, totalGroups, activeUsers] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.directoryGroup.count(),
-      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-    ]);
-
-    return {
-      domain: 'uims.internal',
-      controller: 'DC01-PRIMARY.corp.uims.internal',
-      status: 'SYNCHRONIZED',
-      latencyMs: 14,
-      replicatedObjects: totalUsers + totalGroups,
-      activeIdentities: activeUsers,
-      lastSyncTimestamp: new Date().toISOString(),
-    };
-  }
-
   async getRoles() {
-    const cacheKey = 'uims:cache:roles:all';
+    const cacheKey = 'cache:roles:permissions';
     if (this.redis) {
-      const cached = await this.redis.get<Array<unknown>>(cacheKey);
-      if (cached) return cached;
+      try {
+        const cached = await this.redis.get<unknown[]>(cacheKey);
+        if (cached) return cached;
+      } catch (error: unknown) {
+        this.logger.warn(
+          'Redis cache read failed for roles',
+          error instanceof Error ? error.message : String(error),
+        );
+      }
     }
 
     const roles = await this.prisma.role.findMany({
@@ -663,275 +395,86 @@ export class UsersService {
           },
         },
       },
-      orderBy: { name: 'asc' },
     });
+
+    const result = roles.map((r) => ({
+      ...r,
+      permissions: r.permissions.map((p) => ({
+        id: p.permission.id,
+        action: p.permission.action,
+        subject: p.permission.subject,
+        conditions: p.permission.conditions,
+      })),
+    }));
 
     if (this.redis) {
-      await this.redis.set(cacheKey, roles, 3600); // 1 hour cache
-    }
-
-    return roles;
-  }
-
-  async findAllGroups() {
-    return this.prisma.directoryGroup.findMany({
-      take: 100,
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  async createGroup(data: CreateGroupDto) {
-    return this.prisma.directoryGroup.create({
-      data: {
-        name: data.name,
-        email:
-          data.address ||
-          data.email ||
-          `${data.name.toLowerCase().replace(/\s+/g, '-')}@company.com`,
-        memberCount: data.memberCount ? Number(data.memberCount) : 5,
-        scope: data.scope || 'Internal Only',
-        managedBy: data.managedBy || 'IT Admin',
-        description: data.description,
-      },
-    });
-  }
-
-  async importBatch(dto: BatchImportUsersDto) {
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    const errors: Array<{ row: number; email?: string; error: string }> = [];
-
-    const defaultRole = await this.prisma.role.findFirst({ where: { name: 'Employee' } });
-
-    for (let i = 0; i < dto.users.length; i++) {
-      const row = dto.users[i];
       try {
-        if (!row.email) {
-          skipped++;
-          continue;
-        }
-
-        const email = row.email.trim().toLowerCase();
-        const rawUsername = email.split('@')[0] || `user-${Date.now()}`;
-        const cleanUsername = rawUsername.replace(/[^a-zA-Z0-9._-]/g, '');
-
-        const nameParts = (row.name || cleanUsername).trim().split(' ');
-        const firstName =
-          nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0] || 'User';
-        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-        const displayName = (row.name || `${firstName} ${lastName}`).trim();
-
-        const adPass = row.initialPassword || `Ad#${cleanUsername}2026!`;
-        const passwordHash = await bcrypt.hash(adPass, 10);
-
-        const isClosed =
-          row.isClosed === true ||
-          row.isClosed === 'Y' ||
-          row.isClosed === 'y' ||
-          row.status === 'SUSPENDED' ||
-          row.status === 'CLOSED';
-
-        const status: UserStatus = isClosed ? 'SUSPENDED' : 'ACTIVE';
-        const employeeCode = row.employeeCode ? String(row.employeeCode).trim() : null;
-
-        const existingUser = await this.prisma.user.findFirst({
-          where: {
-            OR: [{ email }, ...(employeeCode ? [{ employeeCode }] : [])],
-          },
-        });
-
-        if (existingUser) {
-          const updatedUser = await this.prisma.user.update({
-            where: { id: existingUser.id },
-            data: {
-              employeeCode: employeeCode || existingUser.employeeCode,
-              displayName,
-              jobTitle: row.designation || existingUser.jobTitle,
-              company: row.company || existingUser.company,
-              groupCompany: row.groupCompany || existingUser.groupCompany,
-              plant: row.plant || existingUser.plant,
-              department: row.department || existingUser.department,
-              section: row.section || existingUser.section,
-              subSection: row.subSection || existingUser.subSection,
-              computerName: row.computerName || existingUser.computerName,
-              computerName2: row.computerName2 || existingUser.computerName2,
-              adGroup: row.adGroup || existingUser.adGroup,
-              ouPath: row.ouPath || existingUser.ouPath || 'OU=Production,DC=uims,DC=internal',
-              managerName: row.managerName || existingUser.managerName,
-              telephone: row.telephone || existingUser.telephone,
-              isClosed,
-              status,
-            },
-          });
-          if (row.adGroup) {
-            await this.ensureAndLinkAdGroup(updatedUser.id, row.adGroup);
-          }
-          updated++;
-        } else {
-          // Check username collision
-          let finalUsername = cleanUsername;
-          const userWithSameUsername = await this.prisma.user.findUnique({
-            where: { username: finalUsername },
-          });
-          if (userWithSameUsername) {
-            finalUsername = `${cleanUsername}-${Math.floor(1000 + Math.random() * 9000)}`;
-          }
-
-          const newUser = await this.prisma.user.create({
-            data: {
-              username: finalUsername,
-              email,
-              employeeCode,
-              firstName,
-              lastName,
-              displayName,
-              jobTitle: row.designation || 'Employee',
-              company: row.company || 'BSL Others',
-              groupCompany: row.groupCompany || 'BSL',
-              plant: row.plant || 'BSL Others',
-              department: row.department || 'Production',
-              section: row.section || null,
-              subSection: row.subSection || null,
-              computerName: row.computerName || null,
-              computerName2: row.computerName2 || null,
-              adGroup: row.adGroup || null,
-              ouPath: row.ouPath || 'OU=Production,DC=uims,DC=internal',
-              managerName: row.managerName || null,
-              telephone: row.telephone || null,
-              passwordHash,
-              isClosed,
-              status,
-              roleId: defaultRole?.id || null,
-              roleName: 'Employee',
-              source: 'LOCAL',
-            },
-          });
-
-          if (row.adGroup) {
-            await this.ensureAndLinkAdGroup(newUser.id, row.adGroup);
-          }
-          created++;
-        }
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown import error';
-        errors.push({ row: i + 1, email: row.email, error: errorMsg });
+        await this.redis.set(cacheKey, result, 300);
+      } catch (error: unknown) {
+        this.logger.warn(
+          'Redis cache write failed for roles',
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
 
+    return result;
+  }
+
+  // Delegated Directory Methods (for backward compatibility during transition)
+  async getOrganizationalUnits() {
+    if (this.directoryService) {
+      return this.directoryService.getOrganizationalUnits();
+    }
+    return [];
+  }
+
+  async syncDomain() {
+    if (this.directoryService) {
+      return this.directoryService.syncDomain();
+    }
     return {
-      total: dto.users.length,
-      created,
-      updated,
-      skipped,
-      errors,
+      domain: 'uims.internal',
+      controller: 'DC01-PRIMARY.corp.uims.internal',
+      status: 'SYNCHRONIZED',
+      latencyMs: 14,
+      replicatedObjects: 0,
+      activeIdentities: 0,
+      lastSyncTimestamp: new Date().toISOString(),
     };
   }
 
-  async exportMaster() {
-    const users = await this.prisma.user.findMany({
-      take: 10000,
-      orderBy: { employeeCode: 'asc' },
-      select: {
-        id: true,
-        employeeCode: true,
-        displayName: true,
-        firstName: true,
-        lastName: true,
-        username: true,
-        email: true,
-        jobTitle: true,
-        groupCompany: true,
-        company: true,
-        plant: true,
-        department: true,
-        section: true,
-        subSection: true,
-        telephone: true,
-        phone: true,
-        ouPath: true,
-        managerName: true,
-        isClosed: true,
-        computerName: true,
-        computerName2: true,
-        adGroup: true,
-        status: true,
-        roleName: true,
-      },
-    });
+  async findAllGroups() {
+    if (this.directoryService) {
+      return this.directoryService.findAllGroups();
+    }
+    return this.prisma.directoryGroup.findMany({ take: 100 });
+  }
 
-    return users.map((u, index) => {
-      const name = u.displayName || `${u.firstName} ${u.lastName}`.trim();
-      return {
-        'No.': index + 1,
-        'Employee Code': u.employeeCode || '',
-        'Full Name': name,
-        'Job Title': u.jobTitle || 'Employee',
-        'Group Company': u.groupCompany || 'BSL',
-        Company: u.company || 'BSL Others',
-        'Plant Workstation': u.plant ? 'Yes' : 'No',
-        Plant: u.plant || 'BSL Others',
-        Department: u.department || 'Production',
-        Section: u.section || '',
-        'Sub-Section': u.subSection || '',
-        Email: u.email,
-        Telephone: u.telephone || u.phone || '',
-        'Is Closed': u.isClosed ? 'Y' : 'N',
-        'Computer Name': u.computerName || '',
-        'Computer Name 2': u.computerName2 || '',
-        'Initial Password': (u as { adInitialPassword?: string }).adInitialPassword || '',
-        'Directory Group': u.adGroup || '',
-        'OU Path': u.ouPath || 'OU=Production,DC=uims,DC=internal',
-        Status: u.status,
-      };
+  async createGroup(dto: CreateDirectoryGroupDto) {
+    if (this.directoryService) {
+      return this.directoryService.createGroup(dto);
+    }
+    return this.prisma.directoryGroup.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        description: dto.description,
+      },
     });
   }
 
-  private async ensureAndLinkAdGroup(userId: string, groupName: string) {
-    try {
-      const cleanName = groupName.trim();
-      if (!cleanName) return;
-
-      let group = await this.prisma.directoryGroup.findFirst({
-        where: { name: cleanName },
-      });
-
-      if (!group) {
-        const email = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}@company.com`;
-        group = await this.prisma.directoryGroup.create({
-          data: {
-            name: cleanName,
-            email,
-            scope: 'Security Group',
-            description: `Synchronized Active Directory Security Group for ${cleanName}`,
-            managedBy: 'Active Directory Domain Controller',
-            memberCount: 1,
-          },
-        });
-      } else {
-        await this.prisma.directoryGroup.update({
-          where: { id: group.id },
-          data: { memberCount: { increment: 1 } },
-        });
-      }
-
-      await this.prisma.directoryMembership
-        .upsert({
-          where: {
-            userId_groupId: {
-              userId,
-              groupId: group.id,
-            },
-          },
-          update: {},
-          create: {
-            userId,
-            groupId: group.id,
-          },
-        })
-        .catch(() => {});
-    } catch (e) {
-      console.error('Failed to link AD group:', e);
+  async exportMaster() {
+    if (this.directoryService) {
+      return this.directoryService.exportMaster();
     }
+    return [];
+  }
+
+  async importBatch(dto: BatchImportDirectoryDto) {
+    if (this.directoryService) {
+      return this.directoryService.importBatch(dto);
+    }
+    return { total: 0, created: 0, updated: 0, skipped: 0, errors: [] };
   }
 }

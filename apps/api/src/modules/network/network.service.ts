@@ -1,4 +1,3 @@
-import * as dns from 'node:dns/promises';
 import * as net from 'node:net';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { IPAddress, Prisma } from '@prisma/client';
@@ -184,54 +183,6 @@ export class NetworkService {
         location: data.location || 'HQ Server Room',
       },
     });
-  }
-
-  async getDnsRecords() {
-    try {
-      const internalLookup = await dns.lookup('localhost').catch(() => null);
-      const internalIp = internalLookup?.address || '127.0.0.1';
-
-      return [
-        {
-          key: '1',
-          host: 'uims.internal',
-          type: 'A',
-          target: internalIp,
-          ttl: '300s',
-        },
-        {
-          key: '2',
-          host: 'api.uims.internal',
-          type: 'CNAME',
-          target: 'uims.internal',
-          ttl: '300s',
-        },
-        {
-          key: '3',
-          host: 'auth.uims.internal',
-          type: 'A',
-          target: internalIp,
-          ttl: '300s',
-        },
-        {
-          key: '4',
-          host: 'mail.company.com',
-          type: 'MX',
-          target: 'mail.protection.outlook.com',
-          ttl: '3600s',
-        },
-      ];
-    } catch {
-      return [
-        {
-          key: '1',
-          host: 'uims.internal',
-          type: 'A',
-          target: '192.168.1.10',
-          ttl: '300s',
-        },
-      ];
-    }
   }
 
   async getStats(): Promise<NetworkStatsDto> {

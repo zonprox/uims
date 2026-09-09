@@ -1,0 +1,164 @@
+import { ConfigProvider } from 'antd';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useThemeStore } from '../../stores/theme.store';
+import { SidebarBrandHeader } from './SidebarBrandHeader';
+import { SidebarContent } from './SidebarContent';
+import { SidebarFooter } from './SidebarFooter';
+import { SidebarOrgSelector } from './SidebarOrgSelector';
+
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// Mock useSystemHealth to prevent network polling in test
+vi.mock('../../hooks/useSystemHealth', () => ({
+  useSystemHealth: () => ({
+    health: { status: 'ok', uptimePercent: '100%', clientLatencyMs: 12 },
+    isLoading: false,
+    isRefreshing: false,
+    isOnline: true,
+    lastChecked: new Date(),
+    error: null,
+    refresh: vi.fn(),
+  }),
+}));
+
+describe('Sidebar Light and Dark Mode Adaptation', () => {
+  let container: HTMLDivElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  it('renders SidebarContent with light theme background and light Menu when resolvedMode is light', async () => {
+    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        createElement(
+          ConfigProvider,
+          null,
+          createElement(SidebarContent, {
+            collapsed: false,
+            inDrawer: false,
+            activeOrg: 'Acme Global HQ',
+            orgMenuItems: [],
+            menuItems: [{ key: '/dashboard', label: 'Dashboard' }],
+            pathname: '/dashboard',
+            onNavigate: () => {},
+            onCloseDrawer: () => {},
+          }),
+        ),
+      );
+    });
+
+    const rootContainer = container.firstElementChild as HTMLElement;
+    expect(rootContainer).toBeDefined();
+    expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(rootContainer.style.backgroundColor);
+
+    const menuEl = container.querySelector('.ant-menu');
+    expect(menuEl).toBeDefined();
+    expect(menuEl?.classList.contains('ant-menu-light')).toBe(true);
+
+    const scrollWrapper = container.querySelector('.sidebar-menu-scroll');
+    expect(scrollWrapper?.classList.contains('sidebar-menu-light')).toBe(true);
+  });
+
+  it('renders SidebarContent with dark theme background and dark Menu when resolvedMode is dark', async () => {
+    useThemeStore.setState({ mode: 'dark', resolvedMode: 'dark' });
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        createElement(
+          ConfigProvider,
+          null,
+          createElement(SidebarContent, {
+            collapsed: false,
+            inDrawer: false,
+            activeOrg: 'Acme Global HQ',
+            orgMenuItems: [],
+            menuItems: [{ key: '/dashboard', label: 'Dashboard' }],
+            pathname: '/dashboard',
+            onNavigate: () => {},
+            onCloseDrawer: () => {},
+          }),
+        ),
+      );
+    });
+
+    const rootContainer = container.firstElementChild as HTMLElement;
+    expect(rootContainer).toBeDefined();
+    expect(['#0c1017', 'rgb(12, 16, 23)']).toContain(rootContainer.style.backgroundColor);
+
+    const menuEl = container.querySelector('.ant-menu');
+    expect(menuEl).toBeDefined();
+    expect(menuEl?.classList.contains('ant-menu-dark')).toBe(true);
+
+    const scrollWrapper = container.querySelector('.sidebar-menu-scroll');
+    expect(scrollWrapper?.classList.contains('sidebar-menu-dark')).toBe(true);
+  });
+
+  it('renders SidebarBrandHeader with appropriate background in light mode', async () => {
+    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        createElement(SidebarBrandHeader, {
+          collapsed: false,
+          inDrawer: false,
+          onNavigate: () => {},
+          onCloseDrawer: () => {},
+        }),
+      );
+    });
+
+    const header = container.firstElementChild as HTMLElement;
+    expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(header.style.backgroundColor);
+    expect(header.style.borderBottom).toBeTruthy();
+  });
+
+  it('renders SidebarOrgSelector with light mode styling', async () => {
+    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        createElement(SidebarOrgSelector, {
+          activeOrg: 'Acme HQ',
+          orgMenuItems: [],
+        }),
+      );
+    });
+
+    const selectorDiv = container.querySelector('.sidebar-org-selector') as HTMLElement;
+    expect(selectorDiv).toBeDefined();
+    expect(selectorDiv.classList.contains('sidebar-org-selector-light')).toBe(true);
+  });
+
+  it('renders SidebarFooter with light background in light mode', async () => {
+    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        createElement(SidebarFooter, {
+          collapsed: false,
+          inDrawer: false,
+        }),
+      );
+    });
+
+    const footer = container.firstElementChild as HTMLElement;
+    expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(footer.style.backgroundColor);
+    expect(footer.style.borderTop).toBeTruthy();
+  });
+});

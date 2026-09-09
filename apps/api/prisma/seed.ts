@@ -28,6 +28,7 @@ async function clearDatabase(client: PrismaClient) {
   await client.assetHistory.deleteMany();
   await client.notification.deleteMany();
   await client.auditLog.deleteMany();
+  await client.refreshToken.deleteMany();
   await client.directoryMembership.deleteMany();
   await client.directoryGroup.deleteMany();
   await client.iPAddress.deleteMany();
@@ -37,6 +38,9 @@ async function clearDatabase(client: PrismaClient) {
   await client.license.deleteMany();
   await client.rolePermission.deleteMany().catch(() => {});
   await client.permission.deleteMany().catch(() => {});
+  await client.appUser.deleteMany();
+  await client.directoryUser.deleteMany();
+  await client.role.deleteMany();
   await client.position.deleteMany();
   await client.department.deleteMany();
   await client.organization.deleteMany();
@@ -57,25 +61,25 @@ async function main() {
   logger.log('🏛️ Seeding Organizations, Departments and Positions...');
   await seedOrganizations(prisma);
 
-  // 4. Roles and Unified System/AD Users
-  logger.log('👤 Seeding Roles and Unified Enterprise Users...');
-  const usersResult = await seedRolesAndUsers(prisma);
+  // 4. Roles and System Operator Accounts (AppUser)
+  logger.log('👤 Seeding Roles and System Operator Accounts (AppUser)...');
+  const appUsersResult = await seedRolesAndUsers(prisma);
 
-  // 5. Hardware Assets
+  // 5. Corporate Directory Employees and Security Groups (DirectoryUser)
+  logger.log('👥 Seeding Corporate Directory Users & Groups (DirectoryUser)...');
+  const directoryUsersResult = await seedDirectory(prisma, appUsersResult.staffProfiles);
+
+  // 6. Hardware Assets (Assigned to DirectoryUser)
   logger.log('💻 Seeding Hardware Assets Fleet...');
-  await seedAssets(prisma, taxonomyResult, usersResult);
+  await seedAssets(prisma, taxonomyResult, directoryUsersResult);
 
-  // 6. Software Licenses and Assignments
+  // 7. Software Licenses and Assignments (Assigned to DirectoryUser)
   logger.log('📄 Seeding Software Licenses and User Assignments...');
-  await seedLicenses(prisma, usersResult);
+  await seedLicenses(prisma, directoryUsersResult);
 
-  // 7. Inventory Items
+  // 8. Inventory Items
   logger.log('📦 Seeding Hardware Stockroom Inventory...');
   await seedInventory(prisma);
-
-  // 8. Directory Groups
-  logger.log('👥 Seeding Domain Distribution & Security Groups...');
-  await seedDirectory(prisma);
 
   // 9. Subnets and IP Allocations
   logger.log('🌐 Seeding Network Subnets & IPAM Allocations...');
@@ -85,9 +89,9 @@ async function main() {
   logger.log('🔒 Seeding Enterprise Governance & Audit Logs...');
   await seedAudit(prisma);
 
-  // 11. System Notifications
+  // 11. System Notifications (Assigned to AppUser)
   logger.log('🔔 Seeding System Notifications & Telemetry Alerts...');
-  await seedNotifications(prisma, usersResult);
+  await seedNotifications(prisma, appUsersResult);
 
   // 12. Settings and Report Schedules
   logger.log('⚙️ Seeding System Preferences & Report Schedules...');

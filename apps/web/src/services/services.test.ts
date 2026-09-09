@@ -65,17 +65,14 @@ describe('Frontend Service Clients', () => {
   });
 
   describe('networkService', () => {
-    it('should ping IP address and fetch DNS records', async () => {
+    it('should ping IP address', async () => {
       vi.mocked(api.post).mockResolvedValue({
         data: { data: { ip: '1.1.1.1', reachable: true, latencyMs: 12 } },
       });
-      vi.mocked(api.get).mockResolvedValue({ data: { data: [] } });
 
       const ping = await networkService.pingIp('1.1.1.1');
-      await networkService.getDnsRecords();
 
       expect(api.post).toHaveBeenCalledWith('/network/ping', { ip: '1.1.1.1' });
-      expect(api.get).toHaveBeenCalledWith('/network/dns');
       expect(ping.reachable).toBe(true);
     });
   });

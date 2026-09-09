@@ -24,6 +24,16 @@ interface MockPrismaClient {
     findUnique: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
   };
+  appUser: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  directoryUser: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+  };
   license: {
     findMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
@@ -134,6 +144,22 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
         count: vi.fn().mockResolvedValue(0),
       },
       user: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'admin-1', roleName: 'Admin' },
+          { id: 'admin-2', roleName: 'Super Admin' },
+        ]),
+        findUnique: vi.fn().mockResolvedValue({ id: 'employee-42', email: 'alice@company.com' }),
+        findFirst: vi.fn().mockResolvedValue({ id: 'employee-42', email: 'alice@company.com' }),
+      },
+      appUser: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'admin-1', roleName: 'Admin' },
+          { id: 'admin-2', roleName: 'Super Admin' },
+        ]),
+        findUnique: vi.fn().mockResolvedValue({ id: 'employee-42', email: 'alice@company.com' }),
+        findFirst: vi.fn().mockResolvedValue({ id: 'employee-42', email: 'alice@company.com' }),
+      },
+      directoryUser: {
         findMany: vi.fn().mockResolvedValue([
           { id: 'admin-1', roleName: 'Admin' },
           { id: 'admin-2', roleName: 'Super Admin' },

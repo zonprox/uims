@@ -113,34 +113,52 @@ code,
 }
 
 /* Sidebar & Navigation Optimization */
-.sidebar-menu-scroll {
+.sidebar-menu-scroll.sidebar-menu-dark {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
-.sidebar-menu-scroll::-webkit-scrollbar {
+.sidebar-menu-scroll.sidebar-menu-dark::-webkit-scrollbar {
   width: 4px;
 }
 
-.sidebar-menu-scroll::-webkit-scrollbar-thumb {
+.sidebar-menu-scroll.sidebar-menu-dark::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
 
-.sidebar-menu-scroll::-webkit-scrollbar-thumb:hover {
+.sidebar-menu-scroll.sidebar-menu-dark::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
+.sidebar-menu-scroll.sidebar-menu-light {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.sidebar-menu-scroll.sidebar-menu-light::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-menu-scroll.sidebar-menu-light::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.sidebar-menu-scroll.sidebar-menu-light::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
 /* Sidebar & Drawer Menu Polish */
-.ant-layout-sider .ant-menu-dark,
-.ant-drawer .ant-menu-dark {
+.ant-layout-sider .ant-menu,
+.ant-drawer .ant-menu {
   font-size: 13px;
   font-weight: 500;
 }
 
 /* Sider & Drawer Menu Items (Expanded) */
-.ant-layout-sider:not(.ant-layout-sider-collapsed) .ant-menu-dark .ant-menu-item,
-.ant-drawer .ant-menu-dark .ant-menu-item {
+.ant-layout-sider:not(.ant-layout-sider-collapsed) .ant-menu .ant-menu-item,
+.ant-drawer .ant-menu .ant-menu-item {
   margin-inline: 8px;
   width: calc(100% - 16px);
   border-radius: 6px;
@@ -154,11 +172,8 @@ code,
     color 0.15s ease;
 }
 
-.ant-layout-sider:not(.ant-layout-sider-collapsed)
-  .ant-menu-dark
-  .ant-menu-item
-  > .ant-menu-item-icon,
-.ant-drawer .ant-menu-dark .ant-menu-item > .ant-menu-item-icon {
+.ant-layout-sider:not(.ant-layout-sider-collapsed) .ant-menu .ant-menu-item > .ant-menu-item-icon,
+.ant-drawer .ant-menu .ant-menu-item > .ant-menu-item-icon {
   margin-inline-end: 10px !important;
   margin-inline-start: 0 !important;
   font-size: 15px;
@@ -172,10 +187,10 @@ code,
 }
 
 .ant-layout-sider:not(.ant-layout-sider-collapsed)
-  .ant-menu-dark
+  .ant-menu
   .ant-menu-item
   > .ant-menu-title-content,
-.ant-drawer .ant-menu-dark .ant-menu-item > .ant-menu-title-content {
+.ant-drawer .ant-menu .ant-menu-item > .ant-menu-title-content {
   flex: 1 1 auto;
   min-width: 0;
   margin-inline-start: 0 !important;
@@ -195,19 +210,36 @@ code,
   line-height: 1.4;
 }
 
+.ant-layout-sider .ant-menu-light .ant-menu-item-group-title,
+.ant-drawer .ant-menu-light .ant-menu-item-group-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+  padding: 12px 14px 4px 14px;
+  line-height: 1.4;
+}
+
 .ant-layout-sider .ant-menu-dark .ant-menu-item-divider,
 .ant-drawer .ant-menu-dark .ant-menu-item-divider {
   background-color: rgba(255, 255, 255, 0.06);
   margin: 6px 12px;
 }
 
+.ant-layout-sider .ant-menu-light .ant-menu-item-divider,
+.ant-drawer .ant-menu-light .ant-menu-item-divider {
+  background-color: #f1f5f9;
+  margin: 6px 12px;
+}
+
 /* Sider Menu in Collapsed State (Width 80px, Centered Icons) */
-.ant-layout-sider-collapsed .ant-menu-dark,
+.ant-layout-sider-collapsed .ant-menu,
 .ant-menu-inline-collapsed {
   width: 100% !important;
 }
 
-.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item,
+.ant-layout-sider-collapsed .ant-menu .ant-menu-item,
 .ant-menu-inline-collapsed > .ant-menu-item,
 .ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title {
   width: 44px !important;
@@ -224,7 +256,7 @@ code,
   overflow: visible !important;
 }
 
-.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item > .ant-menu-item-icon,
+.ant-layout-sider-collapsed .ant-menu .ant-menu-item > .ant-menu-item-icon,
 .ant-menu-inline-collapsed > .ant-menu-item > .ant-menu-item-icon,
 .ant-menu-inline-collapsed > .ant-menu-item > .anticon,
 .ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title > .ant-menu-item-icon,
@@ -244,7 +276,7 @@ code,
   flex-shrink: 0 !important;
 }
 
-.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item > .ant-menu-title-content,
+.ant-layout-sider-collapsed .ant-menu .ant-menu-item > .ant-menu-title-content,
 .ant-menu-inline-collapsed > .ant-menu-item > .ant-menu-title-content,
 .ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title > .ant-menu-title-content {
   display: none !important;
@@ -259,14 +291,21 @@ code,
   visibility: hidden !important;
 }
 
-.ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item-group-title,
+.ant-layout-sider-collapsed .ant-menu .ant-menu-item-group-title,
 .ant-menu-inline-collapsed > .ant-menu-item-group > .ant-menu-item-group-title {
   display: none !important;
 }
 
 .ant-layout-sider-collapsed .ant-menu-dark .ant-menu-item-divider,
-.ant-menu-inline-collapsed > .ant-menu-item-divider {
+.ant-menu-inline-collapsed.ant-menu-dark > .ant-menu-item-divider {
   background-color: rgba(255, 255, 255, 0.08) !important;
+  margin: 8px 18px !important;
+  width: calc(100% - 36px) !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-light .ant-menu-item-divider,
+.ant-menu-inline-collapsed.ant-menu-light > .ant-menu-item-divider {
+  background-color: #f1f5f9 !important;
   margin: 8px 18px !important;
   width: calc(100% - 36px) !important;
 }
@@ -281,11 +320,78 @@ code,
   overflow: visible;
 }
 
-.sidebar-org-selector:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.16);
+.sidebar-org-selector-dark:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.sidebar-org-selector-light:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
 }
 
 .sidebar-user-block:hover {
   background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ==========================================================================
+   Asset Tag Print Media Isolation
+   Prevents full-page leakage, strips dark-mode backgrounds, and isolates labels
+   ========================================================================== */
+@media print {
+  /* Hide the main application shell, navigation, modals, and drawers */
+  #root,
+  .ant-layout,
+  .ant-layout-header,
+  .ant-layout-sider,
+  .ant-layout-content,
+  .ant-modal-mask,
+  .ant-modal-header,
+  .ant-modal-footer,
+  .ant-modal-close,
+  .ant-drawer-mask,
+  .ant-drawer-header,
+  .ant-drawer-footer,
+  .ant-drawer-close,
+  .ant-drawer-extra,
+  .ant-tabs-nav,
+  .ant-btn {
+    display: none !important;
+  }
+
+  /* Force pure white background and pure black text on paper */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* When printed from active screen, isolate printable-asset-label */
+  .printable-asset-label {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 280px !important;
+    max-width: 280px !important;
+    margin: 0 auto !important;
+    padding: 16px !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    visibility: visible !important;
+    z-index: 99999 !important;
+  }
+
+  .printable-asset-label * {
+    color: #000000 !important;
+    background: transparent !important;
+    visibility: visible !important;
+  }
 }

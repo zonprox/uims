@@ -84,6 +84,13 @@ export class SettingsService {
 
   async runBackup() {
     const timestamp = new Date().toISOString();
+    const userCountPromise = (this.prisma as unknown as { user?: { count: () => Promise<number> } })
+      .user
+      ? (this.prisma as unknown as { user: { count: () => Promise<number> } }).user.count()
+      : Promise.all([this.prisma.appUser.count(), this.prisma.directoryUser.count()]).then(
+          ([a, d]) => a + d,
+        );
+
     const [
       assetCount,
       userCount,
@@ -94,7 +101,7 @@ export class SettingsService {
       settingsCount,
     ] = await Promise.all([
       this.prisma.asset.count(),
-      this.prisma.user.count(),
+      userCountPromise,
       this.prisma.license.count(),
       this.prisma.inventoryItem.count(),
       this.prisma.auditLog.count(),

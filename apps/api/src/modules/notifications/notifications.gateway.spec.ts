@@ -103,6 +103,66 @@ describe('NotificationsGateway', () => {
     });
   });
 
+  describe('afterInit', () => {
+    it('should register middleware and authenticate valid socket', () => {
+      let middlewareFn: (socket: unknown, next: (err?: Error) => void) => void = () => {};
+      const fakeServer = {
+        use: vi.fn().mockImplementation((fn) => {
+          middlewareFn = fn;
+        }),
+      } as unknown as import('socket.io').Server;
+
+      gateway.afterInit(fakeServer);
+      expect(fakeServer.use).toHaveBeenCalled();
+
+      const socket = {
+        handshake: {
+          auth: { token: 'valid-token' },
+          headers: {},
+        },
+        data: {},
+      };
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-789',
+        role: 'Technician',
+      });
+
+      const next = vi.fn();
+      middlewareFn(socket, next);
+
+      expect(next).toHaveBeenCalledWith();
+      expect(socket.data).toEqual({
+        userId: 'user-789',
+        role: 'Technician',
+        email: undefined,
+      });
+    });
+
+    it('should reject socket with Error in middleware if no token', () => {
+      let middlewareFn: (socket: unknown, next: (err?: Error) => void) => void = () => {};
+      const fakeServer = {
+        use: vi.fn().mockImplementation((fn) => {
+          middlewareFn = fn;
+        }),
+      } as unknown as import('socket.io').Server;
+
+      gateway.afterInit(fakeServer);
+
+      const socket = {
+        handshake: {
+          auth: {},
+          headers: {},
+        },
+        data: {},
+      };
+
+      const next = vi.fn();
+      middlewareFn(socket, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+  });
+
   describe('emission methods', () => {
     it('should send notification to user room', () => {
       gateway.sendToUser('user-1', { id: 'n1', title: 'Hello' });

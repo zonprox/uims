@@ -49,7 +49,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import { TimezoneSelector } from '../../components/TimezoneSelector';
-import { WorldClockWidget } from '../../components/WorldClockWidget';
 import {
   type GeneralSettings,
   type HealthTelemetry,
@@ -1115,12 +1114,6 @@ export default function SettingsPage() {
                       </Popconfirm>
                     </Flex>
                   </Form>
-
-                  <Divider style={{ margin: '20px 0' }} />
-
-                  <WorldClockWidget
-                    systemTimezone={Form.useWatch('timezone', generalForm) || initialTimezone}
-                  />
                 </div>
               ),
             },

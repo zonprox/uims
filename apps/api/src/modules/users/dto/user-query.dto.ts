@@ -48,4 +48,8 @@ export class UserQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   source?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  isLocked?: boolean;
 }

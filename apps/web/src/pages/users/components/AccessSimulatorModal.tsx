@@ -21,6 +21,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import React, { useMemo, useState } from 'react';
 
@@ -41,6 +42,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
   catalog,
   onClose,
 }) => {
+  const { token } = theme.useToken();
   const [simulationMode, setSimulationMode] = useState<'user' | 'role'>('user');
   const [selectedUserId, setSelectedUserId] = useState<string>(users[0]?.id || '');
   const [selectedRoleId, setSelectedRoleId] = useState<string>(roles[0]?.id || '');
@@ -132,7 +134,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
       onCancel={onClose}
       footer={null}
       width={840}
-      styles={{ body: { padding: '16px 20px', background: '#f8fafc' } }}
+      styles={{ body: { padding: '16px 20px', background: token.colorBgLayout } }}
       destroyOnHidden
     >
       {/* Simulator Target Selector */}
@@ -209,7 +211,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
               </Text>
               <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
                 {simulationMode === 'user'
-                  ? `${selectedUser?.email} • ${selectedUser?.department || 'General'} • Role: ${activeRole?.name || 'Employee'}`
+                  ? `${selectedUser?.email} • ${(selectedUser as { department?: string })?.department || 'System Operator'} • Role: ${activeRole?.name || 'Employee'}`
                   : `${activeRole?.description || 'Custom role evaluation'}`}
               </Text>
             </div>

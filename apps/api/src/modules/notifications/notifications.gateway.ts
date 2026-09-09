@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -23,7 +24,9 @@ export interface AuthenticatedSocketData {
   },
   namespace: '/notifications',
 })
-export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class NotificationsGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server!: Server;
 
@@ -34,52 +37,102 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     private readonly configService: ConfigService,
   ) {}
 
+  afterInit(server: Server) {
+    server.use((socket, next) => {
+      try {
+        const authHeader = socket.handshake.headers?.authorization;
+        const rawToken =
+          socket.handshake.auth?.token ||
+          (typeof socket.handshake.query?.token === 'string'
+            ? socket.handshake.query.token
+            : undefined) ||
+          (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined);
+
+        if (!rawToken) {
+          return next(new Error('Authentication error: No token provided'));
+        }
+
+        const secret = this.configService?.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
+        if (!secret) {
+          return next(new Error('Authentication error: Server misconfiguration'));
+        }
+
+        const payload = this.jwtService.verify<{
+          sub?: string;
+          id?: string;
+          role?: string;
+          email?: string;
+        }>(rawToken, { secret });
+
+        const userId = payload.sub || payload.id;
+        if (!userId) {
+          return next(new Error('Authentication error: Invalid payload'));
+        }
+
+        const role = payload.role || 'Employee';
+        socket.data = {
+          userId,
+          role,
+          email: payload.email,
+        };
+        next();
+      } catch (err) {
+        return next(new Error(`Authentication error: ${(err as Error).message}`));
+      }
+    });
+  }
+
   async handleConnection(client: Socket) {
     try {
-      const authHeader = client.handshake.headers?.authorization;
-      const rawToken =
-        client.handshake.auth?.token ||
-        (typeof client.handshake.query?.token === 'string'
-          ? client.handshake.query.token
-          : undefined) ||
-        (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined);
+      const existingData = client.data as AuthenticatedSocketData | undefined;
+      let userId = existingData?.userId;
+      let role = existingData?.role || 'Employee';
 
-      if (!rawToken) {
-        this.logger.debug(`Socket client ${client.id} rejected: No JWT token provided.`);
-        client.disconnect(true);
-        return;
-      }
-
-      const secret = this.configService?.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
-
-      if (!secret) {
-        this.logger.error('JWT_SECRET is required for socket authentication');
-        client.disconnect(true);
-        return;
-      }
-
-      const payload = this.jwtService.verify<{
-        sub?: string;
-        id?: string;
-        role?: string;
-        email?: string;
-      }>(rawToken, { secret });
-
-      const userId = payload.sub || payload.id;
       if (!userId) {
-        this.logger.debug(`Socket client ${client.id} rejected: Invalid token payload.`);
-        client.disconnect(true);
-        return;
+        const authHeader = client.handshake.headers?.authorization;
+        const rawToken =
+          client.handshake.auth?.token ||
+          (typeof client.handshake.query?.token === 'string'
+            ? client.handshake.query.token
+            : undefined) ||
+          (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined);
+
+        if (!rawToken) {
+          this.logger.debug(`Socket client ${client.id} rejected: No JWT token provided.`);
+          client.disconnect(true);
+          return;
+        }
+
+        const secret = this.configService?.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
+
+        if (!secret) {
+          this.logger.error('JWT_SECRET is required for socket authentication');
+          client.disconnect(true);
+          return;
+        }
+
+        const payload = this.jwtService.verify<{
+          sub?: string;
+          id?: string;
+          role?: string;
+          email?: string;
+        }>(rawToken, { secret });
+
+        userId = payload.sub || payload.id;
+        if (!userId) {
+          this.logger.debug(`Socket client ${client.id} rejected: Invalid token payload.`);
+          client.disconnect(true);
+          return;
+        }
+
+        role = payload.role || 'Employee';
+        const socketData: AuthenticatedSocketData = {
+          userId,
+          role,
+          email: payload.email,
+        };
+        client.data = socketData;
       }
-
-      const role = payload.role || 'Employee';
-      const socketData: AuthenticatedSocketData = {
-        userId,
-        role,
-        email: payload.email,
-      };
-
-      client.data = socketData;
 
       // Join user specific room and role room
       await client.join(`user:${userId}`);

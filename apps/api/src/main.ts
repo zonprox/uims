@@ -52,7 +52,10 @@ async function bootstrap() {
       if (!origin) {
         return callback(null, true);
       }
-      if (allowedOrigins.includes(origin)) {
+      if (
+        allowedOrigins.includes(origin) ||
+        (process.env.NODE_ENV !== 'production' && origin.endsWith('.trycloudflare.com'))
+      ) {
         return callback(null, true);
       }
       return callback(new Error(`Origin '${origin}' is not allowed by CORS policy`), false);
@@ -86,7 +89,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/v1/docs', app, document);
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || process.env.APP_PORT || 3000;
   await app.listen(port, '0.0.0.0');
   logger.log(`Application is running on port ${port}`);
 }

@@ -9,10 +9,12 @@ describe('SearchService', () => {
   let mockConfig: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
+    const userMock = { findMany: vi.fn().mockResolvedValue([]) };
     mockPrisma = {
       asset: { findMany: vi.fn().mockResolvedValue([]) },
       license: { findMany: vi.fn().mockResolvedValue([]) },
-      user: { findMany: vi.fn().mockResolvedValue([]) },
+      user: userMock,
+      directoryUser: userMock,
     };
 
     mockConfig = {
