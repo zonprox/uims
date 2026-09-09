@@ -61,7 +61,7 @@ export const AssetQrModal: React.FC<AssetQrModalProps> = React.memo(
           >
             <Flex justify="center" align="center" style={{ marginBottom: 12 }}>
               <QRCode
-                value={`https://uims.internal/assets/${qrAsset.tag}`}
+                value={qrAsset.tag}
                 size={160}
                 bordered={false}
                 color={token.colorText}

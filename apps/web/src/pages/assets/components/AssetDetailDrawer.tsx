@@ -183,7 +183,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                   >
                     <Flex justify="center" align="center" style={{ marginBottom: 12 }}>
                       <QRCode
-                        value={`https://uims.internal/assets/${selectedAsset.tag}`}
+                        value={selectedAsset.tag}
                         size={160}
                         bordered={false}
                         color={token.colorText}

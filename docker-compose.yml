@@ -48,6 +48,7 @@ services:
       MEILI_MASTER_KEY: ${MEILISEARCH_API_KEY:-uims_meili_master_key_2026}
       MEILI_ENV: development
       MEILI_LOG_LEVEL: INFO
+      MEILI_UPGRADE_DB: "true"
     volumes:
       - meilisearch_data:/meili_data
     healthcheck:
