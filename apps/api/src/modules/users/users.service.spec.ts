@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UsersService } from './users.service';
+import { UsersService, generateSecureRandomPassword } from './users.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -89,7 +89,7 @@ describe('UsersService', () => {
   });
 
   describe('create', () => {
-    it('should create a domain user with initial password hash and safe returned properties', async () => {
+    it('should create a user without explicit password, setting mustChangePassword to true and purging adInitialPassword', async () => {
       (mockPrisma.user as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValueOnce(
         null,
       );
@@ -102,8 +102,8 @@ describe('UsersService', () => {
         email: 'thaotn.st@youngonevn.com',
         username: 'thaotn.st',
         displayName: 'Truong Ngoc Thao',
-        adInitialPassword: 'Ad#thaotn.st2026!',
         passwordHash: '$2b$10$hashedstring',
+        mustChangePassword: true,
         roleName: 'Employee',
         status: 'ACTIVE',
       });
@@ -113,13 +113,52 @@ describe('UsersService', () => {
         username: 'thaotn.st',
         displayName: 'Truong Ngoc Thao',
         roleName: 'Employee',
-        adInitialPassword: 'Ad#thaotn.st2026!',
       });
 
       expect(res.id).toBe('usr-new');
       expect(res.email).toBe('thaotn.st@youngonevn.com');
-      expect(res.adInitialPassword).toBe('Ad#thaotn.st2026!');
+      expect(res.mustChangePassword).toBe(true);
+      expect((res as Record<string, unknown>).adInitialPassword).toBeUndefined();
       expect((res as Record<string, unknown>).passwordHash).toBeUndefined();
+
+      const createCall = (mockPrisma.user as { create: ReturnType<typeof vi.fn> }).create.mock
+        .calls[0][0];
+      expect(createCall.data.mustChangePassword).toBe(true);
+      expect(createCall.data.passwordHash).toBeDefined();
+    });
+
+    it('should create a user with explicit password and set mustChangePassword to false', async () => {
+      (mockPrisma.user as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValueOnce(
+        null,
+      );
+      (mockPrisma.role as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValueOnce({
+        id: 'role-emp',
+        name: 'Employee',
+      });
+      (mockPrisma.user as { create: ReturnType<typeof vi.fn> }).create.mockResolvedValueOnce({
+        id: 'usr-explicit',
+        email: 'explicit@example.com',
+        username: 'explicit',
+        displayName: 'Explicit User',
+        passwordHash: '$2b$10$hashedexplicit',
+        mustChangePassword: false,
+        roleName: 'Employee',
+        status: 'ACTIVE',
+      });
+
+      const res = await service.create({
+        email: 'explicit@example.com',
+        username: 'explicit',
+        password: 'ExplicitSecurePassword123!',
+      });
+
+      expect(res.id).toBe('usr-explicit');
+      expect(res.mustChangePassword).toBe(false);
+      expect((res as Record<string, unknown>).adInitialPassword).toBeUndefined();
+
+      const createCall = (mockPrisma.user as { create: ReturnType<typeof vi.fn> }).create.mock
+        .calls[0][0];
+      expect(createCall.data.mustChangePassword).toBe(false);
     });
 
     it('should throw ConflictException on duplicate email/username', async () => {
@@ -134,6 +173,19 @@ describe('UsersService', () => {
           username: 'dup',
         }),
       ).rejects.toThrow('A user with this email or username already exists.');
+    });
+
+    it('should generate cryptographically secure random passwords with high entropy and character variety', () => {
+      const pwd1 = generateSecureRandomPassword(20);
+      const pwd2 = generateSecureRandomPassword(20);
+
+      expect(pwd1.length).toBe(20);
+      expect(pwd2.length).toBe(20);
+      expect(pwd1).not.toBe(pwd2);
+      expect(/[A-Z]/.test(pwd1)).toBe(true);
+      expect(/[a-z]/.test(pwd1)).toBe(true);
+      expect(/[0-9]/.test(pwd1)).toBe(true);
+      expect(/[!@#$%^&*()_+\-=]/.test(pwd1)).toBe(true);
     });
   });
 

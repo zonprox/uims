@@ -72,6 +72,8 @@ export class ScheduledAlertsWorker {
       where: {
         expiryDate: { not: null, lte: thirtyDaysAhead },
       },
+      take: 500,
+      orderBy: { expiryDate: 'asc' },
     });
 
     let notified = 0;
@@ -190,6 +192,8 @@ export class ScheduledAlertsWorker {
         warrantyExpiry: { not: null, lte: thirtyDaysAhead },
         status: { in: ['AVAILABLE', 'IN_USE', 'MAINTENANCE'] },
       },
+      take: 500,
+      orderBy: { warrantyExpiry: 'asc' },
     });
 
     let notified = 0;
@@ -275,6 +279,8 @@ export class ScheduledAlertsWorker {
         status: 'MAINTENANCE',
         updatedAt: { lte: fourteenDaysAgo },
       },
+      take: 500,
+      orderBy: { updatedAt: 'asc' },
     });
 
     let notified = 0;
@@ -306,7 +312,10 @@ export class ScheduledAlertsWorker {
    * 4. Scan Low Stock & Out of Stock Inventory Items (quantity <= minThreshold)
    */
   async scanLowStock(): Promise<ScanResult> {
-    const items = await this.prisma.inventoryItem.findMany();
+    const items = await this.prisma.inventoryItem.findMany({
+      take: 500,
+      orderBy: { quantity: 'asc' },
+    });
 
     let notified = 0;
     let throttled = 0;

@@ -100,9 +100,8 @@ describe('UsersController', () => {
     const dto = {
       email: 'new@example.com',
       username: 'newuser',
-      adInitialPassword: 'Ad#Test1234!',
     };
-    mockService.create.mockResolvedValue({ id: 'u1', ...dto });
+    mockService.create.mockResolvedValue({ id: 'u1', ...dto, mustChangePassword: true });
     const res = await controller.create(
       dto as unknown as import('./dto/create-user.dto').CreateUserDto,
     );

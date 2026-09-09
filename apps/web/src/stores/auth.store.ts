@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { authService } from '../services/auth.service';
 
 export interface AuthUser {
   id: string;
@@ -41,7 +40,6 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        authService.logout();
         set({ token: null, user: null, permissions: [] });
       },
 

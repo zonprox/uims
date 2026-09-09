@@ -136,8 +136,7 @@ export default function InventoryPage() {
           outOfStockCount,
         });
       }
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to load inventory items.');
     } finally {
       setLoading(false);
@@ -218,7 +217,6 @@ export default function InventoryPage() {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to save inventory item.');
     } finally {
@@ -231,8 +229,7 @@ export default function InventoryPage() {
       await inventoryService.deleteItem(id);
       message.success('Inventory item deleted successfully.');
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to delete item.');
     }
   };
@@ -251,8 +248,7 @@ export default function InventoryPage() {
       message.success(`Restocked ${restockQty} units of ${restockItem.name}.`);
       setRestockModalOpen(false);
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to restock item.');
     } finally {
       setRestocking(false);

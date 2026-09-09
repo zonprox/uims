@@ -65,7 +65,7 @@ describe('Milestone 1 Adversarial Challenge: Notifications Gateway & Persistence
    * 1. AUTHENTICATION & HANDSHAKE EDGE CASES
    * ========================================================================= */
   describe('1. Authentication & Handshake Edge Cases', () => {
-    it('A1. rejects connection when no token is provided in auth, headers, or query', async () => {
+    it('A1. rejects connection when no token is provided in auth or headers', async () => {
       const socket = createMockSocket({});
       await gateway.handleConnection(socket);
 
@@ -165,7 +165,7 @@ describe('Milestone 1 Adversarial Challenge: Notifications Gateway & Persistence
       expect(socket.join).toHaveBeenCalledWith('role:Manager');
     });
 
-    it('A9. successfully authenticates via handshake.query.token parameter', async () => {
+    it('A9. rejects connection when token is passed via handshake.query.token parameter', async () => {
       const validToken = jwtService.sign(
         { sub: 'user-003', role: 'Auditor' },
         { secret: TEST_JWT_SECRET },
@@ -175,9 +175,8 @@ describe('Milestone 1 Adversarial Challenge: Notifications Gateway & Persistence
       });
       await gateway.handleConnection(socket);
 
-      expect(socket.disconnect).not.toHaveBeenCalled();
-      expect(socket.join).toHaveBeenCalledWith('user:user-003');
-      expect(socket.join).toHaveBeenCalledWith('role:Auditor');
+      expect(socket.disconnect).toHaveBeenCalledWith(true);
+      expect(socket.join).not.toHaveBeenCalled();
     });
 
     it('A10. falls back to payload.id when payload.sub is not provided', async () => {
@@ -193,15 +192,13 @@ describe('Milestone 1 Adversarial Challenge: Notifications Gateway & Persistence
       expect(socket.join).toHaveBeenCalledWith('role:Staff');
     });
 
-    it('A11. defaults role to "Employee" when role is missing from payload', async () => {
+    it('A11. rejects connection when role is missing from payload', async () => {
       const validToken = jwtService.sign({ sub: 'user-default-role' }, { secret: TEST_JWT_SECRET });
       const socket = createMockSocket({ auth: { token: validToken } });
       await gateway.handleConnection(socket);
 
-      expect(socket.disconnect).not.toHaveBeenCalled();
-      expect(socket.join).toHaveBeenCalledWith('user:user-default-role');
-      expect(socket.join).toHaveBeenCalledWith('role:Employee');
-      expect(socket.data.role).toBe('Employee');
+      expect(socket.disconnect).toHaveBeenCalledWith(true);
+      expect(socket.join).not.toHaveBeenCalled();
     });
 
     it('A12. joins exact multi-word role room (e.g. "Super Admin")', async () => {

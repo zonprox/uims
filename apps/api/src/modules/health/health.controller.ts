@@ -1,13 +1,17 @@
-import { Controller, Get, Optional } from '@nestjs/common';
+import { Controller, Get, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
+import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 
 @ApiTags('Health')
 @Public()
 @Controller('health')
 export class HealthController {
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(
+    @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly redisService?: RedisService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get system health status' })
@@ -29,16 +33,42 @@ export class HealthController {
       }
     }
 
+    let redisStatus: 'connected' | 'disconnected' = 'connected';
+    let redisLatencyMs = 0;
+
+    if (this.redisService) {
+      const redisStart = performance.now();
+      try {
+        await this.redisService.ping();
+        redisLatencyMs = Math.round(performance.now() - redisStart);
+      } catch {
+        redisStatus = 'disconnected';
+      }
+    }
+
+    if (dbStatus === 'disconnected') {
+      throw new ServiceUnavailableException({
+        status: 'error',
+        message: 'Database service is unavailable',
+        database: {
+          status: dbStatus,
+          latencyMs: dbLatencyMs,
+        },
+        redis: {
+          status: redisStatus,
+          latencyMs: redisLatencyMs,
+        },
+      });
+    }
+
     const totalLatencyMs = Math.round(performance.now() - startTime);
 
-    const isHealthy = dbStatus === 'connected';
-    const status: 'ok' | 'degraded' | 'error' = !this.prisma
-      ? 'ok'
-      : isHealthy
-        ? dbLatencyMs > 500
-          ? 'degraded'
-          : 'ok'
-        : 'degraded';
+    const isHealthy = dbStatus === 'connected' && redisStatus === 'connected';
+    const status: 'ok' | 'degraded' | 'error' = isHealthy
+      ? dbLatencyMs > 500 || redisLatencyMs > 500
+        ? 'degraded'
+        : 'ok'
+      : 'degraded';
 
     const days = Math.floor(uptimeSecs / 86400);
     const hours = Math.floor((uptimeSecs % 86400) / 3600);
@@ -63,6 +93,10 @@ export class HealthController {
       database: {
         status: dbStatus,
         latencyMs: dbLatencyMs,
+      },
+      redis: {
+        status: redisStatus,
+        latencyMs: redisLatencyMs,
       },
       system: {
         nodeVersion: process.version,

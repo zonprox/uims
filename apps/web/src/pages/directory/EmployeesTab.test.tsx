@@ -1,8 +1,8 @@
 import { App, ConfigProvider } from 'antd';
 import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DirectoryUser } from '@uims/shared-types';
 import { EmployeesTab } from './EmployeesTab';
 
@@ -119,10 +119,17 @@ vi.mock('../../services/directory.service', () => ({
 
 describe('EmployeesTab Adversarial Component Tests', () => {
   let container: HTMLDivElement;
+  let currentRoot: Root | null = null;
   const onRefreshMock = vi.fn<() => void>();
   const setCreateModalOpenMock = vi.fn<(open: boolean) => void>();
   const setImportModalOpenMock = vi.fn<(open: boolean) => void>();
   const onClearOuFilterMock = vi.fn<() => void>();
+
+  beforeAll(() => {
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+  });
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -137,8 +144,19 @@ describe('EmployeesTab Adversarial Component Tests', () => {
     mockImportEmployees.mockClear();
   });
 
-  afterEach(() => {
-    document.body.removeChild(container);
+  afterEach(async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (currentRoot) {
+      await act(async () => {
+        currentRoot?.unmount();
+      });
+      currentRoot = null;
+    }
+    if (container.parentNode) {
+      document.body.removeChild(container);
+    }
     document
       .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover')
       .forEach((el) => {
@@ -156,6 +174,7 @@ describe('EmployeesTab Adversarial Component Tests', () => {
     } = {},
   ) => {
     const root = createRoot(container);
+    currentRoot = root;
     await act(async () => {
       root.render(
         createElement(

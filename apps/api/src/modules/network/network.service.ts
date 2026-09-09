@@ -167,8 +167,12 @@ export class NetworkService {
     });
   }
 
-  async findAllSubnets() {
-    return this.prisma.subnet.findMany({ orderBy: { createdAt: 'asc' } });
+  async findAllSubnets(limit?: number) {
+    const take = limit ? Math.min(Number(limit), 100) : 100;
+    return this.prisma.subnet.findMany({
+      take,
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async createSubnet(data: CreateSubnetDto) {

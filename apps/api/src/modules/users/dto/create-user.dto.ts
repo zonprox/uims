@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DirectorySource, UserStatus } from '@prisma/client';
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateUserDto {
   @ApiPropertyOptional({ example: 'john.doe' })
@@ -109,10 +109,10 @@ export class CreateUserDto {
   @IsOptional()
   source?: DirectorySource;
 
-  @ApiPropertyOptional({ example: 'kPm#*Ed8' })
-  @IsString()
+  @ApiPropertyOptional({ example: false })
+  @IsBoolean()
   @IsOptional()
-  adInitialPassword?: string;
+  mustChangePassword?: boolean;
 
   @ApiPropertyOptional({ example: 'Admin@2026' })
   @IsString()

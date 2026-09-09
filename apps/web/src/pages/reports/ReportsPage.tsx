@@ -58,8 +58,7 @@ export default function ReportsPage() {
       ]);
       setReportsList(suites);
       if (statsData) setStats(statsData);
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to load reports suite.');
     } finally {
       setLoading(false);
@@ -93,8 +92,7 @@ export default function ReportsPage() {
       message.success(`Automated delivery for "${values.reportType}" scheduled.`);
       setScheduleModalOpen(false);
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to save report schedule.');
     } finally {
       setScheduling(false);

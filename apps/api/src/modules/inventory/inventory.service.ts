@@ -170,7 +170,10 @@ export class InventoryService {
       this.prisma.inventoryItem.aggregate({ _sum: { quantity: true } }),
       this.prisma.inventoryItem.count({ where: { quantity: { gt: 0, lte: 5 } } }),
       this.prisma.inventoryItem.count({ where: { quantity: 0 } }),
-      this.prisma.inventoryItem.findMany({ select: { quantity: true, unitCost: true } }),
+      this.prisma.inventoryItem.findMany({
+        select: { quantity: true, unitCost: true },
+        take: 5000,
+      }),
     ]);
 
     const totalValuation = items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);

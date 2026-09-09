@@ -98,8 +98,7 @@ export default function LicensesPage() {
           expiringCount,
         });
       }
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to load software licenses.');
     } finally {
       setLoading(false);
@@ -177,7 +176,6 @@ export default function LicensesPage() {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to save license.');
     } finally {
@@ -190,8 +188,7 @@ export default function LicensesPage() {
       await licensesService.deleteLicense(id);
       message.success('License deleted successfully.');
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to delete license.');
     }
   };
@@ -226,8 +223,7 @@ export default function LicensesPage() {
       const freshLicense = await licensesService.getLicense(selectedLicense.id);
       setSelectedLicense(freshLicense);
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to allocate seat.');
     } finally {
       setAssigningSeat(false);
@@ -243,8 +239,7 @@ export default function LicensesPage() {
       const freshLicense = await licensesService.getLicense(selectedLicense.id);
       setSelectedLicense(freshLicense);
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to revoke seat.');
     }
   };

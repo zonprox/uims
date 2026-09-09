@@ -72,11 +72,12 @@ model AppUser {
   phone         String?
   roleId        String?
   roleName      String?        @default("Employee")
-  status        UserStatus     @default(ACTIVE)
-  isLocked      Boolean        @default(false)
-  lastLoginAt   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  status             UserStatus     @default(ACTIVE)
+  isLocked           Boolean        @default(false)
+  mustChangePassword Boolean        @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   role          Role?          @relation(fields: [roleId], references: [id], onDelete: SetNull)
   refreshTokens RefreshToken[]
@@ -85,6 +86,7 @@ model AppUser {
 
   @@index([status])
   @@index([roleName])
+  @@index([roleId])
   @@index([email])
   @@index([username])
 }
@@ -131,6 +133,10 @@ model DirectoryUser {
   licenseAssignments LicenseAssignment[]
   groupMemberships   DirectoryMembership[]
 
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([locationId])
   @@index([status])
   @@index([department])
   @@index([section])
@@ -169,6 +175,7 @@ model RolePermission {
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
+  @@index([permissionId])
 }
 
 model Asset {
@@ -200,6 +207,8 @@ model Asset {
   @@index([categoryId])
   @@index([locationId])
   @@index([status])
+  @@index([status, updatedAt])
+  @@index([warrantyExpiry])
   @@index([assetTag])
   @@index([name])
   @@index([model])
@@ -273,6 +282,7 @@ model License {
   assignments LicenseAssignment[]
 
   @@index([status])
+  @@index([expiryDate])
   @@index([vendor])
   @@index([name])
 }
@@ -363,6 +373,8 @@ model Subnet {
 
   vlan        VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
   ipAddresses IPAddress[]
+
+  @@index([vlanId])
 }
 
 model VLAN {

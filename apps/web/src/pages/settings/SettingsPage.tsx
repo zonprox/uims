@@ -199,12 +199,12 @@ export default function SettingsPage() {
       setIsGeneralDirty(false);
       setIsSecurityDirty(false);
       setIsAppearanceDirty(false);
-    } catch (err) {
-      console.error('Failed to load settings:', err);
+    } catch (_err: unknown) {
+      message.error('Failed to load settings.');
     } finally {
       setLoading(false);
     }
-  }, [generalForm, securityForm]);
+  }, [generalForm, message, securityForm]);
 
   useEffect(() => {
     loadSettings();
@@ -222,8 +222,7 @@ export default function SettingsPage() {
       });
       setIsAppearanceDirty(false);
       message.success('Appearance & theme tokens saved and synchronized to enterprise profile.');
-    } catch (err) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to persist theme preferences to server.');
     } finally {
       setSavingAppearance(false);
@@ -253,8 +252,7 @@ export default function SettingsPage() {
       }
       setIsGeneralDirty(false);
       message.success('Enterprise localization and organization identity settings updated.');
-    } catch (err) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to save general settings.');
     } finally {
       setSavingGeneral(false);
@@ -297,8 +295,8 @@ export default function SettingsPage() {
       } else {
         await executeSaveGeneral(values);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Form validation error already highlighted in UI
     }
   };
 
@@ -322,8 +320,7 @@ export default function SettingsPage() {
       await settingsService.updateSetting('security', values as unknown as Record<string, unknown>);
       setIsSecurityDirty(false);
       message.success('Enterprise security & access governance policy successfully deployed.');
-    } catch (err) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to update security policy.');
     } finally {
       setSavingSecurity(false);
@@ -357,8 +354,8 @@ export default function SettingsPage() {
         okButtonProps: { type: 'primary' },
         onOk: () => executeSaveSecurity(values),
       });
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Form validation error already highlighted in UI
     }
   };
 
@@ -399,8 +396,7 @@ export default function SettingsPage() {
         try {
           const res = await settingsService.runBackup();
           message.success(res.message || 'Database snapshot created and saved to secure S3 vault.');
-        } catch (err: unknown) {
-          console.error(err);
+        } catch (_err: unknown) {
           message.error('Failed to run backup snapshot.');
         } finally {
           setBackupRunning(false);
@@ -436,8 +432,7 @@ export default function SettingsPage() {
         try {
           await new Promise((resolve) => setTimeout(resolve, 800));
           message.success('Redis cache flushed and key indices rebuilt successfully.');
-        } catch (err) {
-          console.error(err);
+        } catch (_err: unknown) {
           message.error('Failed to purge cache.');
         } finally {
           setPurgingCache(false);
@@ -495,8 +490,7 @@ export default function SettingsPage() {
           setBorderRadius(8);
           await loadSettings();
           message.success('System settings restored to default baseline.');
-        } catch (err) {
-          console.error(err);
+        } catch (_err: unknown) {
           message.error('Failed to execute factory reset.');
         }
       },

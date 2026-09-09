@@ -117,8 +117,7 @@ export default function OrganizationPage() {
         setSelectedNodeKey(tree[0].key);
         setSelectedNode(tree[0]);
       }
-    } catch (err) {
-      console.error('Failed to load organization data:', err);
+    } catch (_err: unknown) {
       message.error('Failed to load organization structure.');
     } finally {
       setLoading(false);
@@ -254,7 +253,6 @@ export default function OrganizationPage() {
       setOrgModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to save organization.');
     } finally {
@@ -267,8 +265,7 @@ export default function OrganizationPage() {
       await organizationService.deleteOrganization(id);
       message.success('Organization deleted successfully.');
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to delete organization.');
     }
   };
@@ -304,7 +301,6 @@ export default function OrganizationPage() {
       setDeptModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to save department.');
     } finally {
@@ -317,8 +313,7 @@ export default function OrganizationPage() {
       await organizationService.deleteDepartment(id);
       message.success('Department deleted successfully.');
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to delete department.');
     }
   };
@@ -354,7 +349,6 @@ export default function OrganizationPage() {
       setPosModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to save position.');
     } finally {
@@ -367,8 +361,7 @@ export default function OrganizationPage() {
       await organizationService.deletePosition(id);
       message.success('Position deleted successfully.');
       loadData();
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to delete position.');
     }
   };

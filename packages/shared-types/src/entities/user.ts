@@ -21,6 +21,7 @@ export interface AppUser {
   role?: Role | null;
   status: UserStatus;
   isLocked: boolean;
+  mustChangePassword?: boolean;
   failedLoginAttempts?: number;
   lastLoginAt?: string | null;
   lastLoginIp?: string | null;

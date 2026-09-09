@@ -212,3 +212,82 @@ Integrity mode: development
 - [ ] Biome linting and formatting check pass with 0 errors across all workspaces (pnpm run lint and pnpm run format:check).
 - [ ] Automated unit and integration test suites pass with 100% success rate (pnpm run test).
 - [ ] Production build succeeds across all monorepo apps and packages (pnpm run build).
+
+## 2026-09-09T18:14:33Z
+
+Execute a comprehensive monorepo refactoring and issue resolution campaign for UIMS addressing all technical concerns, security vulnerabilities, performance bottlenecks, and architectural debt documented in `.planning/codebase/CONCERNS.md`, upgrade all dependencies to their absolute latest compatible versions without downgrades, update authoritative guidelines in `GEMINI.md` and `AGENTS.md`, and verify green status across all local verification checks and the remote CI pipeline on `origin/main`.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Code Refactoring & Technical Debt Resolution
+Thoroughly resolve all concerns and technical debt items documented in `.planning/codebase/CONCERNS.md` (TD-001 through TD-021):
+- Parameterize database and redis connection strings in `docker-compose.yml` (`DATABASE_URL`, `REDIS_URL`) using `${DATABASE_PASSWORD}` and `${REDIS_PASSWORD}` without insecure plaintext fallbacks.
+- Add missing `AUDIT_SIGNING_KEY: ${AUDIT_SIGNING_KEY}` to `docker-compose.yml` and `.env.example` to prevent container startup crashes.
+- Replace silent `.catch(() => {})` blocks in `apps/api/src/modules/auth/auth.service.ts` (lines 229, 247, 353) with structured error logging (`Logger.error`) and transactional safety.
+- Eliminate predictable default user passwords (`Ad#${username}2026!`) in `apps/api/src/modules/users/users.service.ts`; implement cryptographically secure random password generation, enforce password reset on first login, and purge `adInitialPassword` from all API responses.
+- Secure WebSocket gateway CORS in `apps/api/src/modules/notifications/notifications.gateway.ts` by restricting origins to configured allowed origins instead of wildcard with credentials (`origin: '*', credentials: true`).
+- Eliminate passing JWT tokens via query parameters (`socket.handshake.query.token`) in WebSocket handshake; restrict tokens to `auth: { token }` payload or headers, and eliminate default fallback to `role = payload.role || 'Employee'`.
+- Break frontend circular dependency (`auth.store.ts` -> `auth.service.ts` -> `api.ts` -> `auth.store.ts`) by eliminating the empty `authService.logout()` stub.
+- Eliminate unbounded database queries across services and background workers:
+  - `apps/api/src/modules/notifications/scheduled-alerts.worker.ts`: add bounded limits to expiring licenses/assets queries, and query low-stock inventory directly in SQL/Prisma rather than loading the full table into memory.
+  - `apps/api/src/modules/inventory/inventory.service.ts`: use Prisma aggregate `_sum` for inventory valuation rather than loading all items into memory.
+  - `apps/api/src/modules/network/network.service.ts` and `apps/api/src/modules/reports/reports.service.ts`: enforce bounded take limits or pagination.
+- Refactor directory CSV batch import in `apps/api/src/modules/directory/directory.service.ts` to replace sequential N+1 queries with batched lookups and transactions.
+- Add missing database indexes in `apps/api/prisma/schema.prisma`:
+  - `Asset.warrantyExpiry`
+  - `Asset` composite index `@@index([status, updatedAt])`
+  - `License.expiryDate`
+  - `DirectoryUser` foreign keys: `@@index([organizationId])`, `@@index([departmentId])`, `@@index([positionId])`, `@@index([locationId])`
+  - `AppUser` foreign key: `@@index([roleId])`
+  - `Subnet` foreign key: `@@index([vlanId])`
+  - `RolePermission` reverse index: `@@index([permissionId])`
+- Fix health check endpoint in `apps/api/src/modules/health/health.controller.ts`: return HTTP 503 (`ServiceUnavailableException`) when PostgreSQL is unreachable, and add a Redis ping test.
+- Replace raw `console.error` calls across `apps/web/src/pages/**` with proper error handling and UI notifications.
+- Fix React 19 Happy-DOM teardown unhandled exception (`window is not defined`) in `apps/web/src/pages/directory/EmployeesTab.test.tsx`.
+- Add Docker container healthchecks in `docker-compose.yml` for `api` and `web`.
+
+### R2. Dependency Management
+- Pump all dependencies across root `package.json`, `apps/api`, `apps/web`, and all shared packages (`packages/*`) to their absolute latest compatible versions.
+- STRICT RULE: Do not downgrade any libraries under any circumstances, even if lower versions or downgrades are specified in `concerns.md` (e.g. maintain TypeScript 7.x/latest versions).
+- Update `pnpm-lock.yaml` cleanly. Ensure all breaking changes or API shifts introduced by updated dependencies are cleanly resolved.
+
+### R3. Architectural Documentation & Defect Prevention
+- Update `GEMINI.md` and `AGENTS.md` with explicit, authoritative engineering rules, architectural invariants, and technical defect prevention guidelines addressing all resolved patterns (credential parameterization, catch block error handling, WebSocket auth security, query limits, index coverage, circular dependencies, dependency upgrade policies).
+
+### R4. Remote Push & CI Pipeline Verification
+- Commit all changes following conventional commit format.
+- Push commits to `origin/main`.
+- Track GitHub Actions CI workflow runs via `gh run list` and `gh run watch`, resolving any resulting issues until the remote CI pipeline passes completely green.
+
+## Acceptance Criteria
+
+### Security & Architecture
+- [ ] `docker-compose.yml` parameterized without hardcoded passwords and includes `AUDIT_SIGNING_KEY`.
+- [ ] Silent catches in `auth.service.ts` eliminated; failures logged via NestJS `Logger`.
+- [ ] Default passwords in `users.service.ts` are cryptographically random; `adInitialPassword` purged from responses.
+- [ ] WebSocket CORS and handshake authentication secured; no query param JWT or wildcard credentials.
+- [ ] Health endpoint returns 503 on database disconnect and checks Redis connectivity.
+- [ ] Missing database indexes added to `schema.prisma` and Prisma client generated cleanly.
+
+### Performance & Code Quality
+- [ ] Unbounded database queries bounded with pagination or limits across workers and services.
+- [ ] Directory CSV import refactored to eliminate sequential N+1 database queries.
+- [ ] Circular dependency between `auth.store.ts` and `auth.service.ts` severed.
+- [ ] Frontend raw `console.error` calls replaced with structured UI error handling.
+- [ ] Vitest environment teardown exception in `EmployeesTab.test.tsx` resolved.
+
+### Dependencies & Documentation
+- [ ] All monorepo dependencies upgraded to absolute latest versions without any downgrades; lockfile cleanly updated.
+- [ ] `GEMINI.md` and `AGENTS.md` updated with comprehensive defect prevention directives.
+
+### Verification & CI Pipeline
+- [ ] `pnpm run typecheck` passes with 0 errors across all 6 monorepo packages.
+- [ ] `pnpm run lint` and `pnpm run format:check` pass with 0 errors.
+- [ ] `pnpm run test` passes 100% of test suites monorepo-wide.
+- [ ] `pnpm run build` succeeds across all workspaces.
+- [ ] All changes committed and pushed to `origin/main`.
+- [ ] Remote GitHub Actions CI pipeline completes with a green check status.
+

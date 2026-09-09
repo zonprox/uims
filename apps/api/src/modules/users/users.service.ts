@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { UserStatus } from '@prisma/client';
 import type { CreateAppUserDto, UpdateAppUserDto, UserSummaryStats } from '@uims/shared-types';
@@ -10,6 +11,31 @@ import type { BatchImportDirectoryDto } from '../directory/dto/import-directory.
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 import type { UserQueryDto } from './dto/user-query.dto';
+
+export function generateSecureRandomPassword(length = 20): string {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const digits = '0123456789';
+  const symbols = '!@#$%^&*()_+-=';
+  const allChars = uppercase + lowercase + digits + symbols;
+
+  const bytes = crypto.randomBytes(length);
+  const result: string[] = [
+    uppercase[bytes[0] % uppercase.length],
+    lowercase[bytes[1] % lowercase.length],
+    digits[bytes[2] % digits.length],
+    symbols[bytes[3] % symbols.length],
+  ];
+  for (let i = 4; i < length; i++) {
+    result.push(allChars[bytes[i] % allChars.length]);
+  }
+  const shuffleBytes = crypto.randomBytes(length);
+  for (let i = length - 1; i > 0; i--) {
+    const j = shuffleBytes[i] % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result.join('');
+}
 
 @Injectable()
 export class UsersService {
@@ -77,10 +103,13 @@ export class UsersService {
     }
 
     const username = userData.username || userData.email.split('@')[0];
-    const adInitialPassword =
-      (userData as { adInitialPassword?: string }).adInitialPassword || `Ad#${username}2026!`;
-    const plainPassword = userData.password || adInitialPassword;
+    const hasExplicitPassword = Boolean(userData.password);
+    const plainPassword = userData.password || generateSecureRandomPassword(20);
     const passwordHash = await bcrypt.hash(plainPassword, 10);
+    const mustChangePassword =
+      userData.mustChangePassword !== undefined
+        ? userData.mustChangePassword
+        : !hasExplicitPassword;
 
     const isClosed =
       (userData as { isClosed?: boolean }).isClosed === true || userData.status === 'SUSPENDED';
@@ -100,6 +129,7 @@ export class UsersService {
         phone: userData.phone || null,
         avatar: userData.avatar || null,
         isLocked: Boolean(userData.isLocked),
+        mustChangePassword,
         status,
         roleId,
         roleName: roleName || 'Employee',
@@ -111,10 +141,7 @@ export class UsersService {
     });
 
     const { passwordHash: _hash, ...safeUser } = created;
-    return {
-      ...safeUser,
-      adInitialPassword: (userData as { adInitialPassword?: string }).adInitialPassword,
-    };
+    return safeUser;
   }
 
   async findAll(query?: UserQueryDto) {

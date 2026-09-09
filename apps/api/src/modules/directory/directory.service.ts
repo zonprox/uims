@@ -6,7 +6,12 @@ import type {
   DomainSyncResult,
   OrganizationalUnit,
 } from '@uims/shared-types';
-import { AccountStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  type DirectoryGroup,
+  type DirectoryUser,
+  type Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { CreateDirectoryGroupDto } from './dto/create-directory-group.dto';
 import type { CreateDirectoryUserDto } from './dto/create-directory-user.dto';
@@ -561,104 +566,193 @@ export class DirectoryService {
     let skipped = 0;
     const errors: Array<{ row: number; email?: string; error: string }> = [];
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const rowNum = i + 1;
+    const CHUNK_SIZE = 100;
+    const adGroupCache = new Map<string, DirectoryGroup>();
 
-      if (!row.email || !row.email.trim()) {
-        skipped++;
-        continue;
+    for (let chunkStart = 0; chunkStart < rows.length; chunkStart += CHUNK_SIZE) {
+      const chunk = rows.slice(chunkStart, chunkStart + CHUNK_SIZE);
+
+      // Collect valid emails, codes, and group names in this chunk for bulk lookup
+      const validEmails: string[] = [];
+      const validCodes: string[] = [];
+      const chunkGroupNames: string[] = [];
+
+      for (const row of chunk) {
+        if (row.email && row.email.trim()) {
+          const email = row.email.trim().toLowerCase();
+          validEmails.push(email);
+          if (row.employeeCode && row.employeeCode.trim()) {
+            validCodes.push(row.employeeCode.trim());
+          }
+          if (row.adGroup && row.adGroup.trim()) {
+            chunkGroupNames.push(row.adGroup.trim());
+          }
+        }
       }
 
-      const email = row.email.trim().toLowerCase();
-      const employeeCode = row.employeeCode?.trim() || null;
-      const rawName = row.name?.trim() || email.split('@')[0];
-      const nameParts = rawName.split(' ');
-      const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
-      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+      const emailMap = new Map<string, DirectoryUser>();
+      const codeMap = new Map<string, DirectoryUser>();
+      let isBatchLookupSupported = false;
 
-      const isClosed =
-        row.isClosed === true ||
-        row.isClosed === 'Y' ||
-        row.isClosed === 'true' ||
-        row.status === 'DISABLED' ||
-        row.status === 'SUSPENDED';
-
-      const status: AccountStatus = isClosed ? AccountStatus.DISABLED : AccountStatus.ACTIVE;
-
-      try {
-        const existingRecord = await this.prisma.directoryUser.findFirst({
-          where: {
-            OR: [{ email }, ...(employeeCode ? [{ employeeCode }] : [])],
-          },
-        });
-
-        if (existingRecord) {
-          await this.prisma.directoryUser.update({
-            where: { id: existingRecord.id },
-            data: {
-              employeeCode: employeeCode || existingRecord.employeeCode,
-              firstName: firstName || existingRecord.firstName,
-              lastName: lastName || existingRecord.lastName,
-              displayName: rawName,
-              jobTitle: row.designation || existingRecord.jobTitle,
-              company: row.company || existingRecord.company,
-              groupCompany: row.groupCompany || existingRecord.groupCompany,
-              plant: row.plant || existingRecord.plant,
-              department: row.department || existingRecord.department,
-              section: row.section || existingRecord.section,
-              subSection: row.subSection || existingRecord.subSection,
-              telephone: row.telephone || existingRecord.telephone,
-              computerName: row.computerName || existingRecord.computerName,
-              computerName2: row.computerName2 || existingRecord.computerName2,
-              adGroup: row.adGroup || existingRecord.adGroup,
-              ouPath: row.ouPath || existingRecord.ouPath,
-              managerName: row.managerName || existingRecord.managerName,
-              status,
-              isClosed,
+      if (validEmails.length > 0 && typeof this.prisma.directoryUser.findMany === 'function') {
+        try {
+          const fetchedUsers = await this.prisma.directoryUser.findMany({
+            where: {
+              OR: [
+                { email: { in: validEmails } },
+                ...(validCodes.length > 0 ? [{ employeeCode: { in: validCodes } }] : []),
+              ],
             },
           });
-
-          if (row.adGroup) {
-            await this.ensureAndLinkAdGroup(existingRecord.id, row.adGroup);
+          if (Array.isArray(fetchedUsers)) {
+            isBatchLookupSupported = true;
+            for (const user of fetchedUsers) {
+              if (user.email) emailMap.set(user.email.toLowerCase(), user);
+              if (user.employeeCode) codeMap.set(user.employeeCode, user);
+            }
           }
-          updated++;
-        } else {
-          const newRecord = await this.prisma.directoryUser.create({
-            data: {
-              email,
-              employeeCode,
-              firstName,
-              lastName,
-              displayName: rawName,
-              jobTitle: row.designation || 'Employee',
-              company: row.company || 'BSL Others',
-              groupCompany: row.groupCompany || 'BSL',
-              plant: row.plant || 'Plant 1',
-              department: row.department || 'Production',
-              section: row.section || 'General Operations',
-              subSection: row.subSection || null,
-              telephone: row.telephone || null,
-              computerName: row.computerName || null,
-              computerName2: row.computerName2 || null,
-              adGroup: row.adGroup || null,
-              ouPath: row.ouPath || 'OU=Production,DC=uims,DC=internal',
-              managerName: row.managerName || null,
-              status,
-              isClosed,
-              source: 'LDAP',
-            },
-          });
-
-          if (row.adGroup) {
-            await this.ensureAndLinkAdGroup(newRecord.id, row.adGroup);
-          }
-          created++;
+        } catch {
+          isBatchLookupSupported = false;
         }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.error(`Error importing directory record for ${email}: ${message}`);
-        errors.push({ row: rowNum, email, error: message });
+      }
+
+      // Pre-fetch AD groups for this chunk
+      const uniqueGroupNames = Array.from(new Set(chunkGroupNames)).filter(
+        (name) => !adGroupCache.has(name),
+      );
+      if (
+        uniqueGroupNames.length > 0 &&
+        typeof this.prisma.directoryGroup.findMany === 'function'
+      ) {
+        try {
+          const fetchedGroups = await this.prisma.directoryGroup.findMany({
+            where: { name: { in: uniqueGroupNames } },
+          });
+          if (Array.isArray(fetchedGroups)) {
+            for (const group of fetchedGroups) {
+              adGroupCache.set(group.name, group);
+            }
+          }
+        } catch {
+          // Fall back to on-demand lookup/creation in ensureAndLinkAdGroup
+        }
+      }
+
+      for (let i = 0; i < chunk.length; i++) {
+        const row = chunk[i];
+        const rowNum = chunkStart + i + 1;
+
+        if (!row.email || !row.email.trim()) {
+          skipped++;
+          continue;
+        }
+
+        const email = row.email.trim().toLowerCase();
+        const employeeCode = row.employeeCode?.trim() || null;
+        const rawName = row.name?.trim() || email.split('@')[0];
+        const nameParts = rawName.split(' ');
+        const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+        const isClosed =
+          row.isClosed === true ||
+          row.isClosed === 'Y' ||
+          row.isClosed === 'true' ||
+          row.status === 'DISABLED' ||
+          row.status === 'SUSPENDED';
+
+        const status: AccountStatus = isClosed ? AccountStatus.DISABLED : AccountStatus.ACTIVE;
+
+        try {
+          let existingRecord: DirectoryUser | null = null;
+          if (isBatchLookupSupported) {
+            existingRecord =
+              emailMap.get(email) || (employeeCode ? codeMap.get(employeeCode) : null) || null;
+          } else {
+            existingRecord = await this.prisma.directoryUser.findFirst({
+              where: {
+                OR: [{ email }, ...(employeeCode ? [{ employeeCode }] : [])],
+              },
+            });
+          }
+
+          const executeRowWrite = async (tx: Prisma.TransactionClient | PrismaService) => {
+            if (existingRecord) {
+              await tx.directoryUser.update({
+                where: { id: existingRecord.id },
+                data: {
+                  employeeCode: employeeCode || existingRecord.employeeCode,
+                  firstName: firstName || existingRecord.firstName,
+                  lastName: lastName || existingRecord.lastName,
+                  displayName: rawName,
+                  jobTitle: row.designation || existingRecord.jobTitle,
+                  company: row.company || existingRecord.company,
+                  groupCompany: row.groupCompany || existingRecord.groupCompany,
+                  plant: row.plant || existingRecord.plant,
+                  department: row.department || existingRecord.department,
+                  section: row.section || existingRecord.section,
+                  subSection: row.subSection || existingRecord.subSection,
+                  telephone: row.telephone || existingRecord.telephone,
+                  computerName: row.computerName || existingRecord.computerName,
+                  computerName2: row.computerName2 || existingRecord.computerName2,
+                  adGroup: row.adGroup || existingRecord.adGroup,
+                  ouPath: row.ouPath || existingRecord.ouPath,
+                  managerName: row.managerName || existingRecord.managerName,
+                  status,
+                  isClosed,
+                },
+              });
+
+              if (row.adGroup) {
+                await this.ensureAndLinkAdGroup(existingRecord.id, row.adGroup, adGroupCache);
+              }
+              updated++;
+            } else {
+              const newRecord = await tx.directoryUser.create({
+                data: {
+                  email,
+                  employeeCode,
+                  firstName,
+                  lastName,
+                  displayName: rawName,
+                  jobTitle: row.designation || 'Employee',
+                  company: row.company || 'BSL Others',
+                  groupCompany: row.groupCompany || 'BSL',
+                  plant: row.plant || 'Plant 1',
+                  department: row.department || 'Production',
+                  section: row.section || 'General Operations',
+                  subSection: row.subSection || null,
+                  telephone: row.telephone || null,
+                  computerName: row.computerName || null,
+                  computerName2: row.computerName2 || null,
+                  adGroup: row.adGroup || null,
+                  ouPath: row.ouPath || 'OU=Production,DC=uims,DC=internal',
+                  managerName: row.managerName || null,
+                  status,
+                  isClosed,
+                  source: 'LDAP',
+                },
+              });
+
+              if (row.adGroup) {
+                await this.ensureAndLinkAdGroup(newRecord.id, row.adGroup, adGroupCache);
+              }
+              created++;
+            }
+          };
+
+          if (typeof this.prisma.$transaction === 'function') {
+            await this.prisma.$transaction(async (tx) => {
+              await executeRowWrite(tx as Prisma.TransactionClient);
+            });
+          } else {
+            await executeRowWrite(this.prisma);
+          }
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(`Error importing directory record for ${email}: ${message}`);
+          errors.push({ row: rowNum, email, error: message });
+        }
       }
     }
 
@@ -671,26 +765,37 @@ export class DirectoryService {
     };
   }
 
-  async ensureAndLinkAdGroup(userId: string, groupName: string): Promise<void> {
+  async ensureAndLinkAdGroup(
+    userId: string,
+    groupName: string,
+    groupCache?: Map<string, DirectoryGroup>,
+  ): Promise<void> {
     const trimmed = groupName.trim();
     if (!trimmed) return;
 
     try {
-      let group = await this.prisma.directoryGroup.findFirst({
-        where: { name: trimmed },
-      });
-
+      let group = groupCache?.get(trimmed);
       if (!group) {
-        group = await this.prisma.directoryGroup.create({
-          data: {
-            name: trimmed,
-            type: 'AD Security Group',
-            scope: 'Domain Local',
-            ouPath: 'OU=SecurityGroups,OU=Production,DC=uims,DC=internal',
-            description: `Auto-provisioned AD security group for ${trimmed}`,
-            memberCount: 0,
-          },
-        });
+        group =
+          (await this.prisma.directoryGroup.findFirst({
+            where: { name: trimmed },
+          })) ?? undefined;
+
+        if (!group) {
+          group = await this.prisma.directoryGroup.create({
+            data: {
+              name: trimmed,
+              type: 'AD Security Group',
+              scope: 'Domain Local',
+              ouPath: 'OU=SecurityGroups,OU=Production,DC=uims,DC=internal',
+              description: `Auto-provisioned AD security group for ${trimmed}`,
+              memberCount: 0,
+            },
+          });
+        }
+        if (group && groupCache) {
+          groupCache.set(trimmed, group);
+        }
       }
 
       await this.prisma.directoryMembership.upsert({

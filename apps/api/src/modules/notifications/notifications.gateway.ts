@@ -17,9 +17,42 @@ export interface AuthenticatedSocketData {
   email?: string;
 }
 
+function resolveAllowedOrigins(): string[] {
+  const rawOrigins = process.env.CORS_ORIGIN || process.env.ALLOWED_ORIGINS;
+  const defaultDevOrigins = [
+    'http://localhost:5679',
+    'https://localhost:5679',
+    'http://localhost:3000',
+    'http://localhost:3002',
+  ];
+  return rawOrigins
+    ? rawOrigins
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : process.env.NODE_ENV === 'production'
+      ? []
+      : defaultDevOrigins;
+}
+
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      const allowed = resolveAllowedOrigins();
+      if (
+        allowed.includes(origin) ||
+        (process.env.NODE_ENV !== 'production' && origin.endsWith('.trycloudflare.com'))
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin '${origin}' is not allowed by CORS policy`), false);
+    },
     credentials: true,
   },
   namespace: '/notifications',
@@ -43,9 +76,6 @@ export class NotificationsGateway
         const authHeader = socket.handshake.headers?.authorization;
         const rawToken =
           socket.handshake.auth?.token ||
-          (typeof socket.handshake.query?.token === 'string'
-            ? socket.handshake.query.token
-            : undefined) ||
           (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined);
 
         if (!rawToken) {
@@ -69,7 +99,11 @@ export class NotificationsGateway
           return next(new Error('Authentication error: Invalid payload'));
         }
 
-        const role = payload.role || 'Employee';
+        const role = payload.role;
+        if (!role || typeof role !== 'string') {
+          return next(new Error('Authentication error: Missing role in token payload'));
+        }
+
         socket.data = {
           userId,
           role,
@@ -86,15 +120,12 @@ export class NotificationsGateway
     try {
       const existingData = client.data as AuthenticatedSocketData | undefined;
       let userId = existingData?.userId;
-      let role = existingData?.role || 'Employee';
+      let role = existingData?.role;
 
-      if (!userId) {
+      if (!userId || !role) {
         const authHeader = client.handshake.headers?.authorization;
         const rawToken =
           client.handshake.auth?.token ||
-          (typeof client.handshake.query?.token === 'string'
-            ? client.handshake.query.token
-            : undefined) ||
           (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined);
 
         if (!rawToken) {
@@ -125,7 +156,13 @@ export class NotificationsGateway
           return;
         }
 
-        role = payload.role || 'Employee';
+        role = payload.role;
+        if (!role || typeof role !== 'string') {
+          this.logger.debug(`Socket client ${client.id} rejected: Missing role in token payload.`);
+          client.disconnect(true);
+          return;
+        }
+
         const socketData: AuthenticatedSocketData = {
           userId,
           role,

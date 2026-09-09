@@ -75,8 +75,7 @@ export default function AuditPage() {
           totalEventRecords: list.length.toString(),
         });
       }
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to load audit logs from server.');
     } finally {
       setLoading(false);
@@ -100,8 +99,7 @@ export default function AuditPage() {
       link.click();
       document.body.removeChild(link);
       message.success('Audit trail exported successfully as CSV.');
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to export CSV.');
     } finally {
       setExporting(false);

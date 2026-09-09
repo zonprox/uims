@@ -20,9 +20,6 @@ export const authService = {
     const res = await api.post('/auth/login', credentials);
     return res.data;
   },
-  logout: async () => {
-    // Local logout cleanup
-  },
   getProfile: async () => {
     const res = await api.get('/auth/me');
     return res.data;

@@ -216,8 +216,8 @@ export class AuthService {
     if (this.prisma) {
       const tokenHash = hashToken(refreshToken);
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await this.prisma.refreshToken
-        .create({
+      try {
+        await this.prisma.refreshToken.create({
           data: {
             userId: user.id,
             tokenHash,
@@ -225,12 +225,14 @@ export class AuthService {
             ipAddress,
             expiresAt,
           },
-        })
-        .catch(() => {});
+        });
+      } catch (error: unknown) {
+        this.logger.error(`Failed to persist refresh token for user ${user.id}: ${error}`);
+      }
 
       // Record successful login audit
-      await this.prisma.auditLog
-        .create({
+      try {
+        await this.prisma.auditLog.create({
           data: {
             userId: user.id,
             userName: user.displayName || `${user.firstName} ${user.lastName}`.trim(),
@@ -243,8 +245,10 @@ export class AuthService {
             status: 'Success',
             details: `User ${user.email} successfully authenticated via secure token grant.`,
           },
-        })
-        .catch(() => {});
+        });
+      } catch (error: unknown) {
+        this.logger.error(`Failed to record login audit log for user ${user.id}: ${error}`);
+      }
     }
 
     return {
@@ -345,12 +349,14 @@ export class AuthService {
 
   async logout(userId: string) {
     if (this.prisma && userId) {
-      await this.prisma.refreshToken
-        .updateMany({
+      try {
+        await this.prisma.refreshToken.updateMany({
           where: { userId, isRevoked: false },
           data: { isRevoked: true },
-        })
-        .catch(() => {});
+        });
+      } catch (error: unknown) {
+        this.logger.error(`Failed to revoke refresh tokens on logout for user ${userId}: ${error}`);
+      }
     }
     return { success: true, message: 'Successfully logged out' };
   }

@@ -60,8 +60,7 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
           freeIpCapacity: freeCapacity || 894,
         });
       }
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to load network IPAM from server.');
     } finally {
       setLoading(false);
@@ -109,7 +108,6 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
       setIpModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to allocate IP.');
     } finally {
@@ -123,8 +121,7 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
         await networkService.deleteIp(id);
         message.success('IP address released successfully.');
         loadData();
-      } catch (err: unknown) {
-        console.error(err);
+      } catch (_err: unknown) {
         message.error('Failed to release IP address.');
       }
     },
@@ -149,7 +146,6 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
       setSubnetModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to create subnet.');
     } finally {
@@ -164,8 +160,7 @@ export function useNetworkManagement(form: FormInstance, subnetForm: FormInstanc
     try {
       const res = await networkService.pingIp(ip);
       setPingResult({ ip, message: res.message });
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       setPingResult({ ip, message: `Ping timeout for ${ip} (No route to host)` });
     } finally {
       setPinging(false);

@@ -53,7 +53,6 @@ export default function LoginPage() {
       message.success(`Welcome back, ${data.user.name || 'Administrator'}!`);
       navigate(from, { replace: true });
     } catch (error: unknown) {
-      console.error(error);
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       const errMsg =
         err.response?.data?.message ||

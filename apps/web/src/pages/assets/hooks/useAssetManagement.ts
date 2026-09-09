@@ -107,8 +107,7 @@ export function useAssetManagement(form: FormInstance) {
           retired: list.filter((a) => a.status === 'Retired').length,
         });
       }
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to load assets from server.');
     } finally {
       setLoading(false);
@@ -275,7 +274,6 @@ export function useAssetManagement(form: FormInstance) {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      console.error(err);
       const apiErr = err as { response?: { data?: { message?: string } } };
       message.error(apiErr.response?.data?.message || 'Failed to save asset.');
     } finally {
@@ -289,8 +287,7 @@ export function useAssetManagement(form: FormInstance) {
         await assetsService.deleteAsset(id);
         message.success('Asset deleted successfully.');
         loadData();
-      } catch (err: unknown) {
-        console.error(err);
+      } catch (_err: unknown) {
         message.error('Failed to delete asset.');
       }
     },
@@ -320,8 +317,7 @@ export function useAssetManagement(form: FormInstance) {
       link.click();
       document.body.removeChild(link);
       message.success('Assets exported successfully.');
-    } catch (err: unknown) {
-      console.error(err);
+    } catch (_err: unknown) {
       message.error('Failed to export CSV.');
     } finally {
       setExporting(false);

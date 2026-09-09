@@ -10,6 +10,7 @@ export class ReportsService {
       this.prisma.asset.aggregate({ _sum: { purchaseCost: true } }),
       this.prisma.license.findMany({
         select: { totalSeats: true, usedSeats: true, costPerSeat: true },
+        take: 1000,
       }),
     ]);
 
@@ -107,6 +108,7 @@ export class ReportsService {
 
   async getScheduledReports() {
     return this.prisma.reportSchedule.findMany({
+      take: 100,
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -114,7 +116,10 @@ export class ReportsService {
   async getStats() {
     const [schedules, licenses, totalAssets, inUseAssets] = await Promise.all([
       this.prisma.reportSchedule.count(),
-      this.prisma.license.findMany({ select: { usedSeats: true, costPerSeat: true } }),
+      this.prisma.license.findMany({
+        select: { usedSeats: true, costPerSeat: true },
+        take: 1000,
+      }),
       this.prisma.asset.count(),
       this.prisma.asset.count({ where: { status: 'IN_USE' } }),
     ]);

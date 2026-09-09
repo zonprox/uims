@@ -28,7 +28,7 @@ function getSocketUrl(): string {
 
 export function useRealtimeNotifications() {
   const { token } = useAuthStore();
-  const { notification: antNotification } = App.useApp();
+  const { message, notification: antNotification } = App.useApp();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState<Array<NotificationItem>>([]);
@@ -48,12 +48,12 @@ export function useRealtimeNotifications() {
       setNotifications(list);
       const count = list.filter((n) => !n.read).length;
       setUnreadCount(count);
-    } catch (err) {
-      console.error('Failed to load notifications:', err);
+    } catch (_err: unknown) {
+      message.error('Failed to load notifications.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [message, token]);
 
   // Initial load
   useEffect(() => {
@@ -199,8 +199,8 @@ export function useRealtimeNotifications() {
       await notificationsService.markAsRead(id);
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
       setUnreadCount((c) => Math.max(0, c - 1));
-    } catch (err) {
-      console.error('Failed to mark notification as read:', err);
+    } catch (_err: unknown) {
+      message.error('Failed to mark notification as read.');
     }
 
     if (link) {
@@ -213,8 +213,8 @@ export function useRealtimeNotifications() {
       await notificationsService.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch (err) {
-      console.error('Failed to mark all as read:', err);
+    } catch (_err: unknown) {
+      message.error('Failed to mark all notifications as read.');
     }
   };
 
@@ -226,8 +226,8 @@ export function useRealtimeNotifications() {
       if (target && !target.read) {
         setUnreadCount((c) => Math.max(0, c - 1));
       }
-    } catch (err) {
-      console.error('Failed to delete notification:', err);
+    } catch (_err: unknown) {
+      message.error('Failed to delete notification.');
     }
   };
 
@@ -236,8 +236,8 @@ export function useRealtimeNotifications() {
       await notificationsService.clearAll();
       setNotifications([]);
       setUnreadCount(0);
-    } catch (err) {
-      console.error('Failed to clear notifications:', err);
+    } catch (_err: unknown) {
+      message.error('Failed to clear notifications.');
     }
   };
 

@@ -77,6 +77,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return true; // Memory fallback considered healthy
   }
 
+  async ping(): Promise<string> {
+    if (this.client) {
+      return await this.client.ping();
+    }
+    return 'PONG';
+  }
+
   async get<T>(key: string): Promise<T | null> {
     if (this.client && this.isConnected) {
       try {

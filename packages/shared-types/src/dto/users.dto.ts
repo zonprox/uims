@@ -18,6 +18,7 @@ export interface CreateAppUserDto {
   roleName?: string;
   status?: UserStatus;
   isLocked?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface UpdateAppUserDto extends Partial<CreateAppUserDto> {}
@@ -58,7 +59,6 @@ export type CreateSystemUserDto = CreateAppUserDto & {
   managerName?: string;
   accountExpiresAt?: string;
   source?: import('../entities/directory').DirectorySource;
-  adInitialPassword?: string;
   department?: string;
   location?: string;
   departmentId?: string;
