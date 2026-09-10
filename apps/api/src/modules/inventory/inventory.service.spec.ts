@@ -4,6 +4,7 @@ import { InventoryService } from './inventory.service';
 describe('InventoryService', () => {
   let service: InventoryService;
   let mockPrisma: {
+    $queryRaw: ReturnType<typeof vi.fn>;
     inventoryItem: {
       findMany: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
@@ -17,6 +18,7 @@ describe('InventoryService', () => {
 
   beforeEach(() => {
     mockPrisma = {
+      $queryRaw: vi.fn(),
       inventoryItem: {
         findMany: vi.fn(),
         findUnique: vi.fn(),
@@ -111,11 +113,7 @@ describe('InventoryService', () => {
       mockPrisma.inventoryItem.aggregate.mockResolvedValue({
         _sum: { quantity: 12 },
       });
-      mockPrisma.inventoryItem.findMany.mockResolvedValue([
-        { quantity: 10, unitCost: 20 },
-        { quantity: 2, unitCost: 50 },
-        { quantity: 0, unitCost: 100 },
-      ]);
+      mockPrisma.$queryRaw.mockResolvedValue([{ totalValuation: 300 }]);
 
       const stats = await service.getStats();
 
@@ -124,6 +122,7 @@ describe('InventoryService', () => {
       expect(stats.totalValuation).toBe(300);
       expect(stats.lowStockCount).toBe(1);
       expect(stats.outOfStockCount).toBe(1);
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
     });
   });
 });

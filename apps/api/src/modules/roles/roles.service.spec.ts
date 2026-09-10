@@ -114,4 +114,54 @@ describe('RolesService', () => {
       await expect(service.remove('custom-id')).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('cache invalidation', () => {
+    let mockRedis: { del: ReturnType<typeof vi.fn> };
+    let serviceWithRedis: RolesService;
+
+    beforeEach(() => {
+      mockRedis = {
+        del: vi.fn().mockResolvedValue(1),
+      };
+      serviceWithRedis = new RolesService(
+        prisma,
+        mockRedis as unknown as import('../../common/redis/redis.service').RedisService,
+      );
+    });
+
+    it('should invalidate both roles and permissions caches on create', async () => {
+      mockPrisma.role.findFirst.mockResolvedValue(null);
+      mockPrisma.role.create.mockResolvedValue({ id: 'r-1', name: 'New Role' });
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'r-1',
+        name: 'New Role',
+        permissions: [],
+        users: [],
+        _count: { users: 0, permissions: 0 },
+      });
+
+      await serviceWithRedis.create({ name: 'New Role' });
+
+      expect(mockRedis.del).toHaveBeenCalledWith('uims:cache:roles:all');
+      expect(mockRedis.del).toHaveBeenCalledWith('cache:roles:permissions');
+    });
+
+    it('should safely handle Redis deletion failures without throwing', async () => {
+      mockPrisma.role.findFirst.mockResolvedValue(null);
+      mockPrisma.role.create.mockResolvedValue({ id: 'r-2', name: 'Role Failure Test' });
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'r-2',
+        name: 'Role Failure Test',
+        permissions: [],
+        users: [],
+        _count: { users: 0, permissions: 0 },
+      });
+      mockRedis.del.mockRejectedValue(new Error('Redis connection down'));
+
+      const result = await serviceWithRedis.create({ name: 'Role Failure Test' });
+
+      expect(result.id).toBe('r-2');
+      expect(mockRedis.del).toHaveBeenCalled();
+    });
+  });
 });

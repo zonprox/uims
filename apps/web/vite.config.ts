@@ -23,8 +23,20 @@ function resolveManualChunk(id: string): string | undefined {
   return 'vendor-other';
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
+  const isBuild = command === 'build' || mode === 'production';
+  if (isBuild) {
+    delete process.env.VITE_USER_NODE_ENV;
+    process.env.NODE_ENV = 'production';
+  }
+
   const env = loadEnv(mode, path.resolve(import.meta.dirname, '../../'), '');
+
+  if (isBuild) {
+    delete process.env.VITE_USER_NODE_ENV;
+    process.env.NODE_ENV = 'production';
+  }
+
   const webPort = parseInt(env.WEB_PORT || '5679', 10);
   const apiPort = parseInt(env.APP_PORT || '3002', 10);
 
@@ -46,6 +58,9 @@ export default defineConfig(({ mode }) => {
     : undefined;
 
   return {
+    define: {
+      ...(isBuild ? { 'import.meta.env.DEV': 'false' } : {}),
+    },
     plugins: [react()],
     resolve: {
       alias: {
@@ -108,7 +123,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: true,
+      sourcemap: !isBuild,
       chunkSizeWarningLimit: 1600,
       rollupOptions: {
         output: {

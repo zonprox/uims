@@ -1,19 +1,118 @@
-export interface PrintableAssetData {
-  tag: string;
-  name: string;
-  serialNumber?: string | null;
-  model?: string | null;
-  category?: { name: string } | string | null;
-  location?: { name: string } | string | null;
-}
+import { z } from 'zod';
 
-function escapeHtml(text: string): string {
-  return text
+export const printableAssetSchema = z.object({
+  tag: z.string().min(1, 'Tag is required'),
+  name: z.string().min(1, 'Name is required'),
+  serialNumber: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  category: z
+    .union([z.object({ name: z.string() }), z.string()])
+    .nullable()
+    .optional(),
+  location: z
+    .union([z.object({ name: z.string() }), z.string()])
+    .nullable()
+    .optional(),
+});
+
+export type PrintableAssetData = z.infer<typeof printableAssetSchema>;
+
+/**
+ * Escapes special characters to prevent HTML injection.
+ * Safely handles null, undefined, numbers, and objects without crashing.
+ */
+export function escapeHtml(text: unknown): string {
+  if (text === null || text === undefined) {
+    return '';
+  }
+  let str: string;
+  try {
+    str = String(text);
+  } catch {
+    return '';
+  }
+  return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Safely sanitizes and validates printable asset data at runtime,
+ * falling back to safe defaults if fields are missing, invalid, or null.
+ */
+export function sanitizePrintableAsset(input: unknown): PrintableAssetData {
+  if (typeof input !== 'object' || input === null) {
+    return {
+      tag: 'UNKNOWN-TAG',
+      name: 'Unnamed Asset',
+      serialNumber: null,
+      model: null,
+      category: null,
+      location: null,
+    };
+  }
+
+  const raw = input as Record<string, unknown>;
+
+  const tag =
+    typeof raw.tag === 'string' && raw.tag.trim().length > 0
+      ? raw.tag.trim()
+      : raw.tag != null
+        ? String(raw.tag).trim() || 'UNKNOWN-TAG'
+        : 'UNKNOWN-TAG';
+
+  const name =
+    typeof raw.name === 'string' && raw.name.trim().length > 0
+      ? raw.name.trim()
+      : raw.name != null
+        ? String(raw.name).trim() || 'Unnamed Asset'
+        : 'Unnamed Asset';
+
+  const serialNumber =
+    typeof raw.serialNumber === 'string'
+      ? raw.serialNumber
+      : raw.serialNumber != null
+        ? String(raw.serialNumber)
+        : null;
+
+  const model =
+    typeof raw.model === 'string' ? raw.model : raw.model != null ? String(raw.model) : null;
+
+  let category: PrintableAssetData['category'] = null;
+  if (typeof raw.category === 'string') {
+    category = raw.category;
+  } else if (
+    typeof raw.category === 'object' &&
+    raw.category !== null &&
+    'name' in raw.category &&
+    typeof (raw.category as { name: unknown }).name === 'string'
+  ) {
+    category = { name: (raw.category as { name: string }).name };
+  }
+
+  let location: PrintableAssetData['location'] = null;
+  if (typeof raw.location === 'string') {
+    location = raw.location;
+  } else if (
+    typeof raw.location === 'object' &&
+    raw.location !== null &&
+    'name' in raw.location &&
+    typeof (raw.location as { name: unknown }).name === 'string'
+  ) {
+    location = { name: (raw.location as { name: string }).name };
+  }
+
+  return {
+    tag,
+    name,
+    serialNumber,
+    model,
+    category,
+    location,
+  };
 }
 
 /**
@@ -101,7 +200,7 @@ export function convertToBlackAndWhiteQr(sourceCanvas: HTMLCanvasElement): strin
 
     offCtx.putImageData(targetImgData, 0, 0);
     return offscreen.toDataURL('image/png');
-  } catch {
+  } catch (_error: unknown) {
     return typeof sourceCanvas.toDataURL === 'function' ? sourceCanvas.toDataURL('image/png') : '';
   }
 }
@@ -117,7 +216,7 @@ export function convertSvgToDataUrl(svgElement: SVGElement): string {
     const serializer = new XMLSerializer();
     const svgString = serializer.serializeToString(clone);
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
-  } catch {
+  } catch (_error: unknown) {
     return '';
   }
 }
@@ -125,7 +224,8 @@ export function convertSvgToDataUrl(svgElement: SVGElement): string {
 /**
  * Builds self-contained HTML for printing an asset label sticker.
  */
-export function generatePrintLabelHtml(asset: PrintableAssetData, qrDataUrl: string): string {
+export function generatePrintLabelHtml(assetInput: PrintableAssetData, qrDataUrl: string): string {
+  const asset = sanitizePrintableAsset(assetInput);
   const categoryName =
     typeof asset.category === 'object' && asset.category !== null
       ? asset.category.name
@@ -272,12 +372,14 @@ export function generatePrintLabelHtml(asset: PrintableAssetData, qrDataUrl: str
  * printing ONLY the asset sticker label and avoiding any full-page leakage.
  */
 export function printAssetLabel(
-  asset: PrintableAssetData,
+  assetInput: PrintableAssetData,
   qrCanvasOrContainer?: HTMLCanvasElement | HTMLElement | null,
 ): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
     return;
   }
+
+  const asset = sanitizePrintableAsset(assetInput);
 
   // 1. Locate the rendered QR canvas or SVG
   let canvas: HTMLCanvasElement | null = null;
@@ -338,7 +440,7 @@ export function printAssetLabel(
     try {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
-    } catch {
+    } catch (_printErr: unknown) {
       window.print();
     } finally {
       setTimeout(() => {
@@ -355,10 +457,10 @@ export function printAssetLabel(
       img
         .decode()
         .then(() => setTimeout(handlePrint, 50))
-        .catch(() => handlePrint());
+        .catch((_decodeErr: unknown) => handlePrint());
     } else if (!img.complete) {
       img.onload = () => setTimeout(handlePrint, 50);
-      img.onerror = handlePrint;
+      img.onerror = () => handlePrint();
     } else {
       setTimeout(handlePrint, 100);
     }

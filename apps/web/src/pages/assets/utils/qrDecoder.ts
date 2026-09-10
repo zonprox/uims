@@ -139,7 +139,7 @@ export function parseAssetQrPayload(raw: string): string {
         // Valid JSON object without asset identifier should not fall through to raw string
         return '';
       }
-    } catch {
+    } catch (_jsonErr: unknown) {
       // Non-JSON or malformed payload, fall through
     }
   }
@@ -207,7 +207,7 @@ export function parseAssetQrPayload(raw: string): string {
       // Plain URL with no identifiable asset tag or route
       return '';
     }
-  } catch {
+  } catch (_urlErr: unknown) {
     // Fall back to regex patterns
   }
 
@@ -275,7 +275,7 @@ export async function isBarcodeDetectorSupported(): Promise<boolean> {
     const supported = Array.isArray(formats) && formats.includes('qr_code');
     barcodeDetectorSupportedCache = supported;
     return supported;
-  } catch {
+  } catch (_formatsErr: unknown) {
     barcodeDetectorSupportedCache = false;
     return false;
   }
@@ -329,7 +329,7 @@ export async function decodeQrFromVideoFrame(
           source: 'barcode-detector',
         };
       }
-    } catch {
+    } catch (_detectErr: unknown) {
       // Fall through to canvas-based jsQR
     }
   }
@@ -369,7 +369,7 @@ export async function decodeQrFromVideoFrame(
         source: 'canvas-jsqr',
       };
     }
-  } catch {
+  } catch (_canvasErr: unknown) {
     // Canvas reading blocked or failed
   }
 
@@ -421,7 +421,7 @@ export async function decodeQrFromImageFile(file: File): Promise<DecodedQrResult
           };
         }
       }
-    } catch {
+    } catch (_detectorErr: unknown) {
       // Fallback to canvas
     } finally {
       if (imageSource && 'close' in imageSource && typeof imageSource.close === 'function') {
@@ -452,7 +452,7 @@ export async function decodeQrFromImageFile(file: File): Promise<DecodedQrResult
         source: 'canvas-jsqr',
       };
     }
-  } catch {
+  } catch (_jsqrErr: unknown) {
     // Decoding failed
   }
 
@@ -499,19 +499,23 @@ export function playSuccessChime(): void {
     gain.connect(ctx.destination);
 
     osc.onended = () => {
-      ctx.close().catch(() => {});
+      ctx.close().catch((_closeErr: unknown) => {
+        // Non-fatal AudioContext cleanup failure
+      });
     };
 
     // Safety fallback: ensure audio context is closed even if onended doesn't trigger
     setTimeout(() => {
       if (ctx.state !== 'closed') {
-        ctx.close().catch(() => {});
+        ctx.close().catch((_fallbackCloseErr: unknown) => {
+          // Non-fatal AudioContext cleanup fallback failure
+        });
       }
     }, 300);
 
     osc.start();
     osc.stop(ctx.currentTime + 0.18);
-  } catch {
+  } catch (_audioErr: unknown) {
     // Autoplay policy or unsupported audio environment
   }
 }
@@ -524,7 +528,7 @@ export function triggerHapticFeedback(): void {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate([80, 40, 80]);
     }
-  } catch {
+  } catch (_hapticErr: unknown) {
     // Haptic feedback not supported
   }
 }

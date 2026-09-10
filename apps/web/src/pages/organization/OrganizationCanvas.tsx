@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import type { OrgNode } from '@uims/shared-types';
 import {
+  App,
   Badge,
   Button,
   Card,
@@ -439,6 +440,7 @@ export default function OrganizationCanvas({
   onOpenCreatePos,
   loading = false,
 }: OrganizationCanvasProps) {
+  const { message } = App.useApp();
   const resolvedMode = useThemeStore((state) => state.resolvedMode);
   const isDark = resolvedMode === 'dark';
 
@@ -724,12 +726,16 @@ export default function OrganizationCanvas({
       containerRef.current
         .requestFullscreen?.()
         .then(() => setIsFullscreen(true))
-        .catch(() => {});
+        .catch((_err: unknown) => {
+          message.warning('Fullscreen mode is not permitted by your browser.');
+        });
     } else {
       document
         .exitFullscreen?.()
         .then(() => setIsFullscreen(false))
-        .catch(() => {});
+        .catch((_err: unknown) => {
+          message.warning('Unable to exit fullscreen mode.');
+        });
     }
   };
 
@@ -1094,7 +1100,7 @@ export default function OrganizationCanvas({
                       onChange={() => handleToggleTypeFilter('organization')}
                     >
                       <Tag color="purple" style={{ margin: 0 }}>
-                        Entities & Hubs
+                        {'Entities & Hubs'}
                       </Tag>
                     </Checkbox>
                   ),

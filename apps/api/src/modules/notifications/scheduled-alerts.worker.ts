@@ -72,7 +72,7 @@ export class ScheduledAlertsWorker {
       where: {
         expiryDate: { not: null, lte: thirtyDaysAhead },
       },
-      take: 500,
+      take: 100,
       orderBy: { expiryDate: 'asc' },
     });
 
@@ -192,7 +192,7 @@ export class ScheduledAlertsWorker {
         warrantyExpiry: { not: null, lte: thirtyDaysAhead },
         status: { in: ['AVAILABLE', 'IN_USE', 'MAINTENANCE'] },
       },
-      take: 500,
+      take: 100,
       orderBy: { warrantyExpiry: 'asc' },
     });
 
@@ -279,7 +279,7 @@ export class ScheduledAlertsWorker {
         status: 'MAINTENANCE',
         updatedAt: { lte: fourteenDaysAgo },
       },
-      take: 500,
+      take: 100,
       orderBy: { updatedAt: 'asc' },
     });
 
@@ -312,49 +312,72 @@ export class ScheduledAlertsWorker {
    * 4. Scan Low Stock & Out of Stock Inventory Items (quantity <= minThreshold)
    */
   async scanLowStock(): Promise<ScanResult> {
-    const items = await this.prisma.inventoryItem.findMany({
-      take: 500,
-      orderBy: { quantity: 'asc' },
-    });
+    let items: Array<{
+      id: string;
+      name: string;
+      sku: string;
+      quantity: number;
+      minThreshold: number;
+    }>;
+
+    if (typeof this.prisma.$queryRaw === 'function') {
+      items = await this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          name: string;
+          sku: string;
+          quantity: number;
+          minThreshold: number;
+        }>
+      >`
+        SELECT id, name, sku, quantity, "minThreshold"
+        FROM "InventoryItem"
+        WHERE quantity <= "minThreshold"
+        ORDER BY quantity ASC
+        LIMIT 100
+      `;
+    } else {
+      const fetched = await this.prisma.inventoryItem.findMany({
+        take: 100,
+        orderBy: { quantity: 'asc' },
+      });
+      items = fetched.filter((item) => item.quantity <= item.minThreshold);
+    }
 
     let notified = 0;
     let throttled = 0;
-    let matchingCount = 0;
 
     for (const item of items) {
-      if (item.quantity <= item.minThreshold) {
-        matchingCount++;
-        if (item.quantity === 0) {
-          const sent = await this.dispatchThrottledAlert(
-            `alert:inventory:out_of_stock:${item.id}`,
-            86400, // 24 hours cooldown
-            {
-              title: 'Item Out of Stock',
-              message: `Item "${item.name}" (${item.sku}) is out of stock (0 units remaining).`,
-              type: 'ALERT',
-              link: '/inventory',
-            },
-          );
-          if (sent) notified++;
-          else throttled++;
-        } else {
-          const sent = await this.dispatchThrottledAlert(
-            `alert:inventory:low_stock:${item.id}`,
-            86400, // 24 hours cooldown
-            {
-              title: 'Low Stock Alert',
-              message: `Item "${item.name}" (${item.sku}) is low on stock: ${item.quantity} units remaining (threshold: ${item.minThreshold}).`,
-              type: 'WARNING',
-              link: '/inventory',
-            },
-          );
-          if (sent) notified++;
-          else throttled++;
-        }
+      if (item.quantity === 0) {
+        const sent = await this.dispatchThrottledAlert(
+          `alert:inventory:out_of_stock:${item.id}`,
+          86400, // 24 hours cooldown
+          {
+            title: 'Item Out of Stock',
+            message: `Item "${item.name}" (${item.sku}) is out of stock (0 units remaining).`,
+            type: 'ALERT',
+            link: '/inventory',
+          },
+        );
+        if (sent) notified++;
+        else throttled++;
+      } else {
+        const sent = await this.dispatchThrottledAlert(
+          `alert:inventory:low_stock:${item.id}`,
+          86400, // 24 hours cooldown
+          {
+            title: 'Low Stock Alert',
+            message: `Item "${item.name}" (${item.sku}) is low on stock: ${item.quantity} units remaining (threshold: ${item.minThreshold}).`,
+            type: 'WARNING',
+            link: '/inventory',
+          },
+        );
+        if (sent) notified++;
+        else throttled++;
       }
     }
 
-    return { scanned: matchingCount, notified, throttled };
+    return { scanned: items.length, notified, throttled };
   }
 
   /**
@@ -378,16 +401,22 @@ export class ScheduledAlertsWorker {
           return false;
         }
         await this.redis.set(cacheKey, true, ttlSeconds);
-      } catch (err) {
-        this.logger.warn(`Redis throttling check failed for ${cacheKey}: ${err}`);
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Redis throttling check failed for ${cacheKey}`,
+          error instanceof Error ? error.stack : String(error),
+        );
       }
     }
 
     try {
       await this.notificationsService.notifyAdmins(payload);
       return true;
-    } catch (err) {
-      this.logger.error(`Failed to dispatch alert: ${(err as Error).message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        'Failed to dispatch alert',
+        error instanceof Error ? error.stack : String(error),
+      );
       return false;
     }
   }

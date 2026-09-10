@@ -132,6 +132,7 @@ model DirectoryUser {
   assignedAssets     Asset[]               @relation("DirectoryAssignedAssets")
   licenseAssignments LicenseAssignment[]
   groupMemberships   DirectoryMembership[]
+  assignedIPs        IPAddress[]
 
   @@index([organizationId])
   @@index([departmentId])
@@ -193,19 +194,23 @@ model Asset {
   warrantyExpiry DateTime?
   assignedToId   String?
   locationId     String?
+  credentialId   String?
   specs          Json?
   notes          String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  category   AssetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  assignedTo DirectoryUser? @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  location   Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  history    AssetHistory[]
+  category    AssetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  assignedTo  DirectoryUser?     @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  location    Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  credential  NetworkCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  history     AssetHistory[]
+  ipAddresses IPAddress[]
 
   @@index([assignedToId])
   @@index([categoryId])
   @@index([locationId])
+  @@index([credentialId])
   @@index([status])
   @@index([status, updatedAt])
   @@index([warrantyExpiry])
@@ -333,59 +338,125 @@ model DirectoryMembership {
   @@index([groupId])
 }
 
-model IPAddress {
-  id          String   @id @default(uuid())
-  address     String   @unique
-  hostname    String?
-  macAddress  String?
-  vendor      String?
-  deviceType  String?  @default("Workstation")
-  subnetId    String?
-  subnetName  String?
-  vlanName    String?
-  status      IPStatus @default(AVAILABLE)
-  pingStatus  String?  @default("online")
-  lastSeen    String?
-  assignedTo  String?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  subnet Subnet? @relation(fields: [subnetId], references: [id], onDelete: SetNull)
-
-  @@index([subnetId])
-  @@index([status])
-}
-
-model Subnet {
-  id          String   @id @default(uuid())
-  cidr        String   @unique
-  name        String
-  vlanId      String?
-  vlanName    String?
-  gateway     String?
-  totalIps    Int      @default(254)
-  usedIps     Int      @default(0)
-  location    String?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  vlan        VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
-  ipAddresses IPAddress[]
-
-  @@index([vlanId])
+enum VlanStatus {
+  ACTIVE
+  RESERVED
+  DEPRECATED
 }
 
 model VLAN {
-  id          String   @id @default(uuid())
-  vlanNumber  Int      @unique
+  id          String      @id @default(uuid())
+  vlanNumber  Int         @unique
   name        String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status      VlanStatus  @default(ACTIVE)
+  locationId  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
-  subnets Subnet[]
+  location    Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  subnets     Subnet[]
+  ipAddresses IPAddress[]
+
+  @@index([locationId])
+  @@index([vlanNumber])
+  @@index([name])
+}
+
+model Subnet {
+  id               String      @id @default(uuid())
+  cidr             String      @unique
+  name             String
+  vlanId           String?
+  locationId       String?
+  gateway          String?
+  networkAddress   String?
+  netmask          String?
+  broadcastAddress String?
+  startIp          String?
+  endIp            String?
+  totalIps         Int         @default(254)
+  usedIps          Int         @default(0)
+  reservedIps      Int         @default(0)
+  description      String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  vlan             VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
+  location         Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  ipAddresses      IPAddress[]
+
+  @@index([vlanId])
+  @@index([locationId])
+  @@index([cidr])
+  @@index([name])
+}
+
+model IPAddress {
+  id             String             @id @default(uuid())
+  address        String
+  hostname       String?
+  macAddress     String?
+  vendor         String?
+  deviceType     String?            @default("Workstation")
+  model          String?
+  serialNumber   String?
+  section        String?
+  floor          String?
+  subnetId       String?
+  vlanId         String?
+  locationId     String?
+  assetId        String?
+  assignedUserId String?
+  credentialId   String?
+  status         IPStatus           @default(AVAILABLE)
+  pingStatus     String?            @default("online")
+  responseTimeMs Float?
+  lastSeen       DateTime?
+  description    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  subnet         Subnet?            @relation(fields: [subnetId], references: [id], onDelete: SetNull)
+  vlan           VLAN?              @relation(fields: [vlanId], references: [id], onDelete: SetNull)
+  location       Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  asset          Asset?             @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  assignedUser   DirectoryUser?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  credential     NetworkCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+
+  @@unique([address, subnetId])
+  @@index([subnetId])
+  @@index([vlanId])
+  @@index([locationId])
+  @@index([assetId])
+  @@index([assignedUserId])
+  @@index([credentialId])
+  @@index([status])
+  @@index([pingStatus])
+  @@index([macAddress])
+  @@index([hostname])
+  @@index([deviceType])
+}
+
+model NetworkCredential {
+  id            String      @id @default(uuid())
+  name          String
+  username      String
+  encryptedData String      // Base64 AES-256-GCM ciphertext
+  iv            String      // Base64 12-byte initialization vector
+  authTag       String      // Base64 16-byte authentication tag
+  keyVersion    Int         @default(1)
+  protocol      String?     @default("HTTP")
+  port          Int?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  ipAddresses   IPAddress[]
+  assets        Asset[]
+
+  @@index([name])
+  @@index([username])
 }
 
 model AuditLog {
@@ -494,10 +565,15 @@ model Location {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  assets Asset[]
-  users  DirectoryUser[]
+  assets      Asset[]
+  users       DirectoryUser[]
+  vlans       VLAN[]
+  subnets     Subnet[]
+  ipAddresses IPAddress[]
 
   @@index([organizationId])
+  @@index([name])
+  @@index([code])
 }
 
 model Organization {

@@ -47,7 +47,7 @@ export interface AssetScannerModalProps {
 
 export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
   ({ open, onClose, onScanSuccess, onRegisterAsset }) => {
-    const { message } = App.useApp();
+    const { message, notification } = App.useApp();
 
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -93,7 +93,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
           videoRef.current.pause?.();
           videoRef.current.srcObject = null;
           videoRef.current.load?.();
-        } catch {
+        } catch (_cleanupErr: unknown) {
           // Media stream release fallback
         }
       }
@@ -120,7 +120,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
           videoRef.current.pause?.();
           videoRef.current.srcObject = null;
           videoRef.current.load?.();
-        } catch {
+        } catch (_resetErr: unknown) {
           // Reset fallback
         }
       }
@@ -128,10 +128,16 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
       setTorchSupported(false);
 
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        setCameraError(
-          'Camera access is unavailable in this environment. Please use manual entry or file upload.',
-        );
+        const errorMsg =
+          'Camera access is unavailable in this environment. Please use manual entry or file upload.';
+        setCameraError(errorMsg);
         setStatus('error');
+        notification.error({
+          message: 'Camera Unavailable',
+          description: errorMsg,
+          placement: 'topRight',
+          duration: 5,
+        });
         return;
       }
 
@@ -150,7 +156,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
         let usedRequestedDevice = Boolean(deviceId);
         try {
           stream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch {
+        } catch (_constraintErr: unknown) {
           // Fallback to default video device if environmental constraints fail
           usedRequestedDevice = false;
           stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -168,7 +174,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
           try {
             video.srcObject = stream;
             video.muted = true;
-          } catch {
+          } catch (_srcErr: unknown) {
             // Browser/environment srcObject constraint fallback
           }
 
@@ -177,15 +183,17 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
             try {
               const playPromise = video.play?.();
               if (playPromise && typeof playPromise.catch === 'function') {
-                playPromise.catch(() => {
+                playPromise.catch((_playErr: unknown) => {
                   setTimeout(() => {
                     if (isOpenRef.current && videoRef.current && videoRef.current.paused) {
-                      videoRef.current.play?.()?.catch?.(() => {});
+                      videoRef.current.play?.()?.catch?.((_retryErr: unknown) => {
+                        // Handled: video autoplay policy retry failure
+                      });
                     }
                   }, 120);
                 });
               }
-            } catch {
+            } catch (_policyErr: unknown) {
               // Video play policy fallback
             }
           };
@@ -221,7 +229,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
             selectedDeviceIdRef.current = activeDeviceId;
             setSelectedDeviceId(activeDeviceId);
           }
-        } catch {
+        } catch (_deviceErr: unknown) {
           // Enumerate devices not permitted or supported
         }
       } catch (err: unknown) {
@@ -239,6 +247,12 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
                 : 'Unable to start camera stream.';
         setCameraError(messageText);
         setStatus('error');
+        notification.error({
+          message: 'Camera Access Denied',
+          description: messageText,
+          placement: 'topRight',
+          duration: 5,
+        });
       }
     }, []);
 
@@ -254,7 +268,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
           advanced: [advancedConstraints as MediaTrackConstraintSet],
         });
         setTorchEnabled(nextTorch);
-      } catch {
+      } catch (_torchErr: unknown) {
         message.warning('Unable to toggle flashlight on this camera device.');
       }
     }, [torchEnabled, torchSupported, message]);
@@ -290,8 +304,10 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
 
         if (videoRef.current.paused) {
           try {
-            videoRef.current.play?.()?.catch?.(() => {});
-          } catch {
+            videoRef.current.play?.()?.catch?.((_autoplayErr: unknown) => {
+              // Non-fatal: autoplay policy restriction during active scan loop
+            });
+          } catch (_playErr: unknown) {
             // Ignore autoplay error
           }
         }
@@ -316,7 +332,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
                 setStatus('processing');
                 try {
                   await onScanSuccess(result.parsedTag);
-                } catch {
+                } catch (_scanErr: unknown) {
                   // Scanning callback error handled by caller
                 } finally {
                   isProcessingRef.current = false;
@@ -327,7 +343,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
                 }
               }, 250);
             }
-          } catch {
+          } catch (_decodeErr: unknown) {
             // Frame decoding error, continue loop
           }
         }
@@ -376,7 +392,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
       setStatus('processing');
       try {
         await onScanSuccess(parsed);
-      } catch {
+      } catch (_lookupErr: unknown) {
         // Handled by onScanSuccess / caller
       } finally {
         if (isOpenRef.current) {
@@ -392,8 +408,10 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
         let result: DecodedQrResult | null = null;
         try {
           result = await decodeQrFromImageFile(file);
-        } catch {
-          message.error('Failed to decode uploaded image.');
+        } catch (uploadErr: unknown) {
+          message.error(
+            uploadErr instanceof Error ? uploadErr.message : 'Failed to decode uploaded image.',
+          );
           if (isOpenRef.current) {
             setStatus(cameraError ? 'error' : 'scanning');
           }
@@ -403,7 +421,7 @@ export const AssetScannerModal: React.FC<AssetScannerModalProps> = React.memo(
         if (result && result.parsedTag) {
           try {
             await onScanSuccess(result.parsedTag);
-          } catch {
+          } catch (_uploadScanErr: unknown) {
             // Handled by caller
           } finally {
             if (isOpenRef.current) {

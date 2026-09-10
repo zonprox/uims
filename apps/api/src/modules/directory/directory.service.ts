@@ -611,8 +611,12 @@ export class DirectoryService {
               if (user.employeeCode) codeMap.set(user.employeeCode, user);
             }
           }
-        } catch {
+        } catch (error: unknown) {
           isBatchLookupSupported = false;
+          this.logger.error(
+            'Batch directory user lookup failed, falling back to sequential lookup',
+            error instanceof Error ? error.stack : String(error),
+          );
         }
       }
 
@@ -633,8 +637,11 @@ export class DirectoryService {
               adGroupCache.set(group.name, group);
             }
           }
-        } catch {
-          // Fall back to on-demand lookup/creation in ensureAndLinkAdGroup
+        } catch (error: unknown) {
+          this.logger.error(
+            'Batch AD group pre-fetch failed, falling back to on-demand lookup',
+            error instanceof Error ? error.stack : String(error),
+          );
         }
       }
 

@@ -7,6 +7,7 @@ import { AssetScannerModal } from './AssetScannerModal';
 const mockMessageSuccess = vi.fn();
 const mockMessageWarning = vi.fn();
 const mockMessageError = vi.fn();
+const mockNotificationError = vi.fn();
 
 vi.mock('antd', async () => {
   const actual = await vi.importActual('antd');
@@ -18,6 +19,9 @@ vi.mock('antd', async () => {
           success: mockMessageSuccess,
           warning: mockMessageWarning,
           error: mockMessageError,
+        },
+        notification: {
+          error: mockNotificationError,
         },
       }),
     },
@@ -512,6 +516,12 @@ describe('AssetScannerModal', () => {
     });
 
     expect(document.body.textContent).toContain('Camera Access Unavailable');
+    expect(mockNotificationError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Camera Access Denied',
+        description: expect.stringContaining('Camera permission was denied'),
+      }),
+    );
 
     const input = document.body.querySelector('input[placeholder*="AST-2026"]') as HTMLInputElement;
     await act(async () => {
@@ -535,6 +545,37 @@ describe('AssetScannerModal', () => {
     expect(onScanSuccess).toHaveBeenCalledWith('AST-9900');
     // Camera error alert must remain visible since camera is still denied/unavailable
     expect(document.body.textContent).toContain('Camera Access Unavailable');
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('dispatches notification.error when camera hardware is not found (NotFoundError)', async () => {
+    const notFoundErr = new Error('No camera found');
+    notFoundErr.name = 'NotFoundError';
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockRejectedValue(notFoundErr);
+
+    const onClose = vi.fn();
+    const onScanSuccess = vi.fn();
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        createElement(AssetScannerModal, {
+          open: true,
+          onClose,
+          onScanSuccess,
+        }),
+      );
+    });
+
+    expect(mockNotificationError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Camera Access Denied',
+        description: expect.stringContaining('No camera device found on this system'),
+      }),
+    );
 
     act(() => {
       root.unmount();

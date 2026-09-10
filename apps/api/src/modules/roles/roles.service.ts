@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
@@ -84,16 +85,24 @@ const SUBJECT_METADATA: Record<
 
 @Injectable()
 export class RolesService {
-  private readonly CACHE_KEY = 'uims:cache:roles:all';
+  private readonly logger = new Logger(RolesService.name);
+  private readonly CACHE_KEYS = ['uims:cache:roles:all', 'cache:roles:permissions'];
 
   constructor(
     private prisma: PrismaService,
     @Optional() private redis?: RedisService,
   ) {}
 
-  private async invalidateCache() {
-    if (this.redis) {
-      await this.redis.del(this.CACHE_KEY).catch(() => {});
+  private async invalidateCache(): Promise<void> {
+    if (!this.redis) return;
+
+    try {
+      await Promise.all(this.CACHE_KEYS.map((key) => this.redis!.del(key)));
+    } catch (error: unknown) {
+      this.logger.error(
+        'Failed to invalidate roles cache in Redis',
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 

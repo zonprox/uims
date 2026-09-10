@@ -144,8 +144,8 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       const [allSettings, healthTelemetry] = await Promise.all([
-        settingsService.getAllSettings().catch(() => ({}) as Record<string, unknown>),
-        settingsService.getHealth().catch(() => null),
+        settingsService.getAllSettings(),
+        settingsService.getHealth(),
       ]);
 
       const settingsObj = allSettings as Record<string, unknown>;
@@ -200,7 +200,7 @@ export default function SettingsPage() {
       setIsSecurityDirty(false);
       setIsAppearanceDirty(false);
     } catch (_err: unknown) {
-      message.error('Failed to load settings.');
+      message.error('Failed to load system settings from server.');
     } finally {
       setLoading(false);
     }
@@ -295,8 +295,10 @@ export default function SettingsPage() {
       } else {
         await executeSaveGeneral(values);
       }
-    } catch {
-      // Form validation error already highlighted in UI
+    } catch (err: unknown) {
+      if (!(err && typeof err === 'object' && 'errorFields' in err)) {
+        message.error('An unexpected error occurred during form validation.');
+      }
     }
   };
 
@@ -354,8 +356,10 @@ export default function SettingsPage() {
         okButtonProps: { type: 'primary' },
         onOk: () => executeSaveSecurity(values),
       });
-    } catch {
-      // Form validation error already highlighted in UI
+    } catch (err: unknown) {
+      if (!(err && typeof err === 'object' && 'errorFields' in err)) {
+        message.error('An unexpected error occurred during form validation.');
+      }
     }
   };
 
@@ -764,7 +768,7 @@ export default function SettingsPage() {
                     title={
                       <Space size={6}>
                         <SoundOutlined style={{ color: '#1677ff' }} />
-                        <span>Sound & Audio Alerts</span>
+                        <span>Sound &amp; Audio Alerts</span>
                       </Space>
                     }
                     style={{ marginBottom: 16 }}
@@ -887,7 +891,7 @@ export default function SettingsPage() {
                       <Flex justify="space-between" align="center">
                         <div>
                           <Text strong style={{ display: 'block', fontSize: 13 }}>
-                            Critical Alerts & Warnings
+                            Critical Alerts &amp; Warnings
                           </Text>
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             Hardware warranty expiry, low inventory thresholds, and license limit
@@ -905,7 +909,7 @@ export default function SettingsPage() {
                       <Flex justify="space-between" align="center">
                         <div>
                           <Text strong style={{ display: 'block', fontSize: 13 }}>
-                            Workflow & Task Reminders
+                            Workflow &amp; Task Reminders
                           </Text>
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             Asset allocation requests, maintenance jobs, and review approvals.
@@ -939,7 +943,7 @@ export default function SettingsPage() {
                       <Flex justify="space-between" align="center">
                         <div>
                           <Text strong style={{ display: 'block', fontSize: 13 }}>
-                            System & Infrastructure Events
+                            System &amp; Infrastructure Events
                           </Text>
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             Platform backups, cache purges, and automated synchronization tasks.
@@ -1271,7 +1275,7 @@ export default function SettingsPage() {
               label: (
                 <Space>
                   <DatabaseOutlined />
-                  <span>Maintenance & Backups</span>
+                  <span>Maintenance &amp; Backups</span>
                 </Space>
               ),
               children: (

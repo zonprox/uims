@@ -4,6 +4,7 @@ import { ScheduledAlertsWorker } from './scheduled-alerts.worker';
 describe('ScheduledAlertsWorker', () => {
   let worker: ScheduledAlertsWorker;
   let mockPrisma: {
+    $queryRaw: ReturnType<typeof vi.fn>;
     license: {
       findMany: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
@@ -25,6 +26,7 @@ describe('ScheduledAlertsWorker', () => {
 
   beforeEach(() => {
     mockPrisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       license: {
         findMany: vi.fn(),
         update: vi.fn(),
@@ -68,6 +70,9 @@ describe('ScheduledAlertsWorker', () => {
 
       const res = await worker.scanExpiringLicenses();
 
+      expect(mockPrisma.license.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 100 }),
+      );
       expect(res.scanned).toBe(1);
       expect(res.notified).toBe(1);
       expect(res.throttled).toBe(0);
@@ -242,6 +247,9 @@ describe('ScheduledAlertsWorker', () => {
 
       const res = await worker.scanExpiringWarranties();
 
+      expect(mockPrisma.asset.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 100 }),
+      );
       expect(res.scanned).toBe(4);
       expect(res.notified).toBe(4);
       expect(res.throttled).toBe(0);
@@ -283,6 +291,9 @@ describe('ScheduledAlertsWorker', () => {
 
       const res = await worker.scanOverdueMaintenance();
 
+      expect(mockPrisma.asset.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 100 }),
+      );
       expect(res.scanned).toBe(1);
       expect(res.notified).toBe(1);
       expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
@@ -302,7 +313,7 @@ describe('ScheduledAlertsWorker', () => {
 
   describe('scanLowStock', () => {
     it('should alert on out-of-stock items and low stock threshold items', async () => {
-      mockPrisma.inventoryItem.findMany.mockResolvedValue([
+      mockPrisma.$queryRaw.mockResolvedValue([
         {
           id: 'inv-1',
           name: 'Cat6 Ethernet Patch Cable 2m',
@@ -317,16 +328,11 @@ describe('ScheduledAlertsWorker', () => {
           quantity: 3,
           minThreshold: 5,
         },
-        {
-          id: 'inv-3',
-          name: 'HDMI 2.1 4K Cable',
-          sku: 'SKU-HDM-03',
-          quantity: 25,
-          minThreshold: 5,
-        },
       ]);
 
       const res = await worker.scanLowStock();
+
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
 
       expect(res.scanned).toBe(2);
       expect(res.notified).toBe(2);

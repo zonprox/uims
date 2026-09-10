@@ -12,6 +12,7 @@ import { AssetQrModal } from './AssetQrModal';
 describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () => {
   let container: HTMLDivElement;
   let printSpy: ReturnType<typeof vi.spyOn>;
+  let currentRoot: ReturnType<typeof createRoot> | null = null;
 
   const mockAsset: Asset = {
     id: 'ast-101',
@@ -44,16 +45,31 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
     printSpy = vi.spyOn(printUtil, 'printAssetLabel').mockImplementation(() => {});
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     printSpy.mockRestore();
+    if (currentRoot) {
+      await act(async () => {
+        currentRoot?.unmount();
+      });
+      currentRoot = null;
+    }
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     if (container && container.parentNode) {
       container.parentNode.removeChild(container);
     }
+    document
+      .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover')
+      .forEach((el) => {
+        el.remove();
+      });
   });
 
   describe('AssetQrModal', () => {
     it('renders asset tag, name, and serial number correctly', async () => {
       const root = createRoot(container);
+      currentRoot = root;
       await act(async () => {
         root.render(
           createElement(AssetQrModal, {
@@ -75,6 +91,7 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
 
     it('triggers printAssetLabel when Print QR Label button is clicked', async () => {
       const root = createRoot(container);
+      currentRoot = root;
       await act(async () => {
         root.render(
           createElement(AssetQrModal, {
@@ -99,6 +116,7 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
 
     it('renders cleanly in dark mode without hardcoded light backgrounds', async () => {
       const root = createRoot(container);
+      currentRoot = root;
       await act(async () => {
         root.render(
           createElement(
@@ -131,6 +149,7 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
   describe('AssetDetailDrawer QR Tab', () => {
     it('renders QR code tab with printable-asset-label and triggers printAssetLabel', async () => {
       const root = createRoot(container);
+      currentRoot = root;
       await act(async () => {
         root.render(
           createElement(AssetDetailDrawer, {
@@ -170,6 +189,7 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
 
     it('renders QR code tab in dark mode without hardcoded white background or black text', async () => {
       const root = createRoot(container);
+      currentRoot = root;
       await act(async () => {
         root.render(
           createElement(

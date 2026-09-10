@@ -1,6 +1,6 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App as AntApp, ConfigProvider } from 'antd';
 import ErrorResultView from './ErrorResultView';
 
@@ -8,23 +8,64 @@ import ErrorResultView from './ErrorResultView';
 
 describe('ErrorResultView component', () => {
   let container: HTMLDivElement;
+  let currentRoot: ReturnType<typeof createRoot> | null = null;
+  let spyConsoleError: ReturnType<typeof vi.spyOn>;
+  let spyConsoleWarn: ReturnType<typeof vi.spyOn>;
+
+  beforeAll(() => {
+    spyConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    spyConsoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterAll(async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    spyConsoleError?.mockRestore();
+    spyConsoleWarn?.mockRestore();
+  });
 
   beforeEach(() => {
+    spyConsoleError.mockClear();
+    spyConsoleWarn.mockClear();
     container = document.createElement('div');
     document.body.appendChild(container);
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    container.remove();
+  afterEach(async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (currentRoot) {
+      await act(async () => {
+        currentRoot?.unmount();
+      });
+      currentRoot = null;
+    }
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container);
+    }
+    document
+      .querySelectorAll(
+        '.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-message, .ant-notification',
+      )
+      .forEach((el) => {
+        el.remove();
+      });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
   });
 
   const renderWithApp = async (element: React.ReactElement) => {
-    const root = createRoot(container);
+    currentRoot = createRoot(container);
     await act(async () => {
-      root.render(createElement(ConfigProvider, null, createElement(AntApp, null, element)));
+      currentRoot?.render(
+        createElement(ConfigProvider, null, createElement(AntApp, null, element)),
+      );
     });
-    return root;
+    return currentRoot;
   };
 
   it('renders 401 Unauthorized view with Sign In Again button', async () => {
@@ -32,7 +73,7 @@ describe('ErrorResultView component', () => {
     const mockGoHome = vi.fn();
     const mockReload = vi.fn();
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         statusCode: 401,
         onSignIn: mockSignIn,
@@ -62,17 +103,13 @@ describe('ErrorResultView component', () => {
       homeBtn?.click();
     });
     expect(mockGoHome).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders 403 Access Denied view with Return to Dashboard button', async () => {
     const mockGoHome = vi.fn();
     const mockSignIn = vi.fn();
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         statusCode: 403,
         onGoHome: mockGoHome,
@@ -92,17 +129,13 @@ describe('ErrorResultView component', () => {
       homeBtn?.click();
     });
     expect(mockGoHome).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders 404 Page Not Found view with quick links', async () => {
     const mockNavigate = vi.fn();
     const mockGoHome = vi.fn();
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         statusCode: 404,
         onGoHome: mockGoHome,
@@ -142,17 +175,13 @@ describe('ErrorResultView component', () => {
       usersBtn?.click();
     });
     expect(mockNavigate).toHaveBeenCalledWith('/users');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders 500 Server Error view with reload and reset actions', async () => {
     const mockReload = vi.fn();
     const mockReset = vi.fn();
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         statusCode: 500,
         onReload: mockReload,
@@ -182,10 +211,6 @@ describe('ErrorResultView component', () => {
       tryAgainBtn?.click();
     });
     expect(mockReset).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('handles custom non-standard error payload object', async () => {
@@ -195,7 +220,7 @@ describe('ErrorResultView component', () => {
       detail: 'Requires billing admin privileges.',
     };
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: customPayload,
         showDiagnostics: true,
@@ -204,17 +229,13 @@ describe('ErrorResultView component', () => {
 
     expect(container.textContent).toContain('403 - Access Denied');
     expect(container.textContent).toContain('Permission denied for current tenant.');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('handles circular data structures safely in diagnostics', async () => {
     const circularObj: Record<string, unknown> = { message: 'Circular error detected' };
     circularObj.self = circularObj;
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: circularObj,
         showDiagnostics: true,
@@ -223,10 +244,6 @@ describe('ErrorResultView component', () => {
 
     expect(container.textContent).toContain('Circular error detected');
     expect(container.textContent).toContain('Diagnostic Details');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders diagnostic information and handles 1-click clipboard copy via navigator.clipboard', async () => {
@@ -242,7 +259,7 @@ describe('ErrorResultView component', () => {
       writable: true,
     });
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: testError,
         errorInfo: { componentStack: '    in InventoryTable (created by InventoryPage)' },
@@ -268,10 +285,6 @@ describe('ErrorResultView component', () => {
     expect(copiedPayload.stack).toContain('InventoryService.query');
     expect(copiedPayload.componentStack).toContain('InventoryTable');
     expect(copiedPayload.timestamp).toBeTruthy();
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('falls back to document.execCommand when navigator.clipboard fails', async () => {
@@ -293,7 +306,7 @@ describe('ErrorResultView component', () => {
       writable: true,
     });
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: testError,
         showDiagnostics: true,
@@ -310,14 +323,10 @@ describe('ErrorResultView component', () => {
     });
 
     expect(mockExecCommand).toHaveBeenCalledWith('copy');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders compact mode without footer credit', async () => {
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         compact: true,
         title: 'Compact Widget Error',
@@ -328,10 +337,6 @@ describe('ErrorResultView component', () => {
     expect(container.textContent).toContain('Compact Widget Error');
     expect(container.textContent).toContain('Widget failed to render.');
     expect(container.textContent).not.toContain('All rights reserved.');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('handles BigInt fields in error diagnostics without serialization failure', async () => {
@@ -340,7 +345,7 @@ describe('ErrorResultView component', () => {
       transactionId: 9007199254740993n,
     };
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: bigIntPayload,
         showDiagnostics: true,
@@ -349,10 +354,6 @@ describe('ErrorResultView component', () => {
 
     expect(container.textContent).toContain('Failed transaction');
     expect(container.textContent).toContain('Diagnostic Details');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('extracts status code and details from Axios-like response errors', async () => {
@@ -367,7 +368,7 @@ describe('ErrorResultView component', () => {
       },
     };
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: axiosError,
         showDiagnostics: true,
@@ -377,32 +378,26 @@ describe('ErrorResultView component', () => {
     expect(container.textContent).toContain('401 - Unauthorized');
     expect(container.textContent).toContain('Token has been revoked by admin.');
     expect(container.textContent).toContain('Sign In Again');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders standard titles and subtitles for 422, 429, 502, 503, 504 errors', async () => {
     const root422 = await renderWithApp(createElement(ErrorResultView, { statusCode: 422 }));
     expect(container.textContent).toContain('422 - Unprocessable Entity');
     expect(container.textContent).toContain('The submitted data failed validation.');
-    act(() => {
+    await act(async () => {
       root422.unmount();
     });
+    currentRoot = null;
 
-    const root503 = await renderWithApp(createElement(ErrorResultView, { statusCode: 503 }));
+    await renderWithApp(createElement(ErrorResultView, { statusCode: 503 }));
     expect(container.textContent).toContain('503 - Service Unavailable');
     expect(container.textContent).toContain(
       'The service is temporarily unavailable or undergoing maintenance.',
     );
-    act(() => {
-      root503.unmount();
-    });
   });
 
   it('renders extra custom actions when extraActions prop is provided', async () => {
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         statusCode: 500,
         extraActions: createElement(
@@ -415,10 +410,6 @@ describe('ErrorResultView component', () => {
 
     expect(container.querySelector('#custom-contact-support')).toBeTruthy();
     expect(container.textContent).toContain('Contact Enterprise Support');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('gracefully notifies user when both clipboard APIs fail', async () => {
@@ -438,7 +429,7 @@ describe('ErrorResultView component', () => {
       writable: true,
     });
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: testError,
         showDiagnostics: true,
@@ -456,10 +447,6 @@ describe('ErrorResultView component', () => {
 
     // Should not crash and button remains uncopied
     expect(copyBtn?.textContent).toContain('Copy Diagnostics');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders outside AntApp without throwing when copying diagnostics', async () => {
@@ -473,6 +460,7 @@ describe('ErrorResultView component', () => {
     });
 
     const root = createRoot(container);
+    currentRoot = root;
     await act(async () => {
       root.render(
         createElement(ErrorResultView, {
@@ -495,10 +483,6 @@ describe('ErrorResultView component', () => {
     });
 
     expect(writeTextMock).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('renders correct action buttons when only status="403" or status="404" is provided', async () => {
@@ -511,11 +495,12 @@ describe('ErrorResultView component', () => {
     );
     expect(container.textContent).toContain('Return to Dashboard');
     expect(container.textContent).toContain('Sign In Again');
-    act(() => {
+    await act(async () => {
       root403.unmount();
     });
+    currentRoot = null;
 
-    const root404 = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         status: '404',
         onGoHome: mockGoHome,
@@ -524,9 +509,6 @@ describe('ErrorResultView component', () => {
     expect(container.textContent).toContain('Return to Dashboard');
     expect(container.textContent).toContain('Reload Page');
     expect(container.textContent).toContain('Or jump directly to:');
-    act(() => {
-      root404.unmount();
-    });
   });
 
   it('handles string status codes in error objects and props', async () => {
@@ -535,7 +517,7 @@ describe('ErrorResultView component', () => {
       message: 'Access restricted for current role.',
     };
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: stringStatusError,
         showDiagnostics: true,
@@ -544,10 +526,6 @@ describe('ErrorResultView component', () => {
 
     expect(container.textContent).toContain('403 - Access Denied');
     expect(container.textContent).toContain('Access restricted for current role.');
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('extracts RFC 7807 problem details with title and detail', async () => {
@@ -563,7 +541,7 @@ describe('ErrorResultView component', () => {
       },
     };
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: rfc7807Error,
         showDiagnostics: true,
@@ -574,10 +552,6 @@ describe('ErrorResultView component', () => {
     expect(container.textContent).toContain(
       'Subnet 10.240.0.0/16 is reserved for cloud infrastructure peering.',
     );
-
-    act(() => {
-      root.unmount();
-    });
   });
 
   it('handles hostile objects whose toString throws during serialization', async () => {
@@ -587,7 +561,7 @@ describe('ErrorResultView component', () => {
       throw new Error('Hostile toString');
     };
 
-    const root = await renderWithApp(
+    await renderWithApp(
       createElement(ErrorResultView, {
         error: hostile,
         showDiagnostics: true,
@@ -595,9 +569,5 @@ describe('ErrorResultView component', () => {
     );
 
     expect(container.textContent).toContain('Direct message on un-stringifiable object');
-
-    act(() => {
-      root.unmount();
-    });
   });
 });

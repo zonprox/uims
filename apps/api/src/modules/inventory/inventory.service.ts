@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type {
   CreateInventoryItemDto,
@@ -17,6 +17,8 @@ function generateSku(): string {
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new Logger(InventoryService.name);
+
   constructor(
     private prisma: PrismaService,
     @Optional() private notificationsService?: NotificationsService,
@@ -45,8 +47,11 @@ export class InventoryService {
           link: '/inventory',
         });
       }
-    } catch {
-      // Non-blocking notification dispatch
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to dispatch stock threshold notification for SKU "${item.sku}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
@@ -165,18 +170,18 @@ export class InventoryService {
   }
 
   async getStats(): Promise<InventoryStatsDto> {
-    const [totalSkus, sumUnits, lowStockCount, outOfStockCount, items] = await Promise.all([
-      this.prisma.inventoryItem.count(),
-      this.prisma.inventoryItem.aggregate({ _sum: { quantity: true } }),
-      this.prisma.inventoryItem.count({ where: { quantity: { gt: 0, lte: 5 } } }),
-      this.prisma.inventoryItem.count({ where: { quantity: 0 } }),
-      this.prisma.inventoryItem.findMany({
-        select: { quantity: true, unitCost: true },
-        take: 5000,
-      }),
-    ]);
+    const [totalSkus, sumUnits, lowStockCount, outOfStockCount, valuationResult] =
+      await Promise.all([
+        this.prisma.inventoryItem.count(),
+        this.prisma.inventoryItem.aggregate({ _sum: { quantity: true } }),
+        this.prisma.inventoryItem.count({ where: { quantity: { gt: 0, lte: 5 } } }),
+        this.prisma.inventoryItem.count({ where: { quantity: 0 } }),
+        this.prisma.$queryRaw<
+          Array<{ totalValuation: number | string | null }>
+        >`SELECT COALESCE(SUM(quantity * "unitCost"), 0) AS "totalValuation" FROM "InventoryItem"`,
+      ]);
 
-    const totalValuation = items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+    const totalValuation = Number(valuationResult[0]?.totalValuation ?? 0);
 
     return {
       totalSkus,

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type {
   AssetQueryDto,
@@ -26,6 +26,8 @@ function generateAssetTag(): string {
 
 @Injectable()
 export class AssetsService {
+  private readonly logger = new Logger(AssetsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Optional() private notificationsService?: NotificationsService,
@@ -106,8 +108,11 @@ export class AssetsService {
           type: 'INFO',
           link: '/assets',
         });
-      } catch {
-        // Non-blocking
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to dispatch asset assignment notification for asset "${formatted.name}" (${formatted.tag})`,
+          error instanceof Error ? error.stack : String(error),
+        );
       }
     }
 
@@ -271,8 +276,11 @@ export class AssetsService {
             link: '/assets',
           });
         }
-      } catch {
-        // Non-blocking
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to dispatch asset notification for asset "${formatted.name}" (${formatted.tag})`,
+          error instanceof Error ? error.stack : String(error),
+        );
       }
     }
 

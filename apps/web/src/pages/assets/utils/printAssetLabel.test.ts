@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type PrintableAssetData,
   convertToBlackAndWhiteQr,
+  escapeHtml,
   generatePrintLabelHtml,
   printAssetLabel,
+  printableAssetSchema,
+  sanitizePrintableAsset,
 } from './printAssetLabel';
 
 describe('printAssetLabel utility', () => {
@@ -15,6 +18,63 @@ describe('printAssetLabel utility', () => {
     category: 'Laptops',
     location: 'Floor 3 Server Room',
   };
+
+  describe('escapeHtml', () => {
+    it('returns empty string when input is null or undefined', () => {
+      expect(escapeHtml(null)).toBe('');
+      expect(escapeHtml(undefined)).toBe('');
+    });
+
+    it('safely converts numbers and booleans without crashing', () => {
+      expect(escapeHtml(12345)).toBe('12345');
+      expect(escapeHtml(true)).toBe('true');
+    });
+
+    it('escapes special HTML characters', () => {
+      expect(escapeHtml('<script>alert("xss") & \'test\'</script>')).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;) &amp; &#39;test&#39;&lt;/script&gt;',
+      );
+    });
+
+    it('safely handles null-prototype objects and unconvertible objects without throwing', () => {
+      expect(escapeHtml(Object.create(null))).toBe('');
+      expect(escapeHtml({ toString: null })).toBe('');
+    });
+  });
+
+  describe('printableAssetSchema & sanitizePrintableAsset', () => {
+    it('validates a complete valid asset schema', () => {
+      const parsed = printableAssetSchema.safeParse(mockAsset);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.tag).toBe('AST-2026-0099');
+      }
+    });
+
+    it('sanitizes null or undefined inputs with safe fallbacks', () => {
+      const sanitizedNull = sanitizePrintableAsset(null);
+      expect(sanitizedNull.tag).toBe('UNKNOWN-TAG');
+      expect(sanitizedNull.name).toBe('Unnamed Asset');
+      expect(sanitizedNull.serialNumber).toBeNull();
+      expect(sanitizedNull.category).toBeNull();
+
+      const sanitizedEmpty = sanitizePrintableAsset({});
+      expect(sanitizedEmpty.tag).toBe('UNKNOWN-TAG');
+      expect(sanitizedEmpty.name).toBe('Unnamed Asset');
+    });
+
+    it('handles object category and location properly during sanitization', () => {
+      const result = sanitizePrintableAsset({
+        tag: 'TAG-123',
+        name: 'Server Node',
+        category: { name: 'Compute' },
+        location: { name: 'Rack A1' },
+      });
+      expect(result.tag).toBe('TAG-123');
+      expect(result.category).toEqual({ name: 'Compute' });
+      expect(result.location).toEqual({ name: 'Rack A1' });
+    });
+  });
 
   describe('generatePrintLabelHtml', () => {
     it('generates isolated printable label HTML containing asset metadata', () => {
@@ -48,7 +108,13 @@ describe('printAssetLabel utility', () => {
       const html = generatePrintLabelHtml(xssAsset, '');
       expect(html).not.toContain('<script>alert(1)</script>');
       expect(html).toContain('AST-&lt;script&gt;alert(1)&lt;/script&gt;');
-      expect(html).toContain('Asset &amp; &quot;Quotes&quot; &#039;Test&#039;');
+      expect(html).toContain('Asset &amp; &quot;Quotes&quot; &#39;Test&#39;');
+    });
+
+    it('degrades gracefully when passed null or incomplete data without throwing', () => {
+      const html = generatePrintLabelHtml(null as unknown as PrintableAssetData, '');
+      expect(html).toContain('UNKNOWN-TAG');
+      expect(html).toContain('Unnamed Asset');
     });
   });
 

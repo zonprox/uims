@@ -88,7 +88,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ errorInfo });
     this.props.onError?.(error, errorInfo);
-    console.error('Unhandled UI exception caught by ErrorBoundary:', error, errorInfo);
+    if (import.meta.env.DEV) {
+      console.error('Unhandled UI exception caught by ErrorBoundary:', error, errorInfo);
+    }
   }
 
   private handleReset = () => {
@@ -100,8 +102,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (typeof window !== 'undefined') {
       try {
         window.location.reload();
-      } catch {
-        // Safe fallback
+      } catch (_reloadErr: unknown) {
+        // Safe navigation fallback when window.location.reload is restricted
       }
     }
   };
@@ -112,8 +114,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     } else if (typeof window !== 'undefined') {
       try {
         window.location.href = '/';
-      } catch {
-        // Safe fallback
+      } catch (_navErr: unknown) {
+        // Safe navigation fallback when setting window.location.href fails
       }
     }
   };
@@ -121,16 +123,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   private handleSignIn = () => {
     try {
       useAuthStore.getState().logout();
-    } catch {
-      // Ignore if store is not accessible
+    } catch (_logoutErr: unknown) {
+      // Safe fallback if auth store is inaccessible during unhandled error state
     }
     if (this.props.onSignIn) {
       this.props.onSignIn();
     } else if (typeof window !== 'undefined') {
       try {
         window.location.href = '/login';
-      } catch {
-        // Safe fallback
+      } catch (_navErr: unknown) {
+        // Safe navigation fallback to login route
       }
     }
   };

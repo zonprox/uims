@@ -80,10 +80,10 @@ function safeJsonStringify(value: unknown, space = 2): string {
       },
       space,
     );
-  } catch {
+  } catch (_jsonErr: unknown) {
     try {
       return String(value);
-    } catch {
+    } catch (_stringErr: unknown) {
       return '[Unserializable]';
     }
   }
@@ -95,7 +95,7 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch {
+    } catch (_clipErr: unknown) {
       // Failed (e.g. permission denied or insecure context) - fallback to execCommand below
     }
   }
@@ -122,13 +122,13 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
       textarea.setSelectionRange(0, textarea.value.length);
       const successful = document.execCommand('copy');
       if (successful) return true;
-    } catch {
+    } catch (_execErr: unknown) {
       // Fallback failed
     } finally {
       if (textarea && textarea.parentNode) {
         try {
           textarea.parentNode.removeChild(textarea);
-        } catch {
+        } catch (_removeErr: unknown) {
           // Ignore removal error
         }
       }
@@ -349,7 +349,7 @@ export default function ErrorResultView({
     if (typeof window !== 'undefined') {
       try {
         currentUrl = window.location?.href || '';
-      } catch {
+      } catch (_hrefErr: unknown) {
         currentUrl = '';
       }
     }
@@ -472,8 +472,8 @@ export default function ErrorResultView({
     } else if (typeof window !== 'undefined') {
       try {
         window.location.reload();
-      } catch {
-        // Ignore
+      } catch (_reloadErr: unknown) {
+        // Safe navigation reload fallback
       }
     }
   };
@@ -486,8 +486,8 @@ export default function ErrorResultView({
     } else if (typeof window !== 'undefined') {
       try {
         window.location.href = '/';
-      } catch {
-        // Ignore
+      } catch (_homeErr: unknown) {
+        // Safe navigation home fallback
       }
     }
   };
@@ -500,8 +500,8 @@ export default function ErrorResultView({
     } else if (typeof window !== 'undefined') {
       try {
         window.location.href = '/login';
-      } catch {
-        // Ignore
+      } catch (_loginErr: unknown) {
+        // Safe navigation login fallback
       }
     }
   };
@@ -512,8 +512,8 @@ export default function ErrorResultView({
     } else if (typeof window !== 'undefined') {
       try {
         window.location.href = path;
-      } catch {
-        // Ignore
+      } catch (_navErr: unknown) {
+        // Safe path navigation fallback
       }
     }
   };
@@ -670,7 +670,7 @@ export default function ErrorResultView({
                       icon={<TeamOutlined />}
                       onClick={() => handleNavigatePath('/users')}
                     >
-                      Users & Access
+                      Users &amp; Access
                     </Button>
                   </Space>
                 </div>

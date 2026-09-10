@@ -22,7 +22,8 @@
       "@uims/shared-types": ["../../packages/shared-types/src/index.ts"],
       "@uims/shared-validators": ["../../packages/shared-validators/src/index.ts"],
       "@uims/shared-utils": ["../../packages/shared-utils/src/index.ts"]
-    }
+    },
+    "types": ["vite/client", "node"]
   },
   "include": ["src", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist"]

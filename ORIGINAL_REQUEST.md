@@ -291,3 +291,151 @@ Thoroughly resolve all concerns and technical debt items documented in `.plannin
 - [ ] All changes committed and pushed to `origin/main`.
 - [ ] Remote GitHub Actions CI pipeline completes with a green check status.
 
+
+## 2026-09-10T00:46:01Z
+
+Phân tích toàn diện 22 sheet dữ liệu mạng thực tế từ file Excel `temp/New IP Network(NW, Server).xlsx` và thực hiện tái cấu trúc (refactor) hệ thống quản trị IP/VLAN/Subnet (IPAM) trong UIMS theo chuẩn kiến trúc mạng doanh nghiệp, bao gồm cơ sở dữ liệu quan hệ, backend NestJS, giao diện Web Ant Design v6 và pipeline import dữ liệu an toàn.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Network Data Analysis & Automated Ingestion Pipeline
+- Phân tích cấu trúc dữ liệu của 22 sheet trong file `temp/New IP Network(NW, Server).xlsx` bao gồm các dải mạng văn phòng/nhà máy (BSL, HCM Office 3 & 7), hệ thống CCTV/NVR (VLAN 97, 98, 99, 125), hệ thống kiểm soát ra vào & máy chấm công (VLAN 130–137, Fingerprint migration), Core Switches (VLAN 129), máy in và dải mạng mở rộng (VLAN 138, 139, 996, 998).
+- Xây dựng pipeline hoặc script nạp dữ liệu (import/sync) có kiểm soát lỗi, loại bỏ trùng lặp, xử lý các trường hợp dữ liệu khuyết thiếu và chạy trong database transaction.
+- Thông tin tài khoản/mật khẩu quản trị thiết bị từ Excel phải được bảo vệ (mã hóa an toàn hoặc lưu trữ trong vault chuyên biệt, tuyệt đối không lưu plaintext vào database theo quy định AGENTS.md).
+
+### R2. Relational Data Modeling & Backend IPAM Engine
+- Refactor mô hình dữ liệu trong `apps/api/prisma/schema.prisma` để thiết lập quan hệ chặt chẽ giữa Location/Site ↔ VLAN ↔ Subnet ↔ IPAddress ↔ Asset/Device, loại bỏ việc lưu tên chuỗi lỏng lẻo (`vlanName`, `subnetName`).
+- Bổ sung đầy đủ index cho các khóa ngoại và trường lọc (`@@index`) theo tiêu chuẩn AGENTS.md.
+- Nâng cấp `NetworkModule` trong NestJS API:
+  - Cung cấp đầy đủ REST API CRUD chuẩn cho VLAN, Subnet và IPAddress.
+  - Tích hợp logic tính toán mạng tự động (network address, usable IP range, broadcast, subnet mask, gateway, utilization percentage).
+  - Áp dụng phân trang bounded (`take <= 100`, deterministic `orderBy`) và DTO validation cho toàn bộ endpoints.
+
+### R3. Enterprise IPAM Frontend Experience (Ant Design v6)
+- Nâng cấp trang Network & IPAM (`apps/web/src/pages/network`) với visual hierarchy rõ ràng:
+  - Tab quản lý VLAN chuyên biệt (theo Location/Site, danh sách Subnet trực thuộc, trạng thái).
+  - Tab Subnet chi tiết với thanh đo tỷ lệ chiếm dụng (IP utilization bar) và thông số CIDR.
+  - Tab IP Allocations với bộ lọc đa chiều (Site, VLAN, Subnet, Device Type, Status) và bảng biểu hiển thị đầy đủ thông tin định danh (Hostname, MAC, Vendor, Ping status, Device Model).
+  - Tuân thủ 100% Ant Design v6 standard: sử dụng `App.useApp()` cho toàn bộ message/notification/modal, semantic styles tokens (`styles={{ ... }}`), tuyệt đối không dùng static method hoặc v4/v5 deprecated props.
+
+### R4. Security, Quality & Monorepo Compliance
+- Tuyệt đối tuân thủ các chỉ thị trong AGENTS.md:
+  - Zero `any` policy trên toàn bộ mã nguồn và test suite.
+  - Xử lý lỗi an toàn (`catch (error: unknown)`), không dùng silent catch.
+  - Đảm bảo tính toàn vẹn và tương thích ngược của các API liên quan đến Asset và Location hiện có.
+
+## Acceptance Criteria
+
+### Data & Schema Integrity
+- [ ] Schema Prisma biên dịch thành công (`pnpm --filter @uims/api exec prisma validate` & `generate`) với đầy đủ foreign key indexes.
+- [ ] Script/pipeline import đọc thành công file `temp/New IP Network(NW, Server).xlsx`, phân loại chính xác các thực thể Location, VLAN, Subnet, IPAddress vào database mà không gây lỗi khóa ngoại hoặc duplicate IP.
+- [ ] Không có mật khẩu thiết bị nào được lưu dưới dạng plaintext trong cơ sở dữ liệu.
+
+### API & Engine Capabilities
+- [ ] Các API endpoints cho VLAN, Subnet, IPAddress hoạt động ổn định, trả về đúng định dạng response envelope chuẩn của UIMS (`{ success: true, data: T, timestamp: string }`).
+- [ ] Mọi truy vấn danh sách đều tuân thủ bounded queries với phân trang và sắp xếp nhất quán.
+- [ ] Unit test và integration test cho `network.service` và `network.controller` đạt 100% pass với các case thêm, sửa, xóa, tính toán dải mạng và import.
+
+### Frontend Usability & Standards
+- [ ] Giao diện Network hiển thị đầy đủ 3 phân hệ: VLAN Management, Subnet Management, và IP Allocations.
+- [ ] Không tồn tại bất kỳ lời gọi static method nào như `message.error()` hay `message.success()` (sử dụng dynamic context `App.useApp()`).
+- [ ] Layout hiển thị responsive và hoạt động trơn tru với Ant Design v6.
+
+### Monorepo Gate Compliance
+- [ ] `pnpm run typecheck` vượt qua với 0 lỗi trên tất cả các workspace.
+- [ ] `pnpm run lint` vượt qua với 0 lỗi trên tất cả các workspace.
+- [ ] `pnpm run format:check` đạt chuẩn Biome.
+- [ ] `pnpm run test` đạt 100% pass rate.
+- [ ] `pnpm run build` build thành công cả `apps/api` và `apps/web`.
+
+## 2026-09-10T00:57:54Z
+
+CHỈ THỊ QUAN TRỌNG TỪ NGƯỜI DÙNG (USER DIRECTIVE):
+"clean up sạch sẽ, mục đích chỉ dựa vào bảng tính để xây dựng hệ thống tương tự chuẩn doanh nghiệp, không cần giống hệt 100% bảng tính mà cần chuẩn hóa và tối ưu/bổ sung lại"
+
+Yêu cầu cụ thể gửi đến Orchestrator và toàn bộ Worker:
+1. Dọn dẹp sạch sẽ (clean up), không để lại file rác, file nháp hay dữ liệu tạm không cần thiết.
+2. File Excel `New IP Network(NW, Server).xlsx` đóng vai trò là TÀI LIỆU THAM KHẢO THỰC TẾ (domain reference), KHÔNG CẦN sao chép nguyên xi 100% mọi cột dị thường hay sự thiếu chuẩn hóa của bảng tính.
+3. Mục tiêu cốt lõi: Chuẩn hóa, tối ưu và bổ sung kiến trúc theo đúng chuẩn doanh nghiệp (Enterprise IPAM Standard):
+   - Chuẩn hóa phân cấp: Location/Site (BSL Factory, HCM Office, v.v.) -> VLAN (VLAN Number, Name, Function) -> Subnet (CIDR chuẩn, Gateway, DNS, IP Pool calculation) -> IPAddress (Status: AVAILABLE, ASSIGNED, RESERVED; Device Type: Network Device, Camera/CCTV, Access Control/Time Attendance, Printer, Server, Workstation; Hostname; MAC; Asset link).
+   - Tối ưu hóa tính toán dải IP, tỷ lệ chiếm dụng (utilization %), broadcast, network address.
+   - Giao diện UI Ant Design v6 trực quan, chuyên nghiệp, hiện đại.
+   - Đảm bảo clean code, zero `any`, đầy đủ test và pass toàn bộ monorepo verification gates.
+
+## 2026-09-10T01:22:21Z
+
+CHỈ THỊ TÍNH NĂNG MỚI TỪ NGƯỜI DÙNG (USER FEATURE DIRECTIVE):
+"khi thêm vlan tự detect luôn số lượng IP trong dải đó luôn, mục nào tự động hóa được thì thực hiện, giảm thiểu thao tác"
+
+Yêu cầu cụ thể đưa vào kế hoạch Milestone 2 (Backend Engine) và Milestone 3 (Frontend UX):
+1. Tự động hóa tính toán mạng khi thêm VLAN / Subnet:
+   - Khi người dùng nhập CIDR (ví dụ `10.232.130.0/24`) hoặc cấu hình dải mạng cho VLAN/Subnet: tự động phát hiện và tính toán toàn bộ các thông số:
+     + Total IPs (Tổng số IP, vd 256 đối với /24, 4096 đối với /20, 128 đối với /25)
+     + Usable IPs (Số IP khả dụng, vd 254 đối với /24)
+     + Subnet Mask (vd 255.255.255.0)
+     + Network Address & Broadcast Address
+     + Usable IP Range (IP bắt đầu - IP kết thúc)
+     + Gợi ý Default Gateway mặc định (vd .254 hoặc .1 theo quy ước)
+2. Tối đa hóa tự động hóa, giảm thiểu thao tác thủ công cho người dùng (Zero manual friction):
+   - Khi người dùng nhập một địa chỉ IP (vd `10.232.130.15`): tự động phát hiện (auto-detect) Subnet và VLAN tương ứng qua bitwise CIDR matching, tự điền Subnet & VLAN mà người dùng không cần chọn tay.
+   - Tính năng gợi ý "Next Available IP" (IP trống tiếp theo trong Subnet) khi tạo mới IP allocation.
+   - Tự động nhận diện Vendor thiết bị từ tiền tố MAC address (MAC OUI lookup cho các vendor phổ biến trong hệ thống: Cisco, Hikvision, Hanwha/Samsung, Sindoh, HP, Planet,...).
+   - Tự động đồng bộ hóa tỷ lệ sử dụng (utilization %), số lượng IP đã cấp phát, khả dụng và dự phòng.
+3. Đảm bảo các tính toán tự động này chạy realtime trên cả Frontend Form (phản hồi tức thì khi người dùng gõ phím) và được xác thực/tính toán chuẩn xác tại Backend API. Đầy đủ unit test cho logic tự động hóa này.
+
+## 2026-09-10T05:18:28Z
+
+Thoroughly resolve all architectural concerns and technical debt listed in `.planning/codebase/CONCERNS.md`, maintain all dependencies at their absolute latest compatible versions without downgrades, restore and update `@GEMINI.md` with authoritative 2026 defect-prevention directives, and push to origin while tracking GitHub Actions CI until completely green.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Code Refactoring & Issue Resolution (CONCERNS.md)
+- Eliminate all silent catch blocks (`catch (err) {}` and `.catch(() => {})`) across backend (`apps/api/src/modules/roles/roles.service.ts`) and frontend (`apps/web/src/pages/assets/components/AssetScannerModal.tsx`, `apps/web/src/pages/settings/SettingsPage.tsx`, `apps/web/src/pages/organization/OrganizationCanvas.tsx`, `apps/web/src/components/ErrorBoundary.tsx`).
+- In backend services, structured logging (`this.logger.error(...)`) must be used for error tracing; in frontend components, dynamic feedback (`App.useApp().message.error(...)` / `notification.error(...)`) must be used with zero raw `console.error` in production paths.
+- Replace in-memory array aggregation in `apps/api/src/modules/inventory/inventory.service.ts` with database-level aggregation.
+- Ensure bounded queries (`take <= 100` or chunked pagination) across all query execution paths.
+- Enforce strict type safety with zero `any` across production files.
+
+### R2. Dependency Management & Zero-Downgrade Invariant
+- Maintain and pump all dependencies to their latest compatible versions.
+- Under no circumstances may any dependency be downgraded (e.g. TypeScript 7.x, React 19, Vite 8, Ant Design 6, NestJS 11).
+- Synchronize `pnpm-lock.yaml` via `pnpm install --no-frozen-lockfile` and deduplicate packages cleanly.
+
+### R3. Documentation & Technical Guidelines (@GEMINI.md)
+- Create/update `@GEMINI.md` in the repository root (harmonized with `AGENTS.md`) containing clear technical guidelines, defect-prevention rules, zero-silent-catch invariants, zero-any policy, and Ant Design v6 standards to prevent recurring regressions.
+
+### R4. Verification, Git Commit & CI Tracking
+- Run and satisfy all local verification invariants: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm run test`, and `pnpm run build`.
+- Commit all changes with descriptive Conventional Commits.
+- Push to remote `origin/main`.
+- Monitor the GitHub Actions CI pipeline via GitHub CLI (`gh run list` / `gh run watch`) and continue fixing any resulting build/test issues until the CI build completes with status green (`success`).
+
+## Acceptance Criteria
+
+### Code Quality & Defect Resolution
+- [ ] No empty catch blocks (`.catch(() => {})` or `catch {}`) exist in `roles.service.ts`, `AssetScannerModal.tsx`, `SettingsPage.tsx`, `OrganizationCanvas.tsx`, or `ErrorBoundary.tsx`.
+- [ ] `inventory.service.ts` calculates total inventory valuation without in-memory `reduce` over unbounded records.
+- [ ] Zero instances of `any` type in production TypeScript code.
+- [ ] Frontend camera failure and UI boundary errors provide clear user-facing messages via `App.useApp()`.
+
+### Dependency Invariants
+- [ ] All dependencies are on latest versions with no version downgrades.
+- [ ] `pnpm-lock.yaml` is fully synchronized with `pnpm install --frozen-lockfile` passing in CI.
+
+### Documentation Invariants
+- [ ] `@GEMINI.md` is present in the repository root with comprehensive 2026 engineering standards and defect prevention directives.
+
+### Monorepo Gate Compliance & CI Pipeline
+- [ ] `pnpm run typecheck` passes with 0 errors across all 6 packages.
+- [ ] `pnpm run lint` passes with 0 errors across all 6 packages.
+- [ ] `pnpm run format:check` confirms 100% Biome compliance.
+- [ ] `pnpm run test` executes with 100% test pass rate.
+- [ ] `pnpm run build` succeeds cleanly across all workspaces.
+- [ ] Changes are committed and pushed to `origin/main`.
+- [ ] GitHub Actions CI workflow run completes successfully (status: green).

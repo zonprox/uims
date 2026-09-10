@@ -1,25 +1,314 @@
-import * as net from 'node:net';
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IPAddress, Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { IPAddress, Location, Prisma, Subnet, VLAN, VlanStatus } from '@prisma/client';
 import type {
+  AutoDetectResult,
   CreateIPAddressDto,
   CreateSubnetDto,
+  CreateVlanDto,
   IPAddressQueryDto,
+  NetworkCalculation,
   NetworkStatsDto,
+  RevealCredentialResponse,
+  SubnetQueryDto,
   UpdateIPAddressDto,
+  UpdateSubnetDto,
+  UpdateVlanDto,
+  VlanQueryDto,
 } from '@uims/shared-types';
-import { mapIPStatus, mapIPStatusToLabel } from '@uims/shared-utils';
+import {
+  calculateSubnet,
+  calculateUtilization,
+  findMatchingSubnet,
+  findNextAvailableIp,
+  isValidCidr,
+  isValidIp,
+  lookupMacVendor,
+  mapIPStatus,
+  mapIPStatusToLabel,
+  normalizeMac,
+} from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
-
-function generateIpAddress(): string {
-  const segment3 = Math.floor(1 + Math.random() * 250);
-  const segment4 = Math.floor(2 + Math.random() * 250);
-  return `192.168.${segment3}.${segment4}`;
-}
+import { CredentialVaultService } from './credential-vault.service';
 
 @Injectable()
 export class NetworkService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(NetworkService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly credentialVault: CredentialVaultService,
+  ) {}
+
+  // ==========================================
+  // VLAN MANAGEMENT
+  // ==========================================
+
+  async findAllVlans(query?: VlanQueryDto) {
+    const where: Prisma.VLANWhereInput = {};
+
+    if (query?.search) {
+      const searchNum = Number(query.search);
+      if (!Number.isNaN(searchNum) && Number.isInteger(searchNum)) {
+        where.OR = [
+          { vlanNumber: searchNum },
+          { name: { contains: query.search, mode: 'insensitive' } },
+        ];
+      } else {
+        where.name = { contains: query.search, mode: 'insensitive' };
+      }
+    }
+
+    if (query?.status && query.status !== 'all') {
+      where.status = query.status as VlanStatus;
+    }
+
+    if (query?.locationId) {
+      where.locationId = query.locationId;
+    }
+
+    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
+    const page = Math.max(1, Number(query?.page) || 1);
+    const skip = (page - 1) * pageSize;
+
+    return this.prisma.vLAN.findMany({
+      where,
+      include: {
+        location: true,
+        subnets: true,
+        _count: { select: { ipAddresses: true, subnets: true } },
+      },
+      orderBy: { vlanNumber: 'asc' },
+      take: pageSize,
+      skip,
+    });
+  }
+
+  async findVlan(id: string) {
+    const isNumeric = /^\d+$/.test(id);
+    const vlan = await this.prisma.vLAN.findFirst({
+      where: isNumeric ? { OR: [{ id }, { vlanNumber: Number(id) }] } : { id },
+      include: {
+        location: true,
+        subnets: true,
+        ipAddresses: {
+          take: 100,
+          orderBy: { address: 'asc' },
+        },
+      },
+    });
+
+    if (!vlan) {
+      throw new NotFoundException(`VLAN with identifier "${id}" not found`);
+    }
+
+    return vlan;
+  }
+
+  async createVlan(data: CreateVlanDto) {
+    return this.prisma.vLAN.create({
+      data: {
+        vlanNumber: data.vlanNumber,
+        name: data.name,
+        description: data.description,
+        status: data.status as VlanStatus,
+        locationId: data.locationId,
+      },
+      include: { location: true, subnets: true },
+    });
+  }
+
+  async updateVlan(id: string, data: UpdateVlanDto) {
+    return this.prisma.vLAN.update({
+      where: { id },
+      data: {
+        vlanNumber: data.vlanNumber,
+        name: data.name,
+        description: data.description,
+        status: data.status as VlanStatus,
+        locationId: data.locationId,
+      },
+      include: { location: true, subnets: true },
+    });
+  }
+
+  async deleteVlan(id: string) {
+    return this.prisma.vLAN.delete({ where: { id } });
+  }
+
+  // ==========================================
+  // SUBNET MANAGEMENT
+  // ==========================================
+
+  async findAllSubnets(query?: SubnetQueryDto) {
+    const where: Prisma.SubnetWhereInput = {};
+
+    if (query?.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { cidr: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (query?.vlanId) {
+      where.vlanId = query.vlanId;
+    }
+
+    if (query?.locationId) {
+      where.locationId = query.locationId;
+    }
+
+    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
+    const page = Math.max(1, Number(query?.page) || 1);
+    const skip = (page - 1) * pageSize;
+
+    const subnets = await this.prisma.subnet.findMany({
+      where,
+      include: {
+        vlan: true,
+        location: true,
+        _count: { select: { ipAddresses: true } },
+      },
+      orderBy: { cidr: 'asc' },
+      take: pageSize,
+      skip,
+    });
+
+    return subnets.map((subnet) => this.formatSubnet(subnet));
+  }
+
+  async findSubnet(id: string) {
+    const subnet = await this.prisma.subnet.findFirst({
+      where: { OR: [{ id }, { cidr: id }] },
+      include: {
+        vlan: true,
+        location: true,
+        ipAddresses: {
+          take: 100,
+          orderBy: { address: 'asc' },
+        },
+      },
+    });
+
+    if (!subnet) {
+      throw new NotFoundException(`Subnet with identifier "${id}" not found`);
+    }
+
+    return this.formatSubnet(subnet);
+  }
+
+  async createSubnet(data: CreateSubnetDto) {
+    if (!isValidCidr(data.cidr)) {
+      throw new BadRequestException(`Invalid IPv4 CIDR block: "${data.cidr}"`);
+    }
+
+    // Auto-calculate network parameters if not manually overridden
+    const calc = calculateSubnet(data.cidr);
+
+    let vlanId = data.vlanId;
+    if (!vlanId && (data.vlan || data.vlanName)) {
+      const vlanSearch = (data.vlan || data.vlanName)?.replace(/\D/g, '');
+      if (vlanSearch) {
+        const found = await this.prisma.vLAN.findUnique({
+          where: { vlanNumber: Number(vlanSearch) },
+        });
+        if (found) vlanId = found.id;
+      }
+    }
+
+    const created = await this.prisma.subnet.create({
+      data: {
+        cidr: data.cidr,
+        name: data.name,
+        vlanId,
+        locationId: data.locationId,
+        gateway: data.gateway || calc.suggestedGateway,
+        networkAddress: data.networkAddress || calc.networkAddress,
+        netmask: data.netmask || calc.subnetMask,
+        broadcastAddress: data.broadcastAddress || calc.broadcastAddress,
+        startIp: data.startIp || calc.usableStart,
+        endIp: data.endIp || calc.usableEnd,
+        totalIps: data.totalIps ? Number(data.totalIps) : calc.usableHosts,
+        usedIps: 0,
+        reservedIps: data.reservedIps ?? 0,
+        description: data.description,
+      },
+      include: { vlan: true, location: true },
+    });
+
+    return this.formatSubnet(created);
+  }
+
+  async updateSubnet(id: string, data: UpdateSubnetDto) {
+    const updateData: Prisma.SubnetUpdateInput = {
+      name: data.name,
+      gateway: data.gateway,
+      description: data.description,
+    };
+
+    if (data.locationId !== undefined) {
+      updateData.location = data.locationId
+        ? { connect: { id: data.locationId } }
+        : { disconnect: true };
+    }
+
+    if (data.vlanId !== undefined) {
+      updateData.vlan = data.vlanId ? { connect: { id: data.vlanId } } : { disconnect: true };
+    }
+
+    if (data.cidr) {
+      if (!isValidCidr(data.cidr)) {
+        throw new BadRequestException(`Invalid IPv4 CIDR block: "${data.cidr}"`);
+      }
+      const calc = calculateSubnet(data.cidr);
+      updateData.cidr = data.cidr;
+      updateData.networkAddress = data.networkAddress || calc.networkAddress;
+      updateData.netmask = data.netmask || calc.subnetMask;
+      updateData.broadcastAddress = data.broadcastAddress || calc.broadcastAddress;
+      updateData.startIp = data.startIp || calc.usableStart;
+      updateData.endIp = data.endIp || calc.usableEnd;
+      updateData.totalIps = data.totalIps ? Number(data.totalIps) : calc.usableHosts;
+    }
+
+    const updated = await this.prisma.subnet.update({
+      where: { id },
+      data: updateData,
+      include: { vlan: true, location: true },
+    });
+
+    return this.formatSubnet(updated);
+  }
+
+  async deleteSubnet(id: string) {
+    return this.prisma.subnet.delete({ where: { id } });
+  }
+
+  async getNextAvailableIp(subnetId: string): Promise<{
+    subnetId: string;
+    cidr: string;
+    nextAvailableIp: string | null;
+  }> {
+    const subnet = await this.prisma.subnet.findUnique({
+      where: { id: subnetId },
+      include: { ipAddresses: { select: { address: true } } },
+    });
+
+    if (!subnet) {
+      throw new NotFoundException(`Subnet with ID "${subnetId}" not found`);
+    }
+
+    const allocated = subnet.ipAddresses.map((ip) => ip.address);
+    const nextIp = findNextAvailableIp(subnet.cidr, allocated);
+
+    return {
+      subnetId,
+      cidr: subnet.cidr,
+      nextAvailableIp: nextIp,
+    };
+  }
+
+  // ==========================================
+  // IP ADDRESS MANAGEMENT
+  // ==========================================
 
   async findAllIps(query?: IPAddressQueryDto) {
     const where: Prisma.IPAddressWhereInput = {};
@@ -33,12 +322,37 @@ export class NetworkService {
       ];
     }
 
-    if (query?.vlan && query.vlan !== 'all') {
-      where.vlanName = { contains: query.vlan, mode: 'insensitive' };
+    if (query?.vlanId) {
+      where.vlanId = query.vlanId;
+    } else if (query?.vlan && query.vlan !== 'all') {
+      where.OR = [
+        ...(where.OR || []),
+        { vlan: { name: { contains: query.vlan, mode: 'insensitive' } } },
+        { vlanId: query.vlan },
+      ];
+    }
+
+    if (query?.subnetId) {
+      where.subnetId = query.subnetId;
+    } else if (query?.subnet && query.subnet !== 'all') {
+      where.OR = [
+        ...(where.OR || []),
+        { subnet: { cidr: { contains: query.subnet, mode: 'insensitive' } } },
+        { subnet: { name: { contains: query.subnet, mode: 'insensitive' } } },
+        { subnetId: query.subnet },
+      ];
     }
 
     if (query?.status && query.status !== 'all') {
       where.status = mapIPStatus(query.status);
+    }
+
+    if (query?.deviceType && query.deviceType !== 'all') {
+      where.deviceType = { contains: query.deviceType, mode: 'insensitive' };
+    }
+
+    if (query?.locationId) {
+      where.locationId = query.locationId;
     }
 
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
@@ -47,6 +361,13 @@ export class NetworkService {
 
     const ips = await this.prisma.iPAddress.findMany({
       where,
+      include: {
+        subnet: true,
+        vlan: true,
+        location: true,
+        asset: true,
+        assignedUser: true,
+      },
       orderBy: { createdAt: 'asc' },
       take: pageSize,
       skip,
@@ -56,171 +377,467 @@ export class NetworkService {
   }
 
   async findIp(id: string) {
-    const ip = await this.prisma.iPAddress.findUnique({ where: { id } });
-    if (!ip) throw new NotFoundException(`IP address with ID ${id} not found`);
+    const ip = await this.prisma.iPAddress.findFirst({
+      where: { OR: [{ id }, { address: id }] },
+      include: {
+        subnet: true,
+        vlan: true,
+        location: true,
+        asset: true,
+        assignedUser: true,
+        credential: true,
+      },
+    });
+
+    if (!ip) {
+      throw new NotFoundException(`IP address with identifier "${id}" not found`);
+    }
+
     return this.formatIp(ip);
   }
 
   async createIp(data: CreateIPAddressDto) {
-    const status = mapIPStatus(data.status as string);
+    let targetIp = data.address || data.ip;
+
+    // Zero Friction: If Subnet is given but IP is empty, pick next available IP
+    if (!targetIp && data.subnetId) {
+      const nextResult = await this.getNextAvailableIp(data.subnetId);
+      if (nextResult.nextAvailableIp) {
+        targetIp = nextResult.nextAvailableIp;
+      }
+    }
+
+    if (!targetIp) {
+      targetIp = '192.168.1.10';
+    }
+
+    let subnetId = data.subnetId;
+    let vlanId = data.vlanId;
+    let locationId = data.locationId;
+
+    // Zero Friction: Auto-detect Subnet and VLAN from IP if not explicitly chosen
+    if (!subnetId && isValidIp(targetIp)) {
+      const candidateSubnets = await this.prisma.subnet.findMany({
+        take: 100,
+        orderBy: { cidr: 'asc' },
+      });
+      const matched = findMatchingSubnet(targetIp, candidateSubnets);
+      if (matched) {
+        subnetId = matched.id;
+        vlanId = vlanId || matched.vlanId || undefined;
+        locationId = locationId || matched.locationId || undefined;
+      }
+    }
+
+    // Zero Friction: Auto MAC OUI Vendor lookup
+    const rawMac = data.macAddress || data.mac;
+    const normalizedMac = rawMac ? normalizeMac(rawMac) : undefined;
+    let vendor = data.vendor;
+    if (normalizedMac && (!vendor || vendor === 'Generic' || vendor === 'Generic Device')) {
+      const detectedVendor = lookupMacVendor(normalizedMac);
+      if (detectedVendor !== 'Unknown Vendor') {
+        vendor = detectedVendor;
+      }
+    }
+
+    const status = data.status ? mapIPStatus(data.status as string) : 'AVAILABLE';
 
     const created = await this.prisma.iPAddress.create({
       data: {
-        address: data.ip || data.address || generateIpAddress(),
+        address: targetIp,
         hostname: data.hostname,
-        macAddress: data.mac || data.macAddress,
-        vendor: data.vendor || 'Generic Device',
-        subnetName: data.subnet || data.subnetName || '192.168.1.0/24',
-        vlanName: data.vlan || data.vlanName || 'VLAN 10 (Servers)',
-        deviceType: data.deviceType || 'Server',
+        macAddress: normalizedMac,
+        vendor: vendor || 'Generic Device',
+        deviceType: data.deviceType || 'Workstation',
+        model: data.model,
+        serialNumber: data.serialNumber,
+        section: data.section,
+        floor: data.floor,
+        subnetId,
+        vlanId,
+        locationId,
+        assetId: data.assetId,
+        assignedUserId: data.assignedUserId,
+        credentialId: data.credentialId,
         status,
-        pingStatus: 'online',
-        lastSeen: 'Just assigned (0.8ms)',
+        pingStatus: data.pingStatus || 'online',
+        responseTimeMs: data.responseTimeMs,
+        lastSeen: data.lastSeen ? new Date(data.lastSeen) : new Date(),
+        description: data.description,
+      },
+      include: {
+        subnet: true,
+        vlan: true,
+        location: true,
+        asset: true,
+        assignedUser: true,
       },
     });
+
+    // Synchronize subnet used/reserved IP counters
+    if (subnetId) {
+      await this.syncSubnetStats(subnetId);
+    }
 
     return this.formatIp(created);
   }
 
-  private buildIpUpdateData(data: UpdateIPAddressDto): Prisma.IPAddressUpdateInput {
-    const status = data.status ? mapIPStatus(data.status as string) : undefined;
-    return {
-      address: data.ip ?? data.address,
-      hostname: data.hostname,
-      macAddress: data.mac ?? data.macAddress,
-      vendor: data.vendor,
-      subnetName: data.subnet ?? data.subnetName,
-      vlanName: data.vlan ?? data.vlanName,
-      deviceType: data.deviceType,
-      status,
-    };
-  }
-
   async updateIp(id: string, data: UpdateIPAddressDto) {
-    const updateData = this.buildIpUpdateData(data);
+    const rawMac = data.macAddress ?? data.mac;
+    const normalizedMac = rawMac ? normalizeMac(rawMac) : undefined;
+    let vendor = data.vendor;
+    if (normalizedMac && (!vendor || vendor === 'Generic' || vendor === 'Generic Device')) {
+      const detected = lookupMacVendor(normalizedMac);
+      if (detected !== 'Unknown Vendor') vendor = detected;
+    }
+
+    const updatePayload: Prisma.IPAddressUpdateInput = {
+      address: data.address ?? data.ip,
+      hostname: data.hostname,
+      macAddress: normalizedMac,
+      vendor,
+      deviceType: data.deviceType,
+      model: data.model,
+      serialNumber: data.serialNumber,
+      section: data.section,
+      floor: data.floor,
+      status: data.status ? mapIPStatus(data.status as string) : undefined,
+      pingStatus: data.pingStatus,
+      description: data.description,
+    };
+
+    if (data.subnetId !== undefined) {
+      updatePayload.subnet = data.subnetId
+        ? { connect: { id: data.subnetId } }
+        : { disconnect: true };
+    }
+    if (data.vlanId !== undefined) {
+      updatePayload.vlan = data.vlanId ? { connect: { id: data.vlanId } } : { disconnect: true };
+    }
+    if (data.locationId !== undefined) {
+      updatePayload.location = data.locationId
+        ? { connect: { id: data.locationId } }
+        : { disconnect: true };
+    }
+
     const updated = await this.prisma.iPAddress.update({
       where: { id },
-      data: updateData,
+      data: updatePayload,
+      include: {
+        subnet: true,
+        vlan: true,
+        location: true,
+        asset: true,
+        assignedUser: true,
+      },
     });
+
+    if (updated.subnetId) {
+      await this.syncSubnetStats(updated.subnetId);
+    }
 
     return this.formatIp(updated);
   }
 
   async deleteIp(id: string) {
-    return this.prisma.iPAddress.delete({ where: { id } });
-  }
-
-  async pingIp(ip: string): Promise<{
-    ip: string;
-    reachable: boolean;
-    timeMs: number;
-    ttl: number;
-    message: string;
-  }> {
-    const startTime = Date.now();
-
-    return new Promise((resolve) => {
-      // Attempt TCP socket probe on standard port (e.g., 80 or 443) or localhost ping
-      const socket = new net.Socket();
-      socket.setTimeout(1200);
-
-      const cleanup = () => {
-        socket.removeAllListeners();
-        socket.destroy();
-      };
-
-      socket.connect(80, ip, () => {
-        const latency = Date.now() - startTime;
-        cleanup();
-        resolve({
-          ip,
-          reachable: true,
-          timeMs: Math.max(1, latency),
-          ttl: 64,
-          message: `Reply from ${ip}: bytes=32 time=${latency}ms TTL=64 (100% reachable)`,
-        });
-      });
-
-      socket.on('error', () => {
-        const latency = Math.max(1, Date.now() - startTime);
-        cleanup();
-        // Even if port 80 refused, host reached and responded
-        resolve({
-          ip,
-          reachable: true,
-          timeMs: latency,
-          ttl: 64,
-          message: `Reply from ${ip}: bytes=32 time=${latency}ms TTL=64 (online)`,
-        });
-      });
-
-      socket.on('timeout', () => {
-        cleanup();
-        resolve({
-          ip,
-          reachable: false,
-          timeMs: 1200,
-          ttl: 0,
-          message: `Request timed out for ${ip}`,
-        });
-      });
+    const existing = await this.prisma.iPAddress.findUnique({
+      where: { id },
+      select: { subnetId: true },
     });
+
+    const deleted = await this.prisma.iPAddress.delete({ where: { id } });
+
+    if (existing?.subnetId) {
+      await this.syncSubnetStats(existing.subnetId);
+    }
+
+    return { success: true, id: deleted.id };
   }
 
-  async findAllSubnets(limit?: number) {
-    const take = limit ? Math.min(Number(limit), 100) : 100;
-    return this.prisma.subnet.findMany({
-      take,
-      orderBy: { createdAt: 'asc' },
+  async revealCredential(ipId: string, userId?: string): Promise<RevealCredentialResponse> {
+    const ip = await this.prisma.iPAddress.findUnique({
+      where: { id: ipId },
+      include: { credential: true },
     });
-  }
 
-  async createSubnet(data: CreateSubnetDto) {
-    return this.prisma.subnet.create({
-      data: {
-        cidr: data.cidr,
-        name: data.name,
-        vlanName: data.vlan || data.vlanName || 'VLAN 10',
-        gateway: data.gateway,
-        totalIps: data.totalIps ? Number(data.totalIps) : 254,
-        usedIps: 1,
-        location: data.location || 'HQ Server Room',
-      },
+    if (!ip) {
+      throw new NotFoundException(`IP address with ID "${ipId}" not found`);
+    }
+
+    if (!ip.credential) {
+      throw new NotFoundException(`No credentials associated with IP address ${ip.address}`);
+    }
+
+    const decryptedPassword = this.credentialVault.decrypt({
+      encryptedData: ip.credential.encryptedData,
+      iv: ip.credential.iv,
+      authTag: ip.credential.authTag,
+      keyVersion: ip.credential.keyVersion,
     });
-  }
 
-  async getStats(): Promise<NetworkStatsDto> {
-    const [subnetsCount, subnetsAggregate, allocated, reserved] = await Promise.all([
-      this.prisma.subnet.count(),
-      this.prisma.subnet.aggregate({ _sum: { totalIps: true } }),
-      this.prisma.iPAddress.count({ where: { status: 'ASSIGNED' } }),
-      this.prisma.iPAddress.count({ where: { status: 'RESERVED' } }),
-    ]);
-
-    const totalCapacity = subnetsAggregate._sum.totalIps || 1024;
-    const freeCapacity = Math.max(0, totalCapacity - allocated - reserved);
+    // Security Audit Log: Emission of credential access event
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'REVEAL_CREDENTIAL',
+          severity: 'Warning',
+          entity: 'NetworkCredential',
+          entityId: ip.credential.id,
+          ipAddress: ip.address,
+          details: `Admin revealed secure credential "${ip.credential.name}" for IP ${ip.address} (${ip.hostname || 'no hostname'})`,
+          status: 'Success',
+        },
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        'Failed to emit audit log on credential reveal',
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
 
     return {
-      managedSubnets: subnetsCount,
-      allocatedStaticIps: allocated,
-      reservedDhcpLeases: reserved,
-      freeIpCapacity: freeCapacity,
+      id: ip.credential.id,
+      name: ip.credential.name,
+      username: ip.credential.username,
+      password: decryptedPassword,
+      protocol: ip.credential.protocol,
+      port: ip.credential.port,
+      notes: ip.credential.notes,
     };
   }
 
-  private formatIp(ip: IPAddress) {
+  // ==========================================
+  // AUTOMATION & ENGINE SERVICES
+  // ==========================================
+
+  calculateSubnet(cidr: string): NetworkCalculation {
+    if (!isValidCidr(cidr)) {
+      throw new BadRequestException(`Invalid IPv4 CIDR block: "${cidr}"`);
+    }
+    return calculateSubnet(cidr);
+  }
+
+  async autoDetect(ip: string): Promise<AutoDetectResult> {
+    if (!isValidIp(ip)) {
+      throw new BadRequestException(`Invalid IPv4 address: "${ip}"`);
+    }
+
+    const subnets = await this.prisma.subnet.findMany({
+      include: { vlan: true, location: true },
+      take: 100,
+      orderBy: { cidr: 'asc' },
+    });
+
+    const match = findMatchingSubnet(ip, subnets);
+
+    if (!match) {
+      return {
+        ip,
+        matchedSubnet: null,
+        matchedVlan: null,
+        isWithinSubnet: false,
+      };
+    }
+
+    return {
+      ip,
+      matchedSubnet: this.formatSubnet(match),
+      matchedVlan: match.vlan ? this.formatVlan(match.vlan) : null,
+      isWithinSubnet: true,
+      suggestedGateway: match.gateway,
+    };
+  }
+
+  lookupMacVendor(mac: string): { mac: string; vendor: string } {
+    const normalized = normalizeMac(mac);
+    const vendor = lookupMacVendor(normalized);
+    return {
+      mac: normalized,
+      vendor,
+    };
+  }
+
+  async getStats(): Promise<NetworkStatsDto> {
+    const [vlansCount, subnetsCount, subnetsAggregate, allocated, reserved, available, totalIps] =
+      await Promise.all([
+        this.prisma.vLAN.count(),
+        this.prisma.subnet.count(),
+        this.prisma.subnet.aggregate({ _sum: { totalIps: true } }),
+        this.prisma.iPAddress.count({ where: { status: 'ASSIGNED' } }),
+        this.prisma.iPAddress.count({ where: { status: 'RESERVED' } }),
+        this.prisma.iPAddress.count({ where: { status: 'AVAILABLE' } }),
+        this.prisma.iPAddress.count(),
+      ]);
+
+    const totalCapacity = subnetsAggregate._sum.totalIps || 1024;
+    const freeCapacity = Math.max(0, totalCapacity - allocated - reserved);
+    const averageUtilization = calculateUtilization(totalCapacity, allocated);
+
+    return {
+      totalVlans: vlansCount,
+      managedSubnets: subnetsCount,
+      totalIps,
+      allocatedStaticIps: allocated,
+      reservedDhcpLeases: reserved,
+      availableIps: available,
+      freeIpCapacity: freeCapacity,
+      averageUtilization,
+    };
+  }
+
+  // ==========================================
+  // HELPERS & STAT SYNCHRONIZATION
+  // ==========================================
+
+  private async syncSubnetStats(subnetId: string): Promise<void> {
+    try {
+      const [usedCount, reservedCount] = await Promise.all([
+        this.prisma.iPAddress.count({
+          where: { subnetId, status: 'ASSIGNED' },
+        }),
+        this.prisma.iPAddress.count({
+          where: { subnetId, status: 'RESERVED' },
+        }),
+      ]);
+
+      await this.prisma.subnet.update({
+        where: { id: subnetId },
+        data: {
+          usedIps: usedCount,
+          reservedIps: reservedCount,
+        },
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to sync subnet statistics for subnet ${subnetId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private formatVlan(vlan: VLAN): import('@uims/shared-types').VLAN {
+    return {
+      id: vlan.id,
+      vlanNumber: vlan.vlanNumber,
+      name: vlan.name,
+      description: vlan.description,
+      status: vlan.status as unknown as import('@uims/shared-types').VlanStatus,
+      locationId: vlan.locationId,
+      createdAt: vlan.createdAt
+        ? typeof vlan.createdAt === 'string'
+          ? vlan.createdAt
+          : vlan.createdAt.toISOString()
+        : new Date().toISOString(),
+      updatedAt: vlan.updatedAt
+        ? typeof vlan.updatedAt === 'string'
+          ? vlan.updatedAt
+          : vlan.updatedAt.toISOString()
+        : new Date().toISOString(),
+    };
+  }
+
+  private formatSubnet(
+    subnet: Subnet & {
+      vlan?: VLAN | null;
+      location?: Location | null;
+      _count?: { ipAddresses: number };
+    },
+  ) {
+    const utilization = calculateUtilization(subnet.totalIps, subnet.usedIps);
+    return {
+      id: subnet.id,
+      cidr: subnet.cidr,
+      name: subnet.name,
+      vlanId: subnet.vlanId,
+      locationId: subnet.locationId,
+      gateway: subnet.gateway || '',
+      networkAddress: subnet.networkAddress,
+      netmask: subnet.netmask,
+      broadcastAddress: subnet.broadcastAddress,
+      startIp: subnet.startIp,
+      endIp: subnet.endIp,
+      totalIps: subnet.totalIps,
+      usedIps: subnet.usedIps,
+      reservedIps: subnet.reservedIps,
+      description: subnet.description,
+      vlan: subnet.vlan ? this.formatVlan(subnet.vlan) : null,
+      vlanName: subnet.vlan ? `VLAN ${subnet.vlan.vlanNumber} (${subnet.vlan.name})` : '',
+      location: subnet.location
+        ? (subnet.location as unknown as import('@uims/shared-types').Location)
+        : null,
+      locationName: subnet.location?.name || '',
+      utilization,
+      createdAt: subnet.createdAt
+        ? typeof subnet.createdAt === 'string'
+          ? subnet.createdAt
+          : subnet.createdAt.toISOString()
+        : new Date().toISOString(),
+      updatedAt: subnet.updatedAt
+        ? typeof subnet.updatedAt === 'string'
+          ? subnet.updatedAt
+          : subnet.updatedAt.toISOString()
+        : new Date().toISOString(),
+    };
+  }
+
+  private formatIp(
+    ip: IPAddress & {
+      subnet?: Subnet | null;
+      vlan?: VLAN | null;
+      location?: Location | null;
+      asset?: { id: string; name: string; assetTag: string } | null;
+      assignedUser?: { id: string; firstName: string; lastName: string; email: string } | null;
+      credential?: { id: string; name: string; username: string; protocol: string | null } | null;
+    },
+  ) {
     return {
       id: ip.id,
       ip: ip.address,
+      address: ip.address,
       hostname: ip.hostname || 'unnamed-host',
       mac: ip.macAddress || '00:00:00:00:00:00',
+      macAddress: ip.macAddress,
       vendor: ip.vendor || 'Generic',
-      subnet: ip.subnetName || '192.168.1.0/24',
-      vlan: ip.vlanName || 'VLAN 10',
+      subnet: ip.subnet?.cidr || ip.subnet?.name || '192.168.1.0/24',
+      subnetId: ip.subnetId,
+      vlan: ip.vlan ? `VLAN ${ip.vlan.vlanNumber} (${ip.vlan.name})` : 'VLAN 10',
+      vlanId: ip.vlanId,
+      locationId: ip.locationId,
       deviceType: ip.deviceType || 'Workstation',
+      model: ip.model,
+      serialNumber: ip.serialNumber,
+      section: ip.section,
+      floor: ip.floor,
       status: mapIPStatusToLabel(ip.status),
       pingStatus: ip.pingStatus || 'online',
-      lastSeen: ip.lastSeen || 'Real-time',
+      responseTimeMs: ip.responseTimeMs,
+      lastSeen: ip.lastSeen
+        ? typeof ip.lastSeen === 'string'
+          ? ip.lastSeen
+          : ip.lastSeen.toISOString()
+        : 'Real-time',
+      description: ip.description,
+      asset: ip.asset,
+      assignedUser: ip.assignedUser,
+      credential: ip.credential
+        ? {
+            id: ip.credential.id,
+            name: ip.credential.name,
+            username: ip.credential.username,
+            protocol: ip.credential.protocol,
+          }
+        : null,
+      createdAt: ip.createdAt
+        ? typeof ip.createdAt === 'string'
+          ? ip.createdAt
+          : ip.createdAt.toISOString()
+        : new Date().toISOString(),
+      updatedAt: ip.updatedAt
+        ? typeof ip.updatedAt === 'string'
+          ? ip.updatedAt
+          : ip.updatedAt.toISOString()
+        : new Date().toISOString(),
     };
   }
 }

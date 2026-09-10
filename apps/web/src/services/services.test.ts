@@ -66,15 +66,12 @@ describe('Frontend Service Clients', () => {
   });
 
   describe('networkService', () => {
-    it('should ping IP address', async () => {
-      vi.mocked(api.post).mockResolvedValue({
-        data: { data: { ip: '1.1.1.1', reachable: true, latencyMs: 12 } },
-      });
+    it('should delete IP allocation', async () => {
+      vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
 
-      const ping = await networkService.pingIp('1.1.1.1');
+      await networkService.deleteIp('ip-1');
 
-      expect(api.post).toHaveBeenCalledWith('/network/ping', { ip: '1.1.1.1' });
-      expect(ping.reachable).toBe(true);
+      expect(api.delete).toHaveBeenCalledWith('/network/ips/ip-1');
     });
   });
 
