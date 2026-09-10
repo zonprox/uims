@@ -202,6 +202,17 @@ export function getUserMenuItems(
   ];
 }
 
+function renderNavLabel(label: string, badge?: React.ReactNode): React.ReactNode {
+  return (
+    <Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+      {badge && <span style={{ flexShrink: 0 }}>{badge}</span>}
+    </Flex>
+  );
+}
+
 export function getNavMenuItems(
   collapsed: boolean,
   isMobile: boolean,
@@ -220,7 +231,7 @@ export function getNavMenuItems(
     {
       key: '/',
       icon: <NavIconWithBadge icon={<DashboardOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Dashboard',
+      label: renderNavLabel('Dashboard'),
       title: 'Dashboard',
     },
   ];
@@ -231,7 +242,7 @@ export function getNavMenuItems(
     orgChildren.push({
       key: '/directory',
       icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Directory',
+      label: renderNavLabel('Directory'),
       title: 'Directory',
     });
   }
@@ -239,7 +250,7 @@ export function getNavMenuItems(
     orgChildren.push({
       key: '/organization',
       icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Organization Structure',
+      label: renderNavLabel('Organization Structure'),
       title: 'Organization Structure',
     });
   }
@@ -249,7 +260,7 @@ export function getNavMenuItems(
       icon: (
         <NavIconWithBadge icon={<SafetyCertificateOutlined />} isCollapsed={isCollapsedDesktop} />
       ),
-      label: 'Access Control',
+      label: renderNavLabel('Access Control'),
       title: 'Access Control',
     });
   }
@@ -282,7 +293,7 @@ export function getNavMenuItems(
     assetChildren.push({
       key: '/assets',
       icon: <NavIconWithBadge icon={<LaptopOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Hardware Assets',
+      label: renderNavLabel('Hardware Assets'),
       title: 'Hardware Assets',
     });
   }
@@ -300,31 +311,26 @@ export function getNavMenuItems(
       ),
       title:
         expiringCount > 0 ? `Software Licenses (${expiringCount} Expiring)` : 'Software Licenses',
-      label: (
-        <Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Software Licenses
-          </span>
-          {showLabels && expiringCount > 0 && (
-            <Tag
-              color="warning"
-              style={{
-                fontSize: 10,
-                margin: 0,
-                padding: '0 5px',
-                height: 18,
-                lineHeight: '16px',
-                borderRadius: 4,
-                flexShrink: 0,
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              {expiringCount} Expiring
-            </Tag>
-          )}
-        </Flex>
+      label: renderNavLabel(
+        'Software Licenses',
+        showLabels && expiringCount > 0 ? (
+          <Tag
+            color="warning"
+            style={{
+              fontSize: 10,
+              margin: 0,
+              padding: '0 5px',
+              height: 18,
+              lineHeight: '16px',
+              borderRadius: 4,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            {expiringCount} Expiring
+          </Tag>
+        ) : undefined,
       ),
     });
   }
@@ -341,15 +347,11 @@ export function getNavMenuItems(
         />
       ),
       title: lowStockCount > 0 ? `Inventory (${lowStockCount} Low Stock)` : 'Inventory',
-      label: (
-        <Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Inventory
-          </span>
-          {showLabels && lowStockCount > 0 && (
-            <MenuCountBadge count={lowStockCount} color="#f59e0b" textColor="#000" />
-          )}
-        </Flex>
+      label: renderNavLabel(
+        'Inventory',
+        showLabels && lowStockCount > 0 ? (
+          <MenuCountBadge count={lowStockCount} color="#f59e0b" textColor="#000" />
+        ) : undefined,
       ),
     });
   }
@@ -357,7 +359,7 @@ export function getNavMenuItems(
     assetChildren.push({
       key: '/network',
       icon: <NavIconWithBadge icon={<GlobalOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Network & IPAM',
+      label: renderNavLabel('Network & IPAM'),
       title: 'Network & IPAM',
     });
   }
@@ -390,7 +392,7 @@ export function getNavMenuItems(
     govChildren.push({
       key: '/reports',
       icon: <NavIconWithBadge icon={<BarChartOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Reports & Analytics',
+      label: renderNavLabel('Reports & Analytics'),
       title: 'Reports & Analytics',
     });
   }
@@ -398,7 +400,7 @@ export function getNavMenuItems(
     govChildren.push({
       key: '/audit',
       icon: <NavIconWithBadge icon={<AuditOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Audit Trail',
+      label: renderNavLabel('Audit Trail'),
       title: 'Audit Trail',
     });
   }
@@ -406,7 +408,7 @@ export function getNavMenuItems(
     govChildren.push({
       key: '/settings',
       icon: <NavIconWithBadge icon={<SettingOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: 'Settings',
+      label: renderNavLabel('Settings'),
       title: 'Settings',
     });
   }

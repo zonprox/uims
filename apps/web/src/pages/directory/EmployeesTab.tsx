@@ -305,6 +305,10 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     {
       title: 'Employee',
       key: 'employee',
+      sorter: (a: DirectoryUser, b: DirectoryUser) =>
+        (a.displayName || a.fullName || a.firstName || '').localeCompare(
+          b.displayName || b.fullName || b.firstName || '',
+        ) || (a.employeeCode || '').localeCompare(b.employeeCode || ''),
       render: (_: unknown, record: DirectoryUser) => (
         <Flex align="center" gap={10}>
           <Avatar
@@ -359,6 +363,8 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     {
       title: 'Job Title & Plant',
       key: 'placement',
+      sorter: (a: DirectoryUser, b: DirectoryUser) =>
+        (a.jobTitle || '').localeCompare(b.jobTitle || ''),
       render: (_: unknown, record: DirectoryUser) => (
         <Flex vertical gap={2}>
           <Text strong style={{ fontSize: 12.5 }}>
@@ -373,6 +379,8 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     {
       title: 'Department & Section',
       key: 'org',
+      sorter: (a: DirectoryUser, b: DirectoryUser) =>
+        (a.department || '').localeCompare(b.department || ''),
       render: (_: unknown, record: DirectoryUser) => (
         <Flex vertical gap={2}>
           <Text style={{ fontSize: 12.5 }}>{record.department || 'General'}</Text>
@@ -434,6 +442,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     {
       title: 'Status',
       key: 'status',
+      sorter: (a: DirectoryUser, b: DirectoryUser) => a.status.localeCompare(b.status),
       render: (_: unknown, record: DirectoryUser) => getStatusTag(record.status),
     },
     {
@@ -566,9 +575,9 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         rowKey="id"
         loading={loading}
         pagination={{
-          defaultPageSize: 20,
+          pageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '20', '50', '100'],
+          pageSizeOptions: ['10', '25', '50', '100'],
           showTotal: (total) => `Total ${total} employees`,
         }}
         size="middle"
@@ -905,8 +914,9 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       <Drawer
         title="Employee Directory Profile"
         open={Boolean(detailEmployee)}
+        destroyOnHidden
+        size={540}
         onClose={() => setDetailEmployee(null)}
-        styles={{ wrapper: { width: 540 } }}
       >
         {detailEmployee && (
           <Flex vertical gap={16}>

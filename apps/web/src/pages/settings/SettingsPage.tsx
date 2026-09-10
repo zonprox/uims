@@ -524,9 +524,9 @@ export default function SettingsPage() {
             // ================= TAB 1: APPEARANCE =================
             {
               key: 'appearance',
+              icon: <BgColorsOutlined />,
               label: (
-                <Space>
-                  <BgColorsOutlined />
+                <Space size={6}>
                   <span>Appearance</span>
                   {isAppearanceDirty && <Badge dot status="warning" />}
                 </Space>
@@ -746,12 +746,8 @@ export default function SettingsPage() {
             // ================= TAB 2: NOTIFICATIONS =================
             {
               key: 'notifications',
-              label: (
-                <Space>
-                  <BellOutlined />
-                  <span>Notifications</span>
-                </Space>
-              ),
+              icon: <BellOutlined />,
+              label: 'Notifications',
               children: (
                 <div style={{ maxWidth: 840, padding: '8px 0' }}>
                   <Alert
@@ -975,9 +971,9 @@ export default function SettingsPage() {
             // ================= TAB 3: GENERAL PREFERENCES =================
             {
               key: 'general',
+              icon: <SettingOutlined />,
               label: (
-                <Space>
-                  <SettingOutlined />
+                <Space size={6}>
                   <span>General</span>
                   {isGeneralDirty && <Badge dot status="warning" />}
                 </Space>
@@ -1119,9 +1115,9 @@ export default function SettingsPage() {
             // ================= TAB 3: SECURITY & GOVERNANCE =================
             {
               key: 'security',
+              icon: <SafetyCertificateOutlined />,
               label: (
-                <Space>
-                  <SafetyCertificateOutlined />
+                <Space size={6}>
                   <span>Security Policy</span>
                   {isSecurityDirty && <Badge dot status="warning" />}
                 </Space>
@@ -1272,12 +1268,8 @@ export default function SettingsPage() {
             // ================= TAB 4: MAINTENANCE & DIAGNOSTICS =================
             {
               key: 'maintenance',
-              label: (
-                <Space>
-                  <DatabaseOutlined />
-                  <span>Maintenance &amp; Backups</span>
-                </Space>
-              ),
+              icon: <DatabaseOutlined />,
+              label: <span>Maintenance &amp; Backups</span>,
               children: (
                 <div style={{ maxWidth: 780, padding: '8px 0' }}>
                   {/* On-Demand Backup Snapshot Card */}

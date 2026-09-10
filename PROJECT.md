@@ -1,54 +1,91 @@
-# Project: UIMS User Architecture Decoupling
+# Project: Ant Design v6 UI/UX & Layout Standardization
 
 ## Architecture
-Clean architectural decoupling of application access accounts (system operators who authenticate and manage UIMS) from corporate directory records (enterprise personnel, AD accounts, and hardware/license custodians).
-- Data Layer: Prisma `AppUser` (console credentials, role, status, refresh tokens) vs `DirectoryUser` (employeeCode, company, plant, section, computerName, adGroup, ouPath, assigned hardware/licenses; zero passwords or login privileges).
-- Shared Layer: `packages/shared-types` & `packages/shared-validators` providing strict types and Zod schemas for both entities.
-- Backend API: `UsersModule` for `AppUser` management; `DirectoryModule` for directory records, AD domain sync, and CSV batch processing; `AuthModule` strictly authenticating `AppUser` and rejecting directory records.
-- Frontend Web: Two distinct primary navigation views: "Access Control" (`/users` or `/access-control`) and "Directory" (`/directory`).
+Standardization and modernization of the React frontend (`apps/web`) to strictly comply with Ant Design v6 specifications (`docs/ant-design-llms-full.txt`) and `AGENTS.md` directives.
+- **Layout Architecture**: Strict desktop Sider dimensions (280px expanded, 80px collapsed), mobile navigation Drawer (290px left placement), responsive breakpoint handling via Ant Design `Grid.useBreakpoint()`.
+- **Navigation & Truncation Defense**: Menu items wrapped in `<Flex style={{ width: '100%', minWidth: 0, gap: 8 }}>` with ellipsis text and `flexShrink: 0` for badges/tags. Collapsed state accessibility via Tooltips.
+- **Styling Architecture**: Semantic token styling via `styles={{ body: ..., header: ... }}`. Elimination of raw `.ant-*` CSS overrides in favor of `theme.ts` component design tokens.
+- **Feedback & Lifecycle Architecture**: Universal dynamic context consumption via `App.useApp()`. Modal lifecycle managed cleanly via `destroyOnHidden`.
+- **Data Display**: Tables standardizing on high density, typed column sorters, deterministic renderers, and standard pagination (`pageSize: 10`, `showSizeChanger: true`, `pageSizeOptions: ['10', '25', '50', '100']`).
 
 ## Feature Inventory
-Every feature from the Survey phase appears here with its assigned milestone.
+Every feature from the Survey phase appears here with its assigned milestone. No feature is left unassigned.
 | # | Feature | Description | Milestone | Source |
-|---|---|---|---|---|
-| 1 | Prisma Schema Decoupling | Separate AppUser and DirectoryUser entities, update relations | M1 | survey_explorer_1 |
-| 2 | Shared Types & Validators | Define AppUser and DirectoryUser types, DTOs, and Zod schemas | M1 | survey_explorer_2 |
-| 3 | Authentication Isolation | AuthService validates AppUser only, strictly rejects DirectoryUser | M1 | survey_explorer_1,3 |
-| 4 | Users API Refactoring | UsersService & UsersController dedicated to AppUser management | M1 | survey_explorer_1,3 |
-| 5 | Directory API Module | DirectoryModule (DirectoryService & Controller) for employee records, AD sync, CSV | M1 | survey_explorer_1,3 |
-| 6 | Database Seeders Decoupling | Clean separation in roles-users, directory, assets, and licenses seeders | M1 | survey_explorer_1,3 |
-| 7 | Web Navigation Separation | Expose Access Control and Directory in menuConfig and router | M2 | survey_explorer_2 |
-| 8 | Access Control Web View | AccessControlPage: AppUser accounts, roles, permissions, access simulator | M2 | survey_explorer_2 |
-| 9 | Directory Web View | DirectoryPage: DirectoryUser records, AD domain sync, CSV import/export, groups, OUs | M2 | survey_explorer_2 |
-| 10 | Monorepo Quality Gates & E2E | Typecheck, lint, format check, full test suite pass, production build | M3 | survey_explorer_3 |
+|---|---------|-------------|-----------|--------|
+| 1 | Navigation Truncation Defense | Wrap all 11 menu items in menuConfig.tsx with `<Flex style={{ width: '100%', minWidth: 0, gap: 8 }}>` and text truncation | M1 | survey_explorer_1 |
+| 2 | Collapsed Navigation Accessibility | Compact tooltip-wrapped organization trigger and tooltips for brand logo and navbar user profile | M1 | survey_explorer_1 |
+| 3 | Global CSS Token Migration | Eliminate `.ant-*` overrides in global.css (lines 76-95, 153-321); consolidate tokens in theme.ts | M1 | survey_explorer_1,3 |
+| 4 | PageContainer Design Token Refinement | Consume design tokens for secondary text and trend labels in PageContainer.tsx | M1 | survey_explorer_1 |
+| 5 | ErrorResultView & CommandPalette Cleanup | Remove static message fallback in ErrorResultView.tsx and typed catch in CommandPalette.tsx | M1 | survey_explorer_1 |
+| 6 | Tabs First-Class Icon Props | Migrate inline JSX icons to first-class `icon` prop in OrganizationPage.tsx and SettingsPage.tsx | M2 | survey_explorer_2 |
+| 7 | Table Pagination Standardization | Standardize AppUsersTab.tsx and EmployeesTab.tsx to `pageSize: 10`, `['10', '25', '50', '100']` | M2 | survey_explorer_2,3 |
+| 8 | okButtonProps Danger Migration | Replace deprecated `okType="danger"` with `okButtonProps={{ danger: true }}` across 11 files | M2 | survey_explorer_3 |
+| 9 | Typed Table Column Sorters | Add typed comparator functions to primary domain tables (AssetTable, AuditPage, AppUsersTab, EmployeesTab, InventoryPage, LicensesPage) | M2 | survey_explorer_3 |
+| 10 | Modal Lifecycle Uniformity (`destroyOnHidden`) | Add `destroyOnHidden` to 11 data/edit modals across AssetFormModal, AssetQrModal, Inventory, Licenses, Network, Organization, Reports | M3 | survey_explorer_3 |
+| 11 | Semantic Modal & Drawer Styling Polish | Ensure all modals and drawers utilize semantic `styles={{ body: ... }}` and clean padding | M3 | survey_explorer_3 |
+| 12 | Monorepo Quality Gates & Verification | Verify 0 errors on typecheck, lint, format:check, test, and build across all workspaces | M4 | orchestrator |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Data Layer & Backend Decoupling | Prisma schema, client generation, shared-types, shared-validators, AuthService, UsersModule, DirectoryModule, seeders, API tests (344/344 tests passed, 0 typecheck/lint errors) | none | DONE |
-| 2 | Web Frontend & Navigation Views | menuConfig, router, AccessControlPage, DirectoryPage, web services, frontend tests (284/284 tests passed, 0 typecheck/lint errors) | M1 | DONE |
-| 3 | Monorepo Verification & E2E Acceptance | Monorepo verification (typecheck, lint, format:check, test, build), E2E criteria (643 total tests passed) | M2 | DONE |
+| 1 | Navigation, Layout & Styling Tokens | menuConfig.tsx truncation, collapsed tooltips, global.css cleanup, theme.ts tokens, PageContainer tokens, ErrorResultView/CommandPalette cleanup | none | PLANNED |
+| 2 | Tabs, Tables & Prop Standardization | Tabs first-class `icon` props, table pagination (pageSize: 10), `okButtonProps={{ danger: true }}`, typed table column sorters | M1 | PLANNED |
+| 3 | Modal Lifecycle & Semantic Polish | Add `destroyOnHidden` to 11 modals, semantic `styles={{ body: ... }}` validation across modals and drawers | M2 | PLANNED |
+| 4 | Verification & Quality Gates | Monorepo verification invariants (typecheck, lint, format, test, build), reviewer approval, challenger verification, forensic audit | M3 | PLANNED |
 
 ## Code Layout
-- `apps/api/prisma/schema.prisma`: Data models (`AppUser`, `DirectoryUser`, relations)
-- `packages/shared-types/src/entities/user.ts`: `AppUser` entity definitions
-- `packages/shared-types/src/entities/directory.ts`: `DirectoryUser` entity definitions
-- `packages/shared-types/src/dto/users.dto.ts`: `AppUser` DTOs
-- `packages/shared-types/src/dto/directory.dto.ts`: `DirectoryUser` DTOs
-- `packages/shared-validators/src/user.validator.ts`: `AppUser` validation schemas
-- `packages/shared-validators/src/directory.validator.ts`: `DirectoryUser` validation schemas
-- `apps/api/src/modules/auth/`: `AuthService`, `AuthController`
-- `apps/api/src/modules/users/`: `UsersService`, `UsersController`
-- `apps/api/src/modules/directory/`: `DirectoryService`, `DirectoryController`, `DirectoryModule`
-- `apps/api/prisma/seeders/`: `roles-users.seeder.ts`, `directory.seeder.ts`, `assets.seeder.ts`, `licenses.seeder.ts`
-- `apps/web/src/layouts/menuConfig.tsx`: Sidebar menu navigation
-- `apps/web/src/app/router.tsx`: Application routes
-- `apps/web/src/pages/access/`: `AccessControlPage.tsx` (and tabs)
-- `apps/web/src/pages/directory/`: `DirectoryPage.tsx` (and tabs)
+- `apps/web/src/layouts/menuConfig.tsx`: Navigation menu configuration and truncation defense
+- `apps/web/src/layouts/MainLayout.tsx`: Sider (280px/80px) and Mobile Drawer (290px left)
+- `apps/web/src/layouts/components/SidebarContent.tsx`: Sidebar structure and collapsed state
+- `apps/web/src/layouts/components/SidebarBrandHeader.tsx`: Brand logo home button with tooltip
+- `apps/web/src/layouts/components/SidebarOrgSelector.tsx`: Organization selector trigger
+- `apps/web/src/layouts/components/NavbarSections.tsx`: Header user profile trigger with tooltip
+- `apps/web/src/styles/global.css`: Global styles without conflicting `.ant-*` token overrides
+- `apps/web/src/app/theme.ts`: Ant Design v6 theme tokens for Layout, Menu, Table, Tabs
+- `apps/web/src/components/PageContainer.tsx`: PageContainer layout, breadcrumbs, titles, KPI stats
+- `apps/web/src/components/ErrorResultView.tsx`: Error feedback using `App.useApp()`
+- `apps/web/src/components/CommandPalette.tsx`: Palette search with typed catch
+- `apps/web/src/pages/organization/OrganizationPage.tsx`: Tabs with first-class `icon` prop
+- `apps/web/src/pages/settings/SettingsPage.tsx`: Tabs with first-class `icon` prop
+- `apps/web/src/pages/users/components/AppUsersTab.tsx`: Standard table pagination (pageSize: 10) & sorters
+- `apps/web/src/pages/directory/EmployeesTab.tsx`: Standard table pagination (pageSize: 10) & sorters
+- `apps/web/src/pages/assets/components/AssetTable.tsx`: okButtonProps danger & column sorters
+- `apps/web/src/pages/inventory/InventoryPage.tsx`: okButtonProps danger, column sorters, destroyOnHidden
+- `apps/web/src/pages/licenses/LicensesPage.tsx`: okButtonProps danger, column sorters, destroyOnHidden
+- `apps/web/src/pages/network/`: okButtonProps danger, destroyOnHidden for modals
+- `apps/web/src/pages/audit/AuditPage.tsx`: column sorters
 
 ## Interface Contracts
-### AppUser vs DirectoryUser
-- AppUser: `{ id, username, email, passwordHash, roleId, roleName, status, isLocked, refreshTokens, auditLogs, notifications }`
-- DirectoryUser: `{ id, employeeCode, email, firstName, lastName, displayName, jobTitle, company, plant, section, computerName, adGroup, ouPath, status, assignedAssets, licenseAssignments, groupMemberships }`
-- Auth `/api/auth/login`: takes `{ identifier, password }`, queries ONLY `AppUser` by username/email. If identifier matches `DirectoryUser`, immediately rejects with 401 Unauthorized.
-- Directory `/api/directory`: provides employee records, CSV import/export (no password creation), AD domain sync.
+### Menu Item Truncation Contract (`menuConfig.tsx`)
+All navigation menu items must render labels with the pattern:
+```tsx
+<Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
+  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    {title}
+  </span>
+  {badge && <span style={{ flexShrink: 0 }}>{badge}</span>}
+</Flex>
+```
+
+### Table Pagination Contract
+All primary domain tables must configure pagination as:
+```tsx
+pagination={{
+  pageSize: 10,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '25', '50', '100'],
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+}}
+```
+
+### Modal Lifecycle Contract
+All data creation/editing modals must configure:
+```tsx
+<Modal
+  open={open}
+  onCancel={onClose}
+  destroyOnHidden={true}
+  styles={{ body: { paddingTop: 16 } }}
+  ...
+>
+```

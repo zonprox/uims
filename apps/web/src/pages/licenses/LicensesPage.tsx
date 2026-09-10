@@ -34,6 +34,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
@@ -47,6 +48,7 @@ const { Option } = Select;
 
 export default function LicensesPage() {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const [licenses, setLicenses] = useState<Array<License>>([]);
   const [stats, setStats] = useState<LicenseStats>({
     total: 0,
@@ -249,6 +251,8 @@ export default function LicensesPage() {
       title: 'Software & Vendor',
       dataIndex: 'name',
       key: 'name',
+      sorter: (a: License, b: License) =>
+        a.name.localeCompare(b.name) || (a.licenseKey || '').localeCompare(b.licenseKey || ''),
       render: (name: string, record: License) => (
         <div>
           <Text
@@ -268,6 +272,7 @@ export default function LicensesPage() {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      sorter: (a: License, b: License) => a.status.localeCompare(b.status),
       render: (status: string) => (
         <Tag
           color={status === 'Active' ? 'success' : status === 'Expiring' ? 'warning' : 'default'}
@@ -280,6 +285,7 @@ export default function LicensesPage() {
       title: 'Seat Utilization',
       key: 'seats',
       width: 190,
+      sorter: (a: License, b: License) => a.totalSeats - b.totalSeats,
       render: (_: unknown, record: License) => {
         const percent =
           record.totalSeats > 0 ? Math.round((record.usedSeats / record.totalSeats) * 100) : 0;
@@ -310,6 +316,8 @@ export default function LicensesPage() {
     {
       title: 'Annual Spend',
       key: 'cost',
+      sorter: (a: License, b: License) =>
+        (a.usedSeats || 0) * (a.costPerSeat || 0) - (b.usedSeats || 0) * (b.costPerSeat || 0),
       render: (_: unknown, record: License) => (
         <div>
           <Text strong style={{ fontSize: 13 }}>
@@ -325,6 +333,7 @@ export default function LicensesPage() {
       title: 'Expiration Date',
       dataIndex: 'expiryDate',
       key: 'expiryDate',
+      sorter: (a: License, b: License) => (a.expiryDate || '').localeCompare(b.expiryDate || ''),
       render: (expiryDate: string, record: License) => {
         const diff = expiryDate ? dayjs(expiryDate).diff(dayjs(), 'day') : 999;
         return (
@@ -377,7 +386,7 @@ export default function LicensesPage() {
             description="This action cannot be undone."
             onConfirm={() => handleDeleteLicense(record.id)}
             okText="Delete"
-            okType="danger"
+            okButtonProps={{ danger: true }}
           >
             <Tooltip title="Delete">
               <Button
@@ -514,10 +523,12 @@ export default function LicensesPage() {
         onOk={handleSaveLicense}
         onCancel={() => setModalOpen(false)}
         confirmLoading={modalSubmitting}
+        destroyOnHidden={true}
         width={640}
         okText={editingLicense ? 'Save Changes' : 'Create License'}
+        styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
+        <Form form={form} layout="vertical">
           <Row gutter={14}>
             <Col span={14}>
               <Form.Item
@@ -614,8 +625,9 @@ export default function LicensesPage() {
               </Text>
             </div>
           }
-          styles={{ wrapper: { width: 480 } }}
+          size={480}
           open={seatsDrawerOpen}
+          destroyOnHidden
           onClose={() => setSeatsDrawerOpen(false)}
         >
           {/* Quick Assign Form */}
@@ -663,15 +675,15 @@ export default function LicensesPage() {
                   align="center"
                   style={{
                     padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid #f0f0f0',
-                    backgroundColor: '#fafafa',
+                    borderRadius: token.borderRadiusSM,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    backgroundColor: token.colorFillAlter,
                   }}
                 >
                   <Flex align="center" gap={10}>
                     <Avatar
                       icon={<UserOutlined />}
-                      style={{ backgroundColor: '#1677ff', fontSize: 11 }}
+                      style={{ backgroundColor: token.colorPrimary, fontSize: 11 }}
                       size="small"
                     />
                     <div>
@@ -683,7 +695,7 @@ export default function LicensesPage() {
                       <Text type="secondary" style={{ fontSize: 11.5 }}>
                         {user.email} • {user.department}
                       </Text>
-                      <div style={{ fontSize: 10.5, color: '#94a3b8' }}>
+                      <div style={{ fontSize: 10.5, color: token.colorTextTertiary }}>
                         Assigned: {user.assignedDate}
                       </div>
                     </div>
@@ -693,7 +705,7 @@ export default function LicensesPage() {
                     description="This user will lose access to this software license."
                     onConfirm={() => handleRevokeSeat(user.id)}
                     okText="Revoke"
-                    okType="danger"
+                    okButtonProps={{ danger: true }}
                   >
                     <Button type="link" danger size="small">
                       Revoke

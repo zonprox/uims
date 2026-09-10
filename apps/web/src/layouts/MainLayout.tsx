@@ -61,7 +61,7 @@ export default function MainLayout() {
       icon: <ExclamationCircleOutlined style={{ color: '#ef4444' }} />,
       content: 'Are you sure you want to sign out? Your active session will end.',
       okText: 'Sign Out',
-      okType: 'danger',
+      okButtonProps: { danger: true },
       cancelText: 'Cancel',
       onOk: () => {
         logout();

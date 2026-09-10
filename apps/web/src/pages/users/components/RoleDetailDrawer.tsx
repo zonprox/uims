@@ -91,9 +91,10 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
         </Flex>
       }
       open={open}
+      destroyOnHidden
+      size={720}
       onClose={onClose}
       styles={{
-        wrapper: { width: 720 },
         body: { padding: '16px 20px', background: token.colorBgLayout },
       }}
     >
@@ -210,7 +211,11 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
                   <Avatar
                     size={26}
                     icon={<UserOutlined />}
-                    style={{ backgroundColor: '#e0f2fe', color: '#0284c7', fontSize: 12 }}
+                    style={{
+                      backgroundColor: token.colorPrimaryBg,
+                      color: token.colorPrimary,
+                      fontSize: 12,
+                    }}
                   />
                   <div>
                     <Text strong style={{ fontSize: 12.5, display: 'block' }}>

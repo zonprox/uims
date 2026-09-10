@@ -120,6 +120,7 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
         }
         open={open}
         onClose={onClose}
+        destroyOnHidden
         size="large"
         styles={{ body: { padding: '20px 24px' } }}
         extra={

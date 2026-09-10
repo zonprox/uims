@@ -232,16 +232,11 @@ export default function DirectoryPage() {
       <Tabs
         activeKey={activeTabKey}
         onChange={setActiveTabKey}
-        size="large"
         items={[
           {
             key: 'employees',
-            label: (
-              <span>
-                <TeamOutlined style={{ marginRight: 6 }} />
-                Employees ({employees.length})
-              </span>
-            ),
+            icon: <TeamOutlined />,
+            label: `Employees (${employees.length})`,
             children: (
               <EmployeesTab
                 employees={employees}
@@ -258,12 +253,8 @@ export default function DirectoryPage() {
           },
           {
             key: 'groups',
-            label: (
-              <span>
-                <ShareAltOutlined style={{ marginRight: 6 }} />
-                Groups ({groups.length})
-              </span>
-            ),
+            icon: <ShareAltOutlined />,
+            label: `Groups (${groups.length})`,
             children: (
               <DirectoryGroupsTab
                 groups={groups}
@@ -276,12 +267,8 @@ export default function DirectoryPage() {
           },
           {
             key: 'ous',
-            label: (
-              <span>
-                <BranchesOutlined style={{ marginRight: 6 }} />
-                Organizational Units ({organizationalUnits.length})
-              </span>
-            ),
+            icon: <BranchesOutlined />,
+            label: `Organizational Units (${organizationalUnits.length})`,
             children: (
               <OrganizationalUnitsTab
                 units={organizationalUnits}

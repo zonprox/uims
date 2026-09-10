@@ -161,7 +161,7 @@ export const SubnetTable: React.FC<SubnetTableProps> = React.memo(
                 description={`Delete subnet ${record.cidr}? Active IP allocations will be detached.`}
                 onConfirm={() => onDeleteSubnet(record.id)}
                 okText="Delete"
-                okType="danger"
+                okButtonProps={{ danger: true }}
               >
                 <Tooltip title="Delete">
                   <Button

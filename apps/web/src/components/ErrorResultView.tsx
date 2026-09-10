@@ -10,7 +10,6 @@ import {
   Typography,
   theme,
   App,
-  message as staticMessage,
 } from 'antd';
 import type { ResultStatusType } from 'antd/es/result';
 import {
@@ -451,17 +450,13 @@ export default function ErrorResultView({
     const success = await copyTextToClipboard(jsonString);
     if (success) {
       setCopied(true);
-      if (app?.message?.success) {
+      if (typeof app?.message?.success === 'function') {
         app.message.success('Diagnostics copied to clipboard');
-      } else {
-        staticMessage.success('Diagnostics copied to clipboard');
       }
       setTimeout(() => setCopied(false), 2000);
     } else {
-      if (app?.message?.error) {
+      if (typeof app?.message?.error === 'function') {
         app.message.error('Failed to copy diagnostics to clipboard');
-      } else {
-        staticMessage.error('Failed to copy diagnostics to clipboard');
       }
     }
   };

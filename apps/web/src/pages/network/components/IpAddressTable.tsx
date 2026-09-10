@@ -365,7 +365,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
                   description={`Release ${ipVal} and return it to the available subnet pool?`}
                   onConfirm={() => onDeleteIp(record.id)}
                   okText="Release"
-                  okType="danger"
+                  okButtonProps={{ danger: true }}
                 >
                   <Tooltip title="Release">
                     <Button

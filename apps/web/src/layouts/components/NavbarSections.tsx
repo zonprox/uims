@@ -95,7 +95,7 @@ export interface NavbarRightSectionProps {
   mode?: ThemeMode;
   quickCreateMenu: MenuProps['items'];
   userMenuItems: MenuProps['items'];
-  user: { name?: string } | null;
+  user: { name?: string; email?: string; role?: string } | null;
   unreadCount: number;
   onOpenNotifications: () => void;
 }
@@ -210,43 +210,45 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
         <Divider orientation="vertical" style={{ height: 20, margin: '0 4px' }} />
 
         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
-          <div
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: isXs ? '2px' : '2px 6px',
-              borderRadius: 6,
-            }}
-          >
-            <Avatar
-              size={28}
+          <Tooltip title={user?.email || 'User Profile'}>
+            <div
               style={{
-                backgroundColor: '#1677ff',
-                fontSize: 13,
-                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: isXs ? '2px' : '2px 6px',
+                borderRadius: 6,
               }}
             >
-              {user?.name?.[0] || 'A'}
-            </Avatar>
-            {!isXs && (
-              <div style={{ lineHeight: 1.2, textAlign: 'left' }}>
-                <Text strong style={{ fontSize: 12.5, display: 'block' }}>
-                  {user?.name || 'Alex Johnson'}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 10.5,
-                    color: isDark ? '#94a3b8' : '#64748b',
-                    display: 'block',
-                  }}
-                >
-                  Super Admin
-                </Text>
-              </div>
-            )}
-          </div>
+              <Avatar
+                size={28}
+                style={{
+                  backgroundColor: '#1677ff',
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                {user?.name?.[0] || 'A'}
+              </Avatar>
+              {!isXs && (
+                <div style={{ lineHeight: 1.2, textAlign: 'left' }}>
+                  <Text strong style={{ fontSize: 12.5, display: 'block' }}>
+                    {user?.name || 'Alex Johnson'}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 10.5,
+                      color: isDark ? '#94a3b8' : '#64748b',
+                      display: 'block',
+                    }}
+                  >
+                    {user?.role || 'Super Admin'}
+                  </Text>
+                </div>
+              )}
+            </div>
+          </Tooltip>
         </Dropdown>
       </Flex>
     );
@@ -262,7 +264,7 @@ export interface AppNavbarHeaderProps {
   mode?: ThemeMode;
   quickCreateMenu: MenuProps['items'];
   userMenuItems: MenuProps['items'];
-  user: { name?: string } | null;
+  user: { name?: string; email?: string; role?: string } | null;
   unreadCount: number;
   onToggleSidebar: () => void;
   onOpenCommandPalette: () => void;

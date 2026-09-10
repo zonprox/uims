@@ -128,16 +128,11 @@ export default function AccessControlPage() {
       <Tabs
         activeKey={activeTabKey}
         onChange={setActiveTabKey}
-        size="large"
         items={[
           {
             key: 'users',
-            label: (
-              <span>
-                <UserOutlined style={{ marginRight: 6 }} />
-                Application Users ({users.length})
-              </span>
-            ),
+            icon: <UserOutlined />,
+            label: `Application Users (${users.length})`,
             children: (
               <AppUsersTab
                 users={users}
@@ -151,12 +146,8 @@ export default function AccessControlPage() {
           },
           {
             key: 'roles',
-            label: (
-              <span>
-                <SafetyCertificateOutlined style={{ marginRight: 6 }} />
-                Roles & Permissions ({roles.length})
-              </span>
-            ),
+            icon: <SafetyCertificateOutlined />,
+            label: `Roles & Permissions (${roles.length})`,
             children: (
               <RolesTab
                 roles={roles}

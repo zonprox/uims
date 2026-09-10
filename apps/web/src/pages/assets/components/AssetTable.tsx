@@ -23,6 +23,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'Asset Tag & Name',
           key: 'tag',
+          sorter: (a: Asset, b: Asset) =>
+            a.tag.localeCompare(b.tag) || a.name.localeCompare(b.name),
           render: (_: unknown, record: Asset) => (
             <div>
               <Flex align="center" gap={8}>
@@ -60,6 +62,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Status',
           dataIndex: 'status',
           key: 'status',
+          sorter: (a: Asset, b: Asset) => a.status.localeCompare(b.status),
           render: (status: Asset['status']) => {
             let color = 'default';
             if (status === 'Active') color = 'success';
@@ -79,12 +82,15 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Location',
           dataIndex: 'location',
           key: 'location',
+          sorter: (a: Asset, b: Asset) => a.location.localeCompare(b.location),
           render: (loc: string) => <Text style={{ fontSize: 12.5 }}>{loc}</Text>,
         },
         {
           title: 'Warranty Expiration',
           dataIndex: 'warrantyExpiry',
           key: 'warrantyExpiry',
+          sorter: (a: Asset, b: Asset) =>
+            (a.warrantyExpiry || '').localeCompare(b.warrantyExpiry || ''),
           render: (date: string) => {
             if (!date) return <Text type="secondary">N/A</Text>;
             const isExpiringSoon = dayjs(date).diff(dayjs(), 'day') < 90;
@@ -140,7 +146,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 description="This action cannot be undone."
                 onConfirm={() => onDeleteAsset(record.id)}
                 okText="Delete"
-                okType="danger"
+                okButtonProps={{ danger: true }}
               >
                 <Tooltip title="Delete">
                   <Button

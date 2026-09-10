@@ -281,6 +281,8 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
     {
       title: 'User',
       key: 'user',
+      sorter: (a: AppUser, b: AppUser) =>
+        (a.displayName || a.username).localeCompare(b.displayName || b.username),
       render: (_: unknown, record: AppUser) => (
         <Flex align="center" gap={10}>
           <Avatar
@@ -307,6 +309,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      sorter: (a: AppUser, b: AppUser) => a.email.localeCompare(b.email),
       render: (email: string) => (
         <Flex align="center" gap={6}>
           <Text style={{ fontSize: 12.5 }}>{email}</Text>
@@ -325,6 +328,8 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       title: 'Role',
       dataIndex: 'roleName',
       key: 'roleName',
+      sorter: (a: AppUser, b: AppUser) =>
+        (a.roleName || a.role?.name || '').localeCompare(b.roleName || b.role?.name || ''),
       render: (roleName: string | null, record: AppUser) => (
         <Tag color={getRoleColor(roleName || record.role?.name)}>
           {roleName || record.role?.name || 'Standard'}
@@ -334,6 +339,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
     {
       title: 'Status',
       key: 'status',
+      sorter: (a: AppUser, b: AppUser) => a.status.localeCompare(b.status),
       render: (_: unknown, record: AppUser) => getStatusTag(record.status, record.isLocked),
     },
     {
@@ -353,6 +359,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       title: 'Last Sign In',
       dataIndex: 'lastLoginAt',
       key: 'lastLoginAt',
+      sorter: (a: AppUser, b: AppUser) => (a.lastLoginAt || '').localeCompare(b.lastLoginAt || ''),
       render: (lastLoginAt: string | null) => (
         <Text type="secondary" style={{ fontSize: 12 }}>
           {lastLoginAt ? <FormattedDateTime date={lastLoginAt} /> : 'Never'}
@@ -482,9 +489,9 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         rowKey="id"
         loading={loading}
         pagination={{
-          defaultPageSize: 20,
+          pageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '20', '50', '100'],
+          pageSizeOptions: ['10', '25', '50', '100'],
           showTotal: (total) => `Total ${total} accounts`,
         }}
         size="middle"

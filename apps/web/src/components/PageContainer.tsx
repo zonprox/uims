@@ -1,5 +1,5 @@
 import { ArrowDownOutlined, ArrowUpOutlined, HomeOutlined } from '@ant-design/icons';
-import { Breadcrumb, Card, Col, Flex, Grid, Row, Statistic, Typography } from 'antd';
+import { Breadcrumb, Card, Col, Flex, Grid, Row, Statistic, Typography, theme } from 'antd';
 import type React from 'react';
 import { Link } from 'react-router';
 
@@ -40,6 +40,7 @@ export default function PageContainer({
   noCardWrapper = false,
 }: PageContainerProps) {
   const screens = useBreakpoint();
+  const { token } = theme.useToken();
 
   const breadcrumbItems = breadcrumbs
     ? [
@@ -131,7 +132,7 @@ export default function PageContainer({
                       style={{
                         fontSize: screens.xs ? 11 : 12,
                         fontWeight: 500,
-                        color: '#64748b',
+                        color: token.colorTextSecondary,
                         textTransform: 'uppercase',
                         letterSpacing: '0.04em',
                         display: 'block',
@@ -167,7 +168,7 @@ export default function PageContainer({
                   >
                     <span
                       style={{
-                        color: stat.trend.isUp ? '#10b981' : '#ef4444',
+                        color: stat.trend.isUp ? token.colorSuccess : token.colorError,
                         fontWeight: 600,
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -181,7 +182,7 @@ export default function PageContainer({
                       )}
                       {stat.trend.value}
                     </span>{' '}
-                    <span style={{ color: '#94a3b8' }}>vs last month</span>
+                    <span style={{ color: token.colorTextTertiary }}>vs last month</span>
                   </div>
                 )}
               </Card>

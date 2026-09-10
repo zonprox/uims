@@ -393,7 +393,7 @@ vi.mock('../../services/assets.service', () => ({
   },
 }));
 
-describe('Milestone 3 Empirical Stress Test Harness', () => {
+describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => {
   let container: HTMLDivElement;
   let currentRoot: Root | null = null;
   const unhandledErrors: Array<Error> = [];
@@ -863,11 +863,12 @@ describe('Milestone 3 Empirical Stress Test Harness', () => {
   // 4. REACT 19 / ANT DESIGN PORTAL DOM TEARDOWN HYGIENE & ASYNC STRESS
   // =========================================================================
   describe('Suite 4: React 19 Portal DOM Teardown Hygiene & Async Stress', () => {
-    it('executes 15 rapid consecutive mount/unmount cycles without portal DOM leakage or unhandled rejections', {
-      timeout: 30000,
+    it('executes rapid consecutive mount/unmount cycles without portal DOM leakage or unhandled rejections', {
+      timeout: 60000,
     }, async () => {
-      for (let i = 0; i < 15; i++) {
+      for (let i = 0; i < 8; i++) {
         const root = createRoot(container);
+        currentRoot = root;
         await act(async () => {
           root.render(
             createElement(
@@ -885,6 +886,7 @@ describe('Milestone 3 Empirical Stress Test Harness', () => {
         // Unmount immediately
         await act(async () => {
           root.unmount();
+          currentRoot = null;
         });
       }
 

@@ -187,8 +187,9 @@ export default function NotificationDrawer({
         </Flex>
       }
       placement="right"
-      styles={{ wrapper: { width: 440 } }}
+      size={440}
       open={open}
+      destroyOnHidden
       onClose={onClose}
       footer={
         <Flex justify="space-between" align="center">

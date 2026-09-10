@@ -220,9 +220,10 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
         </Flex>
       }
       open={open}
+      destroyOnHidden
+      size={780}
       onClose={onClose}
       styles={{
-        wrapper: { width: 780 },
         body: { padding: '16px 20px', background: token.colorBgLayout },
         footer: { padding: '12px 20px', background: token.colorBgContainer },
       }}
@@ -408,9 +409,9 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
                             onClick={() => handleTogglePerm(act.id)}
                             style={{
                               padding: '6px 10px',
-                              borderRadius: 6,
-                              border: `1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'}`,
-                              background: isChecked ? '#eff6ff' : '#fff',
+                              borderRadius: token.borderRadiusSM,
+                              border: `1px solid ${isChecked ? token.colorPrimaryBorder : token.colorBorderSecondary}`,
+                              background: isChecked ? token.colorPrimaryBg : token.colorBgContainer,
                               cursor: isSuperAdminRole ? 'default' : 'pointer',
                               display: 'flex',
                               alignItems: 'center',

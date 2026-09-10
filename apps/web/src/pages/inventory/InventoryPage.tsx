@@ -263,6 +263,8 @@ export default function InventoryPage() {
     {
       title: 'SKU & Item Name',
       key: 'name',
+      sorter: (a: InventoryItem, b: InventoryItem) =>
+        a.name.localeCompare(b.name) || a.sku.localeCompare(b.sku),
       render: (_: unknown, record: InventoryItem) => (
         <div>
           <Text code strong style={{ fontSize: 12.5, color: '#1677ff' }}>
@@ -285,17 +287,21 @@ export default function InventoryPage() {
       title: 'Category',
       dataIndex: 'category',
       key: 'category',
+      sorter: (a: InventoryItem, b: InventoryItem) => a.category.localeCompare(b.category),
       render: (category: string) => <Tag color="blue">{category}</Tag>,
     },
     {
       title: 'Stock Level & Threshold',
       key: 'stock',
       width: 200,
+      sorter: (a: InventoryItem, b: InventoryItem) => a.quantity - b.quantity,
       render: (_: unknown, record: InventoryItem) => <StockLevelCell record={record} />,
     },
     {
       title: 'Total Value',
       key: 'price',
+      sorter: (a: InventoryItem, b: InventoryItem) =>
+        a.quantity * a.unitCost - b.quantity * b.unitCost,
       render: (_: unknown, record: InventoryItem) => (
         <div>
           <Text strong style={{ fontSize: 13 }}>
@@ -338,7 +344,7 @@ export default function InventoryPage() {
             description="This action cannot be undone."
             onConfirm={() => handleDeleteItem(record.id)}
             okText="Delete"
-            okType="danger"
+            okButtonProps={{ danger: true }}
           >
             <Tooltip title="Delete">
               <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
@@ -469,10 +475,12 @@ export default function InventoryPage() {
         onOk={handleSaveItem}
         onCancel={() => setModalOpen(false)}
         confirmLoading={modalSubmitting}
+        destroyOnHidden={true}
         width={620}
         okText={editingItem ? 'Save Changes' : 'Create Item'}
+        styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
+        <Form form={form} layout="vertical">
           <Row gutter={14}>
             <Col span={10}>
               <Form.Item
@@ -562,8 +570,10 @@ export default function InventoryPage() {
           onOk={handleConfirmRestock}
           onCancel={() => setRestockModalOpen(false)}
           confirmLoading={restocking}
+          destroyOnHidden={true}
           width={400}
           okText="Update Stock"
+          styles={{ body: { paddingTop: 16 } }}
         >
           <div style={{ padding: '8px 0' }}>
             <Text type="secondary" style={{ fontSize: 13 }}>

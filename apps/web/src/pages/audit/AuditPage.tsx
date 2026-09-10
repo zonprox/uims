@@ -116,11 +116,14 @@ export default function AuditPage() {
       title: 'Timestamp',
       dataIndex: 'timestamp',
       key: 'timestamp',
+      sorter: (a: AuditLog, b: AuditLog) => a.timestamp.localeCompare(b.timestamp),
       render: (ts: string) => <FormattedDateTime date={ts} showOffset monospace />,
     },
     {
       title: 'Actor',
       key: 'user',
+      sorter: (a: AuditLog, b: AuditLog) =>
+        (a.userName || a.user || '').localeCompare(b.userName || b.user || ''),
       render: (_: unknown, record: AuditLog) => {
         const actorName = record.userName || record.user || 'System Engine';
         return (
@@ -144,6 +147,7 @@ export default function AuditPage() {
       title: 'Action',
       dataIndex: 'action',
       key: 'action',
+      sorter: (a: AuditLog, b: AuditLog) => a.action.localeCompare(b.action),
       render: (action: string) => {
         let color = 'default';
         if (action.includes('DELETE') || action.includes('REVOKE') || action.includes('FAILED'))
@@ -187,6 +191,7 @@ export default function AuditPage() {
       title: 'Severity',
       dataIndex: 'severity',
       key: 'severity',
+      sorter: (a: AuditLog, b: AuditLog) => a.severity.localeCompare(b.severity),
       render: (sev: string) => {
         let color = 'default';
         if (sev === 'Critical') color = 'error';
@@ -199,6 +204,7 @@ export default function AuditPage() {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      sorter: (a: AuditLog, b: AuditLog) => a.status.localeCompare(b.status),
       render: (status: string) => (
         <Tag color={status === 'Success' ? 'success' : status === 'Blocked' ? 'error' : 'warning'}>
           {status}
@@ -369,8 +375,9 @@ export default function AuditPage() {
               </Title>
             </div>
           }
-          styles={{ wrapper: { width: 520 } }}
+          size={520}
           open={drawerOpen}
+          destroyOnHidden
           onClose={() => setDrawerOpen(false)}
         >
           <Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>

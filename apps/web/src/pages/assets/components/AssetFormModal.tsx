@@ -32,10 +32,12 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       onOk={onSave}
       onCancel={onCancel}
       confirmLoading={submitting}
+      destroyOnHidden={true}
       width={680}
       okText={editingAsset ? 'Save Changes' : 'Create Asset'}
+      styles={{ body: { paddingTop: 16 } }}
     >
-      <Form form={form} layout="vertical" style={{ marginTop: 14 }}>
+      <Form form={form} layout="vertical">
         <Row gutter={14}>
           <Col span={12}>
             <Form.Item

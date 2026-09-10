@@ -439,3 +439,63 @@ Integrity mode: development
 - [ ] `pnpm run build` succeeds cleanly across all workspaces.
 - [ ] Changes are committed and pushed to `origin/main`.
 - [ ] GitHub Actions CI workflow run completes successfully (status: green).
+
+## 2026-09-10T10:02:36Z
+
+Comprehensive audit, cleanup, and standardization of all UI/UX layouts, navigation structures, cards, tables, modals, drawers, and form components across the React frontend (`apps/web`) to strictly comply with Ant Design v6 specifications (`docs/ant-design-llms-full.txt`) and `AGENTS.md` directives.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Full-Codebase UI/UX & Layout Audit Against Ant Design v6
+Perform a comprehensive audit across all pages, layouts, modals, drawers, and shared components in `apps/web/src`:
+- Check layout structures: Sider, Header, Content, PageContainer, Navbar, and responsive drawers.
+- Check component usage against `docs/ant-design-llms-full.txt` for all Ant Design components (Tabs, Card, Statistic, Drawer, Modal, Table, Form, Flex, Space, Segmented, Menu, etc.).
+- Identify all instances of deprecated v4/v5 APIs, props, or patterns (`bodyStyle`, `headStyle`, `valueStyle`, `tabPosition`, `destroyInactiveTabPane`, `dropdownClassName`, `visible`, `overlay`, etc.).
+
+### R2. Elimination of Ant Design Anti-Patterns & Semantic Token Migration
+Refactor and clean up all identified violations:
+- Migrate all custom/deprecated component styling to semantic DOM styles:
+  - `Card`: Use `styles={{ body: { ... }, header: { ... } }}` instead of deprecated style props.
+  - `Drawer` & `Modal`: Use `styles={{ body: { ... } }}` instead of deprecated props.
+  - `Statistic`: Use `styles={{ content: { ... } }}` instead of `valueStyle`.
+  - `Tabs`: Use first-class `icon` and `label` in `items`, with unified `titleFontSize: 14` tokens.
+- Replace any static feedback method invocations (`message.error()`, `Modal.confirm()`, `notification.open()`) with dynamic context hooks via `App.useApp()`.
+- Ensure zero raw CSS font/spacing overrides on Ant Design internal class names that fight the token system.
+
+### R3. Responsive Layout, Sider Dimensions & Truncation Defense
+Verify and enforce repository architectural invariants for navigation and layouts:
+- Desktop Sider dimensions: strictly `280px` (expanded) and `80px` (collapsed).
+- Mobile Drawer navigation: strictly `290px` width with left edge placement.
+- Menu items and sidebar labels must implement truncation defense (`minWidth: 0`, `overflow: hidden`, `textOverflow: 'ellipsis'`, and `flexShrink: 0` for badges/tags).
+- Consistent page hierarchy: ensure all primary domain views leverage `<PageContainer>` with breadcrumbs, title, subtitle, and action slots.
+
+### R4. Verification & Quality Gates
+Ensure all changes strictly satisfy the monorepo verification invariants:
+- Zero TypeScript diagnostics across all workspaces.
+- Zero ESLint warnings or errors.
+- 100% compliance with Biome formatting.
+- 100% test pass rate across unit and integration test suites.
+- Clean production builds for all monorepo workspaces.
+
+## Acceptance Criteria
+
+### Ant Design v6 Compliance
+- [ ] Zero occurrences of deprecated props (`bodyStyle`, `headStyle`, `valueStyle`, `tabPosition`, `destroyInactiveTabPane`, `dropdownClassName`, `visible`, `overlay`) across `apps/web/src`.
+- [ ] All feedback interactions (messages, notifications, confirm dialogs) consume dynamic context from `App.useApp()`.
+- [ ] All Tab, Card, Modal, and Drawer components adhere to Ant Design v6 semantic tokens and props.
+
+### Layout & Responsive Invariants
+- [ ] Desktop Sider width is exactly 280px (expanded) and 80px (collapsed).
+- [ ] Mobile navigation Drawer width is 290px with left placement.
+- [ ] Sider and navigation items have truncation defense preventing overflow.
+- [ ] Primary views utilize `<PageContainer>` with consistent breadcrumb and header styling.
+
+### Verification Gates
+- [ ] `pnpm run typecheck` exits 0 with 0 errors across all workspaces.
+- [ ] `pnpm run lint` exits 0 with 0 errors/warnings.
+- [ ] `pnpm run format:check` exits 0 with 100% Biome compliance.
+- [ ] `pnpm run test` exits 0 with 100% test pass rate.
+- [ ] `pnpm run build` exits 0 with clean builds across all packages.

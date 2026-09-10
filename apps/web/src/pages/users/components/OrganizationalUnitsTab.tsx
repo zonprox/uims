@@ -54,14 +54,14 @@ export function OrganizationalUnitsTab({
                 style={{
                   width: 44,
                   height: 44,
-                  borderRadius: 8,
-                  backgroundColor: '#e0f2fe',
+                  borderRadius: token.borderRadiusLG,
+                  backgroundColor: token.colorPrimaryBg,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <BranchesOutlined style={{ fontSize: 22, color: '#0284c7' }} />
+                <BranchesOutlined style={{ fontSize: 22, color: token.colorPrimary }} />
               </div>
               <div>
                 <Title level={5} style={{ margin: 0 }}>
@@ -148,9 +148,9 @@ export function OrganizationalUnitsTab({
                     <Col span={8}>
                       <div
                         style={{
-                          backgroundColor: '#f1f5f9',
+                          backgroundColor: token.colorFillAlter,
                           padding: '6px 8px',
-                          borderRadius: 6,
+                          borderRadius: token.borderRadiusSM,
                           textAlign: 'center',
                         }}
                       >
@@ -166,9 +166,9 @@ export function OrganizationalUnitsTab({
                     <Col span={8}>
                       <div
                         style={{
-                          backgroundColor: '#f1f5f9',
+                          backgroundColor: token.colorFillAlter,
                           padding: '6px 8px',
-                          borderRadius: 6,
+                          borderRadius: token.borderRadiusSM,
                           textAlign: 'center',
                         }}
                       >
@@ -184,9 +184,9 @@ export function OrganizationalUnitsTab({
                     <Col span={8}>
                       <div
                         style={{
-                          backgroundColor: '#f1f5f9',
+                          backgroundColor: token.colorFillAlter,
                           padding: '6px 8px',
-                          borderRadius: 6,
+                          borderRadius: token.borderRadiusSM,
                           textAlign: 'center',
                         }}
                       >

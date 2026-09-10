@@ -43,6 +43,8 @@ export const CredentialRevealModal: React.FC<CredentialRevealModalProps> = React
 
     return (
       <Modal
+        open={open}
+        destroyOnHidden={true}
         title={
           <Flex align="center" gap={8}>
             <SafetyCertificateOutlined style={{ color: '#fa8c16', fontSize: 20 }} />
@@ -56,7 +58,6 @@ export const CredentialRevealModal: React.FC<CredentialRevealModalProps> = React
             </div>
           </Flex>
         }
-        open={open}
         onCancel={onClose}
         footer={[
           <Button key="close" type="primary" onClick={onClose}>
@@ -64,7 +65,7 @@ export const CredentialRevealModal: React.FC<CredentialRevealModalProps> = React
           </Button>,
         ]}
         width={540}
-        styles={{ body: { paddingTop: 14 } }}
+        styles={{ body: { paddingTop: 16 } }}
       >
         <Alert
           type="warning"

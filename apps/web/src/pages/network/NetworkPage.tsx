@@ -138,11 +138,8 @@ export default function NetworkPage() {
     () => [
       {
         key: 'ipam',
-        label: (
-          <span>
-            <ApiOutlined /> IP Allocations ({ips.length})
-          </span>
-        ),
+        icon: <ApiOutlined />,
+        label: `IP Allocations (${ips.length})`,
         children: (
           <IpAddressTable
             ips={ips}
@@ -171,11 +168,8 @@ export default function NetworkPage() {
       },
       {
         key: 'subnets',
-        label: (
-          <span>
-            <CloudServerOutlined /> Subnets ({subnets.length})
-          </span>
-        ),
+        icon: <CloudServerOutlined />,
+        label: `Subnets (${subnets.length})`,
         children: (
           <SubnetManagementTab
             subnets={subnets}
@@ -191,11 +185,8 @@ export default function NetworkPage() {
       },
       {
         key: 'vlans',
-        label: (
-          <span>
-            <ApartmentOutlined /> VLANs ({vlans.length})
-          </span>
-        ),
+        icon: <ApartmentOutlined />,
+        label: `VLANs (${vlans.length})`,
         children: (
           <VlanManagementTab
             vlans={vlans}

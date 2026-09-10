@@ -246,7 +246,7 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
                 description={`Are you sure you want to delete VLAN ${record.vlanNumber} (${record.name})? Subnets must be unlinked first.`}
                 onConfirm={() => onDeleteVlan(record.id)}
                 okText="Delete"
-                okType="danger"
+                okButtonProps={{ danger: true }}
               >
                 <Tooltip title="Delete">
                   <Button

@@ -76,7 +76,7 @@ export const SubnetCardList: React.FC<SubnetCardListProps> = React.memo(
                         title="Delete subnet?"
                         description={`Remove ${subnet.cidr}?`}
                         onConfirm={() => onDeleteSubnet(subnet.id)}
-                        okType="danger"
+                        okButtonProps={{ danger: true }}
                       >
                         <Tooltip title="Delete">
                           <Button type="text" size="small" danger icon={<DeleteOutlined />} />

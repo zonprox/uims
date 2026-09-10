@@ -1,4 +1,4 @@
-import { Menu, type MenuProps } from 'antd';
+import { Dropdown, Menu, Tooltip, type MenuProps } from 'antd';
 import React from 'react';
 import { useThemeStore } from '../../stores/theme.store';
 import { SidebarBrandHeader } from './SidebarBrandHeader';
@@ -46,8 +46,49 @@ export const SidebarContent: React.FC<SidebarContentProps> = React.memo(
           onNavigate={onNavigate}
           onCloseDrawer={onCloseDrawer}
         />
-        {(!collapsed || inDrawer) && (
+        {!collapsed || inDrawer ? (
           <SidebarOrgSelector activeOrg={activeOrg} orgMenuItems={orgMenuItems} />
+        ) : (
+          <div
+            style={{
+              padding: '8px 0',
+              display: 'flex',
+              justifyContent: 'center',
+              borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #f1f5f9',
+              flexShrink: 0,
+            }}
+          >
+            <Dropdown menu={{ items: orgMenuItems }} trigger={['click']}>
+              <Tooltip title={`Cluster: ${activeOrg}`} placement="right">
+                <button
+                  type="button"
+                  aria-label={`Active cluster: ${activeOrg}`}
+                  style={{
+                    width: 40,
+                    height: 36,
+                    borderRadius: 6,
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: '#10b981',
+                      boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+                    }}
+                  />
+                </button>
+              </Tooltip>
+            </Dropdown>
+          </div>
         )}
         <div
           className={`sidebar-menu-scroll ${isDark ? 'sidebar-menu-dark' : 'sidebar-menu-light'}`}

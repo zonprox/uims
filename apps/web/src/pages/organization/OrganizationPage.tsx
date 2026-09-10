@@ -41,6 +41,7 @@ import {
   Tooltip,
   Tree,
   Typography,
+  theme,
 } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -53,6 +54,7 @@ const { Option } = Select;
 
 export default function OrganizationPage() {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
 
   const [viewMode, setViewMode] = useState<'canvas' | 'tree'>('canvas');
   const [loading, setLoading] = useState(false);
@@ -378,9 +380,9 @@ export default function OrganizationPage() {
             style={{
               width: 32,
               height: 32,
-              borderRadius: 6,
-              background: '#e6f4ff',
-              color: '#1677ff',
+              borderRadius: token.borderRadiusSM,
+              background: token.colorPrimaryBg,
+              color: token.colorPrimary,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -477,7 +479,7 @@ export default function OrganizationPage() {
             description="Are you sure you want to remove this department record?"
             onConfirm={() => handleDeleteDept(record.id)}
             okText="Delete"
-            okType="danger"
+            okButtonProps={{ danger: true }}
           >
             <Tooltip title="Delete">
               <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
@@ -499,9 +501,9 @@ export default function OrganizationPage() {
             style={{
               width: 32,
               height: 32,
-              borderRadius: 6,
-              background: '#fef3c7',
-              color: '#d97706',
+              borderRadius: token.borderRadiusSM,
+              background: token.colorWarningBg,
+              color: token.colorWarning,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -579,7 +581,7 @@ export default function OrganizationPage() {
             description="Remove job title from organization directory?"
             onConfirm={() => handleDeletePos(record.id)}
             okText="Delete"
-            okType="danger"
+            okButtonProps={{ danger: true }}
           >
             <Tooltip title="Delete">
               <Button type="text" shape="circle" size="small" danger icon={<DeleteOutlined />} />
@@ -662,11 +664,8 @@ export default function OrganizationPage() {
         items={[
           {
             key: 'hierarchy',
-            label: (
-              <span>
-                <ClusterOutlined /> Organization Hierarchy
-              </span>
-            ),
+            icon: <ClusterOutlined />,
+            label: 'Organization Hierarchy',
             children: (
               <Flex vertical gap={16}>
                 {/* View Mode Switcher */}
@@ -1107,11 +1106,8 @@ export default function OrganizationPage() {
           },
           {
             key: 'departments',
-            label: (
-              <span>
-                <ApartmentOutlined /> Departments ({departments.length})
-              </span>
-            ),
+            icon: <ApartmentOutlined />,
+            label: `Departments (${departments.length})`,
             children: (
               <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
                 <Row
@@ -1160,12 +1156,8 @@ export default function OrganizationPage() {
           },
           {
             key: 'entities',
-            label: (
-              <span>
-                <BankOutlined /> Organizations & Locations ({orgs.length} Organizations,{' '}
-                {locations.length} Locations)
-              </span>
-            ),
+            icon: <BankOutlined />,
+            label: `Organizations & Locations (${orgs.length} Organizations, ${locations.length} Locations)`,
             children: (
               <Flex vertical gap={16}>
                 <Card
@@ -1286,11 +1278,8 @@ export default function OrganizationPage() {
           },
           {
             key: 'positions',
-            label: (
-              <span>
-                <IdcardOutlined /> Positions ({positions.length})
-              </span>
-            ),
+            icon: <IdcardOutlined />,
+            label: `Positions (${positions.length})`,
             children: (
               <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
                 <Row
@@ -1347,10 +1336,12 @@ export default function OrganizationPage() {
         onOk={handleSaveOrg}
         onCancel={() => setOrgModalOpen(false)}
         confirmLoading={modalSubmitting}
+        destroyOnHidden={true}
         width={580}
         okText={editingOrg ? 'Save Changes' : 'Create Organization'}
+        styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={orgForm} layout="vertical" style={{ marginTop: 14 }}>
+        <Form form={orgForm} layout="vertical">
           <Row gutter={14}>
             <Col span={14}>
               <Form.Item label="Organization Name" name="name" rules={[{ required: true }]}>
@@ -1400,10 +1391,12 @@ export default function OrganizationPage() {
         onOk={handleSaveDept}
         onCancel={() => setDeptModalOpen(false)}
         confirmLoading={modalSubmitting}
+        destroyOnHidden={true}
         width={600}
         okText={editingDept ? 'Save Changes' : 'Create Department'}
+        styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={deptForm} layout="vertical" style={{ marginTop: 14 }}>
+        <Form form={deptForm} layout="vertical">
           <Row gutter={14}>
             <Col span={14}>
               <Form.Item label="Department Name" name="name" rules={[{ required: true }]}>
@@ -1473,10 +1466,12 @@ export default function OrganizationPage() {
         onOk={handleSavePos}
         onCancel={() => setPosModalOpen(false)}
         confirmLoading={modalSubmitting}
+        destroyOnHidden={true}
         width={560}
         okText={editingPos ? 'Save Changes' : 'Create Position'}
+        styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={posForm} layout="vertical" style={{ marginTop: 14 }}>
+        <Form form={posForm} layout="vertical">
           <Row gutter={14}>
             <Col span={14}>
               <Form.Item label="Position Title" name="title" rules={[{ required: true }]}>

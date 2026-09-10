@@ -54,7 +54,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'inventory',
-    title: 'Inventory Management',
+    title: 'Inventory',
     category: 'Inventory',
     path: '/inventory',
     icon: <DatabaseOutlined />,
@@ -168,7 +168,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         const res = await api.get('/search', { params: { q: trimmed, limit: 8 } });
         const items = res.data?.data?.results || res.data?.results || [];
         setLiveResults(items);
-      } catch {
+      } catch (_error: unknown) {
         setLiveResults([]);
       } finally {
         setLoading(false);

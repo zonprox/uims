@@ -249,8 +249,10 @@ export default function ReportsPage() {
         onOk={handleScheduleSubmit}
         onCancel={() => setScheduleModalOpen(false)}
         confirmLoading={scheduling}
+        destroyOnHidden={true}
         width={540}
         okText="Schedule Report"
+        styles={{ body: { paddingTop: 16 } }}
       >
         <Form
           form={form}
@@ -260,7 +262,6 @@ export default function ReportsPage() {
             format: 'PDF + Excel summary',
             recipients: 'executive-team@company.com, cio@company.com',
           }}
-          style={{ marginTop: 14 }}
         >
           <Form.Item label="Report Type" name="reportType" rules={[{ required: true }]}>
             <Select placeholder="Choose report type">

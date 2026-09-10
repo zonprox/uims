@@ -28,9 +28,10 @@ export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
       onOk={onSave}
       onCancel={onCancel}
       confirmLoading={submitting}
+      destroyOnHidden={true}
       width={580}
       okText={editingVlan ? 'Save Changes' : 'Create VLAN'}
-      styles={{ body: { paddingTop: 12 } }}
+      styles={{ body: { paddingTop: 16 } }}
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>

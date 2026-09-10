@@ -169,4 +169,121 @@ describe('NavbarSections', () => {
       root.unmount();
     });
   });
+
+  describe('Dynamic Role Display in NavbarRightSection', () => {
+    it.each([
+      { role: 'Security Lead', name: 'Sarah Connor' },
+      { role: 'DevOps Engineer', name: 'Alex Rivera' },
+      { role: 'Guest', name: 'Visitor One' },
+    ])(
+      'renders dynamic role "$role" and suppresses default "Super Admin"',
+      async ({ role, name }) => {
+        const root = createRoot(container);
+        await act(async () => {
+          root.render(
+            createElement(NavbarRightSection, {
+              isXs: false,
+              quickCreateMenu: [],
+              userMenuItems: [],
+              user: { name, role },
+              unreadCount: 0,
+              onOpenNotifications: vi.fn(),
+            }),
+          );
+        });
+
+        const elements = Array.from(container.querySelectorAll('span, div'));
+        const matchedRoleEl = elements.find((el) => el.textContent === role);
+        expect(matchedRoleEl).toBeDefined();
+
+        const superAdminEl = elements.find((el) => el.textContent === 'Super Admin');
+        expect(superAdminEl).toBeUndefined();
+
+        act(() => {
+          root.unmount();
+        });
+      },
+    );
+
+    it('falls back to "Super Admin" when role is undefined', async () => {
+      const root = createRoot(container);
+      await act(async () => {
+        root.render(
+          createElement(NavbarRightSection, {
+            isXs: false,
+            quickCreateMenu: [],
+            userMenuItems: [],
+            user: { name: 'John Doe', role: undefined },
+            unreadCount: 0,
+            onOpenNotifications: vi.fn(),
+          }),
+        );
+      });
+
+      const elements = Array.from(container.querySelectorAll('span, div'));
+      const superAdminEl = elements.find((el) => el.textContent === 'Super Admin');
+      expect(superAdminEl).toBeDefined();
+
+      act(() => {
+        root.unmount();
+      });
+    });
+
+    it('falls back to "Super Admin" and "Alex Johnson" when user is null', async () => {
+      const root = createRoot(container);
+      await act(async () => {
+        root.render(
+          createElement(NavbarRightSection, {
+            isXs: false,
+            quickCreateMenu: [],
+            userMenuItems: [],
+            user: null,
+            unreadCount: 0,
+            onOpenNotifications: vi.fn(),
+          }),
+        );
+      });
+
+      const elements = Array.from(container.querySelectorAll('span, div'));
+      const superAdminEl = elements.find((el) => el.textContent === 'Super Admin');
+      expect(superAdminEl).toBeDefined();
+
+      const defaultNameEl = elements.find((el) => el.textContent === 'Alex Johnson');
+      expect(defaultNameEl).toBeDefined();
+
+      act(() => {
+        root.unmount();
+      });
+    });
+
+    it('hides role and name text on mobile viewports (isXs = true)', async () => {
+      const root = createRoot(container);
+      await act(async () => {
+        root.render(
+          createElement(NavbarRightSection, {
+            isXs: true,
+            quickCreateMenu: [],
+            userMenuItems: [],
+            user: { name: 'Mobile User', role: 'Security Lead' },
+            unreadCount: 0,
+            onOpenNotifications: vi.fn(),
+          }),
+        );
+      });
+
+      const elements = Array.from(container.querySelectorAll('span, div'));
+      const matchedRoleEl = elements.find((el) => el.textContent === 'Security Lead');
+      expect(matchedRoleEl).toBeUndefined();
+
+      const matchedNameEl = elements.find((el) => el.textContent === 'Mobile User');
+      expect(matchedNameEl).toBeUndefined();
+
+      // Avatar should still be rendered
+      expect(container.querySelector('.ant-avatar')).not.toBeNull();
+
+      act(() => {
+        root.unmount();
+      });
+    });
+  });
 });

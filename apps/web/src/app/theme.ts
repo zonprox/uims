@@ -66,6 +66,9 @@ function getComponentThemes(isDark: boolean, preset: ThemeColorPreset, borderRad
       itemHeight: 38,
       iconMarginInlineEnd: 8,
       iconSize: 15,
+      collapsedWidth: 80,
+      collapsedIconSize: 16,
+      fontSize: 13,
     },
     Card: {
       headerHeight: 44,
@@ -75,10 +78,13 @@ function getComponentThemes(isDark: boolean, preset: ThemeColorPreset, borderRad
     },
     Table: {
       headerBg: isDark ? '#131c2e' : '#f8fafc',
-      headerColor: isDark ? '#94a3b8' : '#475569',
+      headerColor: isDark ? '#94a3b8' : '#64748b',
       headerBorderRadius: borderRadius,
       rowHoverBg: isDark ? '#1e293b' : '#f1f5f9',
       borderColor: isDark ? '#1e293b' : '#f1f5f9',
+      cellPaddingBlock: 12,
+      cellPaddingInline: 16,
+      fontSize: 13,
     },
     Button: {
       controlHeight: 36,
@@ -98,6 +104,9 @@ function getComponentThemes(isDark: boolean, preset: ThemeColorPreset, borderRad
       borderRadius,
     },
     Tabs: {
+      titleFontSize: 14,
+      titleFontSizeLG: 14,
+      titleFontSizeSM: 13,
       horizontalItemPadding: '10px 16px',
       itemSelectedColor: preset.primary,
       inkBarColor: preset.primary,

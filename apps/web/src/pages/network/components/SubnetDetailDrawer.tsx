@@ -19,6 +19,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import React, { useMemo } from 'react';
 import type { IPAddress, Subnet } from '../../../services/network.service';
@@ -35,6 +36,7 @@ export interface SubnetDetailDrawerProps {
 
 export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
   ({ open, subnet, ips, onClose, onFilterIpsBySubnet }) => {
+    const { token } = theme.useToken();
     const subnetIps = useMemo(() => {
       if (!subnet) return [];
       return ips.filter(
@@ -122,6 +124,7 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
         }
         open={open}
         onClose={onClose}
+        destroyOnHidden
         size="large"
         styles={{ body: { padding: '20px 24px' } }}
         extra={
@@ -212,11 +215,11 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
                 style={{
                   textAlign: 'center',
                   padding: '8px 0',
-                  background: '#f0fdf4',
-                  borderRadius: 6,
+                  background: token.colorSuccessBg,
+                  borderRadius: token.borderRadiusSM,
                 }}
               >
-                <Text strong style={{ fontSize: 16, color: '#15803d', display: 'block' }}>
+                <Text strong style={{ fontSize: 16, color: token.colorSuccess, display: 'block' }}>
                   {used}
                 </Text>
                 <Text type="secondary" style={{ fontSize: 11 }}>
@@ -229,11 +232,11 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
                 style={{
                   textAlign: 'center',
                   padding: '8px 0',
-                  background: '#fffbeb',
-                  borderRadius: 6,
+                  background: token.colorWarningBg,
+                  borderRadius: token.borderRadiusSM,
                 }}
               >
-                <Text strong style={{ fontSize: 16, color: '#b45309', display: 'block' }}>
+                <Text strong style={{ fontSize: 16, color: token.colorWarning, display: 'block' }}>
                   {reserved}
                 </Text>
                 <Text type="secondary" style={{ fontSize: 11 }}>
@@ -246,11 +249,11 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
                 style={{
                   textAlign: 'center',
                   padding: '8px 0',
-                  background: '#eff6ff',
-                  borderRadius: 6,
+                  background: token.colorInfoBg,
+                  borderRadius: token.borderRadiusSM,
                 }}
               >
-                <Text strong style={{ fontSize: 16, color: '#1d4ed8', display: 'block' }}>
+                <Text strong style={{ fontSize: 16, color: token.colorInfo, display: 'block' }}>
                   {available}
                 </Text>
                 <Text type="secondary" style={{ fontSize: 11 }}>

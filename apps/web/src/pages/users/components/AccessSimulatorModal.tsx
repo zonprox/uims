@@ -201,7 +201,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
       {/* Target Status Banner */}
       <Card
         size="small"
-        style={{ marginBottom: 16, borderRadius: 8, background: '#fff' }}
+        style={{ marginBottom: 16, borderRadius: token.borderRadiusLG }}
         styles={{ body: { padding: '12px 16px' } }}
       >
         <Flex align="center" justify="space-between" wrap="wrap" gap={8}>
@@ -209,7 +209,7 @@ export const AccessSimulatorModal: React.FC<AccessSimulatorModalProps> = ({
             <Avatar
               size={36}
               icon={<UserOutlined />}
-              style={{ backgroundColor: '#e0f2fe', color: '#0284c7' }}
+              style={{ backgroundColor: token.colorPrimaryBg, color: token.colorPrimary }}
             />
             <div>
               <Text strong style={{ fontSize: 14 }}>

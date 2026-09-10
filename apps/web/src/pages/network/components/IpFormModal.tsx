@@ -175,9 +175,10 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
         onOk={onSave}
         onCancel={onCancel}
         confirmLoading={submitting}
+        destroyOnHidden={true}
         width={720}
         okText={editingIp ? 'Save Changes' : 'Allocate IP'}
-        styles={{ body: { paddingTop: 12 } }}
+        styles={{ body: { paddingTop: 16 } }}
       >
         <Form form={form} layout="vertical">
           <Row gutter={16}>

@@ -13,6 +13,7 @@ import {
   Select,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import type { LocationBranch } from '../../../services/organization.service';
@@ -85,6 +86,7 @@ function calculateLocalCidr(cidr: string): NetworkCalculation | null {
 
 export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
   ({ open, editingSubnet, form, submitting, vlans, locations, onSave, onCancel }) => {
+    const { token } = theme.useToken();
     const [calcPreview, setCalcPreview] = useState<NetworkCalculation | null>(null);
 
     const handleCidrChange = useCallback((cidrValue: string) => {
@@ -137,9 +139,10 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
         onOk={onSave}
         onCancel={onCancel}
         confirmLoading={submitting}
+        destroyOnHidden={true}
         width={680}
         okText={editingSubnet ? 'Save Changes' : 'Create Subnet'}
-        styles={{ body: { paddingTop: 12 } }}
+        styles={{ body: { paddingTop: 16 } }}
       >
         <Form form={form} layout="vertical">
           <Row gutter={16}>
@@ -179,8 +182,8 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
               size="small"
               style={{
                 marginBottom: 16,
-                background: '#f8fafc',
-                borderColor: '#cbd5e1',
+                background: token.colorFillAlter,
+                borderColor: token.colorBorderSecondary,
               }}
               styles={{ body: { padding: '12px 16px' } }}
               title={

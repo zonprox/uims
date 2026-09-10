@@ -23,6 +23,7 @@ export const AssetQrModal: React.FC<AssetQrModalProps> = React.memo(
         title={`Asset Tag Label: ${qrAsset.tag}`}
         open={open}
         onCancel={onClose}
+        destroyOnHidden={true}
         footer={[
           <Button key="close" onClick={onClose}>
             Close

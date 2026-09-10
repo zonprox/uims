@@ -1,5 +1,5 @@
 import { SYSTEM_INFO } from '@uims/shared-utils';
-import { Flex, Tag, Typography } from 'antd';
+import { Flex, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { useThemeStore } from '../../stores/theme.store';
 
@@ -31,34 +31,36 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
           flexShrink: 0,
         }}
       >
-        <button
-          type="button"
-          aria-label="Home"
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            border: 'none',
-            padding: 0,
-            background: 'linear-gradient(135deg, #1677ff 0%, #0958d9 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 800,
-            fontSize: 16,
-            letterSpacing: '-0.02em',
-            boxShadow: '0 2px 8px rgba(22, 119, 255, 0.35)',
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-          onClick={() => {
-            onNavigate('/');
-            if (inDrawer) onCloseDrawer();
-          }}
-        >
-          U
-        </button>
+        <Tooltip title={SYSTEM_INFO.name} placement="right">
+          <button
+            type="button"
+            aria-label="Home"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: 'none',
+              padding: 0,
+              background: 'linear-gradient(135deg, #1677ff 0%, #0958d9 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: 16,
+              letterSpacing: '-0.02em',
+              boxShadow: '0 2px 8px rgba(22, 119, 255, 0.35)',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+            onClick={() => {
+              onNavigate('/');
+              if (inDrawer) onCloseDrawer();
+            }}
+          >
+            U
+          </button>
+        </Tooltip>
         {(!collapsed || inDrawer) && (
           <button
             type="button"
