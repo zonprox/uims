@@ -1,111 +1,115 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-09-09
+**Analysis Date:** 2026-09-10
 
-## 1. Test Framework
-The UIMS monorepo uses **Vitest** for all testing across apps and packages.
-- **Run Commands (from `package.json`):**
-  - `pnpm test` (executes `vitest run`)
-  - `pnpm test:watch` (executes `vitest`)
-- **Environments:**
-  - API: `environment: 'node'` (`apps/api/vitest.config.mts`)
-  - Web: `environment: 'happy-dom'` (`apps/web/vitest.config.ts`)
-- **Globals:** `globals: true` is enabled, though explicit imports from `vitest` (e.g., `describe`, `it`, `expect`, `vi`) are strongly preferred.
+## Test Framework
+**Runner:**
+- Vitest (`vitest.config.ts`) across the workspace.
 
-## 2. Test Structure
-Tests strictly follow the **Arrange-Act-Assert (AAA)** pattern.
-- *Example Structure (`DashboardPage.test.tsx`):*
-  ```typescript
-  describe('DashboardPage', () => {
-    let container: HTMLDivElement;
+**Assertion Library:**
+- Vitest's built-in `expect`.
 
-    beforeEach(() => {
-      vi.clearAllMocks();
-      container = document.createElement('div');
-      document.body.appendChild(container);
-    });
+**Run Commands:**
+- Root: `turbo run test`, `turbo run test:e2e`.
+- Web/API: `vitest run` and `vitest` (for watch mode).
 
-    afterEach(() => {
-      container.remove();
-    });
+## Test File Organization
+**Location:**
+- Tests live adjacent to the implementation files (e.g., `apps/api/src/modules/auth/auth.service.spec.ts`).
+- Web tests are inside `__tests__` folders (e.g., `apps/web/src/features/auth/__tests__/auth.test.tsx`).
 
-    it('renders telemetry data correctly', async () => {
-      // Arrange
-      const root = createRoot(container);
-      
-      // Act
-      await act(async () => {
-        root.render(createElement(DashboardPage));
-      });
+**Naming:**
+- Backend: `*.spec.ts`
+- Frontend: `*.test.tsx`
 
-      // Assert
-      expect(container.textContent).toContain('Hardware Fleet');
-      
-      // Cleanup
-      act(() => {
-        root.unmount();
-      });
-    });
+**Structure:**
+- Wrap everything in a primary `describe` block.
+- Setup uses `beforeEach` and cleanup `afterEach`.
+
+## Test Structure
+**Suite Organization:**
+```typescript
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+describe('AuthService', () => {
+  let service: AuthService;
+  let mockUsersService: { findByIdentifier: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    mockUsersService = { findByIdentifier: vi.fn() };
   });
-  ```
 
-## 3. Fixtures and Factories
-- **Data Fixtures:** Standardized mock objects are instantiated at the top of the test file to ensure consistent state across tests.
-- **Service Mocks (Frontend):** Subsystem services are mocked entirely using `vi.mock()`.
-  - *Example:*
-    ```typescript
-    const mockDashboardData: DashboardOverview = { /* ... */ };
-    vi.mock('../../services/dashboard.service', () => ({
-      dashboardService: {
-        getOverview: vi.fn().mockImplementation(() => Promise.resolve(mockDashboardData)),
-      },
-    }));
-    ```
-- **Store Mocks (Zustand):** Instead of mocking the module, store state is seeded directly using `.setState()` or the hook itself is mocked to return specific static slices.
-
-## 4. Coverage
-- Code coverage is generated via Vitest plugins (usually integrating `v8` or `istanbul`).
-- Tests aggressively aim for boundary scenarios (`.boundary.spec.ts`), adversarial inputs (`.adversarial.spec.ts`), and logical edge cases.
-
-## 5. Test Types
-- **Unit Tests:** Fine-grained tests for utility functions, hooks, and single components.
-- **Integration Tests:** API Controller/Service interaction tests, verifying logic flows without hitting the actual live database (using service mocks).
-- **E2E / Functional Tests:** Validates complete frontend rendering cycles against mock API responses, leveraging `happy-dom` to simulate user interactions.
-
-## 6. Common Patterns
-- **Async Component Rendering:** All component mounting/unmounting in React 19 must be wrapped in `act()`.
-- **Error State Testing:** Testing component fallback renders when an API throws.
-  - *Example:*
-    ```typescript
-    vi.mocked(dashboardService.getOverview).mockRejectedValueOnce(new Error('Network error'));
-    await act(async () => { root.render(<DashboardPage />); });
-    expect(container.textContent).toContain('Telemetry Data Unavailable');
-    ```
-
-## 7. Frontend Test Patterns
-- **DOM Container Setup:** Standard setup involves dynamically creating and appending a `div` element to `document.body` in `beforeEach`, and cleaning it up in `afterEach` via `container.remove()`.
-- **Ant Design App Context:** Components relying on `App.useApp()` require mocking the global instance to prevent context errors during testing:
-  ```typescript
-  vi.mock('antd', async () => {
-    const actual = await vi.importActual('antd');
-    return { ...actual, App: { useApp: () => mockAppInstance } };
+  it('should authenticate user', async () => {
+    // ... test logic
   });
-  ```
+});
+```
 
-## 8. NestJS Testing Patterns
-- **Controller Testing:** Tests often instantiate controllers manually rather than using `Test.createTestingModule` when dependency graphs are shallow, injecting mocked services directly.
-  - *Example (`users.controller.spec.ts`):*
-    ```typescript
-    const mockService = { getStats: vi.fn(), findAll: vi.fn() };
-    beforeEach(() => {
-      service = mockService as unknown as UsersService;
-      controller = new UsersController(service);
-      vi.clearAllMocks();
-    });
-    ```
-- **Type Assertion for Mocks:** By double-casting (`as unknown as TargetType`), the strict zero `any` policy is maintained while safely injecting partial mock objects.
+**Patterns:**
+- Extensive use of variable capturing in outer `describe` scopes for global mock objects.
 
-## 9. Database Testing
-- **Prisma Mocks:** Instead of actual database connections in unit specs, Prisma client delegates (e.g., `this.prisma.appUser.findMany`) are typically bypassed by mocking the service layer, or by using `vitest-mock-extended` for deeper repository testing if required.
+## Mocking
+**Framework:**
+- Vitest's `vi` utility.
 
-*Testing analysis: 2026-09-09*
+**Patterns:**
+- Services use manual mock objects with typed `vi.fn()` returns injected instead of real dependencies.
+- React hooks are mocked heavily using `vi.mock()` at the top level.
+
+```typescript
+// Mocking a React hook
+vi.mock('../../hooks/useSystemHealth', () => ({
+  useSystemHealth: () => ({
+    health: { status: 'ok', uptimePercent: '100%', clientLatencyMs: 12 },
+    isOnline: true,
+  }),
+}));
+
+// Mocking Prisma Service in NestJS
+mockPrismaService = {
+  appUser: {
+    findUnique: vi.fn().mockResolvedValue({ id: 'user-1', status: 'ACTIVE' }),
+  },
+};
+```
+
+## Fixtures and Factories
+**Test Data:**
+- Ad-hoc test data is usually hardcoded in tests via `mockResolvedValue()`. Factories aren't highly centralized.
+
+**Location:**
+- Stored inline within the `*.spec.ts` files.
+
+## Coverage
+**Requirements:**
+- Unspecified by default configuration, relying on turbo and vitest standard outputs.
+
+**View Coverage:**
+- Typically generated dynamically if requested via CLI flags.
+
+## Test Types
+**Unit Tests:**
+- Dominant form of testing. Cover components (`SidebarContent`), services (`AuthService`), and isolated exception filters (`http-exception.filter.spec.ts`).
+
+**Integration Tests:**
+- Tested minimally on the unit level; mostly replaced by testing NestJS controller flow.
+
+**E2E Tests:**
+- Standardized via turbo pipeline (`test:e2e`), testing the full application boundaries.
+
+## Common Patterns
+**Async Testing:**
+- React component tests utilize React 18 `act` wrapper for rendering:
+```typescript
+const root = createRoot(container);
+await act(async () => {
+  root.render(createElement(SidebarContent, { ...props }));
+});
+```
+- Requires setting environment flag: `(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;`
+
+**Error Testing:**
+- NestJS services test exceptions using `expect(...).rejects.toThrow(UnauthorizedException)`. 
+
+---
+*Testing analysis: 2026-09-10*
