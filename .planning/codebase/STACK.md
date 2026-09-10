@@ -1,66 +1,46 @@
 # Technology Stack
 
-**Analysis Date:** 2026-09-10
+## Runtime & Language
+- Node.js: >=22.0.0 — Primary JavaScript runtime for backend and tooling.
+- TypeScript: 7.0.2 — Authoritative monorepo standard for type-safe code.
+- pnpm: 11.21.0 — Fast, disk space efficient package manager.
 
-## Languages
-**Primary:**
-- TypeScript 7.0.2 - Full stack (`apps/api`, `apps/web`, `packages/*`)
+## Backend Framework & Libraries
+- NestJS: 11.2.3 — Progressive Node.js framework for building efficient, reliable and scalable server-side applications.
+- Prisma: 7.10.0 — Next-generation ORM for Node.js & TypeScript (@prisma/adapter-pg, @prisma/client).
+- BullMQ: 6.3.4 (via @nestjs/bullmq 11.0.5) — Message queue and background job processing.
+- Socket.io: 4.8.3 (via @nestjs/websockets, @nestjs/platform-socket.io) — Real-time bidirectional event-based communication.
+- Zod: 4.5.4 — TypeScript-first schema declaration and validation.
+- Pino: 10.3.1 (via pino-http 11.0.0) — Super fast, all natural json logger.
+- Passport: 0.7.0 (via @nestjs/passport 11.0.5) — Express-compatible authentication middleware for Node.js.
 
-**Secondary:**
-- None detected
+## Frontend Framework & Libraries
+- React: 19.2.8 — A JavaScript library for building user interfaces.
+- React Router: 8.3.1 — Declarative routing for React.
+- Zustand: 5.0.15 — A small, fast and scalable bearbones state-management solution.
+- TanStack React Query: 5.102.8 — Powerful asynchronous state management.
+- Ant Design: 6.6.3 — An enterprise-class UI design language and React UI library.
+- Vite: 8.2.2 — Next generation frontend tooling.
 
-## Runtime
-**Environment:**
-- Node.js >=22.0.0
+## Database & Storage
+- PostgreSQL: 17 (via Docker alpine) — Relational database for core application data.
+- Redis: 8 (via Docker alpine) — In-memory data structure store, used as a database, cache, and message broker (via ioredis 6.0.0).
+- MeiliSearch: latest (via Docker) — Lightning-fast, ultra-relevant, and typo-tolerant search engine.
+- SeaweedFS: latest (via Docker) — Distributed S3-compatible object storage for file uploads.
 
-**Package Manager:**
-- pnpm 11.21.0
-- Lockfile: present (`pnpm-lock.yaml`)
+## Build & Development Tools
+- Turborepo: 2.10.12 — High-performance build system for JavaScript and TypeScript codebases.
+- Biome: 2.5.12 — Fast formatter and linter for web projects.
+- Vitest: 5.0.0 — Blazing fast unit test framework powered by Vite.
+- Playwright: 1.63.0 — Fast and reliable end-to-end testing for modern web apps.
 
-## Frameworks
-**Core:**
-- NestJS 11.2.3 - API Framework (`apps/api`)
-- React 19.2.8 - Web Framework (`apps/web`)
+## Shared Packages
+- @uims/shared-types: 1.0.0 — Type definitions shared across apps.
+- @uims/shared-validators: 1.0.0 — Zod schemas and validation logic.
+- @uims/shared-utils: 1.0.0 — Utility functions shared across apps (includes dayjs 1.11.23).
+- @uims/eslint-config: 1.0.0 — Shared ESLint configuration.
 
-**Testing:**
-- Vitest 5.0.0 - Unit testing (API, Web)
-- Playwright 1.63.0 - E2E testing
+## Key Version Constraints
+- Strict Zero-Downgrade Policy: TypeScript must remain on 7.x (7.0.2). Modifying manifests requires `pnpm install --no-frozen-lockfile && pnpm dedupe`.
+- Production Stability: Unstable release candidates are not permitted for mission-critical packages (e.g., Prisma remains on latest stable 7.x).
 
-**Build/Dev:**
-- Turborepo 2.10.12 - Monorepo management
-- Vite 8.2.2 - Web build tool (`apps/web`)
-- Biome 2.5.12 - Formatting and linting
-- ESLint 10.10.0 - Linting (API, Web)
-
-## Key Dependencies
-**Critical:**
-- Prisma 7.10.0 - Database ORM (`@prisma/client` in API)
-- Zod 4.5.4 - Schema validation
-- Ant Design 6.6.3 - UI component library (`apps/web`)
-- Zustand 5.0.15 - State management (`apps/web`)
-- TanStack React Query 5.102.8 - Data fetching (`apps/web`)
-
-**Infrastructure:**
-- Socket.io 4.8.3 - WebSockets for real-time updates (`socket.io` in API, `socket.io-client` in Web)
-- BullMQ 6.3.4 - Background jobs and message queue (`apps/api`)
-
-## Configuration
-**Environment:**
-- Configured via `.env` files (dotenv) and `@nestjs/config` for the API.
-- Key configs required: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `S3_*`, `MEILISEARCH_*`
-
-**Build:**
-- Monorepo: `turbo.json`
-- API Build: `apps/api/tsconfig.json` (tsc)
-- Web Build: `apps/web/vite.config.ts`, `apps/web/tsconfig.json`
-
-## Platform Requirements
-**Development:**
-- Docker & Docker Compose (for Postgres, Redis, Meilisearch, SeaweedFS)
-- Node.js >=22.0.0, pnpm >=11.0.0
-
-**Production:**
-- Docker (deploy target specified via `docker-compose.yml`)
-
----
-*Stack analysis: 2026-09-10*

@@ -1,69 +1,25 @@
-# External Integrations
+# External Integrations & Services
 
-**Analysis Date:** 2026-09-10
+## Infrastructure Services
+- PostgreSQL: 17 — Relational Database. Configured via `docker-compose.yml` (uims-postgres on port 5433).
+- Redis: 8 — Cache layer, session state, BullMQ queues. Configured via `docker-compose.yml` (uims-redis on port 6381).
+- MeiliSearch: latest — Full-text search engine. Configured via `docker-compose.yml` (uims-meilisearch on port 7700).
+- SeaweedFS: latest — S3-compatible Object Storage API for file storage (master on 9333, filer on 8888/8333, volume on 8080).
 
-## APIs & External Services
-**Search:**
-- Meilisearch - Full-text search engine
-  - SDK/Client: HTTP API
-  - Auth: `MEILISEARCH_API_KEY`
+## Third-Party APIs
+- Cloudflare: Used for local tunneling in the dev script (`.trycloudflare.com`).
 
-## Data Storage
-**Databases:**
-- PostgreSQL (v17-alpine)
-  - Connection: `DATABASE_URL` (composed via `POSTGRES_USER`, `POSTGRES_PASSWORD`, etc.)
-  - Client: Prisma (`@prisma/adapter-pg`, `pg` v8.23.0)
-- Redis (v8-alpine)
-  - Connection: `REDIS_URL`
-  - Client: `ioredis` (v6.0.0), `bullmq` (v6.3.4)
+## Authentication & Security
+- JWT / Passport: Handled via `@nestjs/passport` and `@nestjs/jwt`. Uses `bcrypt` (6.0.0) for password hashing.
+- Role-Based Access Control: Managed within the backend (`apps/api/src/modules/roles`).
+- Reverse Proxy & TLS: Vite uses self-signed development certs on port 5679 locally. Nginx is configured for production.
 
-**File Storage:**
-- SeaweedFS (S3-compatible gateway)
-  - Usage: Uploads and assets
-  - Connection variables: `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`
+## Background Jobs & Queues
+- BullMQ: 6.3.4 — Handles background job processing, backed by Redis. Integrated via `@nestjs/bullmq`.
 
-**Caching:**
-- Redis (v8-alpine)
-  - Usage: Data caching and queuing (bullmq)
+## Search & Indexing
+- MeiliSearch: Full-text indexing for entities. Connected via `@nestjs/config` and environment variables (`MEILISEARCH_HOST`, `MEILISEARCH_API_KEY`).
 
-## Authentication & Identity
-**Auth Provider:**
-- Custom JWT (JSON Web Tokens)
-  - Implementation: Built internally using `@nestjs/jwt` and `passport-jwt`. Requires `JWT_SECRET` and `JWT_REFRESH_SECRET` for access and refresh tokens. Features Role and Permission guards.
+## Storage & File Management
+- SeaweedFS: Provides S3-compatible storage endpoints (`S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`). Used for persistent file asset management.
 
-## Monitoring & Observability
-**Error Tracking:**
-- None external (Self-hosted monitoring via standard stdout/logs)
-
-**Logs:**
-- Pino (`pino` v10.3.1, `pino-http` v11.0.0) configured in the API for structured logging. Docker Compose is used to manage and view logs.
-
-## CI/CD & Deployment
-**Hosting:**
-- Docker Compose (`docker-compose.yml`)
-
-**CI Pipeline:**
-- GitHub Actions (`.github/workflows/ci.yml`) - Pipeline executes formatting, type checks, linting, tests (Vitest), and builds (Turborepo) upon push/PR to `main`.
-
-## Environment Configuration
-**Required env vars:**
-- `DATABASE_URL`
-- `REDIS_URL`
-- `JWT_SECRET`
-- `JWT_REFRESH_SECRET`
-- `MEILISEARCH_API_KEY`
-- `S3_ACCESS_KEY`
-- `S3_SECRET_KEY`
-
-**Secrets location:**
-- `.env` at project root (with `.env.example` as a template). CI pipelines inject test mock secrets.
-
-## Webhooks & Callbacks
-**Incoming:**
-- None detected
-
-**Outgoing:**
-- None detected
-
----
-*Integration audit: 2026-09-10*

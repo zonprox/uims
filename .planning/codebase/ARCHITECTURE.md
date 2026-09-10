@@ -1,132 +1,111 @@
-<!-- refreshed: 2026-09-10 -->
-# Architecture
+# System Architecture
 
-**Analysis Date:** 2026-09-10
+## Architecture Style
+The Unified IT Management System (UIMS) follows a Modular Monolith architecture pattern. It's built as a React SPA frontend communicating with a NestJS REST API, with real-time updates via WebSockets. It uses a strict monorepo strategy (via pnpm workspaces and Turborepo) where types and validators are shared across the full stack.
+The system relies on Docker Compose to orchestrate dependencies like PostgreSQL, Redis, Meilisearch, and SeaweedFS. It proxies traffic through a single port (5679) via Vite's proxy for local dev or Nginx for production, providing a unified HTTPS entrypoint.
 
-## System Overview
-```text
-                       +-------------------------------------------------+
-                       |                  CLIENT LAYER                   |
-                       |  React / Vite / Ant Design / Zustand / Tanstack |
-                       +------------------------+------------------------+
-                                                |
-                                                | HTTPS / WSS
-                                                v
-                       +------------------------+------------------------+
-                       |              REVERSE PROXY LAYER                |
-                       |                      Nginx                      |
-                       +------------------------+------------------------+
-                                                |
-                                                | HTTP (Reverse Proxy)
-                                                v
-                       +------------------------+------------------------+
-                       |                   API LAYER                     |
-                       |                 NestJS (Node)                   |
-                       |  - Auth & Guards (JWT, Role, Permission)        |
-                       |  - Interceptors (Audit)                         |
-                       |  - Controllers & Services                       |
-                       +-------+----------------+-------------+----------+
-                               |                |             |
-                 +-------------+     +----------+-------+     +-------------+
-                 |                   |                  |                   |
-                 v                   v                  v                   v
-+----------------+--------+ +--------+--------+ +-------+---------+ +-------+--------+
-|      Primary DB         | |    Cache / Q    | |  Search Engine  | | Object Storage |
-|      PostgreSQL         | |      Redis      | |   MeiliSearch   | |   SeaweedFS    |
-| (via Prisma ORM)        | |                 | | (Multi-index)   | | (S3 Gateway)   |
-+-------------------------+ +-----------------+ +-----------------+ +----------------+
+## System Diagram
+```mermaid
+flowchart TD
+    Client[Web Browser / React 19]
+    subagent_tunnel[Cloudflare Tunnel]
+    Nginx[Nginx Reverse Proxy / Vite Proxy]
+    API[NestJS API Service]
+    Socket[Socket.IO Gateway]
+    Postgres[(PostgreSQL 17)]
+    Redis[(Redis 8)]
+    Meili[Meilisearch]
+    SeaweedFS[SeaweedFS Storage]
+
+    Client <-->|HTTPS| subagent_tunnel
+    subagent_tunnel <-->|HTTPS :5679| Nginx
+    Nginx <-->|Proxy /api/*| API
+    Nginx <-->|Proxy /socket.io/*| Socket
+    
+    API --> Postgres
+    API --> Redis
+    Socket <--> Redis
+    API --> Meili
+    API --> SeaweedFS
 ```
 
-## Component Responsibilities
-| Component | Responsibility | File |
-|-----------|----------------|------|
-| **Vite App** | Entry point for frontend, context providers, theme setup | `apps/web/src/app/App.tsx` |
-| **React Router** | Client-side routing with lazy loading & layout wrappers | `apps/web/src/app/router.tsx` |
-| **Zustand Stores** | Global client state (Auth, Theme, Notifications) | `apps/web/src/stores/auth.store.ts` |
-| **NestJS Bootstrap** | Server setup, security headers (Helmet), CORS, Validation | `apps/api/src/main.ts` |
-| **AppModule** | Global config, throttling, module registration, auth guards | `apps/api/src/app.module.ts` |
-| **PrismaService** | Database ORM connection and lifecycle management | `apps/api/src/database/prisma.service.ts` |
-| **RedisService** | Caching, fast lookups, token blacklisting via Redis | `apps/api/src/common/redis/redis.service.ts` |
-| **SearchService** | MeiliSearch multi-search index synchronization and querying | `apps/api/src/modules/search/search.service.ts` |
-| **AuditInterceptor**| Automatic capturing of request trails & logging actions | `apps/api/src/common/interceptors/audit.interceptor.ts` |
+## Backend Architecture
+### Module Organization
+The NestJS backend (`apps/api`) is organized into feature-centric modules:
+- **Core Modules**: `auth`, `users`, `roles`, `organization` (for identity and access)
+- **Domain Modules**: `assets`, `licenses`, `inventory`, `network`, `directory` (for core business domains)
+- **Support Modules**: `audit`, `dashboard`, `reports`, `notifications`, `search`, `settings`, `health` (for system operations and analytics)
 
-## Pattern Overview
-**Overall:** Modular Monolith (Backend) + Single Page Application (Frontend)
-**Key Characteristics:** 
-- **Backend:** Module-driven architecture per domain (Assets, Directory, Inventory, etc.), Controller-Service-Repository pattern (though Prisma directly acts as Repository), Guard/Interceptor for cross-cutting concerns.
-- **Frontend:** Server-state via React Query, client-state via Zustand. Container/Presentation split in pages vs components. Heavy use of Ant Design Pro components.
+```mermaid
+flowchart LR
+    AppModule --> AuthModule
+    AppModule --> UsersModule
+    AppModule --> RolesModule
+    AppModule --> OrganizationModule
+    AppModule --> DomainModules
+    AppModule --> SupportModules
+    
+    DomainModules --> PrismaService
+    SupportModules --> PrismaService
+    UsersModule --> PrismaService
+    AuthModule --> UsersModule
+```
 
-## Layers
-**Web Presentation Layer:**
-- Purpose: UI rendering, client-side routing, user interaction.
-- Location: `apps/web/src/`
-- Contains: React components, pages, hooks, Zustand stores.
-- Depends on: NestJS API (via fetch/React Query).
-- Used by: End Users.
+### Request Lifecycle
+A typical API request follows this flow:
+1. **Request Reception**: Nginx / Vite dev server proxies request to NestJS.
+2. **Global Middlewares/Guards**: Authentication via Passport JWT. The `@Roles` decorator limits access.
+3. **Controller**: e.g., `UsersController.findAll()`. Validates incoming DTOs using shared Zod schemas (via custom pipes/interceptors) or `class-validator`.
+4. **Service**: e.g., `UsersService.findAll()`. Evaluates business logic and constructs database query.
+5. **Database**: Prisma ORM executes bounded/paginated queries against PostgreSQL.
+6. **Response**: Data is wrapped in a standard API envelope (`{ success: true, data: T, timestamp: string }`) and returned to client.
 
-**API Presentation Layer:**
-- Purpose: Expose HTTP REST endpoints, validate input DTOs, handle auth/permissions.
-- Location: `apps/api/src/modules/**/*.controller.ts`
-- Contains: Controllers, DTOs, Guards, Pipes.
-- Depends on: API Business Layer (Services).
-- Used by: Web Presentation Layer.
+### Data Flow (WebSockets)
+WebSockets (`NotificationsGateway` on `/notifications` namespace) handle real-time synchronization:
+- Client establishes connection with JWT via `auth.token`.
+- Gateway joins client to `user:${userId}` and `role:${role}` rooms.
+- Backend services inject `NotificationsGateway` and emit events (`notification:new`, `notification:count`) without cyclic dependencies.
+- Connected clients react via React stores and TanStack Query invalidation.
 
-**API Business Layer:**
-- Purpose: Core application logic, transaction boundaries.
-- Location: `apps/api/src/modules/**/*.service.ts`
-- Contains: NestJS Providers / Services.
-- Depends on: Data Access Layer (Prisma), External Integrations (MeiliSearch, S3).
-- Used by: API Presentation Layer.
+## Frontend Architecture
+### Component Hierarchy
+The React application (`apps/web`) uses Ant Design v6 and follows a strict layout-driven component structure:
+```mermaid
+flowchart TD
+    App[App Provider: Theme & Query Client]
+    Router[React Router]
+    AuthLayout[AuthLayout: Token Check]
+    MainLayout[MainLayout: App Shell, Sider, Header]
+    PageContainer[PageContainer: Breadcrumbs, Title]
+    DomainPage[Domain Pages: Dashboard, Assets, Directory]
+    
+    App --> Router
+    Router --> AuthLayout
+    AuthLayout --> MainLayout
+    MainLayout --> PageContainer
+    PageContainer --> DomainPage
+```
 
-**Data Access / Infrastructure Layer:**
-- Purpose: Manage state persistence, caching, full-text search.
-- Location: `apps/api/src/database/`, `apps/api/src/common/redis/`
-- Contains: Prisma schema & service, Redis wrappers, SeaweedFS calls.
-- Depends on: PostgreSQL, Redis, SeaweedFS, MeiliSearch.
-- Used by: API Business Layer.
+### Routing
+Routing is governed by `react-router` v8 in `apps/web/src/app/router.tsx`:
+- `/login` (Public route)
+- `/` (Protected by `AuthLayout`, provides `MainLayout`)
+  - Domain routes: `/assets`, `/licenses`, `/directory`, `/network`, `/inventory`, `/access-control`, `/organization`, `/audit`, `/reports`, `/notifications`, `/settings`
 
-## Data Flow
-### Primary Request Path (Example: Search)
-1. **User Action:** User types query in UI (`apps/web/src/components/...`).
-2. **React Query:** Sends HTTP GET request via Tanstack Query (`apps/web/src/hooks/useSearch.ts` or similar).
-3. **Nginx:** Routes request to API container over internal Docker network.
-4. **NestJS Guard:** `JwtAuthGuard` and `ThrottlerGuard` validate session and rate limits (`apps/api/src/app.module.ts`).
-5. **Controller:** `SearchController` receives request, validated against DTO.
-6. **Service:** `SearchService.search()` checks `isMeiliAvailable`.
-7. **External Service:** Sends `POST` to MeiliSearch `/multi-search` (`apps/api/src/modules/search/search.service.ts`).
-8. **Fallback (if Meili offline):** Queries `PrismaService` for assets/licenses/users concurrently.
-9. **Interceptor:** `AuditInterceptor` logs the access.
-10. **Response:** Controller returns normalized `SearchResponseDto`.
-11. **UI Update:** React Query caches the result, UI renders dropdown list.
-
-## Key Abstractions
-- **Shared Types:** A monorepo package `packages/shared-types/` defining Enums, DTOs, and Interfaces that both Web and API consume.
-- **Audit Interceptor:** Transparently logs actions without business logic pollution.
-- **Unified Config:** `getAppConfig` uses Zod to validate environment variables securely at startup (`apps/api/src/config/app.config.ts`).
-
-## Entry Points
-- **Frontend Entry:** `apps/web/src/main.tsx` (React DOM bootstrap)
-- **Frontend Router:** `apps/web/src/app/router.tsx`
-- **Backend Entry:** `apps/api/src/main.ts` (NestFactory bootstrap)
-- **Backend Root Module:** `apps/api/src/app.module.ts`
-
-## Architectural Constraints
-- **Monorepo Structure:** Turborepo is used to manage apps and packages. Dependencies flow strictly from packages to apps.
-- **Database Access:** Controllers must not inject `PrismaService` directly (except Health module). All data access goes through Services.
-- **Authorization:** Handled globally by `JwtAuthGuard`, `RolesGuard`, and `PermissionsGuard`. Endpoints use decorators (e.g., `@Roles('Admin')`) rather than manual checks in code.
-
-## Anti-Patterns
-1. **God Classes / Large Services:** `network.service.ts` (>840 lines) and `directory.service.ts` (>820 lines) are doing too much and should be split into smaller, domain-specific services or command handlers.
-2. **Missing Repository Abstraction:** The codebase tightly couples Services to `PrismaService`. While common in NestJS, it makes unit testing without a real DB (or heavy mocking) difficult.
-
-## Error Handling
-- **Global Filters:** `HttpExceptionFilter` and `PrismaExceptionFilter` catch all uncaught exceptions to normalize responses (`apps/api/src/common/filters/`).
-- **Client Side:** Axios/Fetch error interceptors are handled in React Query, mapped to Ant Design notifications via `ErrorBoundary` components.
+### State Management
+- **Server State**: Managed exclusively by TanStack Query (`@tanstack/react-query`). Network calls rely on `Axios` clients in `src/services/`.
+- **Client State**: Managed by Zustand (`src/stores/`). For example, `theme.store.ts` controls dark mode, compact mode, and Ant Design token parameters.
+- **Dynamic Context**: UI Feedback (notifications, messages, modals) strictly consumes `App.useApp()` from Ant Design to ensure theme context consistency.
 
 ## Cross-Cutting Concerns
-- **Security:** Helmet for headers, explicit CORS whitelist in `main.ts`, JWT expiration validation, global parameter whitelist validation.
-- **Logging/Audit:** Audit log is saved via interceptors for mutations. NestJS standard logger is used throughout.
-- **Performance:** Redis is used for token blacklisting and potentially caching. Compression middleware is active on the API.
+### Authentication & Authorization
+- Backend: Passport JWT with short-lived access tokens and refresh tokens. Role-Based Access Control (RBAC) enforced via `@Roles` and `@RequirePermissions` decorators.
+- Frontend: `AuthLayout` enforces token existence. Missing tokens redirect to `/login`.
 
----
-*Architecture analysis: 2026-09-10*
+### Error Handling
+- Backend: Global Exception Filters map errors to standardized JSON formats. Strict "Zero Silent Catch" policy is enforced; all errors must be logged or re-thrown as `HttpException`.
+- Frontend: Route-level boundaries (`RouteErrorBoundary`), component boundaries (`ErrorBoundary`), and standard API interceptors that display errors using `App.useApp().message.error`.
+
+### Logging & Monitoring
+- Backend: Structured logging via `pino` and NestJS `Logger`. Raw `console.log` is forbidden.
+- Frontend: Explicitly bans raw `console.log` in production, preferring structured feedback or error boundaries.

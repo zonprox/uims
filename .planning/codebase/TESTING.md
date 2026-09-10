@@ -1,115 +1,49 @@
-# Testing Patterns
+# Testing Strategy & Infrastructure
 
-**Analysis Date:** 2026-09-10
-
-## Test Framework
-**Runner:**
-- Vitest (`vitest.config.ts`) across the workspace.
-
-**Assertion Library:**
-- Vitest's built-in `expect`.
-
-**Run Commands:**
-- Root: `turbo run test`, `turbo run test:e2e`.
-- Web/API: `vitest run` and `vitest` (for watch mode).
-
-## Test File Organization
-**Location:**
-- Tests live adjacent to the implementation files (e.g., `apps/api/src/modules/auth/auth.service.spec.ts`).
-- Web tests are inside `__tests__` folders (e.g., `apps/web/src/features/auth/__tests__/auth.test.tsx`).
-
-**Naming:**
-- Backend: `*.spec.ts`
-- Frontend: `*.test.tsx`
-
-**Structure:**
-- Wrap everything in a primary `describe` block.
-- Setup uses `beforeEach` and cleanup `afterEach`.
+## Test Framework & Tools
+- **Framework**: [Vitest](https://vitest.dev/) is universally used for both backend and frontend unit/integration testing.
+- **Frontend Environment**: `happy-dom` combined with `@vitejs/plugin-react` within `apps/web/vitest.config.ts`.
+- **Backend Environment**: `node` environment within `apps/api/vitest.config.mts`.
+- **Assertions**: Vitest's built-in `expect` assertions (globals are enabled: `globals: true`).
 
 ## Test Structure
-**Suite Organization:**
-```typescript
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+- **Co-location**: Test files are placed immediately alongside the source files they test.
+- **Naming Conventions**:
+  - API: Generally uses `*.spec.ts` (e.g., `assets.controller.spec.ts`).
+  - Web: Generally uses `*.test.ts` or `*.test.tsx` (e.g., `useAccess.test.ts`, `AssetsPage.test.tsx`).
+  - Specialized Tests: `*.adversarial.spec.ts`, `*.stress.test.tsx`, `*.governance.spec.ts` are used for security/stress boundaries.
 
-describe('AuthService', () => {
-  let service: AuthService;
-  let mockUsersService: { findByIdentifier: ReturnType<typeof vi.fn> };
+## Test Categories
+Total test files found in the monorepo: 93.
 
-  beforeEach(() => {
-    mockUsersService = { findByIdentifier: vi.fn() };
-  });
+### Unit Tests
+- Extensively cover backend services, controllers, and frontend hooks/utilities.
+- Examples: `assets.service.spec.ts`, `useAssetManagement.test.ts`, `qrDecoder.test.ts`.
+- Shared utility coverage is high: `packages/shared-utils/src/format.test.ts`, `packages/shared-validators/src/role.validator.test.ts`.
 
-  it('should authenticate user', async () => {
-    // ... test logic
-  });
-});
-```
+### Integration & Boundary Tests
+- Backend boundary tests ensuring system isolations: `auth-isolation.adversarial.spec.ts`, `directory.adversarial.spec.ts`, `notifications.boundary.spec.ts`.
+- Frontend integration: Page level tests interacting with mocked services (e.g., `AccessControlPage.test.tsx`).
 
-**Patterns:**
-- Extensive use of variable capturing in outer `describe` scopes for global mock objects.
+### E2E & Stress Tests
+- Specialized stress testing files exist in the frontend targeting performance and edge cases (e.g., `milestone1-adversarial.stress.test.tsx`, `NetworkEmpiricalStress.test.tsx`, `NetworkAutomationStress.test.tsx`).
+- End-to-End adversarial scenarios captured in `e2e-adversarial.spec.ts` for notifications.
 
-## Mocking
-**Framework:**
-- Vitest's `vi` utility.
+## Test Configuration
+- **API (`apps/api/vitest.config.mts`)**:
+  - Excludes `dist` and `node_modules`.
+  - Pass with no tests enabled (`passWithNoTests: true`).
+- **Web (`apps/web/vitest.config.ts`)**:
+  - Standard Vite path aliases are matched (`@/*`, `@uims/shared-types`, etc.).
+  - Custom timeouts: `testTimeout: 20000`, `hookTimeout: 20000` accommodating complex dom-rendering or stress tests.
 
-**Patterns:**
-- Services use manual mock objects with typed `vi.fn()` returns injected instead of real dependencies.
-- React hooks are mocked heavily using `vi.mock()` at the top level.
+## Coverage & Quality Gates
+- `AGENTS.md` explicitly defines the invariant verification gate prior to merges/pushes:
+  - `pnpm run test` must have a "100% test pass rate across monorepo."
+  - Linting (`pnpm run lint`) and formatting (`pnpm run format:check`) must have 0 errors and 100% compliance.
+  - Zero-downgrade policy applies for underlying TypeScript architecture.
 
-```typescript
-// Mocking a React hook
-vi.mock('../../hooks/useSystemHealth', () => ({
-  useSystemHealth: () => ({
-    health: { status: 'ok', uptimePercent: '100%', clientLatencyMs: 12 },
-    isOnline: true,
-  }),
-}));
+## Mock Strategies
+- Heavy usage of generic unit test mocking (Vitest mocks/spies) replacing Axios HTTP calls inside `apps/web/src/services/*.test.ts`.
+- Prisma databases and Redis services mock behavior in `apps/api/src/common/redis/redis.service.spec.ts` and controller specs.
 
-// Mocking Prisma Service in NestJS
-mockPrismaService = {
-  appUser: {
-    findUnique: vi.fn().mockResolvedValue({ id: 'user-1', status: 'ACTIVE' }),
-  },
-};
-```
-
-## Fixtures and Factories
-**Test Data:**
-- Ad-hoc test data is usually hardcoded in tests via `mockResolvedValue()`. Factories aren't highly centralized.
-
-**Location:**
-- Stored inline within the `*.spec.ts` files.
-
-## Coverage
-**Requirements:**
-- Unspecified by default configuration, relying on turbo and vitest standard outputs.
-
-**View Coverage:**
-- Typically generated dynamically if requested via CLI flags.
-
-## Test Types
-**Unit Tests:**
-- Dominant form of testing. Cover components (`SidebarContent`), services (`AuthService`), and isolated exception filters (`http-exception.filter.spec.ts`).
-
-**Integration Tests:**
-- Tested minimally on the unit level; mostly replaced by testing NestJS controller flow.
-
-**E2E Tests:**
-- Standardized via turbo pipeline (`test:e2e`), testing the full application boundaries.
-
-## Common Patterns
-**Async Testing:**
-- React component tests utilize React 18 `act` wrapper for rendering:
-```typescript
-const root = createRoot(container);
-await act(async () => {
-  root.render(createElement(SidebarContent, { ...props }));
-});
-```
-- Requires setting environment flag: `(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;`
-
-**Error Testing:**
-- NestJS services test exceptions using `expect(...).rejects.toThrow(UnauthorizedException)`. 
-
----
-*Testing analysis: 2026-09-10*

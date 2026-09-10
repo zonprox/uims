@@ -1,89 +1,24 @@
-# Codebase Concerns
+# Known Concerns & Technical Debt
 
-**Analysis Date:** 2026-09-10
+## Security Concerns
+- **Empty Catch Blocks**: Found silent catch blocks violating the Zero Silent Catch Policy in `apps/api/src/modules/licenses/licenses.service.ts` ([L141-L143](file:///home/user/projects/uims/apps/api/src/modules/licenses/licenses.service.ts#L141-L143) and [L216-L218](file:///home/user/projects/uims/apps/api/src/modules/licenses/licenses.service.ts#L216-L218)). These blocks fail to log errors or properly handle exceptions for notification events.
 
-## Tech Debt
-**Large UI Components:**
-- Issue: Several React pages are massive (>1,000 lines), making them difficult to maintain, test, and prone to complex state management issues.
-- Files: 
-  - `apps/web/src/pages/organization/OrganizationCanvas.tsx` (1793 lines)
-  - `apps/web/src/pages/organization/OrganizationPage.tsx` (1527 lines)
-  - `apps/web/src/pages/settings/SettingsPage.tsx` (1423 lines)
-  - `apps/web/src/pages/dashboard/DashboardPage.tsx` (1256 lines)
-- Impact: Increased cognitive load, higher risk of merge conflicts, and harder to debug React concurrent rendering issues.
-- Fix approach: Refactor these monolithic pages into smaller, single-responsibility components and extract business logic into custom hooks.
+## Performance Concerns
+- **In-Memory Aggregations**: 
+  - In `apps/api/src/modules/licenses/licenses.service.ts` ([L257](file:///home/user/projects/uims/apps/api/src/modules/licenses/licenses.service.ts#L257)), `reduce()` is used to calculate `totalSpend` in-memory.
+  - In `apps/api/src/modules/reports/reports.service.ts` ([L18-L20](file:///home/user/projects/uims/apps/api/src/modules/reports/reports.service.ts#L18-L20) and [L127](file:///home/user/projects/uims/apps/api/src/modules/reports/reports.service.ts#L127)), multiple `reduce()` calls compute `totalSaaS`, `totalSeats`, and `usedSeats` after loading records into memory, violating the "Zero In-Memory Aggregations" rule.
+- **Unbounded/Arbitrary Pagination**: 
+  - `apps/api/src/modules/licenses/licenses.service.ts` ([L250](file:///home/user/projects/uims/apps/api/src/modules/licenses/licenses.service.ts#L250)) uses an arbitrary `take: 1000` limit for fetching licenses to compute stats.
+  - `apps/api/src/modules/reports/reports.service.ts` uses `take: 1000` on `findMany()` in multiple places ([L13](file:///home/user/projects/uims/apps/api/src/modules/reports/reports.service.ts#L13) and [L121](file:///home/user/projects/uims/apps/api/src/modules/reports/reports.service.ts#L121)), bypassing proper aggregation queries.
+- **Missing Database Indexes**:
+  - In `apps/api/prisma/schema.prisma` ([L227-L228](file:///home/user/projects/uims/apps/api/prisma/schema.prisma#L227-L228)), the `AssetCategory` model defines a `parentId` foreign key but is missing the required `@@index([parentId])` definition.
 
-**Silent Catch Blocks (Backend):**
-- Issue: Empty catch blocks masking caching failures.
-- Files: 
-  - `apps/api/src/modules/roles/roles.service.ts`
-- Impact: Redis deletion failures are silently swallowed, potentially leaving stale permissions cache which is a security risk.
-- Fix approach: Log the error with `this.logger.error()` instead of swallowing it.
+## Architectural Concerns
+- **Console Output**: Found `console.error` usage in `apps/api/src/config/app.config.ts` ([L17](file:///home/user/projects/uims/apps/api/src/config/app.config.ts#L17)) during configuration parsing, bypassing the structured logger mandate.
 
-## Known Bugs
-**Camera Permission Denials Silently Failing:**
-- Symptoms: Asset scanner video feed fails to initialize with no UI feedback when the camera is blocked or unavailable.
-- Files: 
-  - `apps/web/src/pages/assets/components/AssetScannerModal.tsx`
-  - `apps/web/src/pages/assets/utils/qrDecoder.ts`
-- Trigger: Launch the scanner modal on a device where camera permissions are denied or hardware is in use.
-- Workaround: Manually verify browser permissions.
-- Fix: Replace `.catch(() => {})` with a proper `notification.error()` or `message.error()` using `App.useApp()` to alert the user.
+## Technical Debt
+- **Type Safety Violations**: Found an unsafe cast bypass `(tx as unknown as { user?: typeof tx.directoryUser })` in `apps/api/src/modules/licenses/licenses.service.ts` ([L161](file:///home/user/projects/uims/apps/api/src/modules/licenses/licenses.service.ts#L161)), violating the "Zero any Policy" and strict type safety invariants.
 
-## Security Considerations
-**Hardcoded Initialization Passwords:**
-- Risk: Potential hardcoded passwords or predictable passwords in test scripts and import scripts could leak or be reused.
-- Files: 
-  - `apps/api/prisma/scripts/import-network-excel.ts`
-- Current mitigation: Noticed during batch imports, potentially storing plaintext or weakly generated passwords during network setup.
-- Recommendations: Ensure all imported users and devices receive cryptographically secure passwords and enforce a mandatory password change on first login per `AGENTS.md`.
-
-## Performance Bottlenecks
-**Unbounded Database Queries (N+1 Risk):**
-- Problem: Multiple `findMany()` queries execute without a `take` ceiling or pagination.
-- Files: 
-  - `apps/api/src/modules/notifications/scheduled-alerts.worker.ts`
-  - `apps/api/src/modules/inventory/inventory.service.ts`
-  - `apps/api/src/modules/assets/assets.service.ts`
-  - `apps/api/src/modules/directory/directory.service.ts`
-- Cause: Background workers fetching all expiring licenses and assets into Node.js memory instead of batching.
-- Improvement path: Enforce chunked cursor pagination or a strict `take: 100` ceiling inside these workers as mandated by `AGENTS.md`.
-
-## Fragile Areas
-**Frontend Error Handling:**
-- Files: 
-  - `apps/web/src/components/ErrorBoundary.tsx`
-  - `apps/web/src/pages/settings/SettingsPage.tsx`
-  - `apps/web/src/pages/organization/OrganizationCanvas.tsx`
-- Why fragile: Catching API initialization or UI errors and either swallowing them (`.catch(() => {})`) or using forbidden raw `console.error` (violates `AGENTS.md` structured logging rules).
-- Safe modification: Refactor to exclusively use `App.useApp()` from Ant Design to bubble up user-facing feedback and remove `console.error`.
-- Test coverage: Settings initialization and Organization canvas setup lack negative path coverage.
-
-## Scaling Limits
-**In-Memory Cron Workers:**
-- Current capacity: Works fine for hundreds of assets/licenses.
-- Limit: Will cause OOM (Out of Memory) crashes when scaling to 10,000+ assets because `scheduled-alerts.worker.ts` uses unbounded `findMany()`.
-- Scaling path: Transition worker logic to Prisma chunked iterations or move expiration checks to bulk PostgreSQL `UPDATE` / `$executeRaw` queries.
-
-## Dependencies at Risk
-**Any Type Usage (Type Safety Degradation):**
-- Risk: `any` type is leaking into the codebase despite strict project rules.
-- Files:
-  - `apps/web/src/pages/assets/utils/printAssetLabel.ts`
-- Impact: Defeats TypeScript compiler checks, increasing runtime crash risks during refactoring.
-- Migration plan: Refactor generic types or use `unknown` with runtime Zod validation.
-
-## Missing Critical Features
-**Comprehensive API Input Validation Coverage:**
-- Problem: Not all settings and configuration endpoints guarantee runtime data safety, especially those backed by empty catch fallbacks (e.g. `SettingsPage.tsx`).
-- Blocks: Prevents robust zero-trust validation between the React SPA and NestJS API.
-
-## Test Coverage Gaps
-**Background Workers:**
-- What's not tested: The `scheduled-alerts.worker.ts` which handles critical notification logic.
-- Files: `apps/api/src/modules/notifications/scheduled-alerts.worker.ts`
-- Risk: Changes to alert schemas or database structures might break notification dispatch without CI failing.
-- Priority: High
-
----
-*Concerns audit: 2026-09-10*
+## Missing or Incomplete
+- **Logging for Notifications**: Missing proper structured logging for background notifications during license updates/assignments, leading to silent failures if notifications fail.
+- **Dependency Risks**: The monorepo uses `pnpm@11.21.0` but there is a strict invariant to never downgrade. Must ensure that future updates do not attempt to downgrade TypeScript 7.x or Prisma 7.x.
