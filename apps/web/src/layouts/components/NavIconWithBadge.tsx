@@ -1,3 +1,4 @@
+import { theme } from 'antd';
 import React from 'react';
 import { useThemeStore } from '../../stores/theme.store';
 
@@ -13,19 +14,12 @@ export interface NavIconWithBadgeProps {
 }
 
 export const NavIconWithBadge: React.FC<NavIconWithBadgeProps> = React.memo(
-  ({
-    icon,
-    count,
-    dot,
-    color = '#ef4444',
-    textColor = '#ffffff',
-    isCollapsed,
-    className,
-    style,
-  }) => {
+  ({ icon, count, dot, color, textColor = '#ffffff', isCollapsed, className, style }) => {
+    const { token } = theme.useToken();
     const resolvedMode = useThemeStore((state) => state.resolvedMode);
     const isDark = resolvedMode === 'dark';
-    const borderColor = isDark ? '#0c1017' : '#ffffff';
+    const borderColor = isDark ? '#0c1017' : token.colorBgContainer;
+    const badgeColor = color || token.colorError;
 
     if (!isCollapsed || (!count && !dot)) {
       return (
@@ -66,7 +60,7 @@ export const NavIconWithBadge: React.FC<NavIconWithBadgeProps> = React.memo(
               width: 6,
               height: 6,
               borderRadius: '50%',
-              backgroundColor: color,
+              backgroundColor: badgeColor,
               border: `1.5px solid ${borderColor}`,
             }}
           />
@@ -81,7 +75,7 @@ export const NavIconWithBadge: React.FC<NavIconWithBadgeProps> = React.memo(
               height: 14,
               padding: '0 3px',
               borderRadius: 7,
-              backgroundColor: color,
+              backgroundColor: badgeColor,
               color: textColor,
               fontSize: 9,
               fontWeight: 800,

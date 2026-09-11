@@ -78,7 +78,7 @@ export function getQuickCreateMenu(
   if (allow('create', 'User')) {
     items.push({
       key: 'new-user',
-      icon: <SafetyCertificateOutlined style={{ color: '#1677ff' }} />,
+      icon: <SafetyCertificateOutlined />,
       label: 'Create User',
       onClick: () => navigate('/access-control'),
     });
@@ -87,7 +87,7 @@ export function getQuickCreateMenu(
   if (allow('create', 'Directory') || allow('create', 'User')) {
     items.push({
       key: 'new-employee',
-      icon: <TeamOutlined style={{ color: '#0ea5e9' }} />,
+      icon: <TeamOutlined />,
       label: 'Add Employee',
       onClick: () => navigate('/directory'),
     });
@@ -96,7 +96,7 @@ export function getQuickCreateMenu(
   if (allow('create', 'Organization')) {
     items.push({
       key: 'new-dept',
-      icon: <ApartmentOutlined style={{ color: '#722ed1' }} />,
+      icon: <ApartmentOutlined />,
       label: 'Create Department',
       onClick: () => navigate('/organization'),
     });
@@ -105,7 +105,7 @@ export function getQuickCreateMenu(
   if (allow('create', 'Asset')) {
     items.push({
       key: 'new-asset',
-      icon: <LaptopOutlined style={{ color: '#1677ff' }} />,
+      icon: <LaptopOutlined />,
       label: 'Create Asset',
       onClick: () => navigate('/assets'),
     });
@@ -114,7 +114,7 @@ export function getQuickCreateMenu(
   if (allow('create', 'Inventory') || allow('update', 'Inventory')) {
     items.push({
       key: 'new-inventory',
-      icon: <DatabaseOutlined style={{ color: '#f59e0b' }} />,
+      icon: <DatabaseOutlined />,
       label: 'Create Item',
       onClick: () => navigate('/inventory'),
     });
@@ -123,7 +123,7 @@ export function getQuickCreateMenu(
   if (allow('create', 'License')) {
     items.push({
       key: 'new-license',
-      icon: <SafetyCertificateOutlined style={{ color: '#6366f1' }} />,
+      icon: <SafetyCertificateOutlined />,
       label: 'Create License',
       onClick: () => navigate('/licenses'),
     });
@@ -177,7 +177,7 @@ export function getUserMenuItems(
     {
       key: 'org-structure',
       icon: <ApartmentOutlined />,
-      label: 'Organization Structure',
+      label: 'Organization',
       onClick: () => navigate('/organization'),
     },
     {
@@ -195,8 +195,9 @@ export function getUserMenuItems(
     { type: 'divider' },
     {
       key: 'logout',
-      icon: <LogoutOutlined style={{ color: '#ef4444' }} />,
-      label: <span style={{ color: '#ef4444', fontWeight: 600 }}>Sign Out</span>,
+      danger: true,
+      icon: <LogoutOutlined />,
+      label: 'Sign Out',
       onClick: handleLogout,
     },
   ];

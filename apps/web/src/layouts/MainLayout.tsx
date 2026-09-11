@@ -1,6 +1,6 @@
 import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { App, Drawer, Grid, Layout } from 'antd';
-import { useCallback, useMemo, useState } from 'react';
+import { App, Drawer, Grid, Layout, theme } from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import CommandPalette from '../components/CommandPalette';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -23,6 +23,7 @@ const { Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
 export default function MainLayout() {
+  const { token } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, can, permissions } = useAuthStore();
@@ -42,6 +43,36 @@ export default function MainLayout() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeOrg, setActiveOrg] = useState('Acme Enterprise HQ (US-East)');
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle Command Palette with Cmd+K or Ctrl+K
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      // Quick search on '/' when not typing in an input or editable field
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const target = e.target as HTMLElement | null;
+        const tagName = target?.tagName?.toLowerCase();
+        const isInput =
+          tagName === 'input' ||
+          tagName === 'textarea' ||
+          tagName === 'select' ||
+          target?.isContentEditable ||
+          target?.getAttribute('role') === 'textbox';
+        if (!isInput) {
+          e.preventDefault();
+          setCommandPaletteOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const { navBadges } = useLayoutTelemetry(15000);
   const {
     notifications,
@@ -58,7 +89,7 @@ export default function MainLayout() {
   const handleLogout = useCallback(() => {
     modal.confirm({
       title: 'Sign Out',
-      icon: <ExclamationCircleOutlined style={{ color: '#ef4444' }} />,
+      icon: <ExclamationCircleOutlined style={{ color: token.colorError }} />,
       content: 'Are you sure you want to sign out? Your active session will end.',
       okText: 'Sign Out',
       okButtonProps: { danger: true },
@@ -68,7 +99,7 @@ export default function MainLayout() {
         navigate('/login');
       },
     });
-  }, [modal, logout, navigate]);
+  }, [modal, logout, navigate, token.colorError]);
 
   const handleCloseDrawer = useCallback(() => {
     setMobileDrawerOpen(false);
@@ -113,8 +144,10 @@ export default function MainLayout() {
             top: 0,
             left: 0,
             zIndex: 100,
-            backgroundColor: isDark ? '#080c14' : '#ffffff',
-            borderRight: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
+            backgroundColor: isDark ? '#080c14' : token.colorBgContainer,
+            borderRight: isDark
+              ? '1px solid rgba(255, 255, 255, 0.08)'
+              : `1px solid ${token.colorBorderSecondary}`,
             boxShadow: isDark ? '2px 0 12px rgba(0, 0, 0, 0.25)' : '2px 0 8px rgba(0, 0, 0, 0.04)',
           }}
         >
@@ -138,7 +171,7 @@ export default function MainLayout() {
           onClose={handleCloseDrawer}
           styles={{
             wrapper: { width: 290 },
-            body: { padding: 0, backgroundColor: isDark ? '#0c1017' : '#ffffff' },
+            body: { padding: 0, backgroundColor: isDark ? '#0c1017' : token.colorBgContainer },
           }}
           closable={false}
         >

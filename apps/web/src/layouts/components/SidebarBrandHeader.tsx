@@ -1,5 +1,5 @@
 import { SYSTEM_INFO } from '@uims/shared-utils';
-import { Flex, Tag, Tooltip, Typography } from 'antd';
+import { Flex, Tag, Tooltip, Typography, theme } from 'antd';
 import React from 'react';
 import { useThemeStore } from '../../stores/theme.store';
 
@@ -14,6 +14,7 @@ export interface SidebarBrandHeaderProps {
 
 export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
   ({ collapsed, inDrawer, onNavigate, onCloseDrawer }) => {
+    const { token } = theme.useToken();
     const resolvedMode = useThemeStore((state) => state.resolvedMode);
     const isDark = resolvedMode === 'dark';
 
@@ -26,8 +27,10 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
           justifyContent: collapsed && !inDrawer ? 'center' : 'flex-start',
           padding: collapsed && !inDrawer ? '0' : '0 16px',
           gap: 10,
-          borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
-          backgroundColor: isDark ? '#090d14' : '#ffffff',
+          borderBottom: isDark
+            ? '1px solid rgba(255, 255, 255, 0.08)'
+            : `1px solid ${token.colorBorderSecondary}`,
+          backgroundColor: isDark ? '#090d14' : token.colorBgContainer,
           flexShrink: 0,
         }}
       >
@@ -38,10 +41,10 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
             style={{
               width: 32,
               height: 32,
-              borderRadius: 8,
+              borderRadius: token.borderRadiusLG,
               border: 'none',
               padding: 0,
-              background: 'linear-gradient(135deg, #1677ff 0%, #0958d9 100%)',
+              background: `linear-gradient(135deg, ${token.colorPrimary} 0%, ${token.colorPrimaryActive || '#0958d9'} 100%)`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -49,7 +52,7 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
               fontWeight: 800,
               fontSize: 16,
               letterSpacing: '-0.02em',
-              boxShadow: '0 2px 8px rgba(22, 119, 255, 0.35)',
+              boxShadow: `0 2px 8px ${token.colorPrimary}59`,
               cursor: 'pointer',
               flexShrink: 0,
             }}
@@ -83,7 +86,7 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
               <Text
                 strong
                 style={{
-                  color: isDark ? '#f8fafc' : '#0f172a',
+                  color: isDark ? '#f8fafc' : token.colorText,
                   fontSize: 14.5,
                   lineHeight: 1.2,
                 }}
@@ -100,7 +103,7 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
                   margin: 0,
                   flexShrink: 0,
                   fontWeight: 700,
-                  borderRadius: 3,
+                  borderRadius: token.borderRadiusXS,
                 }}
               >
                 v{SYSTEM_INFO.version.split('.').slice(0, 2).join('.')}
@@ -108,7 +111,7 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
             </Flex>
             <div
               style={{
-                color: isDark ? 'rgba(248, 250, 252, 0.45)' : 'rgba(15, 23, 42, 0.5)',
+                color: isDark ? 'rgba(248, 250, 252, 0.45)' : token.colorTextTertiary,
                 fontSize: 10,
                 fontWeight: 600,
                 letterSpacing: '0.05em',

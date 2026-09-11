@@ -1,4 +1,4 @@
-import { Dropdown, Menu, Tooltip, type MenuProps } from 'antd';
+import { Dropdown, Menu, Tooltip, type MenuProps, theme } from 'antd';
 import React from 'react';
 import { useThemeStore } from '../../stores/theme.store';
 import { SidebarBrandHeader } from './SidebarBrandHeader';
@@ -27,6 +27,7 @@ export const SidebarContent: React.FC<SidebarContentProps> = React.memo(
     onNavigate,
     onCloseDrawer,
   }) => {
+    const { token } = theme.useToken();
     const resolvedMode = useThemeStore((state) => state.resolvedMode);
     const isDark = resolvedMode === 'dark';
 
@@ -36,8 +37,8 @@ export const SidebarContent: React.FC<SidebarContentProps> = React.memo(
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          backgroundColor: isDark ? '#0c1017' : '#ffffff',
-          color: isDark ? '#f8fafc' : '#0f172a',
+          backgroundColor: isDark ? '#0c1017' : token.colorBgContainer,
+          color: isDark ? '#f8fafc' : token.colorText,
         }}
       >
         <SidebarBrandHeader
@@ -54,7 +55,9 @@ export const SidebarContent: React.FC<SidebarContentProps> = React.memo(
               padding: '8px 0',
               display: 'flex',
               justifyContent: 'center',
-              borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #f1f5f9',
+              borderBottom: isDark
+                ? '1px solid rgba(255, 255, 255, 0.06)'
+                : `1px solid ${token.colorBorderSecondary}`,
               flexShrink: 0,
             }}
           >
@@ -66,9 +69,11 @@ export const SidebarContent: React.FC<SidebarContentProps> = React.memo(
                   style={{
                     width: 40,
                     height: 36,
-                    borderRadius: 6,
-                    border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc',
+                    borderRadius: token.borderRadiusSM,
+                    border: isDark
+                      ? '1px solid rgba(255, 255, 255, 0.08)'
+                      : `1px solid ${token.colorBorderSecondary}`,
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : token.colorBgLayout,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -81,8 +86,8 @@ export const SidebarContent: React.FC<SidebarContentProps> = React.memo(
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      backgroundColor: '#10b981',
-                      boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+                      backgroundColor: token.colorSuccess,
+                      boxShadow: `0 0 6px ${token.colorSuccess}99`,
                     }}
                   />
                 </button>

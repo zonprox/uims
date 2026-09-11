@@ -1,5 +1,5 @@
 import { SYSTEM_INFO } from '@uims/shared-utils';
-import { Divider, Flex, Layout, Space, Tag, Typography } from 'antd';
+import { Divider, Flex, Layout, Space, Tag, Typography, theme } from 'antd';
 import React from 'react';
 import { type ThemeMode, useThemeStore } from '../../stores/theme.store';
 
@@ -11,16 +11,17 @@ export interface LayoutFooterProps {
 }
 
 export const LayoutFooter: React.FC<LayoutFooterProps> = React.memo(() => {
+  const { token } = theme.useToken();
   const resolvedMode = useThemeStore((state) => state.resolvedMode);
   const isDark = resolvedMode === 'dark';
   return (
     <Footer
       style={{
         padding: '12px 24px',
-        color: isDark ? '#64748b' : '#94a3b8',
+        color: isDark ? '#64748b' : token.colorTextTertiary,
         fontSize: 12,
-        borderTop: isDark ? '1px solid #1e293b' : '1px solid #f1f5f9',
-        backgroundColor: isDark ? '#090d16' : '#ffffff',
+        borderTop: isDark ? '1px solid #1e293b' : `1px solid ${token.colorBorderSecondary}`,
+        backgroundColor: isDark ? '#090d16' : token.colorBgContainer,
       }}
     >
       <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
@@ -31,7 +32,10 @@ export const LayoutFooter: React.FC<LayoutFooterProps> = React.memo(() => {
           separator={
             <Divider
               orientation="vertical"
-              style={{ margin: '0 4px', borderColor: isDark ? '#334155' : '#e2e8f0' }}
+              style={{
+                margin: '0 4px',
+                borderColor: isDark ? '#334155' : token.colorBorderSecondary,
+              }}
             />
           }
         >
@@ -59,8 +63,9 @@ export const LayoutFooter: React.FC<LayoutFooterProps> = React.memo(() => {
               padding: '0 6px',
               height: 18,
               lineHeight: '18px',
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9',
-              color: isDark ? '#94a3b8' : '#64748b',
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : token.colorBgLayout,
+              color: isDark ? token.colorTextTertiary : token.colorTextSecondary,
+              borderRadius: token.borderRadiusXS,
             }}
           >
             v{SYSTEM_INFO.version}

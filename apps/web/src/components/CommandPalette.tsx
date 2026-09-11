@@ -11,8 +11,8 @@ import {
   SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import { Empty, Flex, Input, Modal, Spin, Tag, Typography } from 'antd';
-import { useEffect, useState } from 'react';
+import { Empty, Flex, Input, Modal, Spin, Tag, Typography, theme } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../services/api';
 
@@ -25,6 +25,7 @@ interface CommandItem {
   path: string;
   icon: React.ReactNode;
   description: string;
+  shortcut?: string;
 }
 
 const COMMAND_ITEMS: Array<CommandItem> = [
@@ -35,6 +36,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/',
     icon: <BarChartOutlined />,
     description: 'Asset health, telemetry KPIs, and recent audit activity',
+    shortcut: '1',
   },
   {
     key: 'assets',
@@ -43,6 +45,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/assets',
     icon: <LaptopOutlined />,
     description: 'Manage laptops, workstations, monitors, servers, and specs',
+    shortcut: '2',
   },
   {
     key: 'licenses',
@@ -51,6 +54,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/licenses',
     icon: <SafetyCertificateOutlined />,
     description: 'Track software licenses, seat allocations, and renewals',
+    shortcut: '3',
   },
   {
     key: 'inventory',
@@ -59,6 +63,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/inventory',
     icon: <DatabaseOutlined />,
     description: 'Stock levels, spare parts, peripherals, and reorder alerts',
+    shortcut: '4',
   },
   {
     key: 'network',
@@ -67,6 +72,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/network',
     icon: <GlobalOutlined />,
     description: 'IPAM, subnets, VLANs, and hardware network reservations',
+    shortcut: '5',
   },
   {
     key: 'organization',
@@ -75,6 +81,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/organization',
     icon: <ApartmentOutlined />,
     description: 'Corporate entities, facilities, hierarchical departments, and job titles',
+    shortcut: '6',
   },
   {
     key: 'access-control',
@@ -83,6 +90,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/access-control',
     icon: <SafetyCertificateOutlined />,
     description: 'Manage console login users, RBAC roles, security status, and permission matrix',
+    shortcut: '7',
   },
   {
     key: 'directory',
@@ -92,6 +100,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     icon: <TeamOutlined />,
     description:
       'Corporate employee directory records, Active Directory synchronization, and workstation custodians',
+    shortcut: '8',
   },
   {
     key: 'reports',
@@ -100,6 +109,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     path: '/reports',
     icon: <BarChartOutlined />,
     description: 'Asset valuation, depreciation curves, and financial summaries',
+    shortcut: '9',
   },
   {
     key: 'audit',
@@ -144,18 +154,29 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [liveResults, setLiveResults] = useState<Array<SearchResultItem>>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
   const navigate = useNavigate();
+
+  const { token } = theme.useToken();
+
+  const isMac =
+    typeof navigator !== 'undefined' &&
+    /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform || navigator.userAgent || '');
+  const modKey = isMac ? '⌘' : 'Ctrl ';
 
   useEffect(() => {
     if (!open) {
       setQuery('');
       setLiveResults([]);
       setLoading(false);
+      setSelectedIndex(0);
     }
   }, [open]);
 
   useEffect(() => {
     const trimmed = query.trim();
+    setSelectedIndex(0);
     if (!trimmed || trimmed.length < 2) {
       setLiveResults([]);
       setLoading(false);
@@ -178,12 +199,38 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const filteredCommands = COMMAND_ITEMS.filter(
-    (item) =>
-      item.title.toLowerCase().includes(query.toLowerCase()) ||
-      item.description.toLowerCase().includes(query.toLowerCase()) ||
-      item.category.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filteredCommands = useMemo(() => {
+    const q = query.toLowerCase();
+    return COMMAND_ITEMS.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q),
+    );
+  }, [query]);
+
+  const allNavigableItems = useMemo(() => {
+    const list: Array<{ path: string }> = [];
+    for (const item of liveResults) {
+      list.push({ path: item.path });
+    }
+    for (const item of filteredCommands) {
+      list.push({ path: item.path });
+    }
+    return list;
+  }, [liveResults, filteredCommands]);
+
+  useEffect(() => {
+    if (selectedIndex >= allNavigableItems.length && allNavigableItems.length > 0) {
+      setSelectedIndex(allNavigableItems.length - 1);
+    }
+  }, [allNavigableItems.length, selectedIndex]);
+
+  useEffect(() => {
+    if (itemRefs.current[selectedIndex]) {
+      itemRefs.current[selectedIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -203,6 +250,61 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     onClose();
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    const total = allNavigableItems.length;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (total > 0) {
+        setSelectedIndex((prev) => (prev + 1) % total);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (total > 0) {
+        setSelectedIndex((prev) => (prev - 1 + total) % total);
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const target = allNavigableItems[selectedIndex];
+      if (target) {
+        handleSelect(target.path);
+      }
+      return;
+    }
+
+    // Direct jump via Cmd+1..9 or Ctrl+1..9
+    if ((e.metaKey || e.ctrlKey) && /^[1-9]$/.test(e.key)) {
+      const matched = COMMAND_ITEMS.find((c) => c.shortcut === e.key);
+      if (matched) {
+        e.preventDefault();
+        handleSelect(matched.path);
+        return;
+      }
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+    }
+  };
+
+  const footerKbdStyle: React.CSSProperties = {
+    fontSize: 10,
+    padding: '1px 5px',
+    background: token.colorFillSecondary,
+    borderRadius: token.borderRadiusSM,
+    color: token.colorTextSecondary,
+    border: `1px solid ${token.colorBorderSecondary}`,
+    fontFamily: 'monospace',
+    fontWeight: 500,
+  };
+
   return (
     <Modal
       open={open}
@@ -214,200 +316,260 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         body: {
           padding: 0,
           overflow: 'hidden',
+          backgroundColor: token.colorBgElevated,
+          borderRadius: token.borderRadiusLG,
         },
       }}
-      width={560}
+      width={580}
       centered
     >
-      <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(140, 140, 140, 0.12)' }}>
-        <Input
-          prefix={<SearchOutlined style={{ fontSize: 16, color: '#94a3b8', marginRight: 6 }} />}
-          placeholder="Search assets, licenses, users, or jump to page..."
-          variant="borderless"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-          style={{ fontSize: 14 }}
-          suffix={loading ? <Spin size="small" /> : null}
-        />
-      </div>
-
-      <div style={{ maxHeight: 380, overflowY: 'auto', padding: '6px 8px' }}>
-        {/* Live Search Results from Backend / Meilisearch */}
-        {liveResults.length > 0 && (
-          <div style={{ marginBottom: 8 }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: '#94a3b8',
-                padding: '6px 12px 2px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}
-            >
-              Search Results
-            </div>
-            <Flex vertical gap={2}>
-              {liveResults.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleSelect(item.path)}
-                  style={{
-                    cursor: 'pointer',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(22, 119, 255, 0.08)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <Flex align="center" justify="space-between" style={{ width: '100%' }}>
-                    <Flex align="center" gap={10}>
-                      <div
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 4,
-                          background: 'rgba(22, 119, 255, 0.12)',
-                          color: '#1677ff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 14,
-                        }}
-                      >
-                        {getCategoryIcon(item.category)}
-                      </div>
-                      <div>
-                        <Text strong style={{ fontSize: 13 }}>
-                          {item.title}
-                        </Text>
-                        {item.subtitle && (
-                          <div>
-                            <Text type="secondary" style={{ fontSize: 11.5 }}>
-                              {item.subtitle}
-                            </Text>
-                          </div>
-                        )}
-                      </div>
-                    </Flex>
-                    <Tag color="blue" style={{ fontSize: 10.5 }}>
-                      {item.category}
-                    </Tag>
-                  </Flex>
-                </div>
-              ))}
-            </Flex>
-          </div>
-        )}
-
-        {/* Command Navigation Results */}
-        <div>
-          {liveResults.length > 0 && (
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: '#94a3b8',
-                padding: '6px 12px 2px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}
-            >
-              Navigation Commands
-            </div>
-          )}
-          {filteredCommands.length === 0 && liveResults.length === 0 ? (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No matching results or commands found"
-              style={{ margin: '20px 0' }}
-            />
-          ) : (
-            <Flex vertical gap={2}>
-              {filteredCommands.map((item) => (
-                <div
-                  key={item.key}
-                  onClick={() => handleSelect(item.path)}
-                  style={{
-                    cursor: 'pointer',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(22, 119, 255, 0.06)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <Flex align="center" justify="space-between" style={{ width: '100%' }}>
-                    <Flex align="center" gap={10}>
-                      <div
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 4,
-                          background: 'rgba(22, 119, 255, 0.08)',
-                          color: '#1677ff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 14,
-                        }}
-                      >
-                        {item.icon}
-                      </div>
-                      <div>
-                        <Text strong style={{ fontSize: 13 }}>
-                          {item.title}
-                        </Text>
-                        <div>
-                          <Text type="secondary" style={{ fontSize: 11.5 }}>
-                            {item.description}
-                          </Text>
-                        </div>
-                      </div>
-                    </Flex>
-                    <Tag color="default" style={{ fontSize: 11 }}>
-                      {item.category}
-                    </Tag>
-                  </Flex>
-                </div>
-              ))}
-            </Flex>
-          )}
+      <div onKeyDown={handleKeyDown} tabIndex={-1} style={{ outline: 'none' }}>
+        <div
+          style={{
+            padding: '14px 18px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <Input
+            prefix={
+              <SearchOutlined
+                style={{ fontSize: 16, color: token.colorTextTertiary, marginRight: 6 }}
+              />
+            }
+            placeholder="Search assets, licenses, users, or jump to page..."
+            variant="borderless"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+            style={{ fontSize: 14 }}
+            suffix={loading ? <Spin size="small" /> : null}
+          />
         </div>
-      </div>
 
-      <div
-        style={{
-          padding: '8px 16px',
-          borderTop: '1px solid rgba(140, 140, 140, 0.1)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: 'rgba(140, 140, 140, 0.02)',
-        }}
-      >
-        <Text type="secondary" style={{ fontSize: 11.5 }}>
-          Press{' '}
-          <kbd
-            style={{ padding: '1px 4px', background: 'rgba(140, 140, 140, 0.15)', borderRadius: 3 }}
-          >
-            ESC
-          </kbd>{' '}
-          to close
-        </Text>
-        <Text type="secondary" style={{ fontSize: 11.5 }}>
-          Instant Fuzzy Search
-        </Text>
+        <div style={{ maxHeight: 380, overflowY: 'auto', padding: '6px 8px' }}>
+          {/* Live Search Results from Backend / Meilisearch */}
+          {liveResults.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: token.colorTextTertiary,
+                  padding: '6px 12px 2px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                Search Results
+              </div>
+              <Flex vertical gap={2}>
+                {liveResults.map((item, index) => {
+                  const isSelected = selectedIndex === index;
+                  return (
+                    <div
+                      key={item.id}
+                      ref={(el) => {
+                        itemRefs.current[index] = el;
+                      }}
+                      onClick={() => handleSelect(item.path)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      onMouseOver={() => setSelectedIndex(index)}
+                      style={{
+                        cursor: 'pointer',
+                        padding: '8px 12px',
+                        borderRadius: token.borderRadius,
+                        backgroundColor: isSelected ? token.colorPrimaryBg : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      <Flex align="center" justify="space-between" style={{ width: '100%' }}>
+                        <Flex align="center" gap={10}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: token.borderRadiusSM,
+                              background: token.colorPrimaryBg,
+                              color: token.colorPrimary,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 14,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {getCategoryIcon(item.category)}
+                          </div>
+                          <div>
+                            <Text strong style={{ fontSize: 13, color: token.colorText }}>
+                              {item.title}
+                            </Text>
+                            {item.subtitle && (
+                              <div>
+                                <Text type="secondary" style={{ fontSize: 11.5 }}>
+                                  {item.subtitle}
+                                </Text>
+                              </div>
+                            )}
+                          </div>
+                        </Flex>
+                        <Tag color="blue" style={{ fontSize: 10.5, margin: 0 }}>
+                          {item.category}
+                        </Tag>
+                      </Flex>
+                    </div>
+                  );
+                })}
+              </Flex>
+            </div>
+          )}
+
+          {/* Command Navigation Results */}
+          <div>
+            {liveResults.length > 0 && (
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: token.colorTextTertiary,
+                  padding: '6px 12px 2px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                Navigation Commands
+              </div>
+            )}
+            {filteredCommands.length === 0 && liveResults.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="No matching results or commands found"
+                style={{ margin: '20px 0' }}
+              />
+            ) : (
+              <Flex vertical gap={2}>
+                {filteredCommands.map((item, cmdIdx) => {
+                  const overallIndex = liveResults.length + cmdIdx;
+                  const isSelected = selectedIndex === overallIndex;
+                  return (
+                    <div
+                      key={item.key}
+                      ref={(el) => {
+                        itemRefs.current[overallIndex] = el;
+                      }}
+                      onClick={() => handleSelect(item.path)}
+                      onMouseEnter={() => setSelectedIndex(overallIndex)}
+                      onMouseOver={() => setSelectedIndex(overallIndex)}
+                      style={{
+                        cursor: 'pointer',
+                        padding: '8px 12px',
+                        borderRadius: token.borderRadius,
+                        backgroundColor: isSelected ? token.colorPrimaryBg : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      <Flex align="center" justify="space-between" style={{ width: '100%' }}>
+                        <Flex align="center" gap={10}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: token.borderRadiusSM,
+                              background: token.colorPrimaryBg,
+                              color: token.colorPrimary,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 14,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {item.icon}
+                          </div>
+                          <div>
+                            <Text strong style={{ fontSize: 13, color: token.colorText }}>
+                              {item.title}
+                            </Text>
+                            <div>
+                              <Text type="secondary" style={{ fontSize: 11.5 }}>
+                                {item.description}
+                              </Text>
+                            </div>
+                          </div>
+                        </Flex>
+                        <Flex align="center" gap={6} style={{ flexShrink: 0 }}>
+                          <Tag color="default" style={{ fontSize: 11, margin: 0 }}>
+                            {item.category}
+                          </Tag>
+                          {item.shortcut && (
+                            <kbd
+                              style={{
+                                fontSize: 10.5,
+                                padding: '1px 5px',
+                                background: token.colorFillSecondary,
+                                border: `1px solid ${token.colorBorderSecondary}`,
+                                borderRadius: token.borderRadiusSM,
+                                color: token.colorTextSecondary,
+                                fontWeight: 600,
+                                lineHeight: 1.4,
+                                fontFamily: 'monospace',
+                              }}
+                            >
+                              {modKey}
+                              {item.shortcut}
+                            </kbd>
+                          )}
+                        </Flex>
+                      </Flex>
+                    </div>
+                  );
+                })}
+              </Flex>
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '8px 16px',
+            borderTop: `1px solid ${token.colorBorderSecondary}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: token.colorBgLayout,
+          }}
+        >
+          <Flex align="center" gap={12} wrap="wrap">
+            <Flex align="center" gap={4}>
+              <kbd style={footerKbdStyle}>↑</kbd>
+              <kbd style={footerKbdStyle}>↓</kbd>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Navigate
+              </Text>
+            </Flex>
+            <Flex align="center" gap={4}>
+              <kbd style={footerKbdStyle}>↵</kbd>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Select
+              </Text>
+            </Flex>
+            <Flex align="center" gap={4}>
+              <kbd style={footerKbdStyle}>{isMac ? '⌘1-9' : 'Ctrl 1-9'}</kbd>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Quick Jump
+              </Text>
+            </Flex>
+            <Flex align="center" gap={4}>
+              <kbd style={footerKbdStyle}>ESC</kbd>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Close
+              </Text>
+            </Flex>
+          </Flex>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            Instant Search
+          </Text>
+        </div>
       </div>
     </Modal>
   );
