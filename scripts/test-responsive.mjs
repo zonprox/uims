@@ -47,7 +47,7 @@ async function runResponsiveTests() {
     // 1.4 Click Hardware Assets inside Mobile Drawer
     await mobilePage.locator('.ant-drawer .ant-menu-item:has-text("Hardware Assets")').click();
     await mobilePage.waitForURL('**/assets', { timeout: 10000 });
-    await mobilePage.waitForSelector('text=Asset Inventory', { timeout: 10000 });
+    await mobilePage.waitForSelector('text=Hardware Assets', { timeout: 10000 });
     console.log('   ✅ Navigated to /assets from mobile Drawer.');
 
     // 1.5 Verify table horizontal scroll wrapper

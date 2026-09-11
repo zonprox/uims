@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { LocationController } from './location.controller';
 import {
   DepartmentController,
   OrganizationController,
@@ -7,7 +8,12 @@ import {
 import { OrganizationService } from './organization.service';
 
 @Module({
-  controllers: [OrganizationController, DepartmentController, PositionController],
+  controllers: [
+    OrganizationController,
+    DepartmentController,
+    PositionController,
+    LocationController,
+  ],
   providers: [OrganizationService],
   exports: [OrganizationService],
 })

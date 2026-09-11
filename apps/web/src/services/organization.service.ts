@@ -3,6 +3,7 @@ import type {
   CreateOrganizationDto,
   CreatePositionDto,
   Department,
+  LocationTreeNode,
   Organization,
   OrganizationStats,
   OrgNode,
@@ -13,7 +14,7 @@ import type {
 } from '@uims/shared-types';
 import { api } from './api';
 
-export type { Department, Organization, Position };
+export type { Department, Organization, Position, LocationTreeNode };
 
 export interface LocationBranch {
   id: string;
@@ -29,6 +30,8 @@ export interface LocationBranch {
   _count?: { assets: number; users: number };
 }
 
+const locationTreeCache = new Map<string, Promise<LocationTreeNode[]>>();
+
 export const organizationService = {
   getStats: async (): Promise<OrganizationStats> => {
     const res = await api.get('/organizations/stats');
@@ -43,6 +46,35 @@ export const organizationService = {
   getLocations: async (): Promise<LocationBranch[]> => {
     const res = await api.get('/organizations/locations');
     return res.data.data;
+  },
+
+  getLocationTree: (organizationId?: string): Promise<LocationTreeNode[]> => {
+    const cacheKey = organizationId || '__ALL__';
+    const cached = locationTreeCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const promise = api
+      .get('/locations/tree', {
+        params: organizationId ? { organizationId } : undefined,
+      })
+      .then((res) => (res.data.data as LocationTreeNode[]) || [])
+      .catch((err: unknown) => {
+        locationTreeCache.delete(cacheKey);
+        throw err;
+      });
+
+    locationTreeCache.set(cacheKey, promise);
+    return promise;
+  },
+
+  clearLocationTreeCache: (organizationId?: string): void => {
+    if (organizationId) {
+      locationTreeCache.delete(organizationId);
+    } else {
+      locationTreeCache.clear();
+    }
   },
 
   getOrganizations: async (): Promise<Organization[]> => {
@@ -69,8 +101,10 @@ export const organizationService = {
     await api.delete(`/organizations/${id}`);
   },
 
-  getDepartments: async (): Promise<Department[]> => {
-    const res = await api.get('/departments');
+  getDepartments: async (organizationId?: string): Promise<Department[]> => {
+    const res = await api.get('/departments', {
+      params: organizationId ? { organizationId } : undefined,
+    });
     return res.data.data;
   },
 

@@ -31,15 +31,41 @@ export class RolesGuard implements CanActivate {
     }
 
     // Super Admin inherits all role permissions
-    if (userRole === 'SUPER ADMIN' || userRole === 'SUPERADMIN') {
+    if (userRole === 'SUPER ADMIN' || userRole === 'SUPERADMIN' || userRole === 'SUPER_ADMIN') {
       return true;
     }
 
-    // Admin inherits Manager, Technician, Auditor, and Employee roles
+    // Admin inherits Manager, User, Viewer, Technician, Auditor, and Employee roles
     if (userRole === 'ADMIN') {
       return roles.some((r) => {
         const target = r.trim().toUpperCase();
-        return ['ADMIN', 'MANAGER', 'TECHNICIAN', 'AUDITOR', 'EMPLOYEE'].includes(target);
+        return ['ADMIN', 'MANAGER', 'USER', 'VIEWER', 'TECHNICIAN', 'AUDITOR', 'EMPLOYEE'].includes(
+          target,
+        );
+      });
+    }
+
+    // Manager inherits User, Viewer, and Employee roles
+    if (userRole === 'MANAGER') {
+      return roles.some((r) => {
+        const target = r.trim().toUpperCase();
+        return ['MANAGER', 'USER', 'VIEWER', 'EMPLOYEE'].includes(target);
+      });
+    }
+
+    // User inherits Viewer and Employee roles
+    if (userRole === 'USER') {
+      return roles.some((r) => {
+        const target = r.trim().toUpperCase();
+        return ['USER', 'VIEWER', 'EMPLOYEE'].includes(target);
+      });
+    }
+
+    // Viewer matches Viewer and Auditor
+    if (userRole === 'VIEWER') {
+      return roles.some((r) => {
+        const target = r.trim().toUpperCase();
+        return ['VIEWER', 'AUDITOR'].includes(target);
       });
     }
 

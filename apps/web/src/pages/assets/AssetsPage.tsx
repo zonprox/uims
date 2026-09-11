@@ -27,6 +27,9 @@ export default function AssetsPage() {
     loading,
     searchQuery,
     setSearchQuery,
+    orgFilter,
+    setOrgFilter,
+    orgOptions,
     categoryFilter,
     setCategoryFilter,
     statusFilter,
@@ -89,9 +92,9 @@ export default function AssetsPage() {
 
   return (
     <PageContainer
-      title="Asset Inventory"
+      title="Hardware Assets"
       subtitle="Manage asset lifecycles, track allocations, and monitor depreciation across all hardware assets."
-      breadcrumbs={[{ title: 'Assets' }]}
+      breadcrumbs={[{ title: 'Hardware Assets' }]}
       stats={statsItems}
       extra={
         <Flex gap={8}>
@@ -114,6 +117,9 @@ export default function AssetsPage() {
         <AssetFilterBar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          orgFilter={orgFilter}
+          onOrgChange={setOrgFilter}
+          orgOptions={orgOptions}
           categoryFilter={categoryFilter}
           onCategoryChange={setCategoryFilter}
           statusFilter={statusFilter}

@@ -23,7 +23,9 @@ const { mockAssets, mockStats } = vi.hoisted(() => {
       status: 'Active',
       assignedTo: 'Marcus Vance',
       assignedEmail: 'marcus@uims.internal',
-      location: 'NY Office - Floor 4',
+      location: 'Floor 4',
+      locationPath: 'Global HQ > NY Office > Floor 4',
+      department: 'Engineering',
       purchaseDate: '2026-01-15',
       purchasePrice: 3499,
       warrantyExpiry: '2029-01-15',
@@ -89,6 +91,15 @@ vi.mock('../../services/assets.service', () => ({
     updateAsset: vi.fn().mockResolvedValue(mockAssets[0]),
     deleteAsset: vi.fn().mockResolvedValue(undefined),
     exportCsv: vi.fn().mockResolvedValue('Tag,Name\nAST-1001,MacBook Pro 16'),
+  },
+}));
+
+vi.mock('../../services/organization.service', () => ({
+  organizationService: {
+    getOrganizations: vi.fn().mockResolvedValue([]),
+    getLocations: vi.fn().mockResolvedValue([]),
+    getLocationTree: vi.fn().mockResolvedValue([]),
+    getDepartments: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -456,6 +467,25 @@ describe('AssetsPage QR Scanner Integration', () => {
         description: expect.stringContaining('AST-1009-MISSING'),
       }),
     );
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('renders spatial location filter in filter bar and displays location and department in table', async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(MemoryRouter, null, createElement(AssetsPage)));
+    });
+
+    // Check location filter in filter bar
+    expect(document.body.textContent).toContain('Location / Facility');
+
+    // Check table content
+    expect(document.body.textContent).toContain('Location & Facility');
+    expect(document.body.textContent).toContain('Floor 4');
+    expect(document.body.textContent).toContain('Engineering');
 
     act(() => {
       root.unmount();

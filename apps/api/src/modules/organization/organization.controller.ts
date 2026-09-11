@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -27,10 +27,16 @@ export class OrganizationController {
     return this.orgService.getHierarchyTree();
   }
 
+  @Get('locations/tree')
+  @ApiOperation({ summary: 'Get hierarchical location tree (compatibility alias)' })
+  getLocationsTree(@Query('organizationId') organizationId?: string) {
+    return this.orgService.getLocationTree(organizationId);
+  }
+
   @Get('locations')
   @ApiOperation({ summary: 'Get all locations' })
-  getLocations() {
-    return this.orgService.findAllLocations();
+  getLocations(@Query('organizationId') organizationId?: string) {
+    return this.orgService.findAllLocations({ organizationId });
   }
 
   @Get()

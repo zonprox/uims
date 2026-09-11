@@ -11,6 +11,7 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Flex, type MenuProps, Tag, Typography } from 'antd';
 import React from 'react';
@@ -78,9 +79,9 @@ export function getQuickCreateMenu(
   if (allow('create', 'User')) {
     items.push({
       key: 'new-user',
-      icon: <SafetyCertificateOutlined />,
+      icon: <UserOutlined />,
       label: 'Create User',
-      onClick: () => navigate('/access-control'),
+      onClick: () => navigate('/users'),
     });
   }
 
@@ -157,15 +158,15 @@ export function getUserMenuItems(
     },
     { type: 'divider' },
     {
-      key: 'access-control',
-      icon: <SafetyCertificateOutlined />,
-      label: 'Access Control',
-      onClick: () => navigate('/access-control'),
+      key: 'users',
+      icon: <UserOutlined />,
+      label: 'Users',
+      onClick: () => navigate('/users'),
     },
     {
       key: 'directory',
       icon: <TeamOutlined />,
-      label: 'Directory',
+      label: 'Employee Directory',
       onClick: () => navigate('/directory'),
     },
     {
@@ -177,7 +178,7 @@ export function getUserMenuItems(
     {
       key: 'org-structure',
       icon: <ApartmentOutlined />,
-      label: 'Organization',
+      label: 'Organization Structure',
       onClick: () => navigate('/organization'),
     },
     {
@@ -243,26 +244,24 @@ export function getNavMenuItems(
     orgChildren.push({
       key: '/directory',
       icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Directory'),
-      title: 'Directory',
+      label: renderNavLabel('Employee Directory'),
+      title: 'Employee Directory',
     });
   }
   if (allow('read', 'Organization')) {
     orgChildren.push({
       key: '/organization',
       icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Organization'),
-      title: 'Organization',
+      label: renderNavLabel('Organization Structure'),
+      title: 'Organization Structure',
     });
   }
   if (allow('read', 'User') || allow('read', 'Role')) {
     orgChildren.push({
-      key: '/access-control',
-      icon: (
-        <NavIconWithBadge icon={<SafetyCertificateOutlined />} isCollapsed={isCollapsedDesktop} />
-      ),
-      label: renderNavLabel('Access Control'),
-      title: 'Access Control',
+      key: '/users',
+      icon: <NavIconWithBadge icon={<UserOutlined />} isCollapsed={isCollapsedDesktop} />,
+      label: renderNavLabel('Users'),
+      title: 'Users',
     });
   }
 

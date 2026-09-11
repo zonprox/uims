@@ -46,7 +46,7 @@ async function runTest() {
     // 4. Test Assets Page
     console.log('4️⃣ Testing Hardware Assets (/assets)...');
     await page.goto('https://localhost:5679/assets', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=Asset Inventory', { timeout: 10000 });
+    await page.waitForSelector('text=Hardware Assets', { timeout: 10000 });
     console.log('   ✅ Assets page loaded with live database table!');
 
     // 5. Test Licenses Page

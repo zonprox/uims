@@ -16,6 +16,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed",
+    "db:seed": "prisma db seed",
     "network:import": "tsx -r dotenv/config prisma/scripts/import-network-excel.ts",
     "clean": "rm -rf dist"
   },

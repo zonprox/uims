@@ -6,7 +6,7 @@ import type { StaffProfile } from './roles-users.seeder';
 const logger = new Logger('DirectorySeeder');
 
 export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<StaffProfile>) {
-  logger.log('👥 Seeding Normalized Corporate Directory (DirectoryUser & Groups)...');
+  logger.log('👥 Seeding Normalized Corporate Directory for Broadpeak (BSL & BSH)...');
 
   // 1. Fetch relational master data to resolve foreign keys
   const [organizations, departments, positions, locations] = await Promise.all([
@@ -39,230 +39,78 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
 
   const locMap = new Map<string, string>();
   for (const loc of locations) {
-    if (loc.code) {
-      locMap.set(loc.code, loc.id);
-    }
+    if (loc.code) locMap.set(loc.code, loc.id);
     locMap.set(loc.id, loc.id);
     locMap.set(loc.name.toLowerCase(), loc.id);
   }
 
-  const defaultOrgId = orgMap.get('ACME-US') || organizations[0]?.id;
-  const apacOrgId = orgMap.get('ACME-APAC') || defaultOrgId;
-  const defaultDeptId = deptMap.get('DEPT-IT') || departments[0]?.id;
-  const defaultLocId = locMap.get('loc-ny-f4') || locations[0]?.id;
+  const defaultBslOrgId = orgMap.get('BSL') || organizations[0]?.id;
+  const defaultBshOrgId = orgMap.get('BSH') || organizations[1]?.id || defaultBslOrgId;
+  const defaultBslLocId = locMap.get('loc-bsl-st') || locMap.get('BSL-ST') || locations[0]?.id;
+  const defaultBshLocId = locMap.get('loc-bsh-d7') || locMap.get('HCM-D7') || defaultBslLocId;
 
   // 2. Directory Groups Catalog
   const directoryGroups = [
     {
-      id: 'grp-all-company',
-      name: 'All Company Employees',
-      email: 'all-employees@company.com',
+      id: 'grp-all-broadpeak',
+      name: 'All Broadpeak Workforce',
+      email: 'all-workforce@broadpeak.youngone.com',
       type: 'Distribution',
-      scope: 'Universal / Global Distribution',
-      ouPath: 'OU=Distribution,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Rachel Adams (Head of People Operations)',
-      description: 'Enterprise-wide distribution list for the entire global workforce.',
+      scope: 'Universal',
+      ouPath: 'OU=Distribution,OU=Groups,OU=Broadpeak,DC=youngone,DC=internal',
+      managedBy: 'Doan Minh Tri',
+      description:
+        'Enterprise-wide distribution list across BSL (Soc Trang) and BSH (Ho Chi Minh).',
     },
     {
-      id: 'grp-engineering-core',
-      name: 'Engineering & DevOps Core',
-      email: 'engineering-core@company.com',
-      type: 'Security',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'David Kim (Lead Cloud Architect)',
-      description: 'Software engineers, cloud architects, and site reliability engineers.',
-    },
-    {
-      id: 'grp-it-infrastructure',
-      name: 'IT Infrastructure & Operations',
-      email: 'it-ops@company.com',
-      type: 'Security',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Robert Torres (IT Infrastructure Operations Manager)',
-      description: 'Systems administration, network engineering, and data center operations.',
-    },
-    {
-      id: 'grp-security-sirt',
-      name: 'Security Incident Response Team (SIRT)',
-      email: 'security-response@company.com',
-      type: 'Security',
-      scope: 'Restricted / Security High',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Sarah Chen (Senior Systems Administrator)',
-      description: 'SecOps engineers, compliance auditors, and security coordinators.',
-    },
-    {
-      id: 'grp-product-design',
-      name: 'Product Design & UX Research',
-      email: 'product-design@company.com',
-      type: 'Distribution',
-      scope: 'Internal Only',
-      ouPath: 'OU=Distribution,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Marcus Vance (Principal Product Designer)',
-      description: 'Design systems specialists, UI/UX designers, and researchers.',
-    },
-    {
-      id: 'grp-growth-marketing',
-      name: 'Growth Marketing & Public Relations',
-      email: 'press-media@company.com',
-      type: 'Distribution',
-      scope: 'Public / External Allowed',
-      ouPath: 'OU=Distribution,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Elena Rostova (Director of Growth Marketing)',
-      description: 'Marketing campaigns, brand communications, and public relations.',
-    },
-    {
-      id: 'grp-finance-procure',
-      name: 'Finance & Hardware Procurement',
-      email: 'procurement-finance@company.com',
-      type: 'Security',
-      scope: 'Internal Only',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Lisa Wang (Financial Controller)',
-      description: 'Asset budgets, software renewals, accounting, and vendor contracts.',
-    },
-    {
-      id: 'grp-executive-steering',
-      name: 'Executive Steering Committee',
-      email: 'executive-leadership@company.com',
-      type: 'Security',
-      scope: 'Confidential / Board Level',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Alex Johnson (VP of Information Technology)',
-      description: 'Executive Vice Presidents, Directors, and Legal Counsel.',
-    },
-    {
-      id: 'grp-hq-exec-leadership',
-      name: 'GR_HQ_ExecutiveLeadership',
-      email: 'hq-exec@company.com',
+      id: 'grp-youngone-exec',
+      name: 'GR_Youngone_Executive',
+      email: 'gr-executive@broadpeak.youngone.com',
       type: 'AD Security Group',
       scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Alex Johnson (VP of Information Technology)',
-      description: 'HQ Executive Leadership Security Group.',
+      ouPath: 'OU=SecurityGroups,OU=Executive,OU=Broadpeak,DC=youngone,DC=internal',
+      managedBy: 'Doan Minh Tri',
+      description: 'Executive Leadership Security Group.',
     },
     {
-      id: 'grp-hq-it-infra',
-      name: 'GR_HQ_ITInfrastructure',
-      email: 'hq-it-infra@company.com',
+      id: 'grp-bsl-factory',
+      name: 'GR_BSL_FactoryOperations',
+      email: 'gr-bsl-factory@broadpeak.youngone.com',
       type: 'AD Security Group',
       scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Robert Torres (IT Infrastructure Operations Manager)',
-      description: 'HQ IT Infrastructure Security Group.',
+      ouPath: 'OU=SecurityGroups,OU=BSL,OU=Broadpeak,DC=youngone,DC=internal',
+      managedBy: 'Tran Van Binh',
+      description: 'BSL Soc Trang Factory Operations Security Group.',
     },
     {
-      id: 'grp-hq-eng-core',
-      name: 'GR_HQ_EngineeringCore',
-      email: 'hq-eng-core@company.com',
+      id: 'grp-bsl-it',
+      name: 'GR_BSL_IT_Support',
+      email: 'gr-bsl-it@broadpeak.youngone.com',
       type: 'AD Security Group',
       scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'David Kim (Lead Cloud Architect)',
-      description: 'HQ Engineering Core Security Group.',
+      ouPath: 'OU=SecurityGroups,OU=BSL,OU=Broadpeak,DC=youngone,DC=internal',
+      managedBy: 'Pham Hoang Nam',
+      description: 'BSL Factory IT & Industrial Automation Security Group.',
     },
     {
-      id: 'grp-hq-sec-compliance',
-      name: 'GR_HQ_SecurityCompliance',
-      email: 'hq-sec-compliance@company.com',
+      id: 'grp-bsh-corp',
+      name: 'GR_BSH_CorporateOffice',
+      email: 'gr-bsh-corp@broadpeak.youngone.com',
       type: 'AD Security Group',
       scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Marcus Bell (Principal Security Compliance Auditor)',
-      description: 'HQ Security & Compliance Security Group.',
+      ouPath: 'OU=SecurityGroups,OU=BSH,OU=Broadpeak,DC=youngone,DC=internal',
+      managedBy: 'Dang Thanh Phong',
+      description: 'BSH Ho Chi Minh Corporate Office Security Group.',
     },
     {
-      id: 'grp-hq-product-design',
-      name: 'GR_HQ_ProductDesign',
-      email: 'hq-product-design@company.com',
+      id: 'grp-bsh-merch',
+      name: 'GR_BSH_Merchandising',
+      email: 'gr-bsh-merch@broadpeak.youngone.com',
       type: 'AD Security Group',
       scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Marcus Vance (Principal Product Designer)',
-      description: 'HQ Product Design Security Group.',
-    },
-    {
-      id: 'grp-hq-growth-marketing',
-      name: 'GR_HQ_GrowthMarketing',
-      email: 'hq-growth-marketing@company.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Elena Rostova (Director of Growth Marketing)',
-      description: 'HQ Growth Marketing Security Group.',
-    },
-    {
-      id: 'grp-hq-finance-procure',
-      name: 'GR_HQ_FinanceProcurement',
-      email: 'hq-finance-procure@company.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Lisa Wang (Financial Controller)',
-      description: 'HQ Finance & Procurement Security Group.',
-    },
-    {
-      id: 'grp-hq-people-ops',
-      name: 'GR_HQ_PeopleOps',
-      email: 'hq-people-ops@company.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Groups,OU=HQ,DC=uims,DC=internal',
-      managedBy: 'Rachel Adams (Head of People Operations)',
-      description: 'HQ People Operations Security Group.',
-    },
-    // Production Plant Active Directory Security Groups
-    {
-      id: 'grp-ad-bsloth-printing',
-      name: 'GR_BSLOTHPrinting',
-      email: 'gr-bsloth-printing@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Domain Local Security',
-      ouPath: 'OU=SecurityGroups,OU=Printing,OU=Plant1,DC=company,DC=internal',
-      managedBy: 'Phung Thi Nhu Y (Asst. Officer)',
-      description: 'Production Printing Division Active Directory Security Group.',
-    },
-    {
-      id: 'grp-ad-bsloth-sample',
-      name: 'GR_BSLOTHSample',
-      email: 'gr-bsloth-sample@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Domain Local Security',
-      ouPath: 'OU=SecurityGroups,OU=Sample,OU=Plant1,DC=company,DC=internal',
-      managedBy: 'Nguyen Doan Quang Huy (Asst. Manager)',
-      description: 'Sample Development and Pattern Marker Security Group.',
-    },
-    {
-      id: 'grp-ad-bsloth-embroidery',
-      name: 'GR_BSLOTHLogo Embroidery',
-      email: 'gr-bsloth-embroidery@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Domain Local Security',
-      ouPath: 'OU=SecurityGroups,OU=Embroidery,OU=Plant1,DC=company,DC=internal',
-      managedBy: 'Huynh Kim Ngan (Chief of Section)',
-      description: 'Logo Embroidery Division Active Directory Security Group.',
-    },
-    {
-      id: 'grp-ad-bsl1-prod-office',
-      name: 'GR_BSL1Production Office',
-      email: 'gr-bsl1-prod-office@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Domain Local Security',
-      ouPath: 'OU=SecurityGroups,OU=Operations,OU=Plant1,DC=company,DC=internal',
-      managedBy: 'Le Thi Kim Chi (Junior Technician)',
-      description: 'BSL-1 Plant Production Office Operations Security Group.',
-    },
-    {
-      id: 'grp-ad-bsl1-cutting',
-      name: 'GR_BSL1Cutting',
-      email: 'gr-bsl1-cutting@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Domain Local Security',
-      ouPath: 'OU=SecurityGroups,OU=Cutting,OU=Plant1,DC=company,DC=internal',
-      managedBy: 'Son Thi Ngoc Huyen (Junior Supervisor)',
-      description: 'BSL-1 Plant Cutting Operations Active Directory Security Group.',
+      ouPath: 'OU=SecurityGroups,OU=BSH,OU=Broadpeak,DC=youngone,DC=internal',
+      managedBy: 'Nguyen Thi Lan',
+      description: 'BSH Merchandising & Apparel Sourcing Security Group.',
     },
   ];
 
@@ -278,34 +126,22 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
         ouPath: dg.ouPath,
         managedBy: dg.managedBy,
       },
-      create: {
-        id: dg.id,
-        name: dg.name,
-        email: dg.email,
-        description: dg.description,
-        type: dg.type,
-        scope: dg.scope,
-        ouPath: dg.ouPath,
-        managedBy: dg.managedBy,
-        memberCount: 0,
-      },
+      create: { ...dg, memberCount: 0 },
     });
   }
 
-  // In-memory record tracking for group membership assignment
+  const seededUsersMap = new Map<string, import('@prisma/client').DirectoryUser>();
   const userGroupLinks: Array<{ userEmail: string; groupName: string }> = [];
 
-  // 3. Seed Corporate Staff Profiles (Resolved Relational Foreign Keys)
+  // 3. Seed Corporate Staff Profiles (from roles-users.seeder)
   if (staffProfiles && staffProfiles.length > 0) {
     for (const s of staffProfiles) {
-      const status: AccountStatus =
-        s.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED;
-
-      // Resolve relational foreign keys
+      const status = s.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED;
+      const isBSL = s.organizationCode === 'BSL' || (s.locationId && s.locationId.includes('bsl'));
       const organizationId =
-        (s.organizationCode ? orgMap.get(s.organizationCode) : null) || defaultOrgId;
-      const departmentId =
-        (s.departmentCode ? deptMap.get(s.departmentCode) : null) || defaultDeptId;
+        (s.organizationCode ? orgMap.get(s.organizationCode) : null) ||
+        (isBSL ? defaultBslOrgId : defaultBshOrgId);
+      const departmentId = (s.departmentCode ? deptMap.get(s.departmentCode) : null) || null;
       const positionId =
         (s.positionCode ? posMap.get(s.positionCode) : null) ||
         (s.jobTitle ? posMap.get(s.jobTitle.toLowerCase()) : null) ||
@@ -313,34 +149,34 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
       const locationId =
         (s.locationId ? locMap.get(s.locationId) : null) ||
         (s.locationName ? locMap.get(s.locationName.toLowerCase()) : null) ||
-        defaultLocId;
+        (isBSL ? defaultBslLocId : defaultBshLocId);
 
-      await prisma.directoryUser.upsert({
+      const user = await prisma.directoryUser.upsert({
         where: { email: s.email },
         update: {
           employeeCode: s.employeeCode || null,
           firstName: s.firstName,
           lastName: s.lastName,
           displayName: s.displayName,
-          phone: s.phone || null,
-          ouPath: s.ouPath || 'OU=Management,OU=HQ,DC=uims,DC=internal',
           status,
-          source: (s.source as DirectorySource) || DirectorySource.LOCAL,
+          source: s.source === 'LOCAL' ? DirectorySource.LOCAL : DirectorySource.AZURE_AD,
+          phone: s.phone || null,
+          ouPath: s.ouPath || null,
           organizationId,
           departmentId,
           positionId,
           locationId,
         },
         create: {
-          email: s.email,
           employeeCode: s.employeeCode || null,
           firstName: s.firstName,
           lastName: s.lastName,
           displayName: s.displayName,
-          phone: s.phone || null,
-          ouPath: s.ouPath || 'OU=Management,OU=HQ,DC=uims,DC=internal',
+          email: s.email,
           status,
-          source: (s.source as DirectorySource) || DirectorySource.LOCAL,
+          source: s.source === 'LOCAL' ? DirectorySource.LOCAL : DirectorySource.AZURE_AD,
+          phone: s.phone || null,
+          ouPath: s.ouPath || null,
           organizationId,
           departmentId,
           positionId,
@@ -348,75 +184,50 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
         },
       });
 
+      seededUsersMap.set(s.email, user);
       if (s.adGroup) {
         userGroupLinks.push({ userEmail: s.email, groupName: s.adGroup });
       }
+      userGroupLinks.push({ userEmail: s.email, groupName: 'All Broadpeak Workforce' });
     }
   }
 
-  // 4. Seed Production Active Directory Dataset (Relational Resolution)
-  for (const ad of enterpriseAdMasterData) {
-    const nameParts = ad.displayName.trim().split(' ');
-    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+  // 4. Seed Directory Records from Active Directory Data
+  for (const r of enterpriseAdMasterData) {
+    const isBSL = r.company.includes('BSL') || r.employeeCode.startsWith('BSL');
+    const organizationId = isBSL ? defaultBslOrgId : defaultBshOrgId;
+    const locationId = isBSL ? defaultBslLocId : defaultBshLocId;
+    const departmentId = deptMap.get(r.department.toLowerCase()) || null;
+    const positionId = posMap.get(r.jobTitle.toLowerCase()) || null;
 
-    const sectionName = (ad.section || 'Operations').toLowerCase();
-    let defaultOuPath = 'OU=Operations,OU=Plant1,DC=company,DC=internal';
-    let defaultManagerName = 'Operations Division Head';
+    const parts = r.displayName.split(' ');
+    const firstName = parts[parts.length - 1] || r.displayName;
+    const lastName = parts.slice(0, -1).join(' ') || 'Broadpeak';
 
-    if (sectionName.includes('printing')) {
-      defaultOuPath = 'OU=Printing,OU=Production,OU=Plant1,DC=company,DC=internal';
-      defaultManagerName = 'Phung Thi Nhu Y (Asst. Officer)';
-    } else if (sectionName.includes('sample')) {
-      defaultOuPath = 'OU=Sample,OU=Production,OU=Plant1,DC=company,DC=internal';
-      defaultManagerName = 'Nguyen Doan Quang Huy (Asst. Manager)';
-    } else if (sectionName.includes('embroidery')) {
-      defaultOuPath = 'OU=Embroidery,OU=Production,OU=Plant1,DC=company,DC=internal';
-      defaultManagerName = 'Huynh Kim Ngan (Chief of Section)';
-    } else if (sectionName.includes('cutting')) {
-      defaultOuPath = 'OU=Cutting,OU=Production,OU=Plant1,DC=company,DC=internal';
-      defaultManagerName = 'Son Thi Ngoc Huyen (Junior Supervisor)';
-    } else if (sectionName.includes('production') || sectionName.includes('office')) {
-      defaultOuPath = 'OU=Operations,OU=Plant1,DC=company,DC=internal';
-      defaultManagerName = 'Le Thi Kim Chi (Junior Technician)';
-    }
-
-    const organizationId = apacOrgId;
-    const departmentId = deptMap.get('DEPT-IT-OPS') || deptMap.get('DEPT-IT') || defaultDeptId;
-    const positionId = posMap.get(ad.jobTitle.toLowerCase()) || null;
-    const locationId = locMap.get('BSL-ST') || locMap.get('loc-bsl-st') || defaultLocId;
-
-    const isClosed = Boolean(ad.isClosed);
-    const status: AccountStatus = isClosed ? AccountStatus.DISABLED : AccountStatus.ACTIVE;
-
-    await prisma.directoryUser.upsert({
-      where: { email: ad.email },
+    const user = await prisma.directoryUser.upsert({
+      where: { email: r.email },
       update: {
-        employeeCode: ad.employeeCode,
+        employeeCode: r.employeeCode,
         firstName,
         lastName,
-        displayName: ad.displayName,
-        phone: ad.telephone ? `+84 ${ad.telephone}` : `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
-        ouPath: defaultOuPath,
-        managerName: defaultManagerName,
-        status,
-        source: DirectorySource.LDAP,
+        displayName: r.displayName,
+        status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
+        source: DirectorySource.ACTIVE_DIRECTORY,
+        phone: r.telephone,
         organizationId,
         departmentId,
         positionId,
         locationId,
       },
       create: {
-        email: ad.email,
-        employeeCode: ad.employeeCode,
+        employeeCode: r.employeeCode,
         firstName,
         lastName,
-        displayName: ad.displayName,
-        phone: ad.telephone ? `+84 ${ad.telephone}` : `+84 28 3810 ${ad.employeeCode.slice(-4)}`,
-        ouPath: defaultOuPath,
-        managerName: defaultManagerName,
-        status,
-        source: DirectorySource.LDAP,
+        displayName: r.displayName,
+        email: r.email,
+        status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
+        source: DirectorySource.ACTIVE_DIRECTORY,
+        phone: r.telephone,
         organizationId,
         departmentId,
         positionId,
@@ -424,162 +235,88 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
       },
     });
 
-    if (ad.adGroup) {
-      userGroupLinks.push({ userEmail: ad.email, groupName: ad.adGroup });
+    seededUsersMap.set(r.email, user);
+    if (r.adGroup) {
+      userGroupLinks.push({ userEmail: r.email, groupName: r.adGroup });
     }
+    userGroupLinks.push({ userEmail: r.email, groupName: 'All Broadpeak Workforce' });
   }
 
-  // 5. Build Relational Directory Memberships
-  const allUsers = await prisma.directoryUser.findMany({
-    include: { department: true, position: true },
-    take: 10000,
-  });
+  // 5. Link Users to Groups and update member counts
+  const allGroups = await prisma.directoryGroup.findMany();
+  const groupByName = new Map<string, string>();
+  for (const g of allGroups) {
+    groupByName.set(g.name, g.id);
+  }
 
-  const userByEmail = new Map(allUsers.map((u) => [u.email, u]));
-
-  // Link AD security groups from parsed manifest
   for (const link of userGroupLinks) {
-    const user = userByEmail.get(link.userEmail);
-    const targetGroup = directoryGroups.find((g) => g.name === link.groupName);
-    if (user && targetGroup) {
+    const groupId = groupByName.get(link.groupName);
+    const user = seededUsersMap.get(link.userEmail);
+    if (!groupId || !user) continue;
+
+    try {
       await prisma.directoryMembership.upsert({
         where: {
           userId_groupId: {
             userId: user.id,
-            groupId: targetGroup.id,
+            groupId,
           },
         },
         update: {},
         create: {
           userId: user.id,
-          groupId: targetGroup.id,
+          groupId,
         },
       });
+    } catch (err: unknown) {
+      logger.debug(`Skipped duplicate membership: ${String(err)}`);
     }
   }
 
-  // Link functional distribution groups relationally
-  for (const group of directoryGroups) {
-    let eligibleUsers: typeof allUsers = [];
-
-    if (group.id === 'grp-all-company') {
-      eligibleUsers = allUsers.filter((u) => u.status === AccountStatus.ACTIVE);
-    } else if (group.id === 'grp-engineering-core') {
-      eligibleUsers = allUsers.filter(
-        (u) =>
-          u.department?.code === 'DEPT-ENG' ||
-          u.department?.name.toLowerCase().includes('engineering') ||
-          u.position?.title.toLowerCase().includes('engineer') ||
-          u.position?.title.toLowerCase().includes('architect'),
-      );
-    } else if (group.id === 'grp-it-infrastructure') {
-      eligibleUsers = allUsers.filter(
-        (u) =>
-          u.department?.code === 'DEPT-IT' ||
-          u.department?.name.toLowerCase().includes('it') ||
-          u.position?.title.toLowerCase().includes('administrator') ||
-          u.position?.title.toLowerCase().includes('network'),
-      );
-    } else if (group.id === 'grp-security-sirt') {
-      eligibleUsers = allUsers.filter(
-        (u) =>
-          u.department?.code === 'DEPT-SEC' ||
-          u.department?.name.toLowerCase().includes('security') ||
-          u.position?.title.toLowerCase().includes('auditor') ||
-          u.position?.title.toLowerCase().includes('security'),
-      );
-    } else if (group.id === 'grp-product-design') {
-      eligibleUsers = allUsers.filter(
-        (u) =>
-          u.department?.code === 'DEPT-DES' ||
-          u.department?.name.toLowerCase().includes('product') ||
-          u.department?.name.toLowerCase().includes('design') ||
-          u.position?.title.toLowerCase().includes('design') ||
-          u.position?.title.toLowerCase().includes('ux'),
-      );
-    } else if (group.id === 'grp-growth-marketing') {
-      eligibleUsers = allUsers.filter(
-        (u) =>
-          u.department?.code === 'DEPT-MKT' ||
-          u.department?.code === 'DEPT-SALES' ||
-          u.department?.name.toLowerCase().includes('marketing') ||
-          u.department?.name.toLowerCase().includes('sales'),
-      );
-    } else if (group.id === 'grp-finance-procure') {
-      eligibleUsers = allUsers.filter(
-        (u) =>
-          u.department?.code === 'DEPT-FIN' || u.department?.name.toLowerCase().includes('finance'),
-      );
-    } else if (group.id === 'grp-executive-steering') {
-      eligibleUsers = allUsers.filter(
-        (u) =>
-          u.email === 'admin@uims.local' ||
-          u.email === 'admin@uims.internal' ||
-          (u.position?.title &&
-            (u.position.title.includes('VP') ||
-              u.position.title.includes('Director') ||
-              u.position.title.includes('Head') ||
-              u.position.title.includes('Counsel') ||
-              u.position.title.includes('Controller'))),
-      );
-    }
-
-    for (const u of eligibleUsers) {
-      await prisma.directoryMembership.upsert({
-        where: {
-          userId_groupId: {
-            userId: u.id,
-            groupId: group.id,
-          },
-        },
-        update: {},
-        create: {
-          userId: u.id,
-          groupId: group.id,
-        },
-      });
-    }
-
-    const memberCount = await prisma.directoryMembership.count({
-      where: { groupId: group.id },
+  // Update member count on each group
+  for (const g of allGroups) {
+    const count = await prisma.directoryMembership.count({
+      where: { groupId: g.id },
     });
     await prisma.directoryGroup.update({
-      where: { id: group.id },
-      data: { memberCount },
+      where: { id: g.id },
+      data: { memberCount: count },
     });
-  }
-
-  const seededDirUsers: Record<string, import('@prisma/client').DirectoryUser> = {};
-  for (const u of allUsers) {
-    seededDirUsers[u.email] = u;
   }
 
   logger.log(
-    `✅ Seeded ${allUsers.length} normalized directory users and ${directoryGroups.length} directory groups.`,
+    `✅ Seeded ${seededUsersMap.size} Directory Users and ${allGroups.length} Groups across BSL & BSH.`,
   );
+
+  const firstUser = Array.from(seededUsersMap.values())[0]!;
+  const bslUser =
+    Array.from(seededUsersMap.values()).find((u) => u.employeeCode?.startsWith('BSL')) || firstUser;
+  const bshUser =
+    Array.from(seededUsersMap.values()).find((u) => u.employeeCode?.startsWith('BSH')) || firstUser;
 
   return {
     users: {
-      userAdminLocal: seededDirUsers['admin@uims.local'],
-      userAlex: seededDirUsers['admin@uims.internal'],
-      userSarah: seededDirUsers['sarah.chen@company.com'],
-      userMichael: seededDirUsers['michael.wong@company.com'],
-      userMarcusBell: seededDirUsers['compliance@uims.internal'],
-      userDavidKim: seededDirUsers['david.kim@company.com'],
-      userSophiaPatel: seededDirUsers['sophia.patel@company.com'],
-      userLiamNguyen: seededDirUsers['liam.nguyen@company.com'],
-      userCarlosMendez: seededDirUsers['carlos.mendez@company.com'],
-      userMarcusVance: seededDirUsers['marcus.vance@company.com'],
-      userChloeMartin: seededDirUsers['chloe.martin@company.com'],
-      userElena: seededDirUsers['elena.rostova@company.com'],
-      userRobertTorres: seededDirUsers['robert.torres@company.com'],
-      userLisaWang: seededDirUsers['lisa.wang@company.com'],
-      userRachelAdams: seededDirUsers['rachel.adams@company.com'],
-      userJamesWilson: seededDirUsers['james.wilson@company.com'],
-      userHannahScott: seededDirUsers['hannah.scott@company.com'],
-      userThomas: seededDirUsers['thomas.wright@company.com'],
-      userJessica: seededDirUsers['jessica.taylor@company.com'],
-      ...seededDirUsers,
+      userAdminLocal: seededUsersMap.get('admin@uims.local') || firstUser,
+      userAlex: seededUsersMap.get('admin@uims.internal') || firstUser,
+      userSarah: seededUsersMap.get('nam.pham@broadpeak.youngone.com') || bslUser,
+      userMichael: seededUsersMap.get('phong.dang@broadpeak.youngone.com') || bshUser,
+      userMarcusBell: seededUsersMap.get('ngoc.vu@broadpeak.youngone.com') || bshUser,
+      userDavidKim: seededUsersMap.get('kien.le@broadpeak.youngone.com') || bshUser,
+      userSophiaPatel: seededUsersMap.get('lan.nguyen@broadpeak.youngone.com') || bshUser,
+      userLiamNguyen: seededUsersMap.get('son.huynh@broadpeak.youngone.com') || bslUser,
+      userCarlosMendez: seededUsersMap.get('thu.le@broadpeak.youngone.com') || bslUser,
+      userMarcusVance: seededUsersMap.get('tuan.hoang@broadpeak.youngone.com') || bshUser,
+      userChloeMartin: seededUsersMap.get('phuong.bui@broadpeak.youngone.com') || bshUser,
+      userElena: seededUsersMap.get('huy.nguyen@broadpeak.youngone.com') || bslUser,
+      userRobertTorres: seededUsersMap.get('kim.vo@broadpeak.youngone.com') || bslUser,
+      userLisaWang: seededUsersMap.get('chau.dang@broadpeak.youngone.com') || bslUser,
+      userRachelAdams: seededUsersMap.get('binh.tran@broadpeak.youngone.com') || bslUser,
+      userJamesWilson: bslUser,
+      userHannahScott: bshUser,
+      userThomas: bslUser,
+      userJessica: bshUser,
+      ...Object.fromEntries(seededUsersMap.entries()),
     },
+    groups: directoryGroups,
   };
 }

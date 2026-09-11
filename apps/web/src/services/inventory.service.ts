@@ -20,8 +20,11 @@ export interface InventoryItem {
   minThreshold: number;
   unitCost: number;
   locationId?: string | null;
-  location?: LocationBranch | string | null;
+  location?: (LocationBranch & { fullPath?: string | null }) | string | null;
   locationName?: string;
+  locationPath?: string;
+  organizationId?: string | null;
+  organization?: string | null;
   binNumber?: string;
   supplier?: string;
   vendorId?: string | null;
@@ -43,6 +46,9 @@ export const inventoryService = {
     category?: string;
     categoryId?: string;
     stockStatus?: string;
+    organizationId?: string;
+    organization?: string;
+    locationId?: string;
   }): Promise<Array<InventoryItem>> => {
     const res = await api.get('/inventory', { params });
     return res.data.data;

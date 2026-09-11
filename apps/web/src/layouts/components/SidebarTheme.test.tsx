@@ -6,7 +6,6 @@ import { useThemeStore } from '../../stores/theme.store';
 import { SidebarBrandHeader } from './SidebarBrandHeader';
 import { SidebarContent } from './SidebarContent';
 import { SidebarFooter } from './SidebarFooter';
-import { SidebarOrgSelector } from './SidebarOrgSelector';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -58,8 +57,6 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
           createElement(SidebarContent, {
             collapsed: false,
             inDrawer: false,
-            activeOrg: 'Acme Global HQ',
-            orgMenuItems: [],
             menuItems: [{ key: '/dashboard', label: 'Dashboard' }],
             pathname: '/dashboard',
             onNavigate: () => {},
@@ -95,8 +92,6 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
           createElement(SidebarContent, {
             collapsed: false,
             inDrawer: false,
-            activeOrg: 'Acme Global HQ',
-            orgMenuItems: [],
             menuItems: [{ key: '/dashboard', label: 'Dashboard' }],
             pathname: '/dashboard',
             onNavigate: () => {},
@@ -140,7 +135,7 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
     expect(header.style.borderBottom).toBeTruthy();
   });
 
-  it('renders SidebarOrgSelector with light mode styling', async () => {
+  it('renders SidebarContent without organization switcher or cluster dropdown in unified operational view', async () => {
     await act(async () => {
       useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
     });
@@ -148,16 +143,25 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
     currentRoot = createRoot(container);
     await act(async () => {
       currentRoot?.render(
-        createElement(SidebarOrgSelector, {
-          activeOrg: 'Acme HQ',
-          orgMenuItems: [],
-        }),
+        createElement(
+          ConfigProvider,
+          null,
+          createElement(SidebarContent, {
+            collapsed: false,
+            inDrawer: false,
+            menuItems: [{ key: '/dashboard', label: 'Dashboard' }],
+            pathname: '/dashboard',
+            onNavigate: () => {},
+            onCloseDrawer: () => {},
+          }),
+        ),
       );
     });
 
-    const selectorDiv = container.querySelector('.sidebar-org-selector') as HTMLElement;
-    expect(selectorDiv).toBeDefined();
-    expect(selectorDiv.classList.contains('sidebar-org-selector-light')).toBe(true);
+    const orgSelector = container.querySelector('.sidebar-org-selector');
+    expect(orgSelector).toBeNull();
+    const clusterBtn = container.querySelector('button[aria-label*="cluster"]');
+    expect(clusterBtn).toBeNull();
   });
 
   it('renders SidebarFooter with light background in light mode', async () => {

@@ -1,5 +1,5 @@
 import { SYSTEM_INFO } from '@uims/shared-utils';
-import { Flex, Tag, Tooltip, Typography, theme } from 'antd';
+import { Tooltip, Typography, theme } from 'antd';
 import React from 'react';
 import { useThemeStore } from '../../stores/theme.store';
 
@@ -82,33 +82,17 @@ export const SidebarBrandHeader: React.FC<SidebarBrandHeaderProps> = React.memo(
               if (inDrawer) onCloseDrawer();
             }}
           >
-            <Flex align="center" gap={6}>
-              <Text
-                strong
-                style={{
-                  color: isDark ? '#f8fafc' : token.colorText,
-                  fontSize: 14.5,
-                  lineHeight: 1.2,
-                }}
-              >
-                {SYSTEM_INFO.shortName}
-              </Text>
-              <Tag
-                color="cyan"
-                style={{
-                  fontSize: 9.5,
-                  padding: '0 4px',
-                  lineHeight: '14px',
-                  height: 16,
-                  margin: 0,
-                  flexShrink: 0,
-                  fontWeight: 700,
-                  borderRadius: token.borderRadiusXS,
-                }}
-              >
-                v{SYSTEM_INFO.version.split('.').slice(0, 2).join('.')}
-              </Tag>
-            </Flex>
+            <Text
+              strong
+              style={{
+                color: isDark ? '#f8fafc' : token.colorText,
+                fontSize: 14.5,
+                lineHeight: 1.2,
+                display: 'block',
+              }}
+            >
+              {SYSTEM_INFO.shortName}
+            </Text>
             <div
               style={{
                 color: isDark ? 'rgba(248, 250, 252, 0.45)' : token.colorTextTertiary,

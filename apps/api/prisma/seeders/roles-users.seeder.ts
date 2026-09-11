@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -24,822 +25,494 @@ export interface StaffProfile {
 }
 
 export async function seedRolesAndUsers(prisma: PrismaClient) {
-  // 1. Password Hashes
-  const defaultPasswordHash = await bcrypt.hash('password123', 10);
-  const adminPasswordHash = await bcrypt.hash('Admin@2026', 10);
+  // 1. Password Hashes: Salted bcrypt (12 rounds) strictly adhering to AGENTS.md
+  const adminPassword =
+    process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
+  const demoPassword = process.env.INITIAL_DEMO_PASSWORD || crypto.randomBytes(16).toString('hex');
 
-  // 2. Roles & Permissions
-  const superAdminRole = await prisma.role.upsert({
-    where: { name: 'Super Admin' },
-    update: {
-      description:
-        'Enterprise Super Administrator with unrestricted governance authority, emergency break-glass access, and full platform oversight.',
-    },
-    create: {
-      name: 'Super Admin',
-      description:
-        'Enterprise Super Administrator with unrestricted governance authority, emergency break-glass access, and full platform oversight.',
-    },
-  });
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+  const defaultPasswordHash = await bcrypt.hash(demoPassword, 12);
 
-  const adminRole = await prisma.role.upsert({
-    where: { name: 'Admin' },
-    update: {
-      description:
-        'Infrastructure and Operations Administrator with system-wide resource management and configuration rights.',
-    },
-    create: {
+  // 2. Standard Roles Catalog - Exactly 4 Clean RBAC Roles: Admin, Manager, User, Viewer (Chỉ xem)
+  const rolesData = [
+    {
       name: 'Admin',
       description:
-        'Infrastructure and Operations Administrator with system-wide resource management and configuration rights.',
+        'System & Infrastructure Administrator with full governance, operational management, and configuration privileges across Broadpeak.',
     },
-  });
-
-  const techRole = await prisma.role.upsert({
-    where: { name: 'Technician' },
-    update: {
-      description:
-        'IT Operations and Field Technician Specialist with hardware fleet, inventory stockroom, and network endpoint maintenance privileges.',
-    },
-    create: {
-      name: 'Technician',
-      description:
-        'IT Operations and Field Technician Specialist with hardware fleet, inventory stockroom, and network endpoint maintenance privileges.',
-    },
-  });
-
-  const auditorRole = await prisma.role.upsert({
-    where: { name: 'Auditor' },
-    update: {
-      description:
-        'SOC2 Type II and ISO 27001 Compliance Auditor with read-only inspection and export authority across all governance trails.',
-    },
-    create: {
-      name: 'Auditor',
-      description:
-        'SOC2 Type II and ISO 27001 Compliance Auditor with read-only inspection and export authority across all governance trails.',
-    },
-  });
-
-  const managerRole = await prisma.role.upsert({
-    where: { name: 'Manager' },
-    update: {
-      description:
-        'Department Team Lead and Resource Approver with operational oversight and reporting privileges for assigned business units.',
-    },
-    create: {
+    {
       name: 'Manager',
       description:
-        'Department Team Lead and Resource Approver with operational oversight and reporting privileges for assigned business units.',
+        'Operations and Department Lead with operational oversight, record updates, review, and reporting privileges for assigned units.',
     },
-  });
-
-  const employeeRole = await prisma.role.upsert({
-    where: { name: 'Employee' },
-    update: {
+    {
+      name: 'User',
       description:
-        'Standard Enterprise Employee with baseline self-service directory access and assigned hardware/software visibility.',
+        'Standard Enterprise User with baseline self-service directory profile access, assigned hardware, and license visibility.',
     },
-    create: {
-      name: 'Employee',
+    {
+      name: 'Viewer',
       description:
-        'Standard Enterprise Employee with baseline self-service directory access and assigned hardware/software visibility.',
+        'Read-Only Observer & Auditor with inspection-only visibility across enterprise assets, licenses, inventory, directory, and reports.',
     },
-  });
-
-  // Seed Granular Enterprise RBAC System Permissions Catalog
-  const ALL_PERMISSIONS_CATALOG = [
-    // 1. Asset Management Fleet
-    {
-      subject: 'Asset',
-      action: 'create',
-      conditions: { approvalRequired: false, auditLevel: 'Standard' },
-    },
-    { subject: 'Asset', action: 'read', conditions: null },
-    { subject: 'Asset', action: 'update', conditions: null },
-    {
-      subject: 'Asset',
-      action: 'delete',
-      conditions: { requiresDualAuthorization: true, auditLevel: 'High' },
-    },
-    { subject: 'Asset', action: 'export', conditions: { dataClassification: 'Internal' } },
-    { subject: 'Asset', action: 'manage', conditions: { fullFleetControl: true } },
-
-    // 2. SaaS & Software Licenses
-    {
-      subject: 'License',
-      action: 'create',
-      conditions: { procurementCheck: true, auditLevel: 'Standard' },
-    },
-    { subject: 'License', action: 'read', conditions: null },
-    { subject: 'License', action: 'update', conditions: null },
-    {
-      subject: 'License',
-      action: 'delete',
-      conditions: { contractRevocationCheck: true, auditLevel: 'High' },
-    },
-    { subject: 'License', action: 'export', conditions: { dataClassification: 'Confidential' } },
-    { subject: 'License', action: 'manage', conditions: { seatReallocation: true } },
-
-    // 3. Enterprise Directory & Users
-    {
-      subject: 'User',
-      action: 'create',
-      conditions: { idmProvisioningWorkflow: true, auditLevel: 'High' },
-    },
-    { subject: 'User', action: 'read', conditions: null },
-    { subject: 'User', action: 'update', conditions: null },
-    {
-      subject: 'User',
-      action: 'delete',
-      conditions: { deprovisionCheck: true, retainAuditHistory: true },
-    },
-    { subject: 'User', action: 'export', conditions: { piiComplianceMasking: true } },
-    { subject: 'User', action: 'manage', conditions: { accountLockoutAuthority: true } },
-
-    // 4. Active Directory Groups
-    { subject: 'Group', action: 'create', conditions: { directoryGovernance: true } },
-    { subject: 'Group', action: 'read', conditions: null },
-    { subject: 'Group', action: 'update', conditions: null },
-    {
-      subject: 'Group',
-      action: 'delete',
-      conditions: { directoryGovernance: true, auditLevel: 'High' },
-    },
-    { subject: 'Group', action: 'export', conditions: { dataClassification: 'Internal' } },
-    { subject: 'Group', action: 'manage', conditions: { membershipModification: true } },
-
-    // 5. RBAC Roles & Security Grants
-    {
-      subject: 'Role',
-      action: 'create',
-      conditions: { governanceCommitteeApproval: true, auditLevel: 'Critical' },
-    },
-    { subject: 'Role', action: 'read', conditions: null },
-    {
-      subject: 'Role',
-      action: 'update',
-      conditions: { leastPrivilegePolicy: true, auditLevel: 'Critical' },
-    },
-    {
-      subject: 'Role',
-      action: 'delete',
-      conditions: { emergencyBreakGlassOnly: true, auditLevel: 'Critical' },
-    },
-    { subject: 'Role', action: 'export', conditions: { dataClassification: 'Restricted' } },
-    { subject: 'Role', action: 'manage', conditions: { rbacMatrixAuthority: true } },
-
-    // 6. Enterprise Organizational Hierarchy
-    { subject: 'Organization', action: 'create', conditions: { executiveSignoff: true } },
-    { subject: 'Organization', action: 'read', conditions: null },
-    { subject: 'Organization', action: 'update', conditions: null },
-    { subject: 'Organization', action: 'delete', conditions: { hierarchicalIntegrityCheck: true } },
-    { subject: 'Organization', action: 'export', conditions: { dataClassification: 'Internal' } },
-    { subject: 'Organization', action: 'manage', conditions: { departmentReorgAuthority: true } },
-
-    // 7. Network IPAM & Infrastructure
-    { subject: 'Network', action: 'create', conditions: { ipamSubnetAllocation: true } },
-    { subject: 'Network', action: 'read', conditions: null },
-    { subject: 'Network', action: 'update', conditions: null },
-    {
-      subject: 'Network',
-      action: 'delete',
-      conditions: { gatewayReservationCheck: true, auditLevel: 'High' },
-    },
-    { subject: 'Network', action: 'export', conditions: { dataClassification: 'Confidential' } },
-    { subject: 'Network', action: 'manage', conditions: { routingTopologyControl: true } },
-
-    // 8. Stockroom & Spare Inventory
-    { subject: 'Inventory', action: 'create', conditions: null },
-    { subject: 'Inventory', action: 'read', conditions: null },
-    { subject: 'Inventory', action: 'update', conditions: null },
-    { subject: 'Inventory', action: 'delete', conditions: { writeOffThresholdApproval: true } },
-    { subject: 'Inventory', action: 'export', conditions: { dataClassification: 'Internal' } },
-    { subject: 'Inventory', action: 'manage', conditions: { stockAdjustmentAuthority: true } },
-
-    // 9. Security & Compliance Audit Trails
-    { subject: 'Audit', action: 'create', conditions: { appendOnlyImmutableLog: true } },
-    { subject: 'Audit', action: 'read', conditions: { complianceOfficerAccess: true } },
-    { subject: 'Audit', action: 'update', conditions: { forbiddenTamperProof: true } },
-    {
-      subject: 'Audit',
-      action: 'delete',
-      conditions: { retentionPolicyEnforced: true, auditLevel: 'Critical' },
-    },
-    {
-      subject: 'Audit',
-      action: 'export',
-      conditions: { tamperEvidentSignature: true, dataClassification: 'Restricted' },
-    },
-    { subject: 'Audit', action: 'manage', conditions: { siemIntegrationAuthority: true } },
-
-    // 10. Executive & Operational Reports
-    { subject: 'Report', action: 'create', conditions: null },
-    { subject: 'Report', action: 'read', conditions: null },
-    { subject: 'Report', action: 'update', conditions: null },
-    { subject: 'Report', action: 'delete', conditions: null },
-    { subject: 'Report', action: 'export', conditions: { exportFormat: ['PDF', 'CSV', 'XLSX'] } },
-    { subject: 'Report', action: 'manage', conditions: { scheduleAutomation: true } },
-
-    // 11. System Configuration & Preferences
-    { subject: 'Setting', action: 'create', conditions: { globalConfiguration: true } },
-    { subject: 'Setting', action: 'read', conditions: null },
-    { subject: 'Setting', action: 'update', conditions: { dualControlVerification: true } },
-    {
-      subject: 'Setting',
-      action: 'delete',
-      conditions: { emergencyOverride: true, auditLevel: 'Critical' },
-    },
-    { subject: 'Setting', action: 'export', conditions: { maskSecrets: true } },
-    { subject: 'Setting', action: 'manage', conditions: { systemTelemetryAccess: true } },
   ];
 
-  const seededPermissionsMap = new Map<string, string>();
-
-  for (const perm of ALL_PERMISSIONS_CATALOG) {
-    const existing = await prisma.permission.findFirst({
-      where: { subject: perm.subject, action: perm.action },
+  const seededRoles: Record<string, import('@prisma/client').Role> = {};
+  for (const r of rolesData) {
+    const role = await prisma.role.upsert({
+      where: { name: r.name },
+      update: { description: r.description },
+      create: r,
     });
-    if (existing) {
-      await prisma.permission.update({
-        where: { id: existing.id },
-        data: { conditions: perm.conditions },
-      });
-      seededPermissionsMap.set(`${perm.subject}:${perm.action}`, existing.id);
-    } else {
-      const created = await prisma.permission.create({
-        data: {
-          subject: perm.subject,
-          action: perm.action,
-          conditions: perm.conditions,
-        },
-      });
-      seededPermissionsMap.set(`${perm.subject}:${perm.action}`, created.id);
-    }
+    seededRoles[r.name] = role;
   }
 
-  // Link Permissions to Standard Roles reflecting Enterprise Least-Privilege Governance
-  const rolePermissionAssignments: Record<string, Array<string>> = {
-    'Super Admin': Array.from(seededPermissionsMap.keys()),
-    Admin: [
-      'Asset:create',
-      'Asset:read',
-      'Asset:update',
-      'Asset:delete',
-      'Asset:export',
-      'Asset:manage',
-      'License:create',
-      'License:read',
-      'License:update',
-      'License:delete',
-      'License:export',
-      'License:manage',
-      'User:create',
-      'User:read',
-      'User:update',
-      'User:delete',
-      'User:export',
-      'User:manage',
-      'Group:create',
-      'Group:read',
-      'Group:update',
-      'Group:delete',
-      'Group:export',
-      'Group:manage',
-      'Role:create',
-      'Role:read',
-      'Role:update',
-      'Role:export',
-      'Role:manage',
-      'Organization:create',
-      'Organization:read',
-      'Organization:update',
-      'Organization:delete',
-      'Organization:export',
-      'Organization:manage',
-      'Network:create',
-      'Network:read',
-      'Network:update',
-      'Network:delete',
-      'Network:export',
-      'Network:manage',
-      'Inventory:create',
-      'Inventory:read',
-      'Inventory:update',
-      'Inventory:delete',
-      'Inventory:export',
-      'Inventory:manage',
-      'Audit:read',
-      'Audit:export',
-      'Report:create',
-      'Report:read',
-      'Report:update',
-      'Report:delete',
-      'Report:export',
-      'Report:manage',
-      'Setting:create',
-      'Setting:read',
-      'Setting:update',
-      'Setting:delete',
-      'Setting:export',
-      'Setting:manage',
-    ],
-    Technician: [
-      'Asset:create',
-      'Asset:read',
-      'Asset:update',
-      'Asset:export',
-      'Asset:manage',
-      'Inventory:create',
-      'Inventory:read',
-      'Inventory:update',
-      'Inventory:export',
-      'Inventory:manage',
-      'Network:create',
-      'Network:read',
-      'Network:update',
-      'Network:export',
-      'Network:manage',
-      'License:read',
-      'License:export',
-      'User:read',
-      'User:export',
-      'Group:read',
-      'Organization:read',
-      'Report:read',
-      'Report:export',
-      'Setting:read',
-    ],
-    Auditor: [
-      'Asset:read',
-      'Asset:export',
-      'License:read',
-      'License:export',
-      'User:read',
-      'User:export',
-      'Group:read',
-      'Group:export',
-      'Role:read',
-      'Role:export',
-      'Organization:read',
-      'Organization:export',
-      'Network:read',
-      'Network:export',
-      'Inventory:read',
-      'Inventory:export',
-      'Audit:read',
-      'Audit:export',
-      'Report:read',
-      'Report:export',
-      'Setting:read',
-      'Setting:export',
-    ],
-    Manager: [
-      'Asset:read',
-      'Asset:export',
-      'License:read',
-      'License:export',
-      'User:read',
-      'User:export',
-      'Group:read',
-      'Organization:read',
-      'Inventory:read',
-      'Inventory:export',
-      'Audit:read',
-      'Report:create',
-      'Report:read',
-      'Report:export',
-      'Setting:read',
-    ],
-    Employee: ['Asset:read', 'License:read', 'User:read', 'Organization:read', 'Report:read'],
-  };
+  // 3. Permissions Catalog
+  const subjects = [
+    'Asset',
+    'License',
+    'User',
+    'Group',
+    'Role',
+    'Organization',
+    'Network',
+    'Inventory',
+    'Audit',
+    'Report',
+    'Setting',
+  ] as const;
+  const actions = ['create', 'read', 'update', 'delete', 'export', 'manage'] as const;
 
-  const roleEntities = [
-    { name: 'Super Admin', role: superAdminRole },
-    { name: 'Admin', role: adminRole },
-    { name: 'Technician', role: techRole },
-    { name: 'Auditor', role: auditorRole },
-    { name: 'Manager', role: managerRole },
-    { name: 'Employee', role: employeeRole },
-  ];
-
-  for (const { name, role } of roleEntities) {
-    const targetPermKeys = rolePermissionAssignments[name] || [];
-    for (const key of targetPermKeys) {
-      const permId = seededPermissionsMap.get(key);
-      if (permId) {
-        try {
-          await prisma.rolePermission.upsert({
-            where: {
-              roleId_permissionId: {
-                roleId: role.id,
-                permissionId: permId,
-              },
-            },
-            update: {},
-            create: {
-              roleId: role.id,
-              permissionId: permId,
-            },
-          });
-        } catch (error: unknown) {
-          logger.error(
-            `Failed to assign permission ${key} to role ${name}:`,
-            error instanceof Error ? error.stack : error,
-          );
-          throw error;
-        }
+  const seededPermissionsMap = new Map<string, string>();
+  for (const subject of subjects) {
+    for (const action of actions) {
+      const key = `${subject}:${action}`;
+      const existing = await prisma.permission.findFirst({
+        where: { subject, action },
+      });
+      if (existing) {
+        seededPermissionsMap.set(key, existing.id);
+      } else {
+        const created = await prisma.permission.create({
+          data: { subject, action, conditions: null },
+        });
+        seededPermissionsMap.set(key, created.id);
       }
     }
   }
 
-  // 3. Core Enterprise Staff Data with Normalized Relational Mappings
+  // 4. Role Permission Mapping with Least-Privilege
+  const allKeys = Array.from(seededPermissionsMap.keys());
+  const roleRules: Record<string, (k: string) => boolean> = {
+    // 1. Admin: Full unrestricted authority across all 66 permissions
+    Admin: () => true,
+
+    // 2. Manager: Operational management authority
+    // - Full operational management on Assets, Licenses, Inventory, Reports (excluding destructive delete)
+    // - Directory & Identity: read, update, export Users; read, export Groups
+    // - Governance & Infrastructure: read, export Organization, Network, Audit
+    // - System inspection: read Role and Setting
+    Manager: (k) => {
+      const [subject, action] = k.split(':');
+      if (action === 'delete') return false;
+      if (['Asset', 'License', 'Inventory', 'Report'].includes(subject)) {
+        return true;
+      }
+      if (['Organization', 'Network', 'Audit', 'Group'].includes(subject)) {
+        return ['read', 'export'].includes(action);
+      }
+      if (subject === 'User') {
+        return ['read', 'update', 'export'].includes(action);
+      }
+      if (['Role', 'Setting'].includes(subject)) {
+        return action === 'read';
+      }
+      return false;
+    },
+
+    // 3. User: Standard self-service visibility and interactive access
+    User: (k) => {
+      const allowedSubjects = [
+        'Asset',
+        'License',
+        'Inventory',
+        'User',
+        'Group',
+        'Organization',
+        'Report',
+      ];
+      const [subject, action] = k.split(':');
+      if (allowedSubjects.includes(subject) && action === 'read') return true;
+      if ((subject === 'User' || subject === 'Asset') && action === 'update') return true;
+      return false;
+    },
+
+    // 4. Viewer (Chỉ xem): Pure read-only inspection visibility across enterprise resources
+    Viewer: (k) => {
+      const allowedSubjects = [
+        'Asset',
+        'License',
+        'Inventory',
+        'User',
+        'Group',
+        'Organization',
+        'Network',
+        'Audit',
+        'Report',
+      ];
+      const [subject, action] = k.split(':');
+      return allowedSubjects.includes(subject) && action === 'read';
+    },
+  };
+
+  for (const [roleName, filterFn] of Object.entries(roleRules)) {
+    const role = seededRoles[roleName];
+    if (!role) continue;
+    const assignedKeys = allKeys.filter(filterFn);
+
+    for (const key of assignedKeys) {
+      const permId = seededPermissionsMap.get(key);
+      if (!permId) continue;
+      try {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId: permId } },
+          update: {},
+          create: { roleId: role.id, permissionId: permId },
+        });
+      } catch (err: unknown) {
+        logger.debug(`Skipped duplicate permission ${key} on role ${roleName}: ${String(err)}`);
+      }
+    }
+  }
+
+  // 5. Broadpeak Core Staff Data (BSL Soc Trang & BSH Ho Chi Minh)
   const coreStaffData = [
     {
       username: 'admin',
-      email: 'admin@uims.local',
-      employeeCode: 'SYS-001',
-      firstName: 'System',
-      lastName: 'Administrator',
-      displayName: 'System Administrator',
-      jobTitle: 'Super Administrator',
-      roleId: superAdminRole.id,
-      status: 'ACTIVE' as const,
-      source: 'LOCAL' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-IT',
-      positionCode: 'POS-VP-IT',
-      locationId: 'loc-ny-f4',
-      adGroup: 'GR_HQ_ExecutiveLeadership',
-      phone: '+1 (555) 100-2000',
-      ouPath: 'OU=Administrators,OU=HQ,DC=uims,DC=internal',
-      passwordHash: adminPasswordHash,
-    },
-    {
-      username: 'alex.johnson',
       email: 'admin@uims.internal',
-      employeeCode: 'EMP-1001',
-      firstName: 'Alex',
-      lastName: 'Johnson',
-      displayName: 'Alex Johnson',
-      jobTitle: 'VP of Information Technology',
-      roleId: superAdminRole.id,
+      employeeCode: 'YON-001',
+      firstName: 'Enterprise',
+      lastName: 'Admin',
+      displayName: 'Enterprise Admin (Youngone / Broadpeak)',
+      jobTitle: 'Youngone Enterprise IT Administrator',
+      roleId: seededRoles['Admin'].id,
       status: 'ACTIVE' as const,
       source: 'LOCAL' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-IT',
-      positionCode: 'POS-VP-IT',
-      locationId: 'loc-ny-f4',
-      adGroup: 'GR_HQ_ExecutiveLeadership',
-      phone: '+1 (555) 234-5678',
-      ouPath: 'OU=Management,OU=HQ,DC=uims,DC=internal',
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-IT',
+      positionCode: 'POS-BSH-IT-ARCH',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_Youngone_Executive',
+      phone: '+84 (28) 3997-8001',
+      ouPath: 'OU=EnterpriseAdmin,OU=Broadpeak,DC=youngone,DC=internal',
       passwordHash: adminPasswordHash,
     },
     {
-      username: 'sarah.chen',
-      email: 'sarah.chen@company.com',
-      employeeCode: 'EMP-1002',
-      firstName: 'Sarah',
-      lastName: 'Chen',
-      displayName: 'Sarah Chen',
-      jobTitle: 'Senior Systems Administrator',
-      roleId: techRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-IT',
-      positionCode: 'POS-SYSADMIN',
-      locationId: 'loc-sf-bay',
-      adGroup: 'GR_HQ_ITInfrastructure',
-      phone: '+1 (555) 345-6789',
-      ouPath: 'OU=IT,OU=Infrastructure,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'michael.wong',
-      email: 'michael.wong@company.com',
-      employeeCode: 'EMP-1003',
-      firstName: 'Michael',
-      lastName: 'Wong',
-      displayName: 'Michael Wong',
-      jobTitle: 'Senior Network Architect',
-      roleId: adminRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-IT-NET',
-      positionCode: 'POS-NET-ARCH',
-      locationId: 'loc-ny-f4',
-      adGroup: 'GR_HQ_ITInfrastructure',
-      phone: '+1 (555) 345-1122',
-      ouPath: 'OU=IT,OU=Infrastructure,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'marcus.bell',
-      email: 'compliance@uims.internal',
-      employeeCode: 'EMP-1004',
-      firstName: 'Marcus',
-      lastName: 'Bell',
-      displayName: 'Marcus Bell',
-      jobTitle: 'Principal Security Compliance Auditor',
-      roleId: auditorRole.id,
+      username: 'admin.local',
+      email: 'admin@uims.local',
+      employeeCode: 'YON-002',
+      firstName: 'System',
+      lastName: 'Root',
+      displayName: 'System Root Operator',
+      jobTitle: 'Local Platform Superuser',
+      roleId: seededRoles['Admin'].id,
       status: 'ACTIVE' as const,
       source: 'LOCAL' as const,
-      organizationCode: 'ACME-EMEA',
-      departmentCode: 'DEPT-SEC',
-      positionCode: 'POS-SEC-LEAD',
-      locationId: 'loc-london',
-      adGroup: 'GR_HQ_SecurityCompliance',
-      phone: '+44 20 7946 0912',
-      ouPath: 'OU=Security,OU=Compliance,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-IT',
+      positionCode: 'POS-BSH-IT-ARCH',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_Youngone_Executive',
+      phone: '+84 (28) 3997-8002',
+      ouPath: 'OU=LocalAdmin,OU=Broadpeak,DC=youngone,DC=internal',
+      passwordHash: adminPasswordHash,
     },
+    // BSL (Soc Trang) Core Staff
     {
-      username: 'david.kim',
-      email: 'david.kim@company.com',
-      employeeCode: 'EMP-1005',
-      firstName: 'David',
-      lastName: 'Kim',
-      displayName: 'David Kim',
-      jobTitle: 'Lead Cloud Architect',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-ENG',
-      positionCode: 'POS-CLOUD-ARCH',
-      locationId: 'loc-sf-bay',
-      adGroup: 'GR_HQ_EngineeringCore',
-      phone: '+1 (555) 567-8901',
-      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'sophia.patel',
-      email: 'sophia.patel@company.com',
-      employeeCode: 'EMP-1006',
-      firstName: 'Sophia',
-      lastName: 'Patel',
-      displayName: 'Sophia Patel',
-      jobTitle: 'Senior Staff Fullstack Engineer',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-ENG',
-      positionCode: 'POS-SR-SWE',
-      locationId: 'loc-sf-bay',
-      adGroup: 'GR_HQ_EngineeringCore',
-      phone: '+1 (555) 567-2233',
-      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'liam.nguyen',
-      email: 'liam.nguyen@company.com',
-      employeeCode: 'EMP-1007',
-      firstName: 'Liam',
-      lastName: 'Nguyen',
-      displayName: 'Liam Nguyen',
-      jobTitle: 'Lead DevOps & SRE Architect',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-ENG',
-      positionCode: 'POS-SRE-LEAD',
-      locationId: 'loc-sf-bay',
-      adGroup: 'GR_HQ_EngineeringCore',
-      phone: '+1 (555) 567-4455',
-      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'carlos.mendez',
-      email: 'carlos.mendez@company.com',
-      employeeCode: 'EMP-1008',
-      firstName: 'Carlos',
-      lastName: 'Mendez',
-      displayName: 'Carlos Mendez',
-      jobTitle: 'Senior Backend Platform Engineer',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-ENG',
-      positionCode: 'POS-BACKEND-ENG',
-      locationId: 'loc-ny-f4',
-      adGroup: 'GR_HQ_EngineeringCore',
-      phone: '+1 (555) 567-7788',
-      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'marcus.vance',
-      email: 'marcus.vance@company.com',
-      employeeCode: 'EMP-1009',
-      firstName: 'Marcus',
-      lastName: 'Vance',
-      displayName: 'Marcus Vance',
-      jobTitle: 'Principal Product Designer',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-DES',
-      positionCode: 'POS-PRIN-DES',
-      locationId: 'loc-ny-f4',
-      adGroup: 'GR_HQ_ProductDesign',
-      phone: '+1 (555) 456-7890',
-      ouPath: 'OU=Design,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'chloe.martin',
-      email: 'chloe.martin@company.com',
-      employeeCode: 'EMP-1010',
-      firstName: 'Chloe',
-      lastName: 'Martin',
-      displayName: 'Chloe Martin',
-      jobTitle: 'Senior UX Researcher',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-DES',
-      positionCode: 'POS-UX-RES',
-      locationId: 'loc-london',
-      adGroup: 'GR_HQ_ProductDesign',
-      phone: '+44 20 7946 0881',
-      ouPath: 'OU=Design,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'elena.rostova',
-      email: 'elena.rostova@company.com',
-      employeeCode: 'EMP-1011',
-      firstName: 'Elena',
-      lastName: 'Rostova',
-      displayName: 'Elena Rostova',
-      jobTitle: 'Director of Growth Marketing',
-      roleId: managerRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-MKT',
-      positionCode: 'POS-DIR-MKT',
-      locationId: 'loc-london',
-      adGroup: 'GR_HQ_GrowthMarketing',
-      phone: '+1 (555) 678-9012',
-      ouPath: 'OU=Marketing,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'robert.torres',
-      email: 'robert.torres@company.com',
-      employeeCode: 'EMP-1012',
-      firstName: 'Robert',
-      lastName: 'Torres',
-      displayName: 'Robert Torres',
-      jobTitle: 'IT Infrastructure Operations Manager',
-      roleId: managerRole.id,
+      username: 'binh.tran',
+      email: 'binh.tran@broadpeak.youngone.com',
+      employeeCode: 'BSL-001',
+      firstName: 'Binh',
+      lastName: 'Tran Van',
+      displayName: 'Tran Van Binh',
+      jobTitle: 'Factory General Director',
+      roleId: seededRoles['Manager'].id,
       status: 'ACTIVE' as const,
       source: 'LOCAL' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-IT',
-      positionCode: 'POS-IT-OPS-MGR',
-      locationId: 'loc-ny-f4',
-      adGroup: 'GR_HQ_ITInfrastructure',
-      phone: '+1 (555) 678-3344',
-      ouPath: 'OU=IT,OU=Infrastructure,OU=HQ,DC=uims,DC=internal',
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-MGMT',
+      positionCode: 'POS-BSL-GM',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_FactoryOperations',
+      phone: '+84 (299) 387-9001',
+      ouPath: 'OU=Executive,OU=BSL,DC=youngone,DC=internal',
       passwordHash: defaultPasswordHash,
     },
     {
-      username: 'lisa.wang',
-      email: 'lisa.wang@company.com',
-      employeeCode: 'EMP-1013',
-      firstName: 'Lisa',
-      lastName: 'Wang',
-      displayName: 'Lisa Wang',
-      jobTitle: 'Financial Controller',
-      roleId: managerRole.id,
+      username: 'nam.pham',
+      email: 'nam.pham@broadpeak.youngone.com',
+      employeeCode: 'BSL-002',
+      firstName: 'Nam',
+      lastName: 'Pham Hoang',
+      displayName: 'Pham Hoang Nam',
+      jobTitle: 'Factory IT Manager',
+      roleId: seededRoles['Admin'].id,
       status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-APAC',
-      departmentCode: 'DEPT-FIN',
-      positionCode: 'POS-FIN-CTRL',
-      locationId: 'loc-singapore',
-      adGroup: 'GR_HQ_FinanceProcurement',
-      phone: '+65 6789 0123',
-      ouPath: 'OU=Finance,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'rachel.adams',
-      email: 'rachel.adams@company.com',
-      employeeCode: 'EMP-1014',
-      firstName: 'Rachel',
-      lastName: 'Adams',
-      displayName: 'Rachel Adams',
-      jobTitle: 'Head of People Operations',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-HR',
-      positionCode: 'POS-HR-HEAD',
-      locationId: 'loc-ny-f5',
-      adGroup: 'GR_HQ_ExecutiveLeadership',
-      phone: '+1 (555) 890-1234',
-      ouPath: 'OU=HumanResources,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'james.wilson',
-      email: 'james.wilson@company.com',
-      employeeCode: 'EMP-1015',
-      firstName: 'James',
-      lastName: 'Wilson',
-      displayName: 'James Wilson',
-      jobTitle: 'Senior Corporate Counsel',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-LEGAL',
-      positionCode: 'POS-SR-COUNSEL',
-      locationId: 'loc-ny-f5',
-      adGroup: 'GR_HQ_ExecutiveLeadership',
-      phone: '+1 (555) 901-2345',
-      ouPath: 'OU=Legal,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'hannah.scott',
-      email: 'hannah.scott@company.com',
-      employeeCode: 'EMP-1016',
-      firstName: 'Hannah',
-      lastName: 'Scott',
-      displayName: 'Hannah Scott',
-      jobTitle: 'Strategic Account Executive',
-      roleId: employeeRole.id,
-      status: 'ACTIVE' as const,
-      source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-SALES',
-      positionCode: 'POS-ACCT-EXEC',
-      locationId: 'loc-ny-f4',
-      adGroup: 'GR_HQ_GrowthMarketing',
-      phone: '+1 (555) 901-6789',
-      ouPath: 'OU=Sales,OU=HQ,DC=uims,DC=internal',
-      passwordHash: defaultPasswordHash,
-    },
-    {
-      username: 'thomas.wright',
-      email: 'thomas.wright@company.com',
-      employeeCode: 'EMP-1017',
-      firstName: 'Thomas',
-      lastName: 'Wright',
-      displayName: 'Thomas Wright',
-      jobTitle: 'Junior QA Engineer (Contractor)',
-      roleId: employeeRole.id,
-      status: 'SUSPENDED' as const,
       source: 'LOCAL' as const,
-      organizationCode: 'ACME-EMEA',
-      departmentCode: 'DEPT-ENG',
-      positionCode: 'POS-QA-ENG',
-      locationId: 'loc-london',
-      adGroup: 'GR_HQ_EngineeringCore',
-      phone: '+1 (555) 789-0123',
-      ouPath: 'OU=Engineering,OU=HQ,DC=uims,DC=internal',
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-IT',
+      positionCode: 'POS-BSL-IT-MGR',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_IT_Support',
+      phone: '+84 (299) 387-9002',
+      ouPath: 'OU=IT,OU=BSL,DC=youngone,DC=internal',
       passwordHash: defaultPasswordHash,
     },
     {
-      username: 'jessica.taylor',
-      email: 'jessica.taylor@company.com',
-      employeeCode: 'EMP-1018',
-      firstName: 'Jessica',
-      lastName: 'Taylor',
-      displayName: 'Jessica Taylor',
-      jobTitle: 'Content Strategist (Leave of Absence)',
-      roleId: employeeRole.id,
-      status: 'INACTIVE' as const,
+      username: 'son.huynh',
+      email: 'son.huynh@broadpeak.youngone.com',
+      employeeCode: 'BSL-003',
+      firstName: 'Son',
+      lastName: 'Huynh Thanh',
+      displayName: 'Huynh Thanh Son',
+      jobTitle: 'Industrial IT & Automation Specialist',
+      roleId: seededRoles['User'].id,
+      status: 'ACTIVE' as const,
       source: 'AZURE_AD' as const,
-      organizationCode: 'ACME-US',
-      departmentCode: 'DEPT-MKT',
-      positionCode: 'POS-CONTENT-STRAT',
-      locationId: 'loc-london',
-      adGroup: 'GR_HQ_GrowthMarketing',
-      phone: '+44 20 7946 0999',
-      ouPath: 'OU=Marketing,OU=HQ,DC=uims,DC=internal',
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-IT',
+      positionCode: 'POS-BSL-IT-SPEC',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_IT_Support',
+      phone: '+84 (299) 387-9003',
+      ouPath: 'OU=IT,OU=BSL,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'thu.le',
+      email: 'thu.le@broadpeak.youngone.com',
+      employeeCode: 'BSL-004',
+      firstName: 'Thu',
+      lastName: 'Le Thi',
+      displayName: 'Le Thi Thu',
+      jobTitle: 'Garment Production Manager',
+      roleId: seededRoles['Manager'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-PROD',
+      positionCode: 'POS-BSL-PROD-MGR',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_FactoryOperations',
+      phone: '+84 (299) 387-9004',
+      ouPath: 'OU=Production,OU=BSL,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'huy.nguyen',
+      email: 'huy.nguyen@broadpeak.youngone.com',
+      employeeCode: 'BSL-005',
+      firstName: 'Huy',
+      lastName: 'Nguyen Quoc',
+      displayName: 'Nguyen Quoc Huy',
+      jobTitle: 'Quality Assurance Lead',
+      roleId: seededRoles['User'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-QA',
+      positionCode: 'POS-BSL-QA-LEAD',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_FactoryOperations',
+      phone: '+84 (299) 387-9005',
+      ouPath: 'OU=QA,OU=BSL,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'kim.vo',
+      email: 'kim.vo@broadpeak.youngone.com',
+      employeeCode: 'BSL-006',
+      firstName: 'Kim',
+      lastName: 'Vo Thi',
+      displayName: 'Vo Thi Kim',
+      jobTitle: 'Warehouse & Inventory Supervisor',
+      roleId: seededRoles['User'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-LOG',
+      positionCode: 'POS-BSL-WH-SUP',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_FactoryOperations',
+      phone: '+84 (299) 387-9006',
+      ouPath: 'OU=Logistics,OU=BSL,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'chau.dang',
+      email: 'chau.dang@broadpeak.youngone.com',
+      employeeCode: 'BSL-007',
+      firstName: 'Chau',
+      lastName: 'Dang Minh',
+      displayName: 'Dang Minh Chau',
+      jobTitle: 'HR & Employee Relations Officer',
+      roleId: seededRoles['User'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-HR',
+      positionCode: 'POS-BSL-HR-EXEC',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_FactoryOperations',
+      phone: '+84 (299) 387-9007',
+      ouPath: 'OU=HR,OU=BSL,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+
+    // BSH (Ho Chi Minh) Core Staff
+    {
+      username: 'tri.doan',
+      email: 'tri.doan@broadpeak.youngone.com',
+      employeeCode: 'BSH-001',
+      firstName: 'Tri',
+      lastName: 'Doan Minh',
+      displayName: 'Doan Minh Tri',
+      jobTitle: 'Managing Director',
+      roleId: seededRoles['Manager'].id,
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-EXEC',
+      positionCode: 'POS-BSH-MD',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_Youngone_Executive',
+      phone: '+84 (28) 3997-8010',
+      ouPath: 'OU=Executive,OU=BSH,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'phong.dang',
+      email: 'phong.dang@broadpeak.youngone.com',
+      employeeCode: 'BSH-002',
+      firstName: 'Phong',
+      lastName: 'Dang Thanh',
+      displayName: 'Dang Thanh Phong',
+      jobTitle: 'Enterprise IT Systems Architect',
+      roleId: seededRoles['Admin'].id,
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-IT',
+      positionCode: 'POS-BSH-IT-ARCH',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_BSH_CorporateOffice',
+      phone: '+84 (28) 3997-8011',
+      ouPath: 'OU=IT,OU=BSH,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'kien.le',
+      email: 'kien.le@broadpeak.youngone.com',
+      employeeCode: 'BSH-003',
+      firstName: 'Kien',
+      lastName: 'Le Van',
+      displayName: 'Le Van Kien',
+      jobTitle: 'Systems & Network Engineer',
+      roleId: seededRoles['User'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-IT',
+      positionCode: 'POS-BSH-IT-ENG',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_BSH_CorporateOffice',
+      phone: '+84 (28) 3997-8012',
+      ouPath: 'OU=IT,OU=BSH,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'lan.nguyen',
+      email: 'lan.nguyen@broadpeak.youngone.com',
+      employeeCode: 'BSH-004',
+      firstName: 'Lan',
+      lastName: 'Nguyen Thi',
+      displayName: 'Nguyen Thi Lan',
+      jobTitle: 'Senior Merchandising Manager',
+      roleId: seededRoles['Manager'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-MERCH',
+      positionCode: 'POS-BSH-MERCH-MGR',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_BSH_Merchandising',
+      phone: '+84 (28) 3997-8013',
+      ouPath: 'OU=Merchandising,OU=BSH,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'tuan.hoang',
+      email: 'tuan.hoang@broadpeak.youngone.com',
+      employeeCode: 'BSH-005',
+      firstName: 'Tuan',
+      lastName: 'Hoang Anh',
+      displayName: 'Hoang Anh Tuan',
+      jobTitle: 'Apparel Merchandiser',
+      roleId: seededRoles['User'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-MERCH',
+      positionCode: 'POS-BSH-MERCH-SPEC',
+      locationId: 'loc-bsh-d3',
+      adGroup: 'GR_BSH_Merchandising',
+      phone: '+84 (28) 3997-8014',
+      ouPath: 'OU=Merchandising,OU=BSH,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'ngoc.vu',
+      email: 'ngoc.vu@broadpeak.youngone.com',
+      employeeCode: 'BSH-006',
+      firstName: 'Ngoc',
+      lastName: 'Vu Bich',
+      displayName: 'Vu Bich Ngoc',
+      jobTitle: 'Chief Accountant & Controller',
+      roleId: seededRoles['Viewer'].id,
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-FIN',
+      positionCode: 'POS-BSH-FIN-CTRL',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_BSH_CorporateOffice',
+      phone: '+84 (28) 3997-8015',
+      ouPath: 'OU=Finance,OU=BSH,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'phuong.bui',
+      email: 'phuong.bui@broadpeak.youngone.com',
+      employeeCode: 'BSH-007',
+      firstName: 'Phuong',
+      lastName: 'Bui Mai',
+      displayName: 'Bui Mai Phuong',
+      jobTitle: 'Talent Acquisition & HR Manager',
+      roleId: seededRoles['Manager'].id,
+      status: 'ACTIVE' as const,
+      source: 'AZURE_AD' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-HR',
+      positionCode: 'POS-BSH-HR-MGR',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_BSH_CorporateOffice',
+      phone: '+84 (28) 3997-8016',
+      ouPath: 'OU=HR,OU=BSH,DC=youngone,DC=internal',
       passwordHash: defaultPasswordHash,
     },
   ];
 
-  // 4. Seed AppUser operators (System Operators & Core Enterprise Staff)
   const seededUsers: Record<string, import('@prisma/client').AppUser> = {};
-
   for (const u of coreStaffData) {
     const userRecord = await prisma.appUser.upsert({
       where: { email: u.email },
@@ -886,28 +559,42 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     adGroup: u.adGroup,
   }));
 
+  logger.log(
+    `✅ Seeded ${rolesData.length} roles, ${seededPermissionsMap.size} permissions, and ${coreStaffData.length} Broadpeak operator accounts.`,
+  );
+
+  const adminUser = seededUsers['admin@uims.internal'];
+  const bslAdmin = seededUsers['nam.pham@broadpeak.youngone.com'];
+  const bshAdmin = seededUsers['phong.dang@broadpeak.youngone.com'];
+  const defaultUser = seededUsers['binh.tran@broadpeak.youngone.com'] || adminUser;
+
   return {
-    roles: { superAdminRole, adminRole, techRole, auditorRole, managerRole, employeeRole },
+    roles: {
+      ...seededRoles,
+      'Super Admin': seededRoles['Admin'],
+      Employee: seededRoles['User'],
+      Auditor: seededRoles['Viewer'],
+    },
     users: {
       userAdminLocal: seededUsers['admin@uims.local'],
-      userAlex: seededUsers['admin@uims.internal'],
-      userSarah: seededUsers['sarah.chen@company.com'],
-      userMichael: seededUsers['michael.wong@company.com'],
-      userMarcusBell: seededUsers['compliance@uims.internal'],
-      userDavidKim: seededUsers['david.kim@company.com'],
-      userSophiaPatel: seededUsers['sophia.patel@company.com'],
-      userLiamNguyen: seededUsers['liam.nguyen@company.com'],
-      userCarlosMendez: seededUsers['carlos.mendez@company.com'],
-      userMarcusVance: seededUsers['marcus.vance@company.com'],
-      userChloeMartin: seededUsers['chloe.martin@company.com'],
-      userElena: seededUsers['elena.rostova@company.com'],
-      userRobertTorres: seededUsers['robert.torres@company.com'],
-      userLisaWang: seededUsers['lisa.wang@company.com'],
-      userRachelAdams: seededUsers['rachel.adams@company.com'],
-      userJamesWilson: seededUsers['james.wilson@company.com'],
-      userHannahScott: seededUsers['hannah.scott@company.com'],
-      userThomas: seededUsers['thomas.wright@company.com'],
-      userJessica: seededUsers['jessica.taylor@company.com'],
+      userAlex: adminUser,
+      userSarah: bslAdmin,
+      userMichael: bshAdmin,
+      userMarcusBell: seededUsers['ngoc.vu@broadpeak.youngone.com'] || adminUser,
+      userDavidKim: seededUsers['kien.le@broadpeak.youngone.com'] || defaultUser,
+      userSophiaPatel: seededUsers['lan.nguyen@broadpeak.youngone.com'] || defaultUser,
+      userLiamNguyen: seededUsers['son.huynh@broadpeak.youngone.com'] || defaultUser,
+      userCarlosMendez: seededUsers['thu.le@broadpeak.youngone.com'] || defaultUser,
+      userMarcusVance: seededUsers['tuan.hoang@broadpeak.youngone.com'] || defaultUser,
+      userChloeMartin: seededUsers['phuong.bui@broadpeak.youngone.com'] || defaultUser,
+      userElena: seededUsers['huy.nguyen@broadpeak.youngone.com'] || defaultUser,
+      userRobertTorres: seededUsers['kim.vo@broadpeak.youngone.com'] || defaultUser,
+      userLisaWang: seededUsers['chau.dang@broadpeak.youngone.com'] || defaultUser,
+      userRachelAdams: defaultUser,
+      userJamesWilson: defaultUser,
+      userHannahScott: defaultUser,
+      userThomas: defaultUser,
+      userJessica: defaultUser,
       ...seededUsers,
     },
     staffProfiles,

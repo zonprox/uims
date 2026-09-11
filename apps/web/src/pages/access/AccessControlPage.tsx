@@ -61,7 +61,7 @@ export default function AccessControlPage() {
       setRolesCatalog(catalogItems);
       setRolesStats(rStatsRes?.data ?? rStatsRes);
     } catch (_error: unknown) {
-      message.error('Failed to load access control data.');
+      message.error('Failed to load user management data.');
     } finally {
       setLoading(false);
     }
@@ -81,9 +81,9 @@ export default function AccessControlPage() {
 
   return (
     <PageContainer
-      title="Access Control"
-      subtitle="Manage operator accounts, authentication status, RBAC role definitions, and access policy rules."
-      breadcrumbs={[{ title: 'Access Control' }]}
+      title="Users"
+      subtitle="Manage system user accounts, authentication status, RBAC role definitions, and access permissions."
+      breadcrumbs={[{ title: 'Users' }]}
       stats={[
         {
           title: 'Total Accounts',

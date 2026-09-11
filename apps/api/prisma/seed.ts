@@ -61,6 +61,8 @@ async function clearDatabase(client: PrismaClient) {
   await client.department.updateMany({ data: { parentId: null } });
   await client.department.deleteMany();
 
+  // Clear self-referential parentId on Location before table deletion
+  await client.location.updateMany({ data: { parentId: null } });
   await client.location.deleteMany();
   await client.organization.deleteMany();
   await client.vendor.deleteMany();
@@ -73,13 +75,13 @@ async function main() {
   // 1. Clear database
   await clearDatabase(prisma);
 
-  // 2. Taxonomy (Locations and Asset Categories)
-  logger.log('🏢 Seeding Locations and Asset Categories...');
-  const taxonomyResult = await seedTaxonomy(prisma);
+  // 2. Enterprise Organizations, Spatial Locations, Departments & Positions
+  logger.log('🏛️ Seeding Organizations, Spatial Locations, Departments and Positions...');
+  const orgResult = await seedOrganizations(prisma);
 
-  // 3. Enterprise Organizations & Departments
-  logger.log('🏛️ Seeding Organizations, Departments and Positions...');
-  await seedOrganizations(prisma);
+  // 3. Taxonomy (Asset and Inventory Categories)
+  logger.log('🏢 Seeding Asset and Inventory Categories...');
+  const taxonomyResult = await seedTaxonomy(prisma);
 
   // 4. Roles and System Operator Accounts (AppUser)
   logger.log('👤 Seeding Roles and System Operator Accounts (AppUser)...');
@@ -91,7 +93,7 @@ async function main() {
 
   // 6. Hardware Assets (Assigned to DirectoryUser)
   logger.log('💻 Seeding Hardware Assets Fleet...');
-  await seedAssets(prisma, taxonomyResult, directoryUsersResult);
+  await seedAssets(prisma, taxonomyResult, directoryUsersResult, orgResult);
 
   // 7. Software Licenses and Assignments (Assigned to DirectoryUser)
   logger.log('📄 Seeding Software Licenses and User Assignments...');

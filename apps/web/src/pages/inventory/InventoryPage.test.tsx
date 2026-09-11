@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type InventoryItem, inventoryService } from '../../services/inventory.service';
-import { organizationService } from '../../services/organization.service';
+import { type LocationTreeNode, organizationService } from '../../services/organization.service';
 import { type Vendor, vendorService } from '../../services/vendor.service';
 import InventoryPage from './InventoryPage';
 
@@ -91,6 +91,8 @@ vi.mock('../../services/inventory.service', () => ({
 vi.mock('../../services/organization.service', () => ({
   organizationService: {
     getLocations: vi.fn(),
+    getLocationTree: vi.fn(),
+    getOrganizations: vi.fn(),
   },
 }));
 
@@ -123,6 +125,19 @@ describe('InventoryPage Integration & Teardown', () => {
     });
     vi.mocked(inventoryService.getCategories).mockResolvedValue(mockCategories);
     vi.mocked(organizationService.getLocations).mockResolvedValue(mockLocations);
+    vi.mocked(organizationService.getLocationTree).mockResolvedValue(
+      mockLocations as unknown as LocationTreeNode[],
+    );
+    vi.mocked(organizationService.getOrganizations).mockResolvedValue([
+      {
+        id: 'org-1',
+        name: 'Acme Enterprise Global HQ',
+        code: 'ACME-US',
+        status: 'ACTIVE',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+    ]);
     vi.mocked(vendorService.getVendors).mockResolvedValue(mockVendors);
   });
 
@@ -330,8 +345,35 @@ describe('InventoryPage Integration & Teardown', () => {
     const locationSelect = Array.from(modalSelects).find(
       (s) =>
         s.textContent?.includes('Warehouse Main') ||
+        s.textContent?.includes('Select warehouse / workshop / rack / bin') ||
         s.textContent?.includes('Select warehouse or site location'),
     );
     expect(locationSelect).toBeDefined();
+  });
+
+  it('renders hierarchical location TreeSelect filter in toolbar', async () => {
+    root = createRoot(host);
+    await act(async () => {
+      root?.render(
+        createElement(
+          ConfigProvider,
+          null,
+          createElement(App, null, createElement(MemoryRouter, null, createElement(InventoryPage))),
+        ),
+      );
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    const locationFilterEl = host.querySelector('.ant-select.ant-tree-select');
+    expect(locationFilterEl).not.toBeNull();
+    expect(
+      locationFilterEl?.textContent?.includes('Location / Warehouse') ||
+        locationFilterEl
+          ?.querySelector('.ant-select-selection-placeholder')
+          ?.textContent?.includes('Location / Warehouse'),
+    ).toBe(true);
   });
 });

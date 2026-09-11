@@ -24,11 +24,11 @@ describe('menuConfig', () => {
     const items = getQuickCreateMenu(navigate);
     expect(items?.length).toBe(6);
 
-    // First item: Create User -> /access-control
+    // First item: Create User -> /users
     const firstItem = items?.[0] as { onClick?: () => void; label?: string };
     expect(firstItem?.label).toBe('Create User');
     firstItem?.onClick?.();
-    expect(navigate).toHaveBeenCalledWith('/access-control');
+    expect(navigate).toHaveBeenCalledWith('/users');
 
     // Second item: Add Employee -> /directory
     const secondItem = items?.[1] as { onClick?: () => void; label?: string };
@@ -46,7 +46,7 @@ describe('menuConfig', () => {
     expect((items?.[0] as { key: string }).key).toBe('new-asset');
   });
 
-  it('should generate user menu items with Access Control and Directory and handle logout', () => {
+  it('should generate user menu items with Users and Directory and handle logout', () => {
     const navigate = vi.fn();
     const handleLogout = vi.fn();
     const items = getUserMenuItems(
@@ -56,16 +56,14 @@ describe('menuConfig', () => {
     );
 
     expect(items).toBeDefined();
-    expect(items?.some((item) => (item as { key?: string })?.key === 'access-control')).toBe(true);
+    expect(items?.some((item) => (item as { key?: string })?.key === 'users')).toBe(true);
     expect(items?.some((item) => (item as { key?: string })?.key === 'directory')).toBe(true);
 
-    const accessItem = items?.find(
-      (item) => (item as { key?: string })?.key === 'access-control',
-    ) as {
+    const accessItem = items?.find((item) => (item as { key?: string })?.key === 'users') as {
       onClick?: () => void;
     };
     accessItem?.onClick?.();
-    expect(navigate).toHaveBeenCalledWith('/access-control');
+    expect(navigate).toHaveBeenCalledWith('/users');
 
     const dirItem = items?.find((item) => (item as { key?: string })?.key === 'directory') as {
       onClick?: () => void;
@@ -94,7 +92,7 @@ describe('menuConfig', () => {
     };
     expect(groupOrg).toBeDefined();
     expect(groupOrg.children?.some((c) => c.key === '/directory')).toBe(true);
-    expect(groupOrg.children?.some((c) => c.key === '/access-control')).toBe(true);
+    expect(groupOrg.children?.some((c) => c.key === '/users')).toBe(true);
     expect(groupOrg.children?.some((c) => c.key === '/organization')).toBe(true);
   });
 

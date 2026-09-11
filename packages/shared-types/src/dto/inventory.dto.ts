@@ -35,6 +35,8 @@ export interface InventoryQueryDto {
   category?: string;
   locationId?: string;
   location?: string;
+  organizationId?: string;
+  organization?: string;
   stockStatus?: 'all' | 'in_stock' | 'low_stock' | 'out_of_stock' | string;
 }
 

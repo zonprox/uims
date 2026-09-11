@@ -142,10 +142,10 @@ describe('UsersPage - Backward Compatibility & Access Control Wrapper', () => {
     return root;
   };
 
-  it('renders Access Control Page via backward compatible UsersPage wrapper', async () => {
+  it('renders Users page via UsersPage', async () => {
     await renderComponent();
 
-    expect(container.textContent).toContain('Access Control');
+    expect(container.textContent).toContain('Users');
     expect(container.textContent).toContain('Application Users');
     expect(container.textContent).toContain('Roles & Permissions');
     expect(container.textContent).toContain('Total Accounts');
@@ -167,7 +167,7 @@ describe('UsersPage - Backward Compatibility & Access Control Wrapper', () => {
   it('renders correctly under dark mode without crashing', async () => {
     await renderComponent(true);
 
-    expect(container.textContent).toContain('Access Control');
+    expect(container.textContent).toContain('Users');
     expect(container.textContent).toContain('jordan.lee');
   });
 });

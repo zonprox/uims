@@ -1,5 +1,6 @@
 import {
   AppstoreOutlined,
+  BankOutlined,
   DeleteOutlined,
   EditOutlined,
   EnvironmentOutlined,
@@ -14,6 +15,12 @@ import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 
 const { Text } = Typography;
+
+declare module '../../../services/assets.service' {
+  interface Asset {
+    locationPath?: string | null;
+  }
+}
 
 export interface AssetTableProps {
   assets: Array<Asset>;
@@ -35,13 +42,18 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             a.tag.localeCompare(b.tag) || a.name.localeCompare(b.name),
           render: (_: unknown, record: Asset) => (
             <div>
-              <Flex align="center" gap={8}>
+              <Flex align="center" gap={6} wrap="wrap">
                 <Text code strong style={{ fontSize: 13, color: '#1677ff' }}>
                   {record.tag}
                 </Text>
-                <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11 }}>
+                <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
                   {record.category}
                 </Tag>
+                {record.organization && (
+                  <Tag color="purple" icon={<BankOutlined />} style={{ fontSize: 10.5, margin: 0 }}>
+                    {record.organization}
+                  </Tag>
+                )}
               </Flex>
               <Text
                 strong
@@ -97,15 +109,38 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           },
         },
         {
-          title: 'Location',
+          title: 'Location & Facility',
           dataIndex: 'location',
           key: 'location',
           sorter: (a: Asset, b: Asset) => (a.location || '').localeCompare(b.location || ''),
-          render: (loc: string) => (
-            <Tag icon={<EnvironmentOutlined />} color="geekblue">
-              {loc || 'Storage Vault'}
-            </Tag>
-          ),
+          render: (loc: string, record: Asset) => {
+            const fullPath = record.locationPath || record.location || 'Storage Vault';
+            const leafName = loc ? loc.split(' > ').pop() || loc : 'Storage Vault';
+
+            return (
+              <Flex vertical gap={4}>
+                <Tooltip title={fullPath}>
+                  <Tag
+                    icon={<EnvironmentOutlined />}
+                    color="geekblue"
+                    style={{ margin: 0, cursor: 'pointer' }}
+                  >
+                    {leafName}
+                  </Tag>
+                </Tooltip>
+                {record.department && (
+                  <Tag color="cyan" style={{ margin: 0, fontSize: 10.5 }}>
+                    {record.department}
+                  </Tag>
+                )}
+                {record.organization && (
+                  <Tag color="purple" icon={<BankOutlined />} style={{ margin: 0, fontSize: 10.5 }}>
+                    {record.organization}
+                  </Tag>
+                )}
+              </Flex>
+            );
+          },
         },
         {
           title: 'Warranty Expiration',

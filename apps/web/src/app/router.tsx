@@ -64,9 +64,9 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: 'access-control',
+            path: 'users',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Access Control..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Users..." />}>
                 <AccessControlPage />
               </Suspense>
             ),
@@ -74,7 +74,7 @@ export const router = createBrowserRouter([
           {
             path: 'directory',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Directory..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Employee Directory..." />}>
                 <DirectoryPage />
               </Suspense>
             ),
@@ -88,8 +88,8 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: 'users',
-            element: <Navigate to="/access-control" replace />,
+            path: 'access-control',
+            element: <Navigate to="/users" replace />,
           },
           {
             path: 'network',
@@ -102,7 +102,7 @@ export const router = createBrowserRouter([
           {
             path: 'inventory',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Inventory Management..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Inventory..." />}>
                 <InventoryPage />
               </Suspense>
             ),
@@ -126,7 +126,7 @@ export const router = createBrowserRouter([
           {
             path: 'notifications',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Notification Center..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Notifications..." />}>
                 <NotificationsPage />
               </Suspense>
             ),

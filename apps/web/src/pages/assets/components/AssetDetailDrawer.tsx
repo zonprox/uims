@@ -1,6 +1,7 @@
 import { EditOutlined, LaptopOutlined, PrinterOutlined, UserOutlined } from '@ant-design/icons';
 import {
   Avatar,
+  Breadcrumb,
   Button,
   Card,
   Descriptions,
@@ -12,12 +13,18 @@ import {
   Typography,
   theme,
 } from 'antd';
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 import { printAssetLabel } from '../utils/printAssetLabel';
 
 const { Text, Title } = Typography;
+
+declare module '../../../services/assets.service' {
+  interface Asset {
+    locationPath?: string | null;
+  }
+}
 
 export interface AssetDetailDrawerProps {
   open: boolean;
@@ -31,6 +38,35 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
     if (!selectedAsset) return null;
     const { token } = theme.useToken();
     const qrContainerRef = useRef<HTMLDivElement>(null);
+
+    const locationSegments = useMemo(() => {
+      const fullPath = selectedAsset.locationPath || selectedAsset.location || '';
+      if (!fullPath) return [];
+      return fullPath
+        .split(' > ')
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+    }, [selectedAsset.location, selectedAsset.locationPath]);
+
+    const renderLocationBreadcrumb = () => {
+      if (locationSegments.length === 0) {
+        return <Text type="secondary">Unassigned</Text>;
+      }
+      return (
+        <Breadcrumb
+          items={locationSegments.map((segment) => ({
+            title: segment,
+          }))}
+        />
+      );
+    };
+
+    const renderDepartment = () => {
+      if (!selectedAsset.department) {
+        return <Text type="secondary">Unassigned</Text>;
+      }
+      return <Tag color="cyan">{selectedAsset.department}</Tag>;
+    };
 
     return (
       <Drawer
@@ -83,6 +119,9 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     </Descriptions.Item>
                     <Descriptions.Item label="Model">{selectedAsset.model}</Descriptions.Item>
                     <Descriptions.Item label="Category">{selectedAsset.category}</Descriptions.Item>
+                    <Descriptions.Item label="Owner Department">
+                      {renderDepartment()}
+                    </Descriptions.Item>
                     <Descriptions.Item label="Status">
                       <Tag color={selectedAsset.status === 'Active' ? 'success' : 'warning'}>
                         {selectedAsset.status}
@@ -121,7 +160,12 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     <Descriptions.Item label="Warranty Expiration">
                       <FormattedDate date={selectedAsset.warrantyExpiry} />
                     </Descriptions.Item>
-                    <Descriptions.Item label="Location">{selectedAsset.location}</Descriptions.Item>
+                    <Descriptions.Item label="Physical Location">
+                      {renderLocationBreadcrumb()}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Owner Department">
+                      {renderDepartment()}
+                    </Descriptions.Item>
                   </Descriptions>
                 </div>
               ),
@@ -147,8 +191,11 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     </div>
                   </Flex>
                   <Descriptions size="small" column={1}>
+                    <Descriptions.Item label="Owner Department">
+                      {renderDepartment()}
+                    </Descriptions.Item>
                     <Descriptions.Item label="Assigned Location">
-                      {selectedAsset.location}
+                      {renderLocationBreadcrumb()}
                     </Descriptions.Item>
                     <Descriptions.Item label="Assignment Date">
                       {selectedAsset.purchaseDate || 'Recent'}

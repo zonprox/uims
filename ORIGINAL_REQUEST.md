@@ -570,4 +570,162 @@ Update the seed scripts to be neat, concise, standardized, and minimal.
 The user explicitly emphasized: existing data does NOT need to be preserved (not in production yet) — the absolute priority is having a clean, pristine database schema and minimal, standardized seed data across all 7 modules.
 Please pass this directive to the Project Orchestrator and ensure the database is reset and seeded cleanly with the new normalized relational models.
 
+## 2026-09-11T02:29:29Z
 
+This is a single self-contained fix; keep it small and focused.
+
+Eliminate company-switching silos across UIMS by removing the sidebar organization context switcher and transitioning to a unified multi-company management interface where all organizations are administered together with company tags and filters. Concurrently, streamline, standardize, and simplify the entire database seed pipeline into a compact, clean, and maintainable enterprise seed architecture.
+
+Working directory: /home/user/projects/uims
+Integrity mode: demo
+
+## Requirements
+
+### R1. Remove Company Context Switching
+Remove the active organization selector (`SidebarOrgSelector` and related workspace switching state/props) from the navigation layout. The application must present a single unified operational view rather than requiring users to switch between company silos.
+
+### R2. Unified Multi-Company Identification & Filtering
+Incorporate company/organization recognition through visual labels/tags and provide multi-company filtering controls (such as an organization filter dropdown with an "All Organizations / Companies" view option) across core resource tables (e.g. Assets, Directory Users, Inventory), enabling users to easily distinguish and filter entities while managing them collectively.
+
+### R3. Streamline & Standardize Database Seed Architecture
+Refactor and simplify the entire database seed codebase (`apps/api/prisma/seed.ts` and `seeders/`). Eliminate bloated, redundant boilerplate while establishing a standardized, compact, and cohesive enterprise seed dataset representing multiple companies (e.g., Global HQ and regional entities) with realistic departments, directory users, hardware assets, software licenses, inventory, and network entities. Ensure strict adherence to AGENTS.md security invariants (zero hardcoded secrets, salted bcrypt passwords, deterministic relations).
+
+### R4. Invariant Preservation and Layout Simplification
+Simplify the sidebar navigation and layout hierarchy by eliminating redundant switching artifacts while strictly preserving responsive layout behaviors (collapsed mode at 80px, expanded at 280px, mobile drawer at 290px), clean visual spacing without orphan dividers, and full compliance with Ant Design v6 standards.
+
+## Verification Resources
+
+- Typecheck: `pnpm run typecheck`
+- Lint & Style: `pnpm run lint` && `pnpm run format:check`
+- Seed Execution: `pnpm --filter @uims/api run db:seed`
+- Monorepo Test Suites: `pnpm run test` (including `SidebarTheme.test.tsx`, `Milestone1Adversarial.test.tsx`, `menuConfig.test.ts`, and directory/asset test suites)
+- Production Build: `pnpm run build`
+
+## Acceptance Criteria
+
+### Navigation & Layout
+- [ ] The sidebar navigation renders cleanly without `SidebarOrgSelector` or leftover divider lines, in both expanded (280px) and collapsed (80px) desktop modes, as well as the mobile drawer (290px).
+- [ ] No company-switching dropdown or active organization selection is forced upon the user.
+
+### Resource Identification & Filtering
+- [ ] Resource tables display company/organization badges or tags to immediately distinguish which entity owns a record.
+- [ ] Resource views provide filter controls allowing users to filter by specific company or view "All Companies".
+
+### Seed Pipeline & Data Hygiene
+- [ ] Seed scripts execute cleanly and deterministically with `pnpm --filter @uims/api run db:seed` with zero errors.
+- [ ] Seed files are drastically streamlined and standardized, removing duplicate boilerplate and thousands of lines of bloated fixtures.
+- [ ] Seed data establishes consistent multi-company entities with linked departments, locations, directory employees, assets, and licenses.
+- [ ] Zero hardcoded plain-text credentials or predictable passwords in seed scripts (complying with AGENTS.md Section 4).
+
+### Quality & Engineering Standards
+- [ ] `pnpm run typecheck` passes with 0 errors across all monorepo workspaces.
+- [ ] `pnpm run lint` and `pnpm run format:check` pass with 0 errors/warnings.
+- [ ] `pnpm run test` passes with 100% test pass rate across monorepo test suites, with all tests asserting sidebar/org structures updated accordingly.
+- [ ] `pnpm run build` generates production builds cleanly without errors.
+
+## 2026-09-11T04:44:01Z
+
+Standardize and implement a multi-tier spatial location hierarchy for Hardware Assets and Inventory Items across UIMS (e.g., Company/Plant → Workshop/Building/Warehouse → Floor/Zone → Room/Rack/Shelf/Station), replacing the flat "Physical Location" select with a flexible parent-child location tree, cascading UI selectors, and descendant-aware spatial filtering while preserving organizational Department as an orthogonal dimension. Clean and standardize completely from the ground up (the project is in dev test, so refactor seeders, models, and test fixtures boldly and cleanly).
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Hierarchical Spatial Location Tree Architecture
+- Support a flexible, self-referential parent-child spatial location tree structure linked to Organization entities.
+- Support spatial node classification types (such as `CAMPUS` / `SITE`, `BUILDING` / `WORKSHOP` / `WAREHOUSE`, `FLOOR` / `ZONE` / `LINE`, `ROOM` / `RACK` / `SHELF` / `STATION`).
+- Provide backend services and REST endpoints to retrieve the full or branch location tree, compute breadcrumb paths (e.g., "Hanoi Plant > Workshop A > SMT Line 1 > Station 04"), and resolve descendant location IDs for spatial queries.
+
+### R2. Asset Management Spatial Integration
+- Upgrade the Asset creation and editing modals to replace the flat location dropdown with a hierarchical spatial selector (such as Ant Design `TreeSelect` or `Cascader`) showing clear visual paths.
+- Enhance the Asset Table and Detail Drawer to display full location breadcrumbs/path tags.
+- Update Asset filter controls to support hierarchical location filtering (selecting a parent node like "Workshop A" filters for assets located anywhere within that workshop or its subordinate zones/rooms/racks).
+- Maintain organizational Department as an independent, orthogonal dimension (an asset has an organizational owner department as well as an exact physical location).
+
+### R3. Inventory Management Spatial Integration
+- Upgrade Inventory Item creation and editing modals with the hierarchical spatial location selector for precise warehouse/stockroom storage locations (e.g., "Central Warehouse > Raw Material Area > Rack R-12 > Bin 03").
+- Enhance Inventory Table, Stock Filter controls, and Item Detail drawers to display multi-tier location breadcrumbs and support parent-location stock filtering.
+
+### R4. Clean Standardization, Migration & Test Verification
+- Cleanly standardize existing location models, DTOs, and seeders with rich, realistic enterprise facility structures (HQ campuses, multi-hall workshops, production lines, IT server rooms, and warehouse racks).
+- Satisfy all repository invariants: zero TypeScript errors (`pnpm typecheck`), zero ESLint errors (`pnpm lint`), 100% Biome formatting compliance (`pnpm format:check`), 100% passing tests (`pnpm test`), and a clean build (`pnpm build`).
+
+## Acceptance Criteria
+
+### Data Modeling & API
+- [ ] Database schema represents parent-child hierarchical locations with indexes and referential integrity.
+- [ ] API endpoint `/api/v1/locations/tree` (or equivalent query parameter on locations) returns nested tree nodes with labels, codes, node types, and parent references.
+- [ ] Filtering assets by `locationId=<parentId>` successfully returns assets in that location and all its descendant sub-locations.
+- [ ] Filtering inventory items by `locationId=<parentId>` successfully returns inventory items in that location and all its descendant sub-locations.
+
+### Frontend UI / UX (Ant Design v6 Standard)
+- [ ] AssetFormModal features a hierarchical spatial selector (`TreeSelect` / `Cascader`) with searchable tree nodes and clear hierarchy paths.
+- [ ] Inventory form modal features a hierarchical spatial selector for storage location.
+- [ ] Asset and Inventory table views display readable location hierarchy paths (e.g. via Tooltip or path badges) rather than isolated, ambiguous room names.
+- [ ] Location filter in both Asset and Inventory pages allows filtering by parent facility/workshop and seeing all child equipment/parts.
+- [ ] All UI controls comply with Ant Design dynamic token standards (`App.useApp()`, semantic token styles, zero deprecated props).
+
+### Quality & Monorepo Verification
+- [ ] `pnpm run typecheck` exits with code 0 across all workspaces.
+- [ ] `pnpm run lint` exits with code 0 across all workspaces.
+- [ ] `pnpm run format:check` passes with zero formatting differences.
+- [ ] Comprehensive unit, component, and adversarial tests pass with 100% success rate (`pnpm run test`).
+- [ ] `pnpm run build` passes cleanly (`pnpm run build`).
+
+## 2026-09-11T04:47:05Z
+
+USER DIRECTIVE FOR SEEDING & DOMAIN TAXONOMY:
+
+The user specifically requested to clean and standardize the seed data around the garment manufacturing domain for BSL:
+- **Organization**: BSL (Broadpeak Soc Trang - Garment/Apparel Manufacturing Company)
+- **Business Center Building**:
+  - Contains departments/zones such as Import-Export (Xuất nhập khẩu), Accounting (Kế toán), Administration.
+- **7 Factories / Workshops**:
+  - Factory 1 through Factory 7 (Phân xưởng 1 - 7)
+  - Each Factory contains multi-tier areas / sub-locations / sections:
+    - QA (Quality Assurance)
+    - Sales / Merchandising
+    - Cutting (Khu cắt)
+    - Printing (Khu in)
+    - MDC (Material Distribution Center - sub-warehouse / kho nhỏ)
+    - Packing (Khu đóng gói)
+    - Sewing / Assembly lines
+- Clean and standardize the seed data cleanly to reflect this structure across Location hierarchy, Departments, Assets, and Inventory storage.
+
+## 2026-09-11T04:47:47Z
+
+UPDATED USER DIRECTIVE FOR SEEDING & DOMAIN TAXONOMY:
+
+The user has further specified the physical and operational structure for BSL (garment manufacturing enterprise):
+1. **Business Center Building**:
+   - Houses departments: Import-Export (Xuất nhập khẩu), Accounting (Kế toán), Administration, Executive.
+2. **Warehouse Building (Kho tổng - Central Warehouse)**:
+   - Main central warehouse for the entire plant:
+     - Raw Materials Storage (Kho vải / Nguyên phụ liệu chính)
+     - Finished Goods Storage (Kho thành phẩm xuất khẩu)
+     - Spare Parts & Peripherals Storage
+     - Aisle / Rack / Shelf / Pallet bay hierarchy
+3. **7 Factories (Factory 1 through Factory 7 - Phân xưởng 1 - 7)**:
+   - Each factory is a complete garment production facility containing:
+     - QA (Quality Assurance)
+     - Sale / Merchandising
+     - Cutting (Khu cắt vải)
+     - Printing / Embroidery (Khu in ấn / ép nhiệt)
+     - MDC (Material Distribution Center - kho nhỏ cấp phát vật tư/phụ liệu sản xuất trong xưởng)
+     - Packing (Khu đóng gói / hoàn thiện)
+     - Sewing Lines (Chuyền may)
+
+Please research and cleanly standardize this domain model professionally across:
+- `Location` tree (Plant -> Buildings/Factories -> Functional Zones/Lines -> Rooms/Racks)
+- `Department` hierarchy (BSL -> Business Center Depts, Central Warehouse Dept, Factory 1-7 Depts)
+- `Asset` assignments (Sewing machines, cutting plotters, printing equipment, QC stations, PCs/monitors)
+- `InventoryItem` storage locations (Central Warehouse aisles/racks and Factory MDC sub-warehouses)
+
+## 2026-09-11T04:59:52Z
+
+USER DIRECTIVE:
+Upon completing all milestones, verification checks, and tests:
+1. Clean up any temporary scratch files or unused artifacts.
+2. Commit all changes cleanly with a descriptive Conventional Commits message (e.g. `feat(locations): implement hierarchical spatial location tree and BSL garment taxonomy for assets and inventory`).
+3. Ensure git working tree is clean.

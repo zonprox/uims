@@ -12,12 +12,7 @@ import { LayoutFooter } from './components/LayoutFooter';
 import { AppNavbarHeader } from './components/NavbarSections';
 import { SidebarContent } from './components/SidebarContent';
 import { useLayoutTelemetry } from './hooks/useLayoutTelemetry';
-import {
-  getNavMenuItems,
-  getOrgMenuItems,
-  getQuickCreateMenu,
-  getUserMenuItems,
-} from './menuConfig';
+import { getNavMenuItems, getQuickCreateMenu, getUserMenuItems } from './menuConfig';
 
 const { Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -41,7 +36,6 @@ export default function MainLayout() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [activeOrg, setActiveOrg] = useState('Acme Enterprise HQ (US-East)');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -113,7 +107,6 @@ export default function MainLayout() {
     }
   }, [isMobile]);
 
-  const orgMenuItems = useMemo(() => getOrgMenuItems(setActiveOrg), []);
   const menuItems = useMemo(
     () => getNavMenuItems(collapsed, isMobile, navBadges, can, isDark),
     [collapsed, isMobile, navBadges, can, permissions, isDark],
@@ -154,8 +147,6 @@ export default function MainLayout() {
           <SidebarContent
             collapsed={collapsed}
             inDrawer={false}
-            activeOrg={activeOrg}
-            orgMenuItems={orgMenuItems}
             menuItems={menuItems}
             pathname={location.pathname}
             onNavigate={navigate}
@@ -178,8 +169,6 @@ export default function MainLayout() {
           <SidebarContent
             collapsed={collapsed}
             inDrawer={true}
-            activeOrg={activeOrg}
-            orgMenuItems={orgMenuItems}
             menuItems={menuItems}
             pathname={location.pathname}
             onNavigate={navigate}

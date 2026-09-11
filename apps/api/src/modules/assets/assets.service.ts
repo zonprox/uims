@@ -15,13 +15,14 @@ import type {
 import { mapAssetStatus, mapAssetStatusToLabel } from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { resolveDescendantLocationIds } from '../organization/location-tree.util';
 
 type AssetWithRelations = Prisma.AssetGetPayload<{
   include: {
     category: true;
-    assignedTo: true;
-    location: true;
-    department: true;
+    assignedTo: { include: { organization: true } };
+    location: { include: { organization: true } };
+    department: { include: { organization: true } };
     credential: true;
   };
 }>;
@@ -139,9 +140,9 @@ export class AssetsService {
         },
         include: {
           category: true,
-          assignedTo: true,
-          location: true,
-          department: true,
+          assignedTo: { include: { organization: true } },
+          location: { include: { organization: true } },
+          department: { include: { organization: true } },
           credential: true,
         },
       });
@@ -187,15 +188,52 @@ export class AssetsService {
 
   async findAll(query?: AssetQueryDto) {
     const where: Prisma.AssetWhereInput = {};
+    const andConditions: Prisma.AssetWhereInput[] = [];
 
     if (query?.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { assetTag: { contains: query.search, mode: 'insensitive' } },
-        { serialNumber: { contains: query.search, mode: 'insensitive' } },
-        { model: { contains: query.search, mode: 'insensitive' } },
-        { manufacturer: { contains: query.search, mode: 'insensitive' } },
-      ];
+      andConditions.push({
+        OR: [
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { assetTag: { contains: query.search, mode: 'insensitive' } },
+          { serialNumber: { contains: query.search, mode: 'insensitive' } },
+          { model: { contains: query.search, mode: 'insensitive' } },
+          { manufacturer: { contains: query.search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (query?.organizationId && query.organizationId !== 'all') {
+      andConditions.push({
+        OR: [
+          { department: { organizationId: query.organizationId } },
+          { location: { organizationId: query.organizationId } },
+          { assignedTo: { organizationId: query.organizationId } },
+        ],
+      });
+    } else if (query?.organization && query.organization !== 'all') {
+      andConditions.push({
+        OR: [
+          {
+            department: {
+              organization: { name: { contains: query.organization, mode: 'insensitive' } },
+            },
+          },
+          {
+            location: {
+              organization: { name: { contains: query.organization, mode: 'insensitive' } },
+            },
+          },
+          {
+            assignedTo: {
+              organization: { name: { contains: query.organization, mode: 'insensitive' } },
+            },
+          },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     if (query?.categoryId) {
@@ -205,7 +243,8 @@ export class AssetsService {
     }
 
     if (query?.locationId) {
-      where.locationId = query.locationId;
+      const descendantIds = await this.getDescendantLocationIds(query.locationId);
+      where.locationId = { in: descendantIds };
     }
 
     if (query?.departmentId) {
@@ -228,9 +267,9 @@ export class AssetsService {
       where,
       include: {
         category: true,
-        assignedTo: true,
-        location: true,
-        department: true,
+        assignedTo: { include: { organization: true } },
+        location: { include: { organization: true } },
+        department: { include: { organization: true } },
         credential: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -246,9 +285,9 @@ export class AssetsService {
       where: { id },
       include: {
         category: true,
-        assignedTo: true,
-        location: true,
-        department: true,
+        assignedTo: { include: { organization: true } },
+        location: { include: { organization: true } },
+        department: { include: { organization: true } },
         credential: true,
       },
     });
@@ -338,9 +377,9 @@ export class AssetsService {
         data: updateData,
         include: {
           category: true,
-          assignedTo: true,
-          location: true,
-          department: true,
+          assignedTo: { include: { organization: true } },
+          location: { include: { organization: true } },
+          department: { include: { organization: true } },
           credential: true,
         },
       });
@@ -463,6 +502,18 @@ export class AssetsService {
       department: asset.department?.name || '',
       locationId: asset.locationId,
       location: asset.location?.name || 'Storage Vault',
+      locationPath: asset.location?.fullPath || asset.location?.name || 'Storage Vault',
+
+      organizationId:
+        asset.department?.organizationId ||
+        asset.location?.organizationId ||
+        asset.assignedTo?.organizationId ||
+        null,
+      organization:
+        asset.department?.organization?.name ||
+        asset.location?.organization?.name ||
+        asset.assignedTo?.organization?.name ||
+        null,
       credentialId: asset.credentialId,
       credential: asset.credential?.name || '',
       purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
@@ -493,5 +544,9 @@ export class AssetsService {
       code: c.name.toUpperCase().replace(/\s+/g, '_'),
       parentId: c.parentId,
     }));
+  }
+
+  async getDescendantLocationIds(locationId: string): Promise<string[]> {
+    return resolveDescendantLocationIds(this.prisma, locationId);
   }
 }

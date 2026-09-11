@@ -8,6 +8,7 @@ import type {
 } from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { resolveDescendantLocationIds } from '../organization/location-tree.util';
 
 function generateSku(): string {
   const timeSuffix = Date.now().toString(36).toUpperCase().slice(-4);
@@ -123,9 +124,18 @@ export class InventoryService {
     }
 
     if (query?.locationId) {
-      where.locationId = query.locationId;
+      const descendantIds = await this.getDescendantLocationIds(query.locationId);
+      where.locationId = { in: descendantIds };
     } else if (query?.location && query.location !== 'all') {
       where.location = { name: query.location };
+    }
+
+    if (query?.organizationId && query.organizationId !== 'all') {
+      where.location = { organizationId: query.organizationId };
+    } else if (query?.organization && query.organization !== 'all') {
+      where.location = {
+        organization: { name: { contains: query.organization, mode: 'insensitive' } },
+      };
     }
 
     if (query?.stockStatus && query.stockStatus !== 'all') {
@@ -146,7 +156,9 @@ export class InventoryService {
       where,
       include: {
         category: true,
-        location: true,
+        location: {
+          include: { organization: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: pageSize,
@@ -306,5 +318,9 @@ export class InventoryService {
       createdAt: vendor.createdAt.toISOString(),
       updatedAt: vendor.updatedAt.toISOString(),
     };
+  }
+
+  async getDescendantLocationIds(locationId: string): Promise<string[]> {
+    return resolveDescendantLocationIds(this.prisma, locationId);
   }
 }

@@ -31,6 +31,8 @@ export interface Asset {
   locationId?: string | null;
   department?: string | null;
   departmentId?: string | null;
+  organization?: string | null;
+  organizationId?: string | null;
   credential?: string | null;
   credentialId?: string | null;
   purchaseDate: string;
@@ -56,6 +58,8 @@ export const assetsService = {
     status?: string;
     locationId?: string;
     assignedToId?: string;
+    organizationId?: string;
+    organization?: string;
   }): Promise<Array<Asset>> => {
     const res = await api.get('/assets', { params });
     return res.data.data;

@@ -77,7 +77,7 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
         '/',
         '/directory',
         '/organization',
-        '/access-control',
+        '/users',
         '/assets',
         '/licenses',
         '/inventory',
@@ -284,7 +284,7 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
       expect(tooltipWrapper).not.toBeNull();
     });
 
-    it('renders Collapsed Cluster Indicator with Tooltip when collapsed=true and inDrawer=false', async () => {
+    it('renders cleanly without cluster dropdown when collapsed=true and inDrawer=false in unified mode', async () => {
       const root = createRoot(container);
       currentRoot = root;
 
@@ -296,8 +296,6 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
             createElement(SidebarContent, {
               collapsed: true,
               inDrawer: false,
-              activeOrg: 'Acme Enterprise Global HQ',
-              orgMenuItems: [],
               menuItems: [],
               pathname: '/',
               onNavigate: vi.fn(),
@@ -307,18 +305,16 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
         );
       });
 
-      // When collapsed, the compact cluster pulse button should be rendered
-      const clusterButton = container.querySelector(
-        'button[aria-label="Active cluster: Acme Enterprise Global HQ"]',
-      );
-      expect(clusterButton).not.toBeNull();
+      // Unified operational view: no cluster button or org dropdown rendered
+      const clusterButton = container.querySelector('button[aria-label*="cluster"]');
+      expect(clusterButton).toBeNull();
 
       // Expanded SidebarOrgSelector (.sidebar-org-selector) should NOT be rendered
       const expandedOrgSelector = container.querySelector('.sidebar-org-selector');
       expect(expandedOrgSelector).toBeNull();
     });
 
-    it('renders Expanded Cluster Selector when collapsed=false', async () => {
+    it('renders cleanly without company switcher when collapsed=false in unified operational view', async () => {
       const root = createRoot(container);
       currentRoot = root;
 
@@ -330,8 +326,6 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
             createElement(SidebarContent, {
               collapsed: false,
               inDrawer: false,
-              activeOrg: 'Acme Enterprise Global HQ',
-              orgMenuItems: [],
               menuItems: [],
               pathname: '/',
               onNavigate: vi.fn(),
@@ -341,9 +335,11 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
         );
       });
 
+      // No company-switching dropdown or active org selector is rendered
       const expandedOrgSelector = container.querySelector('.sidebar-org-selector');
-      expect(expandedOrgSelector).not.toBeNull();
-      expect(expandedOrgSelector?.textContent).toContain('Acme Enterprise Global HQ');
+      expect(expandedOrgSelector).toBeNull();
+      const clusterButton = container.querySelector('button[aria-label*="cluster"]');
+      expect(clusterButton).toBeNull();
     });
 
     it('renders Navbar user profile with Tooltip fallback for accessibility', async () => {

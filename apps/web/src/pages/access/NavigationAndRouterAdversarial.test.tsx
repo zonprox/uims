@@ -336,12 +336,12 @@ describe('Adversarial Navigation & Router State Suite', () => {
   };
 
   describe('1. Routing & Redirect Invariants', () => {
-    it('renders AccessControlPage when navigating directly to /access-control', async () => {
-      const { root, memRouter } = await renderWithRouter(['/access-control']);
+    it('renders AccessControlPage when navigating directly to /users', async () => {
+      const { root, memRouter } = await renderWithRouter(['/users']);
 
-      expect(memRouter.state.location.pathname).toBe('/access-control');
-      expect(container.textContent).toContain('Access Control');
-      expect(container.textContent).toContain('Manage operator accounts');
+      expect(memRouter.state.location.pathname).toBe('/users');
+      expect(container.textContent).toContain('Users');
+      expect(container.textContent).toContain('Manage system user accounts');
       expect(container.textContent).toContain('Application Users (2)');
 
       act(() => root.unmount());
@@ -359,19 +359,19 @@ describe('Adversarial Navigation & Router State Suite', () => {
       act(() => root.unmount());
     });
 
-    it('cleanly redirects legacy /users to /access-control without infinite loops or white screen', async () => {
-      const { root, memRouter } = await renderWithRouter(['/users']);
+    it('cleanly redirects legacy /access-control to /users without infinite loops or white screen', async () => {
+      const { root, memRouter } = await renderWithRouter(['/access-control']);
 
-      // Router must replace path to /access-control
-      expect(memRouter.state.location.pathname).toBe('/access-control');
-      expect(container.textContent).toContain('Access Control');
-      expect(container.textContent).toContain('Manage operator accounts');
+      // Router must replace path to /users
+      expect(memRouter.state.location.pathname).toBe('/users');
+      expect(container.textContent).toContain('Users');
+      expect(container.textContent).toContain('Manage system user accounts');
       expect(container.textContent).not.toContain('Loading...');
 
       act(() => root.unmount());
     });
 
-    it('redirects unauthenticated requests away from /directory and /access-control to /login', async () => {
+    it('redirects unauthenticated requests away from /directory and /users to /login', async () => {
       // Clear token to make unauthenticated
       useAuthStore.setState({ token: null, user: null });
 
@@ -382,12 +382,10 @@ describe('Adversarial Navigation & Router State Suite', () => {
       });
       act(() => rootDir.unmount());
 
-      const { root: rootAccess, memRouter: accessRouter } = await renderWithRouter([
-        '/access-control',
-      ]);
+      const { root: rootAccess, memRouter: accessRouter } = await renderWithRouter(['/users']);
       expect(accessRouter.state.location.pathname).toBe('/login');
       expect(accessRouter.state.location.state).toEqual({
-        from: expect.objectContaining({ pathname: '/access-control' }),
+        from: expect.objectContaining({ pathname: '/users' }),
       });
       act(() => rootAccess.unmount());
     });
@@ -407,14 +405,14 @@ describe('Adversarial Navigation & Router State Suite', () => {
         await new Promise((resolve) => setTimeout(resolve, 80));
       });
 
-      expect(container.textContent).toContain('Access Control');
+      expect(container.textContent).toContain('Users');
       expect(container.textContent).toContain('Total Accounts');
       act(() => root.unmount());
     });
   });
 
   describe('2. CommandPalette Navigation & Filtering', () => {
-    it('filters commands when typing "access" or "users" and navigates to /access-control', async () => {
+    it('filters commands when typing "access" or "users" and navigates to /users', async () => {
       const mockClose = vi.fn();
 
       const root = createRoot(container);
@@ -454,22 +452,22 @@ describe('Adversarial Navigation & Router State Suite', () => {
         input.dispatchEvent(new Event('change', { bubbles: true }));
       });
 
-      // Verify Access Control appears because its description matches "users"
+      // Verify Users appears
       const modalText = document.querySelector('.ant-modal')?.textContent || '';
-      expect(modalText).toContain('Access Control');
+      expect(modalText).toContain('Users');
 
-      // Click the Access Control navigation item
-      const accessControlOption = Array.from(
+      // Click the Users navigation item
+      const usersOption = Array.from(
         document.querySelectorAll('.ant-modal [style*="cursor: pointer"]'),
-      ).find((el) => el.textContent?.includes('Access Control'));
-      expect(accessControlOption).toBeDefined();
+      ).find((el) => el.textContent?.includes('Users'));
+      expect(usersOption).toBeDefined();
 
       await act(async () => {
-        (accessControlOption as HTMLElement).click();
+        (usersOption as HTMLElement).click();
       });
 
       expect(mockClose).toHaveBeenCalled();
-      expect(currentLocation.pathname).toBe('/access-control');
+      expect(currentLocation.pathname).toBe('/users');
 
       act(() => root.unmount());
     });
@@ -539,17 +537,17 @@ describe('Adversarial Navigation & Router State Suite', () => {
   });
 
   describe('3. Navigation Menu Invariants & RBAC filtering', () => {
-    it('shows both Directory and Access Control under group-org for super admin', () => {
+    it('shows both Directory and Users under group-org for super admin', () => {
       const items = getNavMenuItems(false, false);
       const orgGroup = items?.find((item) => (item as { key?: string })?.key === 'group-org') as {
         children?: Array<{ key: string }>;
       };
       expect(orgGroup).toBeDefined();
       expect(orgGroup.children?.some((c) => c.key === '/directory')).toBe(true);
-      expect(orgGroup.children?.some((c) => c.key === '/access-control')).toBe(true);
+      expect(orgGroup.children?.some((c) => c.key === '/users')).toBe(true);
     });
 
-    it('isolates Directory from Access Control when user has only Directory:read', () => {
+    it('isolates Directory from Users when user has only Directory:read', () => {
       const can = (action: string, subject: string) => action === 'read' && subject === 'Directory';
       const items = getNavMenuItems(false, false, undefined, can);
       const orgGroup = items?.find((item) => (item as { key?: string })?.key === 'group-org') as {
@@ -557,18 +555,18 @@ describe('Adversarial Navigation & Router State Suite', () => {
       };
       expect(orgGroup).toBeDefined();
       expect(orgGroup.children?.some((c) => c.key === '/directory')).toBe(true);
-      expect(orgGroup.children?.some((c) => c.key === '/access-control')).toBe(false);
+      expect(orgGroup.children?.some((c) => c.key === '/users')).toBe(false);
       expect(orgGroup.children?.some((c) => c.key === '/organization')).toBe(false);
     });
 
-    it('isolates Access Control from Directory when user has only Role:read', () => {
+    it('isolates Users from Directory when user has only Role:read', () => {
       const can = (action: string, subject: string) => action === 'read' && subject === 'Role';
       const items = getNavMenuItems(false, false, undefined, can);
       const orgGroup = items?.find((item) => (item as { key?: string })?.key === 'group-org') as {
         children?: Array<{ key: string }>;
       };
       expect(orgGroup).toBeDefined();
-      expect(orgGroup.children?.some((c) => c.key === '/access-control')).toBe(true);
+      expect(orgGroup.children?.some((c) => c.key === '/users')).toBe(true);
       expect(orgGroup.children?.some((c) => c.key === '/directory')).toBe(false);
       expect(orgGroup.children?.some((c) => c.key === '/organization')).toBe(false);
     });
@@ -594,7 +592,7 @@ describe('Adversarial Navigation & Router State Suite', () => {
       expect(addEmployee).toBeDefined();
 
       createUser.onClick?.();
-      expect(navigate).toHaveBeenCalledWith('/access-control');
+      expect(navigate).toHaveBeenCalledWith('/users');
 
       addEmployee.onClick?.();
       expect(navigate).toHaveBeenCalledWith('/directory');
@@ -619,7 +617,7 @@ describe('Adversarial Navigation & Router State Suite', () => {
       expect(setActiveOrg).toHaveBeenCalledWith('Acme Enterprise Global HQ');
     });
 
-    it('provides user profile dropdown menu items for Access Control and Directory', () => {
+    it('provides user profile dropdown menu items for Users and Directory', () => {
       const navigate = vi.fn();
       const handleLogout = vi.fn();
       const items = getUserMenuItems(
@@ -628,7 +626,7 @@ describe('Adversarial Navigation & Router State Suite', () => {
         handleLogout,
       );
 
-      const accessItem = items?.find((i) => (i as { key?: string })?.key === 'access-control') as {
+      const accessItem = items?.find((i) => (i as { key?: string })?.key === 'users') as {
         onClick?: () => void;
       };
       const dirItem = items?.find((i) => (i as { key?: string })?.key === 'directory') as {
@@ -639,7 +637,7 @@ describe('Adversarial Navigation & Router State Suite', () => {
       expect(dirItem).toBeDefined();
 
       accessItem.onClick?.();
-      expect(navigate).toHaveBeenCalledWith('/access-control');
+      expect(navigate).toHaveBeenCalledWith('/users');
 
       dirItem.onClick?.();
       expect(navigate).toHaveBeenCalledWith('/directory');

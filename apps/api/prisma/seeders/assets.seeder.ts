@@ -1,4 +1,7 @@
+import { Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
+
+const logger = new Logger('AssetsSeeder');
 
 interface SeedTaxonomyResult {
   locations: Record<string, { id: string }>;
@@ -6,510 +9,533 @@ interface SeedTaxonomyResult {
 }
 
 interface SeedUsersResult {
-  roles: Record<string, { id: string }>;
+  roles?: Record<string, { id: string }>;
   users: Record<string, { id: string }>;
+}
+
+interface SeedOrgResult {
+  organizations?: Record<string, { id: string }>;
+  locations?: Record<string, { id: string }>;
+  departments?: Record<string, { id: string }>;
+  positions?: Record<string, { id: string }>;
 }
 
 export async function seedAssets(
   prisma: PrismaClient,
   taxonomy: SeedTaxonomyResult,
   users: SeedUsersResult,
+  orgResult?: SeedOrgResult,
 ) {
-  const { locations, categories } = taxonomy;
+  const { categories } = taxonomy;
   const { users: u } = users;
 
+  // Resolve departments and locations from DB for maximum referential fidelity
+  const [departments, locations] = await Promise.all([
+    prisma.department.findMany(),
+    prisma.location.findMany(),
+  ]);
+
+  const deptMap = new Map(departments.map((d) => [d.code, d.id]));
+  const locMap = new Map(locations.map((l) => [l.id, l.id]));
+
+  const getLoc = (id: string, fallbackCode?: string): string | null => {
+    if (locMap.has(id)) return id;
+    const match = locations.find((l) => l.id === id || (fallbackCode && l.code === fallbackCode));
+    return match?.id || locations[0]?.id || null;
+  };
+
+  const getDept = (code: string): string | null => {
+    return deptMap.get(code) || departments[0]?.id || null;
+  };
+
+  const defaultUser = Object.values(u)[0];
+  const userBinh = u['binh.tran@broadpeak.youngone.com'] || u.userAlex || defaultUser;
+  const userNam = u['nam.pham@broadpeak.youngone.com'] || u.userSarah || defaultUser;
+  const userThu = u['thu.le@broadpeak.youngone.com'] || u.userCarlosMendez || defaultUser;
+  const userHuy = u['huy.nguyen@broadpeak.youngone.com'] || u.userElena || defaultUser;
+  const userKim = u['kim.vo@broadpeak.youngone.com'] || u.userRobertTorres || defaultUser;
+  const userTri = u['tri.doan@broadpeak.youngone.com'] || u.userMarcusVance || defaultUser;
+  const userPhong = u['phong.dang@broadpeak.youngone.com'] || u.userMichael || defaultUser;
+  const userLan = u['lan.nguyen@broadpeak.youngone.com'] || u.userSophiaPatel || defaultUser;
+  const userNgoc = u['ngoc.vu@broadpeak.youngone.com'] || u.userMarcusBell || defaultUser;
+  const userPhuong = u['phuong.bui@broadpeak.youngone.com'] || u.userChloeMartin || defaultUser;
+
+  // Categories helper
+  const catSewing = categories.catSewing?.id || categories.catPeripherals?.id;
+  const catCutting = categories.catCutting?.id || categories.catPeripherals?.id;
+  const catPrinting = categories.catPrinting?.id || categories.catPrinter?.id;
+  const catQA = categories.catQA?.id || categories.catDesktop?.id;
+  const catServer = (categories.catITHardware || categories.catServer)?.id;
+  const catWorkstation = (categories.catWorkstation || categories.catDesktop)?.id;
+  const catLaptop = categories.catLaptop?.id;
+  const catNetworking = categories.catNetworking?.id;
+  const catPrinter = categories.catPrinter?.id;
+  const catMonitor = categories.catMonitor?.id;
+  const catMobile = (categories.catMobile || categories.catPeripherals)?.id;
+
   const assetDefinitions = [
+    // ── 1. Sewing Machines Allocated to Sewing Lines ──────────────────────────
+    {
+      assetTag: 'AST-SEW-001',
+      name: 'Juki DDL-9000C Direct Drive Lockstitch Machine',
+      manufacturer: 'Juki Corporation',
+      model: 'DDL-9000C-SMS',
+      serialNumber: 'JK-9000C-10482',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f1-sew-st1'), // Factory 1 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-06-15'),
+      purchaseCost: 1450,
+      warrantyExpiry: new Date('2026-06-15'),
+      specs: {
+        type: 'Direct-Drive High-Speed 1-Needle Lockstitch',
+        maxSpeed: '5000 sti/min',
+        needleSystem: 'DBx1 #11-#14',
+        motor: 'AC Servomotor 450W with Electronic Thread Trimmer',
+      },
+      notes: 'High-speed automated sewing station on Factory 1 Sewing Line 01.',
+    },
+    {
+      assetTag: 'AST-SEW-002',
+      name: 'Brother S-7300A Nexio Direct Drive Lockstitch',
+      manufacturer: 'Brother Industries',
+      model: 'S-7300A-403P',
+      serialNumber: 'BR-7300A-88491',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f1-sew-st2'), // Factory 1 > Sewing Line 01 > Station 02
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-06-15'),
+      purchaseCost: 1550,
+      warrantyExpiry: new Date('2026-06-15'),
+      specs: {
+        type: 'DigiFlex Feed Electronic Direct Drive Lockstitch',
+        maxSpeed: '5000 sti/min',
+        needleSystem: 'DBx1 #14',
+        features: 'Color LCD touch panel with material thickness sensor',
+      },
+      notes: 'Factory 1 Sewing Line 01 Station 02 precision garment assembly.',
+    },
+    {
+      assetTag: 'AST-SEW-003',
+      name: 'Pegasus M952 4-Thread Super High Speed Overlock',
+      manufacturer: 'Pegasus Sewing Machine',
+      model: 'M952-52-2X4',
+      serialNumber: 'PG-M952-44021',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f1-sew-st3'), // Factory 1 > Sewing Line 01 > Station 03
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-08-20'),
+      purchaseCost: 1680,
+      warrantyExpiry: new Date('2026-08-20'),
+      specs: {
+        type: '4-Thread Safety Stitch Overlock Machine',
+        maxSpeed: '7000 sti/min',
+        needleSystem: 'DCx27 #11',
+      },
+      notes: 'Factory 1 Sewing Line 01 Station 03 knitwear side-seam serging.',
+    },
+    {
+      assetTag: 'AST-SEW-004',
+      name: 'Yamato VG2700 3-Needle Cylinder Bed Interlock Machine',
+      manufacturer: 'Yamato Sewing Machine',
+      model: 'VG2700-156M-8F',
+      serialNumber: 'YM-VG27-99120',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f2-sew1-st1'), // Factory 2 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F2'), // Factory 2 Production Department
+      purchaseDate: new Date('2023-09-10'),
+      purchaseCost: 2200,
+      warrantyExpiry: new Date('2026-09-10'),
+      specs: {
+        type: 'Variable Top Feed Cylinder Bed Interlock',
+        maxSpeed: '6500 sti/min',
+        needleSystem: 'UY128GAS #10',
+      },
+      notes: 'Factory 2 Sewing Line 01 sleeve and hem finishing workstation.',
+    },
+
+    // ── 2. Fabric Cutters & Plotters Allocated to Cutting Areas ───────────────
+    {
+      assetTag: 'AST-CUT-001',
+      name: 'Gerber Paragon Automated Fabric Cutting System',
+      manufacturer: 'Gerber Technology',
+      model: 'Paragon HX Series',
+      serialNumber: 'GB-HX-Paragon-2024-01',
+      status: 'IN_USE' as const,
+      categoryId: catCutting,
+      locationId: getLoc('loc-bsl-f1-cut-tbl1'), // Factory 1 > Cutting Area > Auto Cutting Table 01
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-04-12'),
+      purchaseCost: 68000,
+      warrantyExpiry: new Date('2027-04-12'),
+      specs: {
+        cuttingHeight: '7.2 cm compressed vacuum ply',
+        workingWidth: '2.0 meters conveyor bed',
+        controlUnit: 'Industrial IPC with Gerber CutWorks OS',
+      },
+      notes: 'Automated conveyorized high-ply fabric cutting table in Factory 1 Cutting Area.',
+    },
+    {
+      assetTag: 'AST-PLT-001',
+      name: 'Lectra Alys 30 High-Speed Pattern Plotter',
+      manufacturer: 'Lectra',
+      model: 'Alys 30 Inkjet',
+      serialNumber: 'LC-ALYS30-7731',
+      status: 'IN_USE' as const,
+      categoryId: catCutting,
+      locationId: getLoc('loc-bsl-f1-cut'), // Factory 1 > Fabric Cutting Area
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-05-18'),
+      purchaseCost: 9800,
+      warrantyExpiry: new Date('2026-05-18'),
+      specs: {
+        printSpeed: '120 m2/hour',
+        paperWidth: '183 cm (72 in)',
+        resolution: '300 dpi HP TIJ2.5 cartridge heads',
+      },
+      notes: 'Marker and pattern plotter directly networked to Lectra Modaris CAD server.',
+    },
+    {
+      assetTag: 'AST-1005',
+      name: 'Dell OptiPlex 7010 Tower CAD Workstation',
+      manufacturer: 'Dell',
+      model: 'OptiPlex 7010 MT',
+      serialNumber: '8KK9921-BSL',
+      status: 'IN_USE' as const,
+      categoryId: catWorkstation,
+      assignedToId: userThu.id,
+      locationId: getLoc('loc-bsl-f1-cut'), // Factory 1 > Fabric Cutting Area
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-10-05'),
+      purchaseCost: 1100,
+      warrantyExpiry: new Date('2026-10-05'),
+      specs: {
+        cpu: 'Intel Core i7-13700 (16-Core)',
+        ram: '32 GB DDR5-4800',
+        storage: '1 TB NVMe SSD',
+        os: 'Windows 11 Pro with Lectra Modaris CAD & Gerber AccuMark',
+      },
+      notes: 'Pattern nesting & CAD marker engineering workstation in Factory 1.',
+    },
+
+    // ── 3. Printing & Heat Press Equipment ────────────────────────────────────
+    {
+      assetTag: 'AST-PRN-001',
+      name: 'Monti Antonio 901-3600 Rotary Heat Transfer Calender',
+      manufacturer: 'Monti Antonio S.p.A.',
+      model: 'Model 901-3600',
+      serialNumber: 'MA-901-88341',
+      status: 'IN_USE' as const,
+      categoryId: catPrinting,
+      locationId: getLoc('loc-bsl-f1-print-hp1'), // Factory 1 > Printing & Heat Press > Heat Press Station 01
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-03-22'),
+      purchaseCost: 45000,
+      warrantyExpiry: new Date('2026-03-22'),
+      specs: {
+        cylinderWidth: '3600 mm',
+        heatedDiameter: '350 mm thermal oil heated drum',
+        maxTemperature: '230 C (+/- 1 C accuracy)',
+      },
+      notes: 'Sublimation transfer printing and continuous heat fusing in Factory 1.',
+    },
+    {
+      assetTag: 'AST-PRN-002',
+      name: 'Mimaki TS300P-1800 Digital Sublimation Textile Printer',
+      manufacturer: 'Mimaki Engineering',
+      model: 'TS300P-1800',
+      serialNumber: 'MMK-TS300P-5521',
+      status: 'IN_USE' as const,
+      categoryId: catPrinting,
+      locationId: getLoc('loc-bsl-f1-print'), // Factory 1 > Printing & Heat Press
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-04-10'),
+      purchaseCost: 24000,
+      warrantyExpiry: new Date('2026-04-10'),
+      specs: {
+        printWidth: '1940 mm',
+        resolution: '1080 dpi',
+        inkSystem: 'Sublimation Sb410 (2L Bulk Ink Tanks)',
+      },
+      notes: 'Digital transfer paper graphics printer for sportswear print panels.',
+    },
+
+    // ── 4. Inspection Terminals Allocated to QA Stations ──────────────────────
+    {
+      assetTag: 'AST-QA-001',
+      name: 'Datacolor 800 Spectrophotometer & Judge QC Light Booth',
+      manufacturer: 'Datacolor',
+      model: 'Datacolor 800 + Judge QC',
+      serialNumber: 'DC-800-99412',
+      status: 'IN_USE' as const,
+      categoryId: catQA,
+      locationId: getLoc('loc-bsl-f1-qa-bench1'), // Factory 1 > QA Lab > Inspection Bench 01
+      departmentId: getDept('DEPT-BSL-QA'), // Quality Assurance Department
+      purchaseDate: new Date('2023-07-05'),
+      purchaseCost: 18500,
+      warrantyExpiry: new Date('2026-07-05'),
+      specs: {
+        geometry: 'd/8 true dual-beam spectrophotometer',
+        lightSources: 'D65, TL84, CWF, Incandescent A, Horizon, UV LED',
+      },
+      notes: 'Lab color matching, spectrophotometer pass/fail and shade verification.',
+    },
+    {
+      assetTag: 'AST-1006',
+      name: 'Dell OptiPlex 7010 Micro QA Terminal',
+      manufacturer: 'Dell',
+      model: 'OptiPlex 7010 MFF',
+      serialNumber: '4LL8812-QA',
+      status: 'IN_USE' as const,
+      categoryId: catWorkstation,
+      assignedToId: userHuy.id,
+      locationId: getLoc('loc-bsl-f1-qa-bench1'), // Factory 1 > QA Lab > Inspection Bench 01
+      departmentId: getDept('DEPT-BSL-QA'), // Quality Assurance Department
+      purchaseDate: new Date('2023-10-05'),
+      purchaseCost: 850,
+      warrantyExpiry: new Date('2026-10-05'),
+      specs: {
+        cpu: 'Intel Core i5-13500T (14-Core)',
+        ram: '16 GB DDR5-4800',
+        storage: '512 GB NVMe SSD',
+        os: 'Windows 11 Pro with Datacolor Tools software',
+      },
+      notes: 'Factory 1 QA lab inline inspection terminal.',
+    },
+
+    // ── 5. Enterprise Rack Servers & Networking in IT Server Room ────────────
+    {
+      assetTag: 'AST-1009',
+      name: 'Dell PowerEdge R750 Enterprise Server',
+      manufacturer: 'Dell Enterprise',
+      model: 'PowerEdge R750 2U',
+      serialNumber: '7N991A2-BSL',
+      status: 'IN_USE' as const,
+      categoryId: catServer,
+      locationId: getLoc('loc-bsl-bc-datacenter'), // Business Center > IT Server Room / Datacenter (Room 102)
+      departmentId: getDept('DEPT-BSL-IT'), // Factory IT Department
+      purchaseDate: new Date('2023-07-20'),
+      purchaseCost: 9500,
+      warrantyExpiry: new Date('2026-07-20'),
+      specs: {
+        cpu: '2x Intel Xeon Gold 5318Y (48-Core total)',
+        ram: '128 GB DDR4 ECC Registered',
+        storage: '8x 1.92TB SAS SSD (RAID-10 array)',
+        os: 'Windows Server 2022 Datacenter (Hyper-V Production Host)',
+      },
+      notes: 'BSL On-Premise Host running local manufacturing ERP & factory shopfloor PBX.',
+    },
+    {
+      assetTag: 'AST-1010',
+      name: 'Cisco Catalyst 9300-48P PoE+ Switch',
+      manufacturer: 'Cisco Systems',
+      model: 'C9300-48P-A',
+      serialNumber: 'FOC2488102',
+      status: 'IN_USE' as const,
+      categoryId: catNetworking,
+      locationId: getLoc('loc-bsl-bc-datacenter'), // Business Center > IT Server Room / Datacenter (Room 102)
+      departmentId: getDept('DEPT-BSL-IT'), // Factory IT Department
+      purchaseDate: new Date('2023-07-20'),
+      purchaseCost: 5200,
+      warrantyExpiry: new Date('2028-07-20'),
+      specs: {
+        ports: '48x 10/100/1000 PoE+ (740W power budget)',
+        uplink: '8x 10G SFP+ Network Module',
+        os: 'Cisco IOS-XE 17.9.4a',
+      },
+      notes: 'BSL Factory Core Switch in Datacenter Rack 01.',
+    },
+
+    // ── 6. Shopfloor & Warehouse Handhelds & Industrial Printers ──────────────
+    {
+      assetTag: 'AST-1007',
+      name: 'Zebra ZT411 Industrial Barcode Printer',
+      manufacturer: 'Zebra Technologies',
+      model: 'ZT41142-T010000Z',
+      serialNumber: 'ZBR-ZT411-99218',
+      status: 'IN_USE' as const,
+      categoryId: catPrinter,
+      locationId: getLoc('loc-bsl-f1-pack-st1'), // Factory 1 > Packing Table 01
+      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      purchaseDate: new Date('2023-08-15'),
+      purchaseCost: 1850,
+      warrantyExpiry: new Date('2026-08-15'),
+      specs: {
+        resolution: '203 dpi Thermal Transfer / Direct Thermal',
+        printWidth: '4.09 in (104 mm)',
+        connectivity: 'Ethernet, USB, Serial, Bluetooth 4.1',
+      },
+      notes: 'Finished garment export shipping carton & polybag barcode label printer.',
+    },
+    {
+      assetTag: 'AST-1008',
+      name: 'Honeywell ScanPal EDA51 Barcode Scanner',
+      manufacturer: 'Honeywell',
+      model: 'EDA51-0-B121SNGUK',
+      serialNumber: 'HW-EDA51-88491',
+      status: 'IN_USE' as const,
+      categoryId: catMobile,
+      assignedToId: userKim.id,
+      locationId: getLoc('loc-bsl-wh-raw'), // Central Warehouse > Raw Materials Storage
+      departmentId: getDept('DEPT-BSL-LOG'), // Central Warehouse & Logistics Department
+      purchaseDate: new Date('2023-09-01'),
+      purchaseCost: 650,
+      warrantyExpiry: new Date('2025-09-01'),
+      specs: {
+        scanner: '2D Imager N6603',
+        os: 'Android 10 with GMS',
+        memory: '3GB RAM / 32GB Flash',
+      },
+      notes: 'Central Warehouse fabric roll intake & barcode inventory stocktaking scanner.',
+    },
+
+    // ── 7. Business Center Office Laptops & Workstations ──────────────────────
+    {
+      assetTag: 'AST-1003',
+      name: 'ThinkPad T14 Gen 4',
+      manufacturer: 'Lenovo',
+      model: '21HD001YUS',
+      serialNumber: 'PF-388271A',
+      status: 'IN_USE' as const,
+      categoryId: catLaptop,
+      assignedToId: userBinh.id,
+      locationId: getLoc('loc-bsl-bc-exec'), // Business Center > Executive Office (Floor 3)
+      departmentId: getDept('DEPT-BSL-MGMT'), // Factory Executive Leadership
+      purchaseDate: new Date('2024-01-10'),
+      purchaseCost: 1450,
+      warrantyExpiry: new Date('2027-01-10'),
+      specs: {
+        cpu: 'AMD Ryzen 7 PRO 7840U (8-Core, 16-Thread)',
+        ram: '32 GB LPDDR5x-6400',
+        storage: '1 TB PCIe Gen4 NVMe SSD',
+        os: 'Windows 11 Pro 23H2',
+      },
+      notes: 'Assigned to Factory General Director (BSL Soc Trang).',
+    },
+    {
+      assetTag: 'AST-1004',
+      name: 'ThinkPad T14s Gen 4',
+      manufacturer: 'Lenovo',
+      model: '21F8002LUS',
+      serialNumber: 'PF-291882K',
+      status: 'IN_USE' as const,
+      categoryId: catLaptop,
+      assignedToId: userNam.id,
+      locationId: getLoc('loc-bsl-bc-datacenter'), // Business Center > IT Server Room / Datacenter (Room 102)
+      departmentId: getDept('DEPT-BSL-IT'), // Factory IT Department
+      purchaseDate: new Date('2024-01-10'),
+      purchaseCost: 1350,
+      warrantyExpiry: new Date('2027-01-10'),
+      specs: {
+        cpu: 'Intel Core i7-1355U (10-Core)',
+        ram: '16 GB LPDDR5-4800',
+        storage: '512 GB NVMe SSD',
+        os: 'Windows 11 Pro',
+      },
+      notes: 'Assigned to Factory IT Manager (BSL Soc Trang).',
+    },
+    {
+      assetTag: 'AST-1020',
+      name: 'Dell Latitude 3440 (Spare Pool)',
+      manufacturer: 'Dell',
+      model: 'Latitude 3440 Essential',
+      serialNumber: '9M88210-SPARE',
+      status: 'AVAILABLE' as const,
+      categoryId: catLaptop,
+      locationId: getLoc('loc-bsl-bc-datacenter'), // Business Center > IT Server Room
+      departmentId: getDept('DEPT-BSL-IT'), // Factory IT Department
+      purchaseDate: new Date('2024-04-01'),
+      purchaseCost: 950,
+      warrantyExpiry: new Date('2027-04-01'),
+      specs: {
+        cpu: 'Intel Core i5-1335U (10-Core)',
+        ram: '16 GB DDR4',
+        storage: '512 GB SSD',
+        os: 'Windows 11 Pro Pre-configured',
+      },
+      notes: 'BSL Factory IT replacement buffer laptop.',
+    },
+
+    // ── 8. BSH Corporate (Ho Chi Minh Headquarters) Assets ────────────────────
     {
       assetTag: 'AST-1001',
-      name: 'MacBook Pro 16" M3 Max',
+      name: 'MacBook Pro 16" M3 Pro',
       manufacturer: 'Apple',
       model: 'MacBookPro18,2 (Space Black)',
       serialNumber: 'C02G8392MD6R',
       status: 'IN_USE' as const,
-      categoryId: categories.catLaptop.id,
-      assignedToId: u.userMarcusVance.id,
-      locationId: locations.locNYF4.id,
+      categoryId: catLaptop,
+      assignedToId: userTri.id,
+      locationId: getLoc('loc-bsh-d7'), // BSH Ho Chi Minh Office D7
+      departmentId: getDept('DEPT-BSH-EXEC'), // BSH Corporate Leadership
       purchaseDate: new Date('2024-02-10'),
-      purchaseCost: 3499,
+      purchaseCost: 2899,
       warrantyExpiry: new Date('2027-02-10'),
-      specs: {
-        cpu: 'Apple M3 Max (16-Core CPU, 40-Core GPU)',
-        ram: '64 GB Unified Memory',
-        storage: '1 TB PCIe NVMe SSD',
-        os: 'macOS Sonoma 14.6',
-      },
-      notes: 'Assigned to Principal Product Designer. Paired with CalDigit TS4 dock.',
-    },
-    {
-      assetTag: 'AST-1002',
-      name: 'Dell UltraSharp 32" 4K USB-C Hub Monitor',
-      manufacturer: 'Dell',
-      model: 'U3223QE (IPS Black)',
-      serialNumber: 'CN-0N179F-74261',
-      status: 'IN_USE' as const,
-      categoryId: categories.catMonitor.id,
-      assignedToId: u.userMarcusVance.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2024-02-12'),
-      purchaseCost: 899,
-      warrantyExpiry: new Date('2027-02-12'),
-      specs: {
-        cpu: 'Display Controller SoC',
-        ram: '4K UHD (3840x2160) 60Hz',
-        storage: '90W USB-C PD + RJ45 Hub',
-        os: 'Firmware v1.08',
-      },
-      notes: 'Design station primary color-calibrated display (98% DCI-P3).',
-    },
-    {
-      assetTag: 'AST-1003',
-      name: 'Dell PowerEdge R760 2U Rack Server',
-      manufacturer: 'Dell Enterprise',
-      model: 'PowerEdge R760 NVMe',
-      serialNumber: '7X99KM4',
-      status: 'IN_USE' as const,
-      categoryId: categories.catServer.id,
-      assignedToId: u.userLiamNguyen.id,
-      locationId: locations.locDCNY4.id,
-      purchaseDate: new Date('2023-11-20'),
-      purchaseCost: 14850,
-      warrantyExpiry: new Date('2028-11-20'),
-      specs: {
-        cpu: '2x Intel Xeon Platinum 8480+ (112 Cores / 224 Threads)',
-        ram: '512 GB ECC DDR5-4800 Registered',
-        storage: '8x 3.84TB NVMe U.2 SSD Hardware RAID 10',
-        os: 'Ubuntu Server 24.04 LTS (Kernel 6.8)',
-      },
-      notes: 'Primary production Kubernetes worker node cluster (k8s-node-prod01).',
-    },
-    {
-      assetTag: 'AST-1004',
-      name: 'Dell PowerEdge R750 2U Virtualization Host',
-      manufacturer: 'Dell Enterprise',
-      model: 'PowerEdge R750 VMware Host',
-      serialNumber: '8X9K3M2',
-      status: 'IN_USE' as const,
-      categoryId: categories.catServer.id,
-      assignedToId: u.userSarah.id,
-      locationId: locations.locDCSV5.id,
-      purchaseDate: new Date('2023-05-10'),
-      purchaseCost: 9200,
-      warrantyExpiry: new Date('2028-05-10'),
-      specs: {
-        cpu: '2x Intel Xeon Gold 6330 (56 Cores)',
-        ram: '256 GB ECC DDR4-3200',
-        storage: '6x 1.92TB Enterprise SAS SSD',
-        os: 'VMware ESXi 8.0 Update 2',
-      },
-      notes: 'Hosts internal core database replicas and staging compute nodes.',
-    },
-    {
-      assetTag: 'AST-1005',
-      name: 'Cisco Catalyst 9300 48-Port PoE+ Switch',
-      manufacturer: 'Cisco Systems',
-      model: 'C9300-48P-A',
-      serialNumber: 'FOC2438L0K4',
-      status: 'IN_USE' as const,
-      categoryId: categories.catNetworking.id,
-      assignedToId: u.userMichael.id,
-      locationId: locations.locSF.id,
-      purchaseDate: new Date('2022-11-01'),
-      purchaseCost: 4500,
-      warrantyExpiry: new Date('2027-11-01'),
-      specs: {
-        cpu: 'Cisco Quad-core x86 ASIC',
-        ram: '16 GB DRAM',
-        storage: '16 GB eMMC Flash',
-        os: 'Cisco IOS XE 17.12.02',
-      },
-      notes: 'SF HQ core access switch. Powers 24 APs and wired developer desks.',
-    },
-    {
-      assetTag: 'AST-1006',
-      name: 'Cisco Nexus 93180YC-FX3 Spine Switch',
-      manufacturer: 'Cisco Systems',
-      model: 'N9K-C93180YC-FX3',
-      serialNumber: 'FOC2612M8L1',
-      status: 'IN_USE' as const,
-      categoryId: categories.catNetworking.id,
-      assignedToId: u.userMichael.id,
-      locationId: locations.locDCNY4.id,
-      purchaseDate: new Date('2023-04-18'),
-      purchaseCost: 11200,
-      warrantyExpiry: new Date('2028-04-18'),
-      specs: {
-        cpu: 'Cloud Scale ASIC Engine',
-        ram: '32 GB DRAM',
-        storage: '64 GB SSD',
-        os: 'NX-OS 10.4(1)F',
-      },
-      notes: 'NY4 DC Top-of-Rack leaf switch with 48x 25G SFP28 and 6x 100G QSFP28.',
-    },
-    {
-      assetTag: 'AST-1007',
-      name: 'Fortinet FortiGate 200F Enterprise Firewall',
-      manufacturer: 'Fortinet',
-      model: 'FG-200F-BDL-950',
-      serialNumber: 'FG200FTK23001844',
-      status: 'IN_USE' as const,
-      categoryId: categories.catNetworking.id,
-      assignedToId: u.userMichael.id,
-      locationId: locations.locDCNY4.id,
-      purchaseDate: new Date('2023-08-01'),
-      purchaseCost: 7800,
-      warrantyExpiry: new Date('2026-08-01'),
-      specs: {
-        cpu: 'Fortinet CP9 & NP6XLite ASICs',
-        ram: '8 GB Memory',
-        storage: '32 GB Flash',
-        os: 'FortiOS 7.4.3',
-      },
-      notes: 'Main edge security gateway with IPSec VPN, SSL inspection and threat protection.',
-    },
-    {
-      assetTag: 'AST-1008',
-      name: 'Lenovo ThinkPad X1 Carbon Gen 12',
-      manufacturer: 'Lenovo',
-      model: 'ThinkPad X1 Carbon 21KC',
-      serialNumber: 'PF-49K98X',
-      status: 'IN_USE' as const,
-      categoryId: categories.catLaptop.id,
-      assignedToId: u.userDavidKim.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2024-04-05'),
-      purchaseCost: 2199,
-      warrantyExpiry: new Date('2027-04-05'),
-      specs: {
-        cpu: 'Intel Core Ultra 7 155H (16-Core / NPU AI Boost)',
-        ram: '32 GB LPDDR5x-6400',
-        storage: '1 TB PCIe 4.0 NVMe SSD',
-        os: 'Ubuntu 24.04 LTS / Dual Boot Win 11',
-      },
-      notes: 'Issued to Lead Cloud Architect for multi-cloud container orchestration.',
-    },
-    {
-      assetTag: 'AST-1009',
-      name: 'Lenovo ThinkPad P16 Gen 2 Workstation',
-      manufacturer: 'Lenovo',
-      model: 'ThinkPad P16 21FA',
-      serialNumber: 'PF-58M12L',
-      status: 'IN_USE' as const,
-      categoryId: categories.catLaptop.id,
-      assignedToId: u.userSophiaPatel.id,
-      locationId: locations.locSF.id,
-      purchaseDate: new Date('2023-10-15'),
-      purchaseCost: 3250,
-      warrantyExpiry: new Date('2026-10-15'),
-      specs: {
-        cpu: 'Intel Core i9-13980HX (24-Core 5.6GHz)',
-        ram: '64 GB DDR5-5200 ECC',
-        storage: '2 TB PCIe 4.0 NVMe SSD',
-        os: 'Fedora Workstation 40',
-      },
-      notes: 'High-performance AI model and database benchmarking machine.',
-    },
-    {
-      assetTag: 'AST-1010',
-      name: 'MacBook Pro 14" M3 Pro',
-      manufacturer: 'Apple',
-      model: 'MacBookPro18,3 (Silver)',
-      serialNumber: 'C02H1883ND9P',
-      status: 'IN_USE' as const,
-      categoryId: categories.catLaptop.id,
-      assignedToId: u.userChloeMartin.id,
-      locationId: locations.locLondon.id,
-      purchaseDate: new Date('2024-01-25'),
-      purchaseCost: 2499,
-      warrantyExpiry: new Date('2027-01-25'),
       specs: {
         cpu: 'Apple M3 Pro (12-Core CPU, 18-Core GPU)',
         ram: '36 GB Unified Memory',
-        storage: '1 TB NVMe SSD',
-        os: 'macOS Sonoma 14.5',
+        storage: '512 GB PCIe NVMe SSD',
+        os: 'macOS Sonoma 14.6',
       },
-      notes: 'London UX Research and prototyping lead machine.',
+      notes: 'Assigned to Managing Director (BSH Ho Chi Minh Office).',
+    },
+    {
+      assetTag: 'AST-1002',
+      name: 'Dell UltraSharp 27" 4K USB-C Hub Monitor',
+      manufacturer: 'Dell',
+      model: 'U2723QE (IPS Black)',
+      serialNumber: 'CN-0N179F-74261',
+      status: 'IN_USE' as const,
+      categoryId: catMonitor,
+      assignedToId: userTri.id,
+      locationId: getLoc('loc-bsh-d7'),
+      departmentId: getDept('DEPT-BSH-EXEC'),
+      purchaseDate: new Date('2024-02-12'),
+      purchaseCost: 650,
+      warrantyExpiry: new Date('2027-02-12'),
+      specs: {
+        resolution: '4K UHD (3840x2160) 60Hz',
+        ports: '90W USB-C PD, RJ45 Ethernet, DisplayPort 1.4',
+      },
+      notes: 'Primary executive desk display at BSH Ho Chi Minh.',
     },
     {
       assetTag: 'AST-1011',
-      name: 'Apple MacBook Air 15" M3',
-      manufacturer: 'Apple',
-      model: 'MacBookAir15,2 (Midnight)',
-      serialNumber: 'C02J4491QK3L',
+      name: 'ThinkPad X1 Carbon Gen 11',
+      manufacturer: 'Lenovo',
+      model: '21HM002RUS',
+      serialNumber: 'PF-491AK82',
       status: 'IN_USE' as const,
-      categoryId: categories.catLaptop.id,
-      assignedToId: u.userElena.id,
-      locationId: locations.locLondon.id,
-      purchaseDate: new Date('2024-03-10'),
-      purchaseCost: 1699,
-      warrantyExpiry: new Date('2027-03-10'),
+      categoryId: catLaptop,
+      assignedToId: userPhong.id,
+      locationId: getLoc('loc-bsh-d7'),
+      departmentId: getDept('DEPT-BSH-IT'),
+      purchaseDate: new Date('2024-01-15'),
+      purchaseCost: 1850,
+      warrantyExpiry: new Date('2027-01-15'),
       specs: {
-        cpu: 'Apple M3 (8-Core CPU, 10-Core GPU)',
-        ram: '24 GB Unified Memory',
-        storage: '512 GB SSD',
-        os: 'macOS Sonoma 14.5',
+        cpu: 'Intel Core i7-1365U vPro (10-Core)',
+        ram: '32 GB LPDDR5-6400',
+        storage: '1 TB NVMe PCIe Gen4 SSD',
+        os: 'Windows 11 Pro 23H2',
       },
-      notes: 'Marketing executive deployment.',
+      notes: 'Assigned to Enterprise IT Systems Architect (BSH).',
     },
     {
       assetTag: 'AST-1012',
-      name: 'Dell Precision 7680 Mobile Workstation',
-      manufacturer: 'Dell',
-      model: 'Precision 7680 UHD',
-      serialNumber: '9K2M771',
-      status: 'IN_USE' as const,
-      categoryId: categories.catLaptop.id,
-      assignedToId: u.userCarlosMendez.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2023-09-05'),
-      purchaseCost: 3100,
-      warrantyExpiry: new Date('2026-09-05'),
-      specs: {
-        cpu: 'Intel Core i7-13850HX vPro (20-Core)',
-        ram: '32 GB CAMM DDR5',
-        storage: '1 TB NVMe Gen4 + NVIDIA RTX 3500 Ada',
-        os: 'Windows 11 Pro Enterprise',
-      },
-      notes: 'Backend microservices profiling and load testing.',
-    },
-    {
-      assetTag: 'AST-1013',
-      name: 'Apple Studio Display 27" 5K Retina',
-      manufacturer: 'Apple',
-      model: 'Studio Display A2525',
-      serialNumber: 'F17HK923MD99',
-      status: 'IN_USE' as const,
-      categoryId: categories.catMonitor.id,
-      assignedToId: u.userChloeMartin.id,
-      locationId: locations.locLondon.id,
-      purchaseDate: new Date('2024-01-26'),
-      purchaseCost: 1599,
-      warrantyExpiry: new Date('2027-01-26'),
-      specs: {
-        cpu: 'Apple A13 Bionic (Center Stage & Spatial Audio)',
-        ram: '5K Retina 5120x2880 Display',
-        storage: '96W Thunderbolt 3 Passthrough',
-        os: 'Studio Display Firmware v17.0',
-      },
-      notes: 'Paired with AST-1010 in London design studio.',
-    },
-    {
-      assetTag: 'AST-1014',
-      name: 'Dell UltraSharp 38" Curved USB-C Hub Monitor',
-      manufacturer: 'Dell',
-      model: 'U3824DW (WQHD+)',
-      serialNumber: 'CN-08819A-48192',
-      status: 'IN_USE' as const,
-      categoryId: categories.catMonitor.id,
-      assignedToId: u.userDavidKim.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2023-12-01'),
-      purchaseCost: 1250,
-      warrantyExpiry: new Date('2026-12-01'),
-      specs: {
-        cpu: 'Dual KVM Controller Engine',
-        ram: '3840x1600 WQHD+ 60Hz 21:9',
-        storage: '2.5GbE LAN RJ45 + 90W PD',
-        os: 'Firmware v1.03',
-      },
-      notes: 'Architecture dual-source side-by-side workstation screen.',
-    },
-    {
-      assetTag: 'AST-1015',
-      name: 'Synology RackStation RS3621xs+ Storage SAN',
-      manufacturer: 'Synology Enterprise',
-      model: 'RS3621xs+ 12-Bay',
-      serialNumber: '2190Q8R39201',
-      status: 'IN_USE' as const,
-      categoryId: categories.catStorage.id,
-      assignedToId: u.userSarah.id,
-      locationId: locations.locDCNY4.id,
-      purchaseDate: new Date('2023-03-14'),
-      purchaseCost: 8900,
-      warrantyExpiry: new Date('2028-03-14'),
-      specs: {
-        cpu: 'Intel Xeon D-1541 8-Core 2.7GHz',
-        ram: '64 GB ECC DDR4',
-        storage: '12x 18TB Seagate Exos Enterprise SAS (144TB Raw / RAID 6)',
-        os: 'DSM 7.2.1 Enterprise',
-      },
-      notes: 'Internal NFS and iSCSI target for automated daily system snapshots.',
-    },
-    {
-      assetTag: 'AST-1016',
-      name: 'Apple iPad Pro 13" M4 (OLED, 512GB 5G)',
-      manufacturer: 'Apple',
-      model: 'iPad Pro 13 (A2925)',
-      serialNumber: 'DMP99120KM4L',
-      status: 'AVAILABLE' as const,
-      categoryId: categories.catMobile.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2024-05-20'),
-      purchaseCost: 1499,
-      warrantyExpiry: new Date('2026-05-20'),
-      specs: {
-        cpu: 'Apple M4 (9-Core CPU, 10-Core GPU)',
-        ram: '8 GB Unified Memory',
-        storage: '512 GB Tandem OLED Display + 5G',
-        os: 'iPadOS 17.5',
-      },
-      notes: 'Available in Floor 4 IT Vault for field testing checkout.',
-    },
-    {
-      assetTag: 'AST-1017',
-      name: 'Apple iPad Air 11" M2 (128GB Wi-Fi)',
-      manufacturer: 'Apple',
-      model: 'iPad Air 11 (A2902)',
-      serialNumber: 'DMP88319LK02',
-      status: 'IN_USE' as const,
-      categoryId: categories.catMobile.id,
-      assignedToId: u.userRachelAdams.id,
-      locationId: locations.locNYF5.id,
-      purchaseDate: new Date('2024-05-22'),
-      purchaseCost: 699,
-      warrantyExpiry: new Date('2026-05-22'),
-      specs: {
-        cpu: 'Apple M2 (8-Core)',
-        ram: '8 GB Unified Memory',
-        storage: '128 GB Liquid Retina',
-        os: 'iPadOS 17.5',
-      },
-      notes: 'People Operations onboarding kiosk and paperless signing tablet.',
-    },
-    {
-      assetTag: 'AST-1018',
-      name: 'Ubiquiti UniFi Dream Machine Special Edition',
-      manufacturer: 'Ubiquiti Inc',
-      model: 'UDM-SE Enterprise',
-      serialNumber: '7483C211440A',
-      status: 'IN_USE' as const,
-      categoryId: categories.catNetworking.id,
-      assignedToId: u.userAlex.id,
-      locationId: locations.locLondon.id,
-      purchaseDate: new Date('2023-07-11'),
-      purchaseCost: 599,
-      warrantyExpiry: new Date('2026-07-11'),
-      specs: {
-        cpu: 'Quad-Core ARM Cortex-A57 at 1.7GHz',
-        ram: '4 GB DDR4',
-        storage: '128 GB Integrated SSD + 10G SFP+',
-        os: 'UniFi OS v3.2.12',
-      },
-      notes: 'London regional office security gateway & IDS/IPS controller.',
-    },
-    {
-      assetTag: 'AST-1019',
-      name: 'Ubiquiti UniFi U6 Enterprise Access Point',
-      manufacturer: 'Ubiquiti Inc',
-      model: 'U6-Enterprise (Wi-Fi 6E)',
-      serialNumber: '7483C25561FA',
-      status: 'IN_USE' as const,
-      categoryId: categories.catNetworking.id,
-      assignedToId: u.userMichael.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2023-09-15'),
-      purchaseCost: 299,
-      warrantyExpiry: new Date('2026-09-15'),
-      specs: {
-        cpu: 'Broadcom Tri-Band Wi-Fi 6E SoC',
-        ram: '1 GB Memory',
-        storage: '10.2 Gbps Total Over-the-air Rate',
-        os: 'UniFi AP Firmware v6.6.65',
-      },
-      notes: 'NY Office Floor 4 East Wing ceiling array AP.',
-    },
-    {
-      assetTag: 'AST-1020',
-      name: 'HP LaserJet Enterprise MFP M528dn Printer',
-      manufacturer: 'HP Inc',
-      model: 'LaserJet MFP M528dn',
-      serialNumber: 'CNB1N39201',
-      status: 'IN_USE' as const,
-      categoryId: categories.catPeripherals.id,
-      assignedToId: u.userRobertTorres.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2022-08-10'),
-      purchaseCost: 1450,
-      warrantyExpiry: new Date('2025-08-10'),
-      specs: {
-        cpu: '1.2 GHz Processor',
-        ram: '1.5 GB Memory',
-        storage: '500 GB Encrypted Secure Hard Disk',
-        os: 'HP FutureSmart 5 Firmware',
-      },
-      notes: 'Floor 4 secure badge-release printer with PIN verification.',
-    },
-    {
-      assetTag: 'AST-1021',
-      name: 'CalDigit TS4 Thunderbolt 4 Dock 18-Port',
-      manufacturer: 'CalDigit',
-      model: 'TS4-US-AMZ',
-      serialNumber: 'CDTS48891024',
-      status: 'IN_USE' as const,
-      categoryId: categories.catPeripherals.id,
-      assignedToId: u.userMarcusVance.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2024-02-10'),
-      purchaseCost: 399,
-      warrantyExpiry: new Date('2026-02-10'),
-      specs: {
-        cpu: 'Intel Goshen Ridge JHL8440 Controller',
-        ram: '98W Laptop Charging PD',
-        storage: '18 I/O Ports with 2.5GbE Ethernet',
-        os: 'Firmware v39.1',
-      },
-      notes: 'Primary desk hub for AST-1001 design station.',
-    },
-    {
-      assetTag: 'AST-1022',
-      name: 'Poly Studio X50 Video Bar & TC8 Controller',
-      manufacturer: 'HP / Poly',
-      model: 'Studio X50 (Zoom & Teams Native)',
-      serialNumber: '8220019284AA',
-      status: 'IN_USE' as const,
-      categoryId: categories.catPeripherals.id,
-      assignedToId: u.userAlex.id,
-      locationId: locations.locNYF5.id,
-      purchaseDate: new Date('2023-06-20'),
-      purchaseCost: 3200,
-      warrantyExpiry: new Date('2026-06-20'),
-      specs: {
-        cpu: 'Qualcomm Snapdragon 845 SoC',
-        ram: '4 GB RAM + 4K Beamforming Camera Array',
-        storage: 'Room Filling Acoustic Stereo Chambers',
-        os: 'Poly VideoOS 4.1.2',
-      },
-      notes: 'Boardroom executive video telepresence conferencing bar.',
-    },
-    {
-      assetTag: 'AST-1023',
-      name: 'Lenovo ThinkPad X1 Carbon Gen 11 (RMA Service)',
-      manufacturer: 'Lenovo',
-      model: 'ThinkPad 21HM',
-      serialNumber: 'PF-39K21L',
-      status: 'MAINTENANCE' as const,
-      categoryId: categories.catLaptop.id,
-      assignedToId: u.userSarah.id,
-      locationId: locations.locSF.id,
-      purchaseDate: new Date('2023-08-14'),
-      purchaseCost: 1950,
-      warrantyExpiry: new Date('2026-08-14'),
-      specs: {
-        cpu: 'Intel Core i7-1365U vPro',
-        ram: '32 GB LPDDR5-5200',
-        storage: '512 GB PCIe 4.0 SSD',
-        os: 'Windows 11 Pro 23H2',
-      },
-      notes: 'Sent to Lenovo Premier Support Depot for battery sensor replacement.',
-    },
-    {
-      assetTag: 'AST-1024',
-      name: 'Dell Latitude 5440 Laptop (Buffer Stock)',
+      name: 'Dell Latitude 5440 Laptop',
       manufacturer: 'Dell',
       model: 'Latitude 5440 Business',
-      serialNumber: '7N881M2',
-      status: 'AVAILABLE' as const,
-      categoryId: categories.catLaptop.id,
-      locationId: locations.locNYF4.id,
+      serialNumber: '7N881M2-HCM',
+      status: 'IN_USE' as const,
+      categoryId: catLaptop,
+      assignedToId: userLan.id,
+      locationId: getLoc('loc-bsh-d3'), // BSH Ho Chi Minh Office D3
+      departmentId: getDept('DEPT-BSH-MERCH'), // BSH Merchandising Department
       purchaseDate: new Date('2024-03-01'),
       purchaseCost: 1250,
       warrantyExpiry: new Date('2027-03-01'),
@@ -517,29 +543,71 @@ export async function seedAssets(
         cpu: 'Intel Core i5-1335U (10-Core)',
         ram: '16 GB DDR4-3200',
         storage: '512 GB NVMe SSD',
-        os: 'Windows 11 Enterprise (Autopilot Ready)',
+        os: 'Windows 11 Pro',
       },
-      notes: 'Pre-imaged spare laptop in secure IT storage room.',
+      notes: 'Assigned to Apparel Merchandising Manager (BSH).',
     },
     {
-      assetTag: 'AST-1025',
-      name: 'Apple MacBook Pro 13" M1 (Decommissioned)',
-      manufacturer: 'Apple',
-      model: 'MacBookPro17,1',
-      serialNumber: 'C02D1839MD6R',
-      status: 'RETIRED' as const,
-      categoryId: categories.catLaptop.id,
-      locationId: locations.locNYF4.id,
-      purchaseDate: new Date('2020-12-10'),
-      purchaseCost: 1499,
-      warrantyExpiry: new Date('2023-12-10'),
+      assetTag: 'AST-1013',
+      name: 'Dell Latitude 5440 Laptop',
+      manufacturer: 'Dell',
+      model: 'Latitude 5440 Business',
+      serialNumber: '7N882M3-FIN',
+      status: 'IN_USE' as const,
+      categoryId: catLaptop,
+      assignedToId: userNgoc.id,
+      locationId: getLoc('loc-bsh-d7'),
+      departmentId: getDept('DEPT-BSH-FIN'), // BSH Finance Department
+      purchaseDate: new Date('2024-03-01'),
+      purchaseCost: 1250,
+      warrantyExpiry: new Date('2027-03-01'),
       specs: {
-        cpu: 'Apple M1 (8-Core)',
-        ram: '16 GB Unified Memory',
-        storage: '512 GB SSD (Data Sanitized DoD 5220.22-M)',
-        os: 'macOS Big Sur (Wiped)',
+        cpu: 'Intel Core i5-1335U (10-Core)',
+        ram: '16 GB DDR4-3200',
+        storage: '512 GB NVMe SSD',
+        os: 'Windows 11 Pro',
       },
-      notes: 'Retired after 4-year lifecycle completion. Certified certificate of destruction.',
+      notes: 'Assigned to Chief Accountant (BSH).',
+    },
+    {
+      assetTag: 'AST-1014',
+      name: 'HPE ProLiant DL380 Gen10 Server',
+      manufacturer: 'Hewlett Packard Enterprise',
+      model: 'ProLiant DL380 Gen10 2U',
+      serialNumber: 'USE-994821',
+      status: 'IN_USE' as const,
+      categoryId: catServer,
+      locationId: getLoc('loc-bsh-d7'),
+      departmentId: getDept('DEPT-BSH-IT'),
+      purchaseDate: new Date('2023-11-20'),
+      purchaseCost: 8900,
+      warrantyExpiry: new Date('2026-11-20'),
+      specs: {
+        cpu: '2x Intel Xeon Silver 4314 (32-Core total)',
+        ram: '128 GB DDR4 ECC Registered',
+        storage: '8x 1.92TB SAS SSD RAID-10',
+        os: 'VMware ESXi 8.0 Update 2',
+      },
+      notes: 'BSH Regional Data Center application host.',
+    },
+    {
+      assetTag: 'AST-1015',
+      name: 'Cisco Meraki MX85 Cloud Security Appliance',
+      manufacturer: 'Cisco Meraki',
+      model: 'MX85-HW',
+      serialNumber: 'Q2QN-9981-LKM9',
+      status: 'IN_USE' as const,
+      categoryId: catNetworking,
+      locationId: getLoc('loc-bsh-d7'),
+      departmentId: getDept('DEPT-BSH-IT'),
+      purchaseDate: new Date('2024-01-10'),
+      purchaseCost: 2400,
+      warrantyExpiry: new Date('2027-01-10'),
+      specs: {
+        throughput: '1 Gbps Stateful Firewall / SD-WAN',
+        interfaces: '2x 1G SFP WAN, 8x GbE LAN',
+      },
+      notes: 'BSH Corporate Gateway with Auto VPN to BSL Soc Trang.',
     },
   ];
 
@@ -548,11 +616,27 @@ export async function seedAssets(
   for (const asset of assetDefinitions) {
     const record = await prisma.asset.upsert({
       where: { assetTag: asset.assetTag },
-      update: {},
+      update: {
+        name: asset.name,
+        manufacturer: asset.manufacturer,
+        model: asset.model,
+        serialNumber: asset.serialNumber,
+        status: asset.status,
+        categoryId: asset.categoryId,
+        assignedToId: asset.assignedToId || null,
+        locationId: asset.locationId,
+        departmentId: asset.departmentId,
+        purchaseDate: asset.purchaseDate,
+        purchaseCost: asset.purchaseCost,
+        warrantyExpiry: asset.warrantyExpiry,
+        specs: asset.specs,
+        notes: asset.notes,
+      },
       create: asset,
     });
     createdAssets[asset.assetTag] = record;
   }
 
+  logger.log(`✅ Seeded ${Object.keys(createdAssets).length} Hardware Assets across BSL & BSH.`);
   return createdAssets;
 }

@@ -4,35 +4,58 @@ import type { PrismaClient } from '@prisma/client';
 const logger = new Logger('InventorySeeder');
 
 export async function seedInventory(prisma: PrismaClient) {
-  logger.log('📦 Seeding Standard Master Inventory Categories & Relational Stockroom Items...');
+  logger.log('📦 Seeding Inventory Categories & Garment Manufacturing Stockroom Items...');
 
-  // 1. Master Inventory Categories Catalog
+  // 1. Ensure Master Inventory Categories
   const inventoryCategories = [
     {
+      id: 'inv-cat-fabrics',
+      name: 'Raw Fabrics',
+      description:
+        'Cotton twill, polyester fleece, nylon taffeta rolls, knitted and woven fabric lots',
+    },
+    {
+      id: 'inv-cat-accessories',
+      name: 'Garment Accessories',
+      description:
+        'YKK zippers, melamine buttons, coats sewing threads, elastic bands, rivets & drawstrings',
+    },
+    {
+      id: 'inv-cat-spares',
+      name: 'Spare Motors & Needles',
+      description:
+        'Servo drive motors, sewing machine needles (DBx1/DPx5), rotary hooks, bobbins, cutter blades & presser feet',
+    },
+    {
+      id: 'inv-cat-it-consumables',
+      name: 'General IT & Consumables',
+      description:
+        'Zebra thermal transfer labels, resin ribbons, Cat6 patch cables, transceivers & PDA batteries',
+    },
+    {
       id: 'inv-cat-cables',
-      name: 'Cables & Adapters',
-      description: 'Network patch cables, optical transceivers, USB-C adapters, and interconnects',
+      name: 'Cables & Optical',
+      description: 'Cat6 network patch cables, optical patch cords, transceivers & interconnects',
     },
     {
       id: 'inv-cat-peripherals',
-      name: 'Peripherals',
-      description: 'Workplace peripherals, mice, keyboards, docks, headsets, and security keys',
+      name: 'Peripherals & Accessories',
+      description: 'Mice, keyboards, USB-C docks, barcode scanners & accessories',
     },
     {
       id: 'inv-cat-components',
-      name: 'Storage & RAM',
-      description: 'Internal workstation memory modules and NVMe PCIe SSD storage drives',
+      name: 'Storage & Memory',
+      description: 'Workstation DDR4/DDR5 memory modules & PCIe NVMe SSD drives',
     },
     {
       id: 'inv-cat-consumables',
-      name: 'Power & Battery',
-      description:
-        'Power adapters, chargers, batteries, packaging materials, and maintenance consumables',
+      name: 'Thermal Ribbons & Labels',
+      description: 'Industrial Zebra thermal transfer ribbons, garment barcode labels & tags',
     },
     {
-      id: 'inv-cat-tooling',
-      name: 'Tooling & Equipment',
-      description: 'Diagnostic equipment, patch tools, crimpers, and hardware maintenance kits',
+      id: 'inv-cat-power',
+      name: 'Power & Batteries',
+      description: 'Laptop chargers, Honeywell handheld PDA batteries & power supplies',
     },
   ];
 
@@ -43,160 +66,246 @@ export async function seedInventory(prisma: PrismaClient) {
         name: cat.name,
         description: cat.description,
       },
-      create: {
-        id: cat.id,
-        name: cat.name,
-        description: cat.description,
-      },
+      create: cat,
     });
   }
 
-  // 2. Resolve target Location IDs
-  const [locNYF4, locNYF5, locSF, locDCNY4] = await Promise.all([
-    prisma.location.findFirst({ where: { OR: [{ id: 'loc-ny-f4' }, { code: 'loc-ny-f4' }] } }),
-    prisma.location.findFirst({ where: { OR: [{ id: 'loc-ny-f5' }, { code: 'loc-ny-f5' }] } }),
-    prisma.location.findFirst({ where: { OR: [{ id: 'loc-sf-bay' }, { code: 'loc-sf-bay' }] } }),
-    prisma.location.findFirst({ where: { OR: [{ id: 'loc-dc-ny4' }, { code: 'loc-dc-ny4' }] } }),
-  ]);
+  // 2. Resolve target leaf Location IDs from database
+  const allLocations = await prisma.location.findMany();
+  const locMap = new Map(allLocations.map((l) => [l.id, l.id]));
 
-  const fallbackLocationId = locNYF4?.id || (await prisma.location.findFirst())?.id;
-  if (!fallbackLocationId) {
-    throw new Error('Cannot seed inventory items: No Location records found in database.');
-  }
+  const getLoc = (id: string, fallbackCode?: string): string => {
+    if (locMap.has(id)) return id;
+    const match = allLocations.find(
+      (l) => l.id === id || (fallbackCode && l.code === fallbackCode),
+    );
+    return match?.id || allLocations[0]?.id || 'loc-bsl-wh';
+  };
 
-  // 3. Relational Inventory Items Catalog
+  // 3. Relational Stockroom Items
   const inventoryItems = [
+    // ── Central Warehouse: Raw Materials Fabric Rolls ───────────────────────
     {
-      sku: 'CAB-CAT6A-2M-BLU',
-      name: 'Cat6a 10Gbps Snagless RJ45 Patch Cable (2m, Blue)',
-      categoryId: 'inv-cat-cables',
-      locationId: locNYF4?.id || fallbackLocationId,
-      binNumber: 'Bin A-04',
-      quantity: 64,
+      sku: 'FAB-COT-TWILL-40S',
+      name: '100% Combed Cotton Twill 40s Fabric Roll (1000m/roll, Navy Blue)',
+      categoryId: 'inv-cat-fabrics',
+      locationId: getLoc('loc-bsl-wh-bin1', 'WH-BIN-01'), // Central Warehouse > Raw Materials > Rack R-01 > Shelf 1 > Bin B-01
+      binNumber: 'Bin B-01',
+      quantity: 85,
       minThreshold: 20,
-      unitCost: 6.5,
-      supplier: 'Monoprice B2B Direct',
-      notes: 'Standard high-speed desk patch cables.',
+      unitCost: 4.85,
+      supplier: 'Thanh Cong Textile Garment JSC',
+      notes: 'Premium combed cotton twill rolls for outerwear and cargo pants.',
     },
     {
-      sku: 'ACC-MSE-MX3S-GRY',
-      name: 'Logitech MX Master 3S Wireless Performance Mouse',
-      categoryId: 'inv-cat-peripherals',
-      locationId: locNYF4?.id || fallbackLocationId,
-      binNumber: 'Shelf 2',
-      quantity: 2,
-      minThreshold: 5,
-      unitCost: 99.0,
-      supplier: 'CDW Direct Enterprise',
-      notes: 'Low stock warning! Restock order PO-9921 placed.',
+      sku: 'FAB-POLY-FLEECE-280',
+      name: 'Recycled Polyester Microfleece 280gsm (500m/roll, Heather Grey)',
+      categoryId: 'inv-cat-fabrics',
+      locationId: getLoc('loc-bsl-wh-bin2', 'WH-BIN-02'), // Central Warehouse > Raw Materials > Rack R-01 > Shelf 1 > Bin B-02
+      binNumber: 'Bin B-02',
+      quantity: 60,
+      minThreshold: 15,
+      unitCost: 6.2,
+      supplier: 'Formosa Taffeta Vietnam',
+      notes: 'Anti-pilling recycled polyester fleece for sportswear hoodies.',
     },
     {
-      sku: 'ACC-DOCK-TS4-TB4',
-      name: 'CalDigit TS4 Thunderbolt 4 Dock 18-Port (Spare)',
-      categoryId: 'inv-cat-peripherals',
-      locationId: locNYF5?.id || fallbackLocationId,
-      binNumber: 'Cabinet Secure-1',
-      quantity: 5,
-      minThreshold: 3,
-      unitCost: 379.0,
-      supplier: 'B&H Photo Video B2B',
-      notes: 'Emergency hot-swap docks for executive boardrooms.',
+      sku: 'FAB-NYL-TAFFETA-210',
+      name: 'Water-Repellent Nylon Taffeta 210T (1200m/roll, Black)',
+      categoryId: 'inv-cat-fabrics',
+      locationId: getLoc('loc-bsl-wh-bin3', 'WH-BIN-03'), // Central Warehouse > Raw Materials > Rack R-02 > Shelf 2 > Bin B-03
+      binNumber: 'Bin B-03',
+      quantity: 45,
+      minThreshold: 10,
+      unitCost: 3.9,
+      supplier: 'Formosa Taffeta Vietnam',
+      notes: 'DWR-coated nylon taffeta for windbreaker jackets.',
     },
     {
-      sku: 'RAM-DDR5-32G-SODIMM',
-      name: 'Crucial 32GB DDR5-5600 SODIMM Laptop Memory Module',
-      categoryId: 'inv-cat-components',
-      locationId: locSF?.id || fallbackLocationId,
-      binNumber: 'Anti-Static Drawer 3',
-      quantity: 14,
-      minThreshold: 6,
-      unitCost: 110.0,
-      supplier: 'Newegg Business',
-      notes: 'Laptop RAM upgrade kit for engineering workstations.',
+      sku: 'FAB-SPX-INTERLOCK-220',
+      name: 'Poly-Spandex 4-Way Stretch Interlock (800m/roll, Olive Green)',
+      categoryId: 'inv-cat-fabrics',
+      locationId: getLoc('loc-bsl-wh-bin4', 'WH-BIN-04'), // Central Warehouse > Raw Materials > Rack R-03 > Shelf 3 > Bin B-04
+      binNumber: 'Bin B-04',
+      quantity: 40,
+      minThreshold: 12,
+      unitCost: 7.5,
+      supplier: 'Toray International Vietnam',
+      notes: 'Performance compression stretch fabric for activewear legging lines.',
+    },
+
+    // ── Factory MDC Sub-Warehouses: Thread Spools, Buttons & Zippers ─────────
+    {
+      sku: 'ZIP-YKK-5VIS-NAVY',
+      name: 'YKK #5 Vislon Open-End Zippers 65cm (Pack of 100, Navy)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f1-mdc-bin1', 'F1-MDC-B01'), // Factory 1 > MDC > Shelf 01 > Bin MDC-01 (Zippers)
+      binNumber: 'Bin MDC-01',
+      quantity: 350,
+      minThreshold: 100,
+      unitCost: 1.25,
+      supplier: 'YKK Vietnam Co., Ltd.',
+      notes: 'Front opening zippers for Factory 1 production jackets.',
     },
     {
-      sku: 'SSD-NVME-2TB-SAMS',
-      name: 'Samsung 990 Pro 2TB PCIe 4.0 NVMe SSD M.2',
-      categoryId: 'inv-cat-components',
-      locationId: locSF?.id || fallbackLocationId,
-      binNumber: 'Anti-Static Drawer 1',
-      quantity: 8,
-      minThreshold: 4,
-      unitCost: 175.0,
-      supplier: 'Newegg Business',
-      notes: 'Fast internal storage drives for engineer machine refreshes.',
+      sku: 'BTN-MLM-4H-PEARL',
+      name: 'Melamine 4-Hole Shirt Buttons 18L (Gross of 144, Pearl White)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f1-mdc-bin2', 'F1-MDC-B02'), // Factory 1 > MDC > Shelf 01 > Bin MDC-02 (Buttons)
+      binNumber: 'Bin MDC-02',
+      quantity: 500,
+      minThreshold: 150,
+      unitCost: 3.4,
+      supplier: 'Universal Fasteners Vietnam',
+      notes: 'Cross-stitched shirt buttons for dress shirt production lines.',
     },
     {
-      sku: 'PWR-APL-140W-USBC',
-      name: 'Apple 140W USB-C Power Adapter + 2m MagSafe 3 Cable',
-      categoryId: 'inv-cat-consumables',
-      locationId: locNYF4?.id || fallbackLocationId,
-      binNumber: 'Shelf 1',
-      quantity: 16,
-      minThreshold: 5,
-      unitCost: 99.0,
-      supplier: 'Apple Corporate B2B',
-      notes: 'Replacement chargers for 16-inch MacBook Pro fleet.',
+      sku: 'THD-COATS-EPIC-BLK',
+      name: 'Coats Epic Poly-Wrapped Core Sewing Thread Tex 27 5000m (Black)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f1-mdc-bin3', 'F1-MDC-B03'), // Factory 1 > MDC > Shelf 01 > Bin MDC-03 (Threads)
+      binNumber: 'Bin MDC-03',
+      quantity: 240,
+      minThreshold: 50,
+      unitCost: 4.15,
+      supplier: 'Coats Phong Phu Vietnam',
+      notes: 'High-tenacity corespun polyester thread for Factory 1 lockstitch lines.',
     },
     {
-      sku: 'PWR-DELL-130W-USBC',
-      name: 'Dell 130W USB-C AC Adapter with Power Cord',
-      categoryId: 'inv-cat-consumables',
-      locationId: locNYF4?.id || fallbackLocationId,
-      binNumber: 'Shelf 1',
-      quantity: 12,
-      minThreshold: 5,
-      unitCost: 79.0,
-      supplier: 'Dell Premier B2B',
-      notes: 'Power bricks for Dell Precision / Latitude laptops.',
+      sku: 'ZIP-YKK-3COIL-BLK',
+      name: 'YKK #3 Nylon Coil Closed-End Zippers 20cm (Pack of 100, Black)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f2-mdc-bin1', 'F2-MDC-B01'), // Factory 2 > MDC > Shelf 01 > Bin MDC-01
+      binNumber: 'Bin MDC-01',
+      quantity: 280,
+      minThreshold: 80,
+      unitCost: 0.85,
+      supplier: 'YKK Vietnam Co., Ltd.',
+      notes: 'Pocket and sleeve zippers for Factory 2 sportswear lines.',
     },
     {
-      sku: 'ADP-TB-25GBE-LAN',
-      name: 'Belkin USB-C to 2.5Gbps Gigabit Ethernet Adapter',
-      categoryId: 'inv-cat-cables',
-      locationId: locNYF4?.id || fallbackLocationId,
-      binNumber: 'Bin A-12',
-      quantity: 0,
-      minThreshold: 5,
-      unitCost: 35.0,
-      supplier: 'CDW Direct Enterprise',
-      notes: 'Completely depleted! Pending supplier restock delivery.',
+      sku: 'THD-COATS-EPIC-WHT',
+      name: 'Coats Epic Poly-Wrapped Core Sewing Thread Tex 27 5000m (White)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f2-mdc-bin3', 'F2-MDC-B03'), // Factory 2 > MDC > Shelf 01 > Bin MDC-03
+      binNumber: 'Bin MDC-03',
+      quantity: 200,
+      minThreshold: 40,
+      unitCost: 4.15,
+      supplier: 'Coats Phong Phu Vietnam',
+      notes: 'Factory 2 production thread spools for white sports jerseys.',
+    },
+
+    // ── Spare Parts Bins: Needles, Motors & Mechanical Spares ───────────────
+    {
+      sku: 'NDL-GB-DBX1-9014',
+      name: 'Groz-Beckert DBx1 Size 90/14 Sewing Needles (Box of 100)',
+      categoryId: 'inv-cat-spares',
+      locationId: getLoc('loc-bsl-wh-sp-bin01', 'WH-SP-01'), // Central Warehouse > Spare Parts > Bin SP-01
+      binNumber: 'Bin SP-01',
+      quantity: 150,
+      minThreshold: 40,
+      unitCost: 18.5,
+      supplier: 'Groz-Beckert Vietnam',
+      notes: 'Precision industrial lockstitch needles with GEBEDUR titanium coating.',
     },
     {
-      sku: 'OPT-SFP-10G-SR-CS',
-      name: 'Cisco 10GBASE-SR SFP+ Optical Transceiver Module',
-      categoryId: 'inv-cat-cables',
-      locationId: locDCNY4?.id || fallbackLocationId,
-      binNumber: 'Fiber Bin F-02',
+      sku: 'NDL-ORG-DPX5-11018',
+      name: 'Organ DPx5 Size 110/18 Overlock Needles (Box of 100)',
+      categoryId: 'inv-cat-spares',
+      locationId: getLoc('loc-bsl-wh-sp-bin01', 'WH-SP-01'), // Central Warehouse > Spare Parts > Bin SP-01
+      binNumber: 'Bin SP-01',
+      quantity: 120,
+      minThreshold: 30,
+      unitCost: 16.8,
+      supplier: 'Organ Needle Vietnam',
+      notes: 'Heavy-duty industrial needles for denim and multi-layer seam serging.',
+    },
+    {
+      sku: 'MTR-HOH-550W-SERVO',
+      name: 'Ho Hsing 550W AC Direct Drive Servomotor Assembly',
+      categoryId: 'inv-cat-spares',
+      locationId: getLoc('loc-bsl-wh-sp-bin02', 'WH-SP-02'), // Central Warehouse > Spare Parts > Bin SP-02
+      binNumber: 'Bin SP-02',
       quantity: 18,
-      minThreshold: 6,
-      unitCost: 120.0,
-      supplier: 'Cisco Systems Direct',
-      notes: 'Multimode 850nm OM4 fiber transceivers for rack interconnects.',
+      minThreshold: 5,
+      unitCost: 220.0,
+      supplier: 'Ho Hsing Machinery Co.',
+      notes: 'Energy-saving direct drive replacement motor with synchronized needle positioner.',
     },
     {
-      sku: 'SEC-YUBIKEY-5C-NFC',
-      name: 'Yubico YubiKey 5C NFC FIDO2 / WebAuthn Security Key',
-      categoryId: 'inv-cat-peripherals',
-      locationId: locNYF5?.id || fallbackLocationId,
-      binNumber: 'Vault Locker 2',
+      sku: 'HK-JK-DDL9000-ROTARY',
+      name: 'Juki Hirose Full Rotary Hook for DDL-9000C',
+      categoryId: 'inv-cat-spares',
+      locationId: getLoc('loc-bsl-wh-sp-bin03', 'WH-SP-03'), // Central Warehouse > Spare Parts > Bin SP-03
+      binNumber: 'Bin SP-03',
       quantity: 35,
       minThreshold: 10,
-      unitCost: 55.0,
-      supplier: 'Yubico Enterprise Security',
-      notes: 'Mandatory hardware MFA token for all employees with cloud access.',
+      unitCost: 42.0,
+      supplier: 'Juki Vietnam',
+      notes: 'Original Japanese rotary hook replacement for Juki lockstitch machines.',
     },
     {
-      sku: 'AUD-HEADSET-POLY-V2',
-      name: 'Poly Voyager Focus 2 UC Wireless Bluetooth Headset',
-      categoryId: 'inv-cat-peripherals',
-      locationId: locNYF4?.id || fallbackLocationId,
-      binNumber: 'Shelf 4',
-      quantity: 9,
+      sku: 'BLD-GB-CUT-8IN',
+      name: 'Gerber 8-Inch High-Speed Steel Auto-Cutter Blades (Pack of 12)',
+      categoryId: 'inv-cat-spares',
+      locationId: getLoc('loc-bsl-wh-sp-bin05', 'WH-SP-05'), // Central Warehouse > Spare Parts > Bin SP-05
+      binNumber: 'Bin SP-05',
+      quantity: 25,
+      minThreshold: 6,
+      unitCost: 85.0,
+      supplier: 'Gerber Technology Vietnam',
+      notes: 'Replacement straight knives for Gerber Paragon automated cutting tables.',
+    },
+
+    // ── General IT & Shopfloor Consumables ──────────────────────────────────
+    {
+      sku: 'LBL-ZBR-100X150',
+      name: 'Zebra Thermal Transfer Barcode Labels (100mm x 150mm, 1000/roll)',
+      categoryId: 'inv-cat-it-consumables',
+      locationId: getLoc('loc-bsl-wh-sp-bin08', 'WH-SP-08'), // Central Warehouse > Spare Parts > Bin SP-08 (Zebra Consumables)
+      binNumber: 'Bin SP-08',
+      quantity: 120,
+      minThreshold: 30,
+      unitCost: 14.5,
+      supplier: 'Zebra Technologies Vietnam',
+      notes: 'Standard carton shipping and tracking labels for export garments.',
+    },
+    {
+      sku: 'RBN-ZBR-110X300',
+      name: 'Zebra 5095 Resin Thermal Ribbon (110mm x 300m, Black)',
+      categoryId: 'inv-cat-it-consumables',
+      locationId: getLoc('loc-bsl-wh-sp-bin08', 'WH-SP-08'), // Central Warehouse > Spare Parts > Bin SP-08
+      binNumber: 'Bin SP-08',
+      quantity: 45,
+      minThreshold: 15,
+      unitCost: 18.0,
+      supplier: 'Zebra Technologies Vietnam',
+      notes: 'High durability resin ribbons for garment wash-care barcode labels.',
+    },
+    {
+      sku: 'CBL-CAT6-UTP-3M',
+      name: 'Cat6 UTP RJ45 Factory Patch Cable (3m, Blue, Molded Boot)',
+      categoryId: 'inv-cat-it-consumables',
+      locationId: getLoc('loc-bsl-wh-sp-bin09', 'WH-SP-09'), // Central Warehouse > Spare Parts > Bin SP-09
+      binNumber: 'Bin SP-09',
+      quantity: 150,
+      minThreshold: 40,
+      unitCost: 3.2,
+      supplier: 'CommScope Vietnam',
+      notes: 'Cat6 patch cords for shopfloor network switches and inspection terminals.',
+    },
+    {
+      sku: 'BAT-HW-EDA51-LI',
+      name: 'Honeywell ScanPal EDA51 Li-Ion Battery Pack (4000mAh)',
+      categoryId: 'inv-cat-it-consumables',
+      locationId: getLoc('loc-bsl-wh-sp-bin10', 'WH-SP-10'), // Central Warehouse > Spare Parts > Bin SP-10
+      binNumber: 'Bin SP-10',
+      quantity: 12,
       minThreshold: 4,
-      unitCost: 229.0,
-      supplier: 'HP / Poly Enterprise Direct',
-      notes: 'Active noise-canceling headsets with desktop charging stand.',
+      unitCost: 65.0,
+      supplier: 'Honeywell Scanning & Mobility',
+      notes: 'Replacement Li-Ion battery pack for shopfloor stocktaking PDAs.',
     },
   ];
 
@@ -207,78 +316,18 @@ export async function seedInventory(prisma: PrismaClient) {
         name: item.name,
         categoryId: item.categoryId,
         locationId: item.locationId,
+        binNumber: item.binNumber,
         quantity: item.quantity,
         minThreshold: item.minThreshold,
         unitCost: item.unitCost,
-        binNumber: item.binNumber,
         supplier: item.supplier,
         notes: item.notes,
       },
-      create: {
-        sku: item.sku,
-        name: item.name,
-        categoryId: item.categoryId,
-        locationId: item.locationId,
-        quantity: item.quantity,
-        minThreshold: item.minThreshold,
-        unitCost: item.unitCost,
-        binNumber: item.binNumber,
-        supplier: item.supplier,
-        notes: item.notes,
-      },
-    });
-  }
-
-  // 3. Standard Hardware & Peripherals Vendors
-  const vendors = [
-    {
-      id: 'ven-1',
-      name: 'Monoprice Inc',
-      contactEmail: 'sales@monoprice.com',
-      contactPhone: '+1 (877) 271-2592',
-      website: 'https://monoprice.com',
-      notes: 'Standard cables and accessories vendor',
-    },
-    {
-      id: 'ven-2',
-      name: 'CDW Direct',
-      contactEmail: 'orders@cdw.com',
-      contactPhone: '+1 (800) 800-4239',
-      website: 'https://cdw.com',
-      notes: 'Hardware and peripherals distributor',
-    },
-    {
-      id: 'ven-3',
-      name: 'Dell Technologies',
-      contactEmail: 'enterprise_sales@dell.com',
-      contactPhone: '+1 (800) 456-3355',
-      website: 'https://dell.com',
-      notes: 'Primary workstation and server hardware supplier',
-    },
-  ];
-
-  for (const v of vendors) {
-    await prisma.vendor.upsert({
-      where: { id: v.id },
-      update: {
-        name: v.name,
-        contactEmail: v.contactEmail,
-        contactPhone: v.contactPhone,
-        website: v.website,
-        notes: v.notes,
-      },
-      create: {
-        id: v.id,
-        name: v.name,
-        contactEmail: v.contactEmail,
-        contactPhone: v.contactPhone,
-        website: v.website,
-        notes: v.notes,
-      },
+      create: item,
     });
   }
 
   logger.log(
-    `✅ Seeded ${inventoryCategories.length} inventory categories, ${inventoryItems.length} inventory items, and ${vendors.length} vendors.`,
+    `✅ Seeded ${inventoryItems.length} Inventory Items allocated to spatial warehouse racks & MDC bins.`,
   );
 }

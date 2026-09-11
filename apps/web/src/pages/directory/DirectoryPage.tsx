@@ -144,9 +144,9 @@ export default function DirectoryPage() {
 
   return (
     <PageContainer
-      title="Directory"
+      title="Employee Directory"
       subtitle="Manage corporate employee records, Active Directory synchronization, security groups, and organizational units."
-      breadcrumbs={[{ title: 'Directory' }]}
+      breadcrumbs={[{ title: 'Employee Directory' }]}
       stats={[
         {
           title: 'Total Employees',

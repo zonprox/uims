@@ -551,15 +551,39 @@ model ReportSchedule {
   @@index([category])
 }
 
+enum LocationType {
+  CAMPUS
+  SITE
+  BRANCH
+  BUILDING
+  WORKSHOP
+  WAREHOUSE
+  FLOOR
+  ZONE
+  LINE
+  AREA
+  ROOM
+  RACK
+  SHELF
+  STATION
+  BIN
+}
+
 model Location {
   id             String        @id @default(uuid())
   name           String
   code           String?
+  description    String?
+  type           LocationType  @default(CAMPUS)
+  status         String        @default("ACTIVE")
   building       String?
   floor          String?
   room           String?
   address        String?
-  type           String?       @default("Branch Office")
+  parentId       String?
+  parent         Location?     @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Location[]    @relation("LocationHierarchy")
+  fullPath       String?
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
@@ -573,9 +597,13 @@ model Location {
   inventoryItems InventoryItem[]
 
   @@index([organizationId])
+  @@index([parentId])
+  @@index([type])
+  @@index([status])
   @@index([name])
   @@index([code])
 }
+
 
 model Organization {
   id        String   @id @default(uuid())

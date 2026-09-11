@@ -120,8 +120,8 @@ describe('AccessControlPage Component Tests', () => {
   it('renders PageContainer title, breadcrumbs, and operator telemetry stats', async () => {
     await renderComponent();
 
-    expect(container.textContent).toContain('Access Control');
-    expect(container.textContent).toContain('Manage operator accounts');
+    expect(container.textContent).toContain('Users');
+    expect(container.textContent).toContain('Manage system user accounts');
     expect(container.textContent).toContain('Total Accounts');
     expect(container.textContent).toContain('Active Accounts');
     expect(container.textContent).toContain('Locked Accounts');

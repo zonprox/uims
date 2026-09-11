@@ -9,13 +9,19 @@ import {
   Modal,
   Row,
   Select,
+  TreeSelect,
 } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Asset, AssetCategory } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
 import { networkService } from '../../../services/network.service';
-import { type LocationBranch, organizationService } from '../../../services/organization.service';
+import {
+  type Department,
+  type LocationBranch,
+  type LocationTreeNode,
+  organizationService,
+} from '../../../services/organization.service';
 
 export interface AssetFormModalProps {
   open: boolean;
@@ -25,8 +31,52 @@ export interface AssetFormModalProps {
   onSave: () => void;
   onCancel: () => void;
   categories?: AssetCategory[];
-  locations?: LocationBranch[];
+  locations?: Array<LocationBranch | LocationTreeNode>;
+  locationTree?: LocationTreeNode[];
+  departments?: Department[];
   employees?: DirectoryUser[];
+}
+
+export interface FormattedLocationOption {
+  key: string;
+  value: string;
+  title: string;
+  label: string;
+  children?: FormattedLocationOption[];
+}
+
+export function formatLocationTreeForSelect(
+  nodes: Array<LocationTreeNode | LocationBranch>,
+  parentPath = '',
+): FormattedLocationOption[] {
+  return nodes.map((node) => {
+    const isTree = 'fullPath' in node || 'children' in node;
+    const treeNode = node as LocationTreeNode;
+    const branch = node as LocationBranch;
+
+    const nodeTitle = node.name || (treeNode.title as string) || '';
+    const fullPath =
+      isTree && treeNode.fullPath
+        ? treeNode.fullPath
+        : parentPath
+          ? `${parentPath} > ${nodeTitle}`
+          : branch.building
+            ? `${nodeTitle} (${branch.building}${branch.floor ? ` - ${branch.floor}` : ''})`
+            : nodeTitle;
+
+    const formattedChildren =
+      treeNode.children && treeNode.children.length > 0
+        ? formatLocationTreeForSelect(treeNode.children, fullPath)
+        : undefined;
+
+    return {
+      key: node.id,
+      value: node.id,
+      title: nodeTitle,
+      label: fullPath,
+      children: formattedChildren,
+    };
+  });
 }
 
 const STATUS_OPTIONS = [
@@ -46,10 +96,15 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
     onCancel,
     categories: propCategories,
     locations: propLocations,
+    locationTree: propLocationTree,
+    departments: propDepartments,
     employees: propEmployees,
   }) => {
     const [categories, setCategories] = useState<AssetCategory[]>(propCategories || []);
-    const [locations, setLocations] = useState<LocationBranch[]>(propLocations || []);
+    const [locations, setLocations] = useState<Array<LocationBranch | LocationTreeNode>>(
+      propLocationTree || propLocations || [],
+    );
+    const [departments, setDepartments] = useState<Department[]>(propDepartments || []);
     const [employees, setEmployees] = useState<DirectoryUser[]>(propEmployees || []);
     const [credentials, setCredentials] = useState<
       Array<{ id: string; name: string; username: string; protocol?: string | null }>
@@ -63,9 +118,18 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       const fetchReferences = async () => {
         setLoadingOptions(true);
         try {
-          const [cats, locs, empRes, creds] = await Promise.all([
+          const [cats, locs, depts, empRes, creds] = await Promise.all([
             propCategories ? Promise.resolve(propCategories) : assetsService.getCategories(),
-            propLocations ? Promise.resolve(propLocations) : organizationService.getLocations(),
+            propLocationTree
+              ? Promise.resolve(propLocationTree)
+              : propLocations
+                ? Promise.resolve(propLocations)
+                : organizationService
+                    .getLocationTree()
+                    .catch(() => organizationService.getLocations()),
+            propDepartments
+              ? Promise.resolve(propDepartments)
+              : organizationService.getDepartments().catch(() => []),
             propEmployees
               ? Promise.resolve({ items: propEmployees })
               : directoryService.getEmployees({ pageSize: 100 }),
@@ -74,7 +138,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
 
           if (mounted) {
             setCategories(cats);
-            setLocations(locs);
+            setLocations(locs as Array<LocationBranch | LocationTreeNode>);
+            setDepartments(depts);
             setEmployees(empRes.items || []);
             setCredentials(creds);
           }
@@ -90,7 +155,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       return () => {
         mounted = false;
       };
-    }, [open, propCategories, propEmployees, propLocations]);
+    }, [open, propCategories, propDepartments, propEmployees, propLocationTree, propLocations]);
+
+    const locationTreeData = useMemo(() => formatLocationTreeForSelect(locations), [locations]);
 
     return (
       <Modal
@@ -188,6 +255,41 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
 
           <Row gutter={14}>
             <Col span={12}>
+              <Form.Item label="Physical Location" name="locationId">
+                <TreeSelect
+                  showSearch
+                  allowClear
+                  treeDefaultExpandAll={false}
+                  placeholder="Select facility / workshop / line / station"
+                  treeNodeFilterProp="title"
+                  treeNodeLabelProp="label"
+                  treeData={locationTreeData}
+                  loading={loadingOptions}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Owner Department" name="departmentId">
+                <Select
+                  showSearch
+                  allowClear
+                  loading={loadingOptions}
+                  placeholder="Select owner department"
+                  options={departments.map((d) => ({
+                    label: d.organization?.name ? `${d.name} (${d.organization.name})` : d.name,
+                    value: d.id,
+                  }))}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={14}>
+            <Col span={12}>
               <Form.Item label="Assigned Custodian" name="assignedToId">
                 <Select
                   showSearch
@@ -205,26 +307,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Physical Location" name="locationId">
-                <Select
-                  showSearch
-                  allowClear
-                  loading={loadingOptions}
-                  placeholder="Select facility / site"
-                  options={locations.map((loc) => ({
-                    label: `${loc.name}${loc.building ? ` (${loc.building}${loc.floor ? ` - ${loc.floor}` : ''})` : ''}`,
-                    value: loc.id,
-                  }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={14}>
-            <Col span={12}>
               <Form.Item label="Management Credential" name="credentialId">
                 <Select
                   showSearch
@@ -241,12 +323,15 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
                 />
               </Form.Item>
             </Col>
-            <Col span={6}>
+          </Row>
+
+          <Row gutter={14}>
+            <Col span={12}>
               <Form.Item label="Purchase Date" name="purchaseDate">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col span={12}>
               <Form.Item label="Warranty Expiry" name="warrantyExpiry">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>

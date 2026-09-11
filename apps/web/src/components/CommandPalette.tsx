@@ -10,6 +10,7 @@ import {
   SearchOutlined,
   SettingOutlined,
   TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Empty, Flex, Input, Modal, Spin, Tag, Typography, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -76,7 +77,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'organization',
-    title: 'Organization',
+    title: 'Organization Structure',
     category: 'Organization',
     path: '/organization',
     icon: <ApartmentOutlined />,
@@ -84,17 +85,17 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     shortcut: '6',
   },
   {
-    key: 'access-control',
-    title: 'Access Control',
+    key: 'users',
+    title: 'Users',
     category: 'Access',
-    path: '/access-control',
-    icon: <SafetyCertificateOutlined />,
+    path: '/users',
+    icon: <UserOutlined />,
     description: 'Manage console login users, RBAC roles, security status, and permission matrix',
     shortcut: '7',
   },
   {
     key: 'directory',
-    title: 'Directory',
+    title: 'Employee Directory',
     category: 'Directory',
     path: '/directory',
     icon: <TeamOutlined />,

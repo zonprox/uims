@@ -6,12 +6,7 @@ import { buildThemeConfig, themeConfig } from '../app/theme';
 import { useThemeStore } from '../stores/theme.store';
 import { NavbarRightSection } from './components/NavbarSections';
 import { SidebarContent } from './components/SidebarContent';
-import {
-  getNavMenuItems,
-  getOrgMenuItems,
-  getQuickCreateMenu,
-  getUserMenuItems,
-} from './menuConfig';
+import { getNavMenuItems, getQuickCreateMenu, getUserMenuItems } from './menuConfig';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -76,7 +71,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
       '/',
       '/directory',
       '/organization',
-      '/access-control',
+      '/users',
       '/assets',
       '/licenses',
       '/inventory',
@@ -246,7 +241,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
       for (const item of items as Array<{ onClick?: () => void }>) {
         item.onClick?.();
       }
-      expect(navigate).toHaveBeenCalledWith('/access-control');
+      expect(navigate).toHaveBeenCalledWith('/users');
       expect(navigate).toHaveBeenCalledWith('/directory');
       expect(navigate).toHaveBeenCalledWith('/organization');
       expect(navigate).toHaveBeenCalledWith('/assets');
@@ -383,8 +378,6 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
             createElement(SidebarContent, {
               collapsed: false,
               inDrawer: false,
-              activeOrg: 'Acme Enterprise Global HQ',
-              orgMenuItems: getOrgMenuItems(() => {}),
               menuItems,
               pathname: '/',
               onNavigate: () => {},
@@ -403,7 +396,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
       expect(menuItemsDom.length).toBe(11);
     });
 
-    it('renders SidebarContent in collapsed state (80px width) with accessible cluster tooltip trigger', async () => {
+    it('renders SidebarContent in collapsed state (80px width) cleanly in unified mode', async () => {
       useThemeStore.setState({ mode: 'dark', resolvedMode: 'dark' });
 
       const menuItems = getNavMenuItems(true, false);
@@ -418,8 +411,6 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
             createElement(SidebarContent, {
               collapsed: true,
               inDrawer: false,
-              activeOrg: 'Acme Enterprise Global HQ',
-              orgMenuItems: getOrgMenuItems(() => {}),
               menuItems,
               pathname: '/',
               onNavigate: () => {},
@@ -429,11 +420,9 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
         );
       });
 
-      // Collapsed org selector button with aria-label
-      const clusterBtn = container.querySelector(
-        'button[aria-label="Active cluster: Acme Enterprise Global HQ"]',
-      );
-      expect(clusterBtn).toBeTruthy();
+      // No cluster button or org dropdown in unified view
+      const clusterBtn = container.querySelector('button[aria-label*="cluster"]');
+      expect(clusterBtn).toBeNull();
 
       // Brand header button
       const brandBtn = container.querySelector('button[aria-label="Home"]');

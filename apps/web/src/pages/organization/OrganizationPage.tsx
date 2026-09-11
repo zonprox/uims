@@ -612,9 +612,9 @@ export default function OrganizationPage() {
 
   return (
     <PageContainer
-      title="Organization"
+      title="Organization Structure"
       subtitle="Manage organizational units, departments, locations, and job positions."
-      breadcrumbs={[{ title: 'Organization' }]}
+      breadcrumbs={[{ title: 'Organization Structure' }]}
       stats={[
         {
           title: 'Organizations',

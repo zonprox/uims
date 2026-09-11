@@ -40,6 +40,8 @@ export interface Asset {
   department?: Department | null;
   locationId?: string | null;
   location?: Location | null;
+  organizationId?: string | null;
+  organization?: string | null;
   credentialId?: string | null;
   credential?: NetworkCredential | null;
   ipAddresses?: IPAddress[];

@@ -1,5 +1,6 @@
 import {
   AlertOutlined,
+  BankOutlined,
   CheckCircleOutlined,
   DatabaseOutlined,
   DeleteOutlined,
@@ -30,6 +31,7 @@ import {
   Table,
   Tag,
   Tooltip,
+  TreeSelect,
   Typography,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -41,8 +43,55 @@ import {
   type InventoryStats,
   inventoryService,
 } from '../../services/inventory.service';
-import { type LocationBranch, organizationService } from '../../services/organization.service';
+import {
+  type LocationBranch,
+  type LocationTreeNode,
+  type Organization,
+  organizationService,
+} from '../../services/organization.service';
 import { type Vendor, vendorService } from '../../services/vendor.service';
+
+export interface FormattedLocationOption {
+  key: string;
+  value: string;
+  title: string;
+  label: string;
+  children?: FormattedLocationOption[];
+}
+
+export function formatLocationTreeForSelect(
+  nodes: Array<LocationTreeNode | LocationBranch>,
+  parentPath = '',
+): FormattedLocationOption[] {
+  return nodes.map((node) => {
+    const isTree = 'fullPath' in node || 'children' in node;
+    const treeNode = node as LocationTreeNode;
+    const branch = node as LocationBranch;
+
+    const nodeTitle = node.name || (treeNode.title as string) || '';
+    const fullPath =
+      isTree && treeNode.fullPath
+        ? treeNode.fullPath
+        : parentPath
+          ? `${parentPath} > ${nodeTitle}`
+          : branch.building
+            ? `${nodeTitle} (${branch.building}${branch.floor ? ` - ${branch.floor}` : ''})`
+            : nodeTitle;
+
+    const formattedChildren =
+      treeNode.children && treeNode.children.length > 0
+        ? formatLocationTreeForSelect(treeNode.children, fullPath)
+        : undefined;
+
+    return {
+      key: node.id,
+      value: node.id,
+      title: nodeTitle,
+      label: fullPath,
+      children: formattedChildren,
+    };
+  });
+}
 
 const { Text } = Typography;
 
@@ -97,7 +146,8 @@ export default function InventoryPage() {
   const { message } = App.useApp();
   const [items, setItems] = useState<Array<InventoryItem>>([]);
   const [categories, setCategories] = useState<Array<InventoryCategory>>([]);
-  const [locations, setLocations] = useState<Array<LocationBranch>>([]);
+  const [locations, setLocations] = useState<Array<LocationBranch | LocationTreeNode>>([]);
+  const [organizations, setOrganizations] = useState<Array<Organization>>([]);
   const [vendors, setVendors] = useState<Array<Vendor>>([]);
   const [stats, setStats] = useState<InventoryStats>({
     totalSkus: 0,
@@ -110,6 +160,13 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [stockFilter, setStockFilter] = useState<string>('all');
+  const [orgFilter, setOrgFilter] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<string | undefined>(undefined);
+
+  const orgOptions = useMemo(
+    () => organizations.map((o) => ({ label: o.name, value: o.id })),
+    [organizations],
+  );
 
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
@@ -125,21 +182,37 @@ export default function InventoryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, statsData, cats, locs, vends] = await Promise.all([
+      const locTreePromise = organizationService.getLocationTree
+        ? organizationService
+            .getLocationTree(orgFilter !== 'all' ? orgFilter : undefined)
+            .catch(() =>
+              organizationService.getLocations
+                ? organizationService.getLocations().catch(() => [])
+                : [],
+            )
+        : organizationService.getLocations
+          ? organizationService.getLocations().catch(() => [])
+          : Promise.resolve([]);
+
+      const [list, statsData, cats, locs, vends, orgs] = await Promise.all([
         inventoryService.getItems({
           search: searchQuery || undefined,
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
           stockStatus: stockFilter !== 'all' ? stockFilter : undefined,
+          organizationId: orgFilter !== 'all' ? orgFilter : undefined,
+          locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
         }),
         inventoryService.getStats().catch((_error: unknown) => null),
         inventoryService.getCategories().catch((_error: unknown) => []),
-        organizationService.getLocations().catch((_error: unknown) => []),
+        locTreePromise,
         vendorService.getVendors().catch((_error: unknown) => []),
+        organizationService.getOrganizations().catch((_error: unknown) => []),
       ]);
       setItems(list);
       setCategories(cats);
       setLocations(locs);
       setVendors(vends);
+      setOrganizations(orgs);
 
       if (statsData) {
         setStats(statsData);
@@ -163,7 +236,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, message, searchQuery, stockFilter]);
+  }, [categoryFilter, locationFilter, message, orgFilter, searchQuery, stockFilter]);
 
   const [searchParams] = useSearchParams();
   const deepLinkSku = searchParams.get('sku') || searchParams.get('id');
@@ -182,14 +255,21 @@ export default function InventoryPage() {
     [categories],
   );
 
-  const locationOptions = useMemo(
-    () =>
-      locations.map((loc) => ({
-        label: `${loc.name} ${loc.building ? `(${loc.building} - ${loc.floor})` : ''}`,
-        value: loc.id,
-      })),
-    [locations],
-  );
+  const locationTreeData = useMemo(() => formatLocationTreeForSelect(locations), [locations]);
+
+  const locationPathMap = useMemo(() => {
+    const map = new Map<string, { title: string; fullPath: string }>();
+    function traverse(nodes: FormattedLocationOption[]) {
+      for (const node of nodes) {
+        map.set(node.value, { title: node.title, fullPath: node.label });
+        if (node.children && node.children.length > 0) {
+          traverse(node.children);
+        }
+      }
+    }
+    traverse(locationTreeData);
+    return map;
+  }, [locationTreeData]);
 
   const vendorOptions = useMemo(
     () =>
@@ -389,20 +469,46 @@ export default function InventoryPage() {
       title: 'Location & Bin',
       key: 'locationBin',
       render: (_: unknown, record: InventoryItem) => {
-        const locName =
+        const loc =
           record.location && typeof record.location === 'object'
-            ? (record.location as { name: string }).name
-            : typeof record.location === 'string'
-              ? record.location
-              : record.locationName;
+            ? (record.location as {
+                id?: string;
+                name: string;
+                fullPath?: string;
+                organization?: { name: string };
+              })
+            : null;
+        const matched = record.locationId ? locationPathMap.get(record.locationId) : undefined;
+        const locName =
+          loc?.name ||
+          matched?.title ||
+          (typeof record.location === 'string' ? record.location : record.locationName);
+        const locFullPath = loc?.fullPath || record.locationPath || matched?.fullPath || locName;
+        const orgName = loc?.organization?.name || record.organization;
+
         return (
           <Flex vertical gap={2}>
-            {locName ? (
-              <Tag icon={<EnvironmentOutlined />} color="geekblue">
-                {locName}
+            {orgName && (
+              <Tag
+                color="purple"
+                icon={<BankOutlined />}
+                style={{ fontSize: 10.5, width: 'fit-content' }}
+              >
+                {orgName}
               </Tag>
+            )}
+            {locName ? (
+              <Tooltip title={locFullPath || locName}>
+                <Tag
+                  icon={<EnvironmentOutlined />}
+                  color="geekblue"
+                  style={{ width: 'fit-content' }}
+                >
+                  {locName}
+                </Tag>
+              </Tooltip>
             ) : (
-              <Text type="secondary">—</Text>
+              !orgName && <Text type="secondary">—</Text>
             )}
             {record.binNumber && record.binNumber !== 'Unassigned' && (
               <Text code style={{ fontSize: 11 }}>
@@ -481,7 +587,7 @@ export default function InventoryPage() {
   return (
     <PageContainer
       title="Inventory"
-      subtitle="Track parts, stock levels, and reorder thresholds."
+      subtitle="Track parts, stock levels, consumables, and reorder thresholds."
       breadcrumbs={[{ title: 'Inventory' }]}
       stats={[
         {
@@ -535,9 +641,30 @@ export default function InventoryPage() {
           <Col xs={24} md={14}>
             <Flex gap={10} justify="flex-end" wrap>
               <Select
+                value={orgFilter}
+                onChange={setOrgFilter}
+                style={{ width: 160 }}
+                placeholder="Organization"
+                options={[{ label: 'All Organizations', value: 'all' }, ...orgOptions]}
+              />
+
+              <TreeSelect
+                value={locationFilter}
+                onChange={(val) => setLocationFilter(val)}
+                style={{ width: 190 }}
+                placeholder="Location / Warehouse"
+                allowClear
+                showSearch
+                treeNodeFilterProp="title"
+                treeNodeLabelProp="label"
+                treeData={locationTreeData}
+                treeDefaultExpandAll={false}
+              />
+
+              <Select
                 value={categoryFilter}
                 onChange={setCategoryFilter}
-                style={{ width: 180 }}
+                style={{ width: 170 }}
                 placeholder="Category"
                 options={[{ label: 'All Categories', value: 'all' }, ...categoryOptions]}
               />
@@ -545,7 +672,7 @@ export default function InventoryPage() {
               <Select
                 value={stockFilter}
                 onChange={setStockFilter}
-                style={{ width: 150 }}
+                style={{ width: 145 }}
                 placeholder="Stock Status"
                 options={[
                   { label: 'All Stock Status', value: 'all' },
@@ -555,12 +682,18 @@ export default function InventoryPage() {
                 ]}
               />
 
-              {(searchQuery || categoryFilter !== 'all' || stockFilter !== 'all') && (
+              {(searchQuery ||
+                categoryFilter !== 'all' ||
+                stockFilter !== 'all' ||
+                orgFilter !== 'all' ||
+                Boolean(locationFilter)) && (
                 <Button
                   onClick={() => {
                     setSearchQuery('');
                     setCategoryFilter('all');
                     setStockFilter('all');
+                    setOrgFilter('all');
+                    setLocationFilter(undefined);
                   }}
                 >
                   Reset
@@ -678,14 +811,15 @@ export default function InventoryPage() {
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Storage Location" name="locationId">
-                <Select
-                  placeholder="Select warehouse or site location"
+                <TreeSelect
                   showSearch
                   allowClear
-                  options={locationOptions}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  treeDefaultExpandAll={false}
+                  placeholder="Select warehouse / workshop / rack / bin"
+                  treeNodeFilterProp="title"
+                  treeNodeLabelProp="label"
+                  treeData={locationTreeData}
+                  style={{ width: '100%' }}
                 />
               </Form.Item>
             </Col>

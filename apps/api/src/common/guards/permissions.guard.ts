@@ -38,8 +38,13 @@ export class PermissionsGuard implements CanActivate {
       .trim()
       .toUpperCase();
 
-    // Super Admin inherits all permissions unconditionally
-    if (userRole === 'SUPER ADMIN' || userRole === 'SUPERADMIN' || userRole === 'SUPER_ADMIN') {
+    // Super Admin and Admin inherit all permissions unconditionally
+    if (
+      userRole === 'SUPER ADMIN' ||
+      userRole === 'SUPERADMIN' ||
+      userRole === 'SUPER_ADMIN' ||
+      userRole === 'ADMIN'
+    ) {
       return true;
     }
 
@@ -94,7 +99,9 @@ export class PermissionsGuard implements CanActivate {
 
       if (
         userRecord.role.name.toUpperCase() === 'SUPER ADMIN' ||
-        userRecord.role.name.toUpperCase() === 'SUPERADMIN'
+        userRecord.role.name.toUpperCase() === 'SUPERADMIN' ||
+        userRecord.role.name.toUpperCase() === 'SUPER_ADMIN' ||
+        userRecord.role.name.toUpperCase() === 'ADMIN'
       ) {
         return true;
       }

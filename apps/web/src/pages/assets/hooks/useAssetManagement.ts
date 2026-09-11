@@ -1,10 +1,17 @@
 import { App, Button } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs from 'dayjs';
-import { createElement, useCallback, useEffect, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { type Asset, type AssetStats, assetsService } from '../../../services/assets.service';
+import { type Organization, organizationService } from '../../../services/organization.service';
 import { parseAssetQrPayload, playSuccessChime, triggerHapticFeedback } from '../utils/qrDecoder';
+
+declare module '../../../services/assets.service' {
+  interface Asset {
+    locationPath?: string | null;
+  }
+}
 
 export interface AssetFormValues {
   tag?: string;
@@ -17,6 +24,8 @@ export interface AssetFormValues {
   status?: Asset['status'];
   assignedTo?: string;
   assignedToId?: string;
+  department?: string;
+  departmentId?: string;
   location?: string;
   locationId?: string;
   credentialId?: string;
@@ -28,6 +37,14 @@ export interface AssetFormValues {
   storage?: string;
   os?: string;
   notes?: string;
+}
+
+export interface AssetFilterState {
+  searchQuery: string;
+  categoryFilter: string;
+  statusFilter: string;
+  orgFilter: string;
+  locationFilter?: string;
 }
 
 export function buildAssetSpecs(values: AssetFormValues) {
@@ -55,6 +72,8 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
     status: values.status ?? 'Active',
     assignedTo: values.assignedTo,
     assignedToId: values.assignedToId || undefined,
+    department: values.department,
+    departmentId: values.departmentId || undefined,
     location: values.location,
     locationId: values.locationId || undefined,
     credentialId: values.credentialId || undefined,
@@ -80,6 +99,46 @@ export function useAssetManagement(form: FormInstance) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [orgFilter, setOrgFilter] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<string | undefined>(undefined);
+  const [organizations, setOrganizations] = useState<Array<Organization>>([]);
+
+  // Load organizations
+  useEffect(() => {
+    organizationService
+      .getOrganizations()
+      .then((orgs) => setOrganizations(orgs))
+      .catch((_error: unknown) => {
+        message.error('Failed to load organizations.');
+      });
+  }, [message]);
+
+  const orgOptions = useMemo(
+    () => organizations.map((o) => ({ label: o.name, value: o.id })),
+    [organizations],
+  );
+
+  const filterState: AssetFilterState = useMemo(
+    () => ({
+      searchQuery,
+      categoryFilter,
+      statusFilter,
+      orgFilter,
+      locationFilter,
+    }),
+    [searchQuery, categoryFilter, statusFilter, orgFilter, locationFilter],
+  );
+
+  const handleFilterChange = useCallback(
+    (key: keyof AssetFilterState | string, val: string | undefined) => {
+      if (key === 'searchQuery') setSearchQuery(val || '');
+      else if (key === 'categoryFilter') setCategoryFilter(val || 'all');
+      else if (key === 'statusFilter') setStatusFilter(val || 'all');
+      else if (key === 'orgFilter') setOrgFilter(val || 'all');
+      else if (key === 'locationFilter') setLocationFilter(val);
+    },
+    [],
+  );
 
   // Modal / Drawer state
   const [modalOpen, setModalOpen] = useState(false);
@@ -100,19 +159,32 @@ export function useAssetManagement(form: FormInstance) {
           search: searchQuery || undefined,
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
+          organizationId: orgFilter !== 'all' ? orgFilter : undefined,
+          locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
         }),
         assetsService.getStats().catch((_error: unknown) => null),
       ]);
-      setAssets(list);
+
+      const filtered =
+        orgFilter === 'all'
+          ? list
+          : list.filter(
+              (a) =>
+                a.organizationId === orgFilter ||
+                a.organization === orgFilter ||
+                organizations.some((o) => o.id === orgFilter && o.name === a.organization),
+            );
+
+      setAssets(filtered);
       if (statsData) {
         setStats(statsData);
       } else {
         setStats({
-          total: list.length,
-          active: list.filter((a) => a.status === 'Active').length,
-          inRepair: list.filter((a) => a.status === 'In Repair').length,
-          inStorage: list.filter((a) => a.status === 'In Storage').length,
-          retired: list.filter((a) => a.status === 'Retired').length,
+          total: filtered.length,
+          active: filtered.filter((a) => a.status === 'Active').length,
+          inRepair: filtered.filter((a) => a.status === 'In Repair').length,
+          inStorage: filtered.filter((a) => a.status === 'In Storage').length,
+          retired: filtered.filter((a) => a.status === 'Retired').length,
         });
       }
     } catch (_err: unknown) {
@@ -120,7 +192,15 @@ export function useAssetManagement(form: FormInstance) {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, message, searchQuery, statusFilter]);
+  }, [
+    categoryFilter,
+    locationFilter,
+    message,
+    orgFilter,
+    organizations,
+    searchQuery,
+    statusFilter,
+  ]);
 
   const [searchParams] = useSearchParams();
   const deepLinkId = searchParams.get('id') || searchParams.get('tag');
@@ -256,6 +336,7 @@ export function useAssetManagement(form: FormInstance) {
         categoryId: asset.categoryId,
         assignedToId: asset.assignedToId,
         locationId: asset.locationId,
+        departmentId: asset.departmentId,
         credentialId: asset.credentialId,
         purchaseDate: asset.purchaseDate ? dayjs(asset.purchaseDate) : undefined,
         warrantyExpiry: asset.warrantyExpiry ? dayjs(asset.warrantyExpiry) : undefined,
@@ -340,6 +421,8 @@ export function useAssetManagement(form: FormInstance) {
     setSearchQuery('');
     setCategoryFilter('all');
     setStatusFilter('all');
+    setOrgFilter('all');
+    setLocationFilter(undefined);
   }, []);
 
   return {
@@ -348,10 +431,17 @@ export function useAssetManagement(form: FormInstance) {
     loading,
     searchQuery,
     setSearchQuery,
+    orgFilter,
+    setOrgFilter,
+    orgOptions,
     categoryFilter,
     setCategoryFilter,
     statusFilter,
     setStatusFilter,
+    locationFilter,
+    setLocationFilter,
+    filterState,
+    handleFilterChange,
     modalOpen,
     setModalOpen,
     modalSubmitting,

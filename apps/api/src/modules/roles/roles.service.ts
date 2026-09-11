@@ -16,9 +16,11 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 const SYSTEM_ROLES = new Set([
   'SUPER ADMIN',
   'ADMIN',
+  'MANAGER',
+  'USER',
+  'VIEWER',
   'TECHNICIAN',
   'AUDITOR',
-  'MANAGER',
   'EMPLOYEE',
 ]);
 

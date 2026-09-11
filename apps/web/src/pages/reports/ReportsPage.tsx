@@ -112,9 +112,9 @@ export default function ReportsPage() {
 
   return (
     <PageContainer
-      title="Reports"
+      title="Reports & Analytics"
       subtitle="Generate operational summaries, financial depreciation models, and compliance exports."
-      breadcrumbs={[{ title: 'Reports' }]}
+      breadcrumbs={[{ title: 'Reports & Analytics' }]}
       stats={[
         {
           title: 'Scheduled',

@@ -1,71 +1,81 @@
 import type { PrismaClient } from '@prisma/client';
 
 interface SeedUsersResult {
-  roles: Record<string, { id: string }>;
+  roles?: Record<string, { id: string }>;
   users: Record<string, { id: string }>;
 }
 
 export async function seedNotifications(prisma: PrismaClient, users: SeedUsersResult) {
   const { users: u } = users;
 
+  const defaultUser = Object.values(u)[0];
+  const userAdmin = u['admin@uims.internal'] || u.userAlex || defaultUser;
+  const userNam = u['nam.pham@broadpeak.youngone.com'] || u.userSarah || defaultUser;
+  const userTri = u['tri.doan@broadpeak.youngone.com'] || u.userMarcusVance || defaultUser;
+  const userPhong = u['phong.dang@broadpeak.youngone.com'] || u.userMichael || defaultUser;
+
   const notificationsData = [
     {
-      userId: u.userAlex.id,
-      title: 'Adobe Creative Cloud Renewal Notice',
+      userId: userAdmin.id,
+      title: 'SAP S/4HANA ERP License Audit',
       message:
-        'Adobe Creative Cloud subscription (28 seats in use) expires on Sep 15. Renew contract.',
+        'SAP S/4HANA ERP Enterprise User subscription is fully utilized (60 of 60 seats allocated).',
       type: 'WARNING' as const,
       isRead: false,
       link: '/licenses',
     },
     {
-      userId: u.userAlex.id,
-      title: 'Belkin Ethernet Adapters Stock Depleted',
+      userId: userNam.id,
+      title: 'BSL Fabric Warehouse Barcode Labels Low Stock',
       message:
-        'Belkin USB-C to 2.5Gbps Gigabit Ethernet Adapter is completely at 0 units (Threshold: 5).',
+        'Zebra Thermal Transfer Labels (100mm x 150mm) reached threshold (Threshold: 30 rolls).',
       type: 'ALERT' as const,
       isRead: false,
       link: '/inventory',
     },
     {
-      userId: u.userSarah.id,
-      title: 'High IP Allocation Threshold Reached',
-      message: 'Subnet 192.168.10.0/24 (Production Workstations) is at 88% IP capacity.',
+      userId: userPhong.id,
+      title: 'BSH Corporate Subnet Capacity Alert',
+      message: 'Subnet 10.233.100.0/23 (HCM Office 7) reached 82% IP address allocation capacity.',
       type: 'WARNING' as const,
       isRead: false,
       link: '/network',
     },
     {
-      userId: u.userAlex.id,
-      title: 'Automated Daily Snapshot Verified',
-      message:
-        'PostgreSQL database snapshot sha256 checksum matched and encrypted in SeaweedFS vault.',
+      userId: userAdmin.id,
+      title: 'PostgreSQL Automated Snapshot Verified',
+      message: 'Database backup snapshot verified and stored in encrypted SeaweedFS storage vault.',
       type: 'INFO' as const,
       isRead: true,
       link: '/settings',
     },
     {
-      userId: u.userMarcusVance.id,
-      title: 'New Hardware Asset Provisioned',
-      message: 'MacBook Pro 16" M3 Max (AST-1001) is registered and ready for deployment.',
+      userId: userTri.id,
+      title: 'New Executive Asset Registered',
+      message: 'MacBook Pro 16" M3 Pro (AST-1001) registered and ready for executive deployment.',
       type: 'INFO' as const,
       isRead: true,
       link: '/assets',
     },
-    {
-      userId: u.userAlex.id,
-      title: 'SAML Authentication Anomaly Blocked',
-      message:
-        'Unauthorized login brute force from IP 89.248.163.2 automatically dropped by firewall.',
-      type: 'ALERT' as const,
-      isRead: false,
-      link: '/audit',
-    },
   ];
 
   for (const n of notificationsData) {
-    await prisma.notification.create({
-      data: n,
+    const existing = await prisma.notification.findFirst({
+      where: {
+        userId: n.userId,
+        title: n.title,
+      },
     });
+
+    if (existing) {
+      await prisma.notification.update({
+        where: { id: existing.id },
+        data: n,
+      });
+    } else {
+      await prisma.notification.create({
+        data: n,
+      });
+    }
   }
 }

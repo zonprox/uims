@@ -1,91 +1,73 @@
-# Project: Ant Design v6 UI/UX & Layout Standardization
+# Project: Multi-Tier Spatial Location Hierarchy for Hardware Assets and Inventory Items
 
 ## Architecture
-Standardization and modernization of the React frontend (`apps/web`) to strictly comply with Ant Design v6 specifications (`docs/ant-design-llms-full.txt`) and `AGENTS.md` directives.
-- **Layout Architecture**: Strict desktop Sider dimensions (280px expanded, 80px collapsed), mobile navigation Drawer (290px left placement), responsive breakpoint handling via Ant Design `Grid.useBreakpoint()`.
-- **Navigation & Truncation Defense**: Menu items wrapped in `<Flex style={{ width: '100%', minWidth: 0, gap: 8 }}>` with ellipsis text and `flexShrink: 0` for badges/tags. Collapsed state accessibility via Tooltips.
-- **Styling Architecture**: Semantic token styling via `styles={{ body: ..., header: ... }}`. Elimination of raw `.ant-*` CSS overrides in favor of `theme.ts` component design tokens.
-- **Feedback & Lifecycle Architecture**: Universal dynamic context consumption via `App.useApp()`. Modal lifecycle managed cleanly via `destroyOnHidden`.
-- **Data Display**: Tables standardizing on high density, typed column sorters, deterministic renderers, and standard pagination (`pageSize: 10`, `showSizeChanger: true`, `pageSizeOptions: ['10', '25', '50', '100']`).
+- **Monorepo Structure**: NestJS 11 API (`apps/api`), React 19 + Ant Design v6 SPA (`apps/web`), shared packages (`@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`).
+- **Database Engine**: PostgreSQL 17 via Prisma 7 ORM.
+- **Spatial Hierarchy Engine**: Self-referential parent-child tree on `Location` model with `parentId`, `parent`, `children`, `LocationType` enum, and denormalized `fullPath` for zero-N+1 query performance.
+- **Descendant Resolution Algorithm**: Recursive CTE in PostgreSQL with cycle detection (`WHERE NOT (l.id = ANY(lt.path))`) resolving `locationId=X` to `[X, child1, child2, ...]` to power high-speed spatial index scans (`where.locationId = { in: descendantIds }`).
+- **UI Architecture**: Ant Design v6 `<TreeSelect>` and `<Breadcrumb>` integration consuming `/api/v1/locations/tree`, rendering full hierarchical paths while submitting clean UUID scalars.
+- **Orthogonal Department Dimension**: `Asset.departmentId` (organizational owner) is strictly decoupled and independent from `Asset.locationId` (physical spatial location).
 
 ## Feature Inventory
-Every feature from the Survey phase appears here with its assigned milestone. No feature is left unassigned.
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Navigation Truncation Defense | Wrap all 11 menu items in menuConfig.tsx with `<Flex style={{ width: '100%', minWidth: 0, gap: 8 }}>` and text truncation | M1 | survey_explorer_1 |
-| 2 | Collapsed Navigation Accessibility | Compact tooltip-wrapped organization trigger and tooltips for brand logo and navbar user profile | M1 | survey_explorer_1 |
-| 3 | Global CSS Token Migration | Eliminate `.ant-*` overrides in global.css (lines 76-95, 153-321); consolidate tokens in theme.ts | M1 | survey_explorer_1,3 |
-| 4 | PageContainer Design Token Refinement | Consume design tokens for secondary text and trend labels in PageContainer.tsx | M1 | survey_explorer_1 |
-| 5 | ErrorResultView & CommandPalette Cleanup | Remove static message fallback in ErrorResultView.tsx and typed catch in CommandPalette.tsx | M1 | survey_explorer_1 |
-| 6 | Tabs First-Class Icon Props | Migrate inline JSX icons to first-class `icon` prop in OrganizationPage.tsx and SettingsPage.tsx | M2 | survey_explorer_2 |
-| 7 | Table Pagination Standardization | Standardize AppUsersTab.tsx and EmployeesTab.tsx to `pageSize: 10`, `['10', '25', '50', '100']` | M2 | survey_explorer_2,3 |
-| 8 | okButtonProps Danger Migration | Replace deprecated `okType="danger"` with `okButtonProps={{ danger: true }}` across 11 files | M2 | survey_explorer_3 |
-| 9 | Typed Table Column Sorters | Add typed comparator functions to primary domain tables (AssetTable, AuditPage, AppUsersTab, EmployeesTab, InventoryPage, LicensesPage) | M2 | survey_explorer_3 |
-| 10 | Modal Lifecycle Uniformity (`destroyOnHidden`) | Add `destroyOnHidden` to 11 data/edit modals across AssetFormModal, AssetQrModal, Inventory, Licenses, Network, Organization, Reports | M3 | survey_explorer_3 |
-| 11 | Semantic Modal & Drawer Styling Polish | Ensure all modals and drawers utilize semantic `styles={{ body: ... }}` and clean padding | M3 | survey_explorer_3 |
-| 12 | Monorepo Quality Gates & Verification | Verify 0 errors on typecheck, lint, format:check, test, and build across all workspaces | M4 | orchestrator |
+| F1 | Self-referential Location Schema | Add `parentId`, `parent`, `children`, `fullPath`, `status`, and index `@@index([parentId])` to `Location` model in `schema.prisma` | M1 | Survey / R1 |
+| F2 | LocationType Enum Classification | Define 4-tier flexible classification types (`CAMPUS`, `SITE`, `BRANCH`, `BUILDING`, `WORKSHOP`, `WAREHOUSE`, `FLOOR`, `ZONE`, `LINE`, `AREA`, `ROOM`, `RACK`, `SHELF`, `STATION`, `BIN`) | M1 | Survey / R1 |
+| F3 | Shared Types & Tree Contracts | Update `@uims/shared-types` with `LocationType`, `LocationTreeNode`, `LocationPathNode`, updated `Location` and DTOs | M1 | Survey / R1 |
+| F4 | Backend Location Tree & Endpoints | Implement `getLocationTree()`, dedicated `LocationController` (`/api/v1/locations/tree`, `/api/v1/locations/:id/descendants`, etc.), and preserve `/organizations/locations/tree` | M1 | Survey / R1 |
+| F5 | Descendant-Aware Spatial Filter Engine | Recursive CTE descendant resolver integrated into `AssetsService.findAll` and `InventoryService.findAll` | M1 | Survey / R1 |
+| F6 | Frontend Web Location Service | Add `getLocationTree()` with memoized caching to `apps/web/src/services/organization.service.ts` | M2 | Survey / R2 |
+| F7 | Asset Hierarchical TreeSelect | Replace flat location select in `AssetFormModal.tsx` with Ant Design `<TreeSelect>` showing breadcrumb paths | M2 | Survey / R2 |
+| F8 | Orthogonal Department Selector | Preserve/add independent Department `<Select>` in `AssetFormModal.tsx` orthogonal to spatial location | M2 | Survey / R2 |
+| F9 | Asset Table & Detail Breadcrumbs | Display full location path tags/breadcrumbs with tooltips in `AssetTable.tsx` and `AssetDetailDrawer.tsx` | M2 | Survey / R2 |
+| F10 | Asset Hierarchical Location Filter | Add `<TreeSelect>` location filter to `AssetFilterBar.tsx` and connect through `useAssetManagement.ts` | M2 | Survey / R2 |
+| F11 | Inventory Service Location Param | Add `locationId?: string;` parameter to `inventoryService.getItems` in `apps/web` | M3 | Survey / R3 |
+| F12 | Inventory Hierarchical TreeSelect | Replace flat location select and disconnected bin text in `InventoryPage.tsx` modal with `<TreeSelect>` for warehouse/MDC storage | M3 | Survey / R3 |
+| F13 | Inventory Table & Detail Breadcrumbs | Display multi-tier location breadcrumbs and storage tags in `InventoryPage.tsx` | M3 | Survey / R3 |
+| F14 | Inventory Hierarchical Stock Filter | Add hierarchical location `<TreeSelect>` filter to `InventoryPage.tsx` toolbar for parent-location stock filtering | M3 | Survey / R3 |
+| F15 | BSL Facility Graph & Seed Pipeline | Standardize `seed.ts` and `seeders/` with complete BSL garment facility hierarchy (Business Center, Warehouse, Factories 1-7, MDC, Sewing Lines, Racks, Bins) and BSH HQ | M4 | Survey / R4 |
+| F16 | Asset & Inventory Seed Allocations | Bind realistic garment factory assets and inventory items to specific leaf location nodes in seeders | M4 | Survey / R4 |
+| F17 | Seed Pipeline Clean Deletion Order | Nullify `Location.parentId` prior to deletion in `clearDatabase` in `seed.ts` to prevent FK constraint violations | M4 | Survey / R4 |
+| F18 | Monorepo Quality Gate Compliance | 100% pass on `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm run test`, `pnpm run build` | M4 | Survey / R4 |
+| F19 | E2E Test Suite Pass (Tiers 1-4) | Pass 100% of requirement-driven E2E test suite published in `TEST_READY.md` | Final | Project Pattern |
+| F20 | Adversarial Coverage Hardening (Tier 5) | White-box adversarial testing, edge cases, cycle prevention, stress testing | Final | Project Pattern |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Navigation, Layout & Styling Tokens | menuConfig.tsx truncation, collapsed tooltips, global.css cleanup, theme.ts tokens, PageContainer tokens, ErrorResultView/CommandPalette cleanup | none | PLANNED |
-| 2 | Tabs, Tables & Prop Standardization | Tabs first-class `icon` props, table pagination (pageSize: 10), `okButtonProps={{ danger: true }}`, typed table column sorters | M1 | PLANNED |
-| 3 | Modal Lifecycle & Semantic Polish | Add `destroyOnHidden` to 11 modals, semantic `styles={{ body: ... }}` validation across modals and drawers | M2 | PLANNED |
-| 4 | Verification & Quality Gates | Monorepo verification invariants (typecheck, lint, format, test, build), reviewer approval, challenger verification, forensic audit | M3 | PLANNED |
-
-## Code Layout
-- `apps/web/src/layouts/menuConfig.tsx`: Navigation menu configuration and truncation defense
-- `apps/web/src/layouts/MainLayout.tsx`: Sider (280px/80px) and Mobile Drawer (290px left)
-- `apps/web/src/layouts/components/SidebarContent.tsx`: Sidebar structure and collapsed state
-- `apps/web/src/layouts/components/SidebarBrandHeader.tsx`: Brand logo home button with tooltip
-- `apps/web/src/layouts/components/SidebarOrgSelector.tsx`: Organization selector trigger
-- `apps/web/src/layouts/components/NavbarSections.tsx`: Header user profile trigger with tooltip
-- `apps/web/src/styles/global.css`: Global styles without conflicting `.ant-*` token overrides
-- `apps/web/src/app/theme.ts`: Ant Design v6 theme tokens for Layout, Menu, Table, Tabs
-- `apps/web/src/components/PageContainer.tsx`: PageContainer layout, breadcrumbs, titles, KPI stats
-- `apps/web/src/components/ErrorResultView.tsx`: Error feedback using `App.useApp()`
-- `apps/web/src/components/CommandPalette.tsx`: Palette search with typed catch
-- `apps/web/src/pages/organization/OrganizationPage.tsx`: Tabs with first-class `icon` prop
-- `apps/web/src/pages/settings/SettingsPage.tsx`: Tabs with first-class `icon` prop
-- `apps/web/src/pages/users/components/AppUsersTab.tsx`: Standard table pagination (pageSize: 10) & sorters
-- `apps/web/src/pages/directory/EmployeesTab.tsx`: Standard table pagination (pageSize: 10) & sorters
-- `apps/web/src/pages/assets/components/AssetTable.tsx`: okButtonProps danger & column sorters
-- `apps/web/src/pages/inventory/InventoryPage.tsx`: okButtonProps danger, column sorters, destroyOnHidden
-- `apps/web/src/pages/licenses/LicensesPage.tsx`: okButtonProps danger, column sorters, destroyOnHidden
-- `apps/web/src/pages/network/`: okButtonProps danger, destroyOnHidden for modals
-- `apps/web/src/pages/audit/AuditPage.tsx`: column sorters
+| M1 | Hierarchical Location Data Architecture & Backend Engine | Schema enum & self-reference, shared types, tree builder, descendant resolution, API endpoints, spatial filtering in Assets & Inventory | none | DONE |
+| M2 | Hardware Asset Spatial Integration & Orthogonal Department | Frontend organization service tree method, AssetFormModal TreeSelect, orthogonal Department selector, AssetTable breadcrumbs, AssetFilterBar hierarchical filter | M1 | DONE |
+| M3 | Inventory Management Spatial Integration & Warehouse Storage | Inventory service parameter, InventoryPage TreeSelect for warehouse/MDC storage, breadcrumb display, parent-location stock filtering | M1, M2 | DONE |
+| M4 | Enterprise Seeding & Monorepo Verification | BSL Garment Manufacturing facility seeders, asset/inventory allocations, seed script execution, full monorepo test & build verification | M1, M2, M3 | DONE |
+| Final | E2E Test Pass & Adversarial Hardening | Pass 100% E2E tests (Tiers 1-4), white-box adversarial stress testing (Tier 5) | M4, TEST_READY | DONE |
 
 ## Interface Contracts
-### Menu Item Truncation Contract (`menuConfig.tsx`)
-All navigation menu items must render labels with the pattern:
-```tsx
-<Flex justify="space-between" align="center" style={{ width: '100%', minWidth: 0, gap: 8 }}>
-  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-    {title}
-  </span>
-  {badge && <span style={{ flexShrink: 0 }}>{badge}</span>}
-</Flex>
-```
+### Location Entity ↔ Downstream Models
+- `Location.id`: UUID primary key.
+- `Location.parentId`: Optional UUID referencing `Location.id` with `onDelete: SetNull`.
+- `Location.fullPath`: Denormalized breadcrumb string (e.g. `"BSL - Soc Trang Campus > Factory 1 > Sewing Line 01"`).
+- `Location.type`: `LocationType` enum.
+- `Asset.locationId`: Foreign key to `Location.id` (`onDelete: SetNull`).
+- `Asset.departmentId`: Foreign key to `Department.id` (`onDelete: SetNull`) — independent, orthogonal dimension.
+- `InventoryItem.locationId`: Foreign key to `Location.id` (`onDelete: SetNull`).
 
-### Table Pagination Contract
-All primary domain tables must configure pagination as:
-```tsx
-pagination={{
-  pageSize: 10,
-  showSizeChanger: true,
-  pageSizeOptions: ['10', '25', '50', '100'],
-  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-}}
-```
+### Location API Endpoints
+- `GET /api/v1/locations/tree?organizationId=UUID`: Returns `LocationTreeNode[]` with recursive `children`, Ant Design tree keys (`key`, `value`, `title`, `label`), and `fullPath`.
+- `GET /api/v1/locations/:id/descendants`: Returns `string[]` containing target ID and all descendant location IDs.
+- `GET /api/v1/locations`: Returns bounded list of locations with optional filters (`organizationId`, `type`, `parentId`, `search`).
+- `GET /api/v1/organizations/locations/tree`: Backward-compatible alias returning `LocationTreeNode[]`.
 
-### Modal Lifecycle Contract
-All data creation/editing modals must configure:
-```tsx
-<Modal
-  open={open}
-  onCancel={onClose}
-  destroyOnHidden={true}
-  styles={{ body: { paddingTop: 16 } }}
-  ...
->
-```
+### Spatial Filtering Contract
+- `GET /api/v1/assets?locationId=UUID`: Service resolves `locationId` and all descendants via recursive CTE, querying `where: { locationId: { in: descendantIds } }`.
+- `GET /api/v1/inventory?locationId=UUID`: Service resolves `locationId` and all descendants via recursive CTE, querying `where: { locationId: { in: descendantIds } }`.
+
+## Code Layout
+- Backend Schema: `apps/api/prisma/schema.prisma`
+- Backend Modules: `apps/api/src/modules/organization/` (`organization.service.ts`, `organization.controller.ts`, `location.controller.ts`, `location.module.ts`)
+- Backend Services: `apps/api/src/modules/assets/assets.service.ts`, `apps/api/src/modules/inventory/inventory.service.ts`
+- Database Seeders: `apps/api/prisma/seed.ts`, `apps/api/prisma/seeders/` (`organization.seeder.ts`, `taxonomy.seeder.ts`, `assets.seeder.ts`, `inventory.seeder.ts`)
+- Shared Packages: `packages/shared-types/src/entities/common.ts`, `packages/shared-types/src/dto/organization.dto.ts`, `packages/shared-types/src/enums/index.ts`
+- Frontend Services: `apps/web/src/services/organization.service.ts`, `apps/web/src/services/inventory.service.ts`
+- Frontend Asset Components: `apps/web/src/pages/assets/components/` (`AssetFormModal.tsx`, `AssetTable.tsx`, `AssetFilterBar.tsx`, `AssetDetailDrawer.tsx`), `apps/web/src/pages/assets/hooks/useAssetManagement.ts`
+- Frontend Inventory Components: `apps/web/src/pages/inventory/InventoryPage.tsx`
+- Tests: `apps/api/src/modules/organization/location-tree.spec.ts`, `apps/api/src/modules/assets/assets-spatial.spec.ts`, `apps/api/src/modules/inventory/inventory-spatial.spec.ts`, `apps/web/src/pages/assets/components/AssetFormModalSpatial.test.tsx`, `apps/web/src/pages/inventory/InventorySpatialFilter.test.tsx`

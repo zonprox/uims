@@ -36,6 +36,8 @@ export interface AssetQueryDto {
   locationId?: string;
   departmentId?: string;
   assignedToId?: string;
+  organizationId?: string;
+  organization?: string;
   status?: string;
   sort?: string;
   order?: 'asc' | 'desc';

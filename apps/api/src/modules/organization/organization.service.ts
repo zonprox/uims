@@ -1,5 +1,18 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { OrgNode } from '@uims/shared-types';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import type {
+  CreateLocationDto,
+  LocationQueryDto,
+  LocationTreeNode,
+  OrgNode,
+  UpdateLocationDto,
+} from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
@@ -7,9 +20,12 @@ import { CreatePositionDto } from './dto/create-position.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { UpdatePositionDto } from './dto/update-position.dto';
+import { resolveDescendantLocationIds } from './location-tree.util';
 
 @Injectable()
 export class OrganizationService {
+  private readonly logger = new Logger(OrganizationService.name);
+
   constructor(private prisma: PrismaService) {}
 
   // 1. Stats
@@ -293,15 +309,279 @@ export class OrganizationService {
     });
   }
 
-  // 5. Locations / Branches
-  async findAllLocations() {
-    return this.prisma.location.findMany({
-      take: 100,
+  // 5. Locations / Branches & Spatial Hierarchy
+  async getLocationTree(organizationId?: string): Promise<LocationTreeNode[]> {
+    const locations = await this.prisma.location.findMany({
+      where: organizationId ? { organizationId } : undefined,
       include: {
         organization: { select: { id: true, name: true, code: true } },
-        _count: { select: { assets: true, users: true } },
+        _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
+      },
+      orderBy: [{ name: 'asc' }],
+    });
+
+    const nodeMap = new Map<string, LocationTreeNode>();
+    for (const loc of locations) {
+      nodeMap.set(loc.id, {
+        id: loc.id,
+        key: loc.id,
+        value: loc.id,
+        title: loc.name,
+        label: loc.name,
+        name: loc.name,
+        code: loc.code,
+        type: loc.type,
+        parentId: loc.parentId,
+        organizationId: loc.organizationId,
+        organization: loc.organization,
+        fullPath: loc.fullPath || loc.name,
+        description: loc.description,
+        _count: {
+          assets: loc._count?.assets ?? 0,
+          inventoryItems: loc._count?.inventoryItems ?? 0,
+          users: loc._count?.users ?? 0,
+          children: loc._count?.children ?? 0,
+        },
+        children: [],
+      });
+    }
+
+    // Compute human-readable fullPath for all nodes with cycle protection
+    const getPath = (id: string, visited = new Set<string>()): string => {
+      if (visited.has(id)) return '';
+      visited.add(id);
+      const node = nodeMap.get(id);
+      if (!node) return '';
+      if (!node.parentId || !nodeMap.has(node.parentId)) return node.name;
+      const parentPath = getPath(node.parentId, visited);
+      return parentPath ? `${parentPath} > ${node.name}` : node.name;
+    };
+
+    for (const node of nodeMap.values()) {
+      node.fullPath = getPath(node.id);
+    }
+
+    // Cycle detection helper: check if target is a descendant of possible ancestor
+    const isDescendantOf = (childId: string, potentialAncestorId: string): boolean => {
+      let current = nodeMap.get(childId)?.parentId;
+      const visited = new Set<string>([childId]);
+      while (current) {
+        if (current === potentialAncestorId) return true;
+        if (visited.has(current)) break;
+        visited.add(current);
+        current = nodeMap.get(current)?.parentId;
+      }
+      return false;
+    };
+
+    const roots: LocationTreeNode[] = [];
+    for (const node of nodeMap.values()) {
+      if (node.parentId && nodeMap.has(node.parentId)) {
+        if (!isDescendantOf(node.parentId, node.id)) {
+          nodeMap.get(node.parentId)!.children!.push(node);
+        } else {
+          roots.push(node);
+        }
+      } else {
+        roots.push(node);
+      }
+    }
+
+    return roots;
+  }
+
+  async getDescendantLocationIds(locationId: string): Promise<string[]> {
+    return resolveDescendantLocationIds(this.prisma, locationId);
+  }
+
+  async computeFullPath(locationId: string): Promise<string> {
+    const allLocations = await this.prisma.location.findMany({
+      select: { id: true, name: true, parentId: true },
+    });
+    const locMap = new Map<string, { id: string; name: string; parentId: string | null }>();
+    for (const l of allLocations) {
+      locMap.set(l.id, l);
+    }
+
+    const target = locMap.get(locationId);
+    if (!target) {
+      throw new NotFoundException(`Location with ID ${locationId} not found`);
+    }
+
+    const parts: string[] = [];
+    let curr: { id: string; name: string; parentId: string | null } | undefined = target;
+    const visited = new Set<string>();
+
+    while (curr) {
+      if (visited.has(curr.id)) break;
+      visited.add(curr.id);
+      parts.unshift(curr.name);
+      curr = curr.parentId ? locMap.get(curr.parentId) : undefined;
+    }
+
+    const fullPath = parts.join(' > ');
+    await this.prisma.location.update({
+      where: { id: locationId },
+      data: { fullPath },
+    });
+
+    return fullPath;
+  }
+
+  async findAllLocations(query?: LocationQueryDto) {
+    const where: Prisma.LocationWhereInput = {};
+    if (query?.organizationId) {
+      where.organizationId = query.organizationId;
+    }
+    if (query?.type) {
+      where.type = query.type;
+    }
+    if (query?.parentId !== undefined) {
+      where.parentId = query.parentId === 'null' || query.parentId === '' ? null : query.parentId;
+    }
+    if (query?.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { code: { contains: query.search, mode: 'insensitive' } },
+        { fullPath: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    return this.prisma.location.findMany({
+      where,
+      take: 200,
+      include: {
+        organization: { select: { id: true, name: true, code: true } },
+        parent: { select: { id: true, name: true, code: true, type: true } },
+        _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
       },
       orderBy: { name: 'asc' },
+    });
+  }
+
+  async findLocation(id: string) {
+    const location = await this.prisma.location.findUnique({
+      where: { id },
+      include: {
+        organization: { select: { id: true, name: true, code: true } },
+        parent: true,
+        children: {
+          orderBy: { name: 'asc' },
+          include: {
+            _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
+          },
+        },
+        _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
+      },
+    });
+    if (!location) {
+      throw new NotFoundException(`Location with ID ${id} not found`);
+    }
+    return location;
+  }
+
+  async createLocation(dto: CreateLocationDto) {
+    let fullPath: string | undefined = undefined;
+    if (dto.parentId) {
+      const parent = await this.prisma.location.findUnique({
+        where: { id: dto.parentId },
+        select: { id: true, name: true, fullPath: true },
+      });
+      if (!parent) {
+        throw new NotFoundException(`Parent location with ID ${dto.parentId} not found`);
+      }
+      const parentPath = parent.fullPath || parent.name;
+      fullPath = `${parentPath} > ${dto.name}`;
+    } else {
+      fullPath = dto.name;
+    }
+
+    return this.prisma.location.create({
+      data: {
+        name: dto.name,
+        code: dto.code,
+        description: dto.description,
+        type: dto.type,
+        parentId: dto.parentId,
+        organizationId: dto.organizationId,
+        building: dto.building,
+        floor: dto.floor,
+        room: dto.room,
+        address: dto.address,
+        status: dto.status || 'ACTIVE',
+        fullPath,
+      },
+      include: {
+        organization: { select: { id: true, name: true, code: true } },
+        parent: true,
+      },
+    });
+  }
+
+  async updateLocation(id: string, dto: UpdateLocationDto) {
+    await this.findLocation(id);
+
+    if (dto.parentId !== undefined && dto.parentId !== null) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('Location cannot be its own parent');
+      }
+      const descendants = await this.getDescendantLocationIds(id);
+      if (descendants.includes(dto.parentId)) {
+        throw new BadRequestException(
+          'Cannot set parent to a descendant location (cycle detected)',
+        );
+      }
+    }
+
+    const updated = await this.prisma.location.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        code: dto.code,
+        description: dto.description,
+        type: dto.type,
+        parentId: dto.parentId,
+        organizationId: dto.organizationId,
+        building: dto.building,
+        floor: dto.floor,
+        room: dto.room,
+        address: dto.address,
+        status: dto.status,
+      },
+      include: {
+        organization: { select: { id: true, name: true, code: true } },
+        parent: true,
+      },
+    });
+
+    if (dto.name !== undefined || dto.parentId !== undefined) {
+      try {
+        await this.computeFullPath(id);
+        const descendants = await this.getDescendantLocationIds(id);
+        for (const descId of descendants) {
+          if (descId !== id) {
+            await this.computeFullPath(descId);
+          }
+        }
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Failed to recompute fullPath for location ${id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return updated;
+  }
+
+  async deleteLocation(id: string) {
+    await this.findLocation(id);
+    await this.prisma.location.updateMany({
+      where: { parentId: id },
+      data: { parentId: null },
+    });
+    return this.prisma.location.delete({
+      where: { id },
     });
   }
 
