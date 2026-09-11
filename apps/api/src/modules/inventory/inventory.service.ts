@@ -160,7 +160,7 @@ export class InventoryService {
           include: { organization: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: pageSize,
       skip,
     });
@@ -277,7 +277,7 @@ export class InventoryService {
         name: true,
         description: true,
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       take: 100,
     });
   }
@@ -285,7 +285,7 @@ export class InventoryService {
   async findAllVendors() {
     const vendors = await this.prisma.vendor.findMany({
       take: 100,
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
     return vendors.map((v) => ({
       id: v.id,

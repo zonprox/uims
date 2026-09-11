@@ -13,10 +13,8 @@
     "rootDir": "./src",
     "incremental": false,
     "skipLibCheck": true,
-    "strict": false,
-    "strictNullChecks": true,
-    "noImplicitAny": false,
-    "strictBindCallApply": true,
+    "strict": true,
+    "noImplicitAny": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true

@@ -124,7 +124,7 @@ export class RolesService {
           },
         },
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
     return roles.map((r) => {
@@ -146,7 +146,7 @@ export class RolesService {
     const [roles, totalPermissions, totalUsers, superAdminsCount] = await Promise.all([
       this.prisma.role.findMany({
         take: 100,
-        orderBy: { name: 'asc' },
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
         select: {
           name: true,
           _count: { select: { users: true } },
@@ -167,7 +167,23 @@ export class RolesService {
     ).length;
     const customRolesCount = totalRoles - systemRolesCount;
 
-    const assignedUsers = roles.reduce((acc, curr) => acc + curr._count.users, 0);
+    let assignedUsers = 0;
+    try {
+      if (typeof this.prisma.appUser?.count === 'function') {
+        assignedUsers = await this.prisma.appUser.count({
+          where: { roleId: { not: null } },
+        });
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        'Assigned users count failed in getStats, falling back',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    if (assignedUsers === 0 && roles.length > 0) {
+      assignedUsers = roles.reduce((acc, curr) => acc + (curr._count?.users || 0), 0);
+    }
+
     const assignedUsersCoverage =
       totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 100;
 
@@ -184,7 +200,7 @@ export class RolesService {
   async getCatalog() {
     const allPermissions = await this.prisma.permission.findMany({
       take: 500,
-      orderBy: [{ subject: 'asc' }, { action: 'asc' }],
+      orderBy: [{ subject: 'asc' }, { action: 'asc' }, { id: 'asc' }],
     });
 
     const grouped: Record<

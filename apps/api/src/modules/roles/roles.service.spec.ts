@@ -23,6 +23,9 @@ describe('RolesService', () => {
     user: {
       count: vi.fn(),
     },
+    appUser: {
+      count: vi.fn(),
+    },
     rolePermission: {
       createMany: vi.fn(),
       deleteMany: vi.fn(),
@@ -162,6 +165,29 @@ describe('RolesService', () => {
 
       expect(result.id).toBe('r-2');
       expect(mockRedis.del).toHaveBeenCalled();
+    });
+  });
+
+  describe('getStats', () => {
+    it('should aggregate role statistics and use appUser count for assigned users', async () => {
+      mockPrisma.role.findMany.mockResolvedValue([
+        { name: 'Admin', _count: { users: 2 } },
+        { name: 'Custom Auditor', _count: { users: 3 } },
+      ]);
+      mockPrisma.permission.count.mockResolvedValue(25);
+      mockPrisma.appUser.count
+        .mockResolvedValueOnce(10) // totalUsers
+        .mockResolvedValueOnce(1) // superAdminsCount
+        .mockResolvedValueOnce(5); // assignedUsers (roleId: not null)
+
+      const stats = await service.getStats();
+
+      expect(stats.totalRoles).toBe(2);
+      expect(stats.systemRolesCount).toBe(1);
+      expect(stats.customRolesCount).toBe(1);
+      expect(stats.totalPermissionsCount).toBe(25);
+      expect(stats.superAdminsCount).toBe(1);
+      expect(stats.assignedUsersCoverage).toBe(50); // 5 / 10 = 50%
     });
   });
 });

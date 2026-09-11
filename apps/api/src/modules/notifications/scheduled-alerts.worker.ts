@@ -1,5 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import type { Asset, License } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { NotificationsService } from './notifications.service';
@@ -67,117 +69,130 @@ export class ScheduledAlertsWorker {
   async scanExpiringLicenses(): Promise<ScanResult> {
     const now = new Date();
     const thirtyDaysAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const licenses = await this.prisma.license.findMany({
-      where: {
-        expiryDate: { not: null, lte: thirtyDaysAhead },
-      },
-      take: 100,
-      orderBy: { expiryDate: 'asc' },
-    });
+    const BATCH_SIZE = 100;
 
     let notified = 0;
     let throttled = 0;
+    let totalScanned = 0;
+    let cursor: string | undefined = undefined;
 
-    for (const lic of licenses) {
-      if (!lic.expiryDate) continue;
+    while (true) {
+      const licenses: License[] = await this.prisma.license.findMany({
+        where: {
+          expiryDate: { not: null, lte: thirtyDaysAhead },
+        },
+        take: BATCH_SIZE,
+        skip: cursor ? 1 : 0,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { id: 'asc' },
+      });
 
-      const diffMs = lic.expiryDate.getTime() - now.getTime();
-      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      const dateStr = lic.expiryDate.toISOString().split('T')[0];
+      if (licenses.length === 0) break;
+      totalScanned += licenses.length;
 
-      if (daysRemaining <= 0) {
-        // Expired tier
-        if (lic.status !== 'EXPIRED') {
-          await this.prisma.license.update({
-            where: { id: lic.id },
-            data: { status: 'EXPIRED' },
-          });
+      for (const lic of licenses) {
+        if (!lic.expiryDate) continue;
+
+        const diffMs = lic.expiryDate.getTime() - now.getTime();
+        const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const dateStr = lic.expiryDate.toISOString().split('T')[0];
+
+        if (daysRemaining <= 0) {
+          // Expired tier
+          if (lic.status !== 'EXPIRED') {
+            await this.prisma.license.update({
+              where: { id: lic.id },
+              data: { status: 'EXPIRED' },
+            });
+          }
+          const sent = await this.dispatchThrottledAlert(
+            `alert:license:expired:${lic.id}`,
+            86400 * 7, // 7 days cooldown
+            {
+              title: 'License Expired',
+              message: `License "${lic.name}" expired on ${dateStr}. Review subscriptions immediately.`,
+              type: 'ALERT',
+              link: '/licenses',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else if (daysRemaining === 1) {
+          // 1-day critical tier
+          if (lic.status !== 'EXPIRING_SOON') {
+            await this.prisma.license.update({
+              where: { id: lic.id },
+              data: { status: 'EXPIRING_SOON' },
+            });
+          }
+          const sent = await this.dispatchThrottledAlert(
+            `alert:license:expiring:${lic.id}:1d`,
+            86400, // 24 hours cooldown
+            {
+              title: 'Urgent: License Expiring Tomorrow',
+              message: `License "${lic.name}" will expire tomorrow (${dateStr}). Immediate renewal required.`,
+              type: 'ALERT',
+              link: '/licenses',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else if (daysRemaining <= 7) {
+          // 7-day critical tier
+          if (lic.status !== 'EXPIRING_SOON') {
+            await this.prisma.license.update({
+              where: { id: lic.id },
+              data: { status: 'EXPIRING_SOON' },
+            });
+          }
+          const sent = await this.dispatchThrottledAlert(
+            `alert:license:expiring:${lic.id}:7d`,
+            86400 * 3, // 3 days cooldown
+            {
+              title: 'Critical: License Expiring Soon',
+              message: `License "${lic.name}" will expire in ${daysRemaining} day(s) (${dateStr}).`,
+              type: 'ALERT',
+              link: '/licenses',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else if (daysRemaining <= 15) {
+          // 15-day warning tier
+          const sent = await this.dispatchThrottledAlert(
+            `alert:license:expiring:${lic.id}:15d`,
+            86400 * 7, // 7 days cooldown
+            {
+              title: 'License Expiring in 15 Days',
+              message: `License "${lic.name}" will expire in ${daysRemaining} days (${dateStr}). Plan renewal.`,
+              type: 'WARNING',
+              link: '/licenses',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else if (daysRemaining <= 30) {
+          // 30-day advance notice tier
+          const sent = await this.dispatchThrottledAlert(
+            `alert:license:expiring:${lic.id}:30d`,
+            86400 * 14, // 14 days cooldown
+            {
+              title: 'License Expiration Notice (30 Days)',
+              message: `License "${lic.name}" will expire in ${daysRemaining} days (${dateStr}).`,
+              type: 'WARNING',
+              link: '/licenses',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
         }
-        const sent = await this.dispatchThrottledAlert(
-          `alert:license:expired:${lic.id}`,
-          86400 * 7, // 7 days cooldown
-          {
-            title: 'License Expired',
-            message: `License "${lic.name}" expired on ${dateStr}. Review subscriptions immediately.`,
-            type: 'ALERT',
-            link: '/licenses',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
-      } else if (daysRemaining === 1) {
-        // 1-day critical tier
-        if (lic.status !== 'EXPIRING_SOON') {
-          await this.prisma.license.update({
-            where: { id: lic.id },
-            data: { status: 'EXPIRING_SOON' },
-          });
-        }
-        const sent = await this.dispatchThrottledAlert(
-          `alert:license:expiring:${lic.id}:1d`,
-          86400, // 24 hours cooldown
-          {
-            title: 'Urgent: License Expiring Tomorrow',
-            message: `License "${lic.name}" will expire tomorrow (${dateStr}). Immediate renewal required.`,
-            type: 'ALERT',
-            link: '/licenses',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
-      } else if (daysRemaining <= 7) {
-        // 7-day critical tier
-        if (lic.status !== 'EXPIRING_SOON') {
-          await this.prisma.license.update({
-            where: { id: lic.id },
-            data: { status: 'EXPIRING_SOON' },
-          });
-        }
-        const sent = await this.dispatchThrottledAlert(
-          `alert:license:expiring:${lic.id}:7d`,
-          86400 * 3, // 3 days cooldown
-          {
-            title: 'Critical: License Expiring Soon',
-            message: `License "${lic.name}" will expire in ${daysRemaining} day(s) (${dateStr}).`,
-            type: 'ALERT',
-            link: '/licenses',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
-      } else if (daysRemaining <= 15) {
-        // 15-day warning tier
-        const sent = await this.dispatchThrottledAlert(
-          `alert:license:expiring:${lic.id}:15d`,
-          86400 * 7, // 7 days cooldown
-          {
-            title: 'License Expiring in 15 Days',
-            message: `License "${lic.name}" will expire in ${daysRemaining} days (${dateStr}). Plan renewal.`,
-            type: 'WARNING',
-            link: '/licenses',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
-      } else if (daysRemaining <= 30) {
-        // 30-day advance notice tier
-        const sent = await this.dispatchThrottledAlert(
-          `alert:license:expiring:${lic.id}:30d`,
-          86400 * 14, // 14 days cooldown
-          {
-            title: 'License Expiration Notice (30 Days)',
-            message: `License "${lic.name}" will expire in ${daysRemaining} days (${dateStr}).`,
-            type: 'WARNING',
-            link: '/licenses',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
       }
+
+      cursor = licenses[licenses.length - 1].id;
+      if (licenses.length < BATCH_SIZE) break;
     }
 
-    return { scanned: licenses.length, notified, throttled };
+    return { scanned: totalScanned, notified, throttled };
   }
 
   /**
@@ -186,86 +201,99 @@ export class ScheduledAlertsWorker {
   async scanExpiringWarranties(): Promise<ScanResult> {
     const now = new Date();
     const thirtyDaysAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const assets = await this.prisma.asset.findMany({
-      where: {
-        warrantyExpiry: { not: null, lte: thirtyDaysAhead },
-        status: { in: ['AVAILABLE', 'IN_USE', 'MAINTENANCE'] },
-      },
-      take: 100,
-      orderBy: { warrantyExpiry: 'asc' },
-    });
+    const BATCH_SIZE = 100;
 
     let notified = 0;
     let throttled = 0;
+    let totalScanned = 0;
+    let cursor: string | undefined = undefined;
 
-    for (const asset of assets) {
-      if (!asset.warrantyExpiry) continue;
+    while (true) {
+      const assets: Asset[] = await this.prisma.asset.findMany({
+        where: {
+          warrantyExpiry: { not: null, lte: thirtyDaysAhead },
+          status: { in: ['AVAILABLE', 'IN_USE', 'MAINTENANCE'] },
+        },
+        take: BATCH_SIZE,
+        skip: cursor ? 1 : 0,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { id: 'asc' },
+      });
 
-      const diffMs = asset.warrantyExpiry.getTime() - now.getTime();
-      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      const dateStr = asset.warrantyExpiry.toISOString().split('T')[0];
+      if (assets.length === 0) break;
+      totalScanned += assets.length;
 
-      if (daysRemaining <= 0) {
-        // Warranty expired
-        const sent = await this.dispatchThrottledAlert(
-          `alert:asset:warranty_expired:${asset.id}`,
-          86400 * 7, // 7 days cooldown
-          {
-            title: 'Asset Warranty Expired',
-            message: `Warranty for asset "${asset.name}" (${asset.assetTag}) has expired on ${dateStr}.`,
-            type: 'WARNING',
-            link: '/assets',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
-      } else if (daysRemaining <= 7) {
-        // 7-day tier
-        const sent = await this.dispatchThrottledAlert(
-          `alert:asset:warranty_expiring:${asset.id}:7d`,
-          86400 * 3, // 3 days cooldown
-          {
-            title: 'Asset Warranty Expiring in 7 Days',
-            message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} day(s) (${dateStr}).`,
-            type: 'WARNING',
-            link: '/assets',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
-      } else if (daysRemaining <= 15) {
-        // 15-day tier
-        const sent = await this.dispatchThrottledAlert(
-          `alert:asset:warranty_expiring:${asset.id}:15d`,
-          86400 * 7, // 7 days cooldown
-          {
-            title: 'Asset Warranty Expiring in 15 Days',
-            message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
-            type: 'WARNING',
-            link: '/assets',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
-      } else if (daysRemaining <= 30) {
-        // 30-day tier
-        const sent = await this.dispatchThrottledAlert(
-          `alert:asset:warranty_expiring:${asset.id}:30d`,
-          86400 * 14, // 14 days cooldown
-          {
-            title: 'Asset Warranty Expiring Soon (30 Days)',
-            message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
-            type: 'WARNING',
-            link: '/assets',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
+      for (const asset of assets) {
+        if (!asset.warrantyExpiry) continue;
+
+        const diffMs = asset.warrantyExpiry.getTime() - now.getTime();
+        const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const dateStr = asset.warrantyExpiry.toISOString().split('T')[0];
+
+        if (daysRemaining <= 0) {
+          // Warranty expired
+          const sent = await this.dispatchThrottledAlert(
+            `alert:asset:warranty_expired:${asset.id}`,
+            86400 * 7, // 7 days cooldown
+            {
+              title: 'Asset Warranty Expired',
+              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) has expired on ${dateStr}.`,
+              type: 'WARNING',
+              link: '/assets',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else if (daysRemaining <= 7) {
+          // 7-day tier
+          const sent = await this.dispatchThrottledAlert(
+            `alert:asset:warranty_expiring:${asset.id}:7d`,
+            86400 * 3, // 3 days cooldown
+            {
+              title: 'Asset Warranty Expiring in 7 Days',
+              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} day(s) (${dateStr}).`,
+              type: 'WARNING',
+              link: '/assets',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else if (daysRemaining <= 15) {
+          // 15-day tier
+          const sent = await this.dispatchThrottledAlert(
+            `alert:asset:warranty_expiring:${asset.id}:15d`,
+            86400 * 7, // 7 days cooldown
+            {
+              title: 'Asset Warranty Expiring in 15 Days',
+              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
+              type: 'WARNING',
+              link: '/assets',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else if (daysRemaining <= 30) {
+          // 30-day tier
+          const sent = await this.dispatchThrottledAlert(
+            `alert:asset:warranty_expiring:${asset.id}:30d`,
+            86400 * 14, // 14 days cooldown
+            {
+              title: 'Asset Warranty Expiring Soon (30 Days)',
+              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
+              type: 'WARNING',
+              link: '/assets',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        }
       }
+
+      cursor = assets[assets.length - 1].id;
+      if (assets.length < BATCH_SIZE) break;
     }
 
-    return { scanned: assets.length, notified, throttled };
+    return { scanned: totalScanned, notified, throttled };
   }
 
   /**
@@ -273,111 +301,138 @@ export class ScheduledAlertsWorker {
    */
   async scanOverdueMaintenance(): Promise<ScanResult> {
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-
-    const assets = await this.prisma.asset.findMany({
-      where: {
-        status: 'MAINTENANCE',
-        updatedAt: { lte: fourteenDaysAgo },
-      },
-      take: 100,
-      orderBy: { updatedAt: 'asc' },
-    });
+    const BATCH_SIZE = 100;
 
     let notified = 0;
     let throttled = 0;
+    let totalScanned = 0;
+    let cursor: string | undefined = undefined;
 
-    for (const asset of assets) {
-      const daysInMaintenance = Math.floor(
-        (Date.now() - asset.updatedAt.getTime()) / (1000 * 60 * 60 * 24),
-      );
-
-      const sent = await this.dispatchThrottledAlert(
-        `alert:asset:maintenance_overdue:${asset.id}`,
-        86400 * 3, // 3 days cooldown
-        {
-          title: 'Overdue Maintenance Alert',
-          message: `Asset "${asset.name}" (${asset.assetTag}) has been under maintenance for ${daysInMaintenance} days (exceeds 14-day threshold).`,
-          type: 'WARNING',
-          link: '/assets',
+    while (true) {
+      const assets: Asset[] = await this.prisma.asset.findMany({
+        where: {
+          status: 'MAINTENANCE',
+          updatedAt: { lte: fourteenDaysAgo },
         },
-      );
-      if (sent) notified++;
-      else throttled++;
+        take: BATCH_SIZE,
+        skip: cursor ? 1 : 0,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { id: 'asc' },
+      });
+
+      if (assets.length === 0) break;
+      totalScanned += assets.length;
+
+      for (const asset of assets) {
+        const daysInMaintenance = Math.floor(
+          (Date.now() - asset.updatedAt.getTime()) / (1000 * 60 * 60 * 24),
+        );
+
+        const sent = await this.dispatchThrottledAlert(
+          `alert:asset:maintenance_overdue:${asset.id}`,
+          86400 * 3, // 3 days cooldown
+          {
+            title: 'Overdue Maintenance Alert',
+            message: `Asset "${asset.name}" (${asset.assetTag}) has been under maintenance for ${daysInMaintenance} days (exceeds 14-day threshold).`,
+            type: 'WARNING',
+            link: '/assets',
+          },
+        );
+        if (sent) notified++;
+        else throttled++;
+      }
+
+      cursor = assets[assets.length - 1].id;
+      if (assets.length < BATCH_SIZE) break;
     }
 
-    return { scanned: assets.length, notified, throttled };
+    return { scanned: totalScanned, notified, throttled };
   }
 
   /**
    * 4. Scan Low Stock & Out of Stock Inventory Items (quantity <= minThreshold)
    */
   async scanLowStock(): Promise<ScanResult> {
-    let items: Array<{
-      id: string;
-      name: string;
-      sku: string;
-      quantity: number;
-      minThreshold: number;
-    }>;
-
-    if (typeof this.prisma.$queryRaw === 'function') {
-      items = await this.prisma.$queryRaw<
-        Array<{
-          id: string;
-          name: string;
-          sku: string;
-          quantity: number;
-          minThreshold: number;
-        }>
-      >`
-        SELECT id, name, sku, quantity, "minThreshold"
-        FROM "InventoryItem"
-        WHERE quantity <= "minThreshold"
-        ORDER BY quantity ASC
-        LIMIT 100
-      `;
-    } else {
-      const fetched = await this.prisma.inventoryItem.findMany({
-        take: 100,
-        orderBy: { quantity: 'asc' },
-      });
-      items = fetched.filter((item) => item.quantity <= item.minThreshold);
-    }
-
     let notified = 0;
     let throttled = 0;
+    let totalScanned = 0;
+    const BATCH_SIZE = 100;
+    let cursor: string | undefined = undefined;
 
-    for (const item of items) {
-      if (item.quantity === 0) {
-        const sent = await this.dispatchThrottledAlert(
-          `alert:inventory:out_of_stock:${item.id}`,
-          86400, // 24 hours cooldown
-          {
-            title: 'Item Out of Stock',
-            message: `Item "${item.name}" (${item.sku}) is out of stock (0 units remaining).`,
-            type: 'ALERT',
-            link: '/inventory',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
+    while (true) {
+      let items: Array<{
+        id: string;
+        name: string;
+        sku: string;
+        quantity: number;
+        minThreshold: number;
+      }>;
+
+      if (typeof this.prisma.$queryRaw === 'function') {
+        items = await this.prisma.$queryRaw<
+          Array<{
+            id: string;
+            name: string;
+            sku: string;
+            quantity: number;
+            minThreshold: number;
+          }>
+        >`
+          SELECT id, name, sku, quantity, "minThreshold"
+          FROM "InventoryItem"
+          WHERE quantity <= "minThreshold"
+            ${cursor ? Prisma.sql`AND id > ${cursor}` : Prisma.empty}
+          ORDER BY id ASC
+          LIMIT ${BATCH_SIZE}
+        `;
       } else {
-        const sent = await this.dispatchThrottledAlert(
-          `alert:inventory:low_stock:${item.id}`,
-          86400, // 24 hours cooldown
-          {
-            title: 'Low Stock Alert',
-            message: `Item "${item.name}" (${item.sku}) is low on stock: ${item.quantity} units remaining (threshold: ${item.minThreshold}).`,
-            type: 'WARNING',
-            link: '/inventory',
-          },
-        );
-        if (sent) notified++;
-        else throttled++;
+        const fetched = await this.prisma.inventoryItem.findMany({
+          take: BATCH_SIZE,
+          skip: cursor ? 1 : 0,
+          cursor: cursor ? { id: cursor } : undefined,
+          orderBy: { id: 'asc' },
+        });
+        items = fetched.filter((item) => item.quantity <= item.minThreshold);
       }
+
+      if (items.length === 0) break;
+      totalScanned += items.length;
+
+      for (const item of items) {
+        if (item.quantity === 0) {
+          const sent = await this.dispatchThrottledAlert(
+            `alert:inventory:out_of_stock:${item.id}`,
+            86400, // 24 hours cooldown
+            {
+              title: 'Item Out of Stock',
+              message: `Item "${item.name}" (${item.sku}) is out of stock (0 units remaining).`,
+              type: 'ALERT',
+              link: '/inventory',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        } else {
+          const sent = await this.dispatchThrottledAlert(
+            `alert:inventory:low_stock:${item.id}`,
+            86400, // 24 hours cooldown
+            {
+              title: 'Low Stock Alert',
+              message: `Item "${item.name}" (${item.sku}) is low on stock: ${item.quantity} units remaining (threshold: ${item.minThreshold}).`,
+              type: 'WARNING',
+              link: '/inventory',
+            },
+          );
+          if (sent) notified++;
+          else throttled++;
+        }
+      }
+
+      cursor = items[items.length - 1].id;
+      if (items.length < BATCH_SIZE) break;
     }
 
-    return { scanned: items.length, notified, throttled };
+    return { scanned: totalScanned, notified, throttled };
   }
 
   /**

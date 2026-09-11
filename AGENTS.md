@@ -267,4 +267,45 @@ Every change must satisfy the full verification cycle prior to merging or pushin
 
 ---
 
+## 16. Authoritative Defect Prevention Directives & Architectural Invariants
+
+> **Zero-Regression & Defect Prevention Directives**:  
+> To permanently eliminate recurrent architectural debt and performance/security bottlenecks (addressing TD-001 through TD-004, SEC-001, SEC-002, PERF-001, and PERF-002), all contributors and automated agents MUST adhere to these non-negotiable directives across the entire monorepo.
+
+### 16.1 TypeScript Strict Mode Invariant (Monorepo-Wide)
+- **Zero Implicit Any**: `"strict": true` and `"noImplicitAny": true` MUST remain enabled monorepo-wide in all `tsconfig.json` manifests (`apps/api`, `apps/web`, `packages/*`).
+- **Complete Type Narrowing**: Every function parameter, return type, variable, and asynchronous callback MUST specify an explicit or completely narrowed type.
+- **Zero Diagnostic Suppressions**: `@ts-ignore`, `@ts-expect-error` (without an active tracking issue ID), `@ts-nocheck`, and eslint rule suppressions for type safety violations are strictly banned across all production and test files.
+- **Strict Compiler Directives**: `strictNullChecks: true`, `strictBindCallApply: true`, `forceConsistentCasingInFileNames: true`, and `noFallthroughCasesInSwitch: true` MUST remain strictly active.
+
+### 16.2 Mandatory Bounded Queries & Deterministic Ordering
+- **Hard Ceiling on findMany()**: Every Prisma `findMany()` query in service code, controllers, workers, and background utilities MUST enforce an explicit upper ceiling: `take: Math.min(limit, 100)`.
+- **Zero Unbounded Queries**: Unbounded `findMany()` calls without `take` are strictly forbidden across the codebase (specifically targeting notifications, inventory, assets, directory, settings, search, reports, and organization).
+- **Mandatory Deterministic Ordering**: Every database query that specifies `take` or `skip` MUST supply a deterministic `orderBy` clause (e.g. `orderBy: { createdAt: 'desc' }` or `orderBy: { id: 'asc' }`) to guarantee stable pagination windows and eliminate phantom duplicates or skipped records across pagination slices.
+
+### 16.3 Mandatory Cursor Pagination for Background Workers & Bulk Search Sync
+- **No High Take Ceilings**: Background workers (e.g. `ScheduledAlertsWorker`), bulk data indexers (`SearchService.syncIndexes()`), and mass export pipelines MUST NEVER execute queries with high take ceilings (e.g., `take: 1000` is strictly prohibited).
+- **Chunked Batch Processing**: Bulk operations MUST implement cursor-based pagination processing records in deterministic batches of `take: 100` (e.g., `{ take: 100, skip: cursor ? 1 : 0, cursor: cursor ? { id: cursor } : undefined, orderBy: { id: 'asc' } }`).
+- **Bounded Heap Allocation**: In-memory references and batch payloads MUST be bounded and released between batch iterations to prevent Node.js heap exhaustion during bulk processing.
+
+### 16.4 Zero In-Memory Aggregations
+- **Prohibited In-Memory reduce()**: Loading relational rows or tables into Node.js heap memory to compute arithmetic sums, valuations, counts, or totals via JavaScript `.reduce()` (e.g. `allLicenses.reduce(...)`, `roles.reduce(...)`, `reports.reduce(...)`) is strictly prohibited.
+- **Database Engine Aggregations Only**: All arithmetic aggregations and valuations MUST be executed directly within the PostgreSQL database engine using Prisma `_sum` / `_count` / `_avg` aggregates (e.g. `prisma.license.aggregate({ _sum: { usedSeats: true } })`) or database-level `$queryRaw` SQL queries (e.g. `SELECT COALESCE(SUM("usedSeats" * "costPerSeat"), 0) FROM "License"`).
+
+### 16.5 Fail-Fast Environment Variable Resolution & Zero Fallback Secrets
+- **No Hardcoded Fallback API Keys or Secrets**: External service API keys, secrets, master tokens, and connection strings (including `MEILI_API_KEY`, SeaweedFS S3 credentials, third-party webhook secrets) MUST NEVER have hardcoded fallback default strings in source code (e.g. `'uims_meili_master_key_2026'` is strictly banned).
+- **Mandatory Fail-Fast Startup**: All required secrets and API tokens MUST fail fast immediately at application startup if absent or malformed:
+  - Required pattern: `const apiKey = configService.getOrThrow<string>('MEILI_API_KEY');` or startup validation via Zod schemas that call `process.exit(1)` on configuration failure.
+
+### 16.6 Resilient Redis Service & Degraded Health Telemetry
+- **Structured Degradation Logging**: When the Redis connection fails or disconnects, `RedisService` may fall back to an in-memory `Map` solely for non-critical transient caching in single-instance environments, but MUST log an explicit warning via structured logger (`this.logger.warn('Redis unavailable; falling back to in-memory non-persistent cache')`).
+- **Degraded Health Reporting**: The health check endpoint (`/api/v1/health`) MUST NOT report a fully healthy status when Redis is down; it MUST report HTTP 200 with degraded telemetry payload `{ status: 'degraded', redis: 'unavailable', db: 'healthy' }` (or return HTTP 503 if caching is designated mission-critical), ensuring monitoring orchestrators and multi-instance deployments immediately detect Redis outages.
+
+### 16.7 Transactional Batched Batch-Imports
+- **Elimination of N+1 Queries**: Large-scale directory, network, asset, and inventory CSV batch imports MUST eliminate sequential N+1 database queries by utilizing pre-fetched Map-based lookup tables.
+- **Chunked Database Transactions**: Bulk write operations MUST be executed in chunked database transactions via `prisma.$transaction([...])` in chunks of 50 to 100 records per transaction, rather than executing thousands of records in a single monolithic transaction or issuing uncommitted individual queries. This preserves ACID atomicity, avoids long database lock contention, and bounds heap usage.
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, zero anti-patterns in UI components, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+

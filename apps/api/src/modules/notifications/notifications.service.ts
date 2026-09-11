@@ -208,8 +208,11 @@ export class NotificationsService {
     const skip = (page - 1) * limit;
 
     const sortField = query?.sort || 'createdAt';
-    const sortOrder = query?.order || 'desc';
-    const orderBy = { [sortField]: sortOrder };
+    const sortOrder: Prisma.SortOrder = query?.order === 'asc' ? 'asc' : 'desc';
+    const orderBy: Prisma.NotificationOrderByWithRelationInput[] = [
+      { [sortField]: sortOrder } as Prisma.NotificationOrderByWithRelationInput,
+      { id: 'asc' },
+    ];
 
     const [notifications, total, unreadCount] = await Promise.all([
       this.prisma.notification.findMany({
@@ -307,13 +310,11 @@ export class NotificationsService {
     try {
       const adminUsers = await this.prisma.appUser.findMany({
         where: {
-          OR: [
-            { roleName: { in: ['Admin', 'Super Admin'] } },
-            { role: { name: { in: ['Admin', 'Super Admin'] } } },
-          ],
+          role: { name: { in: ['Admin', 'Super Admin'] } },
           status: 'ACTIVE',
         },
         take: 100,
+        orderBy: { id: 'asc' },
         select: { id: true },
       });
 

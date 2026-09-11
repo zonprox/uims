@@ -729,3 +729,120 @@ Upon completing all milestones, verification checks, and tests:
 1. Clean up any temporary scratch files or unused artifacts.
 2. Commit all changes cleanly with a descriptive Conventional Commits message (e.g. `feat(locations): implement hierarchical spatial location tree and BSL garment taxonomy for assets and inventory`).
 3. Ensure git working tree is clean.
+
+## 2026-09-11T07:38:51Z
+
+Resolve all technical debt, security concerns, and performance bottlenecks in the UIMS monorepo as documented in `.planning/codebase/CONCERNS.md`, pump all dependencies to their absolute latest versions without any downgrades, update `AGENTS.md` with defect prevention rules, and push to `origin/main` tracking CI until green.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Resolve All CONCERNS.md Technical Debt & Issues
+
+Thoroughly address every item in `.planning/codebase/CONCERNS.md`:
+
+**TD-001 — TypeScript Strict Mode**: Enable `"strict": true` in both `apps/api/tsconfig.json` and `apps/web/tsconfig.json`. Fix all resulting type errors across both workspaces. The API already has `strictNullChecks` and `strictBindCallApply` enabled — complete the remaining strict checks including `noImplicitAny: true`.
+
+**TD-002 — Unbounded `findMany()` Queries**: Add explicit `take: Math.min(limit, 100)` with deterministic `orderBy` to all ~20 unbounded `findMany()` calls across:
+- `notifications.service.ts` (lines 215, 308)
+- `scheduled-alerts.worker.ts` (lines 71, 190, 277, 340)
+- `inventory.service.ts` (lines 155, 274, 286)
+- `assets.service.ts` (lines 266, 531)
+- `directory.service.ts` (lines 183, 386, 398, 486, 531, 610, 643)
+- `settings.service.ts` (line 21)
+- `search.service.ts` (line 152)
+
+For background workers, use cursor pagination with `take: 100` batches.
+
+**TD-003 — In-Memory Aggregations**: Replace JavaScript `.reduce()` aggregations with database-level operations:
+- `licenses.service.ts:391` — Replace `allLicenses.reduce(...)` with Prisma `_sum` or `$queryRaw`
+- `reports.service.ts:18-20,127` — Replace multiple `.reduce()` with SQL aggregates
+- `roles.service.ts:170` — Replace `roles.reduce(...)` with Prisma aggregate
+
+**TD-004 — Search Service High Take Ceiling**: Replace `take: 1000` in `search.service.ts:238-242` with cursor-based pagination processing records in batches of 100.
+
+**TD-005 — Large Page Components**: This is a lower priority refactoring task — do NOT attempt component extraction unless it's needed to fix type errors or other concerns. Focus on the actionable code quality issues.
+
+**SEC-001 — Redis Connection Fallback**: Log a clear warning when Redis falls back to in-memory Map. Ensure the health endpoint reports degraded status when Redis is unavailable.
+
+**SEC-002 — MeiliSearch API Key Fallback**: Remove the hardcoded fallback key `'uims_meili_master_key_2026'` in `search.service.ts:58`. Use `configService.getOrThrow<string>('MEILI_API_KEY')` to fail-fast.
+
+**PERF-001 — Search Index Sync**: Implement cursor pagination for `syncIndexes()` to process documents in batches of 100 instead of loading 1000 records at once.
+
+**PERF-002 — Directory Service Complex Queries**: Add pagination to all list operations in `directory.service.ts` (889 lines). Use `$transaction` with batched inserts for CSV import operations.
+
+### R2. Dependency Management — Absolute Latest Versions
+
+Upgrade ALL dependencies across the entire monorepo to their absolute latest versions:
+- Root `package.json`: `@biomejs/biome`, `@playwright/test`, `playwright`, `turbo`
+- `apps/api/package.json`: All NestJS packages, Prisma, BullMQ, bcrypt, class-transformer, class-validator, passport, reflect-metadata, rxjs, and all dev dependencies (Vitest, ts-node, typescript, etc.)
+- `apps/web/package.json`: React 19, Ant Design 6+, Vite 8+, Zustand 5+, TanStack Query 5+, and all dev dependencies
+- `packages/shared-types/package.json`, `packages/shared-validators/package.json`, `packages/shared-utils/package.json`, `packages/eslint-config/package.json`
+
+**STRICT RULE**: Under absolutely no circumstances may any dependency be downgraded. TypeScript must remain at 7.x or latest. All breaking API changes from upgrades must be resolved cleanly.
+
+After upgrading, run `pnpm install --no-frozen-lockfile && pnpm dedupe` to synchronize the lockfile.
+
+### R3. Update AGENTS.md with Defect Prevention Rules
+
+Update the existing `AGENTS.md` at the project root with clear, authoritative rules covering:
+- Explicit documentation of all resolved concern patterns to prevent recurrence
+- Rules for bounded database queries and pagination requirements
+- Rules for database-level aggregations (no in-memory `.reduce()`)
+- Rules for fail-fast environment validation (no fallback secrets)
+- Rules for TypeScript strict mode enforcement
+- Rules for cursor-based pagination in search indexing and background workers
+- Any other patterns discovered during the refactoring
+
+Do NOT remove existing content — add new sections or enhance existing ones.
+
+### R4. Git Commit, Push & CI Pipeline Verification
+
+1. Run the full local verification suite and fix any issues:
+   - `pnpm run typecheck` — 0 errors across all workspaces
+   - `pnpm run lint` — 0 errors
+   - `pnpm run format:check` — 100% Biome compliance (run `pnpm run format` to auto-fix if needed)
+   - `pnpm run test` — 100% test pass rate
+   - `pnpm run build` — clean production builds
+2. Commit all changes using Conventional Commits format
+3. Push to `origin/main`
+4. Track CI pipeline via `gh run list` and `gh run watch`
+5. If CI fails, diagnose and fix the issues, then re-push and re-track until the pipeline is completely green
+
+## Context & Reference Files
+
+- **CONCERNS.md**: `.planning/codebase/CONCERNS.md` — the authoritative list of all concerns to resolve
+- **AGENTS.md**: `AGENTS.md` — the project's engineering guidelines (to be updated in R3)
+- **CI Workflow**: `.github/workflows/ci.yml` — runs format:check, lint, typecheck, test, build on GitHub Actions
+- **Monorepo structure**: `apps/api` (NestJS), `apps/web` (React), `packages/*` (shared libraries)
+- **Package manager**: pnpm 11.21+ with Turborepo
+- **Current state**: HEAD is 4 commits ahead of `origin/main` with unpushed changes
+
+## Acceptance Criteria
+
+### Technical Debt Resolution
+- [ ] TypeScript strict mode enabled in both `apps/api/tsconfig.json` and `apps/web/tsconfig.json` with all type errors resolved
+- [ ] Zero unbounded `findMany()` queries — all queries enforce `take` limits and deterministic `orderBy`
+- [ ] Zero in-memory aggregations — all `.reduce()` computations on database records replaced with Prisma `_sum` / `$queryRaw`
+- [ ] Search service uses cursor-based batch pagination (100 records) instead of `take: 1000`
+- [ ] MeiliSearch hardcoded fallback key removed; uses `getOrThrow`
+
+### Dependencies
+- [ ] All dependencies across the monorepo are at their absolute latest versions
+- [ ] Zero downgrades — verify no package version decreased
+- [ ] `pnpm-lock.yaml` cleanly synchronized and deduplicated
+
+### Documentation
+- [ ] `AGENTS.md` updated with comprehensive defect prevention rules covering all resolved patterns
+
+### Verification & CI Pipeline
+- [ ] `pnpm run typecheck` passes with 0 errors across all workspaces
+- [ ] `pnpm run lint` passes with 0 errors
+- [ ] `pnpm run format:check` passes with 100% compliance
+- [ ] `pnpm run test` passes with 100% test pass rate
+- [ ] `pnpm run build` succeeds across all workspaces
+- [ ] All changes committed and pushed to `origin/main`
+- [ ] Remote GitHub Actions CI pipeline completes with green status
+

@@ -1,23 +1,77 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getReportSuites() {
-    const [assetCost, licenses] = await Promise.all([
+    let totalSaaS: number | null = null;
+    try {
+      if (typeof this.prisma.$queryRaw === 'function') {
+        const rawResult = await this.prisma.$queryRaw<Array<{ totalSpend: number | null }>>`
+          SELECT COALESCE(SUM("usedSeats" * "costPerSeat"), 0)::float AS "totalSpend"
+          FROM "License"
+        `;
+        if (
+          rawResult &&
+          rawResult[0]?.totalSpend !== undefined &&
+          rawResult[0]?.totalSpend !== null
+        ) {
+          totalSaaS = Number(rawResult[0].totalSpend);
+        }
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        'SQL license spend aggregation in getReportSuites failed, falling back',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    let totalSeats = 0;
+    let usedSeats = 0;
+    try {
+      if (typeof this.prisma.license?.aggregate === 'function') {
+        const agg = await this.prisma.license.aggregate({
+          _sum: { totalSeats: true, usedSeats: true },
+        });
+        totalSeats = agg._sum?.totalSeats || 0;
+        usedSeats = agg._sum?.usedSeats || 0;
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        'License seat aggregation in getReportSuites failed, falling back',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    const [assetCost, fallbackLicenses] = await Promise.all([
       this.prisma.asset.aggregate({ _sum: { purchaseCost: true } }),
-      this.prisma.license.findMany({
-        select: { totalSeats: true, usedSeats: true, costPerSeat: true },
-        take: 1000,
-      }),
+      totalSaaS === null || (totalSeats === 0 && usedSeats === 0)
+        ? this.prisma.license.findMany({
+            select: { totalSeats: true, usedSeats: true, costPerSeat: true },
+            take: 1000,
+            orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          })
+        : Promise.resolve<Array<{ totalSeats: number; usedSeats: number; costPerSeat: number }>>(
+            [],
+          ),
     ]);
 
+    if (totalSaaS === null) {
+      totalSaaS = fallbackLicenses.reduce<number>(
+        (sum, l) => sum + l.usedSeats * (l.costPerSeat || 0),
+        0,
+      );
+    }
+    if (totalSeats === 0 && usedSeats === 0 && fallbackLicenses.length > 0) {
+      totalSeats = fallbackLicenses.reduce<number>((sum, l) => sum + l.totalSeats, 0);
+      usedSeats = fallbackLicenses.reduce<number>((sum, l) => sum + l.usedSeats, 0);
+    }
+
     const totalValuation = assetCost._sum.purchaseCost || 482000;
-    const totalSaaS = licenses.reduce((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0);
-    const totalSeats = licenses.reduce((sum, l) => sum + l.totalSeats, 0);
-    const usedSeats = licenses.reduce((sum, l) => sum + l.usedSeats, 0);
     const utilization = totalSeats > 0 ? ((usedSeats / totalSeats) * 100).toFixed(1) : '88.5';
 
     return [
@@ -109,27 +163,55 @@ export class ReportsService {
   async getScheduledReports() {
     return this.prisma.reportSchedule.findMany({
       take: 100,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     });
   }
 
   async getStats() {
-    const [schedules, licenses, totalAssets, inUseAssets] = await Promise.all([
+    let totalSaaS: number | null = null;
+    try {
+      if (typeof this.prisma.$queryRaw === 'function') {
+        const rawResult = await this.prisma.$queryRaw<Array<{ totalSpend: number | null }>>`
+          SELECT COALESCE(SUM("usedSeats" * "costPerSeat"), 0)::float AS "totalSpend"
+          FROM "License"
+        `;
+        if (
+          rawResult &&
+          rawResult[0]?.totalSpend !== undefined &&
+          rawResult[0]?.totalSpend !== null
+        ) {
+          totalSaaS = Number(rawResult[0].totalSpend);
+        }
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        'SQL license spend aggregation in getStats failed, falling back',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    const [schedules, fallbackLicenses, totalAssets, inUseAssets] = await Promise.all([
       this.prisma.reportSchedule.count(),
-      this.prisma.license.findMany({
-        select: { usedSeats: true, costPerSeat: true },
-        take: 1000,
-      }),
+      totalSaaS === null
+        ? this.prisma.license.findMany({
+            select: { usedSeats: true, costPerSeat: true },
+            take: 1000,
+            orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          })
+        : Promise.resolve<Array<{ usedSeats: number; costPerSeat: number }>>([]),
       this.prisma.asset.count(),
       this.prisma.asset.count({ where: { status: 'IN_USE' } }),
     ]);
 
-    const totalSaaS = licenses.reduce((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0);
+    const resolvedTotalSaaS: number =
+      totalSaaS !== null
+        ? totalSaaS
+        : fallbackLicenses.reduce<number>((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0);
     const inUsePercent = totalAssets > 0 ? ((inUseAssets / totalAssets) * 100).toFixed(1) : '98.2';
 
     return {
       scheduledReports: `${Math.max(1, schedules)} Active`,
-      annualCostSavings: `$${Math.round(totalSaaS * 0.15 || 42500).toLocaleString()}`,
+      annualCostSavings: `$${Math.round(resolvedTotalSaaS * 0.15 || 42500).toLocaleString()}`,
       globalSlaMet: `${inUsePercent}%`,
       auditReadiness: '100%',
     };

@@ -20,7 +20,7 @@ export class SettingsService {
 
     const settings = await this.prisma.setting.findMany({
       take: 100,
-      orderBy: { key: 'asc' },
+      orderBy: [{ key: 'asc' }, { id: 'asc' }],
     });
     const result: Record<string, unknown> = {};
     for (const s of settings) {

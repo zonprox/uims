@@ -52,10 +52,22 @@ export class SearchService implements OnModuleInit {
       this.configService?.get<string>('MEILISEARCH_HOST') ||
       process.env.MEILISEARCH_HOST ||
       'http://localhost:7700';
-    this.meiliApiKey =
+
+    const resolvedApiKey =
+      this.configService?.get<string>('MEILI_API_KEY') ||
       this.configService?.get<string>('MEILISEARCH_API_KEY') ||
-      process.env.MEILISEARCH_API_KEY ||
-      'uims_meili_master_key_2026';
+      process.env.MEILI_API_KEY ||
+      process.env.MEILISEARCH_API_KEY;
+
+    if (!resolvedApiKey) {
+      if (this.configService && typeof this.configService.getOrThrow === 'function') {
+        this.meiliApiKey = this.configService.getOrThrow<string>('MEILI_API_KEY');
+      } else {
+        throw new Error('MEILI_API_KEY environment variable is required and must not be empty');
+      }
+    } else {
+      this.meiliApiKey = resolvedApiKey;
+    }
   }
 
   async onModuleInit() {
@@ -148,6 +160,7 @@ export class SearchService implements OnModuleInit {
   }
 
   async searchDatabaseFallback(q: string, limit: number): Promise<SearchResponseDto> {
+    const boundedLimit = Math.min(Math.max(1, limit || 20), 100);
     const [assets, licenses, users] = await Promise.all([
       this.prisma.asset.findMany({
         where: {
@@ -159,7 +172,8 @@ export class SearchService implements OnModuleInit {
           ],
         },
         include: { category: true },
-        take: limit,
+        take: boundedLimit,
+        orderBy: { id: 'asc' },
       }),
       this.prisma.license.findMany({
         where: {
@@ -169,7 +183,8 @@ export class SearchService implements OnModuleInit {
             { licenseKey: { contains: q, mode: 'insensitive' } },
           ],
         },
-        take: limit,
+        take: boundedLimit,
+        orderBy: { id: 'asc' },
       }),
       this.prisma.directoryUser.findMany({
         where: {
@@ -187,7 +202,8 @@ export class SearchService implements OnModuleInit {
           department: true,
           position: true,
         },
-        take: limit,
+        take: boundedLimit,
+        orderBy: { id: 'asc' },
       }),
     ]);
 
@@ -216,7 +232,7 @@ export class SearchService implements OnModuleInit {
         path: '/users',
         status: u.status,
       })),
-    ].slice(0, limit);
+    ].slice(0, boundedLimit);
 
     return {
       query: q,
@@ -234,58 +250,108 @@ export class SearchService implements OnModuleInit {
     }
 
     try {
-      const [assets, licenses, users] = await Promise.all([
-        this.prisma.asset.findMany({ include: { category: true }, take: 1000 }),
-        this.prisma.license.findMany({ take: 1000 }),
-        this.prisma.directoryUser.findMany({
-          include: { department: true, position: true },
-          take: 1000,
-        }),
-      ]);
+      // 1. Assets: Cursor-based pagination in batches of 100
+      let totalAssetDocs = 0;
+      let lastAssetId: string | undefined;
+      while (true) {
+        const assetsBatch = await this.prisma.asset.findMany({
+          take: 100,
+          skip: lastAssetId ? 1 : 0,
+          cursor: lastAssetId ? { id: lastAssetId } : undefined,
+          orderBy: { id: 'asc' },
+          include: { category: true },
+        });
 
-      const assetDocs = assets.map((a) => ({
-        id: a.id,
-        name: a.name,
-        assetTag: a.assetTag,
-        serialNumber: a.serialNumber,
-        model: a.model,
-        manufacturer: a.manufacturer,
-        category: a.category?.name,
-        status: a.status,
-      }));
+        if (!assetsBatch || assetsBatch.length === 0) break;
 
-      const licenseDocs = licenses.map((l) => ({
-        id: l.id,
-        name: l.name,
-        vendor: l.vendor,
-        type: l.type,
-        totalSeats: l.totalSeats,
-        status: l.status,
-      }));
+        const assetDocs = assetsBatch.map((a) => ({
+          id: a.id,
+          name: a.name,
+          assetTag: a.assetTag,
+          serialNumber: a.serialNumber,
+          model: a.model,
+          manufacturer: a.manufacturer,
+          category: a.category?.name,
+          status: a.status,
+        }));
+        await this.sendDocuments('assets', assetDocs);
+        totalAssetDocs += assetDocs.length;
+        lastAssetId = assetsBatch[assetsBatch.length - 1].id;
 
-      const userDocs = users.map((u) => ({
-        id: u.id,
-        name: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
-        username: u.employeeCode || u.email.split('@')[0],
-        email: u.email,
-        jobTitle: u.position?.title,
-        department: u.department?.name,
-        status: u.status,
-      }));
+        if (assetsBatch.length < 100) break;
+      }
 
-      await Promise.all([
-        this.sendDocuments('assets', assetDocs),
-        this.sendDocuments('licenses', licenseDocs),
-        this.sendDocuments('users', userDocs),
-      ]);
+      // 2. Licenses: Cursor-based pagination in batches of 100
+      let totalLicenseDocs = 0;
+      let lastLicenseId: string | undefined;
+      while (true) {
+        const licensesBatch = await this.prisma.license.findMany({
+          take: 100,
+          skip: lastLicenseId ? 1 : 0,
+          cursor: lastLicenseId ? { id: lastLicenseId } : undefined,
+          orderBy: { id: 'asc' },
+        });
+
+        if (!licensesBatch || licensesBatch.length === 0) break;
+
+        const licenseDocs = licensesBatch.map((l) => ({
+          id: l.id,
+          name: l.name,
+          vendor: l.vendor,
+          type: l.type,
+          totalSeats: l.totalSeats,
+          status: l.status,
+        }));
+        await this.sendDocuments('licenses', licenseDocs);
+        totalLicenseDocs += licenseDocs.length;
+        lastLicenseId = licensesBatch[licensesBatch.length - 1].id;
+
+        if (licensesBatch.length < 100) break;
+      }
+
+      // 3. Directory Users: Cursor-based pagination in batches of 100
+      let totalUserDocs = 0;
+      let lastUserId: string | undefined;
+      const prismaClient = this.prisma;
+      const userModel =
+        prismaClient.directoryUser ||
+        (prismaClient as unknown as { user?: typeof prismaClient.directoryUser }).user;
+      if (userModel) {
+        while (true) {
+          const usersBatch = await userModel.findMany({
+            take: 100,
+            skip: lastUserId ? 1 : 0,
+            cursor: lastUserId ? { id: lastUserId } : undefined,
+            orderBy: { id: 'asc' },
+            include: { department: true, position: true },
+          });
+
+          if (!usersBatch || usersBatch.length === 0) break;
+
+          const userDocs = usersBatch.map((u) => ({
+            id: u.id,
+            name: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
+            username: u.employeeCode || (u.email ? u.email.split('@')[0] : 'user'),
+            email: u.email,
+            jobTitle: u.position?.title,
+            department: u.department?.name,
+            status: u.status,
+          }));
+          await this.sendDocuments('users', userDocs);
+          totalUserDocs += userDocs.length;
+          lastUserId = usersBatch[usersBatch.length - 1].id;
+
+          if (usersBatch.length < 100) break;
+        }
+      }
 
       return {
         success: true,
         message: 'Successfully synchronized search indices',
         counts: {
-          assets: assetDocs.length,
-          licenses: licenseDocs.length,
-          users: userDocs.length,
+          assets: totalAssetDocs,
+          licenses: totalLicenseDocs,
+          users: totalUserDocs,
         },
       };
     } catch (err: unknown) {

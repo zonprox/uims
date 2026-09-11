@@ -1,5 +1,5 @@
 import { FilterOutlined, QrcodeOutlined } from '@ant-design/icons';
-import { Button, Col, Flex, Input, Row, Select, Tooltip, TreeSelect } from 'antd';
+import { App, Button, Col, Flex, Input, Row, Select, Tooltip, TreeSelect } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { LocationBranch, LocationTreeNode } from '../../../services/organization.service';
 import { organizationService } from '../../../services/organization.service';
@@ -62,6 +62,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
     onReset,
     onScanQr,
   }) => {
+    const { message } = App.useApp();
     const [locations, setLocations] = useState<Array<LocationTreeNode | LocationBranch>>(
       propLocations || [],
     );
@@ -83,14 +84,18 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
             setLocations(tree);
           }
         })
-        .catch(() => {
+        .catch((_treeError: unknown) => {
           if (mounted) {
             organizationService
               .getLocations()
               .then((locs) => {
                 if (mounted) setLocations(locs);
               })
-              .catch(() => {});
+              .catch((_fallbackError: unknown) => {
+                if (mounted) {
+                  message.error('Failed to load locations.');
+                }
+              });
           }
         })
         .finally(() => {
@@ -100,7 +105,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
       return () => {
         mounted = false;
       };
-    }, [propLocations, orgFilter]);
+    }, [propLocations, orgFilter, message]);
 
     const formattedLocationTree = useMemo(
       () => formatLocationTreeForSelect(locations),

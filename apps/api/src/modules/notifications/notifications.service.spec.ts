@@ -81,7 +81,7 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { AND: [{ userId: 'u1' }] },
-          orderBy: { createdAt: 'desc' },
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
           take: 50,
           skip: 0,
         }),
@@ -115,7 +115,7 @@ describe('NotificationsService', () => {
               },
             ],
           },
-          orderBy: { createdAt: 'asc' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           take: 15,
           skip: 15,
         }),

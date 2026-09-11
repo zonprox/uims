@@ -272,7 +272,7 @@ export class AssetsService {
         department: { include: { organization: true } },
         credential: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: pageSize,
       skip,
     });
@@ -535,7 +535,7 @@ export class AssetsService {
         description: true,
         parentId: true,
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       take: 100,
     });
     return categories.map((c) => ({

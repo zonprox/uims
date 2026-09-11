@@ -299,5 +299,21 @@ describe('LicensesService', () => {
       expect(stats.utilization).toBe(67); // 100 / 150 = 66.6% -> 67%
       expect(stats.expiringCount).toBe(1);
     });
+
+    it('should compute annualSpend using $queryRaw database aggregation when available', async () => {
+      mockPrisma.license.count.mockResolvedValueOnce(5).mockResolvedValueOnce(2);
+      mockPrisma.license.aggregate.mockResolvedValue({
+        _sum: { totalSeats: 200, usedSeats: 150 },
+      });
+      mockPrisma.$queryRaw = vi.fn().mockResolvedValue([{ totalSpend: 7500 }]);
+
+      const stats = await service.getStats();
+
+      expect(stats.total).toBe(5);
+      expect(stats.annualSpend).toBe(7500);
+      expect(stats.utilization).toBe(75);
+      expect(stats.expiringCount).toBe(2);
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    });
   });
 });

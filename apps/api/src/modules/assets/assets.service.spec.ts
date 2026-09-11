@@ -293,7 +293,7 @@ describe('AssetsService', () => {
           description: true,
           parentId: true,
         },
-        orderBy: { name: 'asc' },
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
         take: 100,
       });
       expect(result).toEqual([

@@ -175,4 +175,111 @@ describe('SearchService', () => {
       );
     });
   });
+
+  describe('configuration security and fail-fast', () => {
+    it('should throw immediately if no API key is provided and getOrThrow throws', () => {
+      const emptyConfig = {
+        get: vi.fn(() => undefined),
+        getOrThrow: vi.fn(() => {
+          throw new Error('Config missing');
+        }),
+      };
+      expect(() => {
+        new SearchService(
+          mockPrisma as unknown as PrismaService,
+          emptyConfig as unknown as ConfigService,
+        );
+      }).toThrow();
+    });
+  });
+
+  describe('syncAllToMeilisearch', () => {
+    it('should process assets, licenses, and directory users using cursor pagination in batches of 100', async () => {
+      // Mock health check
+      vi.spyOn(service, 'checkHealthAndInit').mockResolvedValue(true);
+      (service as unknown as { isMeiliAvailable: boolean }).isMeiliAvailable = true;
+
+      // First batch: 100 items, second batch: 1 item, third batch: empty
+      const batch1 = Array.from({ length: 100 }, (_, i) => ({
+        id: `a-${i}`,
+        name: `Asset ${i}`,
+        assetTag: `TAG-${i}`,
+        serialNumber: `SN-${i}`,
+        model: `Model-${i}`,
+        manufacturer: 'Lenovo',
+        status: 'IN_USE',
+      }));
+      const batch2 = [
+        {
+          id: 'a-100',
+          name: 'Asset 100',
+          assetTag: 'TAG-100',
+          serialNumber: 'SN-100',
+          model: 'Model-100',
+          manufacturer: 'Lenovo',
+          status: 'IN_USE',
+        },
+      ];
+
+      mockPrisma.asset.findMany.mockResolvedValueOnce(batch1).mockResolvedValueOnce(batch2);
+
+      mockPrisma.license.findMany.mockResolvedValueOnce([
+        {
+          id: 'lic-1',
+          name: 'Office 365',
+          vendor: 'MS',
+          type: 'SUBSCRIPTION',
+          totalSeats: 50,
+          status: 'ACTIVE',
+        },
+      ]);
+
+      mockPrisma.directoryUser.findMany.mockResolvedValueOnce([
+        {
+          id: 'user-1',
+          displayName: 'Jane Doe',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@company.com',
+          status: 'ACTIVE',
+        },
+      ]);
+
+      // Mock fetch
+      const globalFetch = global.fetch;
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) } as Response);
+
+      try {
+        const res = await service.syncAllToMeilisearch();
+        expect(res.success).toBe(true);
+        expect(res.counts).toEqual({
+          assets: 101,
+          licenses: 1,
+          users: 1,
+        });
+
+        // Verify cursor pagination calls on asset
+        expect(mockPrisma.asset.findMany).toHaveBeenCalledTimes(2);
+        expect(mockPrisma.asset.findMany).toHaveBeenNthCalledWith(
+          1,
+          expect.objectContaining({
+            take: 100,
+            skip: 0,
+            orderBy: { id: 'asc' },
+          }),
+        );
+        expect(mockPrisma.asset.findMany).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            take: 100,
+            skip: 1,
+            cursor: { id: 'a-99' },
+            orderBy: { id: 'asc' },
+          }),
+        );
+      } finally {
+        global.fetch = globalFetch;
+      }
+    });
+  });
 });

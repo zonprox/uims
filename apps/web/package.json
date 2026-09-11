@@ -25,23 +25,23 @@
     "axios": "^1.20.0",
     "dayjs": "^1.11.23",
     "jsqr": "^1.4.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-router": "^8.3.1",
     "socket.io-client": "^4.8.3",
-    "zod": "^4.5.4",
+    "zod": "^4.6.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@types/node": "^26.5.0",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
+    "@types/node": "^26.5.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@uims/eslint-config": "workspace:*",
     "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^10.10.0",
-    "happy-dom": "^20.14.0",
+    "happy-dom": "^20.14.3",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
+    "vite": "^8.3.0",
     "vitest": "^5.0.0"
   }
 }

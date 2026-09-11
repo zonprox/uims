@@ -102,7 +102,7 @@ describe('NotificationsService - Adversarial & Boundary Stress Tests', () => {
       await service.findAll('user-1', { sort: 'title', order: 'asc' });
       expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: { title: 'asc' },
+          orderBy: [{ title: 'asc' }, { id: 'asc' }],
         }),
       );
     });
@@ -332,7 +332,7 @@ describe('NotificationsService - Adversarial & Boundary Stress Tests', () => {
               }),
             ],
           },
-          orderBy: { createdAt: 'asc' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           take: 25,
           skip: 25,
         }),

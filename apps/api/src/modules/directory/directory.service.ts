@@ -184,7 +184,7 @@ export class DirectoryService {
         where,
         take: pageSize,
         skip,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         include: {
           organization: true,
           department: true,
@@ -482,10 +482,15 @@ export class DirectoryService {
     };
   }
 
-  async findAllGroups() {
+  async findAllGroups(query?: { page?: number; limit?: number }) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query?.limit) || 50));
+    const skip = (page - 1) * limit;
+
     return this.prisma.directoryGroup.findMany({
-      take: 100,
-      orderBy: { name: 'asc' },
+      take: limit,
+      skip,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       include: {
         _count: {
           select: { memberships: true },
@@ -530,7 +535,7 @@ export class DirectoryService {
   async exportMaster() {
     const users = await this.prisma.directoryUser.findMany({
       take: 10000,
-      orderBy: { employeeCode: 'asc' },
+      orderBy: [{ employeeCode: 'asc' }, { id: 'asc' }],
       include: {
         organization: true,
         department: true,
@@ -614,6 +619,8 @@ export class DirectoryService {
                 ...(validCodes.length > 0 ? [{ employeeCode: { in: validCodes } }] : []),
               ],
             },
+            take: Math.min(Math.max(validEmails.length + validCodes.length, 100), 500),
+            orderBy: { id: 'asc' },
           });
           if (Array.isArray(fetchedUsers)) {
             isBatchLookupSupported = true;
@@ -642,6 +649,8 @@ export class DirectoryService {
         try {
           const fetchedGroups = await this.prisma.directoryGroup.findMany({
             where: { name: { in: uniqueGroupNames } },
+            take: Math.min(Math.max(uniqueGroupNames.length, 50), 200),
+            orderBy: { id: 'asc' },
           });
           if (Array.isArray(fetchedGroups)) {
             for (const group of fetchedGroups) {
@@ -651,6 +660,119 @@ export class DirectoryService {
         } catch (error: unknown) {
           this.logger.error(
             'Batch AD group pre-fetch failed, falling back to on-demand lookup',
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+      }
+
+      // Pre-fetch relational entities for this chunk
+      const uncachedDeptNames = Array.from(
+        new Set(
+          chunk
+            .map((r) => r.department?.trim())
+            .filter((n): n is string => typeof n === 'string' && n.length > 0)
+            .filter((n) => !deptCache.has(n)),
+        ),
+      );
+      if (uncachedDeptNames.length > 0 && typeof this.prisma.department?.findMany === 'function') {
+        try {
+          const depts = await this.prisma.department.findMany({
+            where: { name: { in: uncachedDeptNames } },
+            take: Math.min(Math.max(uncachedDeptNames.length, 50), 200),
+            orderBy: { id: 'asc' },
+          });
+          if (Array.isArray(depts)) {
+            for (const dept of depts) {
+              deptCache.set(dept.name, dept.id);
+            }
+          }
+        } catch (error: unknown) {
+          this.logger.error(
+            'Batch department pre-fetch failed, falling back to on-demand lookup',
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+      }
+
+      const uncachedOrgNames = Array.from(
+        new Set(
+          chunk
+            .map((r) => r.company?.trim())
+            .filter((n): n is string => typeof n === 'string' && n.length > 0)
+            .filter((n) => !orgCache.has(n)),
+        ),
+      );
+      if (uncachedOrgNames.length > 0 && typeof this.prisma.organization?.findMany === 'function') {
+        try {
+          const orgs = await this.prisma.organization.findMany({
+            where: { name: { in: uncachedOrgNames } },
+            take: Math.min(Math.max(uncachedOrgNames.length, 50), 200),
+            orderBy: { id: 'asc' },
+          });
+          if (Array.isArray(orgs)) {
+            for (const org of orgs) {
+              orgCache.set(org.name, org.id);
+            }
+          }
+        } catch (error: unknown) {
+          this.logger.error(
+            'Batch organization pre-fetch failed, falling back to on-demand lookup',
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+      }
+
+      const uncachedLocNames = Array.from(
+        new Set(
+          chunk
+            .map((r) => r.plant?.trim())
+            .filter((n): n is string => typeof n === 'string' && n.length > 0)
+            .filter((n) => !locCache.has(n)),
+        ),
+      );
+      if (uncachedLocNames.length > 0 && typeof this.prisma.location?.findMany === 'function') {
+        try {
+          const locs = await this.prisma.location.findMany({
+            where: { name: { in: uncachedLocNames } },
+            take: Math.min(Math.max(uncachedLocNames.length, 50), 200),
+            orderBy: { id: 'asc' },
+          });
+          if (Array.isArray(locs)) {
+            for (const loc of locs) {
+              locCache.set(loc.name, loc.id);
+            }
+          }
+        } catch (error: unknown) {
+          this.logger.error(
+            'Batch location pre-fetch failed, falling back to on-demand lookup',
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+      }
+
+      const uncachedPosTitles = Array.from(
+        new Set(
+          chunk
+            .map((r) => r.designation?.trim())
+            .filter((t): t is string => typeof t === 'string' && t.length > 0)
+            .filter((t) => !posCache.has(t)),
+        ),
+      );
+      if (uncachedPosTitles.length > 0 && typeof this.prisma.position?.findMany === 'function') {
+        try {
+          const positions = await this.prisma.position.findMany({
+            where: { title: { in: uncachedPosTitles } },
+            take: Math.min(Math.max(uncachedPosTitles.length, 50), 200),
+            orderBy: { id: 'asc' },
+          });
+          if (Array.isArray(positions)) {
+            for (const pos of positions) {
+              posCache.set(pos.title, pos.id);
+            }
+          }
+        } catch (error: unknown) {
+          this.logger.error(
+            'Batch position pre-fetch failed, falling back to on-demand lookup',
             error instanceof Error ? error.stack : String(error),
           );
         }
@@ -772,7 +894,7 @@ export class DirectoryService {
               });
 
               if (row.adGroup) {
-                await this.ensureAndLinkAdGroup(existingRecord.id, row.adGroup, adGroupCache);
+                await this.ensureAndLinkAdGroup(existingRecord.id, row.adGroup, adGroupCache, tx);
               }
               updated++;
             } else {
@@ -796,7 +918,7 @@ export class DirectoryService {
               });
 
               if (row.adGroup) {
-                await this.ensureAndLinkAdGroup(newRecord.id, row.adGroup, adGroupCache);
+                await this.ensureAndLinkAdGroup(newRecord.id, row.adGroup, adGroupCache, tx);
               }
               created++;
             }
@@ -830,20 +952,22 @@ export class DirectoryService {
     userId: string,
     groupName: string,
     groupCache?: Map<string, DirectoryGroup>,
+    txClient?: Prisma.TransactionClient | PrismaService,
   ): Promise<void> {
     const trimmed = groupName.trim();
     if (!trimmed) return;
 
     try {
+      const client = txClient || this.prisma;
       let group = groupCache?.get(trimmed);
       if (!group) {
         group =
-          (await this.prisma.directoryGroup.findFirst({
+          (await client.directoryGroup.findFirst({
             where: { name: trimmed },
           })) ?? undefined;
 
         if (!group) {
-          group = await this.prisma.directoryGroup.create({
+          group = await client.directoryGroup.create({
             data: {
               name: trimmed,
               type: 'AD Security Group',
@@ -859,7 +983,7 @@ export class DirectoryService {
         }
       }
 
-      await this.prisma.directoryMembership.upsert({
+      await client.directoryMembership.upsert({
         where: {
           userId_groupId: {
             userId,
@@ -873,11 +997,11 @@ export class DirectoryService {
         },
       });
 
-      const memberCount = await this.prisma.directoryMembership.count({
+      const memberCount = await client.directoryMembership.count({
         where: { groupId: group.id },
       });
 
-      await this.prisma.directoryGroup.update({
+      await client.directoryGroup.update({
         where: { id: group.id },
         data: { memberCount },
       });

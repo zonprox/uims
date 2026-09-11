@@ -54,12 +54,12 @@ export default function AccessControlPage() {
         ? rolesRes
         : (rolesRes as { data?: Role[] })?.data || [];
       setRoles(roleItems);
-      setStats(statsRes?.data ?? statsRes);
+      setStats(statsRes);
       const catalogItems = Array.isArray(catalogRes)
         ? catalogRes
         : (catalogRes as { data?: PermissionCatalogSubject[] })?.data || [];
       setRolesCatalog(catalogItems);
-      setRolesStats(rStatsRes?.data ?? rStatsRes);
+      setRolesStats(rStatsRes);
     } catch (_error: unknown) {
       message.error('Failed to load user management data.');
     } finally {

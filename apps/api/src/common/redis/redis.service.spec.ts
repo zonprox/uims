@@ -10,7 +10,8 @@ describe('RedisService', () => {
     const result = await service.get<{ foo: string }>('test-key');
 
     expect(result).toEqual({ foo: 'bar' });
-    expect(await service.isHealthy()).toBe(true);
+    expect(await service.isHealthy()).toBe(false);
+    await expect(service.ping()).rejects.toThrow('Redis client is disconnected');
 
     await service.del('test-key');
     const afterDel = await service.get('test-key');

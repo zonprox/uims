@@ -317,7 +317,8 @@ export class OrganizationService {
         organization: { select: { id: true, name: true, code: true } },
         _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
       },
-      orderBy: [{ name: 'asc' }],
+      take: 1000,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
     const nodeMap = new Map<string, LocationTreeNode>();
@@ -397,6 +398,8 @@ export class OrganizationService {
   async computeFullPath(locationId: string): Promise<string> {
     const allLocations = await this.prisma.location.findMany({
       select: { id: true, name: true, parentId: true },
+      take: 2000,
+      orderBy: { id: 'asc' },
     });
     const locMap = new Map<string, { id: string; name: string; parentId: string | null }>();
     for (const l of allLocations) {

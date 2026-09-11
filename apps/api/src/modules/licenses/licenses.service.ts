@@ -89,7 +89,7 @@ export class LicensesService {
     const licenses = await this.prisma.license.findMany({
       where,
       include: { assignments: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: pageSize,
       skip,
     });
@@ -373,22 +373,49 @@ export class LicensesService {
   }
 
   async getStats(): Promise<LicenseStatsDto> {
-    const [total, aggregateSeats, expiringCount, allLicenses] = await Promise.all([
+    let sqlSpend: number | null = null;
+    try {
+      if (typeof this.prisma.$queryRaw === 'function') {
+        const rawResult = await this.prisma.$queryRaw<Array<{ totalSpend: number | null }>>`
+          SELECT COALESCE(SUM("usedSeats" * "costPerSeat"), 0)::float AS "totalSpend"
+          FROM "License"
+        `;
+        if (
+          rawResult &&
+          rawResult[0]?.totalSpend !== undefined &&
+          rawResult[0]?.totalSpend !== null
+        ) {
+          sqlSpend = Number(rawResult[0].totalSpend);
+        }
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        'SQL license spend aggregation failed, falling back',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    const [total, aggregateSeats, expiringCount, fallbackLicenses] = await Promise.all([
       this.prisma.license.count(),
       this.prisma.license.aggregate({
         _sum: { totalSeats: true, usedSeats: true },
       }),
       this.prisma.license.count({ where: { status: 'EXPIRING_SOON' } }),
-      this.prisma.license.findMany({
-        take: 1000,
-        orderBy: { createdAt: 'desc' },
-        select: { usedSeats: true, costPerSeat: true },
-      }),
+      sqlSpend === null
+        ? this.prisma.license.findMany({
+            take: 1000,
+            orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+            select: { usedSeats: true, costPerSeat: true },
+          })
+        : Promise.resolve<Array<{ usedSeats: number; costPerSeat: number }>>([]),
     ]);
 
     const totalSeats = aggregateSeats._sum.totalSeats || 0;
     const usedSeats = aggregateSeats._sum.usedSeats || 0;
-    const totalSpend = allLicenses.reduce((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0);
+    const totalSpend: number =
+      sqlSpend !== null
+        ? sqlSpend
+        : fallbackLicenses.reduce<number>((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0);
     const overallUtilization = totalSeats > 0 ? Math.round((usedSeats / totalSeats) * 100) : 0;
 
     return {

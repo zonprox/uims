@@ -152,7 +152,7 @@ describe('InventoryService', () => {
           name: true,
           description: true,
         },
-        orderBy: { name: 'asc' },
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
         take: 100,
       });
       expect(result).toEqual(mockCats);
@@ -179,7 +179,7 @@ describe('InventoryService', () => {
 
       expect(mockPrisma.vendor.findMany).toHaveBeenCalledWith({
         take: 100,
-        orderBy: { name: 'asc' },
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
       });
       expect(result).toEqual([
         {

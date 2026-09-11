@@ -80,14 +80,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         return false;
       }
     }
-    return true; // Memory fallback considered healthy
+    return false;
   }
 
   async ping(): Promise<string> {
-    if (this.client) {
+    if (this.client && this.isConnected) {
       return await this.client.ping();
     }
-    return 'PONG';
+    throw new Error('Redis client is disconnected (operating in in-memory fallback)');
   }
 
   async get<T>(key: string): Promise<T | null> {
