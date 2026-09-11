@@ -31,7 +31,6 @@ import PageContainer from '../../components/PageContainer';
 import { type ReportStats, type ReportSuite, reportsService } from '../../services/reports.service';
 
 const { Text, Title, Paragraph } = Typography;
-const { Option } = Select;
 
 export default function ReportsPage() {
   const { message } = App.useApp();
@@ -264,33 +263,41 @@ export default function ReportsPage() {
           }}
         >
           <Form.Item label="Report Type" name="reportType" rules={[{ required: true }]}>
-            <Select placeholder="Choose report type">
-              {reportsList.map((r) => (
-                <Option key={r.id} value={r.title}>
-                  {r.title}
-                </Option>
-              ))}
-            </Select>
+            <Select
+              placeholder="Choose report type"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={reportsList.map((r) => ({
+                label: r.title,
+                value: r.title,
+              }))}
+            />
           </Form.Item>
 
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Frequency" name="frequency" rules={[{ required: true }]}>
-                <Select>
-                  <Option value="Daily (07:00 UTC)">Daily (07:00 UTC)</Option>
-                  <Option value="Weekly (Mondays 08:00 UTC)">Weekly (Mondays 08:00 UTC)</Option>
-                  <Option value="Monthly (1st of Month)">Monthly (1st of Month)</Option>
-                  <Option value="Quarterly Executive Digest">Quarterly Executive Digest</Option>
-                </Select>
+                <Select
+                  options={[
+                    { label: 'Daily (07:00 UTC)', value: 'Daily (07:00 UTC)' },
+                    { label: 'Weekly (Mondays 08:00 UTC)', value: 'Weekly (Mondays 08:00 UTC)' },
+                    { label: 'Monthly (1st of Month)', value: 'Monthly (1st of Month)' },
+                    { label: 'Quarterly Executive Digest', value: 'Quarterly Executive Digest' },
+                  ]}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="Format" name="format" rules={[{ required: true }]}>
-                <Select>
-                  <Option value="PDF">PDF Report Document</Option>
-                  <Option value="PDF + Excel summary">PDF + Excel summary</Option>
-                  <Option value="Raw CSV Data Stream">Raw CSV Data Stream</Option>
-                </Select>
+                <Select
+                  options={[
+                    { label: 'PDF Report Document', value: 'PDF' },
+                    { label: 'PDF + Excel summary', value: 'PDF + Excel summary' },
+                    { label: 'Raw CSV Data Stream', value: 'Raw CSV Data Stream' },
+                  ]}
+                />
               </Form.Item>
             </Col>
           </Row>

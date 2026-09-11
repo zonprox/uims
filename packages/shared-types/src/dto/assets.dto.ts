@@ -4,6 +4,7 @@ export interface CreateAssetDto {
   name: string;
   assetTag?: string;
   tag?: string;
+  description?: string | null;
   manufacturer?: string;
   model?: string;
   serialNumber?: string;
@@ -11,6 +12,9 @@ export interface CreateAssetDto {
   categoryId?: string;
   location?: string;
   locationId?: string;
+  departmentId?: string;
+  assignedToId?: string;
+  credentialId?: string;
   status?: string | AssetStatus;
   purchaseDate?: string | Date;
   purchaseCost?: number | string;
@@ -18,7 +22,6 @@ export interface CreateAssetDto {
   warrantyExpiry?: string | Date;
   specs?: Record<string, unknown>;
   notes?: string;
-  assignedToId?: string;
 }
 
 export interface UpdateAssetDto extends Partial<CreateAssetDto> {}
@@ -29,6 +32,10 @@ export interface AssetQueryDto {
   limit?: number;
   search?: string;
   category?: string;
+  categoryId?: string;
+  locationId?: string;
+  departmentId?: string;
+  assignedToId?: string;
   status?: string;
   sort?: string;
   order?: 'asc' | 'desc';

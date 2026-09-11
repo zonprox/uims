@@ -33,6 +33,8 @@ export default function NetworkPage() {
     ips,
     locations,
     assets,
+    directoryUsers,
+    credentials,
     stats,
     loading,
     activeTabKey,
@@ -316,6 +318,8 @@ export default function NetworkPage() {
         vlans={vlans}
         locations={locations}
         assets={assets}
+        directoryUsers={directoryUsers}
+        credentials={credentials}
         onSave={handleSaveIp}
         onCancel={() => setIpModalOpen(false)}
       />

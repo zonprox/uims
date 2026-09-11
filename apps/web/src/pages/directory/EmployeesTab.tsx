@@ -1,13 +1,9 @@
 import {
+  ApartmentOutlined,
+  BankOutlined,
   CopyOutlined,
-  DeleteOutlined,
-  DesktopOutlined,
-  EditOutlined,
-  EyeOutlined,
-  LaptopOutlined,
-  PhoneOutlined,
+  EnvironmentOutlined,
   ReloadOutlined,
-  SafetyCertificateOutlined,
   SearchOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -33,21 +29,25 @@ import {
   Form,
   Input,
   Modal,
-  Popconfirm,
   Row,
   Select,
-  Space,
-  Table,
   Tag,
   Tooltip,
   Typography,
   theme,
 } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { directoryService } from '../../services/directory.service';
+import {
+  type Department,
+  type LocationBranch,
+  type Organization,
+  type Position,
+  organizationService,
+} from '../../services/organization.service';
+import { EmployeeTable } from './components/EmployeeTable';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
 export interface EmployeesTabProps {
   employees: DirectoryUser[];
@@ -75,10 +75,16 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
 
+  // Master Data States for 3-tier cascade & relational selection
+  const [orgs, setOrgs] = useState<Array<Organization>>([]);
+  const [departments, setDepartments] = useState<Array<Department>>([]);
+  const [positions, setPositions] = useState<Array<Position>>([]);
+  const [locations, setLocations] = useState<Array<LocationBranch>>([]);
+
   // Filters
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
-  const [plantFilter, setPlantFilter] = useState('all');
+  const [orgFilter, setOrgFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
   // Modals & Drawers state
@@ -95,22 +101,67 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<BatchImportDirectoryResponse | null>(null);
 
-  // Derive unique filter options
-  const departments = useMemo(() => {
-    const set = new Set<string>();
-    employees.forEach((e) => {
-      if (e.department) set.add(e.department);
+  // Load master entities on mount
+  useEffect(() => {
+    Promise.all([
+      organizationService.getOrganizations().catch(() => []),
+      organizationService.getDepartments().catch(() => []),
+      organizationService.getPositions().catch(() => []),
+      organizationService.getLocations().catch(() => []),
+    ]).then(([o, d, p, l]) => {
+      setOrgs(o);
+      setDepartments(d);
+      setPositions(p);
+      setLocations(l);
     });
-    return Array.from(set).sort();
-  }, [employees]);
+  }, []);
 
-  const plants = useMemo(() => {
-    const set = new Set<string>();
-    employees.forEach((e) => {
-      if (e.plant) set.add(e.plant);
-    });
-    return Array.from(set).sort();
-  }, [employees]);
+  // 3-Tier Cascade Options & Watches for Create Form
+  const createOrgId = Form.useWatch('organizationId', createForm);
+  const createDeptId = Form.useWatch('departmentId', createForm);
+
+  const createFilteredDepartments = useMemo(() => {
+    if (!createOrgId) return departments;
+    return departments.filter((d) => d.organizationId === createOrgId);
+  }, [departments, createOrgId]);
+
+  const createFilteredPositions = useMemo(() => {
+    if (!createDeptId) return positions;
+    return positions.filter((p) => p.departmentId === createDeptId);
+  }, [positions, createDeptId]);
+
+  // 3-Tier Cascade Options & Watches for Edit Form
+  const editOrgId = Form.useWatch('organizationId', editForm);
+  const editDeptId = Form.useWatch('departmentId', editForm);
+
+  const editFilteredDepartments = useMemo(() => {
+    if (!editOrgId) return departments;
+    return departments.filter((d) => d.organizationId === editOrgId);
+  }, [departments, editOrgId]);
+
+  const editFilteredPositions = useMemo(() => {
+    if (!editDeptId) return positions;
+    return positions.filter((p) => p.departmentId === editDeptId);
+  }, [positions, editDeptId]);
+
+  // Reusable Options
+  const orgOptions = useMemo(
+    () =>
+      orgs.map((o) => ({
+        label: `${o.name} (${o.code})`,
+        value: o.id,
+      })),
+    [orgs],
+  );
+
+  const locationOptions = useMemo(
+    () =>
+      locations.map((loc) => ({
+        label: `${loc.name}${loc.building ? ` (${loc.building}${loc.floor ? ` - ${loc.floor}` : ''})` : ''}`,
+        value: loc.id,
+      })),
+    [locations],
+  );
 
   // Filtered employees
   const filteredEmployees = useMemo(() => {
@@ -123,35 +174,52 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         (emp.firstName && emp.firstName.toLowerCase().includes(s)) ||
         (emp.lastName && emp.lastName.toLowerCase().includes(s)) ||
         (emp.employeeCode && emp.employeeCode.toLowerCase().includes(s)) ||
-        (emp.computerName && emp.computerName.toLowerCase().includes(s)) ||
-        (emp.department && emp.department.toLowerCase().includes(s));
+        (emp.department?.name && emp.department.name.toLowerCase().includes(s)) ||
+        (emp.organization?.name && emp.organization.name.toLowerCase().includes(s)) ||
+        (emp.position?.title && emp.position.title.toLowerCase().includes(s));
 
-      const matchesDept = deptFilter === 'all' || emp.department === deptFilter;
-      const matchesPlant = plantFilter === 'all' || emp.plant === plantFilter;
+      const matchesDept =
+        deptFilter === 'all' ||
+        emp.departmentId === deptFilter ||
+        emp.department?.id === deptFilter;
+      const matchesOrg =
+        orgFilter === 'all' ||
+        emp.organizationId === orgFilter ||
+        emp.organization?.id === orgFilter;
       const matchesStatus = statusFilter === 'all' || emp.status === statusFilter;
       const matchesOu =
         !ouFilter ||
         ouFilter === 'all' ||
         (emp.ouPath && emp.ouPath.toLowerCase().includes(ouFilter.toLowerCase()));
 
-      return matchesSearch && matchesDept && matchesPlant && matchesStatus && matchesOu;
+      return matchesSearch && matchesDept && matchesOrg && matchesStatus && matchesOu;
     });
-  }, [employees, search, deptFilter, plantFilter, statusFilter, ouFilter]);
+  }, [employees, search, deptFilter, orgFilter, statusFilter, ouFilter]);
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    message.success(`Copied ${label} to clipboard: ${text}`);
-  };
+  const copyToClipboard = useCallback(
+    (text: string, label: string) => {
+      navigator.clipboard.writeText(text);
+      message.success(`Copied ${label} to clipboard: ${text}`);
+    },
+    [message],
+  );
 
   const handleCreateEmployee = async (values: CreateDirectoryUserDto) => {
     setModalSubmitting(true);
     try {
       await directoryService.createEmployee({
-        ...values,
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
+        displayName: `${values.firstName.trim()} ${values.lastName.trim()}`,
         email: values.email.trim(),
-        displayName: `${values.firstName} ${values.lastName}`.trim(),
+        employeeCode: values.employeeCode?.trim() || undefined,
+        organizationId: values.organizationId || undefined,
+        departmentId: values.departmentId || undefined,
+        positionId: values.positionId || undefined,
+        locationId: values.locationId || undefined,
+        phone: values.phone?.trim() || undefined,
+        ouPath: values.ouPath?.trim() || undefined,
+        status: values.status || ('ACTIVE' as AccountStatus),
       });
       message.success('Employee directory record created successfully.');
       setCreateModalOpen(false);
@@ -172,16 +240,11 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       lastName: emp.lastName,
       email: emp.email,
       employeeCode: emp.employeeCode,
-      jobTitle: emp.jobTitle,
-      company: emp.company,
-      plant: emp.plant,
-      department: emp.department,
-      section: emp.section,
-      computerName: emp.computerName,
-      computerName2: emp.computerName2,
-      telephone: emp.telephone,
+      organizationId: emp.organizationId || emp.organization?.id,
+      departmentId: emp.departmentId || emp.department?.id,
+      positionId: emp.positionId || emp.position?.id,
+      locationId: emp.locationId || emp.location?.id,
       phone: emp.phone,
-      adGroup: emp.adGroup,
       ouPath: emp.ouPath,
       managerName: emp.managerName,
       status: emp.status,
@@ -193,9 +256,19 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     setModalSubmitting(true);
     try {
       await directoryService.updateEmployee(editingEmployee.id, {
-        ...values,
+        firstName: values.firstName ? values.firstName.trim() : undefined,
+        lastName: values.lastName ? values.lastName.trim() : undefined,
         displayName:
           `${values.firstName || editingEmployee.firstName} ${values.lastName || editingEmployee.lastName}`.trim(),
+        email: values.email ? values.email.trim() : undefined,
+        employeeCode: values.employeeCode?.trim() || undefined,
+        organizationId: values.organizationId || undefined,
+        departmentId: values.departmentId || undefined,
+        positionId: values.positionId || undefined,
+        locationId: values.locationId || undefined,
+        phone: values.phone?.trim() || undefined,
+        ouPath: values.ouPath?.trim() || undefined,
+        status: values.status,
       });
       message.success('Employee record updated successfully.');
       setEditingEmployee(null);
@@ -250,10 +323,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         name,
         email,
         designation: rowObj['Designation'] || rowObj['HDesignation'] || rowObj['jobTitle'] || '',
-        company: rowObj['Company'] || rowObj['Hcomp'] || 'BSL Others',
-        plant: rowObj['Plant'] || rowObj['PlantLocation'] || 'BSL Others',
         department: rowObj['Department'] || rowObj['HDepartment'] || 'Production',
-        section: rowObj['Section'] || rowObj['HSection'] || '',
         computerName: rowObj['Computer Name'] || rowObj['computerName'] || '',
         adGroup: rowObj['GR_GROUP USER'] || rowObj['adGroup'] || '',
         ouPath: rowObj['ouPath'] || 'OU=Production,DC=uims,DC=internal',
@@ -293,197 +363,14 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         return <Tag color="success">Active</Tag>;
       case 'DISABLED':
         return <Tag color="warning">Disabled</Tag>;
-      case 'CLOSED':
+      case 'LOCKED':
+        return <Tag color="orange">Locked</Tag>;
       case 'SUSPENDED':
-        return <Tag color="error">Closed</Tag>;
+        return <Tag color="error">Suspended</Tag>;
       default:
         return <Tag color="default">{status}</Tag>;
     }
   };
-
-  const columns = [
-    {
-      title: 'Employee',
-      key: 'employee',
-      sorter: (a: DirectoryUser, b: DirectoryUser) =>
-        (a.displayName || a.fullName || a.firstName || '').localeCompare(
-          b.displayName || b.fullName || b.firstName || '',
-        ) || (a.employeeCode || '').localeCompare(b.employeeCode || ''),
-      render: (_: unknown, record: DirectoryUser) => (
-        <Flex align="center" gap={10}>
-          <Avatar
-            style={{
-              backgroundColor: record.isClosed ? '#94a3b8' : '#1677ff',
-              flexShrink: 0,
-            }}
-            icon={<UserOutlined />}
-          >
-            {(record.firstName || record.fullName || 'E')[0].toUpperCase()}
-          </Avatar>
-          <Flex vertical style={{ minWidth: 0 }}>
-            <Text strong style={{ fontSize: 13, lineHeight: '18px' }}>
-              {record.fullName || `${record.firstName} ${record.lastName}`.trim()}
-            </Text>
-            {record.employeeCode && (
-              <Text type="secondary" style={{ fontSize: 11.5 }}>
-                #{record.employeeCode}
-              </Text>
-            )}
-          </Flex>
-        </Flex>
-      ),
-    },
-    {
-      title: 'Email & Contact',
-      key: 'contact',
-      render: (_: unknown, record: DirectoryUser) => (
-        <Flex vertical gap={2}>
-          <Flex align="center" gap={6}>
-            <Text style={{ fontSize: 12 }}>{record.email}</Text>
-            <Tooltip title="Copy email address">
-              <Button
-                type="text"
-                size="small"
-                icon={<CopyOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />}
-                onClick={() => copyToClipboard(record.email, 'Email')}
-              />
-            </Tooltip>
-          </Flex>
-          {(record.telephone || record.phone) && (
-            <Flex align="center" gap={4}>
-              <PhoneOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {record.telephone || record.phone}
-              </Text>
-            </Flex>
-          )}
-        </Flex>
-      ),
-    },
-    {
-      title: 'Job Title & Plant',
-      key: 'placement',
-      sorter: (a: DirectoryUser, b: DirectoryUser) =>
-        (a.jobTitle || '').localeCompare(b.jobTitle || ''),
-      render: (_: unknown, record: DirectoryUser) => (
-        <Flex vertical gap={2}>
-          <Text strong style={{ fontSize: 12.5 }}>
-            {record.jobTitle || 'Staff Member'}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11.5 }}>
-            {record.company || 'Corporate'} • {record.plant || 'Main Plant'}
-          </Text>
-        </Flex>
-      ),
-    },
-    {
-      title: 'Department & Section',
-      key: 'org',
-      sorter: (a: DirectoryUser, b: DirectoryUser) =>
-        (a.department || '').localeCompare(b.department || ''),
-      render: (_: unknown, record: DirectoryUser) => (
-        <Flex vertical gap={2}>
-          <Text style={{ fontSize: 12.5 }}>{record.department || 'General'}</Text>
-          {record.section && (
-            <Tag color="cyan" style={{ fontSize: 10.5, margin: 0, width: 'fit-content' }}>
-              {record.section}
-            </Tag>
-          )}
-        </Flex>
-      ),
-    },
-    {
-      title: 'Workstation',
-      key: 'workstation',
-      render: (_: unknown, record: DirectoryUser) => (
-        <Flex vertical gap={2}>
-          {record.computerName ? (
-            <Flex align="center" gap={6}>
-              <DesktopOutlined style={{ color: '#0ea5e9', fontSize: 12 }} />
-              <Text code style={{ fontSize: 11.5 }}>
-                {record.computerName}
-              </Text>
-              <Tooltip title="Copy computer name">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CopyOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />}
-                  onClick={() => copyToClipboard(record.computerName || '', 'Workstation')}
-                />
-              </Tooltip>
-            </Flex>
-          ) : (
-            <Text type="secondary" style={{ fontSize: 11.5 }}>
-              Unassigned
-            </Text>
-          )}
-          {record.computerName2 && (
-            <Text type="secondary" code style={{ fontSize: 10.5 }}>
-              2nd: {record.computerName2}
-            </Text>
-          )}
-        </Flex>
-      ),
-    },
-    {
-      title: 'Assigned Assets',
-      key: 'assignedAssetsCount',
-      render: (_: unknown, record: DirectoryUser) => (
-        <Flex gap={4} align="center">
-          <Tag color="blue" icon={<LaptopOutlined />}>
-            {record.assignedAssetsCount ?? 0} Assets
-          </Tag>
-          <Tag color="purple" icon={<SafetyCertificateOutlined />}>
-            {record.assignedLicensesCount ?? 0} Licenses
-          </Tag>
-        </Flex>
-      ),
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      sorter: (a: DirectoryUser, b: DirectoryUser) => a.status.localeCompare(b.status),
-      render: (_: unknown, record: DirectoryUser) => getStatusTag(record.status),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: unknown, record: DirectoryUser) => (
-        <Space orientation="horizontal" size={2}>
-          <Tooltip title="View Profile & Custody">
-            <Button
-              type="text"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => setDetailEmployee(record)}
-            />
-          </Tooltip>
-
-          <Tooltip title="Edit Employee">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleOpenEdit(record)}
-            />
-          </Tooltip>
-
-          <Tooltip title="Delete Record">
-            <Popconfirm
-              title="Delete Directory Record"
-              description={`Permanently remove employee ${record.fullName || record.email} from directory?`}
-              onConfirm={() => handleDeleteEmployee(record)}
-              okText="Delete"
-              cancelText="Cancel"
-              okButtonProps={{ danger: true }}
-            >
-              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
-          </Tooltip>
-        </Space>
-      ),
-    },
-  ];
 
   return (
     <div>
@@ -511,7 +398,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         <Row gutter={[12, 12]} align="middle" justify="space-between">
           <Col xs={24} sm={12} md={6}>
             <Input
-              placeholder="Search by name, code, email, PC..."
+              placeholder="Search by name, code, email..."
               prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -521,44 +408,40 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
           <Col xs={24} sm={12} md={18}>
             <Flex justify="flex-end" gap={8} wrap>
               <Select
+                value={orgFilter}
+                onChange={setOrgFilter}
+                style={{ width: 170 }}
+                placeholder="Organization"
+                options={[
+                  { label: 'All Organizations', value: 'all' },
+                  ...orgs.map((o) => ({ label: o.name, value: o.id })),
+                ]}
+              />
+
+              <Select
                 value={deptFilter}
                 onChange={setDeptFilter}
                 style={{ width: 160 }}
                 placeholder="Department"
-              >
-                <Option value="all">All Departments</Option>
-                {departments.map((d) => (
-                  <Option key={d} value={d}>
-                    {d}
-                  </Option>
-                ))}
-              </Select>
-
-              <Select
-                value={plantFilter}
-                onChange={setPlantFilter}
-                style={{ width: 140 }}
-                placeholder="Plant"
-              >
-                <Option value="all">All Plants</Option>
-                {plants.map((p) => (
-                  <Option key={p} value={p}>
-                    {p}
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All Departments', value: 'all' },
+                  ...departments.map((d) => ({ label: d.name, value: d.id })),
+                ]}
+              />
 
               <Select
                 value={statusFilter}
                 onChange={setStatusFilter}
                 style={{ width: 130 }}
                 placeholder="Status"
-              >
-                <Option value="all">All Statuses</Option>
-                <Option value="ACTIVE">Active</Option>
-                <Option value="DISABLED">Disabled</Option>
-                <Option value="CLOSED">Closed</Option>
-              </Select>
+                options={[
+                  { label: 'All Statuses', value: 'all' },
+                  { label: 'Active', value: 'ACTIVE' },
+                  { label: 'Disabled', value: 'DISABLED' },
+                  { label: 'Locked', value: 'LOCKED' },
+                  { label: 'Suspended', value: 'SUSPENDED' },
+                ]}
+              />
 
               <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>
                 Refresh
@@ -569,18 +452,14 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       </Card>
 
       {/* Employees Table */}
-      <Table
-        dataSource={filteredEmployees}
-        columns={columns}
-        rowKey="id"
+      <EmployeeTable
+        employees={filteredEmployees}
         loading={loading}
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total) => `Total ${total} employees`,
-        }}
-        size="middle"
+        onViewDetails={setDetailEmployee}
+        onEdit={handleOpenEdit}
+        onDelete={handleDeleteEmployee}
+        copyToClipboard={copyToClipboard}
+        getStatusTag={getStatusTag}
       />
 
       {/* Create Employee Modal (STRICTLY NO PASSWORD FIELD) */}
@@ -605,9 +484,6 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
           onFinish={handleCreateEmployee}
           initialValues={{
             status: 'ACTIVE',
-            company: 'BSL Others',
-            plant: 'BSL Others',
-            department: 'Production',
             ouPath: 'OU=Production,DC=uims,DC=internal',
           }}
         >
@@ -652,73 +528,102 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </Col>
           </Row>
 
+          {/* 3-Tier Cascading Select: Level 1 (Org) & Level 2 (Dept) */}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="jobTitle" label="Job Title / Designation">
-                <Input placeholder="e.g. Production Supervisor" />
+              <Form.Item name="organizationId" label="Organization">
+                <Select
+                  placeholder="Select Organization"
+                  showSearch
+                  allowClear
+                  options={orgOptions}
+                  onChange={() => {
+                    createForm.setFieldsValue({ departmentId: undefined, positionId: undefined });
+                  }}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="department" label="Department">
-                <Input placeholder="e.g. Production" />
+              <Form.Item name="departmentId" label="Department">
+                <Select
+                  placeholder={createOrgId ? 'Select Department' : 'Select Organization first'}
+                  showSearch
+                  allowClear
+                  disabled={!createOrgId}
+                  options={createFilteredDepartments.map((d) => ({
+                    label: `${d.name} (${d.code})`,
+                    value: d.id,
+                  }))}
+                  onChange={() => {
+                    createForm.setFieldsValue({ positionId: undefined });
+                  }}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* 3-Tier Cascading Select: Level 3 (Position) & Location */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="positionId" label="Position / Role">
+                <Select
+                  placeholder={createDeptId ? 'Select Position' : 'Select Department first'}
+                  showSearch
+                  allowClear
+                  disabled={!createDeptId}
+                  options={createFilteredPositions.map((p) => ({
+                    label: `${p.title} (${p.code})`,
+                    value: p.id,
+                  }))}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="locationId" label="Facility Location">
+                <Select
+                  placeholder="Select Site / Location"
+                  showSearch
+                  allowClear
+                  options={locationOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="company" label="Company / Entity">
-                <Input placeholder="e.g. BSL Others" />
+            <Col span={12}>
+              <Form.Item name="phone" label="Phone / Telephone">
+                <Input placeholder="e.g. +84 222 384 8000" />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="plant" label="Plant Location">
-                <Input placeholder="e.g. Plant 1" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="section" label="Section">
-                <Input placeholder="e.g. Printing" />
+            <Col span={12}>
+              <Form.Item name="ouPath" label="Organizational Unit Path">
+                <Input placeholder="e.g. OU=Production,DC=uims,DC=internal" />
               </Form.Item>
             </Col>
           </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="computerName" label="Primary Workstation Hostname">
-                <Input placeholder="e.g. STOTHPR102" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="computerName2" label="Secondary Workstation Hostname">
-                <Input placeholder="e.g. STOTHLAB01" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="telephone" label="Telephone / Extension">
-                <Input placeholder="e.g. 888152675" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="adGroup" label="Security / Distribution Group">
-                <Input placeholder="e.g. GR_BSLOTHPrinting" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item name="ouPath" label="Organizational Unit Path">
-            <Input placeholder="e.g. OU=Production,DC=uims,DC=internal" />
-          </Form.Item>
 
           <Form.Item name="status" label="Account Status">
-            <Select>
-              <Option value="ACTIVE">Active</Option>
-              <Option value="DISABLED">Disabled</Option>
-              <Option value="CLOSED">Closed</Option>
-            </Select>
+            <Select
+              options={[
+                { label: 'Active', value: 'ACTIVE' },
+                { label: 'Disabled', value: 'DISABLED' },
+                { label: 'Locked', value: 'LOCKED' },
+                { label: 'Suspended', value: 'SUSPENDED' },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>
@@ -781,73 +686,108 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </Col>
           </Row>
 
+          {/* 3-Tier Cascading Select: Level 1 (Org) & Level 2 (Dept) */}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="jobTitle" label="Job Title / Designation">
-                <Input />
+              <Form.Item
+                name="organizationId"
+                label="Organization"
+                rules={[{ required: true, message: 'Please select an organization.' }]}
+              >
+                <Select
+                  placeholder="Select Organization"
+                  showSearch
+                  allowClear
+                  options={orgOptions}
+                  onChange={() => {
+                    editForm.setFieldsValue({ departmentId: undefined, positionId: undefined });
+                  }}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="department" label="Department">
-                <Input />
+              <Form.Item
+                name="departmentId"
+                label="Department"
+                rules={[{ required: true, message: 'Please select a department.' }]}
+              >
+                <Select
+                  placeholder={editOrgId ? 'Select Department' : 'Select Organization first'}
+                  showSearch
+                  allowClear
+                  options={editFilteredDepartments.map((d) => ({
+                    label: `${d.name} (${d.code})`,
+                    value: d.id,
+                  }))}
+                  onChange={() => {
+                    editForm.setFieldsValue({ positionId: undefined });
+                  }}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* 3-Tier Cascading Select: Level 3 (Position) & Location */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="positionId" label="Position / Role">
+                <Select
+                  placeholder={editDeptId ? 'Select Position' : 'Select Department first'}
+                  showSearch
+                  allowClear
+                  options={editFilteredPositions.map((p) => ({
+                    label: `${p.title} (${p.code})`,
+                    value: p.id,
+                  }))}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="locationId" label="Facility Location">
+                <Select
+                  placeholder="Select Site / Location"
+                  showSearch
+                  allowClear
+                  options={locationOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="company" label="Company">
+            <Col span={12}>
+              <Form.Item name="phone" label="Phone / Telephone">
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="plant" label="Plant">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="section" label="Section">
+            <Col span={12}>
+              <Form.Item name="ouPath" label="Organizational Unit Path">
                 <Input />
               </Form.Item>
             </Col>
           </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="computerName" label="Primary Workstation Hostname">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="computerName2" label="Secondary Workstation Hostname">
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="telephone" label="Telephone / Extension">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="adGroup" label="Security Group">
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item name="ouPath" label="Organizational Unit Path">
-            <Input />
-          </Form.Item>
 
           <Form.Item name="status" label="Account Status">
-            <Select>
-              <Option value="ACTIVE">Active</Option>
-              <Option value="DISABLED">Disabled</Option>
-              <Option value="CLOSED">Closed</Option>
-            </Select>
+            <Select
+              options={[
+                { label: 'Active', value: 'ACTIVE' },
+                { label: 'Disabled', value: 'DISABLED' },
+                { label: 'Locked', value: 'LOCKED' },
+                { label: 'Suspended', value: 'SUSPENDED' },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>
@@ -930,7 +870,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                     `${detailEmployee.firstName} ${detailEmployee.lastName}`.trim()}
                 </Title>
                 <Text type="secondary" style={{ fontSize: 13 }}>
-                  {detailEmployee.jobTitle || 'Corporate Employee'}
+                  {detailEmployee.position?.title || 'Corporate Employee'}
                 </Text>
                 <div style={{ marginTop: 4 }}>{getStatusTag(detailEmployee.status)}</div>
               </div>
@@ -955,51 +895,38 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <Descriptions.Item label="Employee Code">
                 {detailEmployee.employeeCode || 'N/A'}
               </Descriptions.Item>
+              <Descriptions.Item label="Organization">
+                {detailEmployee.organization ? (
+                  <Tag color="purple" icon={<BankOutlined />}>
+                    {detailEmployee.organization.name}
+                  </Tag>
+                ) : (
+                  'N/A'
+                )}
+              </Descriptions.Item>
               <Descriptions.Item label="Department">
-                {detailEmployee.department || 'N/A'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Section / Sub-Section">
-                {detailEmployee.section || 'N/A'}{' '}
-                {detailEmployee.subSection ? `(${detailEmployee.subSection})` : ''}
-              </Descriptions.Item>
-              <Descriptions.Item label="Company & Plant">
-                {detailEmployee.company || 'BSL Others'} • {detailEmployee.plant || 'Main Facility'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Primary Workstation">
-                {detailEmployee.computerName ? (
-                  <Flex align="center" gap={6}>
-                    <Text code strong>
-                      {detailEmployee.computerName}
-                    </Text>
-                    <Tooltip title="Copy PC Name">
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<CopyOutlined />}
-                        onClick={() =>
-                          copyToClipboard(detailEmployee.computerName || '', 'PC Name')
-                        }
-                      />
-                    </Tooltip>
-                  </Flex>
+                {detailEmployee.department ? (
+                  <Tag color="blue" icon={<ApartmentOutlined />}>
+                    {detailEmployee.department.name}
+                  </Tag>
                 ) : (
-                  'Unassigned'
+                  'N/A'
                 )}
               </Descriptions.Item>
-              {detailEmployee.computerName2 && (
-                <Descriptions.Item label="Secondary Workstation">
-                  <Text code>{detailEmployee.computerName2}</Text>
-                </Descriptions.Item>
-              )}
-              <Descriptions.Item label="Telephone / Phone">
-                {detailEmployee.telephone || detailEmployee.phone || 'N/A'}
+              <Descriptions.Item label="Position / Role">
+                {detailEmployee.position?.title || 'Staff Member'}
               </Descriptions.Item>
-              <Descriptions.Item label="Security Group">
-                {detailEmployee.adGroup ? (
-                  <Tag color="purple">{detailEmployee.adGroup}</Tag>
+              <Descriptions.Item label="Facility Location">
+                {detailEmployee.location ? (
+                  <Tag color="green" icon={<EnvironmentOutlined />}>
+                    {detailEmployee.location.name}
+                  </Tag>
                 ) : (
-                  'None'
+                  'N/A'
                 )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Phone Number">
+                {detailEmployee.phone || 'N/A'}
               </Descriptions.Item>
               <Descriptions.Item label="Organizational Unit">
                 <Text code style={{ fontSize: 11 }}>

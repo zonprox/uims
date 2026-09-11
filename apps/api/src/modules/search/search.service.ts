@@ -179,9 +179,13 @@ export class SearchService implements OnModuleInit {
             { lastName: { contains: q, mode: 'insensitive' } },
             { email: { contains: q, mode: 'insensitive' } },
             { employeeCode: { contains: q, mode: 'insensitive' } },
-            { department: { contains: q, mode: 'insensitive' } },
-            { jobTitle: { contains: q, mode: 'insensitive' } },
+            { department: { name: { contains: q, mode: 'insensitive' } } },
+            { position: { title: { contains: q, mode: 'insensitive' } } },
           ],
+        },
+        include: {
+          department: true,
+          position: true,
         },
         take: limit,
       }),
@@ -207,7 +211,7 @@ export class SearchService implements OnModuleInit {
       ...users.map((u) => ({
         id: u.id,
         title: u.displayName || `${u.firstName} ${u.lastName}`.trim() || u.email,
-        subtitle: `${u.email} • ${u.jobTitle || u.department || 'Directory'}`,
+        subtitle: `${u.email} • ${u.position?.title || (u as unknown as { jobTitle?: string }).jobTitle || u.department?.name || 'Directory'}`,
         category: 'Directory' as const,
         path: '/users',
         status: u.status,
@@ -233,7 +237,10 @@ export class SearchService implements OnModuleInit {
       const [assets, licenses, users] = await Promise.all([
         this.prisma.asset.findMany({ include: { category: true }, take: 1000 }),
         this.prisma.license.findMany({ take: 1000 }),
-        this.prisma.directoryUser.findMany({ take: 1000 }),
+        this.prisma.directoryUser.findMany({
+          include: { department: true, position: true },
+          take: 1000,
+        }),
       ]);
 
       const assetDocs = assets.map((a) => ({
@@ -261,8 +268,8 @@ export class SearchService implements OnModuleInit {
         name: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
         username: u.employeeCode || u.email.split('@')[0],
         email: u.email,
-        jobTitle: u.jobTitle,
-        department: u.department,
+        jobTitle: u.position?.title,
+        department: u.department?.name,
         status: u.status,
       }));
 

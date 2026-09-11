@@ -332,8 +332,11 @@ export class NotificationsService {
       );
 
       return createdNotifications;
-    } catch (err) {
-      this.logger.error(`Failed to notify admins: ${(err as Error).message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to notify admins: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return [];
     }
   }

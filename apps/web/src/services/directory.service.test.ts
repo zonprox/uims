@@ -42,9 +42,9 @@ describe('directoryService', () => {
     };
     vi.mocked(api.get).mockResolvedValueOnce({ data: { data: mockResponse } });
 
-    const result = await directoryService.getEmployees({ search: 'John', department: 'IT' });
+    const result = await directoryService.getEmployees({ search: 'John', departmentId: 'dept-it' });
     expect(api.get).toHaveBeenCalledWith('/directory/users', {
-      params: { search: 'John', department: 'IT' },
+      params: { search: 'John', departmentId: 'dept-it' },
     });
     expect(result.items.length).toBe(1);
   });
@@ -83,14 +83,14 @@ describe('directoryService', () => {
   });
 
   it('updateEmployee patches employee record', async () => {
-    const payload = { department: 'Engineering' };
+    const payload = { departmentId: 'dept-eng' };
     vi.mocked(api.patch).mockResolvedValueOnce({
-      data: { data: { id: 'emp-1', department: 'Engineering' } },
+      data: { data: { id: 'emp-1', departmentId: 'dept-eng' } },
     });
 
     const result = await directoryService.updateEmployee('emp-1', payload);
     expect(api.patch).toHaveBeenCalledWith('/directory/users/emp-1', payload);
-    expect(result.department).toBe('Engineering');
+    expect(result.departmentId).toBe('dept-eng');
   });
 
   it('deleteEmployee deletes employee record', async () => {

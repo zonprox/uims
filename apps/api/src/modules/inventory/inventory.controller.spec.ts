@@ -18,6 +18,7 @@ describe('InventoryController', () => {
       update: vi.fn(),
       restock: vi.fn(),
       remove: vi.fn(),
+      getCategories: vi.fn(),
     };
 
     controller = new InventoryController(mockInventoryService as unknown as InventoryService);
@@ -101,5 +102,15 @@ describe('InventoryController', () => {
 
     expect(mockInventoryService.getStats).toHaveBeenCalled();
     expect(result).toBe(stats);
+  });
+
+  it('should call getCategories and return categories list', async () => {
+    const mockCats = [{ id: 'cat-1', name: 'Cables & Adapters', description: 'Cables' }];
+    mockInventoryService.getCategories.mockResolvedValue(mockCats);
+
+    const result = await controller.getCategories();
+
+    expect(mockInventoryService.getCategories).toHaveBeenCalled();
+    expect(result).toBe(mockCats);
   });
 });

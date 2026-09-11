@@ -3,7 +3,6 @@ import React from 'react';
 import type { LocationBranch } from '../../../services/organization.service';
 import type { VLAN } from '../../../services/network.service';
 
-const { Option } = Select;
 const { TextArea } = Input;
 
 export interface VlanFormModalProps {
@@ -76,14 +75,14 @@ export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
                 placeholder="Select location"
                 allowClear
                 showSearch
-                optionFilterProp="children"
-              >
-                {locations.map((loc) => (
-                  <Option key={loc.id} value={loc.id}>
-                    {loc.name} {loc.building ? `(${loc.building})` : ''}
-                  </Option>
-                ))}
-              </Select>
+                options={locations.map((loc) => ({
+                  label: `${loc.name} ${loc.building ? `(${loc.building})` : ''}`,
+                  value: loc.id,
+                }))}
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+              />
             </Form.Item>
           </Col>
           <Col span={12}>
@@ -93,11 +92,13 @@ export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
               rules={[{ required: true, message: 'Status is required' }]}
               initialValue="ACTIVE"
             >
-              <Select>
-                <Option value="ACTIVE">Active</Option>
-                <Option value="RESERVED">Reserved</Option>
-                <Option value="DEPRECATED">Deprecated</Option>
-              </Select>
+              <Select
+                options={[
+                  { label: 'Active', value: 'ACTIVE' },
+                  { label: 'Reserved', value: 'RESERVED' },
+                  { label: 'Deprecated', value: 'DEPRECATED' },
+                ]}
+              />
             </Form.Item>
           </Col>
         </Row>

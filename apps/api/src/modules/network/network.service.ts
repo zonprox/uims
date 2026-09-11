@@ -398,25 +398,30 @@ export class NetworkService {
 
   async createIp(data: CreateIPAddressDto) {
     let targetIp = data.address || data.ip;
-
-    // Zero Friction: If Subnet is given but IP is empty, pick next available IP
-    if (!targetIp && data.subnetId) {
-      const nextResult = await this.getNextAvailableIp(data.subnetId);
-      if (nextResult.nextAvailableIp) {
-        targetIp = nextResult.nextAvailableIp;
-      }
-    }
-
-    if (!targetIp) {
-      targetIp = '192.168.1.10';
-    }
-
     let subnetId = data.subnetId;
     let vlanId = data.vlanId;
     let locationId = data.locationId;
 
-    // Zero Friction: Auto-detect Subnet and VLAN from IP if not explicitly chosen
-    if (!subnetId && isValidIp(targetIp)) {
+    if (subnetId) {
+      const selectedSubnet = await this.prisma.subnet.findUnique({
+        where: { id: subnetId },
+        include: { ipAddresses: { select: { address: true } } },
+      });
+      if (selectedSubnet) {
+        vlanId = vlanId || selectedSubnet.vlanId || undefined;
+        locationId = locationId || selectedSubnet.locationId || undefined;
+
+        if (!targetIp) {
+          const allocatedIps = selectedSubnet.ipAddresses.map((ip) => ip.address);
+          const nextFree = findNextAvailableIp(selectedSubnet.cidr, allocatedIps);
+          if (nextFree) {
+            targetIp = nextFree;
+          }
+        }
+      }
+    }
+
+    if (!subnetId && targetIp && isValidIp(targetIp)) {
       const candidateSubnets = await this.prisma.subnet.findMany({
         take: 100,
         orderBy: { cidr: 'asc' },
@@ -429,7 +434,10 @@ export class NetworkService {
       }
     }
 
-    // Zero Friction: Auto MAC OUI Vendor lookup
+    if (!targetIp) {
+      targetIp = '10.0.0.1';
+    }
+
     const rawMac = data.macAddress || data.mac;
     const normalizedMac = rawMac ? normalizeMac(rawMac) : undefined;
     let vendor = data.vendor;
@@ -471,10 +479,10 @@ export class NetworkService {
         location: true,
         asset: true,
         assignedUser: true,
+        credential: true,
       },
     });
 
-    // Synchronize subnet used/reserved IP counters
     if (subnetId) {
       await this.syncSubnetStats(subnetId);
     }
@@ -483,6 +491,20 @@ export class NetworkService {
   }
 
   async updateIp(id: string, data: UpdateIPAddressDto) {
+    const existing = await this.prisma.iPAddress.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        address: true,
+        subnetId: true,
+        status: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`IP address with ID "${id}" not found`);
+    }
+
     const rawMac = data.macAddress ?? data.mac;
     const normalizedMac = rawMac ? normalizeMac(rawMac) : undefined;
     let vendor = data.vendor;
@@ -490,6 +512,8 @@ export class NetworkService {
       const detected = lookupMacVendor(normalizedMac);
       if (detected !== 'Unknown Vendor') vendor = detected;
     }
+
+    const newStatus = data.status ? mapIPStatus(data.status as string) : undefined;
 
     const updatePayload: Prisma.IPAddressUpdateInput = {
       address: data.address ?? data.ip,
@@ -501,7 +525,7 @@ export class NetworkService {
       serialNumber: data.serialNumber,
       section: data.section,
       floor: data.floor,
-      status: data.status ? mapIPStatus(data.status as string) : undefined,
+      status: newStatus,
       pingStatus: data.pingStatus,
       description: data.description,
     };
@@ -519,6 +543,19 @@ export class NetworkService {
         ? { connect: { id: data.locationId } }
         : { disconnect: true };
     }
+    if (data.assetId !== undefined) {
+      updatePayload.asset = data.assetId ? { connect: { id: data.assetId } } : { disconnect: true };
+    }
+    if (data.assignedUserId !== undefined) {
+      updatePayload.assignedUser = data.assignedUserId
+        ? { connect: { id: data.assignedUserId } }
+        : { disconnect: true };
+    }
+    if (data.credentialId !== undefined) {
+      updatePayload.credential = data.credentialId
+        ? { connect: { id: data.credentialId } }
+        : { disconnect: true };
+    }
 
     const updated = await this.prisma.iPAddress.update({
       where: { id },
@@ -529,11 +566,21 @@ export class NetworkService {
         location: true,
         asset: true,
         assignedUser: true,
+        credential: true,
       },
     });
 
-    if (updated.subnetId) {
-      await this.syncSubnetStats(updated.subnetId);
+    const oldSubnetId = existing.subnetId;
+    const newSubnetId = updated.subnetId;
+
+    if (oldSubnetId && oldSubnetId !== newSubnetId) {
+      await this.syncSubnetStats(oldSubnetId);
+    }
+    if (newSubnetId) {
+      await this.syncSubnetStats(newSubnetId);
+    }
+    if (oldSubnetId && oldSubnetId === newSubnetId && newStatus && newStatus !== existing.status) {
+      await this.syncSubnetStats(oldSubnetId);
     }
 
     return this.formatIp(updated);
@@ -744,6 +791,7 @@ export class NetworkService {
       _count?: { ipAddresses: number };
     },
   ) {
+    const calc = calculateSubnet(subnet.cidr);
     const utilization = calculateUtilization(subnet.totalIps, subnet.usedIps);
     return {
       id: subnet.id,
@@ -751,12 +799,12 @@ export class NetworkService {
       name: subnet.name,
       vlanId: subnet.vlanId,
       locationId: subnet.locationId,
-      gateway: subnet.gateway || '',
-      networkAddress: subnet.networkAddress,
-      netmask: subnet.netmask,
-      broadcastAddress: subnet.broadcastAddress,
-      startIp: subnet.startIp,
-      endIp: subnet.endIp,
+      gateway: subnet.gateway || calc.suggestedGateway,
+      networkAddress: subnet.networkAddress || calc.networkAddress,
+      netmask: subnet.netmask || calc.subnetMask,
+      broadcastAddress: subnet.broadcastAddress || calc.broadcastAddress,
+      startIp: subnet.startIp || calc.usableStart,
+      endIp: subnet.endIp || calc.usableEnd,
       totalIps: subnet.totalIps,
       usedIps: subnet.usedIps,
       reservedIps: subnet.reservedIps,

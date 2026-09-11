@@ -2,6 +2,7 @@ import { api } from './api';
 
 export interface AssignedUser {
   id: string;
+  userId?: string | null;
   name: string;
   email: string;
   department: string;
@@ -12,13 +13,14 @@ export interface License {
   id: string;
   name: string;
   vendor: string;
-  type: 'Subscription' | 'Perpetual' | 'Volume' | 'OEM';
+  type: 'Subscription' | 'Perpetual' | 'Volume' | 'OEM' | string;
   totalSeats: number;
   usedSeats: number;
+  remainingSeats?: number;
   costPerSeat: number;
   expiryDate: string;
   licenseKey: string;
-  status: 'Active' | 'Expiring' | 'Expired';
+  status: 'Active' | 'Expiring' | 'Expired' | string;
   autoRenew: boolean;
   assignedUsers: Array<AssignedUser>;
   notes?: string;
@@ -57,7 +59,12 @@ export const licensesService = {
   },
   assignUser: async (
     licenseId: string,
-    payload: { name: string; email: string; department?: string },
+    payload: {
+      userId?: string;
+      name?: string;
+      email?: string;
+      department?: string;
+    },
   ) => {
     const res = await api.post(`/licenses/${licenseId}/assign`, payload);
     return res.data.data;

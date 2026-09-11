@@ -6,8 +6,6 @@ import type { Subnet, VLAN } from '../../../services/network.service';
 import { SubnetCardList } from './SubnetCardList';
 import { SubnetTable } from './SubnetTable';
 
-const { Option } = Select;
-
 export interface SubnetManagementTabProps {
   subnets: Array<Subnet>;
   vlans: Array<VLAN>;
@@ -81,28 +79,25 @@ export const SubnetManagementTab: React.FC<SubnetManagementTabProps> = React.mem
                 onChange={setLocationFilter}
                 style={{ width: 170 }}
                 placeholder="Filter Location"
-              >
-                <Option value="all">All Locations</Option>
-                {locations.map((loc) => (
-                  <Option key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All Locations', value: 'all' },
+                  ...locations.map((loc) => ({ label: loc.name, value: loc.id })),
+                ]}
+              />
 
               <Select
                 value={vlanFilter}
                 onChange={setVlanFilter}
                 style={{ width: 180 }}
                 placeholder="Filter VLAN"
-              >
-                <Option value="all">All VLANs</Option>
-                {vlans.map((vlan) => (
-                  <Option key={vlan.id} value={vlan.id}>
-                    VLAN {vlan.vlanNumber} ({vlan.name})
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All VLANs', value: 'all' },
+                  ...vlans.map((vlan) => ({
+                    label: `VLAN ${vlan.vlanNumber} (${vlan.name})`,
+                    value: vlan.id,
+                  })),
+                ]}
+              />
 
               {isFiltered && <Button onClick={handleResetFilters}>Reset</Button>}
 

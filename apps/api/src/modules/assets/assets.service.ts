@@ -1,5 +1,11 @@
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
+import { AssetStatus, Prisma } from '@prisma/client';
 import type {
   AssetQueryDto,
   AssetStatsDto,
@@ -15,6 +21,8 @@ type AssetWithRelations = Prisma.AssetGetPayload<{
     category: true;
     assignedTo: true;
     location: true;
+    department: true;
+    credential: true;
   };
 }>;
 
@@ -38,12 +46,23 @@ export class AssetsService {
     categoryId?: string,
     categoryName?: string,
   ): Promise<string | undefined> {
-    if (categoryId) return categoryId;
-    if (!categoryName) return undefined;
-    const cat = await tx.assetCategory.findFirst({ where: { name: categoryName } });
-    if (cat) return cat.id;
-    const newCat = await tx.assetCategory.create({ data: { name: categoryName } });
-    return newCat.id;
+    if (categoryId) {
+      const cat = await tx.assetCategory.findUnique({ where: { id: categoryId } });
+      if (!cat) {
+        throw new NotFoundException(`Asset category with ID "${categoryId}" not found`);
+      }
+      return cat.id;
+    }
+    if (categoryName && categoryName !== 'all') {
+      const cat = await tx.assetCategory.findFirst({ where: { name: categoryName } });
+      if (!cat) {
+        throw new BadRequestException(
+          `Asset category "${categoryName}" does not exist. Please select an existing category.`,
+        );
+      }
+      return cat.id;
+    }
+    return undefined;
   }
 
   private async resolveLocationId(
@@ -51,20 +70,45 @@ export class AssetsService {
     locationId?: string,
     locationName?: string,
   ): Promise<string | undefined> {
-    if (locationId) return locationId;
-    if (!locationName) return undefined;
-    const loc = await tx.location.findFirst({ where: { name: locationName } });
-    if (loc) return loc.id;
-    const newLoc = await tx.location.create({ data: { name: locationName } });
-    return newLoc.id;
+    if (locationId) {
+      const loc = await tx.location.findUnique({ where: { id: locationId } });
+      if (!loc) {
+        throw new NotFoundException(`Location with ID "${locationId}" not found`);
+      }
+      return loc.id;
+    }
+    if (locationName && locationName !== 'all') {
+      const loc = await tx.location.findFirst({ where: { name: locationName } });
+      if (!loc) {
+        throw new BadRequestException(
+          `Location "${locationName}" does not exist. Please select an existing location.`,
+        );
+      }
+      return loc.id;
+    }
+    return undefined;
   }
 
   async create(data: CreateAssetDto) {
-    const status = mapAssetStatus(data.status);
+    let status: AssetStatus;
+    if (data.status) {
+      status = mapAssetStatus(data.status);
+    } else if (data.assignedToId) {
+      status = AssetStatus.IN_USE;
+    } else {
+      status = AssetStatus.AVAILABLE;
+    }
 
     const formatted = await this.prisma.$transaction(async (tx) => {
       const categoryId = await this.resolveCategoryId(tx, data.categoryId, data.category);
       const locationId = await this.resolveLocationId(tx, data.locationId, data.location);
+
+      if (data.assignedToId) {
+        const user = await tx.directoryUser.findUnique({ where: { id: data.assignedToId } });
+        if (!user) {
+          throw new NotFoundException(`Directory user with ID "${data.assignedToId}" not found`);
+        }
+      }
 
       const purchaseCost =
         data.purchasePrice !== undefined
@@ -80,12 +124,15 @@ export class AssetsService {
           manufacturer: data.manufacturer,
           model: data.model,
           serialNumber: data.serialNumber,
+          description: data.description || null,
           status,
           purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
           purchaseCost,
           warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
           categoryId,
           locationId,
+          departmentId: data.departmentId || null,
+          credentialId: data.credentialId || null,
           assignedToId: data.assignedToId || null,
           specs: (data.specs as Prisma.InputJsonValue) || {},
           notes: data.notes || '',
@@ -94,8 +141,27 @@ export class AssetsService {
           category: true,
           assignedTo: true,
           location: true,
+          department: true,
+          credential: true,
         },
       });
+
+      if (tx.assetHistory) {
+        await tx.assetHistory.create({
+          data: {
+            assetId: created.id,
+            action: data.assignedToId ? 'ASSET_CREATED_AND_ASSIGNED' : 'ASSET_CREATED',
+            changedBy: 'System/Admin',
+            oldValue: Prisma.JsonNull,
+            newValue: {
+              status: created.status,
+              assignedToId: created.assignedToId,
+              categoryId: created.categoryId,
+              locationId: created.locationId,
+            },
+          },
+        });
+      }
 
       return this.formatAsset(created);
     });
@@ -132,8 +198,22 @@ export class AssetsService {
       ];
     }
 
-    if (query?.category && query.category !== 'all') {
+    if (query?.categoryId) {
+      where.categoryId = query.categoryId;
+    } else if (query?.category && query.category !== 'all') {
       where.category = { name: query.category };
+    }
+
+    if (query?.locationId) {
+      where.locationId = query.locationId;
+    }
+
+    if (query?.departmentId) {
+      where.departmentId = query.departmentId;
+    }
+
+    if (query?.assignedToId) {
+      where.assignedToId = query.assignedToId;
     }
 
     if (query?.status && query.status !== 'all') {
@@ -150,6 +230,8 @@ export class AssetsService {
         category: true,
         assignedTo: true,
         location: true,
+        department: true,
+        credential: true,
       },
       orderBy: { createdAt: 'desc' },
       take: pageSize,
@@ -166,6 +248,8 @@ export class AssetsService {
         category: true,
         assignedTo: true,
         location: true,
+        department: true,
+        credential: true,
       },
     });
     if (!asset) {
@@ -174,54 +258,79 @@ export class AssetsService {
     return this.formatAsset(asset);
   }
 
-  private assignScalarFields(data: UpdateAssetDto, updateData: Prisma.AssetUpdateInput) {
+  async update(id: string, data: UpdateAssetDto) {
+    const existing = await this.prisma.asset.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Asset with ID ${id} not found`);
+
+    const updateData: Prisma.AssetUpdateInput = {};
+
     if (data.name !== undefined) updateData.name = data.name;
     if (data.tag !== undefined || data.assetTag !== undefined) {
       updateData.assetTag = data.tag || data.assetTag;
     }
+    if (data.description !== undefined) updateData.description = data.description;
     if (data.manufacturer !== undefined) updateData.manufacturer = data.manufacturer;
     if (data.model !== undefined) updateData.model = data.model;
     if (data.serialNumber !== undefined) updateData.serialNumber = data.serialNumber;
     if (data.specs) updateData.specs = data.specs as Prisma.InputJsonValue;
     if (data.notes !== undefined) updateData.notes = data.notes;
-    if (data.status) updateData.status = mapAssetStatus(data.status);
+    if (data.purchasePrice !== undefined) updateData.purchaseCost = Number(data.purchasePrice);
+    if (data.purchaseCost !== undefined) updateData.purchaseCost = Number(data.purchaseCost);
+    if (data.purchaseDate) updateData.purchaseDate = new Date(data.purchaseDate);
+    if (data.warrantyExpiry) updateData.warrantyExpiry = new Date(data.warrantyExpiry);
+
+    if (data.categoryId !== undefined) {
+      updateData.category = data.categoryId
+        ? { connect: { id: data.categoryId } }
+        : { disconnect: true };
+    } else if (data.category && data.category !== 'all') {
+      const cat = await this.prisma.assetCategory.findFirst({ where: { name: data.category } });
+      if (!cat) throw new BadRequestException(`Asset category "${data.category}" not found`);
+      updateData.category = { connect: { id: cat.id } };
+    }
+
+    if (data.locationId !== undefined) {
+      updateData.location = data.locationId
+        ? { connect: { id: data.locationId } }
+        : { disconnect: true };
+    } else if (data.location && data.location !== 'all') {
+      const loc = await this.prisma.location.findFirst({ where: { name: data.location } });
+      if (!loc) throw new BadRequestException(`Location "${data.location}" not found`);
+      updateData.location = { connect: { id: loc.id } };
+    }
+
+    if (data.departmentId !== undefined) {
+      updateData.department = data.departmentId
+        ? { connect: { id: data.departmentId } }
+        : { disconnect: true };
+    }
+
+    if (data.credentialId !== undefined) {
+      updateData.credential = data.credentialId
+        ? { connect: { id: data.credentialId } }
+        : { disconnect: true };
+    }
+
     if (data.assignedToId !== undefined) {
       updateData.assignedTo = data.assignedToId
         ? { connect: { id: data.assignedToId } }
         : { disconnect: true };
     }
-  }
 
-  private assignFinancialFields(data: UpdateAssetDto, updateData: Prisma.AssetUpdateInput) {
-    if (data.purchasePrice !== undefined) updateData.purchaseCost = Number(data.purchasePrice);
-    if (data.purchaseCost !== undefined) updateData.purchaseCost = Number(data.purchaseCost);
-    if (data.purchaseDate) updateData.purchaseDate = new Date(data.purchaseDate);
-    if (data.warrantyExpiry) updateData.warrantyExpiry = new Date(data.warrantyExpiry);
-  }
-
-  private async buildAssetUpdateData(data: UpdateAssetDto): Promise<Prisma.AssetUpdateInput> {
-    const updateData: Prisma.AssetUpdateInput = {};
-    this.assignScalarFields(data, updateData);
-    this.assignFinancialFields(data, updateData);
-
-    if (data.category) {
-      const cat = await this.prisma.assetCategory.findFirst({ where: { name: data.category } });
-      if (cat) updateData.category = { connect: { id: cat.id } };
+    // Lifecycle State Machine:
+    if (data.status) {
+      updateData.status = mapAssetStatus(data.status);
+    } else if (data.assignedToId !== undefined) {
+      if (data.assignedToId) {
+        if (existing.status === AssetStatus.AVAILABLE) {
+          updateData.status = AssetStatus.IN_USE;
+        }
+      } else {
+        if (existing.status === AssetStatus.IN_USE) {
+          updateData.status = AssetStatus.AVAILABLE;
+        }
+      }
     }
-
-    if (data.location) {
-      const loc = await this.prisma.location.findFirst({ where: { name: data.location } });
-      if (loc) updateData.location = { connect: { id: loc.id } };
-    }
-
-    return updateData;
-  }
-
-  async update(id: string, data: UpdateAssetDto) {
-    const existing = await this.prisma.asset.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Asset with ID ${id} not found`);
-
-    const updateData = await this.buildAssetUpdateData(data);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.asset.update({
@@ -231,19 +340,37 @@ export class AssetsService {
           category: true,
           assignedTo: true,
           location: true,
+          department: true,
+          credential: true,
         },
       });
 
-      if (data.status || data.assignedToId !== undefined) {
-        await tx.assetHistory.create({
-          data: {
-            assetId: id,
-            action: data.status ? `STATUS_CHANGE_TO_${data.status}` : 'ASSIGNMENT_UPDATE',
-            changedBy: 'System/Admin',
-            oldValue: { status: existing.status, assignedToId: existing.assignedToId },
-            newValue: { status: result.status, assignedToId: result.assignedToId },
-          },
-        });
+      const statusChanged = result.status !== existing.status;
+      const assignmentChanged = result.assignedToId !== existing.assignedToId;
+
+      if (statusChanged || assignmentChanged) {
+        let action = 'ASSET_UPDATED';
+        if (statusChanged && assignmentChanged) {
+          action = result.assignedToId
+            ? 'ASSET_AUTO_ASSIGNED_IN_USE'
+            : 'ASSET_AUTO_UNASSIGNED_AVAILABLE';
+        } else if (statusChanged) {
+          action = `STATUS_CHANGE_TO_${result.status}`;
+        } else if (assignmentChanged) {
+          action = result.assignedToId ? 'ASSIGNED_TO_USER' : 'UNASSIGNED_FROM_USER';
+        }
+
+        if (tx.assetHistory) {
+          await tx.assetHistory.create({
+            data: {
+              assetId: id,
+              action,
+              changedBy: 'System/Admin',
+              oldValue: { status: existing.status, assignedToId: existing.assignedToId },
+              newValue: { status: result.status, assignedToId: result.assignedToId },
+            },
+          });
+        }
       }
 
       return result;
@@ -251,10 +378,8 @@ export class AssetsService {
 
     const formatted = this.formatAsset(updated);
 
-    // Business event triggers
     if (this.notificationsService) {
       try {
-        // 1. Assignment change notification
         if (data.assignedToId && data.assignedToId !== existing.assignedToId) {
           await this.notificationsService.notifyUser(data.assignedToId, {
             title: 'Asset Assigned',
@@ -263,7 +388,6 @@ export class AssetsService {
             link: '/assets',
           });
         }
-        // 2. Critical status change notification
         if (
           data.status &&
           (updated.status === 'MAINTENANCE' || updated.status === 'LOST') &&
@@ -323,16 +447,24 @@ export class AssetsService {
       id: asset.id,
       tag: asset.assetTag,
       name: asset.name,
+      description: asset.description || '',
       manufacturer: asset.manufacturer || 'Generic',
       model: asset.model || 'Standard',
       serialNumber: asset.serialNumber || 'N/A',
+      categoryId: asset.categoryId,
       category: asset.category?.name || 'Laptop',
       status: statusLabel,
+      assignedToId: asset.assignedToId,
       assignedTo: asset.assignedTo
         ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`.trim()
         : 'Unassigned',
       assignedEmail: asset.assignedTo?.email || '',
+      departmentId: asset.departmentId,
+      department: asset.department?.name || '',
+      locationId: asset.locationId,
       location: asset.location?.name || 'Storage Vault',
+      credentialId: asset.credentialId,
+      credential: asset.credential?.name || '',
       purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
       purchasePrice: asset.purchaseCost || 0,
       warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.toISOString().split('T')[0] : '',
@@ -342,5 +474,24 @@ export class AssetsService {
       },
       notes: asset.notes || '',
     };
+  }
+
+  async getCategories() {
+    const categories = await this.prisma.assetCategory.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        parentId: true,
+      },
+      orderBy: { name: 'asc' },
+      take: 100,
+    });
+    return categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      code: c.name.toUpperCase().replace(/\s+/g, '_'),
+      parentId: c.parentId,
+    }));
   }
 }

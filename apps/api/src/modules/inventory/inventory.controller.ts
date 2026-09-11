@@ -19,6 +19,12 @@ export class InventoryController {
     return this.inventoryService.getStats();
   }
 
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all inventory categories' })
+  getCategories() {
+    return this.inventoryService.getCategories();
+  }
+
   @Post()
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Create inventory item' })

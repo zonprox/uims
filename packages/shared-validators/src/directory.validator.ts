@@ -1,6 +1,6 @@
 import { AccountStatus, DirectorySource } from '@uims/shared-types';
 import { z } from 'zod';
-import { emailSchema } from './common.validator';
+import { dateSchema, emailSchema, uuidSchema } from './common.validator';
 
 export const createDirectoryUserSchema = z.object({
   employeeCode: z.string().max(50).trim().optional(),
@@ -8,32 +8,34 @@ export const createDirectoryUserSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50).trim(),
   lastName: z.string().min(1, 'Last name is required').max(50).trim(),
   displayName: z.string().max(100).trim().optional(),
-  jobTitle: z.string().max(100).trim().optional(),
-  company: z.string().max(100).trim().optional(),
-  groupCompany: z.string().max(100).trim().optional(),
-  plant: z.string().max(100).trim().optional(),
-  department: z.string().max(100).trim().optional(),
-  section: z.string().max(100).trim().optional(),
-  subSection: z.string().max(100).trim().optional(),
-  telephone: z.string().max(50).trim().optional(),
   phone: z.string().max(50).trim().optional(),
   avatar: z.string().nullable().optional(),
-  computerName: z.string().max(100).trim().optional(),
-  computerName2: z.string().max(100).trim().optional(),
-  adGroup: z.string().max(100).trim().optional(),
   ouPath: z.string().max(255).trim().optional(),
   managerName: z.string().max(100).trim().optional(),
   source: z.nativeEnum(DirectorySource).default(DirectorySource.LOCAL),
   status: z.nativeEnum(AccountStatus).default(AccountStatus.ACTIVE),
-  isClosed: z.boolean().default(false),
-  accountExpiresAt: z.string().optional(),
-  departmentId: z.string().uuid().optional(),
-  positionId: z.string().uuid().optional(),
-  organizationId: z.string().uuid().optional(),
-  locationId: z.string().uuid().optional(),
+  accountExpiresAt: dateSchema.optional(),
+  departmentId: uuidSchema.nullable().optional(),
+  positionId: uuidSchema.nullable().optional(),
+  organizationId: uuidSchema.nullable().optional(),
+  locationId: uuidSchema.nullable().optional(),
 });
 
 export const updateDirectoryUserSchema = createDirectoryUserSchema.partial();
+
+export const directoryUserQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  search: z.string().optional(),
+  organizationId: uuidSchema.optional(),
+  departmentId: uuidSchema.optional(),
+  positionId: uuidSchema.optional(),
+  locationId: uuidSchema.optional(),
+  ouPath: z.string().optional(),
+  source: z.string().optional(),
+  status: z.string().optional(),
+});
 
 export const createDirectoryGroupSchema = z.object({
   name: z.string().min(1, 'Group name is required').max(100).trim(),

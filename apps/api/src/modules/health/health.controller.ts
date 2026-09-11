@@ -1,4 +1,4 @@
-import { Controller, Get, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { RedisService } from '../../common/redis/redis.service';
@@ -8,6 +8,8 @@ import { PrismaService } from '../../database/prisma.service';
 @Public()
 @Controller('health')
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly redisService?: RedisService,
@@ -28,7 +30,10 @@ export class HealthController {
       try {
         await this.prisma.$queryRaw`SELECT 1`;
         dbLatencyMs = Math.round(performance.now() - dbStart);
-      } catch {
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Health check: Database probe failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
         dbStatus = 'disconnected';
       }
     }
@@ -41,7 +46,10 @@ export class HealthController {
       try {
         await this.redisService.ping();
         redisLatencyMs = Math.round(performance.now() - redisStart);
-      } catch {
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Health check: Redis probe failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
         redisStatus = 'disconnected';
       }
     }

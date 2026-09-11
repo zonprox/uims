@@ -1,6 +1,6 @@
 import { ConfigProvider } from 'antd';
 import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useThemeStore } from '../../stores/theme.store';
 import { SidebarBrandHeader } from './SidebarBrandHeader';
@@ -25,23 +25,33 @@ vi.mock('../../hooks/useSystemHealth', () => ({
 
 describe('Sidebar Light and Dark Mode Adaptation', () => {
   let container: HTMLDivElement;
+  let currentRoot: Root | null = null;
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    if (currentRoot) {
+      await act(async () => {
+        currentRoot?.unmount();
+      });
+      currentRoot = null;
+    }
     container.remove();
+    document.body.innerHTML = '';
     vi.restoreAllMocks();
   });
 
   it('renders SidebarContent with light theme background and light Menu when resolvedMode is light', async () => {
-    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
-
-    const root = createRoot(container);
     await act(async () => {
-      root.render(
+      useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+    });
+
+    currentRoot = createRoot(container);
+    await act(async () => {
+      currentRoot?.render(
         createElement(
           ConfigProvider,
           null,
@@ -72,11 +82,13 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
   });
 
   it('renders SidebarContent with dark theme background and dark Menu when resolvedMode is dark', async () => {
-    useThemeStore.setState({ mode: 'dark', resolvedMode: 'dark' });
-
-    const root = createRoot(container);
     await act(async () => {
-      root.render(
+      useThemeStore.setState({ mode: 'dark', resolvedMode: 'dark' });
+    });
+
+    currentRoot = createRoot(container);
+    await act(async () => {
+      currentRoot?.render(
         createElement(
           ConfigProvider,
           null,
@@ -107,11 +119,13 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
   });
 
   it('renders SidebarBrandHeader with appropriate background in light mode', async () => {
-    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
-
-    const root = createRoot(container);
     await act(async () => {
-      root.render(
+      useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+    });
+
+    currentRoot = createRoot(container);
+    await act(async () => {
+      currentRoot?.render(
         createElement(SidebarBrandHeader, {
           collapsed: false,
           inDrawer: false,
@@ -127,11 +141,13 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
   });
 
   it('renders SidebarOrgSelector with light mode styling', async () => {
-    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
-
-    const root = createRoot(container);
     await act(async () => {
-      root.render(
+      useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+    });
+
+    currentRoot = createRoot(container);
+    await act(async () => {
+      currentRoot?.render(
         createElement(SidebarOrgSelector, {
           activeOrg: 'Acme HQ',
           orgMenuItems: [],
@@ -145,11 +161,13 @@ describe('Sidebar Light and Dark Mode Adaptation', () => {
   });
 
   it('renders SidebarFooter with light background in light mode', async () => {
-    useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
-
-    const root = createRoot(container);
     await act(async () => {
-      root.render(
+      useThemeStore.setState({ mode: 'light', resolvedMode: 'light' });
+    });
+
+    currentRoot = createRoot(container);
+    await act(async () => {
+      currentRoot?.render(
         createElement(SidebarFooter, {
           collapsed: false,
           inDrawer: false,

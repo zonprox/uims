@@ -6,29 +6,16 @@ export interface CreateDirectoryUserDto {
   firstName: string;
   lastName: string;
   displayName?: string;
-  jobTitle?: string;
-  company?: string;
-  groupCompany?: string;
-  plant?: string;
-  section?: string;
-  subSection?: string;
-  department?: string;
-  location?: string;
-  managerName?: string;
-  telephone?: string;
   phone?: string;
   avatar?: string;
-  computerName?: string;
-  computerName2?: string;
-  adGroup?: string;
   ouPath?: string;
+  managerName?: string;
   status?: AccountStatus;
   source?: DirectorySource;
-  isClosed?: boolean;
   accountExpiresAt?: string;
+  organizationId?: string;
   departmentId?: string;
   positionId?: string;
-  organizationId?: string;
   locationId?: string;
 }
 
@@ -39,15 +26,13 @@ export interface DirectoryUserQueryDto {
   pageSize?: number;
   limit?: number;
   search?: string;
-  company?: string;
-  plant?: string;
-  department?: string;
-  section?: string;
-  adGroup?: string;
+  organizationId?: string;
+  departmentId?: string;
+  positionId?: string;
+  locationId?: string;
   ouPath?: string;
   source?: string;
   status?: string;
-  isClosed?: boolean;
 }
 
 export interface CreateDirectoryGroupDto {

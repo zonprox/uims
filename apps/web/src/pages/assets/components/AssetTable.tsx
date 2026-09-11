@@ -1,4 +1,12 @@
-import { DeleteOutlined, EditOutlined, EyeOutlined, QrcodeOutlined } from '@ant-design/icons';
+import {
+  AppstoreOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  EnvironmentOutlined,
+  EyeOutlined,
+  QrcodeOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
@@ -31,7 +39,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 <Text code strong style={{ fontSize: 13, color: '#1677ff' }}>
                   {record.tag}
                 </Text>
-                <Tag color="geekblue" style={{ fontSize: 11 }}>
+                <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11 }}>
                   {record.category}
                 </Tag>
               </Flex>
@@ -76,14 +84,28 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Assigned User',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
-          render: (user: string) => <Text style={{ fontSize: 13 }}>{user || 'Unassigned'}</Text>,
+          sorter: (a: Asset, b: Asset) => (a.assignedTo || '').localeCompare(b.assignedTo || ''),
+          render: (user: string) => {
+            if (!user || user === 'Unassigned') {
+              return <Tag color="default">Unassigned</Tag>;
+            }
+            return (
+              <Tag icon={<UserOutlined />} color="blue">
+                {user}
+              </Tag>
+            );
+          },
         },
         {
           title: 'Location',
           dataIndex: 'location',
           key: 'location',
-          sorter: (a: Asset, b: Asset) => a.location.localeCompare(b.location),
-          render: (loc: string) => <Text style={{ fontSize: 12.5 }}>{loc}</Text>,
+          sorter: (a: Asset, b: Asset) => (a.location || '').localeCompare(b.location || ''),
+          render: (loc: string) => (
+            <Tag icon={<EnvironmentOutlined />} color="geekblue">
+              {loc || 'Storage Vault'}
+            </Tag>
+          ),
         },
         {
           title: 'Warranty Expiration',

@@ -18,6 +18,7 @@ describe('AssetsController', () => {
       create: vi.fn(),
       update: vi.fn(),
       remove: vi.fn(),
+      getCategories: vi.fn(),
     };
 
     controller = new AssetsController(mockAssetsService as unknown as AssetsService);
@@ -91,5 +92,15 @@ describe('AssetsController', () => {
 
     expect(mockAssetsService.getStats).toHaveBeenCalled();
     expect(result).toBe(stats);
+  });
+
+  it('should call getCategories and return categories list', async () => {
+    const mockCats = [{ id: 'cat-1', name: 'Laptops', code: 'LAPTOPS', parentId: null }];
+    mockAssetsService.getCategories.mockResolvedValue(mockCats);
+
+    const result = await controller.getCategories();
+
+    expect(mockAssetsService.getCategories).toHaveBeenCalled();
+    expect(result).toBe(mockCats);
   });
 });

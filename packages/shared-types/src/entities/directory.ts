@@ -1,3 +1,6 @@
+import type { Location } from './common';
+import type { Department, Organization, Position } from './organization';
+
 export enum AccountStatus {
   ACTIVE = 'ACTIVE',
   DISABLED = 'DISABLED',
@@ -25,30 +28,21 @@ export interface DirectoryUser {
   lastName: string;
   fullName?: string;
   displayName?: string | null;
-  jobTitle?: string | null;
-  company?: string | null;
-  groupCompany?: string | null;
-  plant?: string | null;
-  section?: string | null;
-  subSection?: string | null;
-  department?: string | null;
-  location?: string | null;
-  managerName?: string | null;
-  telephone?: string | null;
   phone?: string | null;
   avatar?: string | null;
-  computerName?: string | null;
-  computerName2?: string | null;
-  adGroup?: string | null;
   ouPath?: string | null;
+  managerName?: string | null;
   status: AccountStatus;
   source: DirectorySource;
-  isClosed?: boolean;
   accountExpiresAt?: string | null;
   departmentId?: string | null;
   positionId?: string | null;
   organizationId?: string | null;
   locationId?: string | null;
+  organization?: Organization | null;
+  department?: Department | null;
+  position?: Position | null;
+  location?: Location | null;
   assignedAssetsCount?: number;
   assignedLicensesCount?: number;
   createdAt: string;

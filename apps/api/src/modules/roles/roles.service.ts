@@ -108,6 +108,7 @@ export class RolesService {
 
   async findAll() {
     const roles = await this.prisma.role.findMany({
+      take: 100,
       include: {
         permissions: {
           include: {
@@ -142,6 +143,8 @@ export class RolesService {
   async getStats() {
     const [roles, totalPermissions, totalUsers, superAdminsCount] = await Promise.all([
       this.prisma.role.findMany({
+        take: 100,
+        orderBy: { name: 'asc' },
         select: {
           name: true,
           _count: { select: { users: true } },
@@ -178,6 +181,7 @@ export class RolesService {
 
   async getCatalog() {
     const allPermissions = await this.prisma.permission.findMany({
+      take: 500,
       orderBy: [{ subject: 'asc' }, { action: 'asc' }],
     });
 

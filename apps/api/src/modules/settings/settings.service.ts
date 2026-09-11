@@ -1,9 +1,11 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class SettingsService {
+  private readonly logger = new Logger(SettingsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Optional() private redis?: RedisService,
@@ -16,7 +18,10 @@ export class SettingsService {
       if (cached) return cached;
     }
 
-    const settings = await this.prisma.setting.findMany();
+    const settings = await this.prisma.setting.findMany({
+      take: 100,
+      orderBy: { key: 'asc' },
+    });
     const result: Record<string, unknown> = {};
     for (const s of settings) {
       result[s.key] = s.value;
@@ -175,7 +180,10 @@ export class SettingsService {
       await this.prisma.$queryRaw`SELECT 1`;
       const elapsed = performance.now() - dbStart;
       pgLatency = `${elapsed.toFixed(1)}ms`;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.warn(
+        `PostgreSQL health telemetry probe failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       pgStatus = 'Disconnected';
       pgLatency = 'Timeout / Error';
     }

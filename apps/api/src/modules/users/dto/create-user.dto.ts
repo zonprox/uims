@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { DirectorySource, UserStatus } from '@prisma/client';
+import { UserStatus } from '@prisma/client';
 import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateUserDto {
@@ -11,11 +11,6 @@ export class CreateUserDto {
   @ApiProperty({ example: 'john.doe@company.com' })
   @IsEmail()
   email!: string;
-
-  @ApiPropertyOptional({ example: '63020037' })
-  @IsString()
-  @IsOptional()
-  employeeCode?: string;
 
   @ApiPropertyOptional({ example: 'John' })
   @IsString()
@@ -32,87 +27,15 @@ export class CreateUserDto {
   @IsOptional()
   displayName?: string;
 
-  @ApiPropertyOptional({ example: 'Asst. Officer' })
+  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
   @IsString()
   @IsOptional()
-  jobTitle?: string;
+  avatar?: string;
 
-  @ApiPropertyOptional({ example: 'BSL Others' })
+  @ApiPropertyOptional({ example: '+1 (555) 123-4567' })
   @IsString()
   @IsOptional()
-  company?: string;
-
-  @ApiPropertyOptional({ example: 'BSL' })
-  @IsString()
-  @IsOptional()
-  groupCompany?: string;
-
-  @ApiPropertyOptional({ example: '1 BSL-1' })
-  @IsString()
-  @IsOptional()
-  plant?: string;
-
-  @ApiPropertyOptional({ example: 'Printing' })
-  @IsString()
-  @IsOptional()
-  section?: string;
-
-  @ApiPropertyOptional({ example: 'Logo Embroidery' })
-  @IsString()
-  @IsOptional()
-  subSection?: string;
-
-  @ApiPropertyOptional({ example: 'STOTHPR102' })
-  @IsString()
-  @IsOptional()
-  computerName?: string;
-
-  @ApiPropertyOptional({ example: 'STOTHPR102-LAP' })
-  @IsString()
-  @IsOptional()
-  computerName2?: string;
-
-  @ApiPropertyOptional({ example: 'GR_BSLOTHPrinting' })
-  @IsString()
-  @IsOptional()
-  adGroup?: string;
-
-  @ApiPropertyOptional({ example: '888152675' })
-  @IsString()
-  @IsOptional()
-  telephone?: string;
-
-  @ApiPropertyOptional({ example: 'OU=Production,OU=BSL,DC=uims,DC=internal' })
-  @IsString()
-  @IsOptional()
-  ouPath?: string;
-
-  @ApiPropertyOptional({ example: 'Nguyen Doan Quang Huy' })
-  @IsString()
-  @IsOptional()
-  managerName?: string;
-
-  @ApiPropertyOptional({ example: false })
-  @IsOptional()
-  isClosed?: boolean;
-
-  @ApiPropertyOptional({ example: false })
-  @IsOptional()
-  isLocked?: boolean;
-
-  @ApiPropertyOptional({ example: '2026-12-31T23:59:59Z' })
-  @IsOptional()
-  accountExpiresAt?: string;
-
-  @ApiPropertyOptional({ enum: DirectorySource, default: DirectorySource.LOCAL })
-  @IsEnum(DirectorySource)
-  @IsOptional()
-  source?: DirectorySource;
-
-  @ApiPropertyOptional({ example: false })
-  @IsBoolean()
-  @IsOptional()
-  mustChangePassword?: boolean;
+  phone?: string;
 
   @ApiPropertyOptional({ example: 'Admin@2026' })
   @IsString()
@@ -125,53 +48,18 @@ export class CreateUserDto {
   @IsOptional()
   roleId?: string;
 
-  @ApiPropertyOptional({ example: 'IT Admin' })
-  @IsString()
-  @IsOptional()
-  roleName?: string;
-
   @ApiPropertyOptional({ enum: UserStatus, default: UserStatus.ACTIVE })
   @IsEnum(UserStatus)
   @IsOptional()
   status?: UserStatus;
 
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
-  @IsString()
+  @ApiPropertyOptional({ example: false })
+  @IsBoolean()
   @IsOptional()
-  avatar?: string;
+  isLocked?: boolean;
 
-  @ApiPropertyOptional({ example: '+1 (555) 123-4567' })
-  @IsString()
+  @ApiPropertyOptional({ example: false })
+  @IsBoolean()
   @IsOptional()
-  phone?: string;
-
-  @ApiPropertyOptional({ example: 'Production' })
-  @IsString()
-  @IsOptional()
-  department?: string;
-
-  @ApiPropertyOptional({ example: 'NY HQ - Floor 4' })
-  @IsString()
-  @IsOptional()
-  location?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  departmentId?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  positionId?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  organizationId?: string;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  locationId?: string;
+  mustChangePassword?: boolean;
 }

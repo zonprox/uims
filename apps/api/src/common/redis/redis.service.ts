@@ -58,7 +58,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     if (this.client) {
       try {
         await this.client.quit();
-      } catch {
+      } catch (error: unknown) {
+        this.logger.debug(
+          `Redis quit failed, forcing disconnect: ${error instanceof Error ? error.message : String(error)}`,
+        );
         this.client.disconnect();
       }
     }
@@ -70,7 +73,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       try {
         const ping = await this.client.ping();
         return ping === 'PONG';
-      } catch {
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Redis health ping failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
         return false;
       }
     }
@@ -90,8 +96,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         const raw = await this.client.get(key);
         if (!raw) return null;
         return JSON.parse(raw) as T;
-      } catch (err) {
-        this.logger.warn(`Redis get failed for key "${key}": ${err}. Falling back to memory.`);
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Redis get failed for key "${key}": ${msg}. Falling back to memory.`);
       }
     }
 
@@ -116,8 +123,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           await this.client.set(key, serialized);
         }
         return;
-      } catch (err) {
-        this.logger.warn(`Redis set failed for key "${key}": ${err}. Falling back to memory.`);
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Redis set failed for key "${key}": ${msg}. Falling back to memory.`);
       }
     }
 
@@ -130,8 +138,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     if (this.client && this.isConnected) {
       try {
         await this.client.del(key);
-      } catch (err) {
-        this.logger.warn(`Redis del failed for key "${key}": ${err}`);
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Redis del failed for key "${key}": ${msg}`);
       }
     }
     this.memoryCache.delete(key);
@@ -152,8 +161,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
               stream.pause();
               try {
                 await this.client.del(...keys);
-              } catch (e) {
-                this.logger.warn(`Failed to delete keys batch in pattern ${pattern}: ${e}`);
+              } catch (error: unknown) {
+                const msg = error instanceof Error ? error.message : String(error);
+                this.logger.warn(`Failed to delete keys batch in pattern ${pattern}: ${msg}`);
               } finally {
                 stream.resume();
               }
@@ -166,8 +176,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
             resolve();
           });
         });
-      } catch (err) {
-        this.logger.warn(`Redis delPattern failed for pattern "${pattern}": ${err}`);
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Redis delPattern failed for pattern "${pattern}": ${msg}`);
       }
     }
 
@@ -188,8 +199,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           await this.client.expire(key, ttlSeconds);
         }
         return count;
-      } catch (err) {
-        this.logger.warn(`Redis incr failed for key "${key}": ${err}`);
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Redis incr failed for key "${key}": ${msg}`);
       }
     }
 

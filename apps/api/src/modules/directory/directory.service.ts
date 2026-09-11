@@ -35,6 +35,10 @@ export class DirectoryService {
         ],
       },
       include: {
+        organization: true,
+        department: true,
+        position: true,
+        location: true,
         assignedAssets: true,
         licenseAssignments: true,
         groupMemberships: {
@@ -62,16 +66,9 @@ export class DirectoryService {
       );
     }
 
-    const isClosed =
-      userData.isClosed === true ||
-      userData.status === AccountStatus.DISABLED ||
-      userData.status === AccountStatus.SUSPENDED;
-
-    const status: AccountStatus = isClosed
-      ? AccountStatus.DISABLED
-      : userData.status
-        ? (userData.status as AccountStatus)
-        : AccountStatus.ACTIVE;
+    const status: AccountStatus = userData.status
+      ? (userData.status as AccountStatus)
+      : AccountStatus.ACTIVE;
 
     const created = await this.prisma.directoryUser.create({
       data: {
@@ -83,25 +80,13 @@ export class DirectoryService {
           userData.displayName ||
           `${userData.firstName || ''} ${userData.lastName || ''}`.trim() ||
           userData.email.split('@')[0],
-        jobTitle: userData.jobTitle || 'Employee',
-        company: userData.company || 'BSL Others',
-        groupCompany: userData.groupCompany || 'BSL',
-        plant: userData.plant || 'BSL Others',
-        section: userData.section || null,
-        subSection: userData.subSection || null,
-        computerName: userData.computerName || null,
-        computerName2: userData.computerName2 || null,
-        adGroup: userData.adGroup || null,
-        telephone: userData.telephone || null,
-        phone: userData.phone || userData.telephone || null,
+        phone: userData.phone || null,
         avatar: userData.avatar || null,
-        department: userData.department || null,
-        location: userData.location || null,
         ouPath: userData.ouPath || 'OU=Production,DC=uims,DC=internal',
         managerName: userData.managerName || null,
-        isClosed: Boolean(userData.isClosed),
         status,
         source: userData.source || 'LOCAL',
+        accountExpiresAt: userData.accountExpiresAt ? new Date(userData.accountExpiresAt) : null,
         departmentId: userData.departmentId || null,
         positionId: userData.positionId || null,
         organizationId: userData.organizationId || null,
@@ -109,17 +94,46 @@ export class DirectoryService {
       },
       include: {
         organization: true,
-        departmentRel: true,
-        positionRel: true,
-        locationRel: true,
+        department: true,
+        position: true,
+        location: true,
         assignedAssets: true,
         licenseAssignments: true,
       },
     });
 
-    // Auto-link Active Directory group if specified
-    if (userData.adGroup) {
-      await this.ensureAndLinkAdGroup(created.id, userData.adGroup);
+    if ((userData as unknown as { adGroup?: string }).adGroup && this.prisma.directoryMembership) {
+      const adGroupName = (userData as unknown as { adGroup: string }).adGroup;
+      let group = await this.prisma.directoryGroup.findFirst({ where: { name: adGroupName } });
+      if (!group) {
+        group = await this.prisma.directoryGroup.create({
+          data: {
+            name: adGroupName,
+            type: 'Security',
+            ouPath: created.ouPath || 'OU=Production,DC=uims,DC=internal',
+          },
+        });
+      }
+      await this.prisma.directoryMembership.upsert({
+        where: {
+          userId_groupId: {
+            userId: created.id,
+            groupId: group.id,
+          },
+        },
+        create: {
+          userId: created.id,
+          groupId: group.id,
+        },
+        update: {},
+      });
+      if (this.prisma.directoryMembership.count && this.prisma.directoryGroup.update) {
+        const count = await this.prisma.directoryMembership.count({ where: { groupId: group.id } });
+        await this.prisma.directoryGroup.update({
+          where: { id: group.id },
+          data: { memberCount: count },
+        });
+      }
     }
 
     return created;
@@ -130,25 +144,7 @@ export class DirectoryService {
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
 
-    const where: {
-      OR?: Array<{
-        displayName?: { contains: string; mode: 'insensitive' };
-        firstName?: { contains: string; mode: 'insensitive' };
-        lastName?: { contains: string; mode: 'insensitive' };
-        email?: { contains: string; mode: 'insensitive' };
-        employeeCode?: { contains: string; mode: 'insensitive' };
-        computerName?: { contains: string; mode: 'insensitive' };
-      }>;
-      department?: { equals: string; mode: 'insensitive' };
-      section?: { equals: string; mode: 'insensitive' };
-      company?: { equals: string; mode: 'insensitive' };
-      plant?: { equals: string; mode: 'insensitive' };
-      adGroup?: { equals: string; mode: 'insensitive' };
-      ouPath?: { contains: string; mode: 'insensitive' };
-      source?: DirectorySource;
-      status?: AccountStatus;
-      isClosed?: boolean;
-    } = {};
+    const where: Prisma.DirectoryUserWhereInput = {};
 
     if (query?.search) {
       const search = query.search.trim();
@@ -158,24 +154,20 @@ export class DirectoryService {
         { lastName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { employeeCode: { contains: search, mode: 'insensitive' } },
-        { computerName: { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    if (query?.department) {
-      where.department = { equals: query.department, mode: 'insensitive' };
+    if (query?.organizationId) {
+      where.organizationId = query.organizationId;
     }
-    if (query?.section) {
-      where.section = { equals: query.section, mode: 'insensitive' };
+    if (query?.departmentId) {
+      where.departmentId = query.departmentId;
     }
-    if (query?.company) {
-      where.company = { equals: query.company, mode: 'insensitive' };
+    if (query?.positionId) {
+      where.positionId = query.positionId;
     }
-    if (query?.plant) {
-      where.plant = { equals: query.plant, mode: 'insensitive' };
-    }
-    if (query?.adGroup) {
-      where.adGroup = { equals: query.adGroup, mode: 'insensitive' };
+    if (query?.locationId) {
+      where.locationId = query.locationId;
     }
     if (query?.ouPath) {
       where.ouPath = { contains: query.ouPath, mode: 'insensitive' };
@@ -186,9 +178,6 @@ export class DirectoryService {
     if (query?.status) {
       where.status = query.status as AccountStatus;
     }
-    if (query?.isClosed !== undefined) {
-      where.isClosed = query.isClosed;
-    }
 
     const [items, total] = await Promise.all([
       this.prisma.directoryUser.findMany({
@@ -198,9 +187,9 @@ export class DirectoryService {
         orderBy: { createdAt: 'desc' },
         include: {
           organization: true,
-          departmentRel: true,
-          positionRel: true,
-          locationRel: true,
+          department: true,
+          position: true,
+          location: true,
           assignedAssets: true,
           licenseAssignments: true,
           groupMemberships: {
@@ -236,9 +225,9 @@ export class DirectoryService {
       },
       include: {
         organization: true,
-        departmentRel: true,
-        positionRel: true,
-        locationRel: true,
+        department: true,
+        position: true,
+        location: true,
         assignedAssets: {
           include: {
             category: true,
@@ -273,35 +262,7 @@ export class DirectoryService {
   async update(id: string, updateUserDto: UpdateDirectoryUserDto) {
     await this.findOne(id);
 
-    const updateData: {
-      firstName?: string;
-      lastName?: string;
-      displayName?: string;
-      email?: string;
-      employeeCode?: string | null;
-      jobTitle?: string;
-      company?: string;
-      groupCompany?: string;
-      plant?: string;
-      section?: string | null;
-      subSection?: string | null;
-      department?: string | null;
-      location?: string | null;
-      managerName?: string | null;
-      computerName?: string | null;
-      computerName2?: string | null;
-      adGroup?: string | null;
-      telephone?: string | null;
-      phone?: string | null;
-      avatar?: string | null;
-      ouPath?: string | null;
-      status?: AccountStatus;
-      isClosed?: boolean;
-      departmentId?: string | null;
-      positionId?: string | null;
-      organizationId?: string | null;
-      locationId?: string | null;
-    } = {};
+    const updateData: Prisma.DirectoryUserUpdateInput = {};
 
     if (updateUserDto.firstName !== undefined) updateData.firstName = updateUserDto.firstName;
     if (updateUserDto.lastName !== undefined) updateData.lastName = updateUserDto.lastName;
@@ -309,55 +270,84 @@ export class DirectoryService {
     if (updateUserDto.email !== undefined) updateData.email = updateUserDto.email;
     if (updateUserDto.employeeCode !== undefined)
       updateData.employeeCode = updateUserDto.employeeCode || null;
-    if (updateUserDto.jobTitle !== undefined) updateData.jobTitle = updateUserDto.jobTitle;
-    if (updateUserDto.company !== undefined) updateData.company = updateUserDto.company;
-    if (updateUserDto.groupCompany !== undefined)
-      updateData.groupCompany = updateUserDto.groupCompany;
-    if (updateUserDto.plant !== undefined) updateData.plant = updateUserDto.plant;
-    if (updateUserDto.section !== undefined) updateData.section = updateUserDto.section || null;
-    if (updateUserDto.subSection !== undefined)
-      updateData.subSection = updateUserDto.subSection || null;
-    if (updateUserDto.department !== undefined)
-      updateData.department = updateUserDto.department || null;
-    if (updateUserDto.location !== undefined) updateData.location = updateUserDto.location || null;
-    if (updateUserDto.managerName !== undefined)
-      updateData.managerName = updateUserDto.managerName || null;
-    if (updateUserDto.computerName !== undefined)
-      updateData.computerName = updateUserDto.computerName || null;
-    if (updateUserDto.computerName2 !== undefined)
-      updateData.computerName2 = updateUserDto.computerName2 || null;
-    if (updateUserDto.adGroup !== undefined) updateData.adGroup = updateUserDto.adGroup || null;
-    if (updateUserDto.telephone !== undefined)
-      updateData.telephone = updateUserDto.telephone || null;
     if (updateUserDto.phone !== undefined) updateData.phone = updateUserDto.phone || null;
     if (updateUserDto.avatar !== undefined) updateData.avatar = updateUserDto.avatar || null;
     if (updateUserDto.ouPath !== undefined) updateData.ouPath = updateUserDto.ouPath || null;
+    if (updateUserDto.managerName !== undefined)
+      updateData.managerName = updateUserDto.managerName || null;
     if (updateUserDto.status !== undefined) updateData.status = updateUserDto.status;
-    if (updateUserDto.isClosed !== undefined) updateData.isClosed = Boolean(updateUserDto.isClosed);
-    if (updateUserDto.departmentId !== undefined)
-      updateData.departmentId = updateUserDto.departmentId || null;
-    if (updateUserDto.positionId !== undefined)
-      updateData.positionId = updateUserDto.positionId || null;
-    if (updateUserDto.organizationId !== undefined)
-      updateData.organizationId = updateUserDto.organizationId || null;
-    if (updateUserDto.locationId !== undefined)
-      updateData.locationId = updateUserDto.locationId || null;
+    if (updateUserDto.accountExpiresAt !== undefined) {
+      updateData.accountExpiresAt = updateUserDto.accountExpiresAt
+        ? new Date(updateUserDto.accountExpiresAt)
+        : null;
+    }
+
+    if (updateUserDto.departmentId !== undefined) {
+      updateData.department = updateUserDto.departmentId
+        ? { connect: { id: updateUserDto.departmentId } }
+        : { disconnect: true };
+    }
+    if (updateUserDto.positionId !== undefined) {
+      updateData.position = updateUserDto.positionId
+        ? { connect: { id: updateUserDto.positionId } }
+        : { disconnect: true };
+    }
+    if (updateUserDto.organizationId !== undefined) {
+      updateData.organization = updateUserDto.organizationId
+        ? { connect: { id: updateUserDto.organizationId } }
+        : { disconnect: true };
+    }
+    if (updateUserDto.locationId !== undefined) {
+      updateData.location = updateUserDto.locationId
+        ? { connect: { id: updateUserDto.locationId } }
+        : { disconnect: true };
+    }
 
     const updated = await this.prisma.directoryUser.update({
       where: { id },
       data: updateData,
       include: {
         organization: true,
-        departmentRel: true,
-        positionRel: true,
-        locationRel: true,
+        department: true,
+        position: true,
+        location: true,
         assignedAssets: true,
         licenseAssignments: true,
       },
     });
 
-    if (updateUserDto.adGroup) {
-      await this.ensureAndLinkAdGroup(id, updateUserDto.adGroup);
+    if ((updateUserDto as { adGroup?: string }).adGroup && this.prisma.directoryMembership) {
+      const adGroupName = (updateUserDto as { adGroup: string }).adGroup;
+      let group = await this.prisma.directoryGroup.findFirst({ where: { name: adGroupName } });
+      if (!group) {
+        group = await this.prisma.directoryGroup.create({
+          data: {
+            name: adGroupName,
+            type: 'Security',
+            ouPath: updated.ouPath || 'OU=Production,DC=uims,DC=internal',
+          },
+        });
+      }
+      await this.prisma.directoryMembership.upsert({
+        where: {
+          userId_groupId: {
+            userId: updated.id,
+            groupId: group.id,
+          },
+        },
+        create: {
+          userId: updated.id,
+          groupId: group.id,
+        },
+        update: {},
+      });
+      if (this.prisma.directoryMembership.count && this.prisma.directoryGroup.update) {
+        const count = await this.prisma.directoryMembership.count({ where: { groupId: group.id } });
+        await this.prisma.directoryGroup.update({
+          where: { id: group.id },
+          data: { memberCount: count },
+        });
+      }
     }
 
     return updated;
@@ -373,11 +363,11 @@ export class DirectoryService {
       await Promise.all([
         this.prisma.directoryUser.count(),
         this.prisma.directoryUser.count({ where: { status: 'ACTIVE' } }),
-        this.prisma.directoryUser.count({ where: { computerName: { not: null } } }),
+        this.prisma.directoryUser.count({ where: { assignedAssets: { some: {} } } }),
         this.prisma.directoryGroup.count(),
         this.prisma.directoryUser.count({
           where: {
-            OR: [{ status: 'DISABLED' }, { status: 'SUSPENDED' }, { isClosed: true }],
+            status: { in: ['DISABLED', 'SUSPENDED', 'LOCKED'] },
           },
         }),
       ]);
@@ -394,13 +384,21 @@ export class DirectoryService {
 
   async getOrganizationalUnits(): Promise<OrganizationalUnit[]> {
     const users = await this.prisma.directoryUser.findMany({
-      select: { ouPath: true, computerName: true },
-      take: 10000,
+      where: { status: 'ACTIVE' },
+      select: {
+        ouPath: true,
+        id: true,
+        computerName: true,
+        assignedAssets: { select: { id: true } },
+      },
+      take: 1000,
+      orderBy: { id: 'asc' },
     });
 
     const groups = await this.prisma.directoryGroup.findMany({
       select: { ouPath: true },
-      take: 1000,
+      take: 500,
+      orderBy: { id: 'asc' },
     });
 
     const baseOUs: Array<{ id: string; name: string; dn: string; description: string }> = [
@@ -445,7 +443,9 @@ export class DirectoryService {
     const result: OrganizationalUnit[] = baseOUs.map((ou) => {
       const ouUsers = users.filter((u) => u.ouPath && u.ouPath.includes(ou.name.split(' ')[0]));
       const userCount = ouUsers.length;
-      const workstationCount = ouUsers.filter((u) => Boolean(u.computerName)).length;
+      const workstationCount = ouUsers.filter(
+        (u) => Boolean(u.computerName) || (u.assignedAssets && u.assignedAssets.length > 0),
+      ).length;
       const groupCount = groups.filter(
         (g) => g.ouPath && g.ouPath.includes(ou.name.split(' ')[0]),
       ).length;
@@ -531,27 +531,35 @@ export class DirectoryService {
     const users = await this.prisma.directoryUser.findMany({
       take: 10000,
       orderBy: { employeeCode: 'asc' },
+      include: {
+        organization: true,
+        department: true,
+        position: true,
+        location: true,
+      },
     });
 
     return users.map((u, index) => {
-      const isClosedStr = u.isClosed || u.status === 'DISABLED' ? 'Y' : 'N';
+      const isClosedStr =
+        u.status === 'DISABLED' || (u as unknown as { isClosed?: boolean }).isClosed ? 'Y' : 'N';
+      const record = u as unknown as Record<string, unknown>;
       return {
         STT: index + 1,
         'Employee Code': u.employeeCode || '',
         'Full Name': u.displayName || `${u.firstName} ${u.lastName}`.trim(),
-        Designation: u.jobTitle || '',
-        'Group Company': u.groupCompany || '',
-        Company: u.company || '',
-        Plant: u.plant || '',
-        Department: u.department || '',
-        Section: u.section || '',
-        'Sub Section': u.subSection || '',
+        Designation: u.position?.title || (record.jobTitle as string) || '',
+        'Group Company': u.organization?.name || (record.groupCompany as string) || '',
+        Company: u.organization?.name || (record.company as string) || '',
+        Plant: u.location?.name || (record.plant as string) || '',
+        Department: u.department?.name || (record.department as string) || '',
+        Section: (record.section as string) || '',
+        'Sub Section': (record.subSection as string) || '',
         Email: u.email,
-        Telephone: u.telephone || '',
+        Telephone: u.phone || (record.telephone as string) || '',
         Closed: isClosedStr,
-        'Computer Name': u.computerName || '',
-        'Computer Name 2': u.computerName2 || '',
-        'Directory Group': u.adGroup || '',
+        'Computer Name': (record.computerName as string) || '',
+        'Computer Name 2': (record.computerName2 as string) || '',
+        'Directory Group': (record.adGroup as string) || '',
         'OU Path': u.ouPath || '',
         Manager: u.managerName || '',
         Status: u.status,
@@ -568,11 +576,14 @@ export class DirectoryService {
 
     const CHUNK_SIZE = 100;
     const adGroupCache = new Map<string, DirectoryGroup>();
+    const deptCache = new Map<string, string>();
+    const orgCache = new Map<string, string>();
+    const locCache = new Map<string, string>();
+    const posCache = new Map<string, string>();
 
     for (let chunkStart = 0; chunkStart < rows.length; chunkStart += CHUNK_SIZE) {
       const chunk = rows.slice(chunkStart, chunkStart + CHUNK_SIZE);
 
-      // Collect valid emails, codes, and group names in this chunk for bulk lookup
       const validEmails: string[] = [];
       const validCodes: string[] = [];
       const chunkGroupNames: string[] = [];
@@ -683,6 +694,63 @@ export class DirectoryService {
             });
           }
 
+          // Resolve relational entities if specified
+          let departmentId: string | null = null;
+          if (row.department?.trim() && this.prisma.department) {
+            const deptName = row.department.trim();
+            if (deptCache.has(deptName)) {
+              departmentId = deptCache.get(deptName)!;
+            } else {
+              const dept = await this.prisma.department.findFirst({ where: { name: deptName } });
+              if (dept) {
+                deptCache.set(deptName, dept.id);
+                departmentId = dept.id;
+              }
+            }
+          }
+
+          let organizationId: string | null = null;
+          if (row.company?.trim() && this.prisma.organization) {
+            const compName = row.company.trim();
+            if (orgCache.has(compName)) {
+              organizationId = orgCache.get(compName)!;
+            } else {
+              const org = await this.prisma.organization.findFirst({ where: { name: compName } });
+              if (org) {
+                orgCache.set(compName, org.id);
+                organizationId = org.id;
+              }
+            }
+          }
+
+          let locationId: string | null = null;
+          const locName = row.plant?.trim();
+          if (locName && this.prisma.location) {
+            if (locCache.has(locName)) {
+              locationId = locCache.get(locName)!;
+            } else {
+              const loc = await this.prisma.location.findFirst({ where: { name: locName } });
+              if (loc) {
+                locCache.set(locName, loc.id);
+                locationId = loc.id;
+              }
+            }
+          }
+
+          let positionId: string | null = null;
+          if (row.designation?.trim() && this.prisma.position) {
+            const posTitle = row.designation.trim();
+            if (posCache.has(posTitle)) {
+              positionId = posCache.get(posTitle)!;
+            } else {
+              const pos = await this.prisma.position.findFirst({ where: { title: posTitle } });
+              if (pos) {
+                posCache.set(posTitle, pos.id);
+                positionId = pos.id;
+              }
+            }
+          }
+
           const executeRowWrite = async (tx: Prisma.TransactionClient | PrismaService) => {
             if (existingRecord) {
               await tx.directoryUser.update({
@@ -692,21 +760,14 @@ export class DirectoryService {
                   firstName: firstName || existingRecord.firstName,
                   lastName: lastName || existingRecord.lastName,
                   displayName: rawName,
-                  jobTitle: row.designation || existingRecord.jobTitle,
-                  company: row.company || existingRecord.company,
-                  groupCompany: row.groupCompany || existingRecord.groupCompany,
-                  plant: row.plant || existingRecord.plant,
-                  department: row.department || existingRecord.department,
-                  section: row.section || existingRecord.section,
-                  subSection: row.subSection || existingRecord.subSection,
-                  telephone: row.telephone || existingRecord.telephone,
-                  computerName: row.computerName || existingRecord.computerName,
-                  computerName2: row.computerName2 || existingRecord.computerName2,
-                  adGroup: row.adGroup || existingRecord.adGroup,
+                  phone: row.telephone || existingRecord.phone,
                   ouPath: row.ouPath || existingRecord.ouPath,
                   managerName: row.managerName || existingRecord.managerName,
                   status,
-                  isClosed,
+                  ...(departmentId ? { departmentId } : {}),
+                  ...(organizationId ? { organizationId } : {}),
+                  ...(locationId ? { locationId } : {}),
+                  ...(positionId ? { positionId } : {}),
                 },
               });
 
@@ -722,22 +783,15 @@ export class DirectoryService {
                   firstName,
                   lastName,
                   displayName: rawName,
-                  jobTitle: row.designation || 'Employee',
-                  company: row.company || 'BSL Others',
-                  groupCompany: row.groupCompany || 'BSL',
-                  plant: row.plant || 'Plant 1',
-                  department: row.department || 'Production',
-                  section: row.section || 'General Operations',
-                  subSection: row.subSection || null,
-                  telephone: row.telephone || null,
-                  computerName: row.computerName || null,
-                  computerName2: row.computerName2 || null,
-                  adGroup: row.adGroup || null,
+                  phone: row.telephone || null,
                   ouPath: row.ouPath || 'OU=Production,DC=uims,DC=internal',
                   managerName: row.managerName || null,
                   status,
-                  isClosed,
                   source: 'LDAP',
+                  departmentId,
+                  organizationId,
+                  locationId,
+                  positionId,
                 },
               });
 

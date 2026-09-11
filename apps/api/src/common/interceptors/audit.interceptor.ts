@@ -3,6 +3,7 @@ import {
   type CallHandler,
   type ExecutionContext,
   Injectable,
+  Logger,
   type NestInterceptor,
 } from '@nestjs/common';
 import dotenv from 'dotenv';
@@ -89,6 +90,8 @@ function computeAuditHash(
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditInterceptor.name);
+
   constructor(private prisma: PrismaService) {}
 
   private async recordAudit(
@@ -148,8 +151,11 @@ export class AuditInterceptor implements NestInterceptor {
           userAgent: userAgent || null,
         },
       });
-    } catch {
-      // Prevent audit logging failures from crashing client response
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to persist audit log record for action "${method}" on path "${path}": ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 

@@ -351,6 +351,12 @@ vi.mock('../../services/assets.service', () => ({
   },
 }));
 
+vi.mock('../../services/directory.service', () => ({
+  directoryService: {
+    getEmployees: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  },
+}));
+
 describe('NetworkPage & Enterprise IPAM Experience', () => {
   let container: HTMLDivElement;
   let currentRoot: Root | null = null;

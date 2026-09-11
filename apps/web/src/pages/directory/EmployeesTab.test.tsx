@@ -32,14 +32,43 @@ const { mockEmployees } = vi.hoisted(() => {
       firstName: 'Phung Thi',
       lastName: 'Nhu Y',
       fullName: 'Phung Thi Nhu Y',
-      jobTitle: 'Asst. Officer',
-      company: 'BSL Others',
-      plant: 'Plant 1',
-      department: 'Production',
-      section: 'Printing',
-      computerName: 'STOTHPR102',
-      computerName2: 'STOTHPR102B',
-      adGroup: 'GR_BSLOTHPrinting',
+      departmentId: 'dept-1',
+      department: {
+        id: 'dept-1',
+        name: 'Production',
+        code: 'PROD',
+        status: 'Active',
+        organizationId: 'org-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      positionId: 'pos-1',
+      position: {
+        id: 'pos-1',
+        title: 'Asst. Officer',
+        code: 'AO',
+        status: 'Active',
+        departmentId: 'dept-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      organizationId: 'org-1',
+      organization: {
+        id: 'org-1',
+        name: 'BSL Others',
+        code: 'BSL',
+        status: 'Active',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      locationId: 'loc-1',
+      location: {
+        id: 'loc-1',
+        name: 'Plant 1',
+        organizationId: 'org-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
       ouPath: 'OU=Production,DC=uims,DC=internal',
       status: 'ACTIVE' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
@@ -55,13 +84,43 @@ const { mockEmployees } = vi.hoisted(() => {
       firstName: 'Lam Ngo',
       lastName: 'Ha Vy',
       fullName: 'Lam Ngo Ha Vy',
-      jobTitle: 'Junior Officer',
-      company: 'BSL Corporate',
-      plant: 'Plant 2',
-      department: 'Quality Assurance',
-      section: 'Sample',
-      computerName: 'STOTHSAM04',
-      adGroup: 'GR_BSLOTHSample',
+      departmentId: 'dept-2',
+      department: {
+        id: 'dept-2',
+        name: 'Quality Assurance',
+        code: 'QA',
+        status: 'Active',
+        organizationId: 'org-2',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      positionId: 'pos-2',
+      position: {
+        id: 'pos-2',
+        title: 'Junior Officer',
+        code: 'JO',
+        status: 'Active',
+        departmentId: 'dept-2',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      organizationId: 'org-2',
+      organization: {
+        id: 'org-2',
+        name: 'BSL Corporate',
+        code: 'CORP',
+        status: 'Active',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      locationId: 'loc-2',
+      location: {
+        id: 'loc-2',
+        name: 'Plant 2',
+        organizationId: 'org-2',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
       ouPath: 'OU=Quality,DC=uims,DC=internal',
       status: 'DISABLED' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
@@ -77,15 +136,45 @@ const { mockEmployees } = vi.hoisted(() => {
       firstName: 'Alex',
       lastName: 'Chen',
       fullName: 'Alex Chen',
-      jobTitle: 'Software Engineer',
-      company: 'BSL Tech',
-      plant: 'Plant 1',
-      department: 'Information Technology',
-      section: 'DevOps',
-      computerName: 'STITDEV01',
-      adGroup: 'GR_BSLITEngineering',
+      departmentId: 'dept-3',
+      department: {
+        id: 'dept-3',
+        name: 'Information Technology',
+        code: 'IT',
+        status: 'Active',
+        organizationId: 'org-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      positionId: 'pos-3',
+      position: {
+        id: 'pos-3',
+        title: 'Software Engineer',
+        code: 'SE',
+        status: 'Active',
+        departmentId: 'dept-3',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      organizationId: 'org-1',
+      organization: {
+        id: 'org-1',
+        name: 'BSL Tech',
+        code: 'TECH',
+        status: 'Active',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      locationId: 'loc-1',
+      location: {
+        id: 'loc-1',
+        name: 'Plant 1',
+        organizationId: 'org-1',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
       ouPath: 'OU=Engineering,DC=uims,DC=internal',
-      status: 'CLOSED' as DirectoryUser['status'],
+      status: 'SUSPENDED' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 0,
       assignedLicensesCount: 2,
@@ -114,6 +203,53 @@ vi.mock('../../services/directory.service', () => ({
     updateEmployee: (...args: unknown[]) => mockUpdateEmployee(...args),
     deleteEmployee: (...args: unknown[]) => mockDeleteEmployee(...args),
     importEmployees: (...args: unknown[]) => mockImportEmployees(...args),
+  },
+}));
+
+vi.mock('../../services/organization.service', () => ({
+  organizationService: {
+    getOrganizations: vi.fn().mockResolvedValue([
+      { id: 'org-1', name: 'BSL Others', code: 'BSL', status: 'Active' },
+      { id: 'org-2', name: 'BSL Corporate', code: 'CORP', status: 'Active' },
+    ]),
+    getDepartments: vi.fn().mockResolvedValue([
+      { id: 'dept-1', name: 'Production', code: 'PROD', organizationId: 'org-1', status: 'Active' },
+      {
+        id: 'dept-2',
+        name: 'Quality Assurance',
+        code: 'QA',
+        organizationId: 'org-2',
+        status: 'Active',
+      },
+      {
+        id: 'dept-3',
+        name: 'Information Technology',
+        code: 'IT',
+        organizationId: 'org-1',
+        status: 'Active',
+      },
+    ]),
+    getPositions: vi.fn().mockResolvedValue([
+      { id: 'pos-1', title: 'Asst. Officer', code: 'AO', departmentId: 'dept-1', status: 'Active' },
+      {
+        id: 'pos-2',
+        title: 'Junior Officer',
+        code: 'JO',
+        departmentId: 'dept-2',
+        status: 'Active',
+      },
+      {
+        id: 'pos-3',
+        title: 'Software Engineer',
+        code: 'SE',
+        departmentId: 'dept-3',
+        status: 'Active',
+      },
+    ]),
+    getLocations: vi.fn().mockResolvedValue([
+      { id: 'loc-1', name: 'Plant 1', organizationId: 'org-1' },
+      { id: 'loc-2', name: 'Plant 2', organizationId: 'org-2' },
+    ]),
   },
 }));
 
@@ -352,7 +488,7 @@ describe('EmployeesTab Adversarial Component Tests', () => {
   });
 
   describe('2. Employee Search and Multi-Attribute Filtering', () => {
-    it('filters employees by search string matching employeeCode, computerName, and email', async () => {
+    it('filters employees by search string matching employeeCode, position title, and email', async () => {
       await renderComponent();
 
       const searchInput = container.querySelector(
@@ -372,10 +508,10 @@ describe('EmployeesTab Adversarial Component Tests', () => {
       expect(container.textContent).not.toContain('Lam Ngo Ha Vy');
       expect(container.textContent).not.toContain('Alex Chen');
 
-      // Search by computerName 'STITDEV01'
+      // Search by position title 'Software Engineer'
       await act(async () => {
         if (searchInput) {
-          setInputValue(searchInput, 'STITDEV01');
+          setInputValue(searchInput, 'Software Engineer');
         }
         await new Promise((resolve) => setTimeout(resolve, 50));
       });
@@ -502,11 +638,14 @@ describe('EmployeesTab Adversarial Component Tests', () => {
       expect(batchItems[0].name).toBe('Phung Thi Nhu Y');
       expect(batchItems[0].email).toBe('yptn.st@youngonevn.com');
       expect(batchItems[0].employeeCode).toBe('63020037');
-      expect(batchItems[0].plant).toBe('Plant 1');
+      expect(batchItems[0].department).toBe('Production');
       expect(batchItems[0].computerName).toBe('STOTHPR102');
-      // Assert zero credentials in parsed item
+      // Assert zero credentials and pruned fields in parsed item
       expect(batchItems[0]).not.toHaveProperty('password');
       expect(batchItems[0]).not.toHaveProperty('initialPassword');
+      expect(batchItems[0]).not.toHaveProperty('plant');
+      expect(batchItems[0]).not.toHaveProperty('company');
+      expect(batchItems[0]).not.toHaveProperty('section');
     });
 
     it('strips password or initial password columns if attempted in CSV input', async () => {

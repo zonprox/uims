@@ -25,7 +25,6 @@ import {
 } from '../../../services/network.service';
 
 const { Text } = Typography;
-const { Option } = Select;
 
 export interface SubnetFormModalProps {
   open: boolean;
@@ -89,27 +88,41 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
     const { token } = theme.useToken();
     const [calcPreview, setCalcPreview] = useState<NetworkCalculation | null>(null);
 
-    const handleCidrChange = useCallback((cidrValue: string) => {
-      const local = calculateLocalCidr(cidrValue);
-      if (local) {
-        setCalcPreview(local);
-        // Also call backend calculation asynchronously to confirm alignment
-        networkService
-          .calculateSubnet(cidrValue.trim())
-          .then((res) => {
-            if (res) setCalcPreview(res);
-          })
-          .catch((error: unknown) => {
-            // Log diagnostic warning and retain client-side bitwise calculation preview
-            console.warn(
-              'Backend CIDR calculation check failed, retaining client bitwise preview:',
-              error instanceof Error ? error.message : String(error),
-            );
-          });
-      } else {
-        setCalcPreview(null);
+    const handleCidrChange = useCallback(
+      (cidrValue: string) => {
+        const local = calculateLocalCidr(cidrValue);
+        if (local) {
+          setCalcPreview(local);
+          if (!editingSubnet && !form.getFieldValue('gateway') && local.suggestedGateway) {
+            form.setFieldValue('gateway', local.suggestedGateway);
+          }
+          // Also call backend calculation asynchronously to confirm alignment
+          networkService
+            .calculateSubnet(cidrValue.trim())
+            .then((res) => {
+              if (res) {
+                setCalcPreview(res);
+                if (!editingSubnet && !form.getFieldValue('gateway') && res.suggestedGateway) {
+                  form.setFieldValue('gateway', res.suggestedGateway);
+                }
+              }
+            })
+            .catch((_error: unknown) => {
+              // Retain client-side bitwise calculation preview if backend check is unavailable
+            });
+        } else {
+          setCalcPreview(null);
+        }
+      },
+      [editingSubnet, form],
+    );
+
+    const handleVlanChange = (vlanId: string) => {
+      const selected = vlans.find((v) => v.id === vlanId);
+      if (selected?.locationId && !form.getFieldValue('locationId')) {
+        form.setFieldValue('locationId', selected.locationId);
       }
-    }, []);
+    };
 
     useEffect(() => {
       if (open) {
@@ -246,14 +259,15 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
                   placeholder="Select mapped VLAN"
                   allowClear
                   showSearch
-                  optionFilterProp="children"
-                >
-                  {vlans.map((vlan) => (
-                    <Option key={vlan.id} value={vlan.id}>
-                      VLAN {vlan.vlanNumber} ({vlan.name})
-                    </Option>
-                  ))}
-                </Select>
+                  options={vlans.map((vlan) => ({
+                    label: `VLAN ${vlan.vlanNumber} (${vlan.name})`,
+                    value: vlan.id,
+                  }))}
+                  onChange={handleVlanChange}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -262,14 +276,14 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
                   placeholder="Select physical site"
                   allowClear
                   showSearch
-                  optionFilterProp="children"
-                >
-                  {locations.map((loc) => (
-                    <Option key={loc.id} value={loc.id}>
-                      {loc.name} {loc.building ? `(${loc.building})` : ''}
-                    </Option>
-                  ))}
-                </Select>
+                  options={locations.map((loc) => ({
+                    label: `${loc.name} ${loc.building ? `(${loc.building})` : ''}`,
+                    value: loc.id,
+                  }))}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
           </Row>

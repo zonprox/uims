@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateAssetDto {
   @IsString()
@@ -30,7 +30,7 @@ export class CreateAssetDto {
   category?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   categoryId?: string;
 
   @IsOptional()
@@ -38,7 +38,7 @@ export class CreateAssetDto {
   location?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   locationId?: string;
 
   @IsOptional()
@@ -67,5 +67,17 @@ export class CreateAssetDto {
 
   @IsOptional()
   @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  credentialId?: string;
+
+  @IsOptional()
+  @IsUUID()
   assignedToId?: string;
 }

@@ -56,18 +56,44 @@ export class InventoryService {
   }
 
   async create(data: CreateInventoryItemDto) {
+    let categoryId = data.categoryId;
+    if (!categoryId && data.category && this.prisma.inventoryCategory) {
+      const cat = await this.prisma.inventoryCategory.findFirst({ where: { name: data.category } });
+      if (cat) categoryId = cat.id;
+    }
+    if (!categoryId && this.prisma.inventoryCategory) {
+      const defaultCat = await this.prisma.inventoryCategory.findFirst();
+      if (defaultCat) categoryId = defaultCat.id;
+    }
+    if (!categoryId && this.prisma.inventoryCategory) {
+      const createdCat = await this.prisma.inventoryCategory.create({
+        data: { name: data.category || 'General Supplies' },
+      });
+      if (createdCat) categoryId = createdCat.id;
+    }
+
+    let locationId = data.locationId;
+    if (!locationId && data.location && this.prisma.location) {
+      const loc = await this.prisma.location.findFirst({ where: { name: data.location } });
+      if (loc) locationId = loc.id;
+    }
+
     const item = await this.prisma.inventoryItem.create({
       data: {
         sku: data.sku || generateSku(),
         name: data.name,
-        category: data.category || 'Cables & Adapters',
+        categoryId,
         quantity: data.quantity !== undefined ? Number(data.quantity) : 10,
         minThreshold: data.minThreshold !== undefined ? Number(data.minThreshold) : 5,
         unitCost: data.unitCost !== undefined ? Number(data.unitCost) : 0,
-        location: data.location || 'Storage Room A',
+        locationId,
         binNumber: data.binNumber || 'Unassigned',
         supplier: data.supplier || 'Direct Order',
         notes: data.notes || '',
+      },
+      include: {
+        category: true,
+        location: true,
       },
     });
 
@@ -85,13 +111,21 @@ export class InventoryService {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
         { sku: { contains: query.search, mode: 'insensitive' } },
-        { location: { contains: query.search, mode: 'insensitive' } },
+        { location: { name: { contains: query.search, mode: 'insensitive' } } },
         { supplier: { contains: query.search, mode: 'insensitive' } },
       ];
     }
 
-    if (query?.category && query.category !== 'all') {
-      where.category = query.category;
+    if (query?.categoryId) {
+      where.categoryId = query.categoryId;
+    } else if (query?.category && query.category !== 'all') {
+      where.category = { name: query.category };
+    }
+
+    if (query?.locationId) {
+      where.locationId = query.locationId;
+    } else if (query?.location && query.location !== 'all') {
+      where.location = { name: query.location };
     }
 
     if (query?.stockStatus && query.stockStatus !== 'all') {
@@ -110,6 +144,10 @@ export class InventoryService {
 
     return this.prisma.inventoryItem.findMany({
       where,
+      include: {
+        category: true,
+        location: true,
+      },
       orderBy: { createdAt: 'desc' },
       take: pageSize,
       skip,
@@ -117,7 +155,13 @@ export class InventoryService {
   }
 
   async findOne(id: string) {
-    const item = await this.prisma.inventoryItem.findUnique({ where: { id } });
+    const item = await this.prisma.inventoryItem.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        location: true,
+      },
+    });
     if (!item) throw new NotFoundException(`Inventory item with ID ${id} not found`);
     return item;
   }
@@ -126,18 +170,36 @@ export class InventoryService {
     const updateData: Prisma.InventoryItemUpdateInput = {};
     if (data.sku !== undefined) updateData.sku = data.sku;
     if (data.name !== undefined) updateData.name = data.name;
-    if (data.category !== undefined) updateData.category = data.category;
     if (data.quantity !== undefined) updateData.quantity = Number(data.quantity);
     if (data.minThreshold !== undefined) updateData.minThreshold = Number(data.minThreshold);
     if (data.unitCost !== undefined) updateData.unitCost = Number(data.unitCost);
-    if (data.location !== undefined) updateData.location = data.location;
     if (data.binNumber !== undefined) updateData.binNumber = data.binNumber;
     if (data.supplier !== undefined) updateData.supplier = data.supplier;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
+    if (data.categoryId !== undefined) {
+      updateData.category = { connect: { id: data.categoryId } };
+    } else if (data.category) {
+      const cat = await this.prisma.inventoryCategory.findFirst({ where: { name: data.category } });
+      if (cat) updateData.category = { connect: { id: cat.id } };
+    }
+
+    if (data.locationId !== undefined) {
+      updateData.location = data.locationId
+        ? { connect: { id: data.locationId } }
+        : { disconnect: true };
+    } else if (data.location) {
+      const loc = await this.prisma.location.findFirst({ where: { name: data.location } });
+      if (loc) updateData.location = { connect: { id: loc.id } };
+    }
+
     const item = await this.prisma.inventoryItem.update({
       where: { id },
       data: updateData,
+      include: {
+        category: true,
+        location: true,
+      },
     });
 
     if (item.quantity <= item.minThreshold) {
@@ -159,6 +221,10 @@ export class InventoryService {
       where: { id },
       data: {
         quantity: { increment: Number(quantityToAdd) },
+      },
+      include: {
+        category: true,
+        location: true,
       },
     });
 
@@ -190,5 +256,17 @@ export class InventoryService {
       lowStockCount,
       outOfStockCount,
     };
+  }
+
+  async getCategories() {
+    return this.prisma.inventoryCategory.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+      orderBy: { name: 'asc' },
+      take: 100,
+    });
   }
 }

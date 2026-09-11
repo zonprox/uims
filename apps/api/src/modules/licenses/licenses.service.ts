@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type {
   AssignUserLicenseDto,
@@ -22,6 +28,8 @@ type LicenseWithAssignments = Prisma.LicenseGetPayload<{
 
 @Injectable()
 export class LicensesService {
+  private readonly logger = new Logger(LicensesService.name);
+
   constructor(
     private prisma: PrismaService,
     @Optional() private notificationsService?: NotificationsService,
@@ -137,8 +145,11 @@ export class LicensesService {
           type: 'WARNING',
           link: '/licenses',
         });
-      } catch {
-        // Non-blocking
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to dispatch expiry notification for license "${updated.name}" (${updated.id})`,
+          error instanceof Error ? error.stack : undefined,
+        );
       }
     }
 
@@ -153,37 +164,135 @@ export class LicensesService {
     const result = await this.prisma.$transaction(async (tx) => {
       const license = await tx.license.findUnique({
         where: { id: licenseId },
-        include: { assignments: true },
       });
-      if (!license) throw new NotFoundException(`License with ID ${licenseId} not found`);
+      if (!license) {
+        throw new NotFoundException(`License with ID "${licenseId}" not found`);
+      }
 
-      // Check if directory employee exists by email
-      const directoryDelegate =
-        tx.directoryUser || (tx as unknown as { user?: typeof tx.directoryUser }).user;
-      const existingUser =
-        payload.email && directoryDelegate
-          ? await directoryDelegate.findUnique({ where: { email: payload.email } })
-          : null;
+      let user: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        displayName: string | null;
+        department?: { name: string } | null;
+      } | null = null;
+
+      if (payload.userId) {
+        if (tx.directoryUser) {
+          user = await tx.directoryUser.findUnique({
+            where: { id: payload.userId },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              displayName: true,
+              department: { select: { name: true } },
+            },
+          });
+          if (!user) {
+            throw new NotFoundException(`Directory user with ID "${payload.userId}" not found`);
+          }
+        }
+      } else if (payload.email) {
+        if (tx.directoryUser) {
+          user = await tx.directoryUser.findUnique({
+            where: { email: payload.email },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              displayName: true,
+              department: { select: { name: true } },
+            },
+          });
+        }
+      }
+
+      if (!user && !payload.email && !payload.name) {
+        throw new BadRequestException(
+          'Either userId or employee details (email, name) must be provided',
+        );
+      }
+
+      if (user && tx.licenseAssignment.findFirst) {
+        const existingAssignment = await tx.licenseAssignment.findFirst({
+          where: {
+            licenseId,
+            userId: user.id,
+            unassignedAt: null,
+          },
+        });
+        if (existingAssignment) {
+          throw new BadRequestException(
+            `Directory user "${user.email}" is already actively assigned to license "${license.name}"`,
+          );
+        }
+      }
+
+      const currentActiveSeats = tx.licenseAssignment.count
+        ? await tx.licenseAssignment.count({
+            where: {
+              licenseId,
+              unassignedAt: null,
+            },
+          })
+        : license.usedSeats || 0;
+
+      const isUnlimited = license.type === 'OPEN_SOURCE' || license.type === 'OEM';
+      if (!isUnlimited && currentActiveSeats >= license.totalSeats) {
+        throw new BadRequestException(
+          `License seat capacity exceeded: ${currentActiveSeats}/${license.totalSeats} seats currently in use for "${license.name}"`,
+        );
+      }
+
+      const assignedName = user
+        ? user.displayName || `${user.firstName} ${user.lastName}`.trim()
+        : payload.name || 'Employee';
+      const assignedEmail = user ? user.email : payload.email || 'employee@company.com';
+      const department = user?.department?.name || payload.department || 'General';
 
       const newAssignment = await tx.licenseAssignment.create({
         data: {
           licenseId,
-          userId: existingUser?.id || null,
-          assignedName: payload.name,
-          assignedEmail: payload.email,
-          department: payload.department || 'Engineering',
+          userId: user?.id || null,
+          assignedName,
+          assignedEmail,
+          department,
+          assignedAt: new Date(),
+          unassignedAt: null,
         },
       });
 
+      const dynamicUsedSeats = tx.licenseAssignment.count
+        ? await tx.licenseAssignment.count({
+            where: {
+              licenseId,
+              unassignedAt: null,
+            },
+          })
+        : (license.usedSeats || 0) + 1;
+
+      const remainingSeats = Math.max(0, license.totalSeats - dynamicUsedSeats);
       const updatedLicense = await tx.license.update({
         where: { id: licenseId },
-        data: { usedSeats: { increment: 1 } },
+        data: {
+          usedSeats: dynamicUsedSeats,
+        },
+        include: { assignments: true },
       });
 
-      return { newAssignment, license: updatedLicense, userId: existingUser?.id };
+      return {
+        newAssignment,
+        license: updatedLicense,
+        userId: user?.id,
+        remainingSeats,
+        dynamicUsedSeats,
+      };
     });
 
-    // Business event triggers
     if (this.notificationsService) {
       try {
         if (result.userId) {
@@ -195,7 +304,7 @@ export class LicensesService {
           });
         }
         const total = result.license.totalSeats;
-        const used = result.license.usedSeats;
+        const used = result.license?.usedSeats ?? result.dynamicUsedSeats;
         const ratio = total > 0 ? used / total : 0;
 
         if (used >= total) {
@@ -213,8 +322,11 @@ export class LicensesService {
             link: '/licenses',
           });
         }
-      } catch {
-        // Non-blocking
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to dispatch license notification for "${result.license.name}" (${licenseId})`,
+          error instanceof Error ? error.stack : undefined,
+        );
       }
     }
 
@@ -223,19 +335,40 @@ export class LicensesService {
 
   async revokeUser(licenseId: string, assignmentId: string) {
     return this.prisma.$transaction(async (tx) => {
-      await tx.licenseAssignment.delete({
-        where: { id: assignmentId },
+      const assignment = await tx.licenseAssignment.findFirst({
+        where: { id: assignmentId, licenseId },
       });
-
-      const license = await tx.license.findUnique({ where: { id: licenseId } });
-      if (license && license.usedSeats > 0) {
-        await tx.license.update({
-          where: { id: licenseId },
-          data: { usedSeats: { decrement: 1 } },
-        });
+      if (!assignment) {
+        throw new NotFoundException(
+          `License assignment with ID "${assignmentId}" not found for license "${licenseId}"`,
+        );
       }
 
-      return { success: true };
+      await tx.licenseAssignment.update({
+        where: { id: assignmentId },
+        data: { unassignedAt: new Date() },
+      });
+
+      const dynamicUsedSeats = await tx.licenseAssignment.count({
+        where: {
+          licenseId,
+          unassignedAt: null,
+        },
+      });
+
+      await tx.license.update({
+        where: { id: licenseId },
+        data: {
+          usedSeats: dynamicUsedSeats,
+        },
+      });
+
+      return {
+        success: true,
+        licenseId,
+        assignmentId,
+        usedSeats: dynamicUsedSeats,
+      };
     });
   }
 
@@ -248,6 +381,7 @@ export class LicensesService {
       this.prisma.license.count({ where: { status: 'EXPIRING_SOON' } }),
       this.prisma.license.findMany({
         take: 1000,
+        orderBy: { createdAt: 'desc' },
         select: { usedSeats: true, costPerSeat: true },
       }),
     ]);
@@ -269,13 +403,17 @@ export class LicensesService {
     const typeLabel = mapLicenseTypeToLabel(license.type);
     const statusLabel = mapLicenseStatusToLabel(license.status);
 
-    const assignedUsers = (license.assignments || []).map((a) => ({
+    const activeAssignments = (license.assignments || []).filter((a) => !a.unassignedAt);
+    const assignedUsers = activeAssignments.map((a) => ({
       id: a.id,
+      userId: a.userId,
       name: a.assignedName || 'Employee',
       email: a.assignedEmail || 'employee@company.com',
       department: a.department || 'General',
       assignedDate: a.assignedAt ? a.assignedAt.toISOString().split('T')[0] : '',
     }));
+
+    const remainingSeats = Math.max(0, license.totalSeats - license.usedSeats);
 
     return {
       id: license.id,
@@ -284,6 +422,7 @@ export class LicensesService {
       type: typeLabel,
       totalSeats: license.totalSeats,
       usedSeats: license.usedSeats,
+      remainingSeats,
       costPerSeat: license.costPerSeat || 0,
       expiryDate: license.expiryDate ? license.expiryDate.toISOString().split('T')[0] : '',
       licenseKey: license.licenseKey || 'N/A',

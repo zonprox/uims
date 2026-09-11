@@ -50,7 +50,6 @@ import { type LocationBranch, organizationService } from '../../services/organiz
 import OrganizationCanvas from './OrganizationCanvas';
 
 const { Text, Title, Paragraph } = Typography;
-const { Option } = Select;
 
 export default function OrganizationPage() {
   const { message } = App.useApp();
@@ -1413,26 +1412,35 @@ export default function OrganizationPage() {
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Parent Department" name="parentId">
-                <Select placeholder="None (Top-Level)" allowClear>
-                  {departments
+                <Select
+                  placeholder="None (Top-Level)"
+                  allowClear
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={departments
                     .filter((d) => !editingDept || d.id !== editingDept.id)
-                    .map((d) => (
-                      <Option key={d.id} value={d.id}>
-                        {d.name} ({d.code})
-                      </Option>
-                    ))}
-                </Select>
+                    .map((d) => ({
+                      label: `${d.name} (${d.code})`,
+                      value: d.id,
+                    }))}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="Organization" name="organizationId">
-                <Select placeholder="Select Organization">
-                  {orgs.map((o) => (
-                    <Option key={o.id} value={o.id}>
-                      {o.name}
-                    </Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="Select Organization"
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={orgs.map((o) => ({
+                    label: o.name,
+                    value: o.id,
+                  }))}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -1488,26 +1496,32 @@ export default function OrganizationPage() {
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Department" name="departmentId" rules={[{ required: true }]}>
-                <Select placeholder="Select Department">
-                  {departments.map((d) => (
-                    <Option key={d.id} value={d.id}>
-                      {d.name}
-                    </Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="Select Department"
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={departments.map((d) => ({
+                    label: d.name,
+                    value: d.id,
+                  }))}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="Seniority Level" name="level">
-                <Select>
-                  <Option value="Executive">Executive</Option>
-                  <Option value="Director">Director</Option>
-                  <Option value="Lead">Lead</Option>
-                  <Option value="Senior">Senior</Option>
-                  <Option value="Mid">Mid-Level</Option>
-                  <Option value="Junior">Junior</Option>
-                  <Option value="Intern">Intern</Option>
-                </Select>
+                <Select
+                  options={[
+                    { label: 'Executive', value: 'Executive' },
+                    { label: 'Director', value: 'Director' },
+                    { label: 'Lead', value: 'Lead' },
+                    { label: 'Senior', value: 'Senior' },
+                    { label: 'Mid-Level', value: 'Mid' },
+                    { label: 'Junior', value: 'Junior' },
+                    { label: 'Intern', value: 'Intern' },
+                  ]}
+                />
               </Form.Item>
             </Col>
           </Row>

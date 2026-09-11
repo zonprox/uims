@@ -33,7 +33,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
 interface PermissionMatrixDrawerProps {
   open: boolean;
@@ -283,14 +282,11 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
               onChange={setCategoryFilter}
               style={{ width: '100%' }}
               prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
-            >
-              <Option value="all">All Categories</Option>
-              {categories.map((cat) => (
-                <Option key={cat} value={cat}>
-                  {cat}
-                </Option>
-              ))}
-            </Select>
+              options={[
+                { label: 'All Categories', value: 'all' },
+                ...categories.map((cat) => ({ label: cat, value: cat })),
+              ]}
+            />
           </Col>
           <Col xs={24} sm={24} md={8}>
             <Flex gap={6} justify="end" wrap="wrap">

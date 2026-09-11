@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
-import type { UserStatus } from '@prisma/client';
+import type { Prisma, UserStatus } from '@prisma/client';
 import type { CreateAppUserDto, UpdateAppUserDto, UserSummaryStats } from '@uims/shared-types';
 import * as bcrypt from 'bcrypt';
 import { RedisService } from '../../common/redis/redis.service';
@@ -89,17 +89,13 @@ export class UsersService {
     }
 
     let roleId = userData.roleId;
-    let roleName = userData.roleName;
+    const roleName = (userData as { roleName?: string }).roleName;
 
     if (!roleId && roleName) {
       const foundRole = await this.prisma.role.findFirst({ where: { name: roleName } });
       if (foundRole) {
         roleId = foundRole.id;
-        roleName = foundRole.name;
       }
-    } else if (roleId && !roleName) {
-      const foundRole = await this.prisma.role.findUnique({ where: { id: roleId } });
-      if (foundRole) roleName = foundRole.name;
     }
 
     const username = userData.username || userData.email.split('@')[0];
@@ -132,7 +128,6 @@ export class UsersService {
         mustChangePassword,
         status,
         roleId,
-        roleName: roleName || 'Employee',
         passwordHash,
       },
       include: {
@@ -149,18 +144,7 @@ export class UsersService {
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
 
-    const where: {
-      OR?: Array<{
-        displayName?: { contains: string; mode: 'insensitive' };
-        firstName?: { contains: string; mode: 'insensitive' };
-        lastName?: { contains: string; mode: 'insensitive' };
-        email?: { contains: string; mode: 'insensitive' };
-        username?: { contains: string; mode: 'insensitive' };
-      }>;
-      roleName?: { equals: string; mode: 'insensitive' };
-      status?: UserStatus;
-      isLocked?: boolean;
-    } = {};
+    const where: Prisma.AppUserWhereInput = {};
 
     if (query?.search) {
       const search = query.search.trim();
@@ -173,8 +157,10 @@ export class UsersService {
       ];
     }
 
-    if (query?.role) {
-      where.roleName = { equals: query.role, mode: 'insensitive' };
+    if (query?.roleId) {
+      where.roleId = query.roleId;
+    } else if (query?.role) {
+      where.role = { name: { equals: query.role, mode: 'insensitive' } };
     }
 
     if (query?.status) {
@@ -256,7 +242,6 @@ export class UsersService {
       avatar?: string | null;
       phone?: string | null;
       roleId?: string | null;
-      roleName?: string | null;
       status?: UserStatus;
       isLocked?: boolean;
       passwordHash?: string;
@@ -274,14 +259,12 @@ export class UsersService {
 
     if (updateUserDto.roleId !== undefined) {
       updateData.roleId = updateUserDto.roleId;
-      if (updateUserDto.roleId) {
-        const found = await this.prisma.role.findUnique({ where: { id: updateUserDto.roleId } });
-        if (found) updateData.roleName = found.name;
+    } else if ((updateUserDto as { roleName?: string }).roleName !== undefined) {
+      const rName = (updateUserDto as { roleName?: string }).roleName;
+      if (rName) {
+        const found = await this.prisma.role.findFirst({ where: { name: rName } });
+        if (found) updateData.roleId = found.id;
       }
-    } else if (updateUserDto.roleName !== undefined) {
-      updateData.roleName = updateUserDto.roleName;
-      const found = await this.prisma.role.findFirst({ where: { name: updateUserDto.roleName } });
-      if (found) updateData.roleId = found.id;
     }
 
     if (updateUserDto.password) {
@@ -328,7 +311,7 @@ export class UsersService {
       this.prisma.appUser.count({ where: { status: 'ACTIVE' } }),
       this.prisma.appUser.count({
         where: {
-          OR: [{ roleName: { in: ['Admin', 'Super Admin'] } }],
+          role: { name: { in: ['Admin', 'Super Admin'] } },
         },
       }),
       this.prisma.appUser.count({ where: { status: 'SUSPENDED' } }),
@@ -357,25 +340,55 @@ export class UsersService {
         ).asset;
 
         if (assetDelegate) {
-          custodiansCount = await assetDelegate.count().catch(() => 0);
+          try {
+            custodiansCount = await assetDelegate.count();
+          } catch (error: unknown) {
+            this.logger.warn(
+              'Failed to count assets for custodiansCount',
+              error instanceof Error ? error.message : String(error),
+            );
+            custodiansCount = 0;
+          }
         } else if (directoryUserDelegate) {
-          custodiansCount = await directoryUserDelegate.count().catch(() => 0);
+          try {
+            custodiansCount = await directoryUserDelegate.count();
+          } catch (error: unknown) {
+            this.logger.warn(
+              'Failed to count directory users for custodiansCount',
+              error instanceof Error ? error.message : String(error),
+            );
+            custodiansCount = 0;
+          }
         }
 
         if (directoryGroupDelegate) {
-          totalGroups = await directoryGroupDelegate.count().catch(() => 0);
+          try {
+            totalGroups = await directoryGroupDelegate.count();
+          } catch (error: unknown) {
+            this.logger.warn(
+              'Failed to count directory groups',
+              error instanceof Error ? error.message : String(error),
+            );
+            totalGroups = 0;
+          }
         }
 
         if (directoryUserDelegate) {
-          totalWorkstations = await (
-            this.prisma as unknown as {
-              directoryUser: {
-                count: (args: { where: { computerName: { not: null } } }) => Promise<number>;
-              };
-            }
-          ).directoryUser
-            .count({ where: { computerName: { not: null } } })
-            .catch(() => 0);
+          try {
+            totalWorkstations = await (
+              this.prisma as unknown as {
+                directoryUser: {
+                  count: (args: { where: { computerName: { not: null } } }) => Promise<number>;
+                };
+              }
+            ).directoryUser.count({ where: { computerName: { not: null } } });
+          } catch (error: unknown) {
+            this.logger.warn(
+              'Failed to count directory workstations',
+              error instanceof Error ? error.message : String(error),
+            );
+            totalWorkstations = 0;
+          }
         }
       }
     } catch (error: unknown) {
@@ -415,6 +428,8 @@ export class UsersService {
     }
 
     const roles = await this.prisma.role.findMany({
+      take: 100,
+      orderBy: { name: 'asc' },
       include: {
         permissions: {
           include: {
@@ -475,7 +490,10 @@ export class UsersService {
     if (this.directoryService) {
       return this.directoryService.findAllGroups();
     }
-    return this.prisma.directoryGroup.findMany({ take: 100 });
+    return this.prisma.directoryGroup.findMany({
+      take: 100,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async createGroup(dto: CreateDirectoryGroupDto) {

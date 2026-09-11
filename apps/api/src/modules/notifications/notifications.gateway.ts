@@ -110,8 +110,9 @@ export class NotificationsGateway
           email: payload.email,
         };
         next();
-      } catch (err) {
-        return next(new Error(`Authentication error: ${(err as Error).message}`));
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return next(new Error(`Authentication error: ${message}`));
       }
     });
   }
@@ -185,10 +186,9 @@ export class NotificationsGateway
         role,
         timestamp: new Date().toISOString(),
       });
-    } catch (err) {
-      this.logger.debug(
-        `Socket client ${client.id} authentication failed: ${(err as Error).message}`,
-      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Socket client ${client.id} authentication failed: ${message}`);
       client.disconnect(true);
     }
   }

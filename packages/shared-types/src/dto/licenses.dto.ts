@@ -6,7 +6,9 @@ export interface CreateLicenseDto {
   type?: string | LicenseType;
   totalSeats?: number | string;
   costPerSeat?: number | string;
+  purchaseDate?: string | Date;
   expiryDate?: string | Date;
+  cost?: number | string;
   licenseKey?: string;
   status?: string | LicenseStatus;
   autoRenew?: boolean;
@@ -26,9 +28,14 @@ export interface LicenseQueryDto {
 }
 
 export interface AssignUserLicenseDto {
-  name: string;
-  email: string;
+  userId?: string;
+  name?: string;
+  email?: string;
   department?: string;
+}
+
+export interface BatchAssignUserLicenseDto {
+  userIds: string[];
 }
 
 export interface LicenseStatsDto {

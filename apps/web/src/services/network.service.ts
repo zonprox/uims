@@ -196,4 +196,13 @@ export const networkService = {
     const res = await api.post(`/network/ips/${id}/reveal-credential`);
     return res.data.data;
   },
+
+  getCredentials: async (): Promise<Array<NetworkCredential>> => {
+    try {
+      const res = await api.get('/network/credentials');
+      return res.data.data;
+    } catch {
+      return [];
+    }
+  },
 };

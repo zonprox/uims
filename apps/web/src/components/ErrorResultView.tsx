@@ -1,4 +1,4 @@
-import { useState, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useState, useMemo, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import {
   Button,
   Card,
@@ -159,6 +159,15 @@ export default function ErrorResultView({
   const { token } = theme.useToken();
   const app = App.useApp();
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   // Determine numeric or string status code
   const resolvedCode = useMemo(() => {
@@ -453,7 +462,13 @@ export default function ErrorResultView({
       if (typeof app?.message?.success === 'function') {
         app.message.success('Diagnostics copied to clipboard');
       }
-      setTimeout(() => setCopied(false), 2000);
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = setTimeout(() => {
+        setCopied(false);
+        copyTimerRef.current = null;
+      }, 2000);
     } else {
       if (typeof app?.message?.error === 'function') {
         app.message.error('Failed to copy diagnostics to clipboard');

@@ -181,7 +181,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const role = user.roleName || (user as { role?: { name?: string } }).role?.name;
+    const rawRole = (user as { role?: { name?: string } | string; roleName?: string }).role;
+    const role =
+      (typeof rawRole === 'object' && rawRole !== null ? rawRole.name : undefined) ||
+      (typeof rawRole === 'string' ? rawRole : undefined) ||
+      (user as { roleName?: string }).roleName;
     if (!role) {
       throw new UnauthorizedException(
         'User account has no assigned role. Contact your system administrator.',
@@ -293,7 +297,14 @@ export class AuthService {
         );
       }
 
-      const role = freshUser.roleName || freshUser.role?.name;
+      const rawFreshRole = (freshUser as { role?: { name?: string } | string; roleName?: string })
+        .role;
+      const role =
+        (typeof rawFreshRole === 'object' && rawFreshRole !== null
+          ? rawFreshRole.name
+          : undefined) ||
+        (typeof rawFreshRole === 'string' ? rawFreshRole : undefined) ||
+        (freshUser as { roleName?: string }).roleName;
       if (!role) {
         throw new UnauthorizedException(
           'User account has no assigned role. Contact your system administrator.',

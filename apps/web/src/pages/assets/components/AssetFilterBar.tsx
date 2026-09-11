@@ -2,8 +2,6 @@ import { FilterOutlined, QrcodeOutlined } from '@ant-design/icons';
 import { Button, Col, Flex, Input, Row, Select, Tooltip } from 'antd';
 import React from 'react';
 
-const { Option } = Select;
-
 export interface AssetFilterBarProps {
   searchQuery: string;
   onSearchChange: (val: string) => void;
@@ -14,6 +12,24 @@ export interface AssetFilterBarProps {
   onReset: () => void;
   onScanQr?: () => void;
 }
+
+const CATEGORY_FILTER_OPTIONS = [
+  { label: 'All Categories', value: 'all' },
+  { label: 'Laptops', value: 'Laptop' },
+  { label: 'Desktops', value: 'Desktop' },
+  { label: 'Servers', value: 'Server' },
+  { label: 'Monitors', value: 'Monitor' },
+  { label: 'Networking', value: 'Networking' },
+  { label: 'Mobile', value: 'Mobile' },
+];
+
+const STATUS_FILTER_OPTIONS = [
+  { label: 'All Status', value: 'all' },
+  { label: 'Active', value: 'Active' },
+  { label: 'In Repair', value: 'In Repair' },
+  { label: 'In Storage', value: 'In Storage' },
+  { label: 'Retired', value: 'Retired' },
+];
 
 export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
   ({
@@ -55,28 +71,16 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
               onChange={onCategoryChange}
               style={{ width: 140 }}
               placeholder="Category"
-            >
-              <Option value="all">All Categories</Option>
-              <Option value="Laptop">Laptops</Option>
-              <Option value="Desktop">Desktops</Option>
-              <Option value="Server">Servers</Option>
-              <Option value="Monitor">Monitors</Option>
-              <Option value="Networking">Networking</Option>
-              <Option value="Mobile">Mobile</Option>
-            </Select>
+              options={CATEGORY_FILTER_OPTIONS}
+            />
 
             <Select
               value={statusFilter}
               onChange={onStatusChange}
               style={{ width: 130 }}
               placeholder="Status"
-            >
-              <Option value="all">All Status</Option>
-              <Option value="Active">Active</Option>
-              <Option value="In Repair">In Repair</Option>
-              <Option value="In Storage">In Storage</Option>
-              <Option value="Retired">Retired</Option>
-            </Select>
+              options={STATUS_FILTER_OPTIONS}
+            />
 
             {isFiltered && <Button onClick={onReset}>Reset</Button>}
           </Flex>

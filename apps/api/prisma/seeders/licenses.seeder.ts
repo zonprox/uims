@@ -1,11 +1,15 @@
+import { Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 
+const logger = new Logger('LicensesSeeder');
+
 interface SeedUsersResult {
-  roles: Record<string, { id: string }>;
+  roles?: Record<string, { id: string }>;
   users: Record<string, { id: string }>;
 }
 
 export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult) {
+  logger.log('📄 Seeding Software Licenses and Normalized User Assignments...');
   const { users: u } = users;
 
   const licenseDefinitions = [
@@ -15,7 +19,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Microsoft Corporation',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 150,
-      usedSeats: 142,
       costPerSeat: 456,
       purchaseDate: new Date('2024-01-01'),
       expiryDate: new Date('2026-12-31'),
@@ -30,7 +33,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Adobe Systems Inc',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 30,
-      usedSeats: 28,
       costPerSeat: 780,
       purchaseDate: new Date('2023-09-15'),
       expiryDate: new Date('2026-09-15'),
@@ -45,7 +47,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'JetBrains s.r.o.',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 45,
-      usedSeats: 38,
       costPerSeat: 249,
       purchaseDate: new Date('2024-03-01'),
       expiryDate: new Date('2027-02-28'),
@@ -60,7 +61,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Figma Inc',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 35,
-      usedSeats: 32,
       costPerSeat: 540,
       purchaseDate: new Date('2023-11-30'),
       expiryDate: new Date('2026-11-30'),
@@ -75,7 +75,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'GitHub / Microsoft',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 60,
-      usedSeats: 55,
       costPerSeat: 252,
       purchaseDate: new Date('2024-01-15'),
       expiryDate: new Date('2027-01-15'),
@@ -90,7 +89,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'CrowdStrike Inc',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 200,
-      usedSeats: 185,
       costPerSeat: 180,
       purchaseDate: new Date('2023-06-01'),
       expiryDate: new Date('2026-06-01'),
@@ -105,7 +103,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Datadog Inc',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 25,
-      usedSeats: 22,
       costPerSeat: 1800,
       purchaseDate: new Date('2023-10-01'),
       expiryDate: new Date('2026-10-01'),
@@ -120,7 +117,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Slack Technologies / Salesforce',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 160,
-      usedSeats: 148,
       costPerSeat: 180,
       purchaseDate: new Date('2024-01-01'),
       expiryDate: new Date('2026-12-31'),
@@ -135,7 +131,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Okta Inc',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 150,
-      usedSeats: 145,
       costPerSeat: 72,
       purchaseDate: new Date('2024-01-01'),
       expiryDate: new Date('2026-12-31'),
@@ -150,7 +145,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Zoom Video Communications',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 80,
-      usedSeats: 72,
       costPerSeat: 240,
       purchaseDate: new Date('2023-12-15'),
       expiryDate: new Date('2026-12-15'),
@@ -165,7 +159,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Salesforce.com',
       type: 'SUBSCRIPTION' as const,
       totalSeats: 20,
-      usedSeats: 18,
       costPerSeat: 3600,
       purchaseDate: new Date('2024-02-01'),
       expiryDate: new Date('2027-01-31'),
@@ -180,7 +173,6 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
       vendor: 'Broadcom / VMware',
       type: 'PERPETUAL' as const,
       totalSeats: 8,
-      usedSeats: 8,
       costPerSeat: 3500,
       purchaseDate: new Date('2023-05-01'),
       expiryDate: new Date('2028-05-01'),
@@ -191,166 +183,105 @@ export async function seedLicenses(prisma: PrismaClient, users: SeedUsersResult)
     },
   ];
 
+  // 1. Initial License Definitions (Upsert with initial usedSeats: 0)
   for (const lic of licenseDefinitions) {
     await prisma.license.upsert({
       where: { id: lic.id },
-      update: {},
-      create: lic,
+      update: {
+        name: lic.name,
+        vendor: lic.vendor,
+        type: lic.type,
+        totalSeats: lic.totalSeats,
+        costPerSeat: lic.costPerSeat,
+        purchaseDate: lic.purchaseDate,
+        expiryDate: lic.expiryDate,
+        licenseKey: lic.licenseKey,
+        status: lic.status,
+        autoRenew: lic.autoRenew,
+        notes: lic.notes,
+      },
+      create: {
+        ...lic,
+        usedSeats: 0,
+      },
     });
   }
 
-  const licenseAssignments = [
-    {
-      licenseId: 'lic-m365',
-      userId: u.userAlex.id,
-      assignedName: 'Alex Johnson',
-      assignedEmail: 'admin@uims.internal',
-      department: 'IT & Infrastructure',
-    },
-    {
-      licenseId: 'lic-m365',
-      userId: u.userSarah.id,
-      assignedName: 'Sarah Chen',
-      assignedEmail: 'sarah.chen@company.com',
-      department: 'IT & Infrastructure',
-    },
-    {
-      licenseId: 'lic-m365',
-      userId: u.userMichael.id,
-      assignedName: 'Michael Wong',
-      assignedEmail: 'michael.wong@company.com',
-      department: 'IT & Infrastructure',
-    },
-    {
-      licenseId: 'lic-m365',
-      userId: u.userDavidKim.id,
-      assignedName: 'David Kim',
-      assignedEmail: 'david.kim@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-m365',
-      userId: u.userSophiaPatel.id,
-      assignedName: 'Sophia Patel',
-      assignedEmail: 'sophia.patel@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-m365',
-      userId: u.userMarcusVance.id,
-      assignedName: 'Marcus Vance',
-      assignedEmail: 'marcus.vance@company.com',
-      department: 'Product & Design',
-    },
-    {
-      licenseId: 'lic-m365',
-      userId: u.userElena.id,
-      assignedName: 'Elena Rostova',
-      assignedEmail: 'elena.rostova@company.com',
-      department: 'Marketing',
-    },
-    {
-      licenseId: 'lic-adobe',
-      userId: u.userMarcusVance.id,
-      assignedName: 'Marcus Vance',
-      assignedEmail: 'marcus.vance@company.com',
-      department: 'Product & Design',
-    },
-    {
-      licenseId: 'lic-adobe',
-      userId: u.userChloeMartin.id,
-      assignedName: 'Chloe Martin',
-      assignedEmail: 'chloe.martin@company.com',
-      department: 'Product & Design',
-    },
-    {
-      licenseId: 'lic-adobe',
-      userId: u.userElena.id,
-      assignedName: 'Elena Rostova',
-      assignedEmail: 'elena.rostova@company.com',
-      department: 'Marketing',
-    },
-    {
-      licenseId: 'lic-jetbrains',
-      userId: u.userDavidKim.id,
-      assignedName: 'David Kim',
-      assignedEmail: 'david.kim@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-jetbrains',
-      userId: u.userSophiaPatel.id,
-      assignedName: 'Sophia Patel',
-      assignedEmail: 'sophia.patel@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-jetbrains',
-      userId: u.userLiamNguyen.id,
-      assignedName: 'Liam Nguyen',
-      assignedEmail: 'liam.nguyen@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-jetbrains',
-      userId: u.userCarlosMendez.id,
-      assignedName: 'Carlos Mendez',
-      assignedEmail: 'carlos.mendez@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-figma',
-      userId: u.userMarcusVance.id,
-      assignedName: 'Marcus Vance',
-      assignedEmail: 'marcus.vance@company.com',
-      department: 'Product & Design',
-    },
-    {
-      licenseId: 'lic-figma',
-      userId: u.userChloeMartin.id,
-      assignedName: 'Chloe Martin',
-      assignedEmail: 'chloe.martin@company.com',
-      department: 'Product & Design',
-    },
-    {
-      licenseId: 'lic-figma',
-      userId: u.userSophiaPatel.id,
-      assignedName: 'Sophia Patel',
-      assignedEmail: 'sophia.patel@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-github',
-      userId: u.userDavidKim.id,
-      assignedName: 'David Kim',
-      assignedEmail: 'david.kim@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-github',
-      userId: u.userSophiaPatel.id,
-      assignedName: 'Sophia Patel',
-      assignedEmail: 'sophia.patel@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-github',
-      userId: u.userLiamNguyen.id,
-      assignedName: 'Liam Nguyen',
-      assignedEmail: 'liam.nguyen@company.com',
-      department: 'Engineering',
-    },
-    {
-      licenseId: 'lic-github',
-      userId: u.userCarlosMendez.id,
-      assignedName: 'Carlos Mendez',
-      assignedEmail: 'carlos.mendez@company.com',
-      department: 'Engineering',
-    },
+  // 2. Normalized License Assignments (Relational Foreign Key Binding)
+  const candidateAssignments: Array<{ licenseId: string; userObj: { id: string } | undefined }> = [
+    // Microsoft 365 E5
+    { licenseId: 'lic-m365', userObj: u.userAlex },
+    { licenseId: 'lic-m365', userObj: u.userSarah },
+    { licenseId: 'lic-m365', userObj: u.userMichael },
+    { licenseId: 'lic-m365', userObj: u.userDavidKim },
+    { licenseId: 'lic-m365', userObj: u.userSophiaPatel },
+    { licenseId: 'lic-m365', userObj: u.userMarcusVance },
+    { licenseId: 'lic-m365', userObj: u.userElena },
+    { licenseId: 'lic-m365', userObj: u.userRobertTorres },
+    { licenseId: 'lic-m365', userObj: u.userLisaWang },
+    { licenseId: 'lic-m365', userObj: u.userRachelAdams },
+    // Adobe Creative Cloud
+    { licenseId: 'lic-adobe', userObj: u.userMarcusVance },
+    { licenseId: 'lic-adobe', userObj: u.userChloeMartin },
+    { licenseId: 'lic-adobe', userObj: u.userElena },
+    // JetBrains
+    { licenseId: 'lic-jetbrains', userObj: u.userDavidKim },
+    { licenseId: 'lic-jetbrains', userObj: u.userSophiaPatel },
+    { licenseId: 'lic-jetbrains', userObj: u.userLiamNguyen },
+    { licenseId: 'lic-jetbrains', userObj: u.userCarlosMendez },
+    // Figma
+    { licenseId: 'lic-figma', userObj: u.userMarcusVance },
+    { licenseId: 'lic-figma', userObj: u.userChloeMartin },
+    { licenseId: 'lic-figma', userObj: u.userSophiaPatel },
+    // GitHub Enterprise + Copilot
+    { licenseId: 'lic-github', userObj: u.userDavidKim },
+    { licenseId: 'lic-github', userObj: u.userSophiaPatel },
+    { licenseId: 'lic-github', userObj: u.userLiamNguyen },
+    { licenseId: 'lic-github', userObj: u.userCarlosMendez },
+    // Okta
+    { licenseId: 'lic-okta', userObj: u.userAlex },
+    { licenseId: 'lic-okta', userObj: u.userSarah },
+    { licenseId: 'lic-okta', userObj: u.userDavidKim },
+    { licenseId: 'lic-okta', userObj: u.userMarcusVance },
+    // Slack
+    { licenseId: 'lic-slack', userObj: u.userAlex },
+    { licenseId: 'lic-slack', userObj: u.userSarah },
+    { licenseId: 'lic-slack', userObj: u.userDavidKim },
+    { licenseId: 'lic-slack', userObj: u.userSophiaPatel },
+    { licenseId: 'lic-slack', userObj: u.userMarcusVance },
+    { licenseId: 'lic-slack', userObj: u.userElena },
+    // Zoom
+    { licenseId: 'lic-zoom', userObj: u.userAlex },
+    { licenseId: 'lic-zoom', userObj: u.userLisaWang },
+    { licenseId: 'lic-zoom', userObj: u.userElena },
   ];
 
-  await prisma.licenseAssignment.createMany({
-    data: licenseAssignments,
-    skipDuplicates: true,
-  });
+  for (const item of candidateAssignments) {
+    if (item.userObj?.id) {
+      await prisma.licenseAssignment.create({
+        data: {
+          licenseId: item.licenseId,
+          userId: item.userObj.id,
+          assignedAt: new Date(),
+        },
+      });
+    }
+  }
+
+  // 3. Synchronize `usedSeats` mathematically with actual active assignments
+  for (const lic of licenseDefinitions) {
+    const activeCount = await prisma.licenseAssignment.count({
+      where: {
+        licenseId: lic.id,
+        unassignedAt: null,
+      },
+    });
+
+    await prisma.license.update({
+      where: { id: lic.id },
+      data: { usedSeats: activeCount },
+    });
+  }
+
+  logger.log('✅ Synchronized all license seats with active user assignment records.');
 }

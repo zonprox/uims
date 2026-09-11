@@ -1,3 +1,11 @@
+import * as path from 'node:path';
+import * as dotenv from 'dotenv';
+
+// Automatically load root .env when executing directly via tsx
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config();
+
 import { Logger } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
@@ -24,6 +32,7 @@ const prisma = new PrismaClient({ adapter });
 
 async function clearDatabase(client: PrismaClient) {
   logger.log('🧹 Clearing legacy records for clean enterprise seeding...');
+  await client.reportSchedule.deleteMany();
   await client.licenseAssignment.deleteMany();
   await client.assetHistory.deleteMany();
   await client.notification.deleteMany();
@@ -33,17 +42,28 @@ async function clearDatabase(client: PrismaClient) {
   await client.directoryGroup.deleteMany();
   await client.iPAddress.deleteMany();
   await client.subnet.deleteMany();
+  await client.vLAN.deleteMany();
   await client.inventoryItem.deleteMany();
+  await client.inventoryCategory.deleteMany();
   await client.asset.deleteMany();
+  await client.networkCredential.deleteMany();
+  await client.assetCategory.deleteMany();
   await client.license.deleteMany();
-  await client.rolePermission.deleteMany().catch(() => {});
-  await client.permission.deleteMany().catch(() => {});
+  await client.rolePermission.deleteMany();
+  await client.permission.deleteMany();
   await client.appUser.deleteMany();
   await client.directoryUser.deleteMany();
+
   await client.role.deleteMany();
   await client.position.deleteMany();
+
+  // Clear self-referential parentId on Department before table deletion
+  await client.department.updateMany({ data: { parentId: null } });
   await client.department.deleteMany();
+
+  await client.location.deleteMany();
   await client.organization.deleteMany();
+  await client.vendor.deleteMany();
 }
 
 async function main() {
@@ -104,7 +124,7 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
+  .catch((e: unknown) => {
     logger.error('❌ Seed Execution Error:', e instanceof Error ? e.stack : e);
     process.exit(1);
   })

@@ -5,6 +5,7 @@ import {
   DeleteOutlined,
   DollarOutlined,
   EditOutlined,
+  EnvironmentOutlined,
   FilterOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -31,17 +32,28 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import {
+  type InventoryCategory,
   type InventoryItem,
   type InventoryStats,
   inventoryService,
 } from '../../services/inventory.service';
+import { type LocationBranch, organizationService } from '../../services/organization.service';
+import { type Vendor, vendorService } from '../../services/vendor.service';
 
 const { Text } = Typography;
-const { Option } = Select;
+
+export const INVENTORY_CATEGORY_COLORS: Record<string, string> = {
+  'Cables & Adapters': 'cyan',
+  Peripherals: 'blue',
+  'Storage & RAM': 'purple',
+  'Power & Battery': 'orange',
+  Tooling: 'geekblue',
+  'General Supplies': 'default',
+};
 
 const StockLevelCell: React.FC<{ record: InventoryItem }> = ({ record }) => {
   const isDepleted = record.quantity === 0;
@@ -84,6 +96,9 @@ const StockLevelCell: React.FC<{ record: InventoryItem }> = ({ record }) => {
 export default function InventoryPage() {
   const { message } = App.useApp();
   const [items, setItems] = useState<Array<InventoryItem>>([]);
+  const [categories, setCategories] = useState<Array<InventoryCategory>>([]);
+  const [locations, setLocations] = useState<Array<LocationBranch>>([]);
+  const [vendors, setVendors] = useState<Array<Vendor>>([]);
   const [stats, setStats] = useState<InventoryStats>({
     totalSkus: 0,
     totalUnits: 0,
@@ -110,15 +125,22 @@ export default function InventoryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, statsData] = await Promise.all([
+      const [list, statsData, cats, locs, vends] = await Promise.all([
         inventoryService.getItems({
           search: searchQuery || undefined,
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
           stockStatus: stockFilter !== 'all' ? stockFilter : undefined,
         }),
         inventoryService.getStats().catch(() => null),
+        inventoryService.getCategories().catch(() => []),
+        organizationService.getLocations().catch(() => []),
+        vendorService.getVendors().catch(() => []),
       ]);
       setItems(list);
+      setCategories(cats);
+      setLocations(locs);
+      setVendors(vends);
+
       if (statsData) {
         setStats(statsData);
       } else {
@@ -150,16 +172,46 @@ export default function InventoryPage() {
     loadData();
   }, [loadData]);
 
+  // Options for Relational Dropdowns
+  const categoryOptions = useMemo(
+    () =>
+      categories.map((c) => ({
+        label: c.name,
+        value: c.id,
+      })),
+    [categories],
+  );
+
+  const locationOptions = useMemo(
+    () =>
+      locations.map((loc) => ({
+        label: `${loc.name} ${loc.building ? `(${loc.building} - ${loc.floor})` : ''}`,
+        value: loc.id,
+      })),
+    [locations],
+  );
+
+  const vendorOptions = useMemo(
+    () =>
+      vendors.map((v) => ({
+        label: `${v.name}${v.contactEmail ? ` (${v.contactEmail})` : ''}`,
+        value: v.id,
+      })),
+    [vendors],
+  );
+
   const handleOpenCreateModal = () => {
     setEditingItem(null);
     form.resetFields();
     form.setFieldsValue({
       sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-      category: 'Cables & Adapters',
+      categoryId: categories[0]?.id,
       quantity: 10,
       minThreshold: 5,
       unitCost: 15,
-      location: 'Storage Room A',
+      locationId: locations[0]?.id,
+      binNumber: 'Bin A-01',
+      vendorId: vendors[0]?.id,
     });
     setModalOpen(true);
   };
@@ -167,7 +219,27 @@ export default function InventoryPage() {
   const handleOpenEditModal = useCallback(
     (item: InventoryItem) => {
       setEditingItem(item);
-      form.setFieldsValue(item);
+      form.setFieldsValue({
+        sku: item.sku,
+        name: item.name,
+        categoryId:
+          item.categoryId ||
+          (item.category && typeof item.category === 'object' ? item.category.id : undefined),
+        locationId:
+          item.locationId ||
+          (item.location && typeof item.location === 'object'
+            ? (item.location as { id: string }).id
+            : undefined),
+        vendorId:
+          item.vendorId ||
+          (item.vendor && typeof item.vendor === 'object' ? item.vendor.id : undefined),
+        binNumber: item.binNumber,
+        quantity: item.quantity,
+        minThreshold: item.minThreshold,
+        unitCost: item.unitCost,
+        supplier: item.supplier,
+        notes: item.notes,
+      });
       setModalOpen(true);
     },
     [form],
@@ -193,16 +265,28 @@ export default function InventoryPage() {
       const values = await form.validateFields();
       setModalSubmitting(true);
 
+      // Resolve supplier name if vendor was chosen
+      const selectedVendor = vendors.find((v) => v.id === values.vendorId);
+      const supplierName = selectedVendor ? selectedVendor.name : values.supplier || 'Direct Order';
+
+      // Resolve category name for backward compatibility
+      const selectedCategory = categories.find((c) => c.id === values.categoryId);
+      const categoryName = selectedCategory
+        ? selectedCategory.name
+        : values.category || 'General Supplies';
+
       const payload = {
         sku: values.sku,
         name: values.name,
-        category: values.category,
+        categoryId: values.categoryId,
+        category: categoryName,
         quantity: Number(values.quantity),
         minThreshold: Number(values.minThreshold),
         unitCost: Number(values.unitCost || 0),
-        location: values.location,
+        locationId: values.locationId,
+        vendorId: values.vendorId,
         binNumber: values.binNumber || 'Unassigned',
-        supplier: values.supplier || 'Direct Order',
+        supplier: supplierName,
         notes: values.notes,
       };
 
@@ -255,40 +339,79 @@ export default function InventoryPage() {
     }
   };
 
-  const handleShowDetails = (item: InventoryItem) => {
-    handleOpenEditModal(item);
-  };
-
   const columns = [
     {
       title: 'SKU & Item Name',
       key: 'name',
       sorter: (a: InventoryItem, b: InventoryItem) =>
         a.name.localeCompare(b.name) || a.sku.localeCompare(b.sku),
-      render: (_: unknown, record: InventoryItem) => (
-        <div>
-          <Text code strong style={{ fontSize: 12.5, color: '#1677ff' }}>
-            {record.sku}
-          </Text>
-          <Text
-            strong
-            style={{ fontSize: 13, display: 'block', cursor: 'pointer' }}
-            onClick={() => handleShowDetails(record)}
-          >
-            {record.name}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {record.supplier}
-          </Text>
-        </div>
-      ),
+      render: (_: unknown, record: InventoryItem) => {
+        const vendorDisplay = record.vendor?.name || record.supplier;
+        return (
+          <div>
+            <Text code strong style={{ fontSize: 12.5, color: '#1677ff' }}>
+              {record.sku}
+            </Text>
+            <Text
+              strong
+              style={{ fontSize: 13, display: 'block', cursor: 'pointer' }}
+              onClick={() => handleOpenEditModal(record)}
+            >
+              {record.name}
+            </Text>
+            {vendorDisplay && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {vendorDisplay}
+              </Text>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: 'Category',
-      dataIndex: 'category',
       key: 'category',
-      sorter: (a: InventoryItem, b: InventoryItem) => a.category.localeCompare(b.category),
-      render: (category: string) => <Tag color="blue">{category}</Tag>,
+      sorter: (a: InventoryItem, b: InventoryItem) => {
+        const catA = typeof a.category === 'string' ? a.category : a.category?.name || '';
+        const catB = typeof b.category === 'string' ? b.category : b.category?.name || '';
+        return catA.localeCompare(catB);
+      },
+      render: (_: unknown, record: InventoryItem) => {
+        const catName =
+          typeof record.category === 'string'
+            ? record.category
+            : record.category?.name || 'General';
+        const color = INVENTORY_CATEGORY_COLORS[catName] || 'default';
+        return <Tag color={color}>{catName}</Tag>;
+      },
+    },
+    {
+      title: 'Location & Bin',
+      key: 'locationBin',
+      render: (_: unknown, record: InventoryItem) => {
+        const locName =
+          record.location && typeof record.location === 'object'
+            ? (record.location as { name: string }).name
+            : typeof record.location === 'string'
+              ? record.location
+              : record.locationName;
+        return (
+          <Flex vertical gap={2}>
+            {locName ? (
+              <Tag icon={<EnvironmentOutlined />} color="geekblue">
+                {locName}
+              </Tag>
+            ) : (
+              <Text type="secondary">—</Text>
+            )}
+            {record.binNumber && record.binNumber !== 'Unassigned' && (
+              <Text code style={{ fontSize: 11 }}>
+                {record.binNumber}
+              </Text>
+            )}
+          </Flex>
+        );
+      },
     },
     {
       title: 'Stock Level & Threshold',
@@ -414,28 +537,23 @@ export default function InventoryPage() {
               <Select
                 value={categoryFilter}
                 onChange={setCategoryFilter}
-                style={{ width: 160 }}
+                style={{ width: 180 }}
                 placeholder="Category"
-              >
-                <Option value="all">All Categories</Option>
-                <Option value="Cables & Adapters">Cables & Adapters</Option>
-                <Option value="Peripherals">Peripherals</Option>
-                <Option value="Storage & RAM">Storage & RAM</Option>
-                <Option value="Power & Battery">Power & Battery</Option>
-                <Option value="Tooling">Tooling</Option>
-              </Select>
+                options={[{ label: 'All Categories', value: 'all' }, ...categoryOptions]}
+              />
 
               <Select
                 value={stockFilter}
                 onChange={setStockFilter}
-                style={{ width: 140 }}
+                style={{ width: 150 }}
                 placeholder="Stock Status"
-              >
-                <Option value="all">All Stock Status</Option>
-                <Option value="in_stock">In Stock</Option>
-                <Option value="low_stock">Low Stock Warning</Option>
-                <Option value="out_of_stock">Out of Stock</Option>
-              </Select>
+                options={[
+                  { label: 'All Stock Status', value: 'all' },
+                  { label: 'In Stock', value: 'in_stock' },
+                  { label: 'Low Stock Warning', value: 'low_stock' },
+                  { label: 'Out of Stock', value: 'out_of_stock' },
+                ]}
+              />
 
               {(searchQuery || categoryFilter !== 'all' || stockFilter !== 'all') && (
                 <Button
@@ -476,7 +594,7 @@ export default function InventoryPage() {
         onCancel={() => setModalOpen(false)}
         confirmLoading={modalSubmitting}
         destroyOnHidden={true}
-        width={620}
+        width={640}
         okText={editingItem ? 'Save Changes' : 'Create Item'}
         styles={{ body: { paddingTop: 16 } }}
       >
@@ -504,23 +622,37 @@ export default function InventoryPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Category" name="category" rules={[{ required: true }]}>
-                <Select>
-                  <Option value="Cables & Adapters">Cables & Adapters</Option>
-                  <Option value="Peripherals">Peripherals</Option>
-                  <Option value="Storage & RAM">Storage & RAM</Option>
-                  <Option value="Power & Battery">Power & Battery</Option>
-                  <Option value="Tooling">Tooling</Option>
-                </Select>
+              <Form.Item
+                label="Category"
+                name="categoryId"
+                rules={[{ required: true, message: 'Category is required' }]}
+              >
+                <Select
+                  placeholder="Select category"
+                  showSearch
+                  allowClear
+                  options={categoryOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
-                label="Supplier"
-                name="supplier"
-                rules={[{ required: true, message: 'Supplier is required' }]}
+                label="Supplier / Vendor"
+                name="vendorId"
+                rules={[{ required: true, message: 'Vendor is required' }]}
               >
-                <Input placeholder="e.g. Monoprice / CDW" />
+                <Select
+                  placeholder="Select approved vendor"
+                  showSearch
+                  allowClear
+                  options={vendorOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -545,18 +677,26 @@ export default function InventoryPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Location" name="location">
-                <Input placeholder="e.g. Storage Room A" />
+              <Form.Item label="Storage Location" name="locationId">
+                <Select
+                  placeholder="Select warehouse or site location"
+                  showSearch
+                  allowClear
+                  options={locationOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Bin Number" name="binNumber">
+              <Form.Item label="Bin / Shelf Number" name="binNumber">
                 <Input placeholder="e.g. Bin A-04" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item label="Notes" name="notes">
+          <Form.Item label="Notes & Specifications" name="notes">
             <Input.TextArea rows={2} placeholder="Add reorder notes or package specs..." />
           </Form.Item>
         </Form>
@@ -577,8 +717,13 @@ export default function InventoryPage() {
         >
           <div style={{ padding: '8px 0' }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              Current stock: <b>{restockItem.quantity} units</b> ({restockItem.location} -{' '}
-              {restockItem.binNumber})
+              Current stock: <b>{restockItem.quantity} units</b> (
+              {typeof restockItem.location === 'object' && restockItem.location !== null
+                ? restockItem.location.name
+                : typeof restockItem.location === 'string'
+                  ? restockItem.location
+                  : 'Unassigned'}{' '}
+              - {restockItem.binNumber})
             </Text>
             <Divider style={{ margin: '12px 0' }} />
             <Text strong style={{ display: 'block', marginBottom: 6 }}>

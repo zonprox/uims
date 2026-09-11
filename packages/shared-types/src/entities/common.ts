@@ -1,9 +1,18 @@
+import type { Organization } from './organization';
+
 export interface Location {
   id: string;
   name: string;
-  address: string | null;
-  city: string | null;
-  country: string | null;
+  code?: string | null;
+  building?: string | null;
+  floor?: string | null;
+  room?: string | null;
+  address?: string | null;
+  type?: string | null;
+  organizationId?: string | null;
+  organization?: Organization | null;
+  city?: string | null;
+  country?: string | null;
   createdAt: string;
   updatedAt: string;
 }

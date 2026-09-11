@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { AuditLog, Prisma } from '@prisma/client';
 import type { AuditQueryDto, AuditStatsDto, LogEventDto } from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
@@ -6,6 +6,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
   constructor(
     private prisma: PrismaService,
     @Optional() private notificationsService?: NotificationsService,
@@ -84,8 +86,11 @@ export class AuditService {
           type: 'ALERT',
           link: '/audit',
         });
-      } catch {
-        // Non-blocking
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to dispatch security alert notification for audit action "${data.action}" on entity "${data.entity}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
       }
     }
 

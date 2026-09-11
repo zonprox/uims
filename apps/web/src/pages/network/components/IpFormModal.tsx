@@ -1,4 +1,9 @@
-import { CheckCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  KeyOutlined,
+  ThunderboltOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import {
   App,
   Button,
@@ -12,18 +17,18 @@ import {
   Select,
   Tag,
 } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
+import type { DirectoryUser } from '../../../services/directory.service';
 import type { LocationBranch } from '../../../services/organization.service';
 import {
   type AutoDetectResult,
   type IPAddress,
+  type NetworkCredential,
   type Subnet,
   type VLAN,
   networkService,
 } from '../../../services/network.service';
-
-const { Option } = Select;
 
 export interface IpFormModalProps {
   open: boolean;
@@ -34,9 +39,31 @@ export interface IpFormModalProps {
   vlans: VLAN[];
   locations: LocationBranch[];
   assets?: Asset[];
+  directoryUsers?: DirectoryUser[];
+  credentials?: NetworkCredential[];
   onSave: () => void;
   onCancel: () => void;
 }
+
+const DEVICE_TYPE_OPTIONS = [
+  { label: 'Server', value: 'Server' },
+  { label: 'Workstation', value: 'Workstation' },
+  { label: 'Switch', value: 'Switch' },
+  { label: 'Router / Gateway', value: 'Router' },
+  { label: 'Wireless AP', value: 'Access Point' },
+  { label: 'Printer', value: 'Printer' },
+  { label: 'CCTV / Camera', value: 'Camera' },
+  { label: 'NVR / Storage', value: 'NVR' },
+  { label: 'Time Attendance', value: 'Time Attendance' },
+  { label: 'Access Control Door', value: 'Access Control' },
+  { label: 'IoT Gateway', value: 'IoT Gateway' },
+];
+
+const STATUS_OPTIONS = [
+  { label: 'Assigned (Active)', value: 'ASSIGNED' },
+  { label: 'Reserved (Static/Gateway)', value: 'RESERVED' },
+  { label: 'Available (Pool)', value: 'AVAILABLE' },
+];
 
 export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
   ({
@@ -48,6 +75,8 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
     vlans,
     locations,
     assets = [],
+    directoryUsers = [],
+    credentials = [],
     onSave,
     onCancel,
   }) => {
@@ -58,6 +87,66 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
 
     // Watch selected subnet to enable Next IP button
     const selectedSubnetId = Form.useWatch('subnetId', form);
+
+    // Subnet Options
+    const subnetOptions = useMemo(
+      () =>
+        subnets.map((sub) => ({
+          label: `${sub.cidr} (${sub.name})`,
+          value: sub.id,
+        })),
+      [subnets],
+    );
+
+    // VLAN Options
+    const vlanOptions = useMemo(
+      () =>
+        vlans.map((vlan) => ({
+          label: `VLAN ${vlan.vlanNumber} (${vlan.name})`,
+          value: vlan.id,
+        })),
+      [vlans],
+    );
+
+    // Location Options
+    const locationOptions = useMemo(
+      () =>
+        locations.map((loc) => ({
+          label: `${loc.name} ${loc.building ? `(${loc.building})` : ''}`,
+          value: loc.id,
+        })),
+      [locations],
+    );
+
+    // Asset Options
+    const assetOptions = useMemo(
+      () =>
+        assets.map((asset) => ({
+          label: `[${asset.tag}] ${asset.name} (${asset.model})`,
+          value: asset.id,
+        })),
+      [assets],
+    );
+
+    // Directory User Options
+    const directoryUserOptions = useMemo(
+      () =>
+        directoryUsers.map((user) => ({
+          label: `${user.firstName} ${user.lastName} (${user.employeeCode || user.email})`,
+          value: user.id,
+        })),
+      [directoryUsers],
+    );
+
+    // Network Credential Options
+    const credentialOptions = useMemo(
+      () =>
+        credentials.map((cred) => ({
+          label: `${cred.name} (${cred.username}@${cred.protocol || 'Device'})`,
+          value: cred.id,
+        })),
+      [credentials],
+    );
 
     // Real-time IP address auto-detection
     const handleIpChange = useCallback(
@@ -70,6 +159,10 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
               setDetectedNetwork(result);
               if (result.matchedSubnet) {
                 form.setFieldValue('subnetId', result.matchedSubnet.id);
+                // Subnet cascading defaults: auto-fill location and VLAN from matched subnet
+                if (result.matchedSubnet.locationId && !form.getFieldValue('locationId')) {
+                  form.setFieldValue('locationId', result.matchedSubnet.locationId);
+                }
               }
               if (result.matchedVlan) {
                 form.setFieldValue('vlanId', result.matchedVlan.id);
@@ -110,7 +203,20 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
       [form],
     );
 
-    // Automation: "Next Available IP" for current Subnet
+    // Subnet Selection Cascading Defaults: auto-fills VLAN and Location
+    const handleSubnetSelect = (subnetId: string) => {
+      const selected = subnets.find((s) => s.id === subnetId);
+      if (selected) {
+        if (selected.vlanId && !form.getFieldValue('vlanId')) {
+          form.setFieldValue('vlanId', selected.vlanId);
+        }
+        if (selected.locationId && !form.getFieldValue('locationId')) {
+          form.setFieldValue('locationId', selected.locationId);
+        }
+      }
+    };
+
+    // Next Available IP Action
     const handleFetchNextAvailableIp = useCallback(async () => {
       const currentSubnetId = form.getFieldValue('subnetId');
       if (!currentSubnetId) {
@@ -176,7 +282,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
         onCancel={onCancel}
         confirmLoading={submitting}
         destroyOnHidden={true}
-        width={720}
+        width={760}
         okText={editingIp ? 'Save Changes' : 'Allocate IP'}
         styles={{ body: { paddingTop: 16 } }}
       >
@@ -280,26 +386,26 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                 <Select
                   placeholder="Select Subnet"
                   showSearch
-                  optionFilterProp="children"
                   allowClear
-                >
-                  {subnets.map((sub) => (
-                    <Option key={sub.id} value={sub.id}>
-                      {sub.cidr} ({sub.name})
-                    </Option>
-                  ))}
-                </Select>
+                  options={subnetOptions}
+                  onChange={handleSubnetSelect}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="VLAN Mapping" name="vlanId">
-                <Select placeholder="Select VLAN" showSearch optionFilterProp="children" allowClear>
-                  {vlans.map((vlan) => (
-                    <Option key={vlan.id} value={vlan.id}>
-                      VLAN {vlan.vlanNumber} ({vlan.name})
-                    </Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="Select VLAN"
+                  showSearch
+                  allowClear
+                  options={vlanOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -312,19 +418,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                 rules={[{ required: true, message: 'Device type is required' }]}
                 initialValue="Workstation"
               >
-                <Select>
-                  <Option value="Server">Server</Option>
-                  <Option value="Workstation">Workstation</Option>
-                  <Option value="Switch">Switch</Option>
-                  <Option value="Router">Router / Gateway</Option>
-                  <Option value="Access Point">Wireless AP</Option>
-                  <Option value="Printer">Printer</Option>
-                  <Option value="Camera">CCTV / Camera</Option>
-                  <Option value="NVR">NVR / Storage</Option>
-                  <Option value="Time Attendance">Time Attendance</Option>
-                  <Option value="Access Control">Access Control Door</Option>
-                  <Option value="IoT Gateway">IoT Gateway</Option>
-                </Select>
+                <Select options={DEVICE_TYPE_OPTIONS} />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -339,31 +433,70 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                 rules={[{ required: true }]}
                 initialValue="ASSIGNED"
               >
-                <Select>
-                  <Option value="ASSIGNED">Assigned (Active)</Option>
-                  <Option value="RESERVED">Reserved (Static/Gateway)</Option>
-                  <Option value="AVAILABLE">Available (Pool)</Option>
-                </Select>
+                <Select options={STATUS_OPTIONS} />
               </Form.Item>
             </Col>
           </Row>
 
+          {/* Relational Linkages: Asset, DirectoryUser, Credential */}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Linked Hardware Asset" name="assetId">
                 <Select
                   placeholder="Select Asset tag or device"
                   showSearch
-                  optionFilterProp="children"
                   allowClear
+                  options={assetOptions}
                   onChange={handleAssetSelect}
-                >
-                  {assets.map((asset) => (
-                    <Option key={asset.id} value={asset.id}>
-                      [{asset.tag}] {asset.name} ({asset.model})
-                    </Option>
-                  ))}
-                </Select>
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label={
+                  <Flex align="center" gap={4}>
+                    <UserOutlined style={{ color: '#722ed1' }} />
+                    <span>Assigned Custodian (Directory User)</span>
+                  </Flex>
+                }
+                name="assignedUserId"
+              >
+                <Select
+                  placeholder="Search employee by name, code, or email"
+                  showSearch
+                  allowClear
+                  options={directoryUserOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label={
+                  <Flex align="center" gap={4}>
+                    <KeyOutlined style={{ color: '#fa8c16' }} />
+                    <span>Network Management Credential</span>
+                  </Flex>
+                }
+                name="credentialId"
+              >
+                <Select
+                  placeholder="Select administrative credential vault record"
+                  showSearch
+                  allowClear
+                  options={credentialOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -371,15 +504,12 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                 <Select
                   placeholder="Select Location"
                   showSearch
-                  optionFilterProp="children"
                   allowClear
-                >
-                  {locations.map((loc) => (
-                    <Option key={loc.id} value={loc.id}>
-                      {loc.name} {loc.building ? `(${loc.building})` : ''}
-                    </Option>
-                  ))}
-                </Select>
+                  options={locationOptions}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
               </Form.Item>
             </Col>
           </Row>

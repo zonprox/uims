@@ -11,6 +11,7 @@ import {
   LaptopOutlined,
   LinkOutlined,
   PrinterOutlined,
+  UserOutlined,
   WifiOutlined,
 } from '@ant-design/icons';
 import {
@@ -34,7 +35,6 @@ import type { LocationBranch } from '../../../services/organization.service';
 import type { IPAddress, Subnet, VLAN } from '../../../services/network.service';
 
 const { Text } = Typography;
-const { Option } = Select;
 
 export interface IpAddressTableProps {
   ips: Array<IPAddress>;
@@ -282,22 +282,29 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
             const tagStr =
               asset?.assetTag || (asset as unknown as { tag?: string } | undefined)?.tag;
             return (
-              <div>
-                {asset && tagStr ? (
-                  <Tooltip title={`Asset: ${asset.name} (${tagStr})`}>
-                    <Tag icon={<LinkOutlined />} color="cyan" style={{ fontSize: 11 }}>
-                      {tagStr}
+              <Flex vertical gap={2} style={{ width: '100%' }}>
+                {asset && (
+                  <Tooltip title={`Hardware Asset: ${asset.name} (${tagStr || asset.id})`}>
+                    <Tag
+                      icon={<LaptopOutlined />}
+                      color="cyan"
+                      style={{ fontSize: 11, cursor: 'pointer' }}
+                    >
+                      {tagStr ? `[${tagStr}] ` : ''}
+                      {asset.name}
                     </Tag>
                   </Tooltip>
-                ) : null}
-                {user ? (
-                  <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                    {user.firstName} {user.lastName}
-                  </Text>
-                ) : !asset ? (
-                  <Text type="secondary">—</Text>
-                ) : null}
-              </div>
+                )}
+                {user && (
+                  <Tooltip title={`Assigned Employee: ${user.email}`}>
+                    <Tag icon={<UserOutlined />} color="purple" style={{ fontSize: 11 }}>
+                      {user.firstName} {user.lastName}
+                      {user.employeeCode ? ` (${user.employeeCode})` : ''}
+                    </Tag>
+                  </Tooltip>
+                )}
+                {!asset && !user && <Text type="secondary">—</Text>}
+              </Flex>
             );
           },
         },
@@ -349,14 +356,24 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
                     onClick={() => onOpenEditModal(record)}
                   />
                 </Tooltip>
-                {onRevealCredential && hasCredential && (
+                {hasCredential ? (
                   <Tooltip title="Reveal Admin Credential">
                     <Button
                       type="text"
                       shape="circle"
                       size="small"
                       icon={<KeyOutlined style={{ color: '#fa8c16' }} />}
-                      onClick={() => onRevealCredential(record)}
+                      onClick={() => onRevealCredential?.(record)}
+                    />
+                  </Tooltip>
+                ) : (
+                  <Tooltip title="Link Credential">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      size="small"
+                      icon={<LinkOutlined style={{ color: '#94a3b8' }} />}
+                      onClick={() => onOpenEditModal(record)}
                     />
                   </Tooltip>
                 )}
@@ -404,73 +421,69 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
                 onChange={onSiteChange}
                 style={{ width: 140 }}
                 placeholder="Site / Location"
-              >
-                <Option value="all">All Sites</Option>
-                {locations.map((loc) => (
-                  <Option key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All Sites', value: 'all' },
+                  ...locations.map((loc) => ({ label: loc.name, value: loc.id })),
+                ]}
+              />
 
               <Select
                 value={vlanFilter}
                 onChange={onVlanChange}
                 style={{ width: 150 }}
                 placeholder="VLAN"
-              >
-                <Option value="all">All VLANs</Option>
-                {vlans.map((vlan) => (
-                  <Option key={vlan.id} value={vlan.id}>
-                    VLAN {vlan.vlanNumber} ({vlan.name})
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All VLANs', value: 'all' },
+                  ...vlans.map((vlan) => ({
+                    label: `VLAN ${vlan.vlanNumber} (${vlan.name})`,
+                    value: vlan.id,
+                  })),
+                ]}
+              />
 
               <Select
                 value={subnetFilter}
                 onChange={onSubnetChange}
                 style={{ width: 160 }}
                 placeholder="Subnet"
-              >
-                <Option value="all">All Subnets</Option>
-                {subnets.map((sub) => (
-                  <Option key={sub.id} value={sub.id}>
-                    {sub.cidr}
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All Subnets', value: 'all' },
+                  ...subnets.map((sub) => ({ label: sub.cidr, value: sub.id })),
+                ]}
+              />
 
               <Select
                 value={deviceTypeFilter}
                 onChange={onDeviceTypeChange}
                 style={{ width: 130 }}
                 placeholder="Device Type"
-              >
-                <Option value="all">All Devices</Option>
-                <Option value="Server">Server</Option>
-                <Option value="Workstation">Workstation</Option>
-                <Option value="Switch">Switch</Option>
-                <Option value="Router">Router</Option>
-                <Option value="Access Point">Wireless AP</Option>
-                <Option value="Printer">Printer</Option>
-                <Option value="Camera">Camera / CCTV</Option>
-                <Option value="NVR">NVR</Option>
-                <Option value="Time Attendance">Time Attendance</Option>
-                <Option value="Access Control">Access Control</Option>
-              </Select>
+                options={[
+                  { label: 'All Devices', value: 'all' },
+                  { label: 'Server', value: 'Server' },
+                  { label: 'Workstation', value: 'Workstation' },
+                  { label: 'Switch', value: 'Switch' },
+                  { label: 'Router', value: 'Router' },
+                  { label: 'Wireless AP', value: 'Access Point' },
+                  { label: 'Printer', value: 'Printer' },
+                  { label: 'Camera / CCTV', value: 'Camera' },
+                  { label: 'NVR', value: 'NVR' },
+                  { label: 'Time Attendance', value: 'Time Attendance' },
+                  { label: 'Access Control', value: 'Access Control' },
+                ]}
+              />
 
               <Select
                 value={statusFilter}
                 onChange={onStatusChange}
                 style={{ width: 120 }}
                 placeholder="Status"
-              >
-                <Option value="all">All Status</Option>
-                <Option value="ASSIGNED">Assigned</Option>
-                <Option value="RESERVED">Reserved</Option>
-                <Option value="AVAILABLE">Available</Option>
-              </Select>
+                options={[
+                  { label: 'All Status', value: 'all' },
+                  { label: 'Assigned', value: 'ASSIGNED' },
+                  { label: 'Reserved', value: 'RESERVED' },
+                  { label: 'Available', value: 'AVAILABLE' },
+                ]}
+              />
 
               {isFiltered && <Button onClick={onResetFilters}>Reset</Button>}
             </Flex>

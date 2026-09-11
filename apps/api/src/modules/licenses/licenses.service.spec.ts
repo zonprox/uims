@@ -16,7 +16,10 @@ describe('LicensesService', () => {
       aggregate: ReturnType<typeof vi.fn>;
     };
     licenseAssignment: {
+      findFirst: ReturnType<typeof vi.fn>;
+      count: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
       delete: ReturnType<typeof vi.fn>;
     };
   };
@@ -34,7 +37,10 @@ describe('LicensesService', () => {
         aggregate: vi.fn(),
       },
       licenseAssignment: {
+        findFirst: vi.fn(),
+        count: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
         delete: vi.fn(),
       },
     };
@@ -91,6 +97,8 @@ describe('LicensesService', () => {
         department: 'DevOps',
       });
 
+      mockPrisma.licenseAssignment.count.mockResolvedValueOnce(10).mockResolvedValueOnce(11);
+
       const assignment = await service.assignUser('lic-1', {
         name: 'Marcus Vance',
         email: 'marcus@company.com',
@@ -102,9 +110,28 @@ describe('LicensesService', () => {
       expect(mockPrisma.license.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'lic-1' },
-          data: { usedSeats: { increment: 1 } },
+          data: { usedSeats: 11 },
         }),
       );
+    });
+
+    it('should reject assignment if license capacity is exceeded', async () => {
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-maxed',
+        name: 'Maxed License',
+        totalSeats: 10,
+        usedSeats: 10,
+        type: LicenseType.SUBSCRIPTION,
+      });
+
+      mockPrisma.licenseAssignment.count.mockResolvedValue(10);
+
+      await expect(
+        service.assignUser('lic-maxed', {
+          name: 'Denied User',
+          email: 'denied@company.com',
+        }),
+      ).rejects.toThrow();
     });
 
     it('should trigger License Capacity Near Limit warning when seats reach >= 90%', async () => {
@@ -131,6 +158,8 @@ describe('LicensesService', () => {
         assignedName: 'Alice Designer',
         assignedEmail: 'alice@company.com',
       });
+
+      mockPrisma.licenseAssignment.count.mockResolvedValueOnce(8).mockResolvedValueOnce(9);
 
       mockPrisma.license.update.mockResolvedValue({
         id: 'lic-1',
@@ -177,6 +206,8 @@ describe('LicensesService', () => {
         assignedEmail: 'bob@company.com',
       });
 
+      mockPrisma.licenseAssignment.count.mockResolvedValueOnce(9).mockResolvedValueOnce(10);
+
       mockPrisma.license.update.mockResolvedValue({
         id: 'lic-1',
         name: 'Figma Organization',
@@ -195,6 +226,56 @@ describe('LicensesService', () => {
           type: 'WARNING',
         }),
       );
+    });
+  });
+
+  describe('revokeUser', () => {
+    it('should soft-revoke assignment and decrement dynamic usedSeats', async () => {
+      mockPrisma.licenseAssignment.findFirst.mockResolvedValue({
+        id: 'asgn-1',
+        licenseId: 'lic-1',
+        unassignedAt: null,
+      });
+
+      mockPrisma.licenseAssignment.update.mockResolvedValue({
+        id: 'asgn-1',
+        licenseId: 'lic-1',
+        unassignedAt: new Date(),
+      });
+
+      mockPrisma.licenseAssignment.count = vi.fn().mockResolvedValue(9);
+      mockPrisma.license.update.mockResolvedValue({
+        id: 'lic-1',
+        usedSeats: 9,
+      });
+
+      const result = await service.revokeUser('lic-1', 'asgn-1');
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.licenseAssignment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'asgn-1' },
+          data: { unassignedAt: expect.any(Date) },
+        }),
+      );
+      expect(mockPrisma.license.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'lic-1' },
+          data: { usedSeats: 9 },
+        }),
+      );
+      expect(result).toEqual({
+        success: true,
+        licenseId: 'lic-1',
+        assignmentId: 'asgn-1',
+        usedSeats: 9,
+      });
+    });
+
+    it('should throw NotFoundException if assignment does not exist for the license', async () => {
+      mockPrisma.licenseAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(service.revokeUser('lic-1', 'asgn-unknown')).rejects.toThrow();
     });
   });
 

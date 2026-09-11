@@ -2,9 +2,11 @@ import { App } from 'antd';
 import type { FormInstance } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { type Asset, assetsService } from '../../../services/assets.service';
+import { type DirectoryUser, directoryService } from '../../../services/directory.service';
 import { type LocationBranch, organizationService } from '../../../services/organization.service';
 import {
   type IPAddress,
+  type NetworkCredential,
   type NetworkStats,
   type RevealedCredentialResult,
   type Subnet,
@@ -25,6 +27,8 @@ export function useNetworkManagement(
   const [ips, setIps] = useState<Array<IPAddress>>([]);
   const [locations, setLocations] = useState<Array<LocationBranch>>([]);
   const [assets, setAssets] = useState<Array<Asset>>([]);
+  const [directoryUsers, setDirectoryUsers] = useState<Array<DirectoryUser>>([]);
+  const [credentials, setCredentials] = useState<Array<NetworkCredential>>([]);
   const [stats, setStats] = useState<NetworkStats>({
     totalVlans: 0,
     managedSubnets: 0,
@@ -76,34 +80,41 @@ export function useNetworkManagement(
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [vlanList, subnetList, ipList, locList, assetList] = await Promise.all([
-        networkService.getVlans({
-          search: searchQuery || undefined,
-          locationId: siteFilter !== 'all' ? siteFilter : undefined,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-        }),
-        networkService.getSubnets({
-          search: searchQuery || undefined,
-          vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
-          locationId: siteFilter !== 'all' ? siteFilter : undefined,
-        }),
-        networkService.getIps({
-          search: searchQuery || undefined,
-          vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
-          subnetId: subnetFilter !== 'all' ? subnetFilter : undefined,
-          deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          locationId: siteFilter !== 'all' ? siteFilter : undefined,
-        }),
-        organizationService.getLocations(),
-        assetsService.getAssets(),
-      ]);
+      const [vlanList, subnetList, ipList, locList, assetList, empRes, credList] =
+        await Promise.all([
+          networkService.getVlans({
+            search: searchQuery || undefined,
+            locationId: siteFilter !== 'all' ? siteFilter : undefined,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+          }),
+          networkService.getSubnets({
+            search: searchQuery || undefined,
+            vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
+            locationId: siteFilter !== 'all' ? siteFilter : undefined,
+          }),
+          networkService.getIps({
+            search: searchQuery || undefined,
+            vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
+            subnetId: subnetFilter !== 'all' ? subnetFilter : undefined,
+            deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            locationId: siteFilter !== 'all' ? siteFilter : undefined,
+          }),
+          organizationService.getLocations(),
+          assetsService.getAssets(),
+          directoryService.getEmployees({ pageSize: 100 }).catch(() => ({ items: [] })),
+          networkService.getCredentials
+            ? networkService.getCredentials().catch(() => [])
+            : Promise.resolve([]),
+        ]);
 
       setVlans(vlanList);
       setSubnets(subnetList);
       setIps(ipList);
       setLocations(locList);
       setAssets(assetList);
+      setDirectoryUsers(empRes?.items || []);
+      setCredentials(credList || []);
 
       // Load stats cleanly with structured error handling
       try {
@@ -327,6 +338,8 @@ export function useNetworkManagement(
         vlanId: ip.vlanId,
         locationId: ip.locationId,
         assetId: ip.assetId || ip.asset?.id,
+        assignedUserId: ip.assignedUserId || ip.assignedUser?.id,
+        credentialId: ip.credentialId || ip.credential?.id,
         section: ip.section,
         status: ip.status,
         description: ip.description,
@@ -345,6 +358,12 @@ export function useNetworkManagement(
         ...values,
         address: targetIp,
         ip: targetIp,
+        assignedUserId: values.assignedUserId || undefined,
+        credentialId: values.credentialId || undefined,
+        assetId: values.assetId || undefined,
+        subnetId: values.subnetId || undefined,
+        vlanId: values.vlanId || undefined,
+        locationId: values.locationId || undefined,
       };
       setModalSubmitting(true);
 
@@ -424,6 +443,8 @@ export function useNetworkManagement(
     ips,
     locations,
     assets,
+    directoryUsers,
+    credentials,
     stats,
     loading,
     activeTabKey,

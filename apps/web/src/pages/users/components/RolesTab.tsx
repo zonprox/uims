@@ -44,7 +44,6 @@ import { RoleCloneModal } from './RoleCloneModal';
 import { RoleDetailDrawer } from './RoleDetailDrawer';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
 interface RolesTabProps {
   roles: Role[];
@@ -294,11 +293,16 @@ export const RolesTab: React.FC<RolesTabProps> = ({
                 onChange={(e) => setSearch(e.target.value)}
                 style={{ width: 240 }}
               />
-              <Select value={tierFilter} onChange={setTierFilter} style={{ width: 150 }}>
-                <Option value="all">All Tiers</Option>
-                <Option value="system">System Roles</Option>
-                <Option value="custom">Custom Roles</Option>
-              </Select>
+              <Select
+                value={tierFilter}
+                onChange={setTierFilter}
+                style={{ width: 150 }}
+                options={[
+                  { label: 'All Tiers', value: 'all' },
+                  { label: 'System Roles', value: 'system' },
+                  { label: 'Custom Roles', value: 'custom' },
+                ]}
+              />
             </Flex>
           </Col>
 

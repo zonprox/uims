@@ -138,7 +138,7 @@ export default function DirectoryPage() {
   const activeEmployeesCount =
     stats?.activeEmployees ?? employees.filter((e) => e.status === 'ACTIVE').length;
   const assignedWorkstationsCount =
-    stats?.assignedWorkstations ?? employees.filter((e) => Boolean(e.computerName)).length;
+    stats?.assignedWorkstations ?? employees.filter((e) => (e.assignedAssetsCount ?? 0) > 0).length;
   const totalGroupsCount = stats?.totalGroups ?? groups.length;
   const totalOUsCount = stats?.totalOUs ?? organizationalUnits.length;
 

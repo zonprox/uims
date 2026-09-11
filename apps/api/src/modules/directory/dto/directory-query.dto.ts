@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import type { DirectoryUserQueryDto as IDirectoryUserQueryDto } from '@uims/shared-types';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class DirectoryQueryDto implements IDirectoryUserQueryDto {
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
@@ -28,36 +28,31 @@ export class DirectoryQueryDto implements IDirectoryUserQueryDto {
   pageSize?: number;
 
   @ApiPropertyOptional({
-    description: 'Free-text search query across names, emails, employee codes, hostnames',
+    description: 'Free-text search query across names, emails, employee codes',
   })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by company name' })
+  @ApiPropertyOptional({ description: 'Filter by Organization UUID' })
   @IsOptional()
   @IsString()
-  company?: string;
+  organizationId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by manufacturing plant' })
+  @ApiPropertyOptional({ description: 'Filter by Department UUID' })
   @IsOptional()
   @IsString()
-  plant?: string;
+  departmentId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by department' })
+  @ApiPropertyOptional({ description: 'Filter by Position UUID' })
   @IsOptional()
   @IsString()
-  department?: string;
+  positionId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by operational section' })
+  @ApiPropertyOptional({ description: 'Filter by Location UUID' })
   @IsOptional()
   @IsString()
-  section?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by Active Directory group' })
-  @IsOptional()
-  @IsString()
-  adGroup?: string;
+  locationId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by OU canonical path' })
   @IsOptional()
@@ -73,10 +68,4 @@ export class DirectoryQueryDto implements IDirectoryUserQueryDto {
   @IsOptional()
   @IsString()
   status?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by closed account status' })
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  isClosed?: boolean;
 }

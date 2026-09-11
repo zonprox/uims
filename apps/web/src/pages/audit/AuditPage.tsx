@@ -31,7 +31,6 @@ import { FormattedDateTime } from '../../components/FormattedDate';
 import { type AuditLog, type AuditStats, auditService } from '../../services/audit.service';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
 export default function AuditPage() {
   const { message } = App.useApp();
@@ -288,44 +287,46 @@ export default function AuditPage() {
                 style={{ width: 220 }}
                 placeholder="Action"
                 showSearch
-              >
-                <Option value="all">All Actions</Option>
-                <Option value="USER_PROVISION">USER_PROVISION</Option>
-                <Option value="USER_PASSWORD_RESET">USER_PASSWORD_RESET</Option>
-                <Option value="USER_SUSPEND">USER_SUSPEND</Option>
-                <Option value="USER_LOCKOUT">USER_LOCKOUT</Option>
-                <Option value="USER_UNLOCK">USER_UNLOCK</Option>
-                <Option value="MFA_RESET">MFA_RESET</Option>
-                <Option value="ROLE_ASSIGNMENT_CHANGE">ROLE_ASSIGNMENT_CHANGE</Option>
-                <Option value="PRIVILEGE_ELEVATION_GRANT">PRIVILEGE_ELEVATION_GRANT</Option>
-                <Option value="PRIVILEGE_ELEVATION_EXPIRE">PRIVILEGE_ELEVATION_EXPIRE</Option>
-                <Option value="PERMISSION_CATALOG_UPDATE">PERMISSION_CATALOG_UPDATE</Option>
-                <Option value="BRUTE_FORCE_DETECTED">BRUTE_FORCE_DETECTED</Option>
-                <Option value="ANOMALOUS_ACCESS">ANOMALOUS_ACCESS</Option>
-                <Option value="UNAUTHORIZED_OU_ACCESS">UNAUTHORIZED_OU_ACCESS</Option>
-                <Option value="ASSET_PROVISION">ASSET_PROVISION</Option>
-                <Option value="ASSET_DECOMMISSION">ASSET_DECOMMISSION</Option>
-                <Option value="LICENSE_ALLOCATION">LICENSE_ALLOCATION</Option>
-                <Option value="LICENSE_RECLAIM">LICENSE_RECLAIM</Option>
-                <Option value="CONFIG_CHANGE">CONFIG_CHANGE</Option>
-                <Option value="SNAPSHOT_VERIFY">SNAPSHOT_VERIFY</Option>
-                <Option value="INVENTORY_REORDER">INVENTORY_REORDER</Option>
-                <Option value="CREATE">CREATE</Option>
-                <Option value="UPDATE">UPDATE</Option>
-                <Option value="DELETE">DELETE</Option>
-              </Select>
+                options={[
+                  { label: 'All Actions', value: 'all' },
+                  { label: 'USER_PROVISION', value: 'USER_PROVISION' },
+                  { label: 'USER_PASSWORD_RESET', value: 'USER_PASSWORD_RESET' },
+                  { label: 'USER_SUSPEND', value: 'USER_SUSPEND' },
+                  { label: 'USER_LOCKOUT', value: 'USER_LOCKOUT' },
+                  { label: 'USER_UNLOCK', value: 'USER_UNLOCK' },
+                  { label: 'MFA_RESET', value: 'MFA_RESET' },
+                  { label: 'ROLE_ASSIGNMENT_CHANGE', value: 'ROLE_ASSIGNMENT_CHANGE' },
+                  { label: 'PRIVILEGE_ELEVATION_GRANT', value: 'PRIVILEGE_ELEVATION_GRANT' },
+                  { label: 'PRIVILEGE_ELEVATION_EXPIRE', value: 'PRIVILEGE_ELEVATION_EXPIRE' },
+                  { label: 'PERMISSION_CATALOG_UPDATE', value: 'PERMISSION_CATALOG_UPDATE' },
+                  { label: 'BRUTE_FORCE_DETECTED', value: 'BRUTE_FORCE_DETECTED' },
+                  { label: 'ANOMALOUS_ACCESS', value: 'ANOMALOUS_ACCESS' },
+                  { label: 'UNAUTHORIZED_OU_ACCESS', value: 'UNAUTHORIZED_OU_ACCESS' },
+                  { label: 'ASSET_PROVISION', value: 'ASSET_PROVISION' },
+                  { label: 'ASSET_DECOMMISSION', value: 'ASSET_DECOMMISSION' },
+                  { label: 'LICENSE_ALLOCATION', value: 'LICENSE_ALLOCATION' },
+                  { label: 'LICENSE_RECLAIM', value: 'LICENSE_RECLAIM' },
+                  { label: 'CONFIG_CHANGE', value: 'CONFIG_CHANGE' },
+                  { label: 'SNAPSHOT_VERIFY', value: 'SNAPSHOT_VERIFY' },
+                  { label: 'INVENTORY_REORDER', value: 'INVENTORY_REORDER' },
+                  { label: 'CREATE', value: 'CREATE' },
+                  { label: 'UPDATE', value: 'UPDATE' },
+                  { label: 'DELETE', value: 'DELETE' },
+                ]}
+              />
 
               <Select
                 value={severityFilter}
                 onChange={setSeverityFilter}
                 style={{ width: 140 }}
                 placeholder="Severity"
-              >
-                <Option value="all">All Severities</Option>
-                <Option value="Info">Info</Option>
-                <Option value="Warning">Warning</Option>
-                <Option value="Critical">Critical</Option>
-              </Select>
+                options={[
+                  { label: 'All Severities', value: 'all' },
+                  { label: 'Info', value: 'Info' },
+                  { label: 'Warning', value: 'Warning' },
+                  { label: 'Critical', value: 'Critical' },
+                ]}
+              />
 
               {(searchQuery || actionFilter !== 'all' || severityFilter !== 'all') && (
                 <Button

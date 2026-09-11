@@ -60,7 +60,6 @@ import { COLOR_PRESETS, type ThemeMode, useThemeStore } from '../../stores/theme
 import { useTimezoneStore } from '../../stores/timezone.store';
 
 const { Text, Paragraph } = Typography;
-const { Option } = Select;
 
 export default function SettingsPage() {
   const { message, modal } = App.useApp();
@@ -708,9 +707,12 @@ export default function SettingsPage() {
                         <Input placeholder="Sample Input text" size="small" />
                       </Col>
                       <Col span={12}>
-                        <Select defaultValue="val1" size="small" style={{ width: '100%' }}>
-                          <Option value="val1">Ant Design 6 Select Box</Option>
-                        </Select>
+                        <Select
+                          defaultValue="val1"
+                          size="small"
+                          style={{ width: '100%' }}
+                          options={[{ label: 'Ant Design 6 Select Box', value: 'val1' }]}
+                        />
                       </Col>
                     </Row>
                   </Card>
@@ -1042,13 +1044,15 @@ export default function SettingsPage() {
                           name="dateFormat"
                           tooltip="Standard date presentation format for tables, export files, and detail drawers."
                         >
-                          <Select>
-                            <Option value="YYYY-MM-DD">YYYY-MM-DD (ISO 8601)</Option>
-                            <Option value="DD/MM/YYYY">DD/MM/YYYY (International)</Option>
-                            <Option value="MM/DD/YYYY">MM/DD/YYYY (US Format)</Option>
-                            <Option value="YYYY/MM/DD">YYYY/MM/DD (East Asian)</Option>
-                            <Option value="MMMM D, YYYY">MMMM D, YYYY (Expanded)</Option>
-                          </Select>
+                          <Select
+                            options={[
+                              { label: 'YYYY-MM-DD (ISO 8601)', value: 'YYYY-MM-DD' },
+                              { label: 'DD/MM/YYYY (International)', value: 'DD/MM/YYYY' },
+                              { label: 'MM/DD/YYYY (US Format)', value: 'MM/DD/YYYY' },
+                              { label: 'YYYY/MM/DD (East Asian)', value: 'YYYY/MM/DD' },
+                              { label: 'MMMM D, YYYY (Expanded)', value: 'MMMM D, YYYY' },
+                            ]}
+                          />
                         </Form.Item>
                       </Col>
                     </Row>
@@ -1060,10 +1064,12 @@ export default function SettingsPage() {
                           name="timeFormat"
                           tooltip="Select 24-hour military standard or 12-hour AM/PM format."
                         >
-                          <Select>
-                            <Option value="24h">24-Hour Military Format (14:30:00)</Option>
-                            <Option value="12h">12-Hour AM/PM Format (02:30:00 PM)</Option>
-                          </Select>
+                          <Select
+                            options={[
+                              { label: '24-Hour Military Format (14:30:00)', value: '24h' },
+                              { label: '12-Hour AM/PM Format (02:30:00 PM)', value: '12h' },
+                            ]}
+                          />
                         </Form.Item>
                       </Col>
                       <Col xs={24} md={12}>
@@ -1073,12 +1079,14 @@ export default function SettingsPage() {
                           initialValue="15s"
                           tooltip="Frequency of health metric heartbeat checks between web client and API."
                         >
-                          <Select>
-                            <Option value="5s">High Frequency (5s - Realtime)</Option>
-                            <Option value="15s">Standard Enterprise (15s)</Option>
-                            <Option value="60s">Low Bandwidth (60s)</Option>
-                            <Option value="off">Disabled (On-Demand Only)</Option>
-                          </Select>
+                          <Select
+                            options={[
+                              { label: 'High Frequency (5s - Realtime)', value: '5s' },
+                              { label: 'Standard Enterprise (15s)', value: '15s' },
+                              { label: 'Low Bandwidth (60s)', value: '60s' },
+                              { label: 'Disabled (On-Demand Only)', value: 'off' },
+                            ]}
+                          />
                         </Form.Item>
                       </Col>
                     </Row>
@@ -1163,13 +1171,15 @@ export default function SettingsPage() {
                           name="sessionTimeout"
                           tooltip="Time after which idle web sessions are terminated and require re-authentication."
                         >
-                          <Select>
-                            <Option value={15}>15 Minutes (Strict Security)</Option>
-                            <Option value={30}>30 Minutes</Option>
-                            <Option value={60}>60 Minutes (Standard)</Option>
-                            <Option value={120}>2 Hours</Option>
-                            <Option value={480}>8 Hours (Full Shift)</Option>
-                          </Select>
+                          <Select
+                            options={[
+                              { label: '15 Minutes (Strict Security)', value: 15 },
+                              { label: '30 Minutes', value: 30 },
+                              { label: '60 Minutes (Standard)', value: 60 },
+                              { label: '2 Hours', value: 120 },
+                              { label: '8 Hours (Full Shift)', value: 480 },
+                            ]}
+                          />
                         </Form.Item>
                       </Col>
                       <Col xs={24} md={12}>
@@ -1178,11 +1188,13 @@ export default function SettingsPage() {
                           name="maxFailedAttempts"
                           tooltip="Account will be temporarily locked after consecutive failed password attempts."
                         >
-                          <Select>
-                            <Option value={3}>3 Attempts (High Alert)</Option>
-                            <Option value={5}>5 Attempts (Recommended)</Option>
-                            <Option value={10}>10 Attempts</Option>
-                          </Select>
+                          <Select
+                            options={[
+                              { label: '3 Attempts (High Alert)', value: 3 },
+                              { label: '5 Attempts (Recommended)', value: 5 },
+                              { label: '10 Attempts', value: 10 },
+                            ]}
+                          />
                         </Form.Item>
                       </Col>
                     </Row>
@@ -1204,13 +1216,15 @@ export default function SettingsPage() {
                           name="passwordExpiryDays"
                           tooltip="Forces staff to rotate credentials periodically."
                         >
-                          <Select>
-                            <Option value={30}>Every 30 Days</Option>
-                            <Option value={60}>Every 60 Days</Option>
-                            <Option value={90}>Every 90 Days (Standard)</Option>
-                            <Option value={180}>Every 180 Days</Option>
-                            <Option value={0}>Never Expire</Option>
-                          </Select>
+                          <Select
+                            options={[
+                              { label: 'Every 30 Days', value: 30 },
+                              { label: 'Every 60 Days', value: 60 },
+                              { label: 'Every 90 Days (Standard)', value: 90 },
+                              { label: 'Every 180 Days', value: 180 },
+                              { label: 'Never Expire', value: 0 },
+                            ]}
+                          />
                         </Form.Item>
                       </Col>
                     </Row>

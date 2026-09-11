@@ -28,7 +28,6 @@ import type { LocationBranch } from '../../../services/organization.service';
 import type { Subnet, VLAN } from '../../../services/network.service';
 
 const { Text } = Typography;
-const { Option } = Select;
 
 export interface VlanTableProps {
   vlans: Array<VLAN>;
@@ -284,26 +283,24 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
                 onChange={onLocationChange}
                 style={{ width: 180 }}
                 placeholder="Filter Location"
-              >
-                <Option value="all">All Locations</Option>
-                {locations.map((loc) => (
-                  <Option key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All Locations', value: 'all' },
+                  ...locations.map((loc) => ({ label: loc.name, value: loc.id })),
+                ]}
+              />
 
               <Select
                 value={statusFilter}
                 onChange={onStatusChange}
                 style={{ width: 130 }}
                 placeholder="Status"
-              >
-                <Option value="all">All Status</Option>
-                <Option value="ACTIVE">Active</Option>
-                <Option value="RESERVED">Reserved</Option>
-                <Option value="DEPRECATED">Deprecated</Option>
-              </Select>
+                options={[
+                  { label: 'All Status', value: 'all' },
+                  { label: 'Active', value: 'ACTIVE' },
+                  { label: 'Reserved', value: 'RESERVED' },
+                  { label: 'Deprecated', value: 'DEPRECATED' },
+                ]}
+              />
 
               {isFiltered && <Button onClick={onResetFilters}>Reset</Button>}
 

@@ -36,6 +36,7 @@ export interface AppUserQueryDto {
   pageSize?: number;
   limit?: number;
   search?: string;
+  roleId?: string;
   role?: string;
   status?: string;
   isLocked?: boolean;

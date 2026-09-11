@@ -289,6 +289,14 @@ describe('NetworkService', () => {
     });
 
     it('updateIp updates IP allocation and synchronizes subnet stats', async () => {
+      mockPrisma.iPAddress.findUnique.mockResolvedValue({
+        id: 'ip-1',
+        address: '10.232.130.15',
+        hostname: 'BSL-AC-Reader-01',
+        status: 'USED',
+        subnetId: 'sub-130',
+      });
+
       mockPrisma.iPAddress.update.mockResolvedValue({
         id: 'ip-1',
         address: '10.232.130.15',
@@ -306,6 +314,33 @@ describe('NetworkService', () => {
 
       expect(updated.status).toBe('Reserved');
       expect(mockPrisma.subnet.update).toHaveBeenCalled();
+    });
+
+    it('should synchronize both old and new subnets when IP address is reassigned', async () => {
+      mockPrisma.iPAddress.findUnique.mockResolvedValue({
+        id: 'ip-transfer-1',
+        address: '10.232.130.50',
+        subnetId: 'sub-old-130',
+        status: 'USED',
+      });
+      mockPrisma.iPAddress.update.mockResolvedValue({
+        id: 'ip-transfer-1',
+        subnetId: 'sub-new-140',
+        status: 'USED',
+      });
+      mockPrisma.iPAddress.count.mockResolvedValue(5);
+      mockPrisma.subnet.update.mockResolvedValue({});
+
+      await service.updateIp('ip-transfer-1', {
+        subnetId: 'sub-new-140',
+      });
+
+      expect(mockPrisma.subnet.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'sub-old-130' } }),
+      );
+      expect(mockPrisma.subnet.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'sub-new-140' } }),
+      );
     });
 
     it('deleteIp removes IP and updates subnet usage counter', async () => {

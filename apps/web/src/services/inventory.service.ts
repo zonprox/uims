@@ -1,16 +1,31 @@
 import { api } from './api';
+import type { LocationBranch } from './organization.service';
+import type { Vendor } from './vendor.service';
+
+export interface InventoryCategory {
+  id: string;
+  name: string;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface InventoryItem {
   id: string;
   sku: string;
   name: string;
-  category: 'Cables & Adapters' | 'Peripherals' | 'Storage & RAM' | 'Power & Battery' | 'Tooling';
+  categoryId?: string | null;
+  category?: InventoryCategory | string | null;
   quantity: number;
   minThreshold: number;
   unitCost: number;
-  location: string;
-  binNumber: string;
-  supplier: string;
+  locationId?: string | null;
+  location?: LocationBranch | string | null;
+  locationName?: string;
+  binNumber?: string;
+  supplier?: string;
+  vendorId?: string | null;
+  vendor?: Vendor | null;
   notes?: string;
 }
 
@@ -26,6 +41,7 @@ export const inventoryService = {
   getItems: async (params?: {
     search?: string;
     category?: string;
+    categoryId?: string;
     stockStatus?: string;
   }): Promise<Array<InventoryItem>> => {
     const res = await api.get('/inventory', { params });
@@ -34,6 +50,21 @@ export const inventoryService = {
   getItem: async (id: string): Promise<InventoryItem> => {
     const res = await api.get(`/inventory/${id}`);
     return res.data.data;
+  },
+  getCategories: async (): Promise<Array<InventoryCategory>> => {
+    try {
+      const res = await api.get('/inventory/categories');
+      return res.data.data;
+    } catch {
+      return [
+        { id: 'cat-1', name: 'Cables & Adapters', description: 'Patch cables and adapters' },
+        { id: 'cat-2', name: 'Peripherals', description: 'Mice, keyboards, headsets' },
+        { id: 'cat-3', name: 'Storage & RAM', description: 'SSDs, HDDs, RAM sticks' },
+        { id: 'cat-4', name: 'Power & Battery', description: 'Chargers, power strips, UPS' },
+        { id: 'cat-5', name: 'Tooling', description: 'Crimpers, testers, screwdrivers' },
+        { id: 'cat-6', name: 'General Supplies', description: 'Zip ties, thermal paste, cleaning' },
+      ];
+    }
   },
   createItem: async (data: Partial<InventoryItem>): Promise<InventoryItem> => {
     const res = await api.post('/inventory', data);

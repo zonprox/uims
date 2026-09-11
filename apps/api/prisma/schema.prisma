@@ -61,23 +61,22 @@ enum UserStatus {
 }
 
 model AppUser {
-  id            String         @id @default(uuid())
-  username      String         @unique
-  email         String         @unique
-  passwordHash  String
-  firstName     String
-  lastName      String
-  displayName   String?
-  avatar        String?
-  phone         String?
-  roleId        String?
-  roleName      String?        @default("Employee")
-  status             UserStatus     @default(ACTIVE)
-  isLocked           Boolean        @default(false)
-  mustChangePassword Boolean        @default(false)
+  id                 String     @id @default(uuid())
+  username           String     @unique
+  email              String     @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  displayName        String?
+  avatar             String?
+  phone              String?
+  roleId             String?
+  status             UserStatus @default(ACTIVE)
+  isLocked           Boolean    @default(false)
+  mustChangePassword Boolean    @default(false)
   lastLoginAt        DateTime?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   role          Role?          @relation(fields: [roleId], references: [id], onDelete: SetNull)
   refreshTokens RefreshToken[]
@@ -85,50 +84,36 @@ model AppUser {
   notifications Notification[]
 
   @@index([status])
-  @@index([roleName])
   @@index([roleId])
   @@index([email])
   @@index([username])
 }
 
 model DirectoryUser {
-  id                 String                @id @default(uuid())
-  employeeCode       String?               @unique
-  email              String                @unique
-  firstName          String
-  lastName           String
-  displayName        String?
-  jobTitle           String?
-  company            String?
-  groupCompany       String?
-  plant              String?
-  section            String?
-  subSection         String?
-  computerName       String?
-  computerName2      String?
-  adGroup            String?
-  telephone          String?
-  phone              String?
-  avatar             String?
-  department         String?
-  location           String?
-  ouPath             String?
-  managerName        String?
-  isClosed           Boolean               @default(false)
-  status             AccountStatus         @default(ACTIVE)
-  source             DirectorySource       @default(LOCAL)
-  accountExpiresAt   DateTime?
-  departmentId       String?
-  positionId         String?
-  organizationId     String?
-  locationId         String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  id               String          @id @default(uuid())
+  employeeCode     String?         @unique
+  email            String          @unique
+  firstName        String
+  lastName         String
+  displayName      String?
+  phone            String?
+  avatar           String?
+  ouPath           String?
+  managerName      String?
+  status           AccountStatus   @default(ACTIVE)
+  source           DirectorySource @default(LOCAL)
+  accountExpiresAt DateTime?
+  departmentId     String?
+  positionId       String?
+  organizationId   String?
+  locationId       String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   organization       Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  departmentRel      Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  positionRel        Position?             @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  locationRel        Location?             @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  department         Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position           Position?             @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  location           Location?             @relation(fields: [locationId], references: [id], onDelete: SetNull)
   assignedAssets     Asset[]               @relation("DirectoryAssignedAssets")
   licenseAssignments LicenseAssignment[]
   groupMemberships   DirectoryMembership[]
@@ -139,16 +124,9 @@ model DirectoryUser {
   @@index([positionId])
   @@index([locationId])
   @@index([status])
-  @@index([department])
-  @@index([section])
-  @@index([company])
-  @@index([plant])
-  @@index([computerName])
-  @@index([adGroup])
   @@index([employeeCode])
   @@index([email])
   @@index([firstName, lastName])
-  @@index([jobTitle])
   @@index([ouPath])
   @@index([managerName])
 }
@@ -167,6 +145,8 @@ model Permission {
   subject    String
   conditions Json?
   roles      RolePermission[]
+
+  @@unique([action, subject])
 }
 
 model RolePermission {
@@ -193,6 +173,7 @@ model Asset {
   purchaseCost   Float?
   warrantyExpiry DateTime?
   assignedToId   String?
+  departmentId   String?
   locationId     String?
   credentialId   String?
   specs          Json?
@@ -202,6 +183,7 @@ model Asset {
 
   category    AssetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   assignedTo  DirectoryUser?     @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  department  Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   location    Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
   credential  NetworkCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
   history     AssetHistory[]
@@ -209,6 +191,7 @@ model Asset {
 
   @@index([assignedToId])
   @@index([categoryId])
+  @@index([departmentId])
   @@index([locationId])
   @@index([credentialId])
   @@index([status])
@@ -228,6 +211,8 @@ model AssetCategory {
   parent      AssetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children    AssetCategory[] @relation("CategoryHierarchy")
   assets      Asset[]
+
+  @@index([parentId])
 }
 
 model AssetHistory {
@@ -244,23 +229,37 @@ model AssetHistory {
   @@index([timestamp(sort: Desc)])
 }
 
+model InventoryCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items InventoryItem[]
+}
+
 model InventoryItem {
   id           String   @id @default(uuid())
   sku          String   @unique
   name         String
-  category     String
+  categoryId   String
   quantity     Int      @default(0)
   minThreshold Int      @default(5)
   unitCost     Float    @default(0)
-  location     String
+  locationId   String?
   binNumber    String?
   supplier     String?
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  category InventoryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  location Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
   @@index([sku])
-  @@index([category])
+  @@index([categoryId])
+  @@index([locationId])
   @@index([quantity])
   @@index([name])
   @@index([supplier])
@@ -307,20 +306,21 @@ model LicenseAssignment {
   @@index([licenseId])
   @@index([userId])
   @@index([assignedEmail])
+  @@index([unassignedAt])
 }
 
 model DirectoryGroup {
-  id          String                @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   email       String?
   description String?
   type        String?
-  scope       String?               @default("Internal Only")
+  scope       String?  @default("Internal Only")
   ouPath      String?
   managedBy   String?
-  memberCount Int                   @default(0)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  memberCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   memberships DirectoryMembership[]
 
@@ -345,14 +345,14 @@ enum VlanStatus {
 }
 
 model VLAN {
-  id          String      @id @default(uuid())
-  vlanNumber  Int         @unique
+  id          String     @id @default(uuid())
+  vlanNumber  Int        @unique
   name        String
   description String?
-  status      VlanStatus  @default(ACTIVE)
+  status      VlanStatus @default(ACTIVE)
   locationId  String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   location    Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
   subnets     Subnet[]
@@ -364,8 +364,8 @@ model VLAN {
 }
 
 model Subnet {
-  id               String      @id @default(uuid())
-  cidr             String      @unique
+  id               String   @id @default(uuid())
+  cidr             String   @unique
   name             String
   vlanId           String?
   locationId       String?
@@ -375,16 +375,16 @@ model Subnet {
   broadcastAddress String?
   startIp          String?
   endIp            String?
-  totalIps         Int         @default(254)
-  usedIps          Int         @default(0)
-  reservedIps      Int         @default(0)
+  totalIps         Int      @default(254)
+  usedIps          Int      @default(0)
+  reservedIps      Int      @default(0)
   description      String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  vlan             VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
-  location         Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  ipAddresses      IPAddress[]
+  vlan        VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
+  location    Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  ipAddresses IPAddress[]
 
   @@index([vlanId])
   @@index([locationId])
@@ -393,12 +393,12 @@ model Subnet {
 }
 
 model IPAddress {
-  id             String             @id @default(uuid())
+  id             String    @id @default(uuid())
   address        String
   hostname       String?
   macAddress     String?
   vendor         String?
-  deviceType     String?            @default("Workstation")
+  deviceType     String?   @default("Workstation")
   model          String?
   serialNumber   String?
   section        String?
@@ -409,20 +409,20 @@ model IPAddress {
   assetId        String?
   assignedUserId String?
   credentialId   String?
-  status         IPStatus           @default(AVAILABLE)
-  pingStatus     String?            @default("online")
+  status         IPStatus  @default(AVAILABLE)
+  pingStatus     String?   @default("online")
   responseTimeMs Float?
   lastSeen       DateTime?
   description    String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  subnet         Subnet?            @relation(fields: [subnetId], references: [id], onDelete: SetNull)
-  vlan           VLAN?              @relation(fields: [vlanId], references: [id], onDelete: SetNull)
-  location       Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  asset          Asset?             @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  assignedUser   DirectoryUser?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
-  credential     NetworkCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  subnet       Subnet?            @relation(fields: [subnetId], references: [id], onDelete: SetNull)
+  vlan         VLAN?              @relation(fields: [vlanId], references: [id], onDelete: SetNull)
+  location     Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  asset        Asset?             @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  assignedUser DirectoryUser?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  credential   NetworkCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
 
   @@unique([address, subnetId])
   @@index([subnetId])
@@ -439,21 +439,21 @@ model IPAddress {
 }
 
 model NetworkCredential {
-  id            String      @id @default(uuid())
+  id            String   @id @default(uuid())
   name          String
   username      String
-  encryptedData String      // Base64 AES-256-GCM ciphertext
-  iv            String      // Base64 12-byte initialization vector
-  authTag       String      // Base64 16-byte authentication tag
-  keyVersion    Int         @default(1)
-  protocol      String?     @default("HTTP")
+  encryptedData String // Base64 AES-256-GCM ciphertext
+  iv            String // Base64 12-byte initialization vector
+  authTag       String // Base64 16-byte authentication tag
+  keyVersion    Int      @default(1)
+  protocol      String?  @default("HTTP")
   port          Int?
   notes         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  ipAddresses   IPAddress[]
-  assets        Asset[]
+  ipAddresses IPAddress[]
+  assets      Asset[]
 
   @@index([name])
   @@index([username])
@@ -565,11 +565,12 @@ model Location {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  assets      Asset[]
-  users       DirectoryUser[]
-  vlans       VLAN[]
-  subnets     Subnet[]
-  ipAddresses IPAddress[]
+  assets         Asset[]
+  users          DirectoryUser[]
+  vlans          VLAN[]
+  subnets        Subnet[]
+  ipAddresses    IPAddress[]
+  inventoryItems InventoryItem[]
 
   @@index([organizationId])
   @@index([name])
@@ -577,17 +578,17 @@ model Location {
 }
 
 model Organization {
-  id          String       @id @default(uuid())
-  name        String
-  code        String       @unique
-  taxId       String?
-  email       String?
-  phone       String?
-  address     String?
-  website     String?
-  status      String       @default("ACTIVE")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  taxId     String?
+  email     String?
+  phone     String?
+  address   String?
+  website   String?
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   departments Department[]
   locations   Location[]
@@ -595,23 +596,24 @@ model Organization {
 }
 
 model Department {
-  id             String       @id @default(uuid())
+  id             String        @id @default(uuid())
   name           String
-  code           String       @unique
+  code           String        @unique
   description    String?
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   parentId       String?
-  parent         Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children       Department[] @relation("DepartmentHierarchy")
+  parent         Department?   @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Department[]  @relation("DepartmentHierarchy")
   managerName    String?
   managerEmail   String?
-  status         String       @default("ACTIVE")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  status         String        @default("ACTIVE")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  positions      Position[]
-  users          DirectoryUser[]
+  positions Position[]
+  users     DirectoryUser[]
+  assets    Asset[]
 
   @@index([organizationId])
   @@index([parentId])
@@ -629,7 +631,7 @@ model Position {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  users        DirectoryUser[]
+  users DirectoryUser[]
 
   @@index([departmentId])
 }

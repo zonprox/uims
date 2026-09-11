@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class CreateInventoryItemDto {
   @IsString()
@@ -8,6 +8,10 @@ export class CreateInventoryItemDto {
   @IsOptional()
   @IsString()
   sku?: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  categoryId!: string;
 
   @IsOptional()
   @IsString()
@@ -27,6 +31,10 @@ export class CreateInventoryItemDto {
   @IsNumber()
   @Min(0)
   unitCost?: number;
+
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
 
   @IsOptional()
   @IsString()

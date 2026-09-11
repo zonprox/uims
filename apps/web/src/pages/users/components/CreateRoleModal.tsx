@@ -4,8 +4,6 @@ import { App, Form, Input, Modal, Radio, Select } from 'antd';
 import React, { useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
 
-const { Option } = Select;
-
 interface CreateRoleModalProps {
   open: boolean;
   catalog: PermissionCatalogSubject[];
@@ -129,14 +127,15 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
               value={cloneSourceId || undefined}
               onChange={setCloneSourceId}
               style={{ width: '100%', marginTop: 8 }}
-            >
-              {existingRoles.map((r) => (
-                <Option key={r.id} value={r.id}>
-                  {r.name} ({r.isSystem ? 'System' : 'Custom'} - {r.permissionCount || 0}{' '}
-                  permissions)
-                </Option>
-              ))}
-            </Select>
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={existingRoles.map((r) => ({
+                label: `${r.name} (${r.isSystem ? 'System' : 'Custom'} - ${r.permissionCount || 0} permissions)`,
+                value: r.id,
+              }))}
+            />
           )}
         </Form.Item>
       </Form>

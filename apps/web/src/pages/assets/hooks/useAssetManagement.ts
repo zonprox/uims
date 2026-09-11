@@ -13,9 +13,13 @@ export interface AssetFormValues {
   model?: string;
   serialNumber?: string;
   category?: Asset['category'];
+  categoryId?: string;
   status?: Asset['status'];
   assignedTo?: string;
+  assignedToId?: string;
   location?: string;
+  locationId?: string;
+  credentialId?: string;
   purchaseDate?: dayjs.Dayjs;
   purchasePrice?: number;
   warrantyExpiry?: dayjs.Dayjs;
@@ -47,9 +51,13 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
     model: values.model ?? '',
     serialNumber: values.serialNumber ?? '',
     category: values.category ?? 'Laptop',
+    categoryId: values.categoryId || undefined,
     status: values.status ?? 'Active',
-    assignedTo: values.assignedTo || 'Unassigned',
-    location: values.location ?? '',
+    assignedTo: values.assignedTo,
+    assignedToId: values.assignedToId || undefined,
+    location: values.location,
+    locationId: values.locationId || undefined,
+    credentialId: values.credentialId || undefined,
     purchaseDate,
     purchasePrice: values.purchasePrice ?? 0,
     warrantyExpiry,
@@ -245,6 +253,10 @@ export function useAssetManagement(form: FormInstance) {
       setEditingAsset(asset);
       form.setFieldsValue({
         ...asset,
+        categoryId: asset.categoryId,
+        assignedToId: asset.assignedToId,
+        locationId: asset.locationId,
+        credentialId: asset.credentialId,
         purchaseDate: asset.purchaseDate ? dayjs(asset.purchaseDate) : undefined,
         warrantyExpiry: asset.warrantyExpiry ? dayjs(asset.warrantyExpiry) : undefined,
         cpu: asset.specs?.cpu,

@@ -499,3 +499,75 @@ Ensure all changes strictly satisfy the monorepo verification invariants:
 - [ ] `pnpm run format:check` exits 0 with 100% Biome compliance.
 - [ ] `pnpm run test` exits 0 with 100% test pass rate.
 - [ ] `pnpm run build` exits 0 with clean builds across all packages.
+
+## 2026-09-10T12:29:49Z
+
+Deeply audit and standardize the core IT management modules (Directory, Organization Structure, Access Control, Hardware Assets, Software Licenses, Inventory, Network) across the full stack (Prisma schema, NestJS APIs/DTOs, and React Ant Design v6 frontend). Eliminate over-engineered and redundant fields, replace disconnected freeform text inputs with relational dropdown selectors, automate derived metrics, and deliver a clean, minimalist 2026 enterprise management workflow.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Cross-Module Relational Harmonization
+Replace disconnected manual text fields with relational dropdown selectors and linked entity pickers across all 7 modules:
+- Hardware Assets: select assigned DirectoryUser, Location, AssetCategory, and NetworkCredential from searchable relational dropdowns.
+- Software Licenses: select assigned DirectoryUsers via relational multi-select / user pickers; auto-sync seat allocation.
+- Network (VLANs, Subnets, IP Addresses): select parent VLAN for Subnet, Subnet for IP, and link IP address directly to Hardware Asset or DirectoryUser via relational selectors.
+- Organization & Access: link Departments to Organizations, Positions to Departments, DirectoryUsers to Department/Position/Location, and AppUsers to Roles with cascade consistency.
+- Inventory: bind item locations/categories to standardized master references instead of unvalidated freeform strings.
+
+### R2. Decisive Field & Feature Simplification
+Audit and aggressively prune niche, redundant, and obsolete fields across Prisma models, backend DTOs, and frontend forms/tables:
+- Remove duplicate denormalized string columns in DirectoryUser (e.g., redundant freeform `company`, `plant`, `section`, `subSection`, `computerName2` when structured Organization/Department relations exist).
+- Eliminate superfluous configuration fields, bloated secondary attributes, and esoteric settings that clutter forms and tables.
+- Streamline form modals and drawers into compact, high-signal layouts focusing exclusively on essential enterprise IT management operations.
+
+### R3. Business Automation & Derived Metrics
+Automate all derivable values and state calculations to eliminate manual data entry:
+- Auto-calculate license seat usage (`usedSeats` based on active `LicenseAssignment` records) and remaining capacity.
+- Auto-calculate Subnet IP utilization (`usedIps` and `reservedIps` derived from registered `IPAddress` states).
+- Auto-derive status transitions where applicable (e.g., Asset status automatically set to `IN_USE` when assigned to a user, and `AVAILABLE` when unassigned).
+- Auto-populate cascading defaults (e.g., selecting a Subnet auto-fills Gateway, Netmask, and default VLAN if associated).
+
+### R4. Full-Stack Architectural & Quality Invariants
+Implement full-stack synchronization complying strictly with AGENTS.md standards:
+- Generate clean Prisma migrations and update all affected NestJS modules, services, controllers, and DTOs.
+- Adhere to Ant Design v6 best practices on React 19: dynamic feedback context exclusively via `App.useApp()`, semantic token styles (`styles={{ ... }}`), no deprecated v4/v5 props (`bodyStyle`, `headStyle`).
+- Preserve strict typing: Zero `any`, typed catch blocks (`catch (error: unknown)`), zero silent catches, zero diagnostic suppressions.
+- Enforce 100% professional, concise Enterprise English UI copy without verbose marketing fluff.
+
+## Acceptance Criteria
+
+### Data Architecture & Migrations
+- [ ] Prisma schema is pruned of redundant fields and foreign key relations are properly indexed with `@@index`.
+- [ ] Safe database migration generated and validated via `pnpm --filter api exec prisma validate`.
+- [ ] Backend DTOs and validation schemas (Zod / class-validator) accurately mirror the simplified models with zero orphaned properties.
+
+### UI/UX & Relational Linkage
+- [ ] Every cross-entity association in forms across Directory, Organization, Access Control, Assets, Licenses, Inventory, and Network uses an asynchronous or pre-loaded searchable `Select` component rather than raw text inputs.
+- [ ] Form submission payloads submit relational IDs (e.g., `assignedToId`, `locationId`, `subnetId`, `departmentId`) instead of arbitrary freeform names.
+- [ ] All table lists display rich entity tags/badges linking to the associated entity.
+- [ ] High-frequency pages wrap their content cleanly in `<PageContainer>` with consistent 2026 minimalist layout density.
+
+### Automation & Business Logic
+- [ ] Assigning/unassigning a license updates `usedSeats` accurately without manual counter editing.
+- [ ] Allocating/releasing an IP address updates Subnet utilization counters and reflects immediate asset/user linkage.
+- [ ] Asset status transitions automatically reflect assignment lifecycle states.
+
+### Verification & Quality Gates
+- [ ] `pnpm run typecheck` completes with 0 errors across all workspaces (`apps/api`, `apps/web`, `packages/*`).
+- [ ] `pnpm run lint` completes with 0 errors.
+- [ ] `pnpm run format:check` passes 100% compliant with Biome rules.
+- [ ] `pnpm run test` passes with 100% success rate across API and Web test suites.
+- [ ] `pnpm run build` succeeds cleanly for all packages and applications.
+
+## 2026-09-10T12:59:34Z
+
+USER DIRECTIVE:
+Clean up the database completely (clean reset / migrate fresh / wipe dirty legacy records).
+Update the seed scripts to be neat, concise, standardized, and minimal.
+The user explicitly emphasized: existing data does NOT need to be preserved (not in production yet) — the absolute priority is having a clean, pristine database schema and minimal, standardized seed data across all 7 modules.
+Please pass this directive to the Project Orchestrator and ensure the database is reset and seeded cleanly with the new normalized relational models.
+
+

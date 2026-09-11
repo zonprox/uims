@@ -75,4 +75,21 @@ describe('useAssetManagement helpers', () => {
       notes: 'Dock included',
     });
   });
+
+  it('should preserve relational IDs in buildAssetPayload', () => {
+    const payload = buildAssetPayload({
+      tag: 'AST-1099',
+      name: 'Dell XPS 16',
+      categoryId: 'cat-uuid-1',
+      assignedToId: 'user-uuid-1',
+      locationId: 'loc-uuid-1',
+      credentialId: 'cred-uuid-1',
+      status: 'Active',
+    });
+
+    expect(payload.categoryId).toBe('cat-uuid-1');
+    expect(payload.assignedToId).toBe('user-uuid-1');
+    expect(payload.locationId).toBe('loc-uuid-1');
+    expect(payload.credentialId).toBe('cred-uuid-1');
+  });
 });

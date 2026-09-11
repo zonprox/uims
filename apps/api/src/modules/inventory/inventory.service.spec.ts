@@ -28,6 +28,11 @@ describe('InventoryService', () => {
         count: vi.fn(),
         aggregate: vi.fn(),
       },
+      inventoryCategory: {
+        findMany: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue({ id: 'cat-1', name: 'Peripherals' }),
+        create: vi.fn().mockResolvedValue({ id: 'cat-1', name: 'Peripherals' }),
+      },
     };
 
     service = new InventoryService(
@@ -94,6 +99,7 @@ describe('InventoryService', () => {
       expect(mockPrisma.inventoryItem.update).toHaveBeenCalledWith({
         where: { id: 'itm-1' },
         data: { quantity: { increment: 2 } },
+        include: { category: true, location: true },
       });
       expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -123,6 +129,29 @@ describe('InventoryService', () => {
       expect(stats.lowStockCount).toBe(1);
       expect(stats.outOfStockCount).toBe(1);
       expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    });
+  });
+
+  describe('getCategories', () => {
+    it('should query inventoryCategory and return bounded list of categories', async () => {
+      const mockCats = [
+        { id: 'cat-1', name: 'Cables & Adapters', description: 'Patch cables' },
+        { id: 'cat-2', name: 'Peripherals', description: 'Mice and keyboards' },
+      ];
+      mockPrisma.inventoryCategory.findMany.mockResolvedValue(mockCats);
+
+      const result = await service.getCategories();
+
+      expect(mockPrisma.inventoryCategory.findMany).toHaveBeenCalledWith({
+        select: {
+          id: true,
+          name: true,
+          description: true,
+        },
+        orderBy: { name: 'asc' },
+        take: 100,
+      });
+      expect(result).toEqual(mockCats);
     });
   });
 });

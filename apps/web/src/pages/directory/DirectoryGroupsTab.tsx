@@ -30,7 +30,6 @@ import React, { useMemo, useState } from 'react';
 import { directoryService } from '../../services/directory.service';
 
 const { Text } = Typography;
-const { Option } = Select;
 
 export interface DirectoryGroupsTabProps {
   groups: DirectoryGroup[];
@@ -260,20 +259,24 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="Group Type">
-                <Select>
-                  <Option value="Security">Security</Option>
-                  <Option value="Distribution">Distribution</Option>
-                  <Option value="Mail-Enabled Security">Mail-Enabled Security</Option>
-                </Select>
+                <Select
+                  options={[
+                    { label: 'Security', value: 'Security' },
+                    { label: 'Distribution', value: 'Distribution' },
+                    { label: 'Mail-Enabled Security', value: 'Mail-Enabled Security' },
+                  ]}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="scope" label="Group Scope">
-                <Select>
-                  <Option value="Global">Global</Option>
-                  <Option value="Universal">Universal</Option>
-                  <Option value="Domain Local">Domain Local</Option>
-                </Select>
+                <Select
+                  options={[
+                    { label: 'Global', value: 'Global' },
+                    { label: 'Universal', value: 'Universal' },
+                    { label: 'Domain Local', value: 'Domain Local' },
+                  ]}
+                />
               </Form.Item>
             </Col>
           </Row>

@@ -1,3 +1,5 @@
+import type { DirectoryUser } from './directory';
+
 export enum LicenseType {
   SUBSCRIPTION = 'SUBSCRIPTION',
   PERPETUAL = 'PERPETUAL',
@@ -21,6 +23,7 @@ export interface License {
   type: LicenseType;
   totalSeats: number;
   usedSeats: number;
+  remainingSeats?: number;
   costPerSeat?: number | null;
   purchaseDate?: string | null;
   expiryDate?: string | null;
@@ -28,6 +31,7 @@ export interface License {
   status: LicenseStatus;
   autoRenew: boolean;
   notes?: string | null;
+  assignments?: LicenseAssignment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +40,7 @@ export interface LicenseAssignment {
   id: string;
   licenseId: string;
   userId?: string | null;
+  user?: DirectoryUser | null;
   assignedName?: string | null;
   assignedEmail?: string | null;
   department?: string | null;

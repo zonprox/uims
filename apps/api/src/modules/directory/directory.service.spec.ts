@@ -247,7 +247,6 @@ describe('DirectoryService', () => {
           where: { id: 'dir-1' },
           data: expect.objectContaining({
             firstName: 'Robert',
-            adGroup: 'SEC-Eng-DevOps',
           }),
         }),
       );

@@ -18,6 +18,12 @@ export class AssetsController {
     return this.assetsService.getStats();
   }
 
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all asset categories' })
+  getCategories() {
+    return this.assetsService.getCategories();
+  }
+
   @Post()
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Create asset' })

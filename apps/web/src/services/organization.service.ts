@@ -13,6 +13,8 @@ import type {
 } from '@uims/shared-types';
 import { api } from './api';
 
+export type { Department, Organization, Position };
+
 export interface LocationBranch {
   id: string;
   name: string;

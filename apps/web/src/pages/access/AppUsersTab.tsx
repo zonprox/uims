@@ -37,7 +37,6 @@ import { FormattedDateTime } from '../../components/FormattedDate';
 import { usersService } from '../../services/users.service';
 
 const { Text } = Typography;
-const { Option } = Select;
 
 export interface AppUsersTabProps {
   users: AppUser[];
@@ -134,7 +133,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         password: values.password || generateRandomPassword(),
         displayName: values.displayName?.trim(),
         roleId: values.roleId,
-        roleName: selectedRole?.name || 'Employee',
+        roleName: selectedRole?.name,
         status: values.status || UserStatus.ACTIVE,
       });
       message.success('User account created successfully.');
@@ -453,26 +452,24 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
                 onChange={setRoleFilter}
                 style={{ width: 160 }}
                 placeholder="Filter by Role"
-              >
-                <Option value="all">All Roles</Option>
-                {safeRoles.map((r) => (
-                  <Option key={r.id} value={r.id}>
-                    {r.name}
-                  </Option>
-                ))}
-              </Select>
+                options={[
+                  { label: 'All Roles', value: 'all' },
+                  ...safeRoles.map((r) => ({ label: r.name, value: r.id })),
+                ]}
+              />
 
               <Select
                 value={statusFilter}
                 onChange={setStatusFilter}
                 style={{ width: 140 }}
                 placeholder="Filter by Status"
-              >
-                <Option value="all">All Statuses</Option>
-                <Option value={UserStatus.ACTIVE}>Active</Option>
-                <Option value={UserStatus.INACTIVE}>Inactive</Option>
-                <Option value={UserStatus.SUSPENDED}>Suspended</Option>
-              </Select>
+                options={[
+                  { label: 'All Statuses', value: 'all' },
+                  { label: 'Active', value: UserStatus.ACTIVE },
+                  { label: 'Inactive', value: UserStatus.INACTIVE },
+                  { label: 'Suspended', value: UserStatus.SUSPENDED },
+                ]}
+              />
 
               <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>
                 Refresh
@@ -561,22 +558,28 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
                 label="System Role"
                 rules={[{ required: true, message: 'Please assign a role.' }]}
               >
-                <Select placeholder="Select role">
-                  {safeRoles.map((r) => (
-                    <Option key={r.id} value={r.id}>
-                      {r.name}
-                    </Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="Select role"
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={safeRoles.map((r) => ({
+                    label: r.name,
+                    value: r.id,
+                  }))}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="status" label="Account Status">
-                <Select>
-                  <Option value={UserStatus.ACTIVE}>Active</Option>
-                  <Option value={UserStatus.INACTIVE}>Inactive</Option>
-                  <Option value={UserStatus.SUSPENDED}>Suspended</Option>
-                </Select>
+                <Select
+                  options={[
+                    { label: 'Active', value: UserStatus.ACTIVE },
+                    { label: 'Inactive', value: UserStatus.INACTIVE },
+                    { label: 'Suspended', value: UserStatus.SUSPENDED },
+                  ]}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -617,22 +620,29 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="roleId" label="Assigned Role">
-                <Select placeholder="Select role">
-                  {safeRoles.map((r) => (
-                    <Option key={r.id} value={r.id}>
-                      {r.name}
-                    </Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="Select role"
+                  showSearch
+                  allowClear
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={safeRoles.map((r) => ({
+                    label: r.name,
+                    value: r.id,
+                  }))}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="status" label="Account Status">
-                <Select>
-                  <Option value={UserStatus.ACTIVE}>Active</Option>
-                  <Option value={UserStatus.INACTIVE}>Inactive</Option>
-                  <Option value={UserStatus.SUSPENDED}>Suspended</Option>
-                </Select>
+                <Select
+                  options={[
+                    { label: 'Active', value: UserStatus.ACTIVE },
+                    { label: 'Inactive', value: UserStatus.INACTIVE },
+                    { label: 'Suspended', value: UserStatus.SUSPENDED },
+                  ]}
+                />
               </Form.Item>
             </Col>
           </Row>
