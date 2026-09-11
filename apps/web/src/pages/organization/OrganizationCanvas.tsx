@@ -447,6 +447,27 @@ export default function OrganizationCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 
+  // Auto-collapse deep tiers (depth >= 2) on initial tree load to preserve executive readability
+  const hasInitializedCollapse = useRef(false);
+  useEffect(() => {
+    if (treeData && treeData.length > 0 && !hasInitializedCollapse.current) {
+      hasInitializedCollapse.current = true;
+      const initial = new Set<string>();
+      const walk = (nodes: OrgNode[], depth = 0) => {
+        for (const node of nodes) {
+          if (depth >= 2 && node.children && node.children.length > 0) {
+            initial.add(node.key);
+          }
+          if (node.children) {
+            walk(node.children, depth + 1);
+          }
+        }
+      };
+      walk(treeData, 0);
+      setCollapsedKeys(initial);
+    }
+  }, [treeData]);
+
   // Filter States
   const [typeFilters, setTypeFilters] = useState<Set<string>>(
     new Set(['organization', 'branch', 'department', 'sub-department', 'position']),
@@ -1659,6 +1680,72 @@ export default function OrganizationCanvas({
                     >
                       {node.data.code}
                     </Tag>
+                    {node.data.type === 'organization' ? (
+                      <Tag
+                        color="purple"
+                        style={{
+                          fontSize: 9,
+                          margin: 0,
+                          padding: '0 3px',
+                          height: 15,
+                          lineHeight: '13px',
+                        }}
+                      >
+                        HQ
+                      </Tag>
+                    ) : node.depth === 1 ? (
+                      <Tag
+                        color="purple"
+                        style={{
+                          fontSize: 9,
+                          margin: 0,
+                          padding: '0 3px',
+                          height: 15,
+                          lineHeight: '13px',
+                        }}
+                      >
+                        L1 Exec
+                      </Tag>
+                    ) : node.depth === 2 && node.data.type !== 'position' ? (
+                      <Tag
+                        color="blue"
+                        style={{
+                          fontSize: 9,
+                          margin: 0,
+                          padding: '0 3px',
+                          height: 15,
+                          lineHeight: '13px',
+                        }}
+                      >
+                        L2 Division
+                      </Tag>
+                    ) : node.depth === 3 && node.data.type !== 'position' ? (
+                      <Tag
+                        color="cyan"
+                        style={{
+                          fontSize: 9,
+                          margin: 0,
+                          padding: '0 3px',
+                          height: 15,
+                          lineHeight: '13px',
+                        }}
+                      >
+                        L3 Plant
+                      </Tag>
+                    ) : node.depth >= 4 && node.data.type !== 'position' ? (
+                      <Tag
+                        color="orange"
+                        style={{
+                          fontSize: 9,
+                          margin: 0,
+                          padding: '0 3px',
+                          height: 15,
+                          lineHeight: '13px',
+                        }}
+                      >
+                        L4 Section
+                      </Tag>
+                    ) : null}
                   </Flex>
 
                   {/* Context Actions Dropdown */}

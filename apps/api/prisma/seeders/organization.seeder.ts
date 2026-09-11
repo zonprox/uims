@@ -687,12 +687,102 @@ export async function seedOrganizations(prisma: PrismaClient) {
 
   logger.log(`✅ Seeded ${locationDefs.length} hierarchical spatial locations across BSL & BSH.`);
 
-  // 3. Standardized Departments Catalog
+  // 3. Standardized Departments Catalog (4-Tier Enterprise Hierarchy)
+  // Level 1: Executive Leadership
+  // Level 2: Operating Divisions (Khối Nghiệp Vụ, Khối Kho Vận, Khối Chất Lượng, Khối Sản Xuất)
+  // Level 3: Specialized Departments & Factories (Phòng Ban & 7 Phân Xưởng May)
+  // Level 4: Factory Functional Sections (Cắt, In/Thêu, May, MDC, QA/KCS, Kế Hoạch/Sale, Đóng Gói)
+  const factorySections = Array.from({ length: 7 }, (_, index) => {
+    const fNum = index + 1;
+    const fId = `dept-bsl-f${fNum}`;
+    return [
+      {
+        id: `${fId}-cut`,
+        name: `Factory ${fNum} - Cutting Section (Tổ Cắt Vải)`,
+        code: `DEPT-BSL-F${fNum}-CUT`,
+        description: `Fabric spreading, CAD marker plotting, automated knife cutting & bundling for Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Section Lead F${fNum} Cutting`,
+        managerEmail: `cut.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
+        id: `${fId}-prt`,
+        name: `Factory ${fNum} - Printing & Embroidery Section (Tổ In & Thêu)`,
+        code: `DEPT-BSL-F${fNum}-PRT`,
+        description: `Screen printing, heat-transfer vinyl & multi-head automated embroidery for Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Section Lead F${fNum} Printing`,
+        managerEmail: `prt.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
+        id: `${fId}-sew`,
+        name: `Factory ${fNum} - Sewing Assembly Lines (Chuyền May Công Nghiệp)`,
+        code: `DEPT-BSL-F${fNum}-SEW`,
+        description: `Industrial lockstitch, overlock, flatlock sewing & seam-sealing lines for Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Line Supervisor F${fNum} Sewing`,
+        managerEmail: `sew.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
+        id: `${fId}-mdc`,
+        name: `Factory ${fNum} - MDC Sub-Warehouse (Kho Cấp Phát Phụ Liệu MDC)`,
+        code: `DEPT-BSL-F${fNum}-MDC`,
+        description: `Material Distribution Center (MDC) sub-warehouse staging point for accessories, thread, zippers & trims in Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Storekeeper F${fNum} MDC`,
+        managerEmail: `mdc.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
+        id: `${fId}-qa`,
+        name: `Factory ${fNum} - Inline QA/QC Section (Tổ Kiểm Định Chất Lượng KCS)`,
+        code: `DEPT-BSL-F${fNum}-QA`,
+        description: `Inline traffic-light inspection, endline AQL audit & metal detector safety for Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `QA Lead F${fNum}`,
+        managerEmail: `qa.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
+        id: `${fId}-sale`,
+        name: `Factory ${fNum} - Factory Sales & Planning (Tổ Kế Hoạch Đơn Hàng & Sale)`,
+        code: `DEPT-BSL-F${fNum}-SALE`,
+        description: `Production scheduling, daily output tracking, buyer progress updates & factory line balancing`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Planner F${fNum}`,
+        managerEmail: `plan.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
+        id: `${fId}-pck`,
+        name: `Factory ${fNum} - Finishing & Packing Section (Tổ Hoàn Tất & Đóng Gói)`,
+        code: `DEPT-BSL-F${fNum}-PCK`,
+        description: `Thread trimming, steam ironing, barcode hang-tagging, polybagging & export carton packing for Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Packing Lead F${fNum}`,
+        managerEmail: `pck.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+    ];
+  }).flat();
+
   const departmentsData = [
-    // ── BSL Departments (Soc Trang Manufacturing Hub) ─────────────
+    // ═════════════════════════════════════════════════════════════════
+    // ── BSL: LEVEL 1 — EXECUTIVE LEADERSHIP ───────────────────────────
+    // ═════════════════════════════════════════════════════════════════
     {
       id: 'dept-bsl-mgmt',
-      name: 'Factory Executive Leadership',
+      name: 'Factory Executive Leadership (Ban Giám Đốc Nhà Máy)',
       code: 'DEPT-BSL-MGMT',
       description: 'Factory general management, plant leadership & operational governance',
       organizationId: orgBSL.id,
@@ -701,25 +791,16 @@ export async function seedOrganizations(prisma: PrismaClient) {
       managerEmail: 'binh.tran@broadpeak.youngone.com',
       status: 'ACTIVE',
     },
-    // Business Center Departments
+
+    // ═════════════════════════════════════════════════════════════════
+    // ── BSL: LEVEL 2 — OPERATING DIVISIONS (KHỐI CHỨC NĂNG) ──────────
+    // ═════════════════════════════════════════════════════════════════
     {
-      id: 'dept-bsl-it',
-      name: 'Factory IT & Industrial Automation',
-      code: 'DEPT-BSL-IT',
+      id: 'dept-bsl-ops',
+      name: 'Business Operations Division (Khối Nghiệp Vụ - Business Center)',
+      code: 'DEPT-BSL-OPS',
       description:
-        'Shop floor networking, barcode systems, CAD/CAM workstations & IT infrastructure',
-      organizationId: orgBSL.id,
-      parentId: 'dept-bsl-mgmt',
-      managerName: 'Pham Hoang Nam',
-      managerEmail: 'nam.pham@broadpeak.youngone.com',
-      status: 'ACTIVE',
-    },
-    {
-      id: 'dept-bsl-imex',
-      name: 'Import-Export Department (Xuất nhập khẩu)',
-      code: 'DEPT-BSL-IMEX',
-      description:
-        'Customs declaration, raw material importation, and global garment export logistics',
+        'Business Center operational administration, commercial support, finance, compliance & IT',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Hoang Van Minh',
@@ -727,84 +808,177 @@ export async function seedOrganizations(prisma: PrismaClient) {
       status: 'ACTIVE',
     },
     {
-      id: 'dept-bsl-acc',
-      name: 'Accounting & Cost Finance (Kế toán)',
-      code: 'DEPT-BSL-ACC',
-      description:
-        'Factory cost accounting, shop floor labor payroll, taxation & financial reporting',
-      organizationId: orgBSL.id,
-      parentId: 'dept-bsl-mgmt',
-      managerName: 'Nguyen Mai Lan',
-      managerEmail: 'lan.nguyenmai@broadpeak.youngone.com',
-      status: 'ACTIVE',
-    },
-    {
-      id: 'dept-bsl-admin',
-      name: 'General Administration & Plant Affairs',
-      code: 'DEPT-BSL-ADMIN',
-      description:
-        'General plant administration, workplace safety, cafeteria & physical facilities',
-      organizationId: orgBSL.id,
-      parentId: 'dept-bsl-mgmt',
-      managerName: 'Truong Van Hai',
-      managerEmail: 'hai.truong@broadpeak.youngone.com',
-      status: 'ACTIVE',
-    },
-    {
-      id: 'dept-bsl-hr',
-      name: 'Human Resources & General Affairs',
-      code: 'DEPT-BSL-HR',
-      description: 'Factory workforce recruitment, employee relations, training & labor compliance',
-      organizationId: orgBSL.id,
-      parentId: 'dept-bsl-mgmt',
-      managerName: 'Dang Minh Chau',
-      managerEmail: 'chau.dang@broadpeak.youngone.com',
-      status: 'ACTIVE',
-    },
-    // Central Warehouse Department
-    {
       id: 'dept-bsl-log',
-      name: 'Central Warehouse & Logistics (Kho tổng)',
+      name: 'Supply Chain & Central Warehouse Division (Khối Kho Vận Tổng - Tòa Warehouse)',
       code: 'DEPT-BSL-LOG',
       description:
-        'Central fabric warehouse, accessories stockroom & export finished goods logistics',
+        'Central warehouse logistics, fabric receiving, trims storage, spare parts & export distribution',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Vo Thi Kim',
       managerEmail: 'kim.vo@broadpeak.youngone.com',
       status: 'ACTIVE',
     },
-    // QA Department
     {
       id: 'dept-bsl-qa',
-      name: 'Quality Assurance & Technical Audit',
+      name: 'Quality Assurance & Technical Audit Division (Khối Quản Lý Chất Lượng & Kỹ Thuật)',
       code: 'DEPT-BSL-QA',
       description:
-        'Garment inline/endline inspection, AQL standards & brand buyer technical audits',
+        'Enterprise quality management, technical compliance, brand buyer audits & sample CAD/CAM',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Nguyen Quoc Huy',
       managerEmail: 'huy.nguyen@broadpeak.youngone.com',
       status: 'ACTIVE',
     },
-    // Production Division
     {
       id: 'dept-bsl-prod',
-      name: 'Garment Production Division',
+      name: 'Garment Manufacturing Division (Khối Sản Xuất May Mặc)',
       code: 'DEPT-BSL-PROD',
-      description: 'Overall apparel manufacturing management across all 7 production factories',
+      description:
+        'Overall apparel manufacturing operations across all 7 production factories (F1 - F7)',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Le Thi Thu',
       managerEmail: 'thu.le@broadpeak.youngone.com',
       status: 'ACTIVE',
     },
-    // 7 Factory Departments (Factory 1 to 7)
+
+    // ═════════════════════════════════════════════════════════════════
+    // ── BSL: LEVEL 3 — DEPARTMENTS & FACTORIES ────────────────────────
+    // ═════════════════════════════════════════════════════════════════
+    // Under Business Operations Division (Business Center Building)
+    {
+      id: 'dept-bsl-imex',
+      name: 'Import-Export Department (Phòng Xuất Nhập Khẩu)',
+      code: 'DEPT-BSL-IMEX',
+      description:
+        'Customs clearance, raw material importation, and global apparel export shipping logistics',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-ops',
+      managerName: 'Hoang Van Minh',
+      managerEmail: 'minh.hoang@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsl-acc',
+      name: 'Accounting & Cost Finance (Phòng Kế Toán & Tài Chính)',
+      code: 'DEPT-BSL-ACC',
+      description:
+        'Factory cost accounting, shop floor labor payroll, taxation & financial reporting',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-ops',
+      managerName: 'Nguyen Mai Lan',
+      managerEmail: 'lan.nguyenmai@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsl-hr',
+      name: 'Human Resources & Compliance (Phòng Nhân Sự & Tuân Thủ)',
+      code: 'DEPT-BSL-HR',
+      description:
+        'Factory workforce recruitment, employee relations, training, payroll administration & labor compliance',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-ops',
+      managerName: 'Dang Minh Chau',
+      managerEmail: 'chau.dang@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsl-it',
+      name: 'Factory IT & Industrial Automation (Phòng CNTT & Tự Động Hóa)',
+      code: 'DEPT-BSL-IT',
+      description:
+        'Shop floor networking, barcode systems, CAD/CAM workstations & plant OT/IT infrastructure',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-ops',
+      managerName: 'Pham Hoang Nam',
+      managerEmail: 'nam.pham@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsl-admin',
+      name: 'General Administration & Plant Affairs (Phòng Hành Chính & Tổng Hợp)',
+      code: 'DEPT-BSL-ADMIN',
+      description:
+        'General plant administration, workplace safety, medical clinic, cafeteria & physical facilities',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-ops',
+      managerName: 'Truong Van Hai',
+      managerEmail: 'hai.truong@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+
+    // Under Supply Chain & Central Warehouse Division (Warehouse Building)
+    {
+      id: 'dept-bsl-log-mat',
+      name: 'Central Fabric & Raw Material Store (Kho Nguyên Phụ Liệu & Vải)',
+      code: 'DEPT-BSL-LOG-MAT',
+      description:
+        'Central receiving, inspection, 4-point fabric grading, rack storage & supply dispatching',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-log',
+      managerName: 'Vo Thi Kim',
+      managerEmail: 'kim.vo@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsl-log-fg',
+      name: 'Finished Goods Export Warehouse (Kho Thành Phẩm Xuất Khẩu)',
+      code: 'DEPT-BSL-LOG-FG',
+      description:
+        'Export carton consolidation, container loading, customs seal inspection & distribution staging',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-log',
+      managerName: 'Tran Van Phuc',
+      managerEmail: 'phuc.tran@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsl-log-sp',
+      name: 'Spare Parts & Mechanical Store (Kho Phụ Tùng & Cơ Điện)',
+      code: 'DEPT-BSL-LOG-SP',
+      description:
+        'Industrial sewing machine needles, presser feet, loopers, motor drives, belts & pneumatic spares',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-log',
+      managerName: 'Nguyen Van Thang',
+      managerEmail: 'thang.nguyen@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+
+    // Under Quality Assurance Division
+    {
+      id: 'dept-bsl-qa-audit',
+      name: 'Quality Compliance & Buyer Audits (Bộ Phận Đảm Bảo & Audit Khách Hàng)',
+      code: 'DEPT-BSL-QA-AUDIT',
+      description:
+        'Brand buyer quality audits, ISO/WRAP/BSCI certifications, lab testing & defect root-cause analysis',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-qa',
+      managerName: 'Nguyen Quoc Huy',
+      managerEmail: 'huy.nguyen@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsl-qa-smp',
+      name: 'Technical CAD/CAM & Sample Development (Phòng Mẫu & Thiết Kế Rập)',
+      code: 'DEPT-BSL-QA-SMP',
+      description:
+        'Pattern making, digital grading, sample prototype sewing, pre-production approval & tech packs',
+      organizationId: orgBSL.id,
+      parentId: 'dept-bsl-qa',
+      managerName: 'Phan Thi Mai',
+      managerEmail: 'mai.phan@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+
+    // Under Garment Manufacturing Division: 7 Production Factories
     {
       id: 'dept-bsl-f1',
-      name: 'Factory 1 Production (Phân xưởng 1)',
+      name: 'Factory 1 Production (Phân Xưởng 1)',
       code: 'DEPT-BSL-F1',
-      description: 'Factory 1 sewing lines, cutting, printing & packaging operations',
+      description: 'Factory 1 technical outerwear, cutting, printing, sewing lines & packaging',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Le Thi Thu',
@@ -813,9 +987,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     {
       id: 'dept-bsl-f2',
-      name: 'Factory 2 Production (Phân xưởng 2)',
+      name: 'Factory 2 Production (Phân Xưởng 2)',
       code: 'DEPT-BSL-F2',
-      description: 'Factory 2 sportswear & jacket production lines',
+      description: 'Factory 2 sportswear, jackets, cutting, printing & sewing assembly lines',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Doan Van Thanh',
@@ -824,9 +998,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     {
       id: 'dept-bsl-f3',
-      name: 'Factory 3 Production (Phân xưởng 3)',
+      name: 'Factory 3 Production (Phân Xưởng 3)',
       code: 'DEPT-BSL-F3',
-      description: 'Factory 3 seamless activewear & performance apparel lines',
+      description: 'Factory 3 seamless activewear, performance apparel & high-stretch garments',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Tran Minh Tuan',
@@ -835,9 +1009,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     {
       id: 'dept-bsl-f4',
-      name: 'Factory 4 Production (Phân xưởng 4)',
+      name: 'Factory 4 Production (Phân Xưởng 4)',
       code: 'DEPT-BSL-F4',
-      description: 'Factory 4 outdoor outerwear & seam-sealed garment lines',
+      description: 'Factory 4 outdoor technical outerwear, seam-sealed jackets & rainwear lines',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Nguyen Van Sang',
@@ -846,9 +1020,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     {
       id: 'dept-bsl-f5',
-      name: 'Factory 5 Production (Phân xưởng 5)',
+      name: 'Factory 5 Production (Phân Xưởng 5)',
       code: 'DEPT-BSL-F5',
-      description: 'Factory 5 woven trousers & casual garment lines',
+      description: 'Factory 5 woven trousers, cargo pants & casual utility garment lines',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Bui Quang Hieu',
@@ -857,9 +1031,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     {
       id: 'dept-bsl-f6',
-      name: 'Factory 6 Production (Phân xưởng 6)',
+      name: 'Factory 6 Production (Phân Xưởng 6)',
       code: 'DEPT-BSL-F6',
-      description: 'Factory 6 knitwear & fleece assembly lines',
+      description: 'Factory 6 knitwear, fleece hoodies & sweatshirts automated assembly lines',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Phan Quoc Dat',
@@ -868,9 +1042,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     {
       id: 'dept-bsl-f7',
-      name: 'Factory 7 Production (Phân xưởng 7)',
+      name: 'Factory 7 Production (Phân Xưởng 7)',
       code: 'DEPT-BSL-F7',
-      description: 'Factory 7 high-speed automated sewing & sample development lines',
+      description: 'Factory 7 high-speed automated sewing lines & quick-turn pilot runs',
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Vu Dinh Nam',
@@ -878,34 +1052,36 @@ export async function seedOrganizations(prisma: PrismaClient) {
       status: 'ACTIVE',
     },
 
-    // ── BSH Departments (Ho Chi Minh Corporate & Commercial Hub) ──
+    // ═════════════════════════════════════════════════════════════════
+    // ── BSL: LEVEL 4 — FACTORY FUNCTIONAL SECTIONS (TỔ PHÂN XƯỞNG) ───
+    // ═════════════════════════════════════════════════════════════════
+    ...factorySections,
+
+    // ═════════════════════════════════════════════════════════════════
+    // ── BSH: LEVEL 1 — CORPORATE LEADERSHIP & STRATEGY ───────────────
+    // ═════════════════════════════════════════════════════════════════
     {
       id: 'dept-bsh-exec',
-      name: 'Corporate Leadership & Strategy',
+      name: 'Corporate Leadership & Strategy (Ban Tổng Giám Đốc)',
       code: 'DEPT-BSH-EXEC',
-      description: 'Broadpeak executive management, global buyer coordination & strategy',
+      description:
+        'Broadpeak corporate executive management, international buyer relations & board strategy',
       organizationId: orgBSH.id,
       parentId: null,
       managerName: 'Doan Minh Tri',
       managerEmail: 'tri.doan@broadpeak.youngone.com',
       status: 'ACTIVE',
     },
+
+    // ═════════════════════════════════════════════════════════════════
+    // ── BSH: LEVEL 2 — CORPORATE DIVISIONS (KHỐI DOANH NGHIỆP) ───────
+    // ═════════════════════════════════════════════════════════════════
     {
-      id: 'dept-bsh-it',
-      name: 'Enterprise IT & Cloud Systems',
-      code: 'DEPT-BSH-IT',
-      description: 'Enterprise ERP systems, cloud security, SD-WAN & regional infrastructure',
-      organizationId: orgBSH.id,
-      parentId: 'dept-bsh-exec',
-      managerName: 'Dang Thanh Phong',
-      managerEmail: 'phong.dang@broadpeak.youngone.com',
-      status: 'ACTIVE',
-    },
-    {
-      id: 'dept-bsh-merch',
-      name: 'Apparel Merchandising & Sourcing',
-      code: 'DEPT-BSH-MERCH',
-      description: 'Customer accounts, sample development, garment sourcing & order management',
+      id: 'dept-bsh-comm',
+      name: 'Commercial & Sourcing Division (Khối Kinh Doanh & Nguồn Cung Quốc Tế)',
+      code: 'DEPT-BSH-COMM',
+      description:
+        'Global buyer accounts, apparel merchandising, international fabric sourcing & contract negotiation',
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-exec',
       managerName: 'Nguyen Thi Lan',
@@ -913,23 +1089,80 @@ export async function seedOrganizations(prisma: PrismaClient) {
       status: 'ACTIVE',
     },
     {
-      id: 'dept-bsh-fin',
-      name: 'Finance, Treasury & Cost Accounting',
-      code: 'DEPT-BSH-FIN',
-      description: 'Corporate accounting, financial reporting, customs tariffs & payroll',
+      id: 'dept-bsh-corp',
+      name: 'Corporate Shared Services Division (Khối Dịch Vụ Doanh Nghiệp)',
+      code: 'DEPT-BSH-CORP',
+      description:
+        'Enterprise ERP systems, financial treasury, regional IT infrastructure & human capital operations',
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-exec',
       managerName: 'Vu Bich Ngoc',
       managerEmail: 'ngoc.vu@broadpeak.youngone.com',
       status: 'ACTIVE',
     },
+
+    // ═════════════════════════════════════════════════════════════════
+    // ── BSH: LEVEL 3 — SPECIALIZED CORPORATE DEPARTMENTS ──────────────
+    // ═════════════════════════════════════════════════════════════════
+    // Under Commercial Division
+    {
+      id: 'dept-bsh-merch',
+      name: 'Apparel Merchandising & Buyer Accounts (Phòng Quản Lý Đơn Hàng & Khách Hàng)',
+      code: 'DEPT-BSH-MERCH',
+      description:
+        'Global customer accounts, pre-costing, sample development & order fulfillment coordination',
+      organizationId: orgBSH.id,
+      parentId: 'dept-bsh-comm',
+      managerName: 'Nguyen Thi Lan',
+      managerEmail: 'lan.nguyen@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsh-src',
+      name: 'Global Sourcing & Raw Material Development (Phòng Phát Triển Nguồn Cung Vải)',
+      code: 'DEPT-BSH-SRC',
+      description:
+        'Overseas fabric mills, trims vendors, yarn pricing & sustainable material certifications',
+      organizationId: orgBSH.id,
+      parentId: 'dept-bsh-comm',
+      managerName: 'Ha Van Hung',
+      managerEmail: 'hung.ha@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+
+    // Under Corporate Shared Services Division
+    {
+      id: 'dept-bsh-it',
+      name: 'Enterprise IT & Cloud Systems (Phòng CNTT Doanh Nghiệp & Đám Mây)',
+      code: 'DEPT-BSH-IT',
+      description:
+        'Enterprise ERP systems, cloud security, SD-WAN, data platforms & regional corporate infrastructure',
+      organizationId: orgBSH.id,
+      parentId: 'dept-bsh-corp',
+      managerName: 'Dang Thanh Phong',
+      managerEmail: 'phong.dang@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
+    {
+      id: 'dept-bsh-fin',
+      name: 'Finance, Treasury & Cost Accounting (Phòng Tài Chính & Kế Toán Tổng Hợp)',
+      code: 'DEPT-BSH-FIN',
+      description:
+        'Corporate accounting, financial audit, banking facilities, customs tariffs & cash flow treasury',
+      organizationId: orgBSH.id,
+      parentId: 'dept-bsh-corp',
+      managerName: 'Vu Bich Ngoc',
+      managerEmail: 'ngoc.vu@broadpeak.youngone.com',
+      status: 'ACTIVE',
+    },
     {
       id: 'dept-bsh-hr',
-      name: 'People Operations & Talent Acquisition',
+      name: 'People Operations & Talent Acquisition (Phòng Nhân Sự & Thu Hút Nhân Tài)',
       code: 'DEPT-BSH-HR',
-      description: 'Talent recruitment, corporate development & training',
+      description:
+        'Executive headhunting, employer branding, organizational development & professional corporate training',
       organizationId: orgBSH.id,
-      parentId: 'dept-bsh-exec',
+      parentId: 'dept-bsh-corp',
       managerName: 'Bui Mai Phuong',
       managerEmail: 'phuong.bui@broadpeak.youngone.com',
       status: 'ACTIVE',
@@ -954,16 +1187,46 @@ export async function seedOrganizations(prisma: PrismaClient) {
     seededDepartments[d.code] = dept;
   }
 
-  // 4. Job Positions Catalog
+  // 4. Job Positions Catalog (Aligned with Multi-Tier Hierarchy)
   const positionsData = [
-    // BSL Positions
+    // ── BSL Level 1 & 2 Positions ────────────────────────────────────
     {
       id: 'pos-bsl-gm',
-      title: 'Factory General Director',
+      title: 'Factory General Director (Tổng Giám Đốc Nhà Máy)',
       code: 'POS-BSL-GM',
       deptCode: 'DEPT-BSL-MGMT',
       level: 'Executive',
     },
+    {
+      id: 'pos-bsl-ops-dir',
+      title: 'Business Operations Director (Giám Đốc Khối Nghiệp Vụ)',
+      code: 'POS-BSL-OPS-DIR',
+      deptCode: 'DEPT-BSL-OPS',
+      level: 'Director',
+    },
+    {
+      id: 'pos-bsl-sc-dir',
+      title: 'Supply Chain & Logistics Director (Giám Đốc Khối Kho Vận)',
+      code: 'POS-BSL-SC-DIR',
+      deptCode: 'DEPT-BSL-LOG',
+      level: 'Director',
+    },
+    {
+      id: 'pos-bsl-qa-dir',
+      title: 'Quality Assurance Director (Giám Đốc Khối Chất Lượng)',
+      code: 'POS-BSL-QA-DIR',
+      deptCode: 'DEPT-BSL-QA',
+      level: 'Director',
+    },
+    {
+      id: 'pos-bsl-prod-mgr',
+      title: 'Garment Production Operations Director (Giám Đốc Sản Xuất)',
+      code: 'POS-BSL-PROD-MGR',
+      deptCode: 'DEPT-BSL-PROD',
+      level: 'Director',
+    },
+
+    // ── BSL Level 3 Department Positions ─────────────────────────────
     {
       id: 'pos-bsl-it-mgr',
       title: 'Factory IT Manager',
@@ -979,24 +1242,24 @@ export async function seedOrganizations(prisma: PrismaClient) {
       level: 'Senior',
     },
     {
-      id: 'pos-bsl-prod-mgr',
-      title: 'Garment Production Manager',
-      code: 'POS-BSL-PROD-MGR',
-      deptCode: 'DEPT-BSL-PROD',
+      id: 'pos-bsl-imex-lead',
+      title: 'Senior Import-Export Specialist',
+      code: 'POS-BSL-IMEX-LEAD',
+      deptCode: 'DEPT-BSL-IMEX',
+      level: 'Senior',
+    },
+    {
+      id: 'pos-bsl-acc-mgr',
+      title: 'Chief Cost Accountant',
+      code: 'POS-BSL-ACC-MGR',
+      deptCode: 'DEPT-BSL-ACC',
       level: 'Manager',
     },
     {
-      id: 'pos-bsl-qa-lead',
-      title: 'Quality Assurance Lead',
-      code: 'POS-BSL-QA-LEAD',
-      deptCode: 'DEPT-BSL-QA',
-      level: 'Lead',
-    },
-    {
-      id: 'pos-bsl-wh-sup',
-      title: 'Warehouse & Inventory Supervisor',
-      code: 'POS-BSL-WH-SUP',
-      deptCode: 'DEPT-BSL-LOG',
+      id: 'pos-bsl-admin-lead',
+      title: 'Plant Administration & HSE Officer',
+      code: 'POS-BSL-ADMIN-LEAD',
+      deptCode: 'DEPT-BSL-ADMIN',
       level: 'Mid',
     },
     {
@@ -1007,20 +1270,113 @@ export async function seedOrganizations(prisma: PrismaClient) {
       level: 'Mid',
     },
     {
+      id: 'pos-bsl-wh-sup',
+      title: 'Central Warehouse & Fabric Supervisor',
+      code: 'POS-BSL-WH-SUP',
+      deptCode: 'DEPT-BSL-LOG-MAT',
+      level: 'Mid',
+    },
+    {
+      id: 'pos-bsl-qa-lead',
+      title: 'Corporate QA Audit & Compliance Lead',
+      code: 'POS-BSL-QA-LEAD',
+      deptCode: 'DEPT-BSL-QA-AUDIT',
+      level: 'Lead',
+    },
+    {
+      id: 'pos-bsl-cad-spec',
+      title: 'CAD/CAM Pattern Development Specialist',
+      code: 'POS-BSL-CAD-SPEC',
+      deptCode: 'DEPT-BSL-QA-SMP',
+      level: 'Senior',
+    },
+
+    // ── BSL Level 3 & 4 Factory Positions (Factory 1 Example) ────────
+    {
+      id: 'pos-bsl-f1-mgr',
+      title: 'Factory 1 Production Manager (Trưởng Phân Xưởng 1)',
+      code: 'POS-BSL-F1-MGR',
+      deptCode: 'DEPT-BSL-F1',
+      level: 'Manager',
+    },
+    {
       id: 'pos-bsl-f1-sup',
       title: 'Factory 1 Production Supervisor',
       code: 'POS-BSL-F1-SUP',
       deptCode: 'DEPT-BSL-F1',
       level: 'Mid',
     },
+    {
+      id: 'pos-bsl-f1-cut-lead',
+      title: 'Cutting Section Team Leader (Tổ Trưởng Cắt F1)',
+      code: 'POS-BSL-F1-CUT-LEAD',
+      deptCode: 'DEPT-BSL-F1-CUT',
+      level: 'Lead',
+    },
+    {
+      id: 'pos-bsl-f1-prt-lead',
+      title: 'Printing & Screen Technician (Tổ Trưởng In F1)',
+      code: 'POS-BSL-F1-PRT-LEAD',
+      deptCode: 'DEPT-BSL-F1-PRT',
+      level: 'Senior',
+    },
+    {
+      id: 'pos-bsl-f1-sew-sup',
+      title: 'Sewing Assembly Line Leader (Trưởng Chuyền May F1)',
+      code: 'POS-BSL-F1-SEW-SUP',
+      deptCode: 'DEPT-BSL-F1-SEW',
+      level: 'Lead',
+    },
+    {
+      id: 'pos-bsl-f1-mdc-sup',
+      title: 'MDC Sub-Warehouse Storekeeper (Thủ Kho MDC F1)',
+      code: 'POS-BSL-F1-MDC-SUP',
+      deptCode: 'DEPT-BSL-F1-MDC',
+      level: 'Mid',
+    },
+    {
+      id: 'pos-bsl-f1-qa-lead',
+      title: 'Inline QA/QC Inspector (KCS Trưởng Xưởng F1)',
+      code: 'POS-BSL-F1-QA-LEAD',
+      deptCode: 'DEPT-BSL-F1-QA',
+      level: 'Lead',
+    },
+    {
+      id: 'pos-bsl-f1-sale-plan',
+      title: 'Factory Production Planner & Merchandiser (Kế Hoạch F1)',
+      code: 'POS-BSL-F1-PLAN',
+      deptCode: 'DEPT-BSL-F1-SALE',
+      level: 'Senior',
+    },
+    {
+      id: 'pos-bsl-f1-pck-sup',
+      title: 'Finishing & Packing Team Leader (Tổ Trưởng Đóng Gói F1)',
+      code: 'POS-BSL-F1-PCK-SUP',
+      deptCode: 'DEPT-BSL-F1-PCK',
+      level: 'Lead',
+    },
 
-    // BSH Positions
+    // ── BSH Corporate Positions ──────────────────────────────────────
     {
       id: 'pos-bsh-md',
-      title: 'Managing Director',
+      title: 'Managing Director (Tổng Giám Đốc)',
       code: 'POS-BSH-MD',
       deptCode: 'DEPT-BSH-EXEC',
       level: 'Executive',
+    },
+    {
+      id: 'pos-bsh-comm-dir',
+      title: 'Commercial & Sourcing Director (Giám Đốc Thương Mại)',
+      code: 'POS-BSH-COMM-DIR',
+      deptCode: 'DEPT-BSH-COMM',
+      level: 'Director',
+    },
+    {
+      id: 'pos-bsh-corp-dir',
+      title: 'Corporate Services Director (Giám Đốc Dịch Vụ)',
+      code: 'POS-BSH-CORP-DIR',
+      deptCode: 'DEPT-BSH-CORP',
+      level: 'Director',
     },
     {
       id: 'pos-bsh-it-arch',
@@ -1051,8 +1407,15 @@ export async function seedOrganizations(prisma: PrismaClient) {
       level: 'Mid',
     },
     {
+      id: 'pos-bsh-src-spec',
+      title: 'Global Fabric Sourcing Specialist',
+      code: 'POS-BSH-SRC-SPEC',
+      deptCode: 'DEPT-BSH-SRC',
+      level: 'Senior',
+    },
+    {
       id: 'pos-bsh-fin-ctrl',
-      title: 'Chief Accountant & Controller',
+      title: 'Chief Accountant & Financial Controller',
       code: 'POS-BSH-FIN-CTRL',
       deptCode: 'DEPT-BSH-FIN',
       level: 'Director',

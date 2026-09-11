@@ -1,12 +1,15 @@
 import {
   ApartmentOutlined,
   BankOutlined,
+  BranchesOutlined,
   ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
   EnvironmentOutlined,
   IdcardOutlined,
+  MinusSquareOutlined,
   PlusOutlined,
+  PlusSquareOutlined,
   ReloadOutlined,
   SearchOutlined,
   TeamOutlined,
@@ -51,6 +54,107 @@ import OrganizationCanvas from './OrganizationCanvas';
 
 const { Text, Title, Paragraph } = Typography;
 
+export interface DepartmentTreeNode extends Department {
+  children?: DepartmentTreeNode[];
+  tierLevel: number;
+  tierLabel: string;
+  hierarchyPath: string;
+}
+
+export function buildDepartmentTree(
+  departments: Department[],
+  searchQuery = '',
+): DepartmentTreeNode[] {
+  const deptMap = new Map<string, DepartmentTreeNode>();
+  for (const d of departments) {
+    deptMap.set(d.id, {
+      ...d,
+      children: [],
+      tierLevel: 1,
+      tierLabel: 'Executive Unit',
+      hierarchyPath: d.name,
+    });
+  }
+
+  const getDeptDepth = (deptId: string, visited = new Set<string>()): number => {
+    if (visited.has(deptId)) return 1;
+    visited.add(deptId);
+    const node = deptMap.get(deptId);
+    if (!node || !node.parentId || !deptMap.has(node.parentId)) return 1;
+    return 1 + getDeptDepth(node.parentId, visited);
+  };
+
+  const getDeptPath = (deptId: string, visited = new Set<string>()): string => {
+    if (visited.has(deptId)) return '';
+    visited.add(deptId);
+    const node = deptMap.get(deptId);
+    if (!node) return '';
+    if (!node.parentId || !deptMap.has(node.parentId)) return node.name;
+    const pPath = getDeptPath(node.parentId, visited);
+    return pPath ? `${pPath} > ${node.name}` : node.name;
+  };
+
+  for (const node of deptMap.values()) {
+    node.tierLevel = getDeptDepth(node.id);
+    node.hierarchyPath = getDeptPath(node.id);
+    if (node.tierLevel === 1) {
+      node.tierLabel = 'Level 1 • Executive Leadership';
+    } else if (node.tierLevel === 2) {
+      node.tierLabel = 'Level 2 • Operational Division';
+    } else if (node.tierLevel === 3) {
+      node.tierLabel = 'Level 3 • Department / Factory';
+    } else {
+      node.tierLabel = `Level ${node.tierLevel} • Functional Section`;
+    }
+  }
+
+  const roots: DepartmentTreeNode[] = [];
+  for (const node of deptMap.values()) {
+    if (node.parentId && deptMap.has(node.parentId)) {
+      deptMap.get(node.parentId)!.children!.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  const cleanEmptyChildren = (nodes: DepartmentTreeNode[]): DepartmentTreeNode[] => {
+    return nodes.map((n) => ({
+      ...n,
+      children: n.children && n.children.length > 0 ? cleanEmptyChildren(n.children) : undefined,
+    }));
+  };
+
+  const cleanedRoots = cleanEmptyChildren(roots);
+
+  if (!searchQuery.trim()) {
+    return cleanedRoots;
+  }
+
+  const q = searchQuery.toLowerCase().trim();
+  const filterTree = (nodes: DepartmentTreeNode[]): DepartmentTreeNode[] => {
+    const result: DepartmentTreeNode[] = [];
+    for (const n of nodes) {
+      const matchesSelf =
+        n.name.toLowerCase().includes(q) ||
+        n.code.toLowerCase().includes(q) ||
+        Boolean(n.managerName && n.managerName.toLowerCase().includes(q)) ||
+        Boolean(n.description && n.description.toLowerCase().includes(q));
+
+      const filteredChildren = n.children ? filterTree(n.children) : [];
+
+      if (matchesSelf || filteredChildren.length > 0) {
+        result.push({
+          ...n,
+          children: filteredChildren.length > 0 ? filteredChildren : undefined,
+        });
+      }
+    }
+    return result;
+  };
+
+  return filterTree(cleanedRoots);
+}
+
 export default function OrganizationPage() {
   const { message } = App.useApp();
   const { token } = theme.useToken();
@@ -70,6 +174,9 @@ export default function OrganizationPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [locations, setLocations] = useState<LocationBranch[]>([]);
+
+  const [deptTableView, setDeptTableView] = useState<'tree' | 'flat'>('tree');
+  const [expandedDeptKeys, setExpandedDeptKeys] = useState<React.Key[]>([]);
 
   const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null);
@@ -152,15 +259,40 @@ export default function OrganizationPage() {
 
   // Convert OrgNode to Antd DataNode with icons
   const formatTreeNodes = useCallback(
-    (nodes: OrgNode[]): DataNode[] => {
+    (nodes: OrgNode[], depth = 0): DataNode[] => {
       return nodes.map((node) => {
         let icon = <ApartmentOutlined key="dept-icon" style={{ color: '#1677ff' }} />;
+        let tierBadge = '';
+        let tagColor = 'blue';
+
         if (node.type === 'organization') {
           icon = <BankOutlined key="bank-icon" style={{ color: '#722ed1' }} />;
+          tierBadge = 'Enterprise HQ';
+          tagColor = 'purple';
         } else if (node.type === 'branch') {
           icon = <EnvironmentOutlined key="env-icon" style={{ color: '#10b981' }} />;
+          tierBadge = 'Facility';
+          tagColor = 'green';
         } else if (node.type === 'position') {
           icon = <IdcardOutlined key="pos-icon" style={{ color: '#f59e0b' }} />;
+          tierBadge = 'Job Title';
+          tagColor = 'orange';
+        } else if (depth === 1) {
+          icon = <BankOutlined key="exec-icon" style={{ color: '#8b5cf6' }} />;
+          tierBadge = 'Level 1 • Executive';
+          tagColor = 'purple';
+        } else if (depth === 2) {
+          icon = <ApartmentOutlined key="div-icon" style={{ color: '#3b82f6' }} />;
+          tierBadge = 'Level 2 • Division';
+          tagColor = 'blue';
+        } else if (depth === 3) {
+          icon = <ClusterOutlined key="plant-icon" style={{ color: '#06b6d4' }} />;
+          tierBadge = 'Level 3 • Dept / Factory';
+          tagColor = 'cyan';
+        } else {
+          icon = <BranchesOutlined key="sec-icon" style={{ color: '#f59e0b' }} />;
+          tierBadge = `Level ${depth} • Section`;
+          tagColor = 'orange';
         }
 
         const isMatch =
@@ -174,7 +306,7 @@ export default function OrganizationPage() {
             <Flex align="center" gap={6}>
               <span
                 style={{
-                  fontWeight: node.type === 'organization' ? 700 : 500,
+                  fontWeight: node.type === 'organization' ? 700 : depth <= 2 ? 600 : 500,
                   color: isMatch ? '#1677ff' : undefined,
                 }}
               >
@@ -188,18 +320,24 @@ export default function OrganizationPage() {
                   height: 16,
                   lineHeight: '14px',
                 }}
-                color={
-                  node.type === 'organization'
-                    ? 'purple'
-                    : node.type === 'branch'
-                      ? 'green'
-                      : node.type === 'department'
-                        ? 'blue'
-                        : 'orange'
-                }
+                color={tagColor}
               >
                 {node.code}
               </Tag>
+              {tierBadge && node.type !== 'position' && (
+                <Tag
+                  color={tagColor}
+                  style={{
+                    fontSize: 9,
+                    margin: 0,
+                    padding: '0 4px',
+                    height: 16,
+                    lineHeight: '14px',
+                  }}
+                >
+                  {tierBadge}
+                </Tag>
+              )}
               {typeof node.count === 'number' && node.count > 0 && (
                 <Tag
                   color="default"
@@ -217,7 +355,7 @@ export default function OrganizationPage() {
             </Flex>
           ),
           icon,
-          children: node.children ? formatTreeNodes(node.children) : undefined,
+          children: node.children ? formatTreeNodes(node.children, depth + 1) : undefined,
         };
       });
     },
@@ -225,6 +363,43 @@ export default function OrganizationPage() {
   );
 
   const antdTreeNodes = useMemo(() => formatTreeNodes(treeData), [treeData, formatTreeNodes]);
+
+  // Hierarchical Department Tree for Table View
+  const treeDepartments = useMemo(() => {
+    return buildDepartmentTree(departments, deptSearch);
+  }, [departments, deptSearch]);
+
+  const allDeptTreeKeys = useMemo(() => {
+    const keys: React.Key[] = [];
+    const walk = (nodes: DepartmentTreeNode[]) => {
+      for (const n of nodes) {
+        if (n.children && n.children.length > 0) {
+          keys.push(n.id);
+          walk(n.children);
+        }
+      }
+    };
+    walk(treeDepartments);
+    return keys;
+  }, [treeDepartments]);
+
+  useEffect(() => {
+    // Default expand Level 1 and Level 2 departments on initial load
+    if (departments.length > 0 && expandedDeptKeys.length === 0) {
+      const initialKeys = departments
+        .filter((d) => !d.parentId || departments.some((p) => p.id === d.parentId && !p.parentId))
+        .map((d) => d.id);
+      setExpandedDeptKeys(initialKeys);
+    }
+  }, [departments, expandedDeptKeys.length]);
+
+  const handleExpandAllDepts = () => {
+    setExpandedDeptKeys(allDeptTreeKeys);
+  };
+
+  const handleCollapseAllDepts = () => {
+    setExpandedDeptKeys([]);
+  };
 
   // Modals Handlers
   const handleOpenCreateOrg = () => {
@@ -373,53 +548,103 @@ export default function OrganizationPage() {
       title: 'Department Name & Code',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: Department) => (
-        <Flex align="center" gap={10}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: token.borderRadiusSM,
-              background: token.colorPrimaryBg,
-              color: token.colorPrimary,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 14,
-            }}
-          >
-            <ApartmentOutlined />
-          </div>
-          <div>
-            <Text strong style={{ fontSize: 13, display: 'block' }}>
-              {name}
-            </Text>
-            <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>
-              {record.code}
-            </Tag>
-          </div>
-        </Flex>
-      ),
+      render: (name: string, record: DepartmentTreeNode | Department) => {
+        const tier = 'tierLevel' in record ? record.tierLevel : 1;
+        let icon = <ApartmentOutlined />;
+        let iconBg = token.colorPrimaryBg;
+        let iconColor = token.colorPrimary;
+
+        if (tier === 1) {
+          icon = <BankOutlined />;
+          iconBg = '#f3e8ff';
+          iconColor = '#7c3aed';
+        } else if (tier === 2) {
+          icon = <ApartmentOutlined />;
+          iconBg = '#eff6ff';
+          iconColor = '#2563eb';
+        } else if (tier === 3) {
+          icon = <ClusterOutlined />;
+          iconBg = '#ecfeff';
+          iconColor = '#0891b2';
+        } else {
+          icon = <BranchesOutlined />;
+          iconBg = '#fff7ed';
+          iconColor = '#ea580c';
+        }
+
+        return (
+          <Flex align="center" gap={10}>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: token.borderRadiusSM,
+                background: iconBg,
+                color: iconColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              {icon}
+            </div>
+            <div>
+              <Text strong style={{ fontSize: 13, display: 'block' }}>
+                {name}
+              </Text>
+              <Tag
+                color={tier === 1 ? 'purple' : tier === 2 ? 'blue' : tier === 3 ? 'cyan' : 'orange'}
+                style={{ fontSize: 10, margin: 0 }}
+              >
+                {record.code}
+              </Tag>
+            </div>
+          </Flex>
+        );
+      },
+    },
+    {
+      title: 'Hierarchy Tier',
+      key: 'tier',
+      render: (_: unknown, record: DepartmentTreeNode | Department) => {
+        const tier = 'tierLevel' in record ? record.tierLevel : 1;
+        if (tier === 1) {
+          return <Tag color="purple">Level 1 • Executive</Tag>;
+        }
+        if (tier === 2) {
+          return <Tag color="blue">Level 2 • Division</Tag>;
+        }
+        if (tier === 3) {
+          return <Tag color="cyan">Level 3 • Dept / Factory</Tag>;
+        }
+        return <Tag color="orange">Level 4 • Section / Line</Tag>;
+      },
     },
     {
       title: 'Organization',
       key: 'org',
       render: (_: unknown, record: Department) => (
-        <Text style={{ fontSize: 12.5 }}>
-          {record.organization?.name || 'Acme Global Enterprise'}
-        </Text>
+        <Text style={{ fontSize: 12.5 }}>{record.organization?.name || 'Broadpeak Soc Trang'}</Text>
       ),
     },
     {
-      title: 'Parent Department',
+      title: 'Parent & Hierarchy Path',
       key: 'parent',
-      render: (_: unknown, record: Department) =>
-        record.parent ? (
-          <Tag color="cyan">{record.parent.name}</Tag>
+      render: (_: unknown, record: DepartmentTreeNode | Department) => {
+        const path = 'hierarchyPath' in record ? record.hierarchyPath : record.parent?.name || '';
+        return record.parent ? (
+          <Tooltip title={`Full Path: ${path}`}>
+            <Tag color="cyan" style={{ cursor: 'help' }}>
+              {record.parent.name}
+            </Tag>
+          </Tooltip>
         ) : (
-          <Tag color="purple">Top-Level Division</Tag>
-        ),
+          <Tag color="purple">Executive Root</Tag>
+        );
+      },
     },
     {
       title: 'Manager',
@@ -464,6 +689,24 @@ export default function OrganizationPage() {
       key: 'actions',
       render: (_: unknown, record: Department) => (
         <Space size="small">
+          <Tooltip title="Create Sub-Department">
+            <Button
+              type="text"
+              shape="circle"
+              size="small"
+              icon={<ApartmentOutlined />}
+              onClick={() => handleOpenCreateDept(record.id)}
+            />
+          </Tooltip>
+          <Tooltip title="Create Position">
+            <Button
+              type="text"
+              shape="circle"
+              size="small"
+              icon={<IdcardOutlined />}
+              onClick={() => handleOpenCreatePos(record.id)}
+            />
+          </Tooltip>
           <Tooltip title="Edit Department">
             <Button
               type="text"
@@ -1115,7 +1358,7 @@ export default function OrganizationPage() {
                   justify="space-between"
                   style={{ marginBottom: 16 }}
                 >
-                  <Col xs={24} md={10}>
+                  <Col xs={24} md={8}>
                     <Input
                       placeholder="Search departments by name, code, manager..."
                       prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
@@ -1124,8 +1367,38 @@ export default function OrganizationPage() {
                       allowClear
                     />
                   </Col>
-                  <Col xs={24} md={14}>
-                    <Flex justify="flex-end" gap={8}>
+                  <Col xs={24} md={16}>
+                    <Flex justify="flex-end" align="center" gap={8} wrap="wrap">
+                      <Segmented
+                        value={deptTableView}
+                        onChange={(val) => setDeptTableView(val as 'tree' | 'flat')}
+                        options={[
+                          {
+                            label: 'Hierarchy Tree Table',
+                            value: 'tree',
+                            icon: <ApartmentOutlined />,
+                          },
+                          { label: 'Flat Table', value: 'flat', icon: <ClusterOutlined /> },
+                        ]}
+                      />
+                      {deptTableView === 'tree' && (
+                        <Space size={6}>
+                          <Button
+                            size="middle"
+                            icon={<PlusSquareOutlined />}
+                            onClick={handleExpandAllDepts}
+                          >
+                            Expand All
+                          </Button>
+                          <Button
+                            size="middle"
+                            icon={<MinusSquareOutlined />}
+                            onClick={handleCollapseAllDepts}
+                          >
+                            Collapse All
+                          </Button>
+                        </Space>
+                      )}
                       <Button
                         type="primary"
                         icon={<PlusOutlined />}
@@ -1139,16 +1412,35 @@ export default function OrganizationPage() {
 
                 <Table
                   columns={deptColumns}
-                  dataSource={filteredDepts}
+                  dataSource={deptTableView === 'tree' ? treeDepartments : filteredDepts}
                   rowKey="id"
                   loading={loading}
                   scroll={{ x: 'max-content' }}
-                  pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    pageSizeOptions: ['10', '25', '50', '100'],
-                    showTotal: (t) => `Total ${t} departments`,
-                  }}
+                  expandable={
+                    deptTableView === 'tree'
+                      ? {
+                          expandedRowKeys: expandedDeptKeys,
+                          onExpandedRowsChange: (keys) => setExpandedDeptKeys(keys as React.Key[]),
+                          rowExpandable: (record) =>
+                            Boolean(record.children && record.children.length > 0),
+                        }
+                      : undefined
+                  }
+                  pagination={
+                    deptTableView === 'tree'
+                      ? {
+                          pageSize: 25,
+                          showSizeChanger: true,
+                          pageSizeOptions: ['10', '25', '50', '100'],
+                          showTotal: (t) => `Total ${t} top-level units`,
+                        }
+                      : {
+                          pageSize: 10,
+                          showSizeChanger: true,
+                          pageSizeOptions: ['10', '25', '50', '100'],
+                          showTotal: (t) => `Total ${t} departments`,
+                        }
+                  }
                 />
               </Card>
             ),

@@ -126,5 +126,96 @@ describe('OrganizationService', () => {
       expect(tree[0].title).toBe('Acme Corp');
       expect(tree[0].children).toHaveLength(2); // 1 branch group + 1 dept
     });
+
+    it('should correctly nest multi-tier departments across 4 levels (Executive -> Division -> Factory -> Section)', async () => {
+      (
+        mockPrisma.organization as { findMany: ReturnType<typeof vi.fn> }
+      ).findMany.mockResolvedValueOnce([
+        {
+          id: 'org-bsl',
+          name: 'Broadpeak Soc Trang',
+          code: 'BSL',
+          locations: [
+            { id: 'loc-campus', name: 'Soc Trang Campus', type: 'CAMPUS', parentId: null },
+            {
+              id: 'loc-bldg',
+              name: 'Factory 1 Building',
+              type: 'BUILDING',
+              parentId: 'loc-campus',
+            },
+          ],
+          departments: [
+            {
+              id: 'dept-l1',
+              name: 'Executive Leadership',
+              code: 'DEPT-BSL-MGMT',
+              parentId: null,
+              positions: [
+                { id: 'pos-gm', title: 'General Director', code: 'POS-GM', level: 'Executive' },
+              ],
+              _count: { users: 2 },
+            },
+            {
+              id: 'dept-l2',
+              name: 'Garment Manufacturing Division',
+              code: 'DEPT-BSL-PROD',
+              parentId: 'dept-l1',
+              positions: [],
+              _count: { users: 5 },
+            },
+            {
+              id: 'dept-l3',
+              name: 'Factory 1 Production',
+              code: 'DEPT-BSL-F1',
+              parentId: 'dept-l2',
+              positions: [],
+              _count: { users: 15 },
+            },
+            {
+              id: 'dept-l4',
+              name: 'Factory 1 - Cutting Section',
+              code: 'DEPT-BSL-F1-CUT',
+              parentId: 'dept-l3',
+              positions: [
+                { id: 'pos-cut-lead', title: 'Cutting Lead', code: 'POS-CUT-1', level: 'Lead' },
+              ],
+              _count: { users: 30 },
+            },
+          ],
+          _count: { users: 52 },
+        },
+      ]);
+
+      const tree = await service.getHierarchyTree();
+
+      expect(tree).toHaveLength(1);
+      const bsl = tree[0];
+      expect(bsl.key).toBe('org-org-bsl');
+
+      // Facilities group should have hierarchical nesting
+      const branchGroup = bsl.children?.find((c) => c.code === 'BRANCHES');
+      expect(branchGroup).toBeDefined();
+      expect(branchGroup?.children).toHaveLength(1); // campus root
+      expect(branchGroup?.children?.[0].key).toBe('loc-loc-campus');
+      expect(branchGroup?.children?.[0].children).toHaveLength(1); // building inside campus
+      expect(branchGroup?.children?.[0].children?.[0].key).toBe('loc-loc-bldg');
+
+      // Level 1: Executive Leadership
+      const l1 = bsl.children?.find((c) => c.key === 'dept-dept-l1');
+      expect(l1).toBeDefined();
+
+      // Level 2: Division under Level 1
+      const l2 = l1?.children?.find((c) => c.key === 'dept-dept-l2');
+      expect(l2).toBeDefined();
+
+      // Level 3: Factory 1 under Division
+      const l3 = l2?.children?.find((c) => c.key === 'dept-dept-l3');
+      expect(l3).toBeDefined();
+
+      // Level 4: Cutting Section under Factory 1
+      const l4 = l3?.children?.find((c) => c.key === 'dept-dept-l4');
+      expect(l4).toBeDefined();
+      expect(l4?.children?.some((c) => c.key === 'pos-pos-cut-lead')).toBe(true);
+    });
   });
 });

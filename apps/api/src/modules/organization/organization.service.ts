@@ -147,7 +147,7 @@ export class OrganizationService {
   // 3. Departments
   async findAllDepartments() {
     const depts = await this.prisma.department.findMany({
-      take: 100,
+      take: 500,
       include: {
         organization: { select: { id: true, name: true, code: true } },
         parent: { select: { id: true, name: true, code: true } },
@@ -590,19 +590,17 @@ export class OrganizationService {
     const orgs = await this.prisma.organization.findMany({
       take: 50,
       include: {
-        locations: true,
+        locations: {
+          orderBy: { name: 'asc' },
+        },
         departments: {
-          where: { parentId: null },
           include: {
-            children: {
-              include: {
-                positions: true,
-                _count: { select: { users: true } },
-              },
+            positions: {
+              orderBy: { title: 'asc' },
             },
-            positions: true,
             _count: { select: { users: true } },
           },
+          orderBy: { name: 'asc' },
         },
         _count: { select: { users: true } },
       },
@@ -610,35 +608,40 @@ export class OrganizationService {
     });
 
     const tree: OrgNode[] = orgs.map((org) => {
-      // Locations node
-      const locationNodes: OrgNode[] = org.locations.map((loc) => ({
-        key: `loc-${loc.id}`,
-        title: `${loc.name} (${loc.type || 'Branch'})`,
-        code: loc.code || loc.name,
-        type: 'branch',
-        description: `${loc.building || ''} - ${loc.address || ''}`.trim(),
-      }));
+      // 1. Hierarchical Spatial Locations Node
+      // Rather than dumping all locations flatly, structure them by parentId
+      const locMap = new Map<string, OrgNode & { parentId?: string | null }>();
+      for (const loc of org.locations) {
+        locMap.set(loc.id, {
+          key: `loc-${loc.id}`,
+          title: `${loc.name} (${loc.type || 'Facility'})`,
+          code: loc.code || loc.name,
+          type: 'branch',
+          description: `${loc.building || ''} - ${loc.address || ''}`.trim(),
+          parentId: loc.parentId,
+          children: [],
+        });
+      }
 
-      // Department hierarchy
-      const deptNodes: OrgNode[] = org.departments.map((dept) => {
-        const subDeptNodes: OrgNode[] = dept.children.map((sub) => ({
-          key: `dept-${sub.id}`,
-          title: sub.name,
-          code: sub.code,
-          type: 'sub-department',
-          manager: sub.managerName,
-          count: sub._count.users,
-          description: sub.description,
-          children: sub.positions.map((p) => ({
-            key: `pos-${p.id}`,
-            title: `${p.title} (${p.level || 'Mid'})`,
-            code: p.code,
-            type: 'position',
-            description: p.description,
-          })),
-        }));
+      const rootLocationNodes: OrgNode[] = [];
+      for (const locNode of locMap.values()) {
+        if (locNode.parentId && locMap.has(locNode.parentId)) {
+          locMap.get(locNode.parentId)!.children!.push(locNode);
+        } else {
+          rootLocationNodes.push(locNode);
+        }
+      }
 
-        const posNodes: OrgNode[] = dept.positions.map((p) => ({
+      // 2. Multi-tier Recursive Department Hierarchy
+      // Build a map of all department nodes for this organization
+      interface DeptNodeItem {
+        node: OrgNode;
+        parentId: string | null;
+      }
+      const deptMap = new Map<string, DeptNodeItem>();
+
+      for (const dept of org.departments) {
+        const posNodes: OrgNode[] = (dept.positions || []).map((p) => ({
           key: `pos-${p.id}`,
           title: `${p.title} (${p.level || 'Mid'})`,
           code: p.code,
@@ -646,17 +649,38 @@ export class OrganizationService {
           description: p.description,
         }));
 
-        return {
-          key: `dept-${dept.id}`,
-          title: dept.name,
-          code: dept.code,
-          type: 'department',
-          manager: dept.managerName,
-          count: dept._count.users,
-          description: dept.description,
-          children: [...subDeptNodes, ...posNodes],
-        };
-      });
+        deptMap.set(dept.id, {
+          parentId: dept.parentId,
+          node: {
+            key: `dept-${dept.id}`,
+            title: dept.name,
+            code: dept.code,
+            type: dept.parentId ? 'sub-department' : 'department',
+            manager: dept.managerName,
+            count: dept._count?.users ?? 0,
+            description: dept.description,
+            children: [...posNodes],
+          },
+        });
+      }
+
+      // Assemble recursive department tree
+      const rootDeptNodes: OrgNode[] = [];
+      for (const [, item] of deptMap.entries()) {
+        if (item.parentId && deptMap.has(item.parentId)) {
+          const parentItem = deptMap.get(item.parentId)!;
+          // Place sub-departments before individual positions
+          const existingPosNodes = (parentItem.node.children || []).filter(
+            (c) => c.type === 'position',
+          );
+          const existingSubDeptNodes = (parentItem.node.children || []).filter(
+            (c) => c.type !== 'position',
+          );
+          parentItem.node.children = [...existingSubDeptNodes, item.node, ...existingPosNodes];
+        } else {
+          rootDeptNodes.push(item.node);
+        }
+      }
 
       return {
         key: `org-${org.id}`,
@@ -666,18 +690,18 @@ export class OrganizationService {
         count: org._count.users,
         description: org.address || org.website || 'Organization Entity',
         children: [
-          ...(locationNodes.length > 0
+          ...(rootLocationNodes.length > 0
             ? [
                 {
                   key: `branch-group-${org.id}`,
-                  title: `Facilities & Offices (${locationNodes.length})`,
+                  title: `Facilities & Campuses (${org.locations.length})`,
                   code: 'BRANCHES',
                   type: 'branch' as const,
-                  children: locationNodes,
+                  children: rootLocationNodes,
                 },
               ]
             : []),
-          ...deptNodes,
+          ...rootDeptNodes,
         ],
       };
     });
