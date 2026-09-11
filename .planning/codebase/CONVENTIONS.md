@@ -1,183 +1,182 @@
-# Coding Conventions & Architectural Patterns
+# Coding Conventions
 
-Authoritative coding conventions, naming rules, architectural patterns, and type safety standards for the Unified IT Management System (UIMS) monorepo.
+**Analysis Date:** 2026-09-11
+
+## Naming Patterns
+
+**Files:**
+- Backend: `kebab-case.ts` — `auth.service.ts`, `jwt-auth.guard.ts`, `create-asset.dto.ts`, `http-exception.filter.ts`
+- Frontend components: `PascalCase.tsx` — `DashboardPage.tsx`, `ErrorBoundary.tsx`, `MainLayout.tsx`, `PageContainer.tsx`
+- Frontend services: `kebab-case.ts` — `api.ts`, `auth.service.ts`, `assets.service.ts`
+- Frontend stores: `kebab-case.ts` — `auth.store.ts`, `theme.store.ts`, `notification-settings.store.ts`
+- Frontend hooks: `camelCase.ts` — `useAccess.ts`, `useRealtimeNotifications.ts`, `useSystemHealth.ts`
+- Tests: `*.spec.ts` (API), `*.test.ts` / `*.test.tsx` (Web and packages)
+- DTOs: `{action}-{entity}.dto.ts` — `create-asset.dto.ts`, `update-asset.dto.ts`
+
+**Functions:**
+- Use `camelCase` — `findAll()`, `getStats()`, `handleConnection()`, `resolveAllowedOrigins()`
+- Service methods: verb-first — `create()`, `findAll()`, `findOne()`, `update()`, `remove()`
+- Utility functions: descriptive — `generateAssetTag()`, `mapAssetStatus()`, `resolveDescendantLocationIds()`
+
+**Variables:**
+- Use `camelCase` — `isConnected`, `memoryCache`, `dbLatencyMs`, `webPort`
+- Constants: `UPPER_SNAKE_CASE` — `VENDOR_RULES`, `APP_GUARD`, `APP_INTERCEPTOR`
+- Private class fields: `private readonly logger`, `private client`, `private isConnected`
+
+**Types/Interfaces:**
+- Use `PascalCase` — `AssetWithRelations`, `AuthenticatedSocketData`, `Response<T>`
+- Enums: `PascalCase` with `UPPER_SNAKE_CASE` members — `AssetStatus.IN_USE`, `LicenseType.SUBSCRIPTION`
+- DTOs: `PascalCase` ending in `Dto` — `CreateAssetDto`, `UpdateAssetDto`, `PaginationDto`, `AssetQueryDto`
+- Prisma generated types: `Prisma.AssetGetPayload<{ include: {...} }>` for complex includes
+
+**NestJS Modules:**
+- Module: `{Domain}Module` — `AssetsModule`, `AuthModule`
+- Controller: `{Domain}Controller` — `AssetsController`
+- Service: `{Domain}Service` — `AssetsService`
+- Guard: `{Purpose}Guard` — `JwtAuthGuard`, `RolesGuard`, `PermissionsGuard`
+
+## Code Style
+
+**Formatting (Biome — `biome.json`):**
+- Indent: 2 spaces
+- Line width: 100 characters
+- Line ending: LF
+- Quotes: Single quotes
+- Semicolons: Always
+- Trailing commas: All positions
+
+**Linting (ESLint — `packages/eslint-config/index.js`):**
+- Base: `typescript-eslint` recommended
+- `@typescript-eslint/no-explicit-any`: warn
+- `@typescript-eslint/no-unused-vars`: error (ignore `_` prefixed)
+- `@typescript-eslint/explicit-function-return-type`: off
+
+**Biome Linting (`biome.json`):**
+- Preset: recommended
+- `noExcessiveCognitiveComplexity`: warn
+- `noExplicitAny`: warn
+- `noNonNullAssertion`: warn
+- `useConsistentArrayType`: warn (generic syntax — `Array<T>` over `T[]`)
+- `useImportType`: off
+
+## Import Organization
+
+**Order (API — NestJS):**
+1. NestJS framework imports (`@nestjs/common`, `@nestjs/core`, etc.)
+2. Third-party library imports (`bcrypt`, `rxjs`, `socket.io`)
+3. Prisma imports (`@prisma/client`)
+4. Shared package imports (`@uims/shared-types`, `@uims/shared-utils`, `@uims/shared-validators`)
+5. Relative imports (local modules, services, DTOs)
+
+**Order (Web — React):**
+1. React and React-related imports (`react`, `react-router`)
+2. Ant Design imports (`antd`, `@ant-design/icons`, `@ant-design/pro-components`)
+3. Third-party imports (`@tanstack/react-query`, `axios`, `dayjs`, `zod`, `zustand`)
+4. Shared package imports (`@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`)
+5. Relative imports (components, hooks, stores, services)
+
+**Path Aliases (Web):**
+- `@/*` → `apps/web/src/*`
+- `@uims/shared-types` → `packages/shared-types/src`
+- `@uims/shared-validators` → `packages/shared-validators/src`
+- `@uims/shared-utils` → `packages/shared-utils/src`
+
+**Import Type:**
+- Use `import type { ... }` for type-only imports (enforced in API): `import type { AssetQueryDto } from '@uims/shared-types'`
+- Use regular `import` for runtime values
+
+## Error Handling
+
+**Backend (NestJS):**
+- Throw `HttpException` subclasses: `NotFoundException`, `BadRequestException`, `UnauthorizedException`, `ForbiddenException`, `ServiceUnavailableException`
+- Catch clauses type errors as `unknown`: `catch (error: unknown)`
+- Narrow errors safely: `error instanceof Error ? error.message : String(error)`
+- Log errors with context: `this.logger.error('Context message', error instanceof Error ? error.stack : undefined)`
+- Global filters translate Prisma errors to HTTP responses: `PrismaExceptionFilter` (`apps/api/src/common/filters/prisma-exception.filter.ts`)
+
+**Frontend (React):**
+- `ErrorBoundary` wraps entire app and individual routes (`apps/web/src/components/ErrorBoundary.tsx`)
+- `RouteErrorBoundary` provides per-route error isolation (`apps/web/src/components/RouteErrorBoundary.tsx`)
+- Use `App.useApp()` for feedback: `const { message, notification, modal } = App.useApp()`
+- Never use static `message.error()` from `antd` — always use dynamic context
+
+## Logging
+
+**Backend:**
+- Framework: NestJS `Logger` class
+- Pattern: `private readonly logger = new Logger(ClassName.name)`
+- Usage: `this.logger.log(...)`, `this.logger.warn(...)`, `this.logger.error(...)`
+- Banned: `console.log`, `console.warn`, `console.error` in production code
+- Exception: `console.error` for startup validation failures in `apps/api/src/config/app.config.ts`
+
+**Frontend:**
+- `console.error` only in `ErrorBoundary.componentDidCatch` (`apps/web/src/components/ErrorBoundary.tsx`)
+- All other error reporting via Ant Design feedback: `message.error(...)`, `notification.error(...)`
+
+## Comments
+
+**When to Comment:**
+- Non-obvious business logic or edge cases
+- Security-relevant decisions (CORS, auth bypass)
+- API documentation via Swagger decorators (`@ApiOperation`, `@ApiTags`)
+- Complex Prisma queries with joins or aggregations
+
+**JSDoc/TSDoc:**
+- Minimal usage — Swagger decorators serve as API documentation
+- Type information conveyed through TypeScript types rather than JSDoc
+
+## Function Design
+
+**Size:** Most service methods are 20-60 lines. Pages are larger (100-300 lines) but decomposed into hooks and sub-components.
+
+**Parameters:**
+- DTOs for controller inputs: `@Body() body: CreateAssetDto`, `@Query() query: AssetQueryDto`
+- Constructor injection for dependencies: `constructor(private readonly assetsService: AssetsService) {}`
+- `@Optional()` decorator for optional injections: `@Optional() private readonly prisma?: PrismaService`
+
+**Return Values:**
+- Services return plain objects or Prisma query results
+- Controllers delegate entirely to services (no business logic in controllers)
+- Response envelope applied automatically by `TransformInterceptor`
+
+## Module Design
+
+**Backend (NestJS):**
+- Each domain module exports: Module, Controller, Service, DTOs
+- Services inject `PrismaService` for database access
+- Cross-module service injection via module imports
+- Global modules: `RedisModule`, `PrismaModule` (available everywhere)
+
+**Frontend (React):**
+- Pages are lazy-loaded via `React.lazy()` + `Suspense` in router
+- State stores are standalone Zustand stores (not context-based)
+- API services are plain functions calling Axios (not hooks)
+- TanStack Query wraps API calls in `useQuery`/`useMutation` inside page components
+
+**Shared Packages:**
+- ESM-only output (`*.mjs`) via tsdown bundler
+- Barrel re-export via `src/index.ts`
+- Type declarations generated alongside (`*.d.mts`)
+
+**Barrel Files:**
+- `packages/shared-types/src/index.ts` — Re-exports all DTOs and entities
+- `packages/shared-validators/src/index.ts` — Re-exports all validators
+- `packages/shared-utils/src/index.ts` — Re-exports all utility modules
+
+## Ant Design v6 Conventions
+
+**Mandatory Patterns:**
+- Wrap app in `<ConfigProvider>` → `<App>` for theme context (`apps/web/src/app/index.tsx`)
+- Use `App.useApp()` for dynamic feedback: `const { message, modal, notification } = App.useApp()`
+- Use semantic token styles: `styles={{ body: { ... } }}` for Card, Drawer, Modal
+- Use `<PageContainer>` for consistent page structure (`apps/web/src/components/PageContainer.tsx`)
+- Use `@ant-design/pro-components` with `ProConfigProvider` and `enUSIntl`
+
+**Banned Anti-Patterns:**
+- Static `message.error()` / `Modal.confirm()` / `notification.open()` from `antd`
+- Deprecated props: `bodyStyle`, `headStyle`, `valueStyle`
+- Raw global CSS overrides on Ant Design components
 
 ---
 
-## 1. Tooling & Ecosystem Standards (2026)
-
-| Tool / Technology | Version | Purpose & Configuration |
-|:---|:---|:---|
-| **TypeScript** | `^7.0.2` | Monorepo-wide language standard; strict type safety; zero-downgrade policy enforced. |
-| **Node.js** | `>=22.0.0` | Production runtime and developer environment standard. |
-| **Package Manager** | `pnpm 11.21.0` | Workspace management with Turborepo orchestration. |
-| **Linter** | `ESLint 10.10.0` | `@typescript-eslint/eslint-plugin ^8.70.0`, `@typescript-eslint/parser ^8.70.0`. |
-| **Formatter** | `Biome 2.5.12` | Indent: 2 spaces, line width: 100, single quotes, trailing commas: `all`, semicolons: `always`. |
-| **Backend Framework** | `NestJS 11.2.3` | Modular monolith architecture on Express platform. |
-| **Frontend Framework** | `React 19.2.8` | Single-Page Application (SPA) with Ant Design `^6.6.3` and Vite `^8.2.2`. |
-
----
-
-## 2. Naming Conventions
-
-- **Files and Directories**:
-  - Backend modules, filters, guards, and services use `kebab-case` with functional suffixes:
-    - Evidence: [`apps/api/src/common/filters/http-exception.filter.ts`](file:///home/user/projects/uims/apps/api/src/common/filters/http-exception.filter.ts), [`apps/api/src/common/guards/permissions.guard.ts`](file:///home/user/projects/uims/apps/api/src/common/guards/permissions.guard.ts), [`apps/api/src/modules/assets/assets.service.ts`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.service.ts).
-  - React components, pages, and layout views use `PascalCase`:
-    - Evidence: [`apps/web/src/pages/assets/AssetsPage.tsx`](file:///home/user/projects/uims/apps/web/src/pages/assets/AssetsPage.tsx), [`apps/web/src/components/PageContainer.tsx`](file:///home/user/projects/uims/apps/web/src/components/PageContainer.tsx), [`apps/web/src/components/ErrorBoundary.tsx`](file:///home/user/projects/uims/apps/web/src/components/ErrorBoundary.tsx).
-  - Stores and hooks use `kebab-case` or `camelCase` prefixed with `use`:
-    - Evidence: [`apps/web/src/stores/auth.store.ts`](file:///home/user/projects/uims/apps/web/src/stores/auth.store.ts), [`apps/web/src/pages/assets/hooks/useAssetManagement.ts`](file:///home/user/projects/uims/apps/web/src/pages/assets/hooks/useAssetManagement.ts).
-- **Classes, Interfaces, and DTOs**:
-  - Classes and Interfaces use `PascalCase`:
-    - Evidence: `AssetsController`, `TransformInterceptor<T>`, `ApiResponse<T>`.
-  - Data Transfer Objects (DTOs) suffix with `Dto`:
-    - Evidence: [`CreateAssetDto`](file:///home/user/projects/uims/apps/api/src/modules/assets/dto/create-asset.dto.ts), [`UpdateAssetDto`](file:///home/user/projects/uims/apps/api/src/modules/assets/dto/update-asset.dto.ts), [`AssetQueryDto`](file:///home/user/projects/uims/packages/shared-types/src/dto/assets.dto.ts).
-- **Functions and Variables**:
-  - Functions and variables use `camelCase`:
-    - Evidence: `generateAssetTag()`, `extractClientIp()`, `buildThemeConfig()`.
-  - Constants and environment keys use `UPPER_SNAKE_CASE`:
-    - Evidence: `PERMISSIONS_KEY`, `JWT_SECRET`, `AUDIT_SIGNING_KEY`.
-
----
-
-## 3. Backend Architecture & Module Organization (NestJS)
-
-Each domain module in `apps/api/src/modules/<feature>/` adheres to a strict structural pattern:
-
-- **Module Definition (`<feature>.module.ts`)**: Encapsulates controllers, services, database providers, and internal/external exports.
-  - Evidence: [`apps/api/src/modules/assets/assets.module.ts`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.module.ts), [`apps/api/src/modules/auth/auth.module.ts`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth.module.ts).
-- **Controller Layer (`<feature>.controller.ts`)**: Handles HTTP routing, Swagger documentation (`@ApiTags()`, `@ApiOperation()`), and RBAC guards (`@Roles()`, `@RequirePermissions()`). Controllers contain no business or database logic.
-  - Evidence: [`apps/api/src/modules/assets/assets.controller.ts`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.controller.ts), [`apps/api/src/modules/directory/directory.controller.ts`](file:///home/user/projects/uims/apps/api/src/modules/directory/directory.controller.ts).
-- **Service Layer (`<feature>.service.ts`)**: Implements domain business logic, manages Prisma `$transaction` blocks, and injects NestJS `Logger`.
-  - Evidence: [`apps/api/src/modules/assets/assets.service.ts`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.service.ts), [`apps/api/src/modules/auth/auth.service.ts`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth.service.ts).
-- **Validation DTOs (`dto/`)**: Class definitions using `class-validator` and `class-transformer` decorators.
-  - Evidence: [`apps/api/src/modules/assets/dto/create-asset.dto.ts`](file:///home/user/projects/uims/apps/api/src/modules/assets/dto/create-asset.dto.ts).
-- **Authentication Strategies (`strategies/`)**: Passport strategy implementations.
-  - Evidence: [`apps/api/src/modules/auth/strategies/jwt.strategy.ts`](file:///home/user/projects/uims/apps/api/src/modules/auth/strategies/jwt.strategy.ts).
-
----
-
-## 4. Frontend Component & Layout Architecture (React 19 + Ant Design v6)
-
-Frontend feature development follows a unidirectional hierarchical pipeline:
-`Page -> PageContainer -> Feature Components -> Custom Hooks -> Domain Services -> Axios API Client`
-
-- **Page Structure**:
-  - Domain pages wrap top-level UI in `<PageContainer>` providing title, subtitle, breadcrumbs, metrics summary, and action buttons.
-  - Evidence: [`apps/web/src/pages/assets/AssetsPage.tsx`](file:///home/user/projects/uims/apps/web/src/pages/assets/AssetsPage.tsx), [`apps/web/src/pages/directory/DirectoryPage.tsx`](file:///home/user/projects/uims/apps/web/src/pages/directory/DirectoryPage.tsx).
-- **Component Decomposition**:
-  - Modals, drawers, tables, and filter bars reside in dedicated `components/` directories under each feature page.
-  - Evidence: [`apps/web/src/pages/assets/components/AssetFilterBar.tsx`](file:///home/user/projects/uims/apps/web/src/pages/assets/components/AssetFilterBar.tsx), [`apps/web/src/pages/assets/components/AssetTable.tsx`](file:///home/user/projects/uims/apps/web/src/pages/assets/components/AssetTable.tsx), [`apps/web/src/pages/assets/components/AssetDetailDrawer.tsx`](file:///home/user/projects/uims/apps/web/src/pages/assets/components/AssetDetailDrawer.tsx).
-- **Custom Business Hooks**:
-  - Complex UI state, form bindings, and query executions are factored out of pages into hooks.
-  - Evidence: [`apps/web/src/pages/assets/hooks/useAssetManagement.ts`](file:///home/user/projects/uims/apps/web/src/pages/assets/hooks/useAssetManagement.ts), [`apps/web/src/hooks/useSystemHealth.ts`](file:///home/user/projects/uims/apps/web/src/hooks/useSystemHealth.ts).
-- **Ant Design v6 Semantic Token Styling Mandate**:
-  - Components use semantic `styles` props:
-    - `Card`: `styles={{ body: { padding: '16px 20px' } }}`
-    - `Statistic`: `styles={{ content: { ... } }}`
-    - `Drawer` / `Modal`: `styles={{ body: { ... } }}`
-  - Prohibited anti-patterns: Deprecated v4/v5 `bodyStyle`, `headStyle`, `valueStyle`.
-  - Evidence: [`apps/web/src/pages/assets/AssetsPage.tsx:L113`](file:///home/user/projects/uims/apps/web/src/pages/assets/AssetsPage.tsx#L113).
-- **Dynamic Feedback Context (`App.useApp()`)**:
-  - Feedback instances must be acquired dynamically: `const { message, modal, notification } = App.useApp();`. Calling static methods `message.error()` or `Modal.confirm()` directly from an `antd` import is forbidden due to theme context loss and React 19 concurrency issues.
-  - Evidence: [`apps/web/src/pages/assets/hooks/useAssetManagement.ts:L70`](file:///home/user/projects/uims/apps/web/src/pages/assets/hooks/useAssetManagement.ts#L70), [`apps/web/src/app/App.tsx:L41`](file:///home/user/projects/uims/apps/web/src/app/App.tsx#L41).
-
----
-
-## 5. State Management Patterns (Zustand 5)
-
-Client-side state stores reside in `apps/web/src/stores/` and use Zustand `5.0.15`:
-
-- **Persistence**: Stores requiring local retention use `persist` middleware with unique storage keys.
-  - Evidence: [`apps/web/src/stores/auth.store.ts`](file:///home/user/projects/uims/apps/web/src/stores/auth.store.ts) (`uims-auth-storage`), [`apps/web/src/stores/theme.store.ts`](file:///home/user/projects/uims/apps/web/src/stores/theme.store.ts) (`uims-theme-storage`).
-- **Selector Pattern**: Components subscribe to atomic state slices to prevent unnecessary re-renders:
-  - `const mode = useThemeStore((state) => state.mode);`
-  - Evidence: [`apps/web/src/app/App.tsx:L18-22`](file:///home/user/projects/uims/apps/web/src/app/App.tsx#L18-L22).
-- **Zero Circular Dependencies**:
-  - Network clients (`api.ts`) read authentication state directly via `useAuthStore.getState().token` without triggering circular service imports.
-  - Evidence: [`apps/web/src/services/api.ts:L30`](file:///home/user/projects/uims/apps/web/src/services/api.ts#L30).
-
----
-
-## 6. Error Handling & Resilience Patterns
-
-- **Backend Global Exception Filters**:
-  - `HttpExceptionFilter`: Intercepts standard NestJS HTTP exceptions, formatting responses into `{ success: false, statusCode, message, errors?, timestamp }`.
-    - Evidence: [`apps/api/src/common/filters/http-exception.filter.ts`](file:///home/user/projects/uims/apps/api/src/common/filters/http-exception.filter.ts).
-  - `PrismaExceptionFilter`: Catches `PrismaClientKnownRequestError` and translates error codes (`P2002` -> 409 Conflict, `P2025` -> 404 Not Found, `P2003`/`P2014`/`P2000` -> 400 Bad Request) into user-safe messages without exposing raw database details.
-    - Evidence: [`apps/api/src/common/filters/prisma-exception.filter.ts`](file:///home/user/projects/uims/apps/api/src/common/filters/prisma-exception.filter.ts).
-- **Frontend Error Boundaries**:
-  - Centralized `<ErrorBoundary>` catches render crashes, provides full diagnostic inspection in development, and offers reset/reload navigation fallbacks via `<ErrorResultView>`.
-  - Evidence: [`apps/web/src/components/ErrorBoundary.tsx`](file:///home/user/projects/uims/apps/web/src/components/ErrorBoundary.tsx), [`apps/web/src/components/RouteErrorBoundary.tsx`](file:///home/user/projects/uims/apps/web/src/components/RouteErrorBoundary.tsx).
-- **Zero Silent Catch Policy**:
-  - Empty catch blocks (`catch (err) {}` or `.catch(() => {})`) are strictly banned. Every error must be logged with structured context, re-thrown as a domain error, or surfaced via user feedback.
-  - Catch clauses must explicitly declare errors as `unknown`: `catch (error: unknown)` and narrow with `if (error instanceof Error)`.
-  - Evidence: [`apps/web/src/services/api.ts:L100-104`](file:///home/user/projects/uims/apps/web/src/services/api.ts#L100-L104), [`apps/web/src/components/ErrorBoundary.tsx:L105-107`](file:///home/user/projects/uims/apps/web/src/components/ErrorBoundary.tsx#L105-L107).
-
----
-
-## 7. TypeScript Strictness & Defect Prevention Directives
-
-- **Zero `any` Policy**:
-  - Usage of `any` or `as any` is strictly forbidden. Use `unknown`, exact interfaces, or Prisma generated types (`Prisma.AssetGetPayload<{ include: ... }>`).
-  - Evidence: [`apps/api/src/modules/assets/assets.service.ts:L19-27`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.service.ts#L19-L27), [`apps/api/src/modules/assets/dto/create-asset.dto.ts:L62`](file:///home/user/projects/uims/apps/api/src/modules/assets/dto/create-asset.dto.ts#L62).
-- **Zero Diagnostics Suppressions**:
-  - `@ts-ignore`, `@ts-expect-error`, and `@ts-nocheck` are prohibited without explicit tracking identifiers.
-- **Mandatory Bounded Queries & Pagination**:
-  - Every Prisma `findMany()` query must enforce explicit bounds (`take: pageSize`, capped at `Math.min(limit, 100)`) with deterministic `orderBy`. Unbounded queries are banned.
-  - Evidence: [`apps/api/src/modules/assets/assets.service.ts:L223-238`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.service.ts#L223-L238).
-- **Zero In-Memory Aggregations**:
-  - Sums, counts, and filters must execute directly inside PostgreSQL using Prisma filter operators or `$queryRaw`, never loaded into Node.js memory arrays.
-
----
-
-## 8. API Response Envelope Contract
-
-All successful REST API responses are enveloped by `TransformInterceptor`:
-
-```json
-{
-  "success": true,
-  "data": { ... },
-  "timestamp": "2026-09-11T07:30:00.000Z"
-}
-```
-
-- **Backend Interceptor**: [`apps/api/src/common/interceptors/transform.interceptor.ts`](file:///home/user/projects/uims/apps/api/src/common/interceptors/transform.interceptor.ts).
-- **Shared Response Types**: [`packages/shared-types/src/dto/api-response.ts`](file:///home/user/projects/uims/packages/shared-types/src/dto/api-response.ts) (`ApiResponse<T>`, `PaginationMeta`, `ApiErrorResponse`).
-- **Axios Client Unwrapping**: Frontend services unwrap payloads via `res.data.data`:
-  - Evidence: [`apps/web/src/services/assets.service.ts:L61`](file:///home/user/projects/uims/apps/web/src/services/assets.service.ts#L61).
-
----
-
-## 9. Security & Authorization Conventions
-
-- **Fail-Fast Environment Validation**:
-  - Server startup terminates immediately if required environment variables fail Zod validation (`DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AUDIT_SIGNING_KEY`).
-  - Evidence: [`apps/api/src/config/app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts).
-- **Execution Guard Pipeline**:
-  - Global guards in [`apps/api/src/app.module.ts`](file:///home/user/projects/uims/apps/api/src/app.module.ts):
-    1. `ThrottlerGuard`: Rate limits endpoints (`1000` requests/minute).
-    2. `JwtAuthGuard`: Authenticates tokens (bypassed only when `@Public()` is applied).
-    3. `RolesGuard`: Validates role claims (`Admin`, `Super Admin`).
-    4. `PermissionsGuard`: Validates fine-grained subject/action permissions (`@RequirePermissions({ subject: 'assets', action: 'create' })`).
-- **Strict CORS & Header Security**:
-  - Strict origins validation via `CORS_ORIGIN` / `ALLOWED_ORIGINS` with non-production dynamic `.trycloudflare.com` tunnel support; `credentials: true`.
-  - Helmet enterprise headers enabled with HSTS preload.
-  - Evidence: [`apps/api/src/main.ts:L21-67`](file:///home/user/projects/uims/apps/api/src/main.ts#L21-L67).
-
----
-
-## 10. Code Style, Formatting & Import Rules
-
-- **Import Organization**:
-  - Organize imports from external libraries to local scopes:
-    1. Third-party packages (`react`, `@nestjs/common`, `antd`)
-    2. Workspace packages (`@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`)
-    3. Internal absolute path aliases (`@/...`)
-    4. Relative file imports (`./components/...`, `../services/...`)
-- **Biome & ESLint Rules**:
-  - Configured in [`biome.json`](file:///home/user/projects/uims/biome.json) and [`packages/eslint-config/index.js`](file:///home/user/projects/uims/packages/eslint-config/index.js):
-  - `@typescript-eslint/no-unused-vars`: Error out unless prefixed with `_` (e.g. `_context`, `_data`).
-  - `@typescript-eslint/no-explicit-any`: Set to `warn` (strictly banned by monorepo `AGENTS.md`).
-  - Biome checks cognitive complexity (`noExcessiveCognitiveComplexity: 'warn'`).
+*Convention analysis: 2026-09-11*

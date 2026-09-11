@@ -1,118 +1,268 @@
-# Testing Strategy & Test Suite Architecture
+# Testing Patterns
 
-Authoritative testing strategy, workspace configurations, testing patterns, and coverage distribution for the Unified IT Management System (UIMS) monorepo.
+**Analysis Date:** 2026-09-11
+
+## Test Framework
+
+**Runner:**
+- Vitest ^5.0.0 — All workspaces
+- API config: `apps/api/vitest.config.mts` — `environment: 'node'`, includes `src/**/*.{test,spec}.ts` and `test/**/*.{test,spec,e2e-spec}.ts`
+- Web config: `apps/web/vitest.config.ts` — `environment: 'happy-dom'`, `testTimeout: 20000`, `hookTimeout: 20000`
+- Both configs: `globals: true`, `passWithNoTests: true`
+
+**Assertion Library:**
+- Vitest built-in `expect` — `expect(result).toBeDefined()`, `expect(fn).toHaveBeenCalledWith(...)`
+
+**Run Commands:**
+```bash
+pnpm test                    # Run all tests across monorepo (via Turborepo)
+pnpm --filter @uims/api test # Run API tests only
+pnpm --filter @uims/web test # Run Web tests only
+vitest                       # Watch mode (per workspace)
+vitest run --coverage        # Coverage report
+```
+
+## Test File Organization
+
+**Location:**
+- Co-located with source files (same directory)
+
+**Naming:**
+- API: `*.spec.ts` — `auth.service.spec.ts`, `assets.controller.spec.ts`
+- API adversarial: `*.adversarial.spec.ts` — `auth-isolation.adversarial.spec.ts`, `directory.adversarial.spec.ts`
+- Web: `*.test.tsx` / `*.test.ts` — `DashboardPage.test.tsx`, `auth.store.test.ts`
+- Web stress: `*.stress.test.tsx` — `milestone1-adversarial.stress.test.tsx`
+- Packages: `*.test.ts` — `format.test.ts`, `network.test.ts`
+- E2E: `test/e2e/*.e2e-spec.ts` (`apps/api/test/e2e/`)
+
+**Structure:**
+```
+apps/api/src/modules/auth/
+├── auth.module.ts
+├── auth.controller.ts
+├── auth.service.ts
+├── auth.guard.ts
+├── auth.service.spec.ts              # Unit tests
+├── auth.guard.spec.ts                # Unit tests
+└── auth-isolation.adversarial.spec.ts # Adversarial tests
+```
+
+## Test Structure
+
+**Suite Organization (API):**
+```typescript
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { UnauthorizedException } from '@nestjs/common';
+import { AuthService } from './auth.service';
+
+describe('AuthService', () => {
+  let service: AuthService;
+  let mockPrismaService: {
+    directoryUser: { findFirst: ReturnType<typeof vi.fn> };
+    auditLog: { create: ReturnType<typeof vi.fn> };
+  };
+
+  beforeEach(() => {
+    mockPrismaService = {
+      directoryUser: { findFirst: vi.fn() },
+      auditLog: { create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+    };
+
+    service = new AuthService(
+      mockPrismaService as unknown as PrismaService,
+      // ... other mocks
+    );
+  });
+
+  it('should reject invalid credentials', async () => {
+    mockPrismaService.directoryUser.findFirst.mockResolvedValue(null);
+    await expect(service.login({ username: 'bad', password: 'bad' }))
+      .rejects.toThrow(UnauthorizedException);
+  });
+});
+```
+
+**Patterns:**
+- `beforeEach` resets all mocks and creates fresh service instances
+- Manual constructor injection with typed mock objects (no NestJS test module for unit tests)
+- `describe/it` blocks with clear, behavior-driven names
+- `vi.fn()` for mock functions, `.mockResolvedValue()` for async
+- `expect(...).rejects.toThrow()` for async error testing
+
+## Mocking
+
+**Framework:** Vitest built-in `vi` object
+
+**Patterns (API — Manual Constructor Injection):**
+```typescript
+let mockJwtService: { sign: ReturnType<typeof vi.fn> };
+let mockConfigService: { get: ReturnType<typeof vi.fn> };
+let mockPrismaService: {
+  directoryUser: { findFirst: ReturnType<typeof vi.fn> };
+  auditLog: { create: ReturnType<typeof vi.fn> };
+  refreshToken: { create: ReturnType<typeof vi.fn> };
+};
+
+beforeEach(() => {
+  mockJwtService = { sign: vi.fn(() => 'mock-jwt-token') };
+  mockConfigService = {
+    get: vi.fn((key: string) => {
+      if (key === 'JWT_REFRESH_SECRET') return 'test-secret-min-32-chars';
+      return undefined;
+    }),
+  };
+
+  service = new AuthService(
+    mockUsersService as unknown as UsersService,
+    mockJwtService as unknown as JwtService,
+    mockConfigService as unknown as ConfigService,
+    mockPrismaService as unknown as PrismaService,
+  );
+});
+```
+
+**What to Mock:**
+- External services: `PrismaService`, `JwtService`, `ConfigService`, `RedisService`
+- Inter-module services: `NotificationsService`, `UsersService`
+- Mock only the methods actually called by the code under test
+
+**What NOT to Mock:**
+- Business logic within the service under test
+- Shared utility functions (`@uims/shared-utils`)
+- Zod validators (`@uims/shared-validators`)
+- Pure function helpers within the same module
+
+## Fixtures and Factories
+
+**Test Data (API):**
+```typescript
+const mockUser = {
+  id: 'user-1',
+  username: 'testuser',
+  email: 'test@example.com',
+  password: '$2b$12$hashedpassword...',
+  role: { name: 'Admin', permissions: [{ permission: { code: 'asset:read' } }] },
+};
+
+const mockAsset = {
+  id: 'asset-1',
+  assetTag: 'AST-ABC123',
+  name: 'Test Laptop',
+  status: 'IN_USE',
+  category: { id: 'cat-1', name: 'Laptop' },
+};
+```
+
+**Location:**
+- Inline within test files (no shared fixture files)
+- Mock data defined in `beforeEach` or at `describe` scope
+- Each test constructs its own minimal data set
+
+## Coverage
+
+**Requirements:** No enforced coverage threshold
+**Configuration:** Coverage available via `vitest run --coverage`
+**View Coverage:**
+```bash
+vitest run --coverage     # Generate coverage report
+```
+
+## Test Inventory
+
+**Total test files:** ~103 across the monorepo
+
+**API Tests (49 files):**
+- Unit: `*.spec.ts` — Controllers, services, guards, filters, interceptors, Redis
+- Adversarial: `*.adversarial.spec.ts` — Security edge cases, isolation tests
+- E2E: `test/e2e/*.e2e-spec.ts` — Integration scenarios
+
+**Web Tests (46 files):**
+- Component: `*.test.tsx` — Page rendering, user interactions, form validation
+- Hook: `*.test.ts` — Custom hook behavior
+- Store: `*.test.ts` — Zustand store state transitions
+- Service: `*.test.ts` — API client logic
+- Adversarial: `*Adversarial*.test.tsx` — Navigation, access control edge cases
+- Stress: `*.stress.test.tsx` — Performance and resilience under load
+
+**Package Tests (9 files):**
+- `packages/shared-utils/src/` — `enum.test.ts`, `format.test.ts`, `network.test.ts`, `timezone.test.ts`, `network.stress.test.ts`
+- `packages/shared-validators/src/` — `common.validator.test.ts`, `network.validator.test.ts`, `notification.validator.test.ts`, `role.validator.test.ts`
+
+## Test Types
+
+**Unit Tests:**
+- Scope: Individual service methods, controller handlers, guard logic
+- Approach: Manual constructor injection with typed mocks
+- Location: Co-located `*.spec.ts` / `*.test.ts` files
+
+**Integration Tests:**
+- Scope: Module-level interactions, Prisma query behavior
+- Approach: Some tests use real Prisma queries with test database
+- Location: `apps/api/test/e2e/`
+
+**Adversarial Tests:**
+- Scope: Security edge cases, input validation, authorization bypass attempts
+- Approach: Test malicious inputs, boundary conditions, race conditions
+- Location: `*.adversarial.spec.ts` (API), `*Adversarial*.test.tsx` (Web)
+
+**Component Tests:**
+- Scope: React component rendering, user interactions
+- Environment: happy-dom
+- Approach: Render components, simulate events, assert DOM state
+- Location: `*.test.tsx` co-located with components
+
+**E2E Tests:**
+- Framework: Playwright ^1.63.0 (root devDependencies)
+- Location: `apps/api/test/e2e/`
+
+## Common Patterns
+
+**Async Testing:**
+```typescript
+it('should create asset', async () => {
+  mockPrismaService.asset.create.mockResolvedValue(mockAsset);
+  const result = await service.create(createDto);
+  expect(result).toBeDefined();
+  expect(result.assetTag).toBe('AST-ABC123');
+});
+```
+
+**Error Testing:**
+```typescript
+it('should throw NotFoundException for missing asset', async () => {
+  mockPrismaService.asset.findUnique.mockResolvedValue(null);
+  await expect(service.findOne('nonexistent'))
+    .rejects.toThrow(NotFoundException);
+});
+```
+
+**Mock Reset:**
+```typescript
+beforeEach(() => {
+  // All mocks are reconstructed fresh in each beforeEach
+  mockPrismaService = {
+    asset: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+  };
+});
+```
+
+**Guard/Interceptor Testing:**
+```typescript
+describe('RolesGuard', () => {
+  it('should allow access for matching role', () => {
+    const context = createMockExecutionContext({ user: { role: 'Admin' } });
+    Reflect.defineMetadata('roles', ['Admin'], context.getHandler());
+    expect(guard.canActivate(context)).toBe(true);
+  });
+});
+```
 
 ---
 
-## 1. Testing Frameworks & Tooling Stack (2026)
-
-| Tool / Layer | Version | Configuration & Environment | Purpose |
-|:---|:---|:---|:---|
-| **Vitest** | `^5.0.0` | Global runner across all monorepo workspaces | Multi-threaded unit, integration, stress, and adversarial testing. |
-| **happy-dom** | `^20.14.0` | `environment: 'happy-dom'` in `apps/web` | Lightweight DOM & browser API simulation for React 19 testing. |
-| **NestJS Testing** | `^11.2.3` | `@nestjs/testing` in `apps/api` | Dependency injection container mocking and service isolation. |
-| **Vite React Plugin**| `^6.1.1` | `@vitejs/plugin-react` in `apps/web` | Fast JSX/TSX transformation within Vitest runner. |
-| **Playwright** | `^1.63.0` | `@playwright/test` in root `package.json` | End-to-end browser automation harness (`pnpm test:e2e`). |
-| **Turborepo** | `^2.10.12` | Pipeline task `test` in `turbo.json` | Workspace test orchestration, caching, and dependency ordering. |
-
----
-
-## 2. Test File Naming & Location Conventions
-
-Tests are strictly co-located adjacent to the implementation files they verify:
-
-- **Backend API Tests (`apps/api/src/`)**:
-  - Unit & Integration: `*.spec.ts`
-    - Evidence: [`apps/api/src/modules/assets/assets.service.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.service.spec.ts), [`apps/api/src/modules/assets/assets.controller.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.controller.spec.ts).
-  - Adversarial & Boundary Suites: `*.adversarial.spec.ts`, `*.boundary.spec.ts`, `*.governance.spec.ts`
-    - Evidence: [`apps/api/src/modules/auth/auth-isolation.adversarial.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth-isolation.adversarial.spec.ts), [`apps/api/src/modules/notifications/notifications.boundary.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/notifications/notifications.boundary.spec.ts), [`apps/api/src/modules/audit/audit.governance.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/audit/audit.governance.spec.ts).
-- **Frontend Web Tests (`apps/web/src/`)**:
-  - Component & Page Tests: `*.test.tsx`
-    - Evidence: [`apps/web/src/pages/assets/AssetsPage.test.tsx`](file:///home/user/projects/uims/apps/web/src/pages/assets/AssetsPage.test.tsx), [`apps/web/src/components/ErrorBoundary.test.tsx`](file:///home/user/projects/uims/apps/web/src/components/ErrorBoundary.test.tsx).
-  - Hooks, Stores & Services: `*.test.ts`
-    - Evidence: [`apps/web/src/stores/auth.store.test.ts`](file:///home/user/projects/uims/apps/web/src/stores/auth.store.test.ts), [`apps/web/src/pages/assets/hooks/useAssetManagement.test.ts`](file:///home/user/projects/uims/apps/web/src/pages/assets/hooks/useAssetManagement.test.ts), [`apps/web/src/services/api.test.ts`](file:///home/user/projects/uims/apps/web/src/services/api.test.ts).
-  - Adversarial & Stress Suites: `*.adversarial.test.tsx`, `*.stress.test.tsx`
-    - Evidence: [`apps/web/src/empirical-adversarial-challenger.test.tsx`](file:///home/user/projects/uims/apps/web/src/empirical-adversarial-challenger.test.tsx), [`apps/web/src/layouts/milestone1-adversarial.stress.test.tsx`](file:///home/user/projects/uims/apps/web/src/layouts/milestone1-adversarial.stress.test.tsx).
-- **Shared Packages (`packages/`)**:
-  - Validators & Utilities: `*.test.ts`, `*.stress.test.ts`
-    - Evidence: [`packages/shared-validators/src/common.validator.test.ts`](file:///home/user/projects/uims/packages/shared-validators/src/common.validator.test.ts), [`packages/shared-utils/src/network.stress.test.ts`](file:///home/user/projects/uims/packages/shared-utils/src/network.stress.test.ts).
-
----
-
-## 3. Test Suite Distribution & Inventory
-
-The monorepo contains **96 test files** organized across workspaces:
-
-| Workspace | Files | Runtime | Primary Test Categories | Key Test Targets |
-|:---|:---|:---|:---|:---|
-| **API** (`@uims/api`) | **43** | Node | Unit, RBAC, Filters, Adversarial, Workers | Auth isolation, Assets, Directory, Notifications, Network, Guards. |
-| **Web** (`@uims/web`) | **44** | Happy-DOM | UI Components, Stores, Navigation, Adversarial | AssetsPage, Auth store, ErrorBoundary, Theme, QR scanning, Access. |
-| **Validators** (`@uims/shared-validators`) | **4** | Node | Schema verification | Common, Network, Notification, and Role Zod schemas. |
-| **Utils** (`@uims/shared-utils`) | **5** | Node | Bitwise arithmetic, Date formatting, Stress | Subnet calculation (/0 to /32), LPM, MAC OUI, Timezones, Enums. |
-| **Total Monorepo** | **96** | — | — | Full stack automated coverage. |
-
----
-
-## 4. Backend API Testing Patterns (NestJS & Prisma)
-
-- **Isolated Dependency Injection & Mocking**:
-  - Services are tested either via direct instantiation with mock doubles or using `@nestjs/testing` `Test.createTestingModule()`.
-  - Prisma Client is mocked using strongly typed record structures without `any` (avoiding `@ts-ignore` and loose types).
-  - Transaction handling is mocked via atomic callbacks: `$transaction: vi.fn(async (cb) => cb(mockPrisma))`.
-  - Evidence: [`apps/api/src/modules/assets/assets.service.spec.ts:L9-42`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.service.spec.ts#L9-L42).
-- **Controller Unit Tests**:
-  - Controllers verify parameter routing, DTO forwarding, and HTTP status handling by mocking service methods.
-  - Evidence: [`apps/api/src/modules/assets/assets.controller.spec.ts:L12-25`](file:///home/user/projects/uims/apps/api/src/modules/assets/assets.controller.spec.ts#L12-L25).
-- **Adversarial & Boundary Suites**:
-  - Dedicated suites evaluate authorization boundary bypasses, token forgery, missing payload fields, and privilege escalation.
-  - Evidence: [`apps/api/src/modules/auth/auth-isolation.adversarial.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth-isolation.adversarial.spec.ts), [`apps/api/src/modules/m2-automation.adversarial.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/m2-automation.adversarial.spec.ts).
-
----
-
-## 5. Frontend Web Testing Patterns (React 19 + Ant Design v6 + Happy-DOM)
-
-- **Root Rendering with React 19 `act()`**:
-  - Components mount into isolated DOM containers using `createRoot(container)` wrapped in `await act(async () => { ... })`.
-  - Global `IS_REACT_ACT_ENVIRONMENT = true` is declared to ensure strict React 19 concurrency warning elimination.
-  - Evidence: [`apps/web/src/pages/assets/AssetsPage.test.tsx:L124-170`](file:///home/user/projects/uims/apps/web/src/pages/assets/AssetsPage.test.tsx#L124-L170).
-- **Clean Component Test Teardown Invariant**:
-  - In compliance with monorepo directives (`AGENTS.md`), every test tracks the mounted root and safely unmounts in `afterEach` while purging stray Ant Design portal elements (`.ant-modal-root`, `.ant-drawer`, `.ant-popover`) to eliminate microtask leaks and `window is not defined` teardown crashes.
-  - Evidence: [`apps/web/src/empirical-adversarial-challenger.test.tsx:L53-60`](file:///home/user/projects/uims/apps/web/src/empirical-adversarial-challenger.test.tsx#L53-L60), [`apps/web/src/pages/assets/AssetsPage.test.tsx:L160-163`](file:///home/user/projects/uims/apps/web/src/pages/assets/AssetsPage.test.tsx#L160-L163).
-- **Ant Design `App.useApp()` Context Mocking**:
-  - Global mocks intercept `antd`'s `App.useApp()` to provide spies for `message.success()`, `message.error()`, and `notification.warning()`.
-  - Evidence: [`apps/web/src/pages/assets/AssetsPage.test.tsx:L95-122`](file:///home/user/projects/uims/apps/web/src/pages/assets/AssetsPage.test.tsx#L95-L122).
-- **Zustand Store State Testing**:
-  - Stores are tested directly by invoking state actions (`login()`, `logout()`, `setPermissions()`) and verifying deterministic transitions.
-  - Evidence: [`apps/web/src/stores/auth.store.test.ts`](file:///home/user/projects/uims/apps/web/src/stores/auth.store.test.ts), [`apps/web/src/stores/theme.store.test.ts`](file:///home/user/projects/uims/apps/web/src/stores/theme.store.test.ts).
-
----
-
-## 6. Shared Package Testing Patterns
-
-- **Runtime Zod Validator Testing (`packages/shared-validators`)**:
-  - Validates positive and negative branches of schemas (`emailSchema`, `uuidSchema`, pagination, notification payloads).
-  - Evidence: [`packages/shared-validators/src/common.validator.test.ts:L5-13`](file:///home/user/projects/uims/packages/shared-validators/src/common.validator.test.ts#L5-L13).
-- **Bitwise Network Arithmetic & Stress Testing (`packages/shared-utils`)**:
-  - Exhaustively tests subnet calculation across all CIDR prefixes (/0 to /32), bitwise boundary containment (`isIpInSubnet`), Longest Prefix Match (LPM), and sequential/fragmented IP allocations.
-  - Contains high-volume stress loops executing 1,000 randomized bitwise assertions without drift.
-  - Evidence: [`packages/shared-utils/src/network.stress.test.ts:L172-186`](file:///home/user/projects/uims/packages/shared-utils/src/network.stress.test.ts#L172-L186), [`packages/shared-utils/src/network.stress.test.ts:L475-490`](file:///home/user/projects/uims/packages/shared-utils/src/network.stress.test.ts#L475-L490).
-
----
-
-## 7. Execution Pipelines & Verification Invariants
-
-- **Turborepo Orchestration (`turbo.json`)**:
-  - Tests depend on dependent package builds (`"dependsOn": ["^build"]`) and cache coverage outputs (`"outputs": ["coverage/**"]`).
-- **Core Verification Commands**:
-  - Run entire monorepo test suite: `pnpm run test` (executes `turbo run test`)
-  - Run API tests exclusively: `pnpm --filter @uims/api test`
-  - Run Web tests exclusively: `pnpm --filter @uims/web test`
-  - Run E2E automation tests: `pnpm run test:e2e` (executes `turbo run test:e2e`)
-  - Watch mode (interactive): `pnpm --filter @uims/api test:watch`
-- **Verification Invariants Gate**:
-  - All CI/CD pipelines and local contributions must satisfy 5 strict verification checks:
-    1. `pnpm run typecheck` — 0 errors across all 5 tsconfigs.
-    2. `pnpm run lint` — 0 errors across ESLint.
-    3. `pnpm run format:check` — 100% compliance with Biome formatting.
-    4. `pnpm run test` — 100% test pass rate across all 96 test suites.
-    5. `pnpm run build` — Clean production builds with zero warnings.
+*Testing analysis: 2026-09-11*

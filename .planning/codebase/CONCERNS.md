@@ -1,180 +1,194 @@
-# Technical Debt, Security Risks & Architectural Concerns
+# Codebase Concerns
 
-This document details verified technical debt, security vulnerabilities, performance bottlenecks, and architectural gaps in the Unified IT Management System (UIMS) codebase as of September 2026. Every concern is backed by concrete source code evidence.
+**Analysis Date:** 2026-09-11
+
+## Tech Debt
+
+### TD-001: TypeScript Strict Mode Disabled
+
+- Issue: Both `apps/api/tsconfig.json` and `apps/web/tsconfig.json` have `"strict": false` and `"noImplicitAny": false`
+- Files: `apps/api/tsconfig.json`, `apps/web/tsconfig.json`
+- Impact: Allows implicit `any` types, reduces type safety guarantees, conflicts with AGENTS.md zero-`any` policy
+- Fix approach: Incrementally enable `"strict": true` — start with `noImplicitAny: true`, fix type errors workspace by workspace. API has `strictNullChecks: true` and `strictBindCallApply: true` already enabled.
+
+### TD-002: Unbounded `findMany()` Queries
+
+- Issue: Multiple `findMany()` calls lack `take` parameter ceiling — at least 20 instances across services
+- Files:
+  - `apps/api/src/modules/notifications/notifications.service.ts:215,308`
+  - `apps/api/src/modules/notifications/scheduled-alerts.worker.ts:71,190,277,340`
+  - `apps/api/src/modules/inventory/inventory.service.ts:155,274,286`
+  - `apps/api/src/modules/assets/assets.service.ts:266,531`
+  - `apps/api/src/modules/directory/directory.service.ts:183,386,398,486,531,610,643`
+  - `apps/api/src/modules/settings/settings.service.ts:21`
+  - `apps/api/src/modules/search/search.service.ts:152`
+- Impact: Risk of loading entire tables into memory — OOM on production with large datasets. Violates AGENTS.md mandatory bounded queries directive.
+- Fix approach: Add explicit `take: Math.min(limit, 100)` with `orderBy` to all `findMany()` calls. For workers, use cursor pagination with `take: 100` batches.
+
+### TD-003: In-Memory Aggregations
+
+- Issue: Multiple services load rows into Node.js and compute sums via `.reduce()` instead of database aggregations
+- Files:
+  - `apps/api/src/modules/licenses/licenses.service.ts:391` — `allLicenses.reduce((sum, l) => sum + l.usedSeats * (l.costPerSeat || 0), 0)`
+  - `apps/api/src/modules/reports/reports.service.ts:18-20,127` — Multiple `.reduce()` aggregations on licenses
+  - `apps/api/src/modules/roles/roles.service.ts:170` — `roles.reduce((acc, curr) => acc + curr._count.users, 0)`
+- Impact: Inefficient on large datasets; wastes memory and CPU. Violates AGENTS.md zero in-memory aggregations directive.
+- Fix approach: Replace with Prisma `_sum` aggregations or `$queryRaw` SQL: `SELECT COALESCE(SUM("usedSeats" * "costPerSeat"), 0) FROM "License"`
+
+### TD-004: Search Service High Take Ceiling
+
+- Issue: `search.service.ts` uses `take: 1000` for MeiliSearch index sync queries
+- Files: `apps/api/src/modules/search/search.service.ts:238-242`
+- Impact: Loads up to 1000 records per entity into memory for search indexing
+- Fix approach: Implement cursor-based pagination for index sync, processing records in batches of 100
+
+### TD-005: Large Page Components
+
+- Issue: Several page components exceed 800+ lines with complex inline logic
+- Files:
+  - `apps/web/src/pages/organization/OrganizationCanvas.tsx` — 1886 lines
+  - `apps/web/src/pages/organization/OrganizationPage.tsx` — 1828 lines
+  - `apps/web/src/pages/settings/SettingsPage.tsx` — 1433 lines
+  - `apps/web/src/pages/dashboard/DashboardPage.tsx` — 1256 lines
+  - `apps/web/src/pages/directory/EmployeesTab.tsx` — 955 lines
+  - `apps/web/src/pages/network/NetworkPage.tsx` (service: 891 lines)
+  - `apps/web/src/pages/inventory/InventoryPage.tsx` — 879 lines
+  - `apps/web/src/components/ErrorResultView.tsx` — 853 lines
+- Impact: Hard to maintain, test, and reason about. Increases cognitive load.
+- Fix approach: Extract sub-components (form modals, table configurations, stat panels) into separate files within `components/` subdirectories per page.
+
+## Known Bugs
+
+No known bugs detected via static analysis. Zero TODO/FIXME/HACK/XXX comments found in production source code.
+
+## Security Considerations
+
+### SEC-001: Redis Connection Fallback to In-Memory
+
+- Risk: When Redis is unavailable, `RedisService` silently falls back to an in-memory `Map`
+- Files: `apps/api/src/common/redis/redis.service.ts`
+- Current mitigation: Logs warning on fallback
+- Recommendations: The in-memory fallback does not persist across restarts and is not shared across instances. For production multi-instance deployments, Redis unavailability should be treated as a degraded state requiring alerting.
+
+### SEC-002: MeiliSearch API Key in Default Fallback
+
+- Risk: `search.service.ts` contains a fallback API key string: `'uims_meili_master_key_2026'`
+- Files: `apps/api/src/modules/search/search.service.ts:58`
+- Current mitigation: Only used as fallback when `MEILI_API_KEY` env var is missing
+- Recommendations: Remove hardcoded fallback key. Use `configService.getOrThrow<string>('MEILI_API_KEY')` to fail-fast if not configured.
+
+### SEC-003: Environment Validation Hardened
+
+- Risk: Low — startup validation via Zod (`apps/api/src/config/app.config.ts`) exits on missing required vars
+- Current mitigation: `process.exit(1)` on invalid env vars
+- Status: ✅ Properly implemented
+
+### SEC-004: CORS Configuration Validated
+
+- Risk: Low — CORS uses explicit allowlist with dynamic `.trycloudflare.com` only in non-production
+- Files: `apps/api/src/main.ts`, `apps/api/src/modules/notifications/notifications.gateway.ts`
+- Current mitigation: Origin callback validation, no wildcards with credentials
+- Status: ✅ Properly implemented
+
+## Performance Bottlenecks
+
+### PERF-001: Search Index Sync Loads Full Tables
+
+- Problem: `SearchService.syncIndexes()` loads up to 1000 records per entity into memory
+- Files: `apps/api/src/modules/search/search.service.ts:238-242`
+- Cause: Bulk load approach for MeiliSearch index population
+- Improvement path: Use cursor pagination, stream documents in batches of 100
+
+### PERF-002: Directory Service Complex Queries
+
+- Problem: `directory.service.ts` is 889 lines with multiple large `findMany()` operations
+- Files: `apps/api/src/modules/directory/directory.service.ts`
+- Cause: CSV import, group management, and bulk operations load full result sets
+- Improvement path: Add pagination to all list operations, use `$transaction` with batched inserts for imports
+
+## Fragile Areas
+
+### Organization Hierarchy Components
+
+- Files: `apps/web/src/pages/organization/OrganizationCanvas.tsx` (1886 lines), `OrganizationPage.tsx` (1828 lines)
+- Why fragile: Extremely large components handling multi-tier hierarchy visualization with drag-and-drop, tree operations, and complex state management in a single file
+- Safe modification: Extract tree node components, hierarchy operations, and canvas rendering into separate modules. Add integration tests for tree CRUD operations.
+- Test coverage: `OrganizationCanvas.test.tsx`, `OrganizationHierarchy.test.tsx` exist but may not cover all edge cases for such large components
+
+### Network Service
+
+- Files: `apps/api/src/modules/network/network.service.ts` (891 lines)
+- Why fragile: Large service handling VLANs, subnets, IP addresses, and credentials with complex CIDR calculations
+- Safe modification: Consider splitting into `VlanService`, `SubnetService`, `IpAddressService`
+- Test coverage: `network.service.spec.ts`, `network-adversarial.spec.ts`, `credential-vault.service.spec.ts` — adequate
+
+## Scaling Limits
+
+### PostgreSQL Single Instance
+
+- Current capacity: Single PostgreSQL 17 instance handling all 28 models
+- Limit: Connection pool exhaustion under high concurrent load; no read replicas
+- Scaling path: Configure PgBouncer connection pooling, add read replicas for report queries
+
+### Redis Single Instance Fallback
+
+- Current capacity: Single Redis 8 instance; in-memory fallback when unavailable
+- Limit: Memory fallback is per-process, not shared across instances
+- Scaling path: Redis Sentinel or Redis Cluster for HA; remove in-memory fallback in production
+
+### MeiliSearch Index Size
+
+- Current capacity: Full-text search across assets, licenses, directory, network
+- Limit: Index sync loads up to 1000 records per entity
+- Scaling path: Implement incremental indexing via change detection, cursor pagination
+
+## Dependencies at Risk
+
+No dependencies at critical risk. All major dependencies are on latest stable channels:
+- NestJS 11.x — Active LTS
+- React 19.x — Latest stable
+- Prisma 7.x — Latest stable
+- Ant Design 6.x — Latest stable
+- TypeScript 7.x — Latest stable (per AGENTS.md zero-downgrade policy)
+- Vitest 5.x — Latest stable
+
+## Missing Critical Features
+
+### SeaweedFS Integration Incomplete
+
+- Problem: SeaweedFS containers are defined in Docker Compose but API integration is minimal — only a backup path reference
+- Files: `apps/api/src/modules/settings/settings.service.ts:158`
+- Blocks: File upload/download for assets, documents, profile pictures
+
+### BullMQ Queue Not Active
+
+- Problem: `bullmq` and `@nestjs/bullmq` are declared as dependencies but no active queue processors or producers found
+- Files: `apps/api/package.json` (dependency listed)
+- Blocks: Background job processing for heavy operations (report generation, bulk imports)
+
+## Test Coverage Gaps
+
+### Frontend Page Tests
+
+- What's not tested: Several page components with complex interactions lack comprehensive tests
+- Files: `apps/web/src/pages/organization/OrganizationPage.tsx`, `apps/web/src/pages/settings/SettingsPage.tsx`
+- Risk: Large refactors could break UI without catching regressions
+- Priority: Medium
+
+### API Reports Service
+
+- What's not tested: Report generation logic uses in-memory aggregations
+- Files: `apps/api/src/modules/reports/reports.service.ts`
+- Risk: Aggregation bugs could produce incorrect financial/operational reports
+- Priority: High — reports service has `reports.service.spec.ts` but should verify aggregation accuracy
+
+### Shared Package Validators
+
+- What's not tested: Not all validators have test coverage — only 4 of 12 validators have tests
+- Files: Missing tests for `asset.validator.ts`, `auth.validator.ts`, `license.validator.ts`, `pagination.validator.ts`, `user.validator.ts`, `organization.validator.ts`, `directory.validator.ts`, `inventory.validator.ts`
+- Risk: Schema validation bugs could allow invalid data through
+- Priority: Medium
 
 ---
 
-## 1. Executive Summary & Findings Breakdown
-
-| Severity | Security | Performance | Architecture | Data Integrity | Operational | Total |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Critical** | 2 | 0 | 0 | 0 | 0 | **2** |
-| **High** | 3 | 3 | 1 | 0 | 0 | **7** |
-| **Medium** | 2 | 3 | 2 | 1 | 1 | **9** |
-| **Low** | 0 | 0 | 0 | 1 | 1 | **2** |
-| **Total** | **7** | **6** | **3** | **2** | **2** | **20** |
-
----
-
-## 2. Critical Concerns
-
-### SEC-01: Broken Refresh Token Flow & Revocation Bypass
-- **What**: Token refreshing is architecturally broken: `/api/v1/auth/refresh` requires a valid access token rather than verifying the refresh token. Revocation tracking in the database is bypassed.
-- **Where**:
-  - [`apps/api/src/modules/auth/auth.controller.ts:47-53`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth.controller.ts#L47-L53)
-  - [`apps/api/src/modules/auth/auth.service.ts:274-359`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth.service.ts#L274-L359)
-  - [`apps/web/src/services/api.ts:57-74`](file:///home/user/projects/uims/apps/web/src/services/api.ts#L57-L74)
-  - [`apps/web/src/stores/auth.store.ts:26-44`](file:///home/user/projects/uims/apps/web/src/stores/auth.store.ts#L26-L44)
-- **Why it matters**: `AuthController.refresh` is guarded by `JwtAuthGuard` (which validates the access token signed with `JWT_SECRET`). When the access token expires, the client's interceptor attempts to refresh using the expired token, resulting in an immediate 401 failure (`TokenExpiredError`) and forced logout. Furthermore, the frontend never stores `refreshToken`, and backend refresh logic does not verify `tokenHash`, `isRevoked`, or `expiresAt` against the `RefreshToken` database table. Revoked sessions remain active until access token expiry.
-- **Suggested fix**: Create a dedicated `JwtRefreshGuard` validating tokens against `JWT_REFRESH_SECRET`. Accept `refreshToken` in request body or secure HttpOnly cookie. Verify against the `RefreshToken` table, invalidate the used token, and issue a rotated pair.
-
-### SEC-02: Cryptographic Key Multi-Use & Vault Encryption Fallbacks
-- **What**: `CredentialVaultService` falls back to `AUDIT_SIGNING_KEY` or `JWT_SECRET` when `VAULT_MASTER_KEY` is not provided, reusing HMAC-SHA256 signing keys for AES-256-GCM symmetric encryption.
-- **Where**:
-  - [`apps/api/src/modules/network/credential-vault.service.ts:19-35`](file:///home/user/projects/uims/apps/api/src/modules/network/credential-vault.service.ts#L19-L35)
-  - [`apps/api/src/config/app.config.ts:3-12`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts#L3-L12)
-- **Why it matters**: Cross-algorithm key reuse weakens cryptographic boundaries. Rotating `JWT_SECRET` or `AUDIT_SIGNING_KEY` renders existing encrypted network device credentials irreversibly corrupted and unrecoverable. `VAULT_MASTER_KEY` is also absent from Zod schema validation in `app.config.ts`.
-- **Suggested fix**: Add `VAULT_MASTER_KEY` (minimum 32 characters) to `envSchema` in `app.config.ts`. Fail fast at startup if absent, and remove fallback derivations from `JWT_SECRET` and `AUDIT_SIGNING_KEY`.
-
----
-
-## 3. High Severity Concerns
-
-### SEC-03: Hardcoded Administrative Credentials in Client Bundle
-- **What**: Production login view contains hardcoded credentials in form initial values and interactive demo autofill buttons.
-- **Where**: [`apps/web/src/pages/auth/LoginPage.tsx:153-157, 213-272`](file:///home/user/projects/uims/apps/web/src/pages/auth/LoginPage.tsx#L153-L157)
-- **Why it matters**: Production build bundles expose default credentials (`admin@uims.local` / `Admin@2026`, `sarah.chen` / `password123`, `david.kim` / `password123`). Anyone inspecting client JS assets or accessing `/login` can extract working accounts.
-- **Suggested fix**: Remove `initialValues` and the "QUICK ACCESS / DEMO ACCOUNTS" block, or gate them strictly behind `import.meta.env.DEV` conditions.
-
-### SEC-04: Plaintext Insecure Secret Fallbacks in Docker Compose
-- **What**: `docker-compose.yml` provides default string fallbacks for JWT, search, and object storage secrets.
-- **Where**: [`docker-compose.yml:48, 114-115, 120, 122-123`](file:///home/user/projects/uims/docker-compose.yml#L48)
-- **Why it matters**: Violates AGENTS.md Section 4 ("Zero Hardcoded Secrets"). Container deployments run with predictable keys (`uims-jwt-secret-change-in-production`, `uims_meili_master_key_2026`, `uims_s3_secret`) if `.env` variables are omitted.
-- **Suggested fix**: Parameterize secrets strictly as `${JWT_SECRET}`, `${JWT_REFRESH_SECRET}`, `${MEILISEARCH_API_KEY}`, `${S3_SECRET_KEY}` without plaintext default values.
-
-### SEC-05: Plaintext License Key Storage & Unauthenticated Leakage
-- **What**: Software license keys are stored unencrypted in the relational schema, returned in cleartext via API endpoints, and indexed in search.
-- **Where**:
-  - [`apps/api/prisma/schema.prisma:272`](file:///home/user/projects/uims/apps/api/prisma/schema.prisma#L272)
-  - [`apps/api/src/modules/licenses/licenses.service.ts:51, 428`](file:///home/user/projects/uims/apps/api/src/modules/licenses/licenses.service.ts#L51)
-  - [`apps/api/src/modules/search/search.service.ts:169`](file:///home/user/projects/uims/apps/api/src/modules/search/search.service.ts#L169)
-- **Why it matters**: Anyone with read access to licenses or the search endpoint can view sensitive enterprise software keys (`licenseKey: license.licenseKey || 'N/A'`).
-- **Suggested fix**: Encrypt `licenseKey` at rest using `CredentialVaultService`. Mask keys (`••••-••••-${key.slice(-4)}`) in standard responses and expose full keys only via an audited `@Roles('Admin')` endpoint.
-
-### PERF-01: Connection Pool Exhaustion in Dashboard Aggregations
-- **What**: `DashboardService.getOverview()` executes 23 parallel database queries simultaneously via `Promise.all()`.
-- **Where**:
-  - [`apps/api/src/modules/dashboard/dashboard.service.ts:240-300`](file:///home/user/projects/uims/apps/api/src/modules/dashboard/dashboard.service.ts#L240-L300)
-  - [`docker-compose.yml:112`](file:///home/user/projects/uims/docker-compose.yml#L112)
-- **Why it matters**: `DATABASE_URL` configures `connection_limit=20`. A single uncached request initiates 23 queries at once, exceeding the Prisma connection pool and causing query queuing, latency spikes, and timeouts.
-- **Suggested fix**: Consolidate status counts into single SQL group-by queries (`SELECT status, COUNT(*) FROM "Asset" GROUP BY status`) and batch sub-queries sequentially or via `$queryRaw`.
-
-### PERF-02: In-Memory Aggregations Violating Architecture Invariants
-- **What**: Multi-thousand row datasets are fetched into Node.js memory to compute arithmetic sums with `.reduce()`, with arbitrary query caps.
-- **Where**:
-  - [`apps/api/src/modules/licenses/licenses.service.ts:382-391`](file:///home/user/projects/uims/apps/api/src/modules/licenses/licenses.service.ts#L382-L391)
-  - [`apps/api/src/modules/reports/reports.service.ts:18-20, 127`](file:///home/user/projects/uims/apps/api/src/modules/reports/reports.service.ts#L18-L20)
-  - [`apps/api/src/modules/roles/roles.service.ts:168`](file:///home/user/projects/uims/apps/api/src/modules/roles/roles.service.ts#L168)
-- **Why it matters**: Violates AGENTS.md Section 6 ("Zero In-Memory Aggregations"). Loading 1,000 records into Node.js heap to compute `reduce((sum, l) => sum + l.usedSeats * l.costPerSeat)` wastes memory and silently truncates financial spend calculations when license counts exceed 1,000.
-- **Suggested fix**: Execute calculations directly in PostgreSQL via Prisma aggregate (`_sum`) or `$queryRaw` (`SELECT COALESCE(SUM("usedSeats" * "costPerSeat"), 0) FROM "License"`).
-
-### PERF-03: Sequential N+1 Transactions in Directory CSV Batch Import
-- **What**: `DirectoryService.importBatch()` executes an individual `$transaction` for every row in a batch.
-- **Where**: [`apps/api/src/modules/directory/directory.service.ts:805-811, 834-870`](file:///home/user/projects/uims/apps/api/src/modules/directory/directory.service.ts#L805-L811)
-- **Why it matters**: Importing 5,000 users triggers 5,000 isolated database transactions plus individual group lookups and count updates, causing severe transaction overhead, connection locking, and timeouts on large imports.
-- **Suggested fix**: Group writes into chunks of 100 within a single `$transaction` per chunk, using Prisma `createMany` / bulk upsert operations.
-
-### ARCH-01: Missing BullMQ Integration for Scheduled Background Workers
-- **What**: `@nestjs/bullmq` (v11.0.5) and `bullmq` (v6.3.4) are installed in `package.json`, but never registered in `AppModule`. Background alert workers run via `@Cron` in the primary API process.
-- **Where**:
-  - [`apps/api/src/modules/notifications/scheduled-alerts.worker.ts:20-50`](file:///home/user/projects/uims/apps/api/src/modules/notifications/scheduled-alerts.worker.ts#L20-L50)
-  - [`apps/api/package.json:23, 40`](file:///home/user/projects/uims/apps/api/package.json#L23)
-- **Why it matters**: In multi-replica container deployments, each API instance executes the `@Cron` simultaneously at midnight UTC, causing redundant database scans, duplicate alert dispatches, and race conditions.
-- **Suggested fix**: Wire `BullModule.forRootAsync()` using the existing Redis infrastructure and dispatch scheduled jobs to a distributed BullMQ worker with leader election and queue deduplication.
-
----
-
-## 4. Medium Severity Concerns
-
-### SEC-06: Password Hashing Below Mandated Cost Standard
-- **What**: Passwords are hashed with `bcrypt.hash(..., 10)` rather than 12 rounds.
-- **Where**:
-  - [`apps/api/src/modules/users/users.service.ts:104, 271`](file:///home/user/projects/uims/apps/api/src/modules/users/users.service.ts#L104)
-  - [`apps/api/prisma/seeders/roles-users.seeder.ts:28-29`](file:///home/user/projects/uims/apps/api/prisma/seeders/roles-users.seeder.ts#L28-L29)
-- **Why it matters**: AGENTS.md Section 4 mandates: "Passwords must be hashed using salted bcrypt (12 rounds)." Cost factor 10 reduces resistance to offline GPU brute-force attacks.
-- **Suggested fix**: Update `bcrypt.hash(password, 12)` in `users.service.ts` and seeder routines.
-
-### SEC-07: Permissive CSP Directives & Disabled Security Headers
-- **What**: Nginx reverse proxy enables `'unsafe-inline'` script/style directives and deprecated `X-XSS-Protection`, while NestJS Helmet disables CSP.
-- **Where**:
-  - [`docker/nginx/nginx.conf:37, 39`](file:///home/user/projects/uims/docker/nginx/nginx.conf#L37)
-  - [`apps/api/src/main.ts:21-23`](file:///home/user/projects/uims/apps/api/src/main.ts#L21-L23)
-- **Why it matters**: `'unsafe-inline'` undermines Cross-Site Scripting (XSS) protections. `connect-src http: https: ws: wss:;` is overly broad and allows data exfiltration to arbitrary external origins.
-- **Suggested fix**: Remove `'unsafe-inline'` in favor of nonces/hashes, restrict `connect-src` to application domains, and drop the deprecated `X-XSS-Protection` header.
-
-### PERF-04: In-Memory Subnet CIDR Evaluation Capped at 100 Records
-- **What**: `NetworkService.autoDetect()` and IP assignment query `subnet.findMany({ take: 100 })` and iterate in JavaScript using `findMatchingSubnet()`.
-- **Where**: [`apps/api/src/modules/network/network.service.ts:425-435, 673-680`](file:///home/user/projects/uims/apps/api/src/modules/network/network.service.ts#L425-L435)
-- **Why it matters**: Enterprises with >100 subnets will fail to match any subnet past the 100th in alphabetical CIDR order. Storing CIDRs as plain `String` prevents PostgreSQL from using indexed `inet` / `cidr` operators (`ip << cidr`).
-- **Suggested fix**: Migrate PostgreSQL column type to `cidr` via raw SQL migration or write a `$queryRaw` function using `WHERE $1::inet << cidr::cidr`.
-
-### PERF-05: Unbounded Heap Allocation in Directory Master Export
-- **What**: `DirectoryService.exportMaster()` loads up to 10,000 user entities with 4 relational joins (`organization`, `department`, `position`, `location`) in a single query.
-- **Where**: [`apps/api/src/modules/directory/directory.service.ts:531-540`](file:///home/user/projects/uims/apps/api/src/modules/directory/directory.service.ts#L531-L540)
-- **Why it matters**: Allocates hundreds of megabytes on the Node.js event loop during serialization, risking heap exhaustion and event loop lag.
-- **Suggested fix**: Implement cursor-based pagination and pipe CSV output through Node.js transform streams directly to the response.
-
-### PERF-06: MeiliSearch Reindexing Hard Truncation
-- **What**: `SearchService.reindexAll()` fetches `take: 1000` for assets, licenses, and directory users during full search re-indexing.
-- **Where**: [`apps/api/src/modules/search/search.service.ts:238-244`](file:///home/user/projects/uims/apps/api/src/modules/search/search.service.ts#L238-L244)
-- **Why it matters**: In environments with more than 1,000 records per model, records past the first 1,000 are silently omitted from the search index.
-- **Suggested fix**: Use batched cursor pagination (`take: 500`, cursor loop) to index all records into MeiliSearch.
-
-### ARCH-02: Hardcoded Static Telemetry in Reports Service
-- **What**: `ReportsService.getReportSuites()` and `getStats()` return static mock numbers and strings ("100% Pass", "0 Critical Findings", "83.6%", "8.4 Units/wk").
-- **Where**: [`apps/api/src/modules/reports/reports.service.ts:17, 45, 58-60, 71-74, 84-87, 131-135`](file:///home/user/projects/uims/apps/api/src/modules/reports/reports.service.ts#L17)
-- **Why it matters**: Management and audit dashboards present fabricated values as real system compliance and asset depreciation data.
-- **Suggested fix**: Query real aggregated data from `AuditLog`, `IPAddress`, and `InventoryItem` tables.
-
-### ARCH-03: Environment Variable Schema Desynchronization
-- **What**: Schema mismatch between `app.config.ts`, `auth.module.ts`, and `docker-compose.yml`.
-- **Where**:
-  - [`apps/api/src/config/app.config.ts:3-12`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts#L3-L12)
-  - [`apps/api/src/modules/auth/auth.module.ts:24-27`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth.module.ts#L24-L27)
-  - [`docker-compose.yml:110-125`](file:///home/user/projects/uims/docker-compose.yml#L110-L125)
-- **Why it matters**: `JWT_EXPIRATION` in `app.config.ts` is unused; `AuthModule` reads `JWT_ACCESS_EXPIRATION`, which is unvalidated. `REDIS_URL` is marked `.optional()`, but omitting it causes cache and queue degradation.
-- **Suggested fix**: Align `envSchema` with all runtime variables (`JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`, `VAULT_MASTER_KEY`, `MEILISEARCH_API_KEY`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`) and mark `REDIS_URL` required in production.
-
-### DATA-01: Missing Database Index on `Setting(group)`
-- **What**: The `Setting` model defines `key String @unique`, but lacks an index on `group`.
-- **Where**: [`apps/api/prisma/schema.prisma:530-537`](file:///home/user/projects/uims/apps/api/prisma/schema.prisma#L530-L537)
-- **Why it matters**: Looking up or filtering settings by category group triggers full table scans.
-- **Suggested fix**: Add `@@index([group])` to `Setting` in `schema.prisma`.
-
-### OPS-01: Raw Console Calls in Production Components
-- **What**: `console.warn` and `console.error` are present in frontend components and server bootstrapper.
-- **Where**:
-  - [`apps/web/src/pages/network/components/SubnetFormModal.tsx:112`](file:///home/user/projects/uims/apps/web/src/pages/network/components/SubnetFormModal.tsx#L112)
-  - [`apps/api/src/config/app.config.ts:17`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts#L17)
-- **Why it matters**: Violates AGENTS.md Section 7 ("Structured Logging Standards"). Logs bypass log aggregation pipelines.
-- **Suggested fix**: Replace frontend call with notification feedback or silent telemetry; use NestJS `Logger` in `app.config.ts`.
-
----
-
-## 5. Low Severity Concerns
-
-### DATA-02: Missing HMAC Signatures on Programmatic Audit Logs
-- **What**: `AuditInterceptor` generates HMAC-SHA256 signatures for HTTP operations, but direct calls to `AuditService.logEvent()` omit the `hash` field.
-- **Where**:
-  - [`apps/api/src/modules/audit/audit.service.ts:57-76`](file:///home/user/projects/uims/apps/api/src/modules/audit/audit.service.ts#L57-L76)
-  - [`apps/api/src/common/interceptors/audit.interceptor.ts:72-89, 123-132`](file:///home/user/projects/uims/apps/api/src/common/interceptors/audit.interceptor.ts#L72-L89)
-- **Why it matters**: Internal service events (logins, directory rejections) have `hash = null`, undermining tamper-evident integrity guarantees across the audit trail.
-- **Suggested fix**: Move HMAC computation inside `AuditService.logEvent()` so all records receive a cryptographic hash.
-
-### OPS-02: Direct `process.env` Bypassing ConfigService
-- **What**: Direct reads from `process.env.AUDIT_SIGNING_KEY` and `process.env.CORS_ORIGIN` bypass NestJS `ConfigService`.
-- **Where**:
-  - [`apps/api/src/common/interceptors/audit.interceptor.ts:81`](file:///home/user/projects/uims/apps/api/src/common/interceptors/audit.interceptor.ts#L81)
-  - [`apps/api/src/modules/notifications/notifications.gateway.ts:21`](file:///home/user/projects/uims/apps/api/src/modules/notifications/notifications.gateway.ts#L21)
-- **Why it matters**: Bypasses centralized configuration caching, validation, and mocking in unit test suites.
-- **Suggested fix**: Inject `ConfigService` into `AuditInterceptor` and helper methods.
+*Concerns audit: 2026-09-11*
