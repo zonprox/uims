@@ -53,7 +53,7 @@ export default function ReportsPage() {
     try {
       const [suites, statsData] = await Promise.all([
         reportsService.getReportSuites(),
-        reportsService.getStats().catch(() => null),
+        reportsService.getStats().catch((_error: unknown) => null),
       ]);
       setReportsList(suites);
       if (statsData) setStats(statsData);
@@ -112,30 +112,30 @@ export default function ReportsPage() {
 
   return (
     <PageContainer
-      title="Reports & Analytics"
+      title="Reports"
       subtitle="Generate operational summaries, financial depreciation models, and compliance exports."
-      breadcrumbs={[{ title: 'Reports & Analytics' }]}
+      breadcrumbs={[{ title: 'Reports' }]}
       stats={[
         {
-          title: 'Scheduled Reports',
+          title: 'Scheduled',
           value: stats.scheduledReports,
           prefix: <CalendarOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Identified SaaS Savings',
+          title: 'Cost Savings',
           value: stats.annualCostSavings,
           prefix: <DollarOutlined />,
           color: '#10b981',
         },
         {
-          title: 'Global SLA Adherence',
+          title: 'SLA Adherence',
           value: stats.globalSlaMet,
           prefix: <LineChartOutlined />,
           color: '#6366f1',
         },
         {
-          title: 'SOC2 Control Readiness',
+          title: 'SOC 2 Readiness',
           value: stats.auditReadiness,
           prefix: <SafetyCertificateOutlined />,
           color: '#059669',

@@ -28,7 +28,7 @@ export function escapeHtml(text: unknown): string {
   let str: string;
   try {
     str = String(text);
-  } catch {
+  } catch (_error: unknown) {
     return '';
   }
   return str

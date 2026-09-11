@@ -1150,7 +1150,7 @@ export default function DashboardPage() {
         if (isManualRefresh) {
           messageRef.current.success('Telemetry data refreshed');
         }
-      } catch {
+      } catch (_error: unknown) {
         if (fetchId !== activeFetchIdRef.current) return;
         setError('Failed to load dashboard overview. Please try again.');
         messageRef.current.error('Failed to load dashboard overview. Please try again.');

@@ -329,7 +329,7 @@ export default function RouteErrorBoundary() {
   const handleSignIn = () => {
     try {
       useAuthStore.getState().logout();
-    } catch {
+    } catch (_error: unknown) {
       // Ignore if store is not accessible
     }
     navigate('/login', { state: { from: location } });
@@ -339,7 +339,7 @@ export default function RouteErrorBoundary() {
     if (typeof window !== 'undefined') {
       try {
         window.location.reload();
-      } catch {
+      } catch (_error: unknown) {
         // Ignore
       }
     }

@@ -55,7 +55,7 @@ export const inventoryService = {
     try {
       const res = await api.get('/inventory/categories');
       return res.data.data;
-    } catch {
+    } catch (_error: unknown) {
       return [
         { id: 'cat-1', name: 'Cables & Adapters', description: 'Patch cables and adapters' },
         { id: 'cat-2', name: 'Peripherals', description: 'Mice, keyboards, headsets' },

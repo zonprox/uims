@@ -70,7 +70,7 @@ export default function LicensesPage() {
           vendor: vendorFilter !== 'all' ? vendorFilter : undefined,
           type: typeFilter !== 'all' ? typeFilter : undefined,
         }),
-        licensesService.getStats().catch(() => null),
+        licensesService.getStats().catch((_error: unknown) => null),
       ]);
       setLicenses(list);
       if (statsData) {

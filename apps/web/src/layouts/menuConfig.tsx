@@ -250,8 +250,8 @@ export function getNavMenuItems(
     orgChildren.push({
       key: '/organization',
       icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Organization Structure'),
-      title: 'Organization Structure',
+      label: renderNavLabel('Organization'),
+      title: 'Organization',
     });
   }
   if (allow('read', 'User') || allow('read', 'Role')) {

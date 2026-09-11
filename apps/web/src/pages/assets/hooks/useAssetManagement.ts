@@ -101,7 +101,7 @@ export function useAssetManagement(form: FormInstance) {
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
         }),
-        assetsService.getStats().catch(() => null),
+        assetsService.getStats().catch((_error: unknown) => null),
       ]);
       setAssets(list);
       if (statsData) {
@@ -194,7 +194,7 @@ export function useAssetManagement(form: FormInstance) {
               (a.serialNumber || '').toLowerCase() === parsedTag.toLowerCase() ||
               (a.id || '').toLowerCase() === parsedTag.toLowerCase(),
           );
-        } catch {
+        } catch (_error: unknown) {
           message.error('Failed to verify asset with server. Please try again.');
           return;
         }

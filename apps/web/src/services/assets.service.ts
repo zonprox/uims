@@ -70,7 +70,7 @@ export const assetsService = {
     try {
       const res = await api.get('/assets/categories');
       return res.data.data;
-    } catch {
+    } catch (_error: unknown) {
       return [
         { id: 'cat-laptop', name: 'Laptop' },
         { id: 'cat-desktop', name: 'Desktop' },

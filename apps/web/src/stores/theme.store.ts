@@ -169,7 +169,7 @@ export function setupSystemThemeListener(): (() => void) | undefined {
       mediaQuery.addListener(handleSystemThemeChange);
       return () => mediaQuery.removeListener(handleSystemThemeChange);
     }
-  } catch {
+  } catch (_error: unknown) {
     // Ignore matchMedia listener registration errors in unsupported environments
   }
   return undefined;

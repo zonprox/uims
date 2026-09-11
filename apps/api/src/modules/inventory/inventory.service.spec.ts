@@ -33,6 +33,10 @@ describe('InventoryService', () => {
         findFirst: vi.fn().mockResolvedValue({ id: 'cat-1', name: 'Peripherals' }),
         create: vi.fn().mockResolvedValue({ id: 'cat-1', name: 'Peripherals' }),
       },
+      vendor: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+      },
     };
 
     service = new InventoryService(
@@ -152,6 +156,85 @@ describe('InventoryService', () => {
         take: 100,
       });
       expect(result).toEqual(mockCats);
+    });
+  });
+
+  describe('findAllVendors', () => {
+    it('should query vendors and map response with contactName null and formatted dates', async () => {
+      const mockVendorList = [
+        {
+          id: 'ven-1',
+          name: 'Monoprice Inc',
+          contactEmail: 'sales@monoprice.com',
+          contactPhone: null,
+          website: 'https://monoprice.com',
+          notes: 'Standard cables and accessories vendor',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ];
+      mockPrisma.vendor.findMany.mockResolvedValue(mockVendorList);
+
+      const result = await service.findAllVendors();
+
+      expect(mockPrisma.vendor.findMany).toHaveBeenCalledWith({
+        take: 100,
+        orderBy: { name: 'asc' },
+      });
+      expect(result).toEqual([
+        {
+          id: 'ven-1',
+          name: 'Monoprice Inc',
+          contactName: null,
+          contactEmail: 'sales@monoprice.com',
+          contactPhone: null,
+          website: 'https://monoprice.com',
+          notes: 'Standard cables and accessories vendor',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]);
+    });
+  });
+
+  describe('findOneVendor', () => {
+    it('should return vendor if found', async () => {
+      const mockVendor = {
+        id: 'ven-1',
+        name: 'Monoprice Inc',
+        contactEmail: 'sales@monoprice.com',
+        contactPhone: null,
+        website: 'https://monoprice.com',
+        notes: 'Standard cables and accessories vendor',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      };
+      mockPrisma.vendor.findUnique.mockResolvedValue(mockVendor);
+
+      const result = await service.findOneVendor('ven-1');
+
+      expect(mockPrisma.vendor.findUnique).toHaveBeenCalledWith({
+        where: { id: 'ven-1' },
+      });
+      expect(result).toEqual({
+        id: 'ven-1',
+        name: 'Monoprice Inc',
+        contactName: null,
+        contactEmail: 'sales@monoprice.com',
+        contactPhone: null,
+        website: 'https://monoprice.com',
+        notes: 'Standard cables and accessories vendor',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('should throw NotFoundException if vendor not found', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOneVendor('ven-999')).rejects.toThrow(
+        'Vendor with ID "ven-999" not found',
+      );
     });
   });
 });

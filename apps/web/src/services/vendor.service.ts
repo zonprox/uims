@@ -8,7 +8,7 @@ export const vendorService = {
     try {
       const res = await api.get('/vendors');
       return res.data.data;
-    } catch {
+    } catch (_error: unknown) {
       return [
         {
           id: 'ven-1',

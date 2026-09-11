@@ -104,10 +104,10 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // Load master entities on mount
   useEffect(() => {
     Promise.all([
-      organizationService.getOrganizations().catch(() => []),
-      organizationService.getDepartments().catch(() => []),
-      organizationService.getPositions().catch(() => []),
-      organizationService.getLocations().catch(() => []),
+      organizationService.getOrganizations().catch((_error: unknown) => []),
+      organizationService.getDepartments().catch((_error: unknown) => []),
+      organizationService.getPositions().catch((_error: unknown) => []),
+      organizationService.getLocations().catch((_error: unknown) => []),
     ]).then(([o, d, p, l]) => {
       setOrgs(o);
       setDepartments(d);

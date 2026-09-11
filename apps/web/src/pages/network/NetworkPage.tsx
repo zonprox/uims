@@ -246,7 +246,7 @@ export default function NetworkPage() {
   return (
     <PageContainer
       title="Network & IPAM"
-      subtitle="Enterprise management for IP allocations, subnet CIDR blocks, VLAN segmentation, and real-time network telemetry."
+      subtitle="Manage IP allocations, CIDR subnets, VLAN segmentation, and network telemetry."
       breadcrumbs={[{ title: 'Network' }]}
       stats={statsItems}
       extra={

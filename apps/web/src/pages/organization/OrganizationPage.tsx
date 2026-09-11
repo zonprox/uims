@@ -99,12 +99,12 @@ export default function OrganizationPage() {
     setLoading(true);
     try {
       const [statsData, tree, orgList, deptList, posList, locList] = await Promise.all([
-        organizationService.getStats().catch(() => null),
-        organizationService.getTree().catch(() => []),
-        organizationService.getOrganizations().catch(() => []),
-        organizationService.getDepartments().catch(() => []),
-        organizationService.getPositions().catch(() => []),
-        organizationService.getLocations().catch(() => []),
+        organizationService.getStats().catch((_error: unknown) => null),
+        organizationService.getTree().catch((_error: unknown) => []),
+        organizationService.getOrganizations().catch((_error: unknown) => []),
+        organizationService.getDepartments().catch((_error: unknown) => []),
+        organizationService.getPositions().catch((_error: unknown) => []),
+        organizationService.getLocations().catch((_error: unknown) => []),
       ]);
 
       if (statsData) setStats(statsData);
@@ -612,30 +612,30 @@ export default function OrganizationPage() {
 
   return (
     <PageContainer
-      title="Organization Structure"
+      title="Organization"
       subtitle="Manage organizational units, departments, locations, and job positions."
       breadcrumbs={[{ title: 'Organization' }]}
       stats={[
         {
-          title: 'Organizations & Entities',
+          title: 'Organizations',
           value: stats.totalOrganizations,
           prefix: <BankOutlined />,
           color: '#722ed1',
         },
         {
-          title: 'Departments & Divisions',
+          title: 'Departments',
           value: stats.totalDepartments,
           prefix: <ApartmentOutlined />,
           color: '#1677ff',
         },
         {
-          title: 'Job Titles & Positions',
+          title: 'Positions',
           value: stats.totalPositions,
           prefix: <IdcardOutlined />,
           color: '#f59e0b',
         },
         {
-          title: 'Facilities & Branches',
+          title: 'Locations',
           value: stats.totalBranches,
           prefix: <EnvironmentOutlined />,
           color: '#10b981',

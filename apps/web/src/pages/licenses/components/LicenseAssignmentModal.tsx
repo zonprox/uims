@@ -37,7 +37,7 @@ export const LicenseAssignmentModal: React.FC<LicenseAssignmentModalProps> = Rea
           if (mounted) {
             setEmployees(res.items || []);
           }
-        } catch {
+        } catch (_error: unknown) {
           // Handled gracefully
         } finally {
           if (mounted) setLoadingEmployees(false);

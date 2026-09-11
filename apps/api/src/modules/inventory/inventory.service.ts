@@ -269,4 +269,42 @@ export class InventoryService {
       take: 100,
     });
   }
+
+  async findAllVendors() {
+    const vendors = await this.prisma.vendor.findMany({
+      take: 100,
+      orderBy: { name: 'asc' },
+    });
+    return vendors.map((v) => ({
+      id: v.id,
+      name: v.name,
+      contactName: null,
+      contactEmail: v.contactEmail,
+      contactPhone: v.contactPhone,
+      website: v.website,
+      notes: v.notes,
+      createdAt: v.createdAt.toISOString(),
+      updatedAt: v.updatedAt.toISOString(),
+    }));
+  }
+
+  async findOneVendor(id: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id },
+    });
+    if (!vendor) {
+      throw new NotFoundException(`Vendor with ID "${id}" not found`);
+    }
+    return {
+      id: vendor.id,
+      name: vendor.name,
+      contactName: null,
+      contactEmail: vendor.contactEmail,
+      contactPhone: vendor.contactPhone,
+      website: vendor.website,
+      notes: vendor.notes,
+      createdAt: vendor.createdAt.toISOString(),
+      updatedAt: vendor.updatedAt.toISOString(),
+    };
+  }
 }

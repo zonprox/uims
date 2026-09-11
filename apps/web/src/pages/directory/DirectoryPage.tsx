@@ -52,9 +52,9 @@ export default function DirectoryPage() {
     try {
       const [empRes, groupsRes, ousRes, statsRes] = await Promise.all([
         directoryService.getEmployees({ limit: 100 }),
-        directoryService.getGroups().catch(() => []),
-        directoryService.getOrganizationalUnits().catch(() => []),
-        directoryService.getStats().catch(() => null),
+        directoryService.getGroups().catch((_error: unknown) => []),
+        directoryService.getOrganizationalUnits().catch((_error: unknown) => []),
+        directoryService.getStats().catch((_error: unknown) => null),
       ]);
 
       const items = Array.isArray(empRes) ? empRes : empRes.items || [];
@@ -62,7 +62,7 @@ export default function DirectoryPage() {
       setGroups(groupsRes || []);
       setOrganizationalUnits(ousRes || []);
       setStats(statsRes);
-    } catch {
+    } catch (_error: unknown) {
       message.error('Failed to load corporate directory records.');
     } finally {
       setLoading(false);
@@ -124,7 +124,7 @@ export default function DirectoryPage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       message.success('Directory records exported successfully.');
-    } catch {
+    } catch (_error: unknown) {
       message.error('Failed to export employee directory records.');
     }
   };

@@ -229,7 +229,56 @@ export async function seedInventory(prisma: PrismaClient) {
     });
   }
 
+  // 3. Standard Hardware & Peripherals Vendors
+  const vendors = [
+    {
+      id: 'ven-1',
+      name: 'Monoprice Inc',
+      contactEmail: 'sales@monoprice.com',
+      contactPhone: '+1 (877) 271-2592',
+      website: 'https://monoprice.com',
+      notes: 'Standard cables and accessories vendor',
+    },
+    {
+      id: 'ven-2',
+      name: 'CDW Direct',
+      contactEmail: 'orders@cdw.com',
+      contactPhone: '+1 (800) 800-4239',
+      website: 'https://cdw.com',
+      notes: 'Hardware and peripherals distributor',
+    },
+    {
+      id: 'ven-3',
+      name: 'Dell Technologies',
+      contactEmail: 'enterprise_sales@dell.com',
+      contactPhone: '+1 (800) 456-3355',
+      website: 'https://dell.com',
+      notes: 'Primary workstation and server hardware supplier',
+    },
+  ];
+
+  for (const v of vendors) {
+    await prisma.vendor.upsert({
+      where: { id: v.id },
+      update: {
+        name: v.name,
+        contactEmail: v.contactEmail,
+        contactPhone: v.contactPhone,
+        website: v.website,
+        notes: v.notes,
+      },
+      create: {
+        id: v.id,
+        name: v.name,
+        contactEmail: v.contactEmail,
+        contactPhone: v.contactPhone,
+        website: v.website,
+        notes: v.notes,
+      },
+    });
+  }
+
   logger.log(
-    `✅ Seeded ${inventoryCategories.length} inventory categories and ${inventoryItems.length} inventory items.`,
+    `✅ Seeded ${inventoryCategories.length} inventory categories, ${inventoryItems.length} inventory items, and ${vendors.length} vendors.`,
   );
 }

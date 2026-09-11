@@ -70,7 +70,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'organization',
-    title: 'Organization Structure',
+    title: 'Organization',
     category: 'Organization',
     path: '/organization',
     icon: <ApartmentOutlined />,

@@ -78,7 +78,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             setEmployees(empRes.items || []);
             setCredentials(creds);
           }
-        } catch {
+        } catch (_error: unknown) {
           // Graceful fallback: maintain available local state
         } finally {
           if (mounted) setLoadingOptions(false);

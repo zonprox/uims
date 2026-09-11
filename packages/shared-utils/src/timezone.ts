@@ -190,7 +190,7 @@ export function isValidTimezone(tz: string): boolean {
   try {
     Intl.DateTimeFormat(undefined, { timeZone: tz });
     return true;
-  } catch {
+  } catch (_error: unknown) {
     return false;
   }
 }
@@ -204,7 +204,7 @@ export function getBrowserTimezone(): string {
     if (tz && isValidTimezone(tz)) {
       return tz;
     }
-  } catch {
+  } catch (_error: unknown) {
     // Ignore error
   }
   return 'UTC';
@@ -220,7 +220,7 @@ export function getTimezoneOffset(
   try {
     const safeTz = isValidTimezone(tz) ? tz : 'UTC';
     return dayjs(referenceDate).tz(safeTz).format('Z');
-  } catch {
+  } catch (_error: unknown) {
     return '+00:00';
   }
 }
@@ -238,7 +238,7 @@ export function getTimezoneOffsetMinutes(
     const sign = offsetStr.startsWith('-') ? -1 : 1;
     const [hours, minutes] = offsetStr.replace(/^[+-]/, '').split(':').map(Number);
     return sign * (hours * 60 + (minutes || 0));
-  } catch {
+  } catch (_error: unknown) {
     return 0;
   }
 }
@@ -263,7 +263,7 @@ export function getTimezoneAbbr(
     }
     const offset = parsed.format('Z');
     return `UTC${offset}`;
-  } catch {
+  } catch (_error: unknown) {
     return 'UTC';
   }
 }
@@ -304,7 +304,7 @@ export function formatInTimezone(
   try {
     const safeTz = isValidTimezone(tz) ? tz : 'UTC';
     return dayjs(date).tz(safeTz).format(formatStr);
-  } catch {
+  } catch (_error: unknown) {
     return dayjs(date).format(formatStr);
   }
 }
@@ -380,7 +380,7 @@ export function formatEnterpriseDateTime(
     );
 
     return `${formattedDate}${tzSuffix}`;
-  } catch {
+  } catch (_error: unknown) {
     return String(date);
   }
 }

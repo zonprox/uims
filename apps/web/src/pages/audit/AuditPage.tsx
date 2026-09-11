@@ -60,7 +60,7 @@ export default function AuditPage() {
           action: actionFilter !== 'all' ? actionFilter : undefined,
           severity: severityFilter !== 'all' ? severityFilter : undefined,
         }),
-        auditService.getStats().catch(() => null),
+        auditService.getStats().catch((_error: unknown) => null),
       ]);
       setLogs(list);
       if (statsData) {

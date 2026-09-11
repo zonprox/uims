@@ -163,7 +163,7 @@ export default function NotificationsPage() {
       await Promise.all(selectedRowKeys.map((id) => markAsRead(String(id))));
       message.success(`Marked ${selectedRowKeys.length} notifications as read.`);
       setSelectedRowKeys([]);
-    } catch {
+    } catch (_error: unknown) {
       message.error('Failed to mark selected notifications as read.');
     } finally {
       setBatchLoading(false);
@@ -177,7 +177,7 @@ export default function NotificationsPage() {
       await Promise.all(selectedRowKeys.map((id) => deleteNotification(String(id))));
       message.success(`Deleted ${selectedRowKeys.length} notifications.`);
       setSelectedRowKeys([]);
-    } catch {
+    } catch (_error: unknown) {
       message.error('Failed to delete selected notifications.');
     } finally {
       setBatchLoading(false);

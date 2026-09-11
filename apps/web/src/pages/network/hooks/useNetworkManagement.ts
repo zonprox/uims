@@ -102,9 +102,11 @@ export function useNetworkManagement(
           }),
           organizationService.getLocations(),
           assetsService.getAssets(),
-          directoryService.getEmployees({ pageSize: 100 }).catch(() => ({ items: [] })),
+          directoryService
+            .getEmployees({ pageSize: 100 })
+            .catch((_error: unknown) => ({ items: [] })),
           networkService.getCredentials
-            ? networkService.getCredentials().catch(() => [])
+            ? networkService.getCredentials().catch((_error: unknown) => [])
             : Promise.resolve([]),
         ]);
 

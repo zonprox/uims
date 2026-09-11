@@ -115,7 +115,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
     try {
       const detail = await rolesService.getRole(role.id);
       setRoleDetail(detail);
-    } catch {
+    } catch (_error: unknown) {
       message.error('Failed to load role details.');
     } finally {
       setDetailLoading(false);

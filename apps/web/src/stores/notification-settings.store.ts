@@ -60,7 +60,7 @@ export function playNotificationChime(volume = 0.5): void {
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.25);
-  } catch {
+  } catch (_error: unknown) {
     // Audio synthesis optional / unsupported in mock environments
   }
 }

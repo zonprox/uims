@@ -13,18 +13,18 @@ export function useLayoutTelemetry(intervalMs = 15000) {
 
   const fetchLiveTelemetry = useCallback(async () => {
     try {
-      const notifs = await notificationsService.getNotifications().catch(() => []);
+      const notifs = await notificationsService.getNotifications().catch((_error: unknown) => []);
       const notifList = Array.isArray(notifs) ? notifs : [];
       setUnreadNotifCount(notifList.filter((n) => !n.read).length);
 
-      const overview = await dashboardService.getOverview().catch(() => null);
+      const overview = await dashboardService.getOverview().catch((_error: unknown) => null);
       if (overview) {
         setNavBadges({
           expiringLicenses: overview.kpi?.licenses?.expiringCount ?? 0,
           lowStockItems: overview.actionItems?.filter((a) => a.type === 'error').length ?? 0,
         });
       }
-    } catch {
+    } catch (_error: unknown) {
       // Telemetry will retry on next poll interval
     }
   }, []);

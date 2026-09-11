@@ -131,10 +131,10 @@ export default function InventoryPage() {
           category: categoryFilter !== 'all' ? categoryFilter : undefined,
           stockStatus: stockFilter !== 'all' ? stockFilter : undefined,
         }),
-        inventoryService.getStats().catch(() => null),
-        inventoryService.getCategories().catch(() => []),
-        organizationService.getLocations().catch(() => []),
-        vendorService.getVendors().catch(() => []),
+        inventoryService.getStats().catch((_error: unknown) => null),
+        inventoryService.getCategories().catch((_error: unknown) => []),
+        organizationService.getLocations().catch((_error: unknown) => []),
+        vendorService.getVendors().catch((_error: unknown) => []),
       ]);
       setItems(list);
       setCategories(cats);
@@ -480,8 +480,8 @@ export default function InventoryPage() {
 
   return (
     <PageContainer
-      title="Inventory Management"
-      subtitle="Track consumable parts, monitor inventory levels, and manage stock reorder thresholds."
+      title="Inventory"
+      subtitle="Track parts, stock levels, and reorder thresholds."
       breadcrumbs={[{ title: 'Inventory' }]}
       stats={[
         {

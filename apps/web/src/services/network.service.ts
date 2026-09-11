@@ -201,7 +201,7 @@ export const networkService = {
     try {
       const res = await api.get('/network/credentials');
       return res.data.data;
-    } catch {
+    } catch (_error: unknown) {
       return [];
     }
   },

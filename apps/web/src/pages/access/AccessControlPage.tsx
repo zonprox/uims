@@ -42,10 +42,10 @@ export default function AccessControlPage() {
     try {
       const [usersRes, rolesRes, statsRes, catalogRes, rStatsRes] = await Promise.all([
         usersService.getUsers({ limit: 100 }),
-        rolesService.getRoles().catch(() => []),
-        usersService.getStats().catch(() => null),
-        rolesService.getCatalog().catch(() => []),
-        rolesService.getStats().catch(() => null),
+        rolesService.getRoles().catch((_error: unknown) => []),
+        usersService.getStats().catch((_error: unknown) => null),
+        rolesService.getCatalog().catch((_error: unknown) => []),
+        rolesService.getStats().catch((_error: unknown) => null),
       ]);
 
       const items = Array.isArray(usersRes) ? usersRes : usersRes?.items || [];
@@ -60,7 +60,7 @@ export default function AccessControlPage() {
         : (catalogRes as { data?: PermissionCatalogSubject[] })?.data || [];
       setRolesCatalog(catalogItems);
       setRolesStats(rStatsRes?.data ?? rStatsRes);
-    } catch {
+    } catch (_error: unknown) {
       message.error('Failed to load access control data.');
     } finally {
       setLoading(false);
