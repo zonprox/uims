@@ -58,9 +58,6 @@ interface MockPrismaClient {
   location: {
     findFirst: ReturnType<typeof vi.fn>;
   };
-  assetHistory: {
-    create: ReturnType<typeof vi.fn>;
-  };
   inventoryItem: {
     findMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
@@ -199,9 +196,6 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
       },
       location: {
         findFirst: vi.fn().mockResolvedValue({ id: 'loc-1', name: 'HQ' }),
-      },
-      assetHistory: {
-        create: vi.fn().mockResolvedValue({ id: 'hist-1' }),
       },
       inventoryItem: {
         findMany: vi.fn().mockResolvedValue([]),

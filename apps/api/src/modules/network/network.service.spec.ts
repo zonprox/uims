@@ -1,7 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { IPStatus, VlanStatus } from '@uims/shared-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CredentialVaultService } from './credential-vault.service';
 import { NetworkService } from './network.service';
 
 describe('NetworkService', () => {
@@ -39,11 +38,6 @@ describe('NetworkService', () => {
       create: ReturnType<typeof vi.fn>;
     };
   };
-  let mockVault: {
-    encrypt: ReturnType<typeof vi.fn>;
-    decrypt: ReturnType<typeof vi.fn>;
-    maskSecret: ReturnType<typeof vi.fn>;
-  };
 
   beforeEach(() => {
     mockPrisma = {
@@ -80,15 +74,8 @@ describe('NetworkService', () => {
       },
     };
 
-    mockVault = {
-      encrypt: vi.fn(),
-      decrypt: vi.fn(),
-      maskSecret: vi.fn(),
-    };
-
     service = new NetworkService(
       mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
-      mockVault as unknown as CredentialVaultService,
     );
   });
 
@@ -120,7 +107,7 @@ describe('NetworkService', () => {
           subnets: true,
           _count: { select: { ipAddresses: true, subnets: true } },
         },
-        orderBy: { vlanNumber: 'asc' },
+        orderBy: [{ vlanNumber: 'asc' }, { id: 'asc' }],
         take: 10,
         skip: 0,
       });
@@ -354,55 +341,6 @@ describe('NetworkService', () => {
       expect(res.success).toBe(true);
       expect(mockPrisma.iPAddress.delete).toHaveBeenCalledWith({ where: { id: 'ip-1' } });
       expect(mockPrisma.subnet.update).toHaveBeenCalled();
-    });
-
-    it('revealCredential decrypts secret and writes an audit log entry', async () => {
-      mockPrisma.iPAddress.findUnique.mockResolvedValue({
-        id: 'ip-cam',
-        address: '10.232.99.15',
-        hostname: 'cam-gate-01',
-        credential: {
-          id: 'cred-1',
-          name: 'Camera Admin',
-          username: 'admin',
-          encryptedData: 'dGVzdA==',
-          iv: 'MTIzNDU2Nzg5MDEy',
-          authTag: 'MTIzNDU2Nzg5MDEyMzQ1Ng==',
-          keyVersion: 1,
-          protocol: 'HTTP',
-          port: 80,
-          notes: 'Default camera pass',
-        },
-      });
-
-      mockVault.decrypt.mockReturnValue('SuperSecretPass123!');
-      mockPrisma.auditLog.create.mockResolvedValue({ id: 'audit-1' });
-
-      const revealed = await service.revealCredential('ip-cam', 'user-admin-1');
-
-      expect(revealed.password).toBe('SuperSecretPass123!');
-      expect(mockVault.decrypt).toHaveBeenCalled();
-      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            action: 'REVEAL_CREDENTIAL',
-            entityId: 'cred-1',
-            userId: 'user-admin-1',
-          }),
-        }),
-      );
-    });
-
-    it('revealCredential throws NotFoundException when IP or credential does not exist', async () => {
-      mockPrisma.iPAddress.findUnique.mockResolvedValueOnce(null);
-      await expect(service.revealCredential('ip-unknown')).rejects.toThrow(NotFoundException);
-
-      mockPrisma.iPAddress.findUnique.mockResolvedValueOnce({
-        id: 'ip-nocred',
-        address: '10.0.0.1',
-        credential: null,
-      });
-      await expect(service.revealCredential('ip-nocred')).rejects.toThrow(NotFoundException);
     });
   });
 

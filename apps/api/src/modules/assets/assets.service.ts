@@ -23,7 +23,6 @@ type AssetWithRelations = Prisma.AssetGetPayload<{
     assignedTo: { include: { organization: true } };
     location: { include: { organization: true } };
     department: { include: { organization: true } };
-    credential: true;
   };
 }>;
 
@@ -133,7 +132,6 @@ export class AssetsService {
           categoryId,
           locationId,
           departmentId: data.departmentId || null,
-          credentialId: data.credentialId || null,
           assignedToId: data.assignedToId || null,
           specs: (data.specs as Prisma.InputJsonValue) || {},
           notes: data.notes || '',
@@ -143,26 +141,8 @@ export class AssetsService {
           assignedTo: { include: { organization: true } },
           location: { include: { organization: true } },
           department: { include: { organization: true } },
-          credential: true,
         },
       });
-
-      if (tx.assetHistory) {
-        await tx.assetHistory.create({
-          data: {
-            assetId: created.id,
-            action: data.assignedToId ? 'ASSET_CREATED_AND_ASSIGNED' : 'ASSET_CREATED',
-            changedBy: 'System/Admin',
-            oldValue: Prisma.JsonNull,
-            newValue: {
-              status: created.status,
-              assignedToId: created.assignedToId,
-              categoryId: created.categoryId,
-              locationId: created.locationId,
-            },
-          },
-        });
-      }
 
       return this.formatAsset(created);
     });
@@ -270,7 +250,6 @@ export class AssetsService {
         assignedTo: { include: { organization: true } },
         location: { include: { organization: true } },
         department: { include: { organization: true } },
-        credential: true,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: pageSize,
@@ -288,7 +267,6 @@ export class AssetsService {
         assignedTo: { include: { organization: true } },
         location: { include: { organization: true } },
         department: { include: { organization: true } },
-        credential: true,
       },
     });
     if (!asset) {
@@ -344,12 +322,6 @@ export class AssetsService {
         : { disconnect: true };
     }
 
-    if (data.credentialId !== undefined) {
-      updateData.credential = data.credentialId
-        ? { connect: { id: data.credentialId } }
-        : { disconnect: true };
-    }
-
     if (data.assignedToId !== undefined) {
       updateData.assignedTo = data.assignedToId
         ? { connect: { id: data.assignedToId } }
@@ -380,37 +352,8 @@ export class AssetsService {
           assignedTo: { include: { organization: true } },
           location: { include: { organization: true } },
           department: { include: { organization: true } },
-          credential: true,
         },
       });
-
-      const statusChanged = result.status !== existing.status;
-      const assignmentChanged = result.assignedToId !== existing.assignedToId;
-
-      if (statusChanged || assignmentChanged) {
-        let action = 'ASSET_UPDATED';
-        if (statusChanged && assignmentChanged) {
-          action = result.assignedToId
-            ? 'ASSET_AUTO_ASSIGNED_IN_USE'
-            : 'ASSET_AUTO_UNASSIGNED_AVAILABLE';
-        } else if (statusChanged) {
-          action = `STATUS_CHANGE_TO_${result.status}`;
-        } else if (assignmentChanged) {
-          action = result.assignedToId ? 'ASSIGNED_TO_USER' : 'UNASSIGNED_FROM_USER';
-        }
-
-        if (tx.assetHistory) {
-          await tx.assetHistory.create({
-            data: {
-              assetId: id,
-              action,
-              changedBy: 'System/Admin',
-              oldValue: { status: existing.status, assignedToId: existing.assignedToId },
-              newValue: { status: result.status, assignedToId: result.assignedToId },
-            },
-          });
-        }
-      }
 
       return result;
     });
@@ -482,8 +425,13 @@ export class AssetsService {
       os: 'N/A',
     };
 
+    const assignedUserName = asset.assignedTo
+      ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`.trim()
+      : 'Unassigned';
+
     return {
       id: asset.id,
+      assetTag: asset.assetTag,
       tag: asset.assetTag,
       name: asset.name,
       description: asset.description || '',
@@ -494,9 +442,8 @@ export class AssetsService {
       category: asset.category?.name || 'Laptop',
       status: statusLabel,
       assignedToId: asset.assignedToId,
-      assignedTo: asset.assignedTo
-        ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`.trim()
-        : 'Unassigned',
+      assignedTo: assignedUserName,
+      assignedUser: assignedUserName,
       assignedEmail: asset.assignedTo?.email || '',
       departmentId: asset.departmentId,
       department: asset.department?.name || '',
@@ -514,9 +461,8 @@ export class AssetsService {
         asset.location?.organization?.name ||
         asset.assignedTo?.organization?.name ||
         null,
-      credentialId: asset.credentialId,
-      credential: asset.credential?.name || '',
       purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
+      purchaseCost: asset.purchaseCost || 0,
       purchasePrice: asset.purchaseCost || 0,
       warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.toISOString().split('T')[0] : '',
       specs: {
@@ -524,6 +470,8 @@ export class AssetsService {
         ...(typeof asset.specs === 'object' && asset.specs ? asset.specs : {}),
       },
       notes: asset.notes || '',
+      createdAt: asset.createdAt ? asset.createdAt.toISOString() : new Date().toISOString(),
+      updatedAt: asset.updatedAt ? asset.updatedAt.toISOString() : new Date().toISOString(),
     };
   }
 

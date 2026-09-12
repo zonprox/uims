@@ -1,9 +1,4 @@
-import {
-  CheckCircleOutlined,
-  KeyOutlined,
-  ThunderboltOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+import { CheckCircleOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -24,7 +19,6 @@ import type { LocationBranch } from '../../../services/organization.service';
 import {
   type AutoDetectResult,
   type IPAddress,
-  type NetworkCredential,
   type Subnet,
   type VLAN,
   networkService,
@@ -40,7 +34,6 @@ export interface IpFormModalProps {
   locations: LocationBranch[];
   assets?: Asset[];
   directoryUsers?: DirectoryUser[];
-  credentials?: NetworkCredential[];
   onSave: () => void;
   onCancel: () => void;
 }
@@ -76,7 +69,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
     locations,
     assets = [],
     directoryUsers = [],
-    credentials = [],
     onSave,
     onCancel,
   }) => {
@@ -136,16 +128,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
           value: user.id,
         })),
       [directoryUsers],
-    );
-
-    // Network Credential Options
-    const credentialOptions = useMemo(
-      () =>
-        credentials.map((cred) => ({
-          label: `${cred.name} (${cred.username}@${cred.protocol || 'Device'})`,
-          value: cred.id,
-        })),
-      [credentials],
     );
 
     // Real-time IP address auto-detection
@@ -275,7 +257,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
         title={
           editingIp
             ? `Edit IP Allocation: ${editingIp.address || editingIp.ip}`
-            : 'Allocate IP Address with Real-time Automation'
+            : 'Allocate IP Address'
         }
         open={open}
         onOk={onSave}
@@ -438,7 +420,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
             </Col>
           </Row>
 
-          {/* Relational Linkages: Asset, DirectoryUser, Credential */}
+          {/* Relational Linkages: Asset, DirectoryUser */}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Linked Hardware Asset" name="assetId">
@@ -479,27 +461,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
-                label={
-                  <Flex align="center" gap={4}>
-                    <KeyOutlined style={{ color: '#fa8c16' }} />
-                    <span>Network Management Credential</span>
-                  </Flex>
-                }
-                name="credentialId"
-              >
-                <Select
-                  placeholder="Select administrative credential vault record"
-                  showSearch
-                  allowClear
-                  options={credentialOptions}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
               <Form.Item label="Physical Site / Location" name="locationId">
                 <Select
                   placeholder="Select Location"
@@ -512,15 +473,15 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                 />
               </Form.Item>
             </Col>
-          </Row>
-
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Section / Floor" name="section">
                 <Input placeholder="e.g. Floor 2 - Production Line 3" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
               <Form.Item label="Description & Operational Notes" name="description">
                 <Input placeholder="e.g. Dedicated printing terminal for accounting" />
               </Form.Item>

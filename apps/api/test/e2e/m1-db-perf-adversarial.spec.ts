@@ -123,7 +123,7 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
       expect(stats.annualSpend).toBe(5 * 20 + 10 * 30); // 100 + 300 = 400
       expect(stats.utilization).toBe(50);
       expect(mockPrisma.license.findMany).toHaveBeenCalledWith({
-        take: 1000,
+        take: 100,
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         select: { usedSeats: true, costPerSeat: true },
       });

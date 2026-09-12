@@ -1,9 +1,7 @@
-import { EditOutlined, LaptopOutlined, PrinterOutlined, UserOutlined } from '@ant-design/icons';
+import { EditOutlined, LaptopOutlined, PrinterOutlined } from '@ant-design/icons';
 import {
-  Avatar,
   Breadcrumb,
   Button,
-  Card,
   Descriptions,
   Drawer,
   Flex,
@@ -18,7 +16,7 @@ import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 import { printAssetLabel } from '../utils/printAssetLabel';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 declare module '../../../services/assets.service' {
   interface Asset {
@@ -80,7 +78,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
         open={open}
         onClose={onClose}
         destroyOnHidden
-        size={540}
+        width={540}
         extra={
           <Button
             type="primary"
@@ -121,6 +119,20 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     <Descriptions.Item label="Category">{selectedAsset.category}</Descriptions.Item>
                     <Descriptions.Item label="Owner Department">
                       {renderDepartment()}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Assigned User">
+                      {selectedAsset.assignedTo ? (
+                        <>
+                          <Typography.Text strong>{selectedAsset.assignedTo}</Typography.Text>
+                          {selectedAsset.assignedEmail ? (
+                            <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+                              ({selectedAsset.assignedEmail})
+                            </Typography.Text>
+                          ) : null}
+                        </>
+                      ) : (
+                        <Tag color="default">Unassigned</Tag>
+                      )}
                     </Descriptions.Item>
                     <Descriptions.Item label="Status">
                       <Tag color={selectedAsset.status === 'Active' ? 'success' : 'warning'}>
@@ -163,45 +175,8 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     <Descriptions.Item label="Physical Location">
                       {renderLocationBreadcrumb()}
                     </Descriptions.Item>
-                    <Descriptions.Item label="Owner Department">
-                      {renderDepartment()}
-                    </Descriptions.Item>
                   </Descriptions>
                 </div>
-              ),
-            },
-            {
-              key: 'assignment',
-              label: 'Assignment',
-              children: (
-                <Card size="small">
-                  <Flex align="center" gap={12} style={{ marginBottom: 16 }}>
-                    <Avatar
-                      size={40}
-                      style={{ backgroundColor: '#1677ff' }}
-                      icon={<UserOutlined />}
-                    />
-                    <div>
-                      <Title level={5} style={{ margin: 0 }}>
-                        {selectedAsset.assignedTo}
-                      </Title>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {selectedAsset.assignedEmail || 'No corporate email assigned'}
-                      </Text>
-                    </div>
-                  </Flex>
-                  <Descriptions size="small" column={1}>
-                    <Descriptions.Item label="Owner Department">
-                      {renderDepartment()}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Assigned Location">
-                      {renderLocationBreadcrumb()}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Assignment Date">
-                      {selectedAsset.purchaseDate || 'Recent'}
-                    </Descriptions.Item>
-                  </Descriptions>
-                </Card>
               ),
             },
             {

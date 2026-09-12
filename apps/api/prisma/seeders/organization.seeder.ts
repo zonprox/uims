@@ -20,14 +20,41 @@ interface LocationDef {
 
 export async function seedOrganizations(prisma: PrismaClient) {
   logger.log(
-    '🏢 Seeding Broadpeak (BSL & BSH) Organizations, Spatial Locations, Departments & Positions...',
+    '🏢 Seeding Youngone / Broadpeak Group (Holding, BSL & BSH) Organizations, Spatial Locations, Departments & Positions...',
   );
 
-  // 1. Two Companies: BSL (Soc Trang - Garment Manufacturing) and BSH (Ho Chi Minh - Corporate HQ)
+  // 1. Corporate Hierarchy: Holding Company (Youngone / Broadpeak Group) and 2 Operating Subsidiaries (BSL & BSH)
+  const orgHolding = await prisma.organization.upsert({
+    where: { code: 'HOLDING' },
+    update: {
+      name: 'Youngone / Broadpeak Group',
+      taxId: '0100100100',
+      email: 'contact@broadpeak.youngone.com',
+      phone: '+84 (28) 3997-8888',
+      address: 'Broadpeak Tower, Ho Chi Minh City / Seoul',
+      website: 'https://broadpeak.youngone.com',
+      status: 'ACTIVE',
+      parentId: null,
+    },
+    create: {
+      id: 'org-holding',
+      name: 'Youngone / Broadpeak Group',
+      code: 'HOLDING',
+      taxId: '0100100100',
+      email: 'contact@broadpeak.youngone.com',
+      phone: '+84 (28) 3997-8888',
+      address: 'Broadpeak Tower, Ho Chi Minh City / Seoul',
+      website: 'https://broadpeak.youngone.com',
+      status: 'ACTIVE',
+      parentId: null,
+    },
+  });
+
   const orgBSL = await prisma.organization.upsert({
     where: { code: 'BSL' },
     update: {
-      name: 'Broadpeak Soc Trang (BSL)',
+      name: 'Broadpeak Soc Trang',
+      parentId: orgHolding.id,
       taxId: '2200194820',
       email: 'contact.bsl@broadpeak.youngone.com',
       phone: '+84 (299) 387-9000',
@@ -37,8 +64,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     create: {
       id: 'org-bsl',
-      name: 'Broadpeak Soc Trang (BSL)',
+      name: 'Broadpeak Soc Trang',
       code: 'BSL',
+      parentId: orgHolding.id,
       taxId: '2200194820',
       email: 'contact.bsl@broadpeak.youngone.com',
       phone: '+84 (299) 387-9000',
@@ -51,7 +79,8 @@ export async function seedOrganizations(prisma: PrismaClient) {
   const orgBSH = await prisma.organization.upsert({
     where: { code: 'BSH' },
     update: {
-      name: 'Broadpeak Ho Chi Minh (BSH)',
+      name: 'Broadpeak Ho Chi Minh',
+      parentId: orgHolding.id,
       taxId: '0314892019',
       email: 'contact.bsh@broadpeak.youngone.com',
       phone: '+84 (28) 3997-8000',
@@ -61,8 +90,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
     },
     create: {
       id: 'org-bsh',
-      name: 'Broadpeak Ho Chi Minh (BSH)',
+      name: 'Broadpeak Ho Chi Minh',
       code: 'BSH',
+      parentId: orgHolding.id,
       taxId: '0314892019',
       email: 'contact.bsh@broadpeak.youngone.com',
       phone: '+84 (28) 3997-8000',
@@ -187,6 +217,19 @@ export async function seedOrganizations(prisma: PrismaClient) {
       room: 'General Administration Hall 101',
       parentId: 'loc-bsl-bc',
       fullPath: `${bcPath} > Administration (Floor 1)`,
+      organizationId: orgBSL.id,
+    },
+    {
+      id: 'loc-bsl-bc-hr',
+      name: 'Human Resources & Compliance (Floor 1)',
+      code: 'BC-F1-HR',
+      type: LocationType.FLOOR,
+      status: 'ACTIVE',
+      building: 'Business Center Building',
+      floor: 'Floor 1',
+      room: 'HR & Compliance Office 103',
+      parentId: 'loc-bsl-bc',
+      fullPath: `${bcPath} > Human Resources & Compliance (Floor 1)`,
       organizationId: orgBSL.id,
     },
     {
@@ -465,12 +508,12 @@ export async function seedOrganizations(prisma: PrismaClient) {
     // 2. Sales / Merchandising (Showroom / Office)
     locationDefs.push({
       id: `loc-bsl-f${f}-sales`,
-      name: `Factory ${f} - Sales & Merchandising Office`,
+      name: `Factory ${f} - Sales & Planning Office`,
       code: `F${f}-SALES`,
       type: LocationType.ROOM,
       status: 'ACTIVE',
       parentId: fId,
-      fullPath: `${fPath} > Factory ${f} - Sales & Merchandising Office`,
+      fullPath: `${fPath} > Factory ${f} - Sales & Planning Office`,
       organizationId: orgBSL.id,
     });
 
@@ -499,12 +542,12 @@ export async function seedOrganizations(prisma: PrismaClient) {
       },
     );
 
-    // 4. Printing / Embroidery (Phòng in / ép nhiệt)
-    const printPath = `${fPath} > Factory ${f} - Printing & Heat Press`;
+    // 4. Printing & Embroidery (Phòng in, thêu & ép nhiệt)
+    const printPath = `${fPath} > Factory ${f} - Printing & Embroidery Zone`;
     locationDefs.push(
       {
         id: `loc-bsl-f${f}-print`,
-        name: `Factory ${f} - Printing & Heat Press`,
+        name: `Factory ${f} - Printing & Embroidery Zone`,
         code: `F${f}-PRINT`,
         type: LocationType.ZONE,
         status: 'ACTIVE',
@@ -524,7 +567,32 @@ export async function seedOrganizations(prisma: PrismaClient) {
       },
     );
 
-    // 5. MDC (Material Distribution Center - kho phụ liệu cấp phát trong xưởng)
+    // 5. Maintenance (Khu bảo trì cơ điện & máy móc xưởng)
+    const maintPath = `${fPath} > Factory ${f} - Equipment Maintenance Workshop`;
+    locationDefs.push(
+      {
+        id: `loc-bsl-f${f}-maint`,
+        name: `Factory ${f} - Equipment Maintenance Workshop (Khu Bảo Trì Cơ Điện)`,
+        code: `F${f}-MAINT`,
+        type: LocationType.WORKSHOP,
+        status: 'ACTIVE',
+        parentId: fId,
+        fullPath: maintPath,
+        organizationId: orgBSL.id,
+      },
+      {
+        id: `loc-bsl-f${f}-maint-ws1`,
+        name: 'Maintenance Workbench 01',
+        code: `F${f}-MNT-W01`,
+        type: LocationType.STATION,
+        status: 'ACTIVE',
+        parentId: `loc-bsl-f${f}-maint`,
+        fullPath: `${maintPath} > Maintenance Workbench 01`,
+        organizationId: orgBSL.id,
+      },
+    );
+
+    // 6. MDC (Material Distribution Center - kho phụ liệu cấp phát trong xưởng)
     const mdcPath = `${fPath} > Factory ${f} - Material Distribution Center (MDC)`;
     const mdcShelfPath = `${mdcPath} > Accessories Shelf 01`;
     locationDefs.push(
@@ -580,12 +648,12 @@ export async function seedOrganizations(prisma: PrismaClient) {
       },
     );
 
-    // 6. Packing (Khu hoàn thiện / đóng gói)
-    const packPath = `${fPath} > Factory ${f} - Packing & Finishing Area`;
+    // 7. Packing (Khu hoàn thiện / đóng gói)
+    const packPath = `${fPath} > Factory ${f} - Finishing & Packing Hall`;
     locationDefs.push(
       {
         id: `loc-bsl-f${f}-pack`,
-        name: `Factory ${f} - Packing & Finishing Area`,
+        name: `Factory ${f} - Finishing & Packing Hall`,
         code: `F${f}-PACK`,
         type: LocationType.ZONE,
         status: 'ACTIVE',
@@ -605,13 +673,55 @@ export async function seedOrganizations(prisma: PrismaClient) {
       },
     );
 
-    // 7. Sewing Lines (Chuyền may 1 through Chuyền may 4, each with Operator Stations)
+    // 8. Sample (Phòng may mẫu & phát triển rập)
+    const samplePath = `${fPath} > Factory ${f} - Sample Making & Pattern Prototyping (Phòng May Mẫu & Rập)`;
+    locationDefs.push(
+      {
+        id: `loc-bsl-f${f}-sample`,
+        name: `Factory ${f} - Sample Making & Pattern Prototyping (Phòng May Mẫu & Rập)`,
+        code: `F${f}-SAMPLE`,
+        type: LocationType.ROOM,
+        status: 'ACTIVE',
+        parentId: fId,
+        fullPath: samplePath,
+        organizationId: orgBSL.id,
+      },
+      {
+        id: `loc-bsl-f${f}-sample-st1`,
+        name: 'Sample Sewing Station 01',
+        code: `F${f}-SMP-S01`,
+        type: LocationType.STATION,
+        status: 'ACTIVE',
+        parentId: `loc-bsl-f${f}-sample`,
+        fullPath: `${samplePath} > Sample Sewing Station 01`,
+        organizationId: orgBSL.id,
+      },
+    );
+
+    // 9. Production / Sewing Lines Hall
+    const prodPath = `${fPath} > Factory ${f} - Garment Production & Sewing Floor`;
+    locationDefs.push({
+      id: `loc-bsl-f${f}-prod`,
+      name: `Factory ${f} - Garment Production & Sewing Floor`,
+      code: `F${f}-PROD`,
+      type: LocationType.ZONE,
+      status: 'ACTIVE',
+      parentId: fId,
+      fullPath: prodPath,
+      organizationId: orgBSL.id,
+    });
+
     for (let l = 1; l <= 4; l++) {
       // Preserve loc-bsl-f1-sew ID for Factory 1 Line 1 for unit test contract alignment
-      const lineId = f === 1 && l === 1 ? 'loc-bsl-f1-sew' : `loc-bsl-f${f}-sew${l}`;
+      const lineId =
+        f === 1 && l === 1
+          ? 'loc-bsl-f1-sew'
+          : l === 1
+            ? `loc-bsl-f${f}-sew`
+            : `loc-bsl-f${f}-sew${l}`;
       const lineName = `Factory ${f} - Sewing Line 0${l} (Chuyền may 0${l})`;
-      const lineCode = `F${f}-SEW-L0${l}`;
-      const linePath = `${fPath} > ${lineName}`;
+      const lineCode = l === 1 ? `F${f}-PROD` : `F${f}-SEW-L0${l}`;
+      const linePath = `${prodPath} > ${lineName}`;
 
       locationDefs.push({
         id: lineId,
@@ -619,7 +729,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         code: lineCode,
         type: LocationType.LINE,
         status: 'ACTIVE',
-        parentId: fId,
+        parentId: `loc-bsl-f${f}-prod`,
         fullPath: linePath,
         organizationId: orgBSL.id,
       });
@@ -631,7 +741,9 @@ export async function seedOrganizations(prisma: PrismaClient) {
             ? 'loc-bsl-f1-sew-st1'
             : f === 1 && l === 1
               ? `loc-bsl-f1-sew-st${s}`
-              : `loc-bsl-f${f}-sew${l}-st${s}`;
+              : l === 1
+                ? `loc-bsl-f${f}-sew-st${s}`
+                : `loc-bsl-f${f}-sew${l}-st${s}`;
         const stName = `Station 0${s} (Bàn may 0${s})`;
         const stCode = `F${f}-S${l}-ST0${s}`;
 
@@ -643,6 +755,20 @@ export async function seedOrganizations(prisma: PrismaClient) {
           status: 'ACTIVE',
           parentId: lineId,
           fullPath: `${linePath} > ${stName}`,
+          organizationId: orgBSL.id,
+        });
+      }
+
+      // Legacy alias support for downstream seeders (e.g. loc-bsl-f2-sew1-st1 in assets.seeder.ts)
+      if (f > 1 && l === 1) {
+        locationDefs.push({
+          id: `loc-bsl-f${f}-sew1-st1`,
+          name: `Station 01 (Bàn may 01) [Legacy Alias]`,
+          code: `F${f}-S1-ST01-LEGACY`,
+          type: LocationType.STATION,
+          status: 'ACTIVE',
+          parentId: lineId,
+          fullPath: `${linePath} > Station 01 (Legacy Alias)`,
           organizationId: orgBSL.id,
         });
       }
@@ -730,6 +856,17 @@ export async function seedOrganizations(prisma: PrismaClient) {
         status: 'ACTIVE',
       },
       {
+        id: `${fId}-maint`,
+        name: `Factory ${fNum} - Machine Maintenance Section (Tổ Bảo Trì Máy Móc Thiết Bị)`,
+        code: `DEPT-BSL-F${fNum}-MAINT`,
+        description: `Industrial sewing machine servicing, preventive maintenance, motor repairs & mechanical adjustments for Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Maintenance Lead F${fNum}`,
+        managerEmail: `maint.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
         id: `${fId}-mdc`,
         name: `Factory ${fNum} - MDC Sub-Warehouse (Kho Cấp Phát Phụ Liệu MDC)`,
         code: `DEPT-BSL-F${fNum}-MDC`,
@@ -749,6 +886,17 @@ export async function seedOrganizations(prisma: PrismaClient) {
         parentId: fId,
         managerName: `QA Lead F${fNum}`,
         managerEmail: `qa.f${fNum}@broadpeak.youngone.com`,
+        status: 'ACTIVE',
+      },
+      {
+        id: `${fId}-smp`,
+        name: `Factory ${fNum} - Sample & Pattern Development (Tổ May Mẫu & Rập)`,
+        code: `DEPT-BSL-F${fNum}-SMP`,
+        description: `Pre-production sample sewing, pattern prototyping, sizing adjustments & fit trials for Factory ${fNum}`,
+        organizationId: orgBSL.id,
+        parentId: fId,
+        managerName: `Sample Lead F${fNum}`,
+        managerEmail: `sample.f${fNum}@broadpeak.youngone.com`,
         status: 'ACTIVE',
       },
       {
@@ -1355,6 +1503,20 @@ export async function seedOrganizations(prisma: PrismaClient) {
       deptCode: 'DEPT-BSL-F1-PCK',
       level: 'Lead',
     },
+    {
+      id: 'pos-bsl-f1-maint-lead',
+      title: 'Maintenance Team Leader (Tổ Trưởng Bảo Trì F1)',
+      code: 'POS-BSL-F1-MAINT-LEAD',
+      deptCode: 'DEPT-BSL-F1-MAINT',
+      level: 'Lead',
+    },
+    {
+      id: 'pos-bsl-f1-smp-lead',
+      title: 'Sample Development Team Leader (Tổ Trưởng May Mẫu F1)',
+      code: 'POS-BSL-F1-SMP-LEAD',
+      deptCode: 'DEPT-BSL-F1-SMP',
+      level: 'Lead',
+    },
 
     // ── BSH Corporate Positions ──────────────────────────────────────
     {
@@ -1450,11 +1612,11 @@ export async function seedOrganizations(prisma: PrismaClient) {
   }
 
   logger.log(
-    `✅ Seeded 2 Broadpeak companies (BSL & BSH), ${locationDefs.length} spatial locations, ${Object.keys(seededDepartments).length} departments, and ${Object.keys(seededPositions).length} positions.`,
+    `✅ Seeded 3 Youngone / Broadpeak Group entities (Holding, BSL & BSH), ${locationDefs.length} spatial locations, ${Object.keys(seededDepartments).length} departments, and ${Object.keys(seededPositions).length} positions.`,
   );
 
   return {
-    organizations: { orgBSL, orgBSH },
+    organizations: { orgHolding, orgBSL, orgBSH },
     locations: seededLocations,
     departments: seededDepartments,
     positions: seededPositions,

@@ -855,7 +855,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         title="Employee Directory Profile"
         open={Boolean(detailEmployee)}
         destroyOnHidden
-        size={540}
+        width={540}
         onClose={() => setDetailEmployee(null)}
       >
         {detailEmployee && (

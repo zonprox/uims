@@ -26,12 +26,6 @@ vi.mock('../../../services/directory.service', () => ({
   },
 }));
 
-vi.mock('../../../services/network.service', () => ({
-  networkService: {
-    getCredentials: vi.fn().mockResolvedValue([]),
-  },
-}));
-
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('AssetFormModal Spatial TreeSelect & Orthogonal Department Integration', () => {

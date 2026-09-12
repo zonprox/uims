@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import {
@@ -16,13 +16,6 @@ import {
   VlanQueryDto,
 } from './dto';
 import { NetworkService } from './network.service';
-
-interface RequestWithUser {
-  user?: {
-    id?: string;
-    sub?: string;
-  };
-}
 
 @ApiTags('network')
 @ApiBearerAuth()
@@ -173,13 +166,5 @@ export class NetworkController {
   @ApiOperation({ summary: 'Deallocate IP address' })
   deleteIp(@Param('id') id: string) {
     return this.networkService.deleteIp(id);
-  }
-
-  @Post('ips/:id/reveal-credential')
-  @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Reveal decrypted administrative device credential' })
-  revealCredential(@Param('id') id: string, @Request() req?: RequestWithUser) {
-    const userId = req?.user?.id || req?.user?.sub;
-    return this.networkService.revealCredential(id, userId);
   }
 }

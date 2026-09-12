@@ -9,7 +9,6 @@ import {
   MailOutlined,
   MoonOutlined,
   ReloadOutlined,
-  SafetyCertificateOutlined,
   SaveOutlined,
   SettingOutlined,
   SoundOutlined,
@@ -32,7 +31,6 @@ import {
   Flex,
   Form,
   Input,
-  InputNumber,
   Popconfirm,
   Radio,
   Row,
@@ -52,7 +50,6 @@ import { TimezoneSelector } from '../../components/TimezoneSelector';
 import {
   type GeneralSettings,
   type HealthTelemetry,
-  type SecuritySettings,
   settingsService,
 } from '../../services/settings.service';
 import { useNotificationSettingsStore } from '../../stores/notification-settings.store';
@@ -66,15 +63,13 @@ export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(
-    tabParam &&
-      ['appearance', 'notifications', 'general', 'security', 'maintenance'].includes(tabParam)
+    tabParam && ['appearance', 'notifications', 'general', 'maintenance'].includes(tabParam)
       ? tabParam
       : 'appearance',
   );
   const [backupRunning, setBackupRunning] = useState(false);
   const [purgingCache, setPurgingCache] = useState(false);
   const [savingGeneral, setSavingGeneral] = useState(false);
-  const [savingSecurity, setSavingSecurity] = useState(false);
   const [savingAppearance, setSavingAppearance] = useState(false);
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<HealthTelemetry | null>(null);
@@ -109,7 +104,7 @@ export default function SettingsPage() {
     const tab = searchParams.get('tab');
     if (
       tab &&
-      ['appearance', 'notifications', 'general', 'security', 'maintenance'].includes(tab) &&
+      ['appearance', 'notifications', 'general', 'maintenance'].includes(tab) &&
       tab !== activeTab
     ) {
       setActiveTab(tab);
@@ -131,13 +126,11 @@ export default function SettingsPage() {
   // Dirty state tracking
   const [isAppearanceDirty, setIsAppearanceDirty] = useState(false);
   const [isGeneralDirty, setIsGeneralDirty] = useState(false);
-  const [isSecurityDirty, setIsSecurityDirty] = useState(false);
 
   // Initial reference values to compare for critical changes
   const [initialTimezone, setInitialTimezone] = useState('UTC');
 
   const [generalForm] = Form.useForm();
-  const [securityForm] = Form.useForm();
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -157,21 +150,6 @@ export default function SettingsPage() {
           useTimezoneStore.getState().setSystemTimezone(tz);
         }
       }
-      if (settingsObj?.security) {
-        const securityData = settingsObj.security as Record<string, unknown>;
-        securityForm.setFieldsValue(securityData);
-      } else {
-        // Factory security baseline
-        securityForm.setFieldsValue({
-          sessionTimeout: 60,
-          maxFailedAttempts: 5,
-          enforce2FA: true,
-          passwordExpiryDays: 90,
-          minPasswordLength: 12,
-          ipAllowlist: '',
-        });
-      }
-
       if (settingsObj?.appearance) {
         const appearanceData = settingsObj.appearance as Record<string, unknown>;
         if (
@@ -196,14 +174,13 @@ export default function SettingsPage() {
       }
 
       setIsGeneralDirty(false);
-      setIsSecurityDirty(false);
       setIsAppearanceDirty(false);
     } catch (_err: unknown) {
       message.error('Failed to load system settings from server.');
     } finally {
       setLoading(false);
     }
-  }, [generalForm, message, securityForm]);
+  }, [generalForm, message]);
 
   useEffect(() => {
     loadSettings();
@@ -314,67 +291,6 @@ export default function SettingsPage() {
     message.info('General preferences populated with standard defaults. Click Save to apply.');
   };
 
-  // --- 3. SECURITY SETTINGS HANDLERS ---
-  const executeSaveSecurity = async (values: SecuritySettings) => {
-    setSavingSecurity(true);
-    try {
-      await settingsService.updateSetting('security', values as unknown as Record<string, unknown>);
-      setIsSecurityDirty(false);
-      message.success('Enterprise security & access governance policy successfully deployed.');
-    } catch (_err: unknown) {
-      message.error('Failed to update security policy.');
-    } finally {
-      setSavingSecurity(false);
-    }
-  };
-
-  const handleSaveSecurity = async () => {
-    try {
-      const values: SecuritySettings = await securityForm.validateFields();
-      modal.confirm({
-        title: 'Deploy High-Security Governance Policy',
-        icon: <SafetyCertificateOutlined style={{ color: '#1677ff' }} />,
-        content: (
-          <div>
-            <Paragraph>
-              Are you sure you want to enforce these security policy updates across the enterprise?
-            </Paragraph>
-            <ul style={{ paddingLeft: 18, fontSize: 12.5, color: '#64748b' }}>
-              <li>Session timeout: {values.sessionTimeout || 60} minutes</li>
-              <li>2FA Enforcement: {values.enforce2FA ? 'Mandatory for all staff' : 'Optional'}</li>
-              <li>Min password length: {values.minPasswordLength || 12} characters</li>
-            </ul>
-            <Paragraph type="secondary" style={{ fontSize: 12 }}>
-              Updated policies will take immediate effect on authentication gateways and active
-              sessions.
-            </Paragraph>
-          </div>
-        ),
-        okText: 'Deploy Security Policy',
-        cancelText: 'Cancel',
-        okButtonProps: { type: 'primary' },
-        onOk: () => executeSaveSecurity(values),
-      });
-    } catch (err: unknown) {
-      if (!(err && typeof err === 'object' && 'errorFields' in err)) {
-        message.error('An unexpected error occurred during form validation.');
-      }
-    }
-  };
-
-  const handleResetSecurityDefaults = () => {
-    securityForm.setFieldsValue({
-      sessionTimeout: 60,
-      maxFailedAttempts: 5,
-      enforce2FA: true,
-      passwordExpiryDays: 90,
-      minPasswordLength: 12,
-      ipAllowlist: '',
-    });
-    setIsSecurityDirty(true);
-    message.info('Security form populated with ISO/SOC2 baseline. Click Deploy to apply.');
-  };
-
   // --- 4. MAINTENANCE & DANGEROUS OPERATIONS HANDLERS ---
   const handleRunBackup = () => {
     modal.confirm({
@@ -478,14 +394,6 @@ export default function SettingsPage() {
               compact: false,
               borderRadius: 8,
             }),
-            settingsService.updateSetting('security', {
-              sessionTimeout: 60,
-              maxFailedAttempts: 5,
-              enforce2FA: true,
-              passwordExpiryDays: 90,
-              minPasswordLength: 12,
-              ipAllowlist: '',
-            }),
           ]);
           setMode('light');
           setPresetKey('blue');
@@ -503,7 +411,7 @@ export default function SettingsPage() {
   return (
     <PageContainer
       title="Settings"
-      subtitle="Manage system preferences, appearance, security policies, and maintenance."
+      subtitle="Manage system preferences, appearance, and maintenance."
       breadcrumbs={[{ title: 'Settings' }]}
       extra={
         <Space size={8}>
@@ -1111,165 +1019,6 @@ export default function SettingsPage() {
                         cancelText="Cancel"
                         okButtonProps={{ danger: true }}
                         onConfirm={handleResetGeneralDefaults}
-                      >
-                        <Button icon={<UndoOutlined />}>Reset to Default</Button>
-                      </Popconfirm>
-                    </Flex>
-                  </Form>
-                </div>
-              ),
-            },
-
-            // ================= TAB 3: SECURITY & GOVERNANCE =================
-            {
-              key: 'security',
-              icon: <SafetyCertificateOutlined />,
-              label: (
-                <Space size={6}>
-                  <span>Security Policy</span>
-                  {isSecurityDirty && <Badge dot status="warning" />}
-                </Space>
-              ),
-              children: (
-                <div style={{ maxWidth: 780, padding: '8px 0' }}>
-                  {isSecurityDirty && (
-                    <Alert
-                      type="warning"
-                      showIcon
-                      title="Uncommitted Security Policy Modifications"
-                      description="You have modified access parameters. Click 'Save Policy' to validate and enforce."
-                      style={{ marginBottom: 16 }}
-                    />
-                  )}
-
-                  <Alert
-                    type="info"
-                    showIcon
-                    title="Access & Authentication Governance"
-                    description="Configure session lifecycles, two-factor enforcement policies, password standards, and network allowlists conforming to SOC 2 Type II compliance."
-                    style={{ marginBottom: 20, fontSize: 12.5 }}
-                  />
-
-                  <Form
-                    form={securityForm}
-                    layout="vertical"
-                    onValuesChange={() => setIsSecurityDirty(true)}
-                    initialValues={{
-                      sessionTimeout: 60,
-                      maxFailedAttempts: 5,
-                      enforce2FA: true,
-                      passwordExpiryDays: 90,
-                      minPasswordLength: 12,
-                      ipAllowlist: '',
-                    }}
-                    style={{ marginBottom: 20 }}
-                  >
-                    <Row gutter={16}>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          label="Session Timeout"
-                          name="sessionTimeout"
-                          tooltip="Time after which idle web sessions are terminated and require re-authentication."
-                        >
-                          <Select
-                            options={[
-                              { label: '15 Minutes (Strict Security)', value: 15 },
-                              { label: '30 Minutes', value: 30 },
-                              { label: '60 Minutes (Standard)', value: 60 },
-                              { label: '2 Hours', value: 120 },
-                              { label: '8 Hours (Full Shift)', value: 480 },
-                            ]}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          label="Max Failed Login Attempts"
-                          name="maxFailedAttempts"
-                          tooltip="Account will be temporarily locked after consecutive failed password attempts."
-                        >
-                          <Select
-                            options={[
-                              { label: '3 Attempts (High Alert)', value: 3 },
-                              { label: '5 Attempts (Recommended)', value: 5 },
-                              { label: '10 Attempts', value: 10 },
-                            ]}
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          label="Enforce Multi-Factor Authentication (2FA)"
-                          name="enforce2FA"
-                          valuePropName="checked"
-                          tooltip="Requires all active staff and admins to verify via TOTP authenticator app."
-                        >
-                          <Switch checkedChildren="Enforced" unCheckedChildren="Optional" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          label="Password Expiration"
-                          name="passwordExpiryDays"
-                          tooltip="Forces staff to rotate credentials periodically."
-                        >
-                          <Select
-                            options={[
-                              { label: 'Every 30 Days', value: 30 },
-                              { label: 'Every 60 Days', value: 60 },
-                              { label: 'Every 90 Days (Standard)', value: 90 },
-                              { label: 'Every 180 Days', value: 180 },
-                              { label: 'Never Expire', value: 0 },
-                            ]}
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          label="Minimum Password Length"
-                          name="minPasswordLength"
-                          tooltip="Minimum number of characters required for user passwords."
-                        >
-                          <InputNumber min={8} max={32} style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          label="IP Allowlist (CIDR)"
-                          name="ipAllowlist"
-                          tooltip="Restricts administrative login to authorized office/VPN CIDR subnets (comma separated). Leave empty for unrestricted access."
-                        >
-                          <Input placeholder="e.g. 10.0.0.0/8, 192.168.1.0/24" />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Divider style={{ margin: '14px 0' }} />
-
-                    {/* Action buttons */}
-                    <Flex justify="space-between" align="center" wrap gap={8}>
-                      <Button
-                        type="primary"
-                        icon={<SafetyCertificateOutlined />}
-                        loading={savingSecurity}
-                        onClick={handleSaveSecurity}
-                      >
-                        Save Policy
-                      </Button>
-
-                      <Popconfirm
-                        title="Reset to Default?"
-                        description="Restore default ISO/SOC2 security baseline parameters."
-                        okText="Reset Baseline"
-                        cancelText="Cancel"
-                        okButtonProps={{ danger: true }}
-                        onConfirm={handleResetSecurityDefaults}
                       >
                         <Button icon={<UndoOutlined />}>Reset to Default</Button>
                       </Popconfirm>

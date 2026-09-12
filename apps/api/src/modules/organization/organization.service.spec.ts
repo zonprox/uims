@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationService } from './organization.service';
 
@@ -216,6 +217,117 @@ describe('OrganizationService', () => {
       const l4 = l3?.children?.find((c) => c.key === 'dept-dept-l4');
       expect(l4).toBeDefined();
       expect(l4?.children?.some((c) => c.key === 'pos-pos-cut-lead')).toBe(true);
+    });
+
+    it('should nest child organizations under their parent holding company', async () => {
+      (
+        mockPrisma.organization as { findMany: ReturnType<typeof vi.fn> }
+      ).findMany.mockResolvedValueOnce([
+        {
+          id: 'org-holding',
+          name: 'Youngone / Broadpeak Group',
+          code: 'HOLDING',
+          parentId: null,
+          locations: [],
+          departments: [],
+          _count: { users: 10 },
+        },
+        {
+          id: 'org-bsh',
+          name: 'Broadpeak Ho Chi Minh',
+          code: 'BSH',
+          parentId: 'org-holding',
+          locations: [{ id: 'loc-bsh', name: 'HCM Office', type: 'Office', parentId: null }],
+          departments: [],
+          _count: { users: 50 },
+        },
+        {
+          id: 'org-bsl',
+          name: 'Broadpeak Soc Trang',
+          code: 'BSL',
+          parentId: 'org-holding',
+          locations: [{ id: 'loc-bsl', name: 'Soc Trang Complex', type: 'Campus', parentId: null }],
+          departments: [],
+          _count: { users: 300 },
+        },
+      ]);
+
+      const tree = await service.getHierarchyTree();
+
+      // Top level should only contain the root holding company
+      expect(tree).toHaveLength(1);
+      expect(tree[0].key).toBe('org-org-holding');
+      expect(tree[0].title).toBe('Youngone / Broadpeak Group');
+
+      // Holding should have BSH and BSL nested inside children
+      const childOrgs = tree[0].children?.filter((c) => c.type === 'organization');
+      expect(childOrgs).toHaveLength(2);
+      expect(childOrgs?.map((o) => o.code)).toEqual(['BSH', 'BSL']);
+
+      // Subordinate companies should have their own branches/departments
+      const bshNode = childOrgs?.find((o) => o.code === 'BSH');
+      expect(bshNode?.children?.some((c) => c.code === 'BRANCHES')).toBe(true);
+    });
+
+    it('should gracefully handle cyclic organization references without crashing', async () => {
+      (
+        mockPrisma.organization as { findMany: ReturnType<typeof vi.fn> }
+      ).findMany.mockResolvedValueOnce([
+        {
+          id: 'org-a',
+          name: 'Org Alpha',
+          code: 'ALPHA',
+          parentId: 'org-b',
+          locations: [],
+          departments: [],
+          _count: { users: 1 },
+        },
+        {
+          id: 'org-b',
+          name: 'Org Beta',
+          code: 'BETA',
+          parentId: 'org-a',
+          locations: [],
+          departments: [],
+          _count: { users: 1 },
+        },
+      ]);
+
+      const tree = await service.getHierarchyTree();
+      expect(tree.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('updateOrganization', () => {
+    it('should throw BadRequestException when organization is set as its own parent', async () => {
+      await expect(service.updateOrganization('org-123', { parentId: 'org-123' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should update organization when parentId is a different valid ID', async () => {
+      (
+        mockPrisma.organization as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValueOnce({
+        id: 'org-child',
+        name: 'Child Org',
+        code: 'CHILD',
+        _count: { departments: 0, locations: 0, users: 0 },
+      });
+      (
+        mockPrisma.organization as { update: ReturnType<typeof vi.fn> }
+      ).update.mockResolvedValueOnce({
+        id: 'org-child',
+        name: 'Child Org',
+        code: 'CHILD',
+        parentId: 'org-parent',
+      });
+
+      const result = await service.updateOrganization('org-child', {
+        parentId: 'org-parent',
+      });
+
+      expect(result.parentId).toBe('org-parent');
     });
   });
 });

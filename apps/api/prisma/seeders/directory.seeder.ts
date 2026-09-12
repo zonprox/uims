@@ -39,15 +39,23 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
 
   const locMap = new Map<string, string>();
   for (const loc of locations) {
-    if (loc.code) locMap.set(loc.code, loc.id);
+    if (loc.code) {
+      locMap.set(loc.code, loc.id);
+      locMap.set(loc.code.toUpperCase(), loc.id);
+      locMap.set(loc.code.toLowerCase(), loc.id);
+    }
     locMap.set(loc.id, loc.id);
     locMap.set(loc.name.toLowerCase(), loc.id);
   }
 
   const defaultBslOrgId = orgMap.get('BSL') || organizations[0]?.id;
   const defaultBshOrgId = orgMap.get('BSH') || organizations[1]?.id || defaultBslOrgId;
-  const defaultBslLocId = locMap.get('loc-bsl-st') || locMap.get('BSL-ST') || locations[0]?.id;
-  const defaultBshLocId = locMap.get('loc-bsh-d7') || locMap.get('HCM-D7') || defaultBslLocId;
+  const defaultBshLocId = locMap.get('loc-bsh-d7') || locMap.get('HCM-D7') || locations[0]?.id;
+  const defaultBslLocId =
+    locMap.get('loc-bsl-bc') ||
+    locMap.get('BSL-BC') ||
+    locMap.get('loc-bsl-st') ||
+    locations[0]?.id;
 
   // 2. Directory Groups Catalog
   const directoryGroups = [
@@ -141,15 +149,43 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
       const organizationId =
         (s.organizationCode ? orgMap.get(s.organizationCode) : null) ||
         (isBSL ? defaultBslOrgId : defaultBshOrgId);
-      const departmentId = (s.departmentCode ? deptMap.get(s.departmentCode) : null) || null;
+      const departmentId =
+        (s.departmentCode ? deptMap.get(s.departmentCode) : null) ||
+        (s.departmentName ? deptMap.get(s.departmentName.toLowerCase()) : null) ||
+        (isBSL ? deptMap.get('DEPT-BSL-MGMT') : deptMap.get('DEPT-BSH-EXEC')) ||
+        departments[0]?.id;
       const positionId =
         (s.positionCode ? posMap.get(s.positionCode) : null) ||
         (s.jobTitle ? posMap.get(s.jobTitle.toLowerCase()) : null) ||
-        null;
-      const locationId =
+        (isBSL ? posMap.get('POS-BSL-GM') : posMap.get('POS-BSH-MD')) ||
+        positions[0]?.id;
+      let locationId =
         (s.locationId ? locMap.get(s.locationId) : null) ||
         (s.locationName ? locMap.get(s.locationName.toLowerCase()) : null) ||
         (isBSL ? defaultBslLocId : defaultBshLocId);
+
+      // Re-map campus root BSL staff to their specific functional locations
+      if (
+        isBSL &&
+        (locationId === locMap.get('loc-bsl-st') || locationId === locMap.get('BSL-ST'))
+      ) {
+        if (s.departmentCode === 'DEPT-BSL-MGMT') {
+          locationId = locMap.get('loc-bsl-bc-exec') || locMap.get('loc-bsl-bc') || locationId;
+        } else if (s.departmentCode === 'DEPT-BSL-IT') {
+          locationId =
+            locMap.get('loc-bsl-bc-datacenter') || locMap.get('loc-bsl-bc') || locationId;
+        } else if (s.departmentCode === 'DEPT-BSL-LOG') {
+          locationId = locMap.get('loc-bsl-wh') || locationId;
+        } else if (s.departmentCode === 'DEPT-BSL-HR') {
+          locationId = locMap.get('loc-bsl-bc-admin') || locMap.get('loc-bsl-bc') || locationId;
+        } else if (s.departmentCode === 'DEPT-BSL-PROD') {
+          locationId = locMap.get('loc-bsl-f1') || locationId;
+        } else if (s.departmentCode === 'DEPT-BSL-QA') {
+          locationId = locMap.get('loc-bsl-f1-qa') || locMap.get('loc-bsl-f1') || locationId;
+        } else {
+          locationId = locMap.get('loc-bsl-bc') || locationId;
+        }
+      }
 
       const user = await prisma.directoryUser.upsert({
         where: { email: s.email },
@@ -196,9 +232,35 @@ export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<
   for (const r of enterpriseAdMasterData) {
     const isBSL = r.company.includes('BSL') || r.employeeCode.startsWith('BSL');
     const organizationId = isBSL ? defaultBslOrgId : defaultBshOrgId;
-    const locationId = isBSL ? defaultBslLocId : defaultBshLocId;
-    const departmentId = deptMap.get(r.department.toLowerCase()) || null;
-    const positionId = posMap.get(r.jobTitle.toLowerCase()) || null;
+
+    // Resolve location: BSH users -> loc-bsh-d7, BSL users -> specific BC / WH / Factory 1-7 location
+    let locationId = isBSL ? defaultBslLocId : defaultBshLocId;
+    if (
+      r.locationCode &&
+      (locMap.has(r.locationCode) ||
+        locMap.has(r.locationCode.toLowerCase()) ||
+        locMap.has(r.locationCode.toUpperCase()))
+    ) {
+      locationId = (locMap.get(r.locationCode) ||
+        locMap.get(r.locationCode.toLowerCase()) ||
+        locMap.get(r.locationCode.toUpperCase()))!;
+    }
+
+    // Resolve department: check departmentCode, department, or fallback
+    const departmentId =
+      (r.departmentCode ? deptMap.get(r.departmentCode) : null) ||
+      deptMap.get(r.department) ||
+      deptMap.get(r.department.toLowerCase()) ||
+      (isBSL ? deptMap.get('DEPT-BSL-OPS') : deptMap.get('DEPT-BSH-CORP')) ||
+      departments[0]?.id;
+
+    // Resolve position: check positionCode, jobTitle, or fallback
+    const positionId =
+      (r.positionCode ? posMap.get(r.positionCode) : null) ||
+      posMap.get(r.jobTitle) ||
+      posMap.get(r.jobTitle.toLowerCase()) ||
+      (isBSL ? posMap.get('POS-BSL-ADMIN-LEAD') : posMap.get('POS-BSH-IT-ENG')) ||
+      positions[0]?.id;
 
     const parts = r.displayName.split(' ');
     const firstName = parts[parts.length - 1] || r.displayName;

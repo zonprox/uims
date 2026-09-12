@@ -2,7 +2,6 @@ import {
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
-  ExperimentOutlined,
   KeyOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -37,7 +36,6 @@ import {
 import React, { useMemo, useState } from 'react';
 import { Can } from '../../../components/Access';
 import { rolesService } from '../../../services/roles.service';
-import { AccessSimulatorModal } from './AccessSimulatorModal';
 import { CreateRoleModal } from './CreateRoleModal';
 import { PermissionMatrixDrawer } from './PermissionMatrixDrawer';
 import { RoleCloneModal } from './RoleCloneModal';
@@ -58,7 +56,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
   roles,
   stats,
   catalog,
-  users,
+  users: _users,
   loading,
   onRefresh,
 }) => {
@@ -79,7 +77,6 @@ export const RolesTab: React.FC<RolesTabProps> = ({
   const [roleDetail, setRoleDetail] = useState<RoleDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [createRoleOpen, setCreateRoleOpen] = useState(false);
 
   const safeRoles = useMemo(() => {
@@ -308,16 +305,6 @@ export const RolesTab: React.FC<RolesTabProps> = ({
 
           <Col xs={24} md={12}>
             <Flex gap={8} justify="end" wrap="wrap">
-              <Tooltip title="Run real-time diagnostics on any user or role">
-                <Button
-                  icon={<ExperimentOutlined />}
-                  onClick={() => setSimulatorOpen(true)}
-                  style={{ borderColor: '#c084fc', color: '#7c3aed' }}
-                >
-                  Access Simulator
-                </Button>
-              </Tooltip>
-
               <Can action="create" subject="Role">
                 <Button
                   type="primary"
@@ -535,15 +522,6 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             setMatrixOpen(true);
           }
         }}
-      />
-
-      {/* Access Simulator Modal */}
-      <AccessSimulatorModal
-        open={simulatorOpen}
-        users={users}
-        roles={safeRoles}
-        catalog={catalog}
-        onClose={() => setSimulatorOpen(false)}
       />
 
       {/* Create Role Modal */}

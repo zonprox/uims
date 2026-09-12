@@ -145,7 +145,7 @@ describe('SettingsPage component', () => {
     expect(document.body.textContent).toContain('Appearance');
     expect(document.body.textContent).toContain('Notifications');
     expect(document.body.textContent).toContain('General');
-    expect(document.body.textContent).toContain('Security Policy');
+    expect(document.body.textContent).not.toContain('Security Policy');
     expect(document.body.textContent).toContain('Maintenance & Backups');
   });
 

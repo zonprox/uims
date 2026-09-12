@@ -8,6 +8,9 @@ export interface Organization {
   address?: string | null;
   website?: string | null;
   status: string;
+  parentId?: string | null;
+  parent?: Organization | null;
+  children?: Organization[];
   departmentsCount?: number;
   locationsCount?: number;
   usersCount?: number;

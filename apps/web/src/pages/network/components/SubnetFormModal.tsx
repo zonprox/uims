@@ -143,11 +143,7 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
 
     return (
       <Modal
-        title={
-          editingSubnet
-            ? `Edit Subnet: ${editingSubnet.cidr}`
-            : 'Create Subnet with Real-time CIDR Calculation'
-        }
+        title={editingSubnet ? `Edit Subnet: ${editingSubnet.cidr}` : 'Create Subnet'}
         open={open}
         onOk={onSave}
         onCancel={onCancel}

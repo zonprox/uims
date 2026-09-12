@@ -15,7 +15,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Asset, AssetCategory } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import { networkService } from '../../../services/network.service';
 import {
   type Department,
   type LocationBranch,
@@ -106,9 +105,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
     );
     const [departments, setDepartments] = useState<Department[]>(propDepartments || []);
     const [employees, setEmployees] = useState<DirectoryUser[]>(propEmployees || []);
-    const [credentials, setCredentials] = useState<
-      Array<{ id: string; name: string; username: string; protocol?: string | null }>
-    >([]);
     const [loadingOptions, setLoadingOptions] = useState(false);
 
     useEffect(() => {
@@ -118,7 +114,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       const fetchReferences = async () => {
         setLoadingOptions(true);
         try {
-          const [cats, locs, depts, empRes, creds] = await Promise.all([
+          const [cats, locs, depts, empRes] = await Promise.all([
             propCategories ? Promise.resolve(propCategories) : assetsService.getCategories(),
             propLocationTree
               ? Promise.resolve(propLocationTree)
@@ -133,7 +129,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             propEmployees
               ? Promise.resolve({ items: propEmployees })
               : directoryService.getEmployees({ pageSize: 100 }),
-            networkService.getCredentials(),
           ]);
 
           if (mounted) {
@@ -141,7 +136,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             setLocations(locs as Array<LocationBranch | LocationTreeNode>);
             setDepartments(depts);
             setEmployees(empRes.items || []);
-            setCredentials(creds);
           }
         } catch (_error: unknown) {
           // Graceful fallback: maintain available local state
@@ -289,7 +283,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
           </Row>
 
           <Row gutter={14}>
-            <Col span={12}>
+            <Col span={24}>
               <Form.Item label="Assigned Custodian" name="assignedToId">
                 <Select
                   showSearch
@@ -299,23 +293,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
                   options={employees.map((u) => ({
                     label: `${u.fullName || `${u.firstName} ${u.lastName}`.trim()} (${u.employeeCode || u.email})`,
                     value: u.id,
-                  }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Management Credential" name="credentialId">
-                <Select
-                  showSearch
-                  allowClear
-                  loading={loadingOptions}
-                  placeholder="Select device credential (optional)"
-                  options={credentials.map((cred) => ({
-                    label: `${cred.name} (${cred.username}${cred.protocol ? ` • ${cred.protocol}` : ''})`,
-                    value: cred.id,
                   }))}
                   filterOption={(input, option) =>
                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())

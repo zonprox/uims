@@ -8,7 +8,6 @@ import type {
   IPAddressQueryDto,
   NetworkCalculation,
   NetworkStatsDto,
-  RevealCredentialResponse,
   SubnetQueryDto,
   UpdateIPAddressDto,
   UpdateSubnetDto,
@@ -28,16 +27,12 @@ import {
   normalizeMac,
 } from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
-import { CredentialVaultService } from './credential-vault.service';
 
 @Injectable()
 export class NetworkService {
   private readonly logger = new Logger(NetworkService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly credentialVault: CredentialVaultService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // ==========================================
   // VLAN MANAGEMENT
@@ -77,7 +72,7 @@ export class NetworkService {
         subnets: true,
         _count: { select: { ipAddresses: true, subnets: true } },
       },
-      orderBy: { vlanNumber: 'asc' },
+      orderBy: [{ vlanNumber: 'asc' }, { id: 'asc' }],
       take: pageSize,
       skip,
     });
@@ -168,7 +163,7 @@ export class NetworkService {
         location: true,
         _count: { select: { ipAddresses: true } },
       },
-      orderBy: { cidr: 'asc' },
+      orderBy: [{ cidr: 'asc' }, { id: 'asc' }],
       take: pageSize,
       skip,
     });
@@ -368,7 +363,7 @@ export class NetworkService {
         asset: true,
         assignedUser: true,
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: pageSize,
       skip,
     });
@@ -385,7 +380,6 @@ export class NetworkService {
         location: true,
         asset: true,
         assignedUser: true,
-        credential: true,
       },
     });
 
@@ -438,6 +432,23 @@ export class NetworkService {
       targetIp = '10.0.0.1';
     }
 
+    if (!isValidIp(targetIp)) {
+      throw new BadRequestException(`Invalid IPv4 address: "${targetIp}"`);
+    }
+
+    const existing = await this.prisma.iPAddress.findFirst({
+      where: {
+        address: targetIp,
+        subnetId: subnetId || undefined,
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        `IP address "${targetIp}" is already registered in this subnet`,
+      );
+    }
+
     const rawMac = data.macAddress || data.mac;
     const normalizedMac = rawMac ? normalizeMac(rawMac) : undefined;
     let vendor = data.vendor;
@@ -466,7 +477,6 @@ export class NetworkService {
         locationId,
         assetId: data.assetId,
         assignedUserId: data.assignedUserId,
-        credentialId: data.credentialId,
         status,
         pingStatus: data.pingStatus || 'online',
         responseTimeMs: data.responseTimeMs,
@@ -479,7 +489,6 @@ export class NetworkService {
         location: true,
         asset: true,
         assignedUser: true,
-        credential: true,
       },
     });
 
@@ -551,12 +560,6 @@ export class NetworkService {
         ? { connect: { id: data.assignedUserId } }
         : { disconnect: true };
     }
-    if (data.credentialId !== undefined) {
-      updatePayload.credential = data.credentialId
-        ? { connect: { id: data.credentialId } }
-        : { disconnect: true };
-    }
-
     const updated = await this.prisma.iPAddress.update({
       where: { id },
       data: updatePayload,
@@ -566,7 +569,6 @@ export class NetworkService {
         location: true,
         asset: true,
         assignedUser: true,
-        credential: true,
       },
     });
 
@@ -599,59 +601,6 @@ export class NetworkService {
     }
 
     return { success: true, id: deleted.id };
-  }
-
-  async revealCredential(ipId: string, userId?: string): Promise<RevealCredentialResponse> {
-    const ip = await this.prisma.iPAddress.findUnique({
-      where: { id: ipId },
-      include: { credential: true },
-    });
-
-    if (!ip) {
-      throw new NotFoundException(`IP address with ID "${ipId}" not found`);
-    }
-
-    if (!ip.credential) {
-      throw new NotFoundException(`No credentials associated with IP address ${ip.address}`);
-    }
-
-    const decryptedPassword = this.credentialVault.decrypt({
-      encryptedData: ip.credential.encryptedData,
-      iv: ip.credential.iv,
-      authTag: ip.credential.authTag,
-      keyVersion: ip.credential.keyVersion,
-    });
-
-    // Security Audit Log: Emission of credential access event
-    try {
-      await this.prisma.auditLog.create({
-        data: {
-          userId,
-          action: 'REVEAL_CREDENTIAL',
-          severity: 'Warning',
-          entity: 'NetworkCredential',
-          entityId: ip.credential.id,
-          ipAddress: ip.address,
-          details: `Admin revealed secure credential "${ip.credential.name}" for IP ${ip.address} (${ip.hostname || 'no hostname'})`,
-          status: 'Success',
-        },
-      });
-    } catch (error: unknown) {
-      this.logger.error(
-        'Failed to emit audit log on credential reveal',
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
-
-    return {
-      id: ip.credential.id,
-      name: ip.credential.name,
-      username: ip.credential.username,
-      password: decryptedPassword,
-      protocol: ip.credential.protocol,
-      port: ip.credential.port,
-      notes: ip.credential.notes,
-    };
   }
 
   // ==========================================
@@ -836,7 +785,6 @@ export class NetworkService {
       location?: Location | null;
       asset?: { id: string; name: string; assetTag: string } | null;
       assignedUser?: { id: string; firstName: string; lastName: string; email: string } | null;
-      credential?: { id: string; name: string; username: string; protocol: string | null } | null;
     },
   ) {
     return {
@@ -868,14 +816,6 @@ export class NetworkService {
       description: ip.description,
       asset: ip.asset,
       assignedUser: ip.assignedUser,
-      credential: ip.credential
-        ? {
-            id: ip.credential.id,
-            name: ip.credential.name,
-            username: ip.credential.username,
-            protocol: ip.credential.protocol,
-          }
-        : null,
       createdAt: ip.createdAt
         ? typeof ip.createdAt === 'string'
           ? ip.createdAt

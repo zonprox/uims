@@ -33,8 +33,6 @@ export interface Asset {
   departmentId?: string | null;
   organization?: string | null;
   organizationId?: string | null;
-  credential?: string | null;
-  credentialId?: string | null;
   purchaseDate: string;
   purchasePrice: number;
   warrantyExpiry: string;

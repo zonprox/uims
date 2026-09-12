@@ -33,6 +33,10 @@ export const inventoryQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
   search: z.string().optional(),
   categoryId: uuidSchema.optional(),
+  category: z.string().optional(),
   locationId: uuidSchema.optional(),
+  location: z.string().optional(),
+  organizationId: uuidSchema.optional(),
+  organization: z.string().optional(),
   stockStatus: z.enum(['all', 'in_stock', 'low_stock', 'out_of_stock']).optional(),
 });

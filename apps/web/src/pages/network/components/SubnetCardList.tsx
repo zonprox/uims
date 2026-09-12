@@ -106,7 +106,7 @@ export const SubnetCardList: React.FC<SubnetCardListProps> = React.memo(
                 )}
               </Flex>
 
-              {/* 3-Segment Capacity Breakdown */}
+              {/* Capacity Breakdown */}
               <Tooltip
                 title={`Allocated: ${used} | Reserved: ${reserved} | Available: ${available} (Total: ${total})`}
               >

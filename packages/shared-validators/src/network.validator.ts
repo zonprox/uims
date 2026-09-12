@@ -84,7 +84,6 @@ export const createIpAddressSchema = z.object({
   locationId: uuidSchema.nullable().optional(),
   assetId: uuidSchema.nullable().optional(),
   assignedUserId: uuidSchema.nullable().optional(),
-  credentialId: uuidSchema.nullable().optional(),
   status: z.union([z.nativeEnum(IPStatus), z.string()]).optional(),
   pingStatus: z.string().max(50).optional(),
   responseTimeMs: z.number().min(0).nullable().optional(),
@@ -125,8 +124,4 @@ export const autoDetectQuerySchema = z.object({
 
 export const macVendorQuerySchema = z.object({
   mac: z.string().min(6, 'MAC address must have at least 6 characters').max(50),
-});
-
-export const revealCredentialSchema = z.object({
-  password: z.string().optional(),
 });

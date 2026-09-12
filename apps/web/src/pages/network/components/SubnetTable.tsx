@@ -95,7 +95,7 @@ export const SubnetTable: React.FC<SubnetTableProps> = React.memo(
           ),
         },
         {
-          title: '3-Segment IP Utilization',
+          title: 'IP Utilization',
           key: 'utilization',
           width: 220,
           sorter: (a: Subnet, b: Subnet) =>
@@ -182,6 +182,7 @@ export const SubnetTable: React.FC<SubnetTableProps> = React.memo(
 
     return (
       <Table
+        size="middle"
         columns={columns}
         dataSource={subnets}
         rowKey="id"

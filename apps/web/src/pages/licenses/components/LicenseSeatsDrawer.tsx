@@ -34,7 +34,7 @@ export const LicenseSeatsDrawer: React.FC<LicenseSeatsDrawerProps> = React.memo(
             </Text>
           </div>
         }
-        size={520}
+        width={520}
         open={open}
         destroyOnHidden
         onClose={onClose}

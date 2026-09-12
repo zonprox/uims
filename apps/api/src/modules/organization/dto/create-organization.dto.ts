@@ -41,4 +41,12 @@ export class CreateOrganizationDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @ApiPropertyOptional({
+    example: 'org-uuid-holding',
+    description: 'Parent organization ID for holding company hierarchy',
+  })
+  @IsString()
+  @IsOptional()
+  parentId?: string;
 }

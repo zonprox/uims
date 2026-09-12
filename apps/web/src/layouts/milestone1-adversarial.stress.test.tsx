@@ -69,13 +69,13 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
   describe('Suite 1: Menu Items Structure & Truncation Contract', () => {
     const EXPECTED_NAV_KEYS = [
       '/',
-      '/directory',
-      '/organization',
-      '/users',
       '/assets',
       '/licenses',
       '/inventory',
       '/network',
+      '/directory',
+      '/organization',
+      '/users',
       '/reports',
       '/audit',
       '/settings',

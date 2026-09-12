@@ -1645,6 +1645,22 @@ export default function OrganizationPage() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item label="Parent Organization" name="parentId">
+            <Select
+              placeholder="None (Top-Level Holding)"
+              allowClear
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={orgs
+                .filter((o) => !editingOrg || o.id !== editingOrg.id)
+                .map((o) => ({
+                  label: `${o.name} (${o.code})`,
+                  value: o.id,
+                }))}
+            />
+          </Form.Item>
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item label="Tax ID" name="taxId">

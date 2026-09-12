@@ -92,7 +92,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
       }
       open={open}
       destroyOnHidden
-      size={720}
+      width={720}
       onClose={onClose}
       styles={{
         body: { padding: '16px 20px', background: token.colorBgLayout },

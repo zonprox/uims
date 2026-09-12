@@ -14,21 +14,6 @@ export enum VlanStatus {
   DEPRECATED = 'DEPRECATED',
 }
 
-export interface NetworkCredential {
-  id: string;
-  name: string;
-  username: string;
-  encryptedData: string;
-  iv: string;
-  authTag: string;
-  keyVersion: number;
-  protocol?: string | null;
-  port?: number | null;
-  notes?: string | null;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-}
-
 export interface VLAN {
   id: string;
   vlanNumber: number;
@@ -85,7 +70,6 @@ export interface IPAddress {
   locationId?: string | null;
   assetId?: string | null;
   assignedUserId?: string | null;
-  credentialId?: string | null;
   status: IPStatus | `${IPStatus}`;
   pingStatus?: string | null;
   responseTimeMs?: number | null;
@@ -96,7 +80,6 @@ export interface IPAddress {
   location?: Location | null;
   asset?: Asset | null;
   assignedUser?: DirectoryUser | null;
-  credential?: NetworkCredential | null;
   // UI legacy / convenience aliases
   ip?: string;
   mac?: string;

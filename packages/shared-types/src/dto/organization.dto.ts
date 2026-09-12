@@ -9,6 +9,7 @@ export interface CreateOrganizationDto {
   address?: string;
   website?: string;
   status?: string;
+  parentId?: string;
 }
 
 export interface UpdateOrganizationDto extends Partial<CreateOrganizationDto> {}

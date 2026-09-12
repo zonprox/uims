@@ -13,14 +13,19 @@ export const createAssetSchema = z.object({
   location: z.string().max(100).optional(),
   departmentId: uuidSchema.nullable().optional(),
   assignedToId: uuidSchema.nullable().optional(),
-  credentialId: uuidSchema.nullable().optional(),
-  status: z.nativeEnum(AssetStatus).optional(),
+  status: z.union([z.nativeEnum(AssetStatus), z.string()]).optional(),
   serialNumber: z.string().max(100).nullable().optional(),
   model: z.string().max(100).nullable().optional(),
   manufacturer: z.string().max(100).nullable().optional(),
   purchaseDate: dateSchema.nullable().optional(),
-  purchaseCost: z.number().min(0).nullable().optional(),
-  purchasePrice: z.number().min(0).nullable().optional(),
+  purchaseCost: z
+    .union([z.number().min(0), z.string()])
+    .nullable()
+    .optional(),
+  purchasePrice: z
+    .union([z.number().min(0), z.string()])
+    .nullable()
+    .optional(),
   warrantyExpiry: dateSchema.nullable().optional(),
   specs: z.record(z.string(), z.unknown()).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
@@ -38,6 +43,8 @@ export const assetQuerySchema = z.object({
   locationId: uuidSchema.optional(),
   departmentId: uuidSchema.optional(),
   assignedToId: uuidSchema.optional(),
+  organizationId: uuidSchema.optional(),
+  organization: z.string().optional(),
   status: z.string().optional(),
   sort: z.string().optional(),
   order: z.enum(['asc', 'desc']).optional(),

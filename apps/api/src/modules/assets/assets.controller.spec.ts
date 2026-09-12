@@ -13,7 +13,6 @@ describe('AssetsController', () => {
       findAll: vi.fn(),
       findOne: vi.fn(),
       getStats: vi.fn(),
-      getHistory: vi.fn(),
       exportCsv: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),

@@ -36,7 +36,6 @@ describe('NetworkController', () => {
       createIp: vi.fn(),
       updateIp: vi.fn(),
       deleteIp: vi.fn(),
-      revealCredential: vi.fn(),
       calculateSubnet: vi.fn(),
       autoDetect: vi.fn(),
       lookupMacVendor: vi.fn(),
@@ -226,20 +225,6 @@ describe('NetworkController', () => {
     const result = await controller.deleteIp('ip-1');
     expect(mockNetworkService.deleteIp).toHaveBeenCalledWith('ip-1');
     expect(result).toEqual({ success: true, id: 'ip-1' });
-  });
-
-  it('revealCredential calls networkService.revealCredential with IP ID and user context', async () => {
-    const credentialResponse = {
-      id: 'cred-1',
-      name: 'Cam Pass',
-      username: 'admin',
-      password: 'SecretPassword123',
-    };
-    mockNetworkService.revealCredential.mockResolvedValue(credentialResponse);
-
-    const result = await controller.revealCredential('ip-1', { user: { id: 'admin-user-id' } });
-    expect(mockNetworkService.revealCredential).toHaveBeenCalledWith('ip-1', 'admin-user-id');
-    expect(result).toBe(credentialResponse);
   });
 
   // ==========================================

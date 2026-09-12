@@ -19,8 +19,15 @@ export interface InventoryItem {
   unitCost: number;
   locationId?: string | null;
   location?: Location | null;
+  locationName?: string | null;
+  locationPath?: string | null;
+  organizationId?: string | null;
+  organization?: string | null;
   binNumber?: string | null;
   supplier?: string | null;
+  status?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | string;
+  statusLabel?: string;
+  statusTag?: string;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;

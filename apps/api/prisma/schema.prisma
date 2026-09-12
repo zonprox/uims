@@ -175,7 +175,6 @@ model Asset {
   assignedToId   String?
   departmentId   String?
   locationId     String?
-  credentialId   String?
   specs          Json?
   notes          String?
   createdAt      DateTime    @default(now())
@@ -185,15 +184,12 @@ model Asset {
   assignedTo  DirectoryUser?     @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
   department  Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   location    Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  credential  NetworkCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
-  history     AssetHistory[]
   ipAddresses IPAddress[]
 
   @@index([assignedToId])
   @@index([categoryId])
   @@index([departmentId])
   @@index([locationId])
-  @@index([credentialId])
   @@index([status])
   @@index([status, updatedAt])
   @@index([warrantyExpiry])
@@ -213,20 +209,6 @@ model AssetCategory {
   assets      Asset[]
 
   @@index([parentId])
-}
-
-model AssetHistory {
-  id        String   @id @default(uuid())
-  assetId   String
-  action    String
-  changedBy String
-  oldValue  Json?
-  newValue  Json?
-  timestamp DateTime @default(now())
-  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-
-  @@index([assetId])
-  @@index([timestamp(sort: Desc)])
 }
 
 model InventoryCategory {
@@ -408,7 +390,6 @@ model IPAddress {
   locationId     String?
   assetId        String?
   assignedUserId String?
-  credentialId   String?
   status         IPStatus  @default(AVAILABLE)
   pingStatus     String?   @default("online")
   responseTimeMs Float?
@@ -422,7 +403,6 @@ model IPAddress {
   location     Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
   asset        Asset?             @relation(fields: [assetId], references: [id], onDelete: SetNull)
   assignedUser DirectoryUser?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
-  credential   NetworkCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
 
   @@unique([address, subnetId])
   @@index([subnetId])
@@ -430,33 +410,11 @@ model IPAddress {
   @@index([locationId])
   @@index([assetId])
   @@index([assignedUserId])
-  @@index([credentialId])
   @@index([status])
   @@index([pingStatus])
   @@index([macAddress])
   @@index([hostname])
   @@index([deviceType])
-}
-
-model NetworkCredential {
-  id            String   @id @default(uuid())
-  name          String
-  username      String
-  encryptedData String // Base64 AES-256-GCM ciphertext
-  iv            String // Base64 12-byte initialization vector
-  authTag       String // Base64 16-byte authentication tag
-  keyVersion    Int      @default(1)
-  protocol      String?  @default("HTTP")
-  port          Int?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  ipAddresses IPAddress[]
-  assets      Asset[]
-
-  @@index([name])
-  @@index([username])
 }
 
 model AuditLog {
@@ -615,12 +573,17 @@ model Organization {
   address   String?
   website   String?
   status    String   @default("ACTIVE")
+  parentId  String?
+  parent    Organization?  @relation("OrganizationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Organization[] @relation("OrganizationHierarchy")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   departments Department[]
   locations   Location[]
   users       DirectoryUser[]
+
+  @@index([parentId])
 }
 
 model Department {

@@ -73,7 +73,6 @@ export interface CreateIPAddressDto {
   locationId?: string | null;
   assetId?: string | null;
   assignedUserId?: string | null;
-  credentialId?: string | null;
   status?: IPStatus | `${IPStatus}` | string;
   pingStatus?: string;
   responseTimeMs?: number;
@@ -114,20 +113,6 @@ export interface AutoDetectQueryDto {
 
 export interface MacVendorQueryDto {
   mac: string;
-}
-
-export interface RevealCredentialDto {
-  password?: string;
-}
-
-export interface RevealCredentialResponse {
-  id: string;
-  name: string;
-  username: string;
-  password?: string;
-  protocol?: string | null;
-  port?: number | null;
-  notes?: string | null;
 }
 
 export interface NetworkStatsDto {

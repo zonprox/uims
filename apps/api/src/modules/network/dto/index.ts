@@ -7,7 +7,6 @@ export * from './subnet-query.dto';
 export * from './create-ip.dto';
 export * from './update-ip.dto';
 export * from './ip-query.dto';
-export * from './reveal-credential.dto';
 export * from './calculate-subnet-query.dto';
 export * from './auto-detect-query.dto';
 export * from './mac-vendor-query.dto';

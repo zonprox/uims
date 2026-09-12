@@ -238,55 +238,6 @@ export function getNavMenuItems(
     },
   ];
 
-  // Organization & Access Group
-  const orgChildren: NonNullable<MenuProps['items']> = [];
-  if (allow('read', 'Directory') || allow('read', 'User')) {
-    orgChildren.push({
-      key: '/directory',
-      icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Employee Directory'),
-      title: 'Employee Directory',
-    });
-  }
-  if (allow('read', 'Organization')) {
-    orgChildren.push({
-      key: '/organization',
-      icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Organization Structure'),
-      title: 'Organization Structure',
-    });
-  }
-  if (allow('read', 'User') || allow('read', 'Role')) {
-    orgChildren.push({
-      key: '/users',
-      icon: <NavIconWithBadge icon={<UserOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Users'),
-      title: 'Users',
-    });
-  }
-
-  if (orgChildren.length > 0) {
-    items.push({ type: 'divider' });
-    items.push({
-      key: 'group-org',
-      type: 'group',
-      label: showLabels ? (
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,23,42,0.5)',
-            textTransform: 'uppercase',
-          }}
-        >
-          ORGANIZATION & ACCESS
-        </span>
-      ) : undefined,
-      children: orgChildren,
-    });
-  }
-
   // Core Assets & Inventory Group
   const assetChildren: NonNullable<MenuProps['items']> = [];
   if (allow('read', 'Asset')) {
@@ -383,6 +334,55 @@ export function getNavMenuItems(
         </span>
       ) : undefined,
       children: assetChildren,
+    });
+  }
+
+  // Organization & Access Group
+  const orgChildren: NonNullable<MenuProps['items']> = [];
+  if (allow('read', 'Directory') || allow('read', 'User')) {
+    orgChildren.push({
+      key: '/directory',
+      icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
+      label: renderNavLabel('Employee Directory'),
+      title: 'Employee Directory',
+    });
+  }
+  if (allow('read', 'Organization')) {
+    orgChildren.push({
+      key: '/organization',
+      icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
+      label: renderNavLabel('Organization Structure'),
+      title: 'Organization Structure',
+    });
+  }
+  if (allow('read', 'User') || allow('read', 'Role')) {
+    orgChildren.push({
+      key: '/users',
+      icon: <NavIconWithBadge icon={<UserOutlined />} isCollapsed={isCollapsedDesktop} />,
+      label: renderNavLabel('Users'),
+      title: 'Users',
+    });
+  }
+
+  if (orgChildren.length > 0) {
+    items.push({ type: 'divider' });
+    items.push({
+      key: 'group-org',
+      type: 'group',
+      label: showLabels ? (
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(15,23,42,0.5)',
+            textTransform: 'uppercase',
+          }}
+        >
+          ORGANIZATION & ACCESS
+        </span>
+      ) : undefined,
+      children: orgChildren,
     });
   }
 

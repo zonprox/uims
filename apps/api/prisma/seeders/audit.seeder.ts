@@ -138,16 +138,16 @@ export async function seedAudit(prisma: PrismaClient) {
       action: 'INVENTORY_RESTOCK',
       severity: 'Info',
       status: 'Success',
-      entity: 'CAB-CAT6A-2M-BLU',
+      entity: 'CBL-CAT6-UTP-3M',
       entityType: 'Inventory',
-      entityId: invMap.get('CAB-CAT6A-2M-BLU') || 'inv-cat6a',
+      entityId: invMap.get('CBL-CAT6-UTP-3M') || 'inv-cbl-cat6',
       ipAddress: '10.232.100.22',
       userAgent: 'UIMS-AdminConsole/2.4.0 (Windows)',
       statusCode: 200,
       durationMs: 55.0,
       timestamp: new Date(baseDate.getTime() - 43200000),
       details:
-        'Restocked 75 units of Cat6a 2m blue patch cables for BSL shop floor network switches.',
+        'Restocked 75 units of Cat6 UTP 3m blue patch cables for BSL shop floor network switches.',
     },
   ];
 

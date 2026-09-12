@@ -391,13 +391,13 @@ export class DirectoryService {
         computerName: true,
         assignedAssets: { select: { id: true } },
       },
-      take: 1000,
+      take: 100,
       orderBy: { id: 'asc' },
     });
 
     const groups = await this.prisma.directoryGroup.findMany({
       select: { ouPath: true },
-      take: 500,
+      take: 100,
       orderBy: { id: 'asc' },
     });
 
@@ -534,7 +534,7 @@ export class DirectoryService {
 
   async exportMaster() {
     const users = await this.prisma.directoryUser.findMany({
-      take: 10000,
+      take: 100,
       orderBy: [{ employeeCode: 'asc' }, { id: 'asc' }],
       include: {
         organization: true,

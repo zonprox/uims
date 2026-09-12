@@ -403,7 +403,7 @@ export class LicensesService {
       this.prisma.license.count({ where: { status: 'EXPIRING_SOON' } }),
       sqlSpend === null
         ? this.prisma.license.findMany({
-            take: 1000,
+            take: 100,
             orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
             select: { usedSeats: true, costPerSeat: true },
           })
@@ -441,22 +441,32 @@ export class LicensesService {
     }));
 
     const remainingSeats = Math.max(0, license.totalSeats - license.usedSeats);
+    const expDate = license.expiryDate ? license.expiryDate.toISOString().split('T')[0] : '';
+    const rawKey = license.licenseKey || 'N/A';
+    const maskedKey = rawKey.length > 8 ? `••••-••••-${rawKey.slice(-4)}` : rawKey;
 
     return {
       id: license.id,
       name: license.name,
       vendor: license.vendor || 'Generic',
+      publisher: license.vendor || 'Generic',
+      category: 'Software',
       type: typeLabel,
+      licenseType: typeLabel,
       totalSeats: license.totalSeats,
       usedSeats: license.usedSeats,
       remainingSeats,
       costPerSeat: license.costPerSeat || 0,
-      expiryDate: license.expiryDate ? license.expiryDate.toISOString().split('T')[0] : '',
-      licenseKey: license.licenseKey || 'N/A',
+      expiryDate: expDate,
+      expirationDate: expDate,
+      licenseKey: rawKey,
+      maskedKey,
       status: statusLabel,
       autoRenew: license.autoRenew,
       assignedUsers,
       notes: license.notes || '',
+      createdAt: license.createdAt ? license.createdAt.toISOString() : new Date().toISOString(),
+      updatedAt: license.updatedAt ? license.updatedAt.toISOString() : new Date().toISOString(),
     };
   }
 }

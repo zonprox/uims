@@ -90,7 +90,6 @@ export class OrganizationService {
             firstName: true,
             lastName: true,
             email: true,
-            roleName: true,
             department: true,
           },
         },
@@ -130,7 +129,36 @@ export class OrganizationService {
   }
 
   async updateOrganization(id: string, dto: UpdateOrganizationDto) {
+    if (dto.parentId && dto.parentId === id) {
+      throw new BadRequestException('Organization cannot be its own parent');
+    }
     await this.findOrganization(id);
+
+    if (dto.parentId !== undefined && dto.parentId !== null) {
+      let currentParentId: string | null = dto.parentId;
+      const visited = new Set<string>();
+
+      while (currentParentId) {
+        if (currentParentId === id) {
+          throw new BadRequestException(
+            'Cannot set parent to a descendant organization (cycle detected)',
+          );
+        }
+        if (visited.has(currentParentId)) {
+          break;
+        }
+        visited.add(currentParentId);
+
+        const parentOrg: { parentId: string | null } | null =
+          await this.prisma.organization.findUnique({
+            where: { id: currentParentId },
+            select: { parentId: true },
+          });
+
+        currentParentId = parentOrg?.parentId ?? null;
+      }
+    }
+
     return this.prisma.organization.update({
       where: { id },
       data: dto,
@@ -179,7 +207,6 @@ export class OrganizationService {
             firstName: true,
             lastName: true,
             email: true,
-            roleName: true,
             status: true,
           },
         },
@@ -262,7 +289,6 @@ export class OrganizationService {
             firstName: true,
             lastName: true,
             email: true,
-            roleName: true,
           },
         },
         _count: { select: { users: true } },
@@ -317,7 +343,7 @@ export class OrganizationService {
         organization: { select: { id: true, name: true, code: true } },
         _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
       },
-      take: 1000,
+      take: 100,
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
@@ -610,7 +636,15 @@ export class OrganizationService {
       orderBy: { name: 'asc' },
     });
 
-    const tree: OrgNode[] = orgs.map((org) => {
+    interface OrgNodeItem {
+      id: string;
+      parentId: string | null;
+      node: OrgNode;
+      childOrgs: OrgNode[];
+    }
+    const orgMap = new Map<string, OrgNodeItem>();
+
+    for (const org of orgs) {
       // 1. Hierarchical Spatial Locations Node
       // Rather than dumping all locations flatly, structure them by parentId
       const locMap = new Map<string, OrgNode & { parentId?: string | null }>();
@@ -685,7 +719,7 @@ export class OrganizationService {
         }
       }
 
-      return {
+      const orgNode: OrgNode = {
         key: `org-${org.id}`,
         title: org.name,
         code: org.code,
@@ -707,8 +741,49 @@ export class OrganizationService {
           ...rootDeptNodes,
         ],
       };
-    });
 
-    return tree;
+      orgMap.set(org.id, {
+        id: org.id,
+        parentId: org.parentId ?? null,
+        node: orgNode,
+        childOrgs: [],
+      });
+    }
+
+    // 3. Multi-tier Recursive Organization Hierarchy
+    const rootOrgNodes: OrgNode[] = [];
+    for (const [, item] of orgMap.entries()) {
+      if (item.parentId && orgMap.has(item.parentId) && item.parentId !== item.id) {
+        // Defensive cycle detection
+        let isCyclic = false;
+        let curr: string | null = item.parentId;
+        const visited = new Set<string>([item.id]);
+        while (curr && orgMap.has(curr)) {
+          if (visited.has(curr)) {
+            isCyclic = true;
+            break;
+          }
+          visited.add(curr);
+          curr = orgMap.get(curr)!.parentId;
+        }
+
+        if (!isCyclic) {
+          orgMap.get(item.parentId)!.childOrgs.push(item.node);
+        } else {
+          rootOrgNodes.push(item.node);
+        }
+      } else {
+        rootOrgNodes.push(item.node);
+      }
+    }
+
+    // Attach child organizations to each parent node
+    for (const [, item] of orgMap.entries()) {
+      if (item.childOrgs.length > 0) {
+        item.node.children = [...item.childOrgs, ...(item.node.children || [])];
+      }
+    }
+
+    return rootOrgNodes;
   }
 }

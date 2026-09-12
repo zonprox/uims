@@ -312,6 +312,7 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
         </Row>
 
         <Table
+          size="middle"
           columns={columns}
           dataSource={filteredVlans}
           rowKey="id"

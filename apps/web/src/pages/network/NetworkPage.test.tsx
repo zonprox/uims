@@ -157,20 +157,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      credentialId: 'cred-1',
-      credential: {
-        id: 'cred-1',
-        name: 'Cisco IMC Admin',
-        username: 'admin',
-        encryptedData: 'abc',
-        iv: 'def',
-        authTag: 'ghi',
-        keyVersion: 1,
-        protocol: 'HTTPS',
-        port: 443,
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      },
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
@@ -326,15 +312,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
       ),
       updateIp: vi.fn().mockResolvedValue(mockIps[0]),
       deleteIp: vi.fn().mockResolvedValue(undefined),
-      revealCredential: vi.fn().mockResolvedValue({
-        id: 'cred-1',
-        name: 'Cisco IMC Root',
-        username: 'admin',
-        password: 'VaultSecurePass2026!',
-        protocol: 'HTTPS',
-        port: 443,
-        notes: 'Rack 4 Unit 12',
-      }),
     },
   };
 });
@@ -598,7 +575,7 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
-    expect(document.body.textContent).toContain('Create Subnet with Real-time CIDR Calculation');
+    expect(document.body.textContent).toContain('Create Subnet');
 
     const cidrInput = document.querySelector('input#cidr') as HTMLInputElement;
     expect(cidrInput).toBeTruthy();
@@ -642,7 +619,7 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
-    expect(document.body.textContent).toContain('Allocate IP Address with Real-time Automation');
+    expect(document.body.textContent).toContain('Allocate IP Address');
 
     // Test Next Available IP button
     const nextIpBtn = Array.from(document.querySelectorAll('button')).find((btn) =>
@@ -669,23 +646,5 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
 
     expect(networkService.lookupMacVendor).toHaveBeenCalledWith('00:1B:44:22:33:44');
     expect(document.body.textContent).toContain('OUI Vendor: Cisco Systems');
-  });
-
-  it('triggers credential reveal modal with audit warning', async () => {
-    await renderComponent();
-
-    // Find the Key icon button on ip-1 (which has credential)
-    const keyBtn = container.querySelector('.anticon-key')?.closest('button') as HTMLButtonElement;
-    expect(keyBtn).toBeTruthy();
-
-    await act(async () => {
-      keyBtn?.click();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
-
-    // Credential modal should open
-    expect(document.body.textContent).toContain('Decrypted Administrative Credentials');
-    expect(document.body.textContent).toContain('Audited Security Operation');
-    expect(networkService.revealCredential).toHaveBeenCalledWith('ip-1');
   });
 });

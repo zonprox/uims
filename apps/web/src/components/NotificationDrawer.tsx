@@ -187,7 +187,7 @@ export default function NotificationDrawer({
         </Flex>
       }
       placement="right"
-      size={440}
+      width={440}
       open={open}
       destroyOnHidden
       onClose={onClose}

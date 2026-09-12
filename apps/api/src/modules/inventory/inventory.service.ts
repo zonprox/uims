@@ -16,6 +16,26 @@ function generateSku(): string {
   return `SKU-${timeSuffix}${randSuffix}`;
 }
 
+function formatInventoryItem<T extends { quantity: number; minThreshold: number }>(item: T) {
+  const isDepleted = item.quantity === 0;
+  const isLow = item.quantity > 0 && item.quantity <= item.minThreshold;
+  const status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' = isDepleted
+    ? 'OUT_OF_STOCK'
+    : isLow
+      ? 'LOW_STOCK'
+      : 'IN_STOCK';
+  const statusTag: 'In Stock' | 'Low Stock' | 'Out of Stock' = isDepleted
+    ? 'Out of Stock'
+    : isLow
+      ? 'Low Stock'
+      : 'In Stock';
+  return {
+    ...item,
+    status,
+    statusTag,
+  };
+}
+
 @Injectable()
 export class InventoryService {
   private readonly logger = new Logger(InventoryService.name);
@@ -102,7 +122,7 @@ export class InventoryService {
       await this.checkStockThreshold(item);
     }
 
-    return item;
+    return formatInventoryItem(item);
   }
 
   async findAll(query?: InventoryQueryDto) {
@@ -152,7 +172,7 @@ export class InventoryService {
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
 
-    return this.prisma.inventoryItem.findMany({
+    const items = await this.prisma.inventoryItem.findMany({
       where,
       include: {
         category: true,
@@ -164,6 +184,8 @@ export class InventoryService {
       take: pageSize,
       skip,
     });
+
+    return items.map((item) => formatInventoryItem(item));
   }
 
   async findOne(id: string) {
@@ -175,7 +197,7 @@ export class InventoryService {
       },
     });
     if (!item) throw new NotFoundException(`Inventory item with ID ${id} not found`);
-    return item;
+    return formatInventoryItem(item);
   }
 
   async update(id: string, data: UpdateInventoryItemDto) {
@@ -218,7 +240,7 @@ export class InventoryService {
       await this.checkStockThreshold(item);
     }
 
-    return item;
+    return formatInventoryItem(item);
   }
 
   async remove(id: string) {
@@ -244,7 +266,7 @@ export class InventoryService {
       await this.checkStockThreshold(updated);
     }
 
-    return updated;
+    return formatInventoryItem(updated);
   }
 
   async getStats(): Promise<InventoryStatsDto> {

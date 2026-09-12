@@ -21,6 +21,12 @@ export async function seedInventory(prisma: PrismaClient) {
         'YKK zippers, melamine buttons, coats sewing threads, elastic bands, rivets & drawstrings',
     },
     {
+      id: 'inv-cat-finished-goods',
+      name: 'Finished Apparel Goods',
+      description:
+        'Export-ready outerwear jackets, cargo trousers, activewear hoodies & shirts staged for export shipment',
+    },
+    {
       id: 'inv-cat-spares',
       name: 'Spare Motors & Needles',
       description:
@@ -72,14 +78,22 @@ export async function seedInventory(prisma: PrismaClient) {
 
   // 2. Resolve target leaf Location IDs from database
   const allLocations = await prisma.location.findMany();
-  const locMap = new Map(allLocations.map((l) => [l.id, l.id]));
+  const locMap = new Map<string, string>();
+  for (const l of allLocations) {
+    locMap.set(l.id, l.id);
+    if (l.code) {
+      locMap.set(l.code, l.id);
+      locMap.set(l.code.toUpperCase(), l.id);
+    }
+  }
 
   const getLoc = (id: string, fallbackCode?: string): string => {
-    if (locMap.has(id)) return id;
+    if (locMap.has(id)) return locMap.get(id)!;
+    if (fallbackCode && locMap.has(fallbackCode)) return locMap.get(fallbackCode)!;
     const match = allLocations.find(
       (l) => l.id === id || (fallbackCode && l.code === fallbackCode),
     );
-    return match?.id || allLocations[0]?.id || 'loc-bsl-wh';
+    return match?.id || locMap.get('loc-bsl-wh') || allLocations[0]?.id || id;
   };
 
   // 3. Relational Stockroom Items
@@ -134,7 +148,57 @@ export async function seedInventory(prisma: PrismaClient) {
       notes: 'Performance compression stretch fabric for activewear legging lines.',
     },
 
-    // ── Factory MDC Sub-Warehouses: Thread Spools, Buttons & Zippers ─────────
+    // ── Central Warehouse: Finished Goods Export Bays ───────────────────────
+    {
+      sku: 'FG-OUT-JKT-01',
+      name: 'Weatherproof Technical Mountain Shell Jacket (Pack of 50, Navy/Black, Export Batch)',
+      categoryId: 'inv-cat-finished-goods',
+      locationId: getLoc('loc-bsl-wh-fg-bay1', 'WH-FG-BAY01'), // Central Warehouse > Finished Goods > Export Bay 01 (North America)
+      binNumber: 'Bay 01',
+      quantity: 120,
+      minThreshold: 30,
+      unitCost: 45.0,
+      supplier: 'Broadpeak Soc Trang (Factory 1 & 4)',
+      notes: 'Inspection passed, boxed & staged for North America export container loading.',
+    },
+    {
+      sku: 'FG-CRG-PNT-02',
+      name: 'Tactical Outdoor Utility Cargo Trousers (Pack of 100, Khaki, Export Batch)',
+      categoryId: 'inv-cat-finished-goods',
+      locationId: getLoc('loc-bsl-wh-fg-bay1', 'WH-FG-BAY01'), // Central Warehouse > Finished Goods > Export Bay 01 (North America)
+      binNumber: 'Bay 01',
+      quantity: 90,
+      minThreshold: 25,
+      unitCost: 28.5,
+      supplier: 'Broadpeak Soc Trang (Factory 5)',
+      notes: 'Customs inspected, palletized for North America vessel departure.',
+    },
+    {
+      sku: 'FG-ACT-HDY-03',
+      name: 'Recycled Microfleece Performance Hoodie (Pack of 75, Heather Grey, EU Export)',
+      categoryId: 'inv-cat-finished-goods',
+      locationId: getLoc('loc-bsl-wh-fg-bay2', 'WH-FG-BAY02'), // Central Warehouse > Finished Goods > Export Bay 02 (Europe & Asia)
+      binNumber: 'Bay 02',
+      quantity: 110,
+      minThreshold: 20,
+      unitCost: 32.0,
+      supplier: 'Broadpeak Soc Trang (Factory 3 & 6)',
+      notes: 'Polybagged with EU compliance barcode tags, staged at Bay 02.',
+    },
+    {
+      sku: 'FG-DRS-SHT-04',
+      name: 'Classic Combed Cotton Long Sleeve Dress Shirt (Pack of 120, White/Blue, Asia Export)',
+      categoryId: 'inv-cat-finished-goods',
+      locationId: getLoc('loc-bsl-wh-fg-bay2', 'WH-FG-BAY02'), // Central Warehouse > Finished Goods > Export Bay 02 (Europe & Asia)
+      binNumber: 'Bay 02',
+      quantity: 80,
+      minThreshold: 15,
+      unitCost: 22.0,
+      supplier: 'Broadpeak Soc Trang (Factory 2 & 7)',
+      notes: 'Export quality assured, packed for regional APAC retail stores.',
+    },
+
+    // ── Factory MDC Sub-Warehouses Across All 7 Factories ───────────────────
     {
       sku: 'ZIP-YKK-5VIS-NAVY',
       name: 'YKK #5 Vislon Open-End Zippers 65cm (Pack of 100, Navy)',
@@ -194,6 +258,66 @@ export async function seedInventory(prisma: PrismaClient) {
       unitCost: 4.15,
       supplier: 'Coats Phong Phu Vietnam',
       notes: 'Factory 2 production thread spools for white sports jerseys.',
+    },
+    {
+      sku: 'CRD-ELAS-4MM-BLK',
+      name: 'High-Elasticity Drawstring Cord & Toggle Locks 4mm (1000m Reel, Black)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f3-mdc-bin1', 'F3-MDC-B01'), // Factory 3 > MDC > Shelf 01 > Bin MDC-01
+      binNumber: 'Bin MDC-01',
+      quantity: 180,
+      minThreshold: 40,
+      unitCost: 0.45,
+      supplier: 'Formosa Taffeta Trims',
+      notes: 'Activewear waist cord and toggle stoppers for Factory 3 activewear lines.',
+    },
+    {
+      sku: 'TPE-SEAM-SEAL-20MM',
+      name: 'Waterproof 3-Ply Hot Melt Seam Sealing Tape (20mm x 100m Roll, Charcoal)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f4-mdc-bin1', 'F4-MDC-B01'), // Factory 4 > MDC > Shelf 01 > Bin MDC-01
+      binNumber: 'Bin MDC-01',
+      quantity: 220,
+      minThreshold: 50,
+      unitCost: 8.9,
+      supplier: 'Bemis Associates Vietnam',
+      notes: 'Technical rainwear and outerwear seam tape for Factory 4 sealing machines.',
+    },
+    {
+      sku: 'RVT-BRS-JEAN-10MM',
+      name: 'Heavy-Duty Antique Brass Pocket Rivets & Tack Buttons (Box of 500)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f5-mdc-bin1', 'F5-MDC-B01'), // Factory 5 > MDC > Shelf 01 > Bin MDC-01
+      binNumber: 'Bin MDC-01',
+      quantity: 160,
+      minThreshold: 35,
+      unitCost: 12.5,
+      supplier: 'YKK Fastening Products',
+      notes: 'Pocket reinforcement rivets for Factory 5 cargo pants & utility apparel.',
+    },
+    {
+      sku: 'KNT-RIB-CUFF-GRY',
+      name: 'Cotton-Spandex 1x1 Heavy Ribbed Cuffs & Collars (Pack of 200, Heather Grey)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f6-mdc-bin1', 'F6-MDC-B01'), // Factory 6 > MDC > Shelf 01 > Bin MDC-01
+      binNumber: 'Bin MDC-01',
+      quantity: 190,
+      minThreshold: 40,
+      unitCost: 5.6,
+      supplier: 'Thanh Cong Textile',
+      notes: 'Tubular rib trims for Factory 6 fleece hoodies and sweatshirts.',
+    },
+    {
+      sku: 'TAG-HNG-BAR-POLY',
+      name: 'Quick-Turn RFID Brand Hangtags & Micro-Polybag Kits (Pack of 1000)',
+      categoryId: 'inv-cat-accessories',
+      locationId: getLoc('loc-bsl-f7-mdc-bin1', 'F7-MDC-B01'), // Factory 7 > MDC > Shelf 01 > Bin MDC-01
+      binNumber: 'Bin MDC-01',
+      quantity: 300,
+      minThreshold: 75,
+      unitCost: 14.0,
+      supplier: 'Avery Dennison Vietnam',
+      notes: 'Factory 7 rapid turnaround production tagging kits.',
     },
 
     // ── Spare Parts Bins: Needles, Motors & Mechanical Spares ───────────────
@@ -328,6 +452,6 @@ export async function seedInventory(prisma: PrismaClient) {
   }
 
   logger.log(
-    `✅ Seeded ${inventoryItems.length} Inventory Items allocated to spatial warehouse racks & MDC bins.`,
+    `✅ Seeded ${inventoryItems.length} Inventory Items allocated to spatial warehouse racks & MDC bins across BSL.`,
   );
 }

@@ -24,7 +24,7 @@ export async function seedAssets(
   prisma: PrismaClient,
   taxonomy: SeedTaxonomyResult,
   users: SeedUsersResult,
-  orgResult?: SeedOrgResult,
+  _orgResult?: SeedOrgResult,
 ) {
   const { categories } = taxonomy;
   const { users: u } = users;
@@ -36,16 +36,24 @@ export async function seedAssets(
   ]);
 
   const deptMap = new Map(departments.map((d) => [d.code, d.id]));
-  const locMap = new Map(locations.map((l) => [l.id, l.id]));
+  const locMap = new Map<string, string>();
+  for (const l of locations) {
+    locMap.set(l.id, l.id);
+    if (l.code) {
+      locMap.set(l.code, l.id);
+      locMap.set(l.code.toUpperCase(), l.id);
+    }
+  }
 
-  const getLoc = (id: string, fallbackCode?: string): string | null => {
-    if (locMap.has(id)) return id;
+  const getLoc = (id: string, fallbackCode?: string): string => {
+    if (locMap.has(id)) return locMap.get(id)!;
+    if (fallbackCode && locMap.has(fallbackCode)) return locMap.get(fallbackCode)!;
     const match = locations.find((l) => l.id === id || (fallbackCode && l.code === fallbackCode));
-    return match?.id || locations[0]?.id || null;
+    return match?.id || locMap.get('loc-bsl-st') || locations[0]?.id || id;
   };
 
-  const getDept = (code: string): string | null => {
-    return deptMap.get(code) || departments[0]?.id || null;
+  const getDept = (code: string): string => {
+    return deptMap.get(code) || departments[0]?.id || code;
   };
 
   const defaultUser = Object.values(u)[0];
@@ -58,7 +66,7 @@ export async function seedAssets(
   const userPhong = u['phong.dang@broadpeak.youngone.com'] || u.userMichael || defaultUser;
   const userLan = u['lan.nguyen@broadpeak.youngone.com'] || u.userSophiaPatel || defaultUser;
   const userNgoc = u['ngoc.vu@broadpeak.youngone.com'] || u.userMarcusBell || defaultUser;
-  const userPhuong = u['phuong.bui@broadpeak.youngone.com'] || u.userChloeMartin || defaultUser;
+  const _userPhuong = u['phuong.bui@broadpeak.youngone.com'] || u.userChloeMartin || defaultUser;
 
   // Categories helper
   const catSewing = categories.catSewing?.id || categories.catPeripherals?.id;
@@ -74,7 +82,7 @@ export async function seedAssets(
   const catMobile = (categories.catMobile || categories.catPeripherals)?.id;
 
   const assetDefinitions = [
-    // ── 1. Sewing Machines Allocated to Sewing Lines ──────────────────────────
+    // ── 1. Sewing Machines Distributed Across Factories 1 to 7 ────────────────
     {
       assetTag: 'AST-SEW-001',
       name: 'Juki DDL-9000C Direct Drive Lockstitch Machine',
@@ -84,7 +92,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catSewing,
       locationId: getLoc('loc-bsl-f1-sew-st1'), // Factory 1 > Sewing Line 01 > Station 01
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-SEW'), // Factory 1 Sewing Assembly Section
       purchaseDate: new Date('2023-06-15'),
       purchaseCost: 1450,
       warrantyExpiry: new Date('2026-06-15'),
@@ -105,7 +113,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catSewing,
       locationId: getLoc('loc-bsl-f1-sew-st2'), // Factory 1 > Sewing Line 01 > Station 02
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-SEW'), // Factory 1 Sewing Assembly Section
       purchaseDate: new Date('2023-06-15'),
       purchaseCost: 1550,
       warrantyExpiry: new Date('2026-06-15'),
@@ -126,7 +134,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catSewing,
       locationId: getLoc('loc-bsl-f1-sew-st3'), // Factory 1 > Sewing Line 01 > Station 03
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-SEW'), // Factory 1 Sewing Assembly Section
       purchaseDate: new Date('2023-08-20'),
       purchaseCost: 1680,
       warrantyExpiry: new Date('2026-08-20'),
@@ -145,8 +153,8 @@ export async function seedAssets(
       serialNumber: 'YM-VG27-99120',
       status: 'IN_USE' as const,
       categoryId: catSewing,
-      locationId: getLoc('loc-bsl-f2-sew1-st1'), // Factory 2 > Sewing Line 01 > Station 01
-      departmentId: getDept('DEPT-BSL-F2'), // Factory 2 Production Department
+      locationId: getLoc('loc-bsl-f2-sew-st1', 'loc-bsl-f2-sew1-st1'), // Factory 2 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F2-SEW'), // Factory 2 Sewing Assembly Section
       purchaseDate: new Date('2023-09-10'),
       purchaseCost: 2200,
       warrantyExpiry: new Date('2026-09-10'),
@@ -156,6 +164,126 @@ export async function seedAssets(
         needleSystem: 'UY128GAS #10',
       },
       notes: 'Factory 2 Sewing Line 01 sleeve and hem finishing workstation.',
+    },
+    {
+      assetTag: 'AST-SEW-005',
+      name: 'Brother S-7300A Nexio Direct Drive Lockstitch',
+      manufacturer: 'Brother Industries',
+      model: 'S-7300A-403P',
+      serialNumber: 'BR-7300A-90112',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f2-sew-st2'), // Factory 2 > Sewing Line 01 > Station 02
+      departmentId: getDept('DEPT-BSL-F2-SEW'), // Factory 2 Sewing Assembly Section
+      purchaseDate: new Date('2023-09-15'),
+      purchaseCost: 1550,
+      warrantyExpiry: new Date('2026-09-15'),
+      specs: {
+        type: 'Direct Drive Electronic Lockstitch',
+        maxSpeed: '5000 sti/min',
+        needleSystem: 'DBx1 #14',
+      },
+      notes: 'Factory 2 Sewing Line 01 sportswear panel assembly.',
+    },
+    {
+      assetTag: 'AST-SEW-006',
+      name: 'Juki DDL-9000C Direct Drive Lockstitch Machine',
+      manufacturer: 'Juki Corporation',
+      model: 'DDL-9000C-FMS',
+      serialNumber: 'JK-9000C-33019',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f3-sew-st1'), // Factory 3 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F3-SEW'), // Factory 3 Sewing Assembly Section
+      purchaseDate: new Date('2023-10-01'),
+      purchaseCost: 1480,
+      warrantyExpiry: new Date('2026-10-01'),
+      specs: {
+        type: 'Direct-Drive High-Speed 1-Needle Lockstitch',
+        maxSpeed: '5000 sti/min',
+        needleSystem: 'DBx1 #11',
+      },
+      notes: 'Factory 3 Sewing Line 01 activewear assembly.',
+    },
+    {
+      assetTag: 'AST-SEW-007',
+      name: 'Juki MO-6814S High-Speed 4-Thread Overlock',
+      manufacturer: 'Juki Corporation',
+      model: 'MO-6814S-DD6',
+      serialNumber: 'JK-MO6814-41902',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f4-sew-st1'), // Factory 4 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F4-SEW'), // Factory 4 Sewing Assembly Section
+      purchaseDate: new Date('2023-10-15'),
+      purchaseCost: 1720,
+      warrantyExpiry: new Date('2026-10-15'),
+      specs: {
+        type: 'Super High Speed 4-Thread Overlock',
+        maxSpeed: '7000 sti/min',
+        needleSystem: 'DCx27 #11',
+      },
+      notes: 'Factory 4 Sewing Line 01 outerwear seam sealing and serging.',
+    },
+    {
+      assetTag: 'AST-SEW-008',
+      name: 'Brother S-7300A Nexio Direct Drive Lockstitch',
+      manufacturer: 'Brother Industries',
+      model: 'S-7300A-403P',
+      serialNumber: 'BR-7300A-55102',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f5-sew-st1'), // Factory 5 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F5-SEW'), // Factory 5 Sewing Assembly Section
+      purchaseDate: new Date('2023-11-01'),
+      purchaseCost: 1550,
+      warrantyExpiry: new Date('2026-11-01'),
+      specs: {
+        type: 'DigiFlex Electronic Direct Drive Lockstitch',
+        maxSpeed: '5000 sti/min',
+        needleSystem: 'DBx1 #16',
+      },
+      notes: 'Factory 5 Sewing Line 01 woven trouser and cargo assembly.',
+    },
+    {
+      assetTag: 'AST-SEW-009',
+      name: 'Yamato VG2700 3-Needle Cylinder Bed Interlock',
+      manufacturer: 'Yamato Sewing Machine',
+      model: 'VG2700-156M',
+      serialNumber: 'YM-VG27-66281',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f6-sew-st1'), // Factory 6 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F6-SEW'), // Factory 6 Sewing Assembly Section
+      purchaseDate: new Date('2023-11-15'),
+      purchaseCost: 2250,
+      warrantyExpiry: new Date('2026-11-15'),
+      specs: {
+        type: '3-Needle 5-Thread Cylinder Bed Interlock',
+        maxSpeed: '6500 sti/min',
+        needleSystem: 'UY128GAS #11',
+      },
+      notes: 'Factory 6 Sewing Line 01 knitwear fleece hem and cuff assembly.',
+    },
+    {
+      assetTag: 'AST-SEW-010',
+      name: 'Juki DDL-9000C Direct Drive Lockstitch Machine',
+      manufacturer: 'Juki Corporation',
+      model: 'DDL-9000C-SMS',
+      serialNumber: 'JK-9000C-77401',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f7-sew-st1'), // Factory 7 > Sewing Line 01 > Station 01
+      departmentId: getDept('DEPT-BSL-F7-SEW'), // Factory 7 Sewing Assembly Section
+      purchaseDate: new Date('2023-12-01'),
+      purchaseCost: 1450,
+      warrantyExpiry: new Date('2026-12-01'),
+      specs: {
+        type: 'Direct-Drive High-Speed 1-Needle Lockstitch',
+        maxSpeed: '5000 sti/min',
+        needleSystem: 'DBx1 #11-#14',
+      },
+      notes: 'Factory 7 Sewing Line 01 high-speed automated quick-turn pilot lines.',
     },
 
     // ── 2. Fabric Cutters & Plotters Allocated to Cutting Areas ───────────────
@@ -168,7 +296,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catCutting,
       locationId: getLoc('loc-bsl-f1-cut-tbl1'), // Factory 1 > Cutting Area > Auto Cutting Table 01
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-CUT'), // Factory 1 Cutting Section
       purchaseDate: new Date('2023-04-12'),
       purchaseCost: 68000,
       warrantyExpiry: new Date('2027-04-12'),
@@ -188,7 +316,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catCutting,
       locationId: getLoc('loc-bsl-f1-cut'), // Factory 1 > Fabric Cutting Area
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-CUT'), // Factory 1 Cutting Section
       purchaseDate: new Date('2023-05-18'),
       purchaseCost: 9800,
       warrantyExpiry: new Date('2026-05-18'),
@@ -209,7 +337,7 @@ export async function seedAssets(
       categoryId: catWorkstation,
       assignedToId: userThu.id,
       locationId: getLoc('loc-bsl-f1-cut'), // Factory 1 > Fabric Cutting Area
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-CUT'), // Factory 1 Cutting Section
       purchaseDate: new Date('2023-10-05'),
       purchaseCost: 1100,
       warrantyExpiry: new Date('2026-10-05'),
@@ -220,6 +348,46 @@ export async function seedAssets(
         os: 'Windows 11 Pro with Lectra Modaris CAD & Gerber AccuMark',
       },
       notes: 'Pattern nesting & CAD marker engineering workstation in Factory 1.',
+    },
+    {
+      assetTag: 'AST-CUT-002',
+      name: 'Gerber Paragon Automated Fabric Cutting System',
+      manufacturer: 'Gerber Technology',
+      model: 'Paragon HX Series',
+      serialNumber: 'GB-HX-Paragon-2024-03',
+      status: 'IN_USE' as const,
+      categoryId: catCutting,
+      locationId: getLoc('loc-bsl-f3-cut-tbl1'), // Factory 3 > Cutting Table 01
+      departmentId: getDept('DEPT-BSL-F3-CUT'), // Factory 3 Cutting Section
+      purchaseDate: new Date('2023-06-20'),
+      purchaseCost: 68000,
+      warrantyExpiry: new Date('2027-06-20'),
+      specs: {
+        cuttingHeight: '7.2 cm compressed vacuum ply',
+        workingWidth: '2.0 meters conveyor bed',
+        controlUnit: 'Industrial IPC with Gerber CutWorks OS',
+      },
+      notes: 'Automated fabric cutting table supporting Factory 3 activewear production.',
+    },
+    {
+      assetTag: 'AST-1025',
+      name: 'Dell OptiPlex 7010 CAD Workstation',
+      manufacturer: 'Dell',
+      model: 'OptiPlex 7010 MT',
+      serialNumber: '8KK9944-F3',
+      status: 'IN_USE' as const,
+      categoryId: catWorkstation,
+      locationId: getLoc('loc-bsl-f3-cut'), // Factory 3 > Cutting Area
+      departmentId: getDept('DEPT-BSL-F3-CUT'), // Factory 3 Cutting Section
+      purchaseDate: new Date('2023-11-10'),
+      purchaseCost: 1100,
+      warrantyExpiry: new Date('2026-11-10'),
+      specs: {
+        cpu: 'Intel Core i7-13700',
+        ram: '32 GB DDR5',
+        storage: '1 TB NVMe SSD',
+      },
+      notes: 'Factory 3 automated marker nesting workstation.',
     },
 
     // ── 3. Printing & Heat Press Equipment ────────────────────────────────────
@@ -232,7 +400,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catPrinting,
       locationId: getLoc('loc-bsl-f1-print-hp1'), // Factory 1 > Printing & Heat Press > Heat Press Station 01
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-PRT'), // Factory 1 Printing Section
       purchaseDate: new Date('2023-03-22'),
       purchaseCost: 45000,
       warrantyExpiry: new Date('2026-03-22'),
@@ -252,7 +420,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catPrinting,
       locationId: getLoc('loc-bsl-f1-print'), // Factory 1 > Printing & Heat Press
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
+      departmentId: getDept('DEPT-BSL-F1-PRT'), // Factory 1 Printing Section
       purchaseDate: new Date('2023-04-10'),
       purchaseCost: 24000,
       warrantyExpiry: new Date('2026-04-10'),
@@ -262,6 +430,26 @@ export async function seedAssets(
         inkSystem: 'Sublimation Sb410 (2L Bulk Ink Tanks)',
       },
       notes: 'Digital transfer paper graphics printer for sportswear print panels.',
+    },
+    {
+      assetTag: 'AST-PRN-003',
+      name: 'Tajima 8-Head Automated Embroidery Machine',
+      manufacturer: 'Tajima Industries',
+      model: 'TMAR-KC1208',
+      serialNumber: 'TJ-KC1208-9941',
+      status: 'IN_USE' as const,
+      categoryId: catPrinting,
+      locationId: getLoc('loc-bsl-f4-print'), // Factory 4 > Printing & Embroidery Area
+      departmentId: getDept('DEPT-BSL-F4-PRT'), // Factory 4 Printing Section
+      purchaseDate: new Date('2023-07-15'),
+      purchaseCost: 52000,
+      warrantyExpiry: new Date('2027-07-15'),
+      specs: {
+        heads: '8 Multi-Needle Automated Embroidery Heads',
+        maxSpeed: '1000 sti/min',
+        needleCount: '12 Needles per Head with Automatic Thread Trimming',
+      },
+      notes: 'Factory 4 brand embroidery logo and applique embellishment system.',
     },
 
     // ── 4. Inspection Terminals Allocated to QA Stations ──────────────────────
@@ -274,7 +462,7 @@ export async function seedAssets(
       status: 'IN_USE' as const,
       categoryId: catQA,
       locationId: getLoc('loc-bsl-f1-qa-bench1'), // Factory 1 > QA Lab > Inspection Bench 01
-      departmentId: getDept('DEPT-BSL-QA'), // Quality Assurance Department
+      departmentId: getDept('DEPT-BSL-F1-QA'), // Factory 1 QA Section
       purchaseDate: new Date('2023-07-05'),
       purchaseCost: 18500,
       warrantyExpiry: new Date('2026-07-05'),
@@ -294,7 +482,7 @@ export async function seedAssets(
       categoryId: catWorkstation,
       assignedToId: userHuy.id,
       locationId: getLoc('loc-bsl-f1-qa-bench1'), // Factory 1 > QA Lab > Inspection Bench 01
-      departmentId: getDept('DEPT-BSL-QA'), // Quality Assurance Department
+      departmentId: getDept('DEPT-BSL-F1-QA'), // Factory 1 QA Section
       purchaseDate: new Date('2023-10-05'),
       purchaseCost: 850,
       warrantyExpiry: new Date('2026-10-05'),
@@ -306,8 +494,206 @@ export async function seedAssets(
       },
       notes: 'Factory 1 QA lab inline inspection terminal.',
     },
+    {
+      assetTag: 'AST-QA-002',
+      name: 'Datacolor Check 3 Portable Spectrophotometer',
+      manufacturer: 'Datacolor',
+      model: 'Check 3 Portable',
+      serialNumber: 'DC-CHK3-88120',
+      status: 'IN_USE' as const,
+      categoryId: catQA,
+      locationId: getLoc('loc-bsl-f2-qa-bench1'), // Factory 2 > QA Inspection Bench 01
+      departmentId: getDept('DEPT-BSL-F2-QA'), // Factory 2 QA Section
+      purchaseDate: new Date('2023-08-10'),
+      purchaseCost: 9500,
+      warrantyExpiry: new Date('2026-08-10'),
+      specs: {
+        geometry: 'Diffuse 8 deg sphere',
+        aperture: 'Dual aperture (SAV/LAV)',
+      },
+      notes: 'Factory 2 shopfloor shade sorting and fabric roll swatch verification.',
+    },
+    {
+      assetTag: 'AST-QA-003',
+      name: 'Hashima HN-880C Fabric Metal Detector & Inspection System',
+      manufacturer: 'Hashima Co., Ltd.',
+      model: 'HN-880C-120',
+      serialNumber: 'HSM-880C-55419',
+      status: 'IN_USE' as const,
+      categoryId: catQA,
+      locationId: getLoc('loc-bsl-f7-qa-bench1'), // Factory 7 > QA Bench 01
+      departmentId: getDept('DEPT-BSL-F7-QA'), // Factory 7 QA Section
+      purchaseDate: new Date('2023-09-01'),
+      purchaseCost: 12800,
+      warrantyExpiry: new Date('2026-09-01'),
+      specs: {
+        detectionMethod: 'Magnetic induction conveyor sensor',
+        sensitivity: 'Ferrous 0.8mm test card standard',
+      },
+      notes: 'Factory 7 endline needle detection safety compliance.',
+    },
 
-    // ── 5. Enterprise Rack Servers & Networking in IT Server Room ────────────
+    // ── 5. Maintenance Workbenches & Mechanical Calibration Equipment ─────────
+    {
+      assetTag: 'AST-MNT-001',
+      name: 'Industrial Sewing Machine Mechanical Calibration Workbench',
+      manufacturer: 'Mitutoyo / Juki Engineering',
+      model: 'MNT-WB-PRO-200',
+      serialNumber: 'MNT-WB-1001-F1',
+      status: 'IN_USE' as const,
+      categoryId: catWorkstation,
+      locationId: getLoc('loc-bsl-f1-maint'), // Factory 1 > Maintenance Area
+      departmentId: getDept('DEPT-BSL-F1-MAINT'), // Factory 1 Maintenance Section
+      purchaseDate: new Date('2023-05-10'),
+      purchaseCost: 4500,
+      warrantyExpiry: new Date('2026-05-10'),
+      specs: {
+        benchSize: '2400 x 1000 mm heavy-duty steel frame with anti-static ESD rubber mat',
+        tooling: 'Dial gauges, timing adjustment kits, torque screwdrivers, motor rpm tachometer',
+      },
+      notes:
+        'Factory 1 mechanical maintenance and sewing line machine timing adjustment workbench.',
+    },
+    {
+      assetTag: 'AST-MNT-002',
+      name: 'Motor Drive Repair & Pneumatic Servicing Station',
+      manufacturer: 'SMC Pneumatics / Ho Hsing',
+      model: 'MNT-PN-500',
+      serialNumber: 'MNT-PN-5002-F5',
+      status: 'IN_USE' as const,
+      categoryId: catWorkstation,
+      locationId: getLoc('loc-bsl-f5-maint'), // Factory 5 > Maintenance Area
+      departmentId: getDept('DEPT-BSL-F5-MAINT'), // Factory 5 Maintenance Section
+      purchaseDate: new Date('2023-07-20'),
+      purchaseCost: 5800,
+      warrantyExpiry: new Date('2026-07-20'),
+      specs: {
+        pressure: '10 bar compressed air supply manifold with oil-water separator',
+        electronics: 'AC servo motor inverter test bench and digital multimeter oscilloscope',
+      },
+      notes: 'Factory 5 mechanical and electrical repair workbench for automated line motors.',
+    },
+
+    // ── 6. Sample Prototyping Equipment ───────────────────────────────────────
+    {
+      assetTag: 'AST-SMP-001',
+      name: 'Juki DDL-9000C Sample Prototyping Lockstitch Machine',
+      manufacturer: 'Juki Corporation',
+      model: 'DDL-9000C-SMS',
+      serialNumber: 'JK-9000C-SMP01',
+      status: 'IN_USE' as const,
+      categoryId: catSewing,
+      locationId: getLoc('loc-bsl-f1-sample'), // Factory 1 > Sample Section
+      departmentId: getDept('DEPT-BSL-F1-SMP'), // Factory 1 Sample Section
+      purchaseDate: new Date('2023-08-01'),
+      purchaseCost: 1550,
+      warrantyExpiry: new Date('2026-08-01'),
+      specs: {
+        type: 'High-Speed Precision Lockstitch with Digital Feed',
+        motor: 'Direct drive servo 450W',
+      },
+      notes: 'Factory 1 pre-production sample making and buyer fit-trial mockups.',
+    },
+
+    // ── 7. Shopfloor & Warehouse Handhelds & Industrial Printers ──────────────
+    {
+      assetTag: 'AST-1007',
+      name: 'Zebra ZT411 Industrial Barcode Printer',
+      manufacturer: 'Zebra Technologies',
+      model: 'ZT41142-T010000Z',
+      serialNumber: 'ZBR-ZT411-99218',
+      status: 'IN_USE' as const,
+      categoryId: catPrinter,
+      locationId: getLoc('loc-bsl-f1-pack-st1'), // Factory 1 > Packing Table 01
+      departmentId: getDept('DEPT-BSL-F1-PCK'), // Factory 1 Packing Section
+      purchaseDate: new Date('2023-08-15'),
+      purchaseCost: 1850,
+      warrantyExpiry: new Date('2026-08-15'),
+      specs: {
+        resolution: '203 dpi Thermal Transfer / Direct Thermal',
+        printWidth: '4.09 in (104 mm)',
+        connectivity: 'Ethernet, USB, Serial, Bluetooth 4.1',
+      },
+      notes: 'Finished garment export shipping carton & polybag barcode label printer.',
+    },
+    {
+      assetTag: 'AST-PCK-002',
+      name: 'Zebra ZT411 Industrial Barcode Printer',
+      manufacturer: 'Zebra Technologies',
+      model: 'ZT41142-T010000Z',
+      serialNumber: 'ZBR-ZT411-88129',
+      status: 'IN_USE' as const,
+      categoryId: catPrinter,
+      locationId: getLoc('loc-bsl-f2-pack-st1'), // Factory 2 > Packing Table 01
+      departmentId: getDept('DEPT-BSL-F2-PCK'), // Factory 2 Packing Section
+      purchaseDate: new Date('2023-09-01'),
+      purchaseCost: 1850,
+      warrantyExpiry: new Date('2026-09-01'),
+      specs: {
+        resolution: '203 dpi',
+        connectivity: 'Ethernet, USB',
+      },
+      notes: 'Factory 2 packing finishing barcode label printer.',
+    },
+    {
+      assetTag: 'AST-PCK-006',
+      name: 'Zebra ZT411 Industrial Barcode Printer',
+      manufacturer: 'Zebra Technologies',
+      model: 'ZT41142-T010000Z',
+      serialNumber: 'ZBR-ZT411-66401',
+      status: 'IN_USE' as const,
+      categoryId: catPrinter,
+      locationId: getLoc('loc-bsl-f6-pack-st1'), // Factory 6 > Packing Table 01
+      departmentId: getDept('DEPT-BSL-F6-PCK'), // Factory 6 Packing Section
+      purchaseDate: new Date('2023-11-20'),
+      purchaseCost: 1850,
+      warrantyExpiry: new Date('2026-11-20'),
+      specs: {
+        resolution: '203 dpi',
+      },
+      notes: 'Factory 6 fleece hoodie export carton packing label printer.',
+    },
+    {
+      assetTag: 'AST-PCK-007',
+      name: 'Zebra ZT411 Industrial Barcode Printer',
+      manufacturer: 'Zebra Technologies',
+      model: 'ZT41142-T010000Z',
+      serialNumber: 'ZBR-ZT411-77302',
+      status: 'IN_USE' as const,
+      categoryId: catPrinter,
+      locationId: getLoc('loc-bsl-f7-pack-st1'), // Factory 7 > Packing Table 01
+      departmentId: getDept('DEPT-BSL-F7-PCK'), // Factory 7 Packing Section
+      purchaseDate: new Date('2023-12-05'),
+      purchaseCost: 1850,
+      warrantyExpiry: new Date('2026-12-05'),
+      specs: {
+        resolution: '203 dpi',
+      },
+      notes: 'Factory 7 rapid-turn packaging barcode station.',
+    },
+    {
+      assetTag: 'AST-1008',
+      name: 'Honeywell ScanPal EDA51 Barcode Scanner',
+      manufacturer: 'Honeywell',
+      model: 'EDA51-0-B121SNGUK',
+      serialNumber: 'HW-EDA51-88491',
+      status: 'IN_USE' as const,
+      categoryId: catMobile,
+      assignedToId: userKim.id,
+      locationId: getLoc('loc-bsl-wh-raw'), // Central Warehouse > Raw Materials Storage
+      departmentId: getDept('DEPT-BSL-LOG-MAT'), // Central Fabric & Raw Material Store
+      purchaseDate: new Date('2023-09-01'),
+      purchaseCost: 650,
+      warrantyExpiry: new Date('2025-09-01'),
+      specs: {
+        scanner: '2D Imager N6603',
+        os: 'Android 10 with GMS',
+        memory: '3GB RAM / 32GB Flash',
+      },
+      notes: 'Central Warehouse fabric roll intake & barcode inventory stocktaking scanner.',
+    },
+
+    // ── 8. Enterprise Rack Servers & Networking in IT Server Room ────────────
     {
       assetTag: 'AST-1009',
       name: 'Dell PowerEdge R750 Enterprise Server',
@@ -350,50 +736,7 @@ export async function seedAssets(
       notes: 'BSL Factory Core Switch in Datacenter Rack 01.',
     },
 
-    // ── 6. Shopfloor & Warehouse Handhelds & Industrial Printers ──────────────
-    {
-      assetTag: 'AST-1007',
-      name: 'Zebra ZT411 Industrial Barcode Printer',
-      manufacturer: 'Zebra Technologies',
-      model: 'ZT41142-T010000Z',
-      serialNumber: 'ZBR-ZT411-99218',
-      status: 'IN_USE' as const,
-      categoryId: catPrinter,
-      locationId: getLoc('loc-bsl-f1-pack-st1'), // Factory 1 > Packing Table 01
-      departmentId: getDept('DEPT-BSL-F1'), // Factory 1 Production Department
-      purchaseDate: new Date('2023-08-15'),
-      purchaseCost: 1850,
-      warrantyExpiry: new Date('2026-08-15'),
-      specs: {
-        resolution: '203 dpi Thermal Transfer / Direct Thermal',
-        printWidth: '4.09 in (104 mm)',
-        connectivity: 'Ethernet, USB, Serial, Bluetooth 4.1',
-      },
-      notes: 'Finished garment export shipping carton & polybag barcode label printer.',
-    },
-    {
-      assetTag: 'AST-1008',
-      name: 'Honeywell ScanPal EDA51 Barcode Scanner',
-      manufacturer: 'Honeywell',
-      model: 'EDA51-0-B121SNGUK',
-      serialNumber: 'HW-EDA51-88491',
-      status: 'IN_USE' as const,
-      categoryId: catMobile,
-      assignedToId: userKim.id,
-      locationId: getLoc('loc-bsl-wh-raw'), // Central Warehouse > Raw Materials Storage
-      departmentId: getDept('DEPT-BSL-LOG'), // Central Warehouse & Logistics Department
-      purchaseDate: new Date('2023-09-01'),
-      purchaseCost: 650,
-      warrantyExpiry: new Date('2025-09-01'),
-      specs: {
-        scanner: '2D Imager N6603',
-        os: 'Android 10 with GMS',
-        memory: '3GB RAM / 32GB Flash',
-      },
-      notes: 'Central Warehouse fabric roll intake & barcode inventory stocktaking scanner.',
-    },
-
-    // ── 7. Business Center Office Laptops & Workstations ──────────────────────
+    // ── 9. Business Center Office Laptops & Workstations ──────────────────────
     {
       assetTag: 'AST-1003',
       name: 'ThinkPad T14 Gen 4',
@@ -460,7 +803,7 @@ export async function seedAssets(
       notes: 'BSL Factory IT replacement buffer laptop.',
     },
 
-    // ── 8. BSH Corporate (Ho Chi Minh Headquarters) Assets ────────────────────
+    // ── 10. BSH Corporate (Ho Chi Minh Headquarters) Assets ───────────────────
     {
       assetTag: 'AST-1001',
       name: 'MacBook Pro 16" M3 Pro',

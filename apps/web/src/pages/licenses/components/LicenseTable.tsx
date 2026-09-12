@@ -189,6 +189,7 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
 
     return (
       <Table
+        size="middle"
         columns={columns}
         dataSource={licenses}
         rowKey="id"

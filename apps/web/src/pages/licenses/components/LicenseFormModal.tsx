@@ -91,7 +91,7 @@ export const LicenseFormModal: React.FC<LicenseFormModalProps> = React.memo(
         <Row gutter={14}>
           <Col span={12}>
             <Form.Item label="License Key" name="licenseKey">
-              <Input placeholder="e.g. MS-E5-9921-8834-KKL9" />
+              <Input.Password placeholder="e.g. MS-E5-9921-8834-KKL9" />
             </Form.Item>
           </Col>
           <Col span={12}>

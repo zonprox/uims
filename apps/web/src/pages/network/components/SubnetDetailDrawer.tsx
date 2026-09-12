@@ -202,10 +202,10 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
           </Descriptions>
         </Card>
 
-        {/* 3-Segment IP Utilization Card */}
+        {/* IP Pool Allocation Card */}
         <Card
           size="small"
-          title="3-Segment IP Pool Allocation"
+          title="IP Pool Allocation"
           styles={{ body: { padding: '14px 16px' } }}
           style={{ marginBottom: 16 }}
         >

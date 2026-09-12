@@ -10,7 +10,6 @@ import {
 import { Button, Flex, Form, Tabs, Tooltip } from 'antd';
 import { useMemo } from 'react';
 import PageContainer from '../../components/PageContainer';
-import { CredentialRevealModal } from './components/CredentialRevealModal';
 import { IpAddressTable } from './components/IpAddressTable';
 import { IpFormModal } from './components/IpFormModal';
 import { SubnetDetailDrawer } from './components/SubnetDetailDrawer';
@@ -34,7 +33,6 @@ export default function NetworkPage() {
     locations,
     assets,
     directoryUsers,
-    credentials,
     stats,
     loading,
     activeTabKey,
@@ -93,14 +91,6 @@ export default function NetworkPage() {
     handleOpenEditIpModal,
     handleSaveIp,
     handleDeleteIp,
-
-    // Credential
-    credentialModalOpen,
-    setCredentialModalOpen,
-    targetIpForCredential,
-    revealedCredential,
-    credentialLoading,
-    handleRevealCredential,
 
     // General
     loadData,
@@ -163,7 +153,6 @@ export default function NetworkPage() {
             onStatusChange={setStatusFilter}
             onResetFilters={handleResetFilters}
             onOpenEditModal={handleOpenEditIpModal}
-            onRevealCredential={handleRevealCredential}
             onDeleteIp={handleDeleteIp}
           />
         ),
@@ -230,7 +219,6 @@ export default function NetworkPage() {
       setStatusFilter,
       handleResetFilters,
       handleOpenEditIpModal,
-      handleRevealCredential,
       handleDeleteIp,
       handleOpenCreateSubnetModal,
       handleOpenEditSubnetModal,
@@ -319,17 +307,8 @@ export default function NetworkPage() {
         locations={locations}
         assets={assets}
         directoryUsers={directoryUsers}
-        credentials={credentials}
         onSave={handleSaveIp}
         onCancel={() => setIpModalOpen(false)}
-      />
-
-      <CredentialRevealModal
-        open={credentialModalOpen}
-        targetIp={targetIpForCredential}
-        credential={revealedCredential}
-        loading={credentialLoading}
-        onClose={() => setCredentialModalOpen(false)}
       />
     </PageContainer>
   );

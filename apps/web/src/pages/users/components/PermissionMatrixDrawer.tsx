@@ -220,7 +220,7 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
       }
       open={open}
       destroyOnHidden
-      size={780}
+      width={780}
       onClose={onClose}
       styles={{
         body: { padding: '16px 20px', background: token.colorBgLayout },

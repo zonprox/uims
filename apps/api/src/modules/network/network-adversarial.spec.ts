@@ -5,7 +5,6 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TransformInterceptor } from '../../common/interceptors/transform.interceptor';
 import type { PrismaService } from '../../database/prisma.service';
-import type { CredentialVaultService } from './credential-vault.service';
 import { NetworkController } from './network.controller';
 import { NetworkService } from './network.service';
 
@@ -48,12 +47,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
     };
   };
 
-  let mockVault: {
-    encrypt: ReturnType<typeof vi.fn>;
-    decrypt: ReturnType<typeof vi.fn>;
-    maskSecret: ReturnType<typeof vi.fn>;
-  };
-
   beforeEach(() => {
     mockPrisma = {
       vLAN: {
@@ -89,21 +82,7 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
       },
     };
 
-    mockVault = {
-      encrypt: vi.fn().mockReturnValue({
-        encryptedData: 'dGVzdA==',
-        iv: 'MTIzNDU2Nzg5MDEy',
-        authTag: 'MTIzNDU2Nzg5MDEyMzQ1Ng==',
-        keyVersion: 1,
-      }),
-      decrypt: vi.fn().mockReturnValue('DecryptedPassword123!'),
-      maskSecret: vi.fn().mockReturnValue('••••••••'),
-    };
-
-    service = new NetworkService(
-      mockPrisma as unknown as PrismaService,
-      mockVault as unknown as CredentialVaultService,
-    );
+    service = new NetworkService(mockPrisma as unknown as PrismaService);
 
     controller = new NetworkController(service);
     interceptor = new TransformInterceptor();
@@ -334,7 +313,7 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
         expect(created.status).toBe('Allocated');
       });
 
-      it('findIp returns IP with decrypted/formatted credential metadata', async () => {
+      it('findIp returns IP with formatted metadata', async () => {
         mockPrisma.iPAddress.findFirst.mockResolvedValue({
           id: 'ip-1',
           address: '10.232.130.15',
@@ -342,22 +321,11 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           status: 'ASSIGNED',
           createdAt: new Date(),
           updatedAt: new Date(),
-          credential: {
-            id: 'cred-1',
-            name: 'Device Admin',
-            username: 'admin',
-            protocol: 'HTTPS',
-          },
         });
 
         const found = await service.findIp('10.232.130.15');
         expect(found.address).toBe('10.232.130.15');
-        expect(found.credential).toEqual({
-          id: 'cred-1',
-          name: 'Device Admin',
-          username: 'admin',
-          protocol: 'HTTPS',
-        });
+        expect(found.hostname).toBe('reader-01');
       });
 
       it('deleteIp removes IP and updates subnet usage counter', async () => {
@@ -503,29 +471,29 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
   // =========================================================================
 
   describe('3. Deterministic OrderBy Enforcement', () => {
-    it('findAllVlans enforces deterministic orderBy: { vlanNumber: "asc" }', async () => {
+    it('findAllVlans enforces deterministic orderBy: [{ vlanNumber: "asc" }, { id: "asc" }]', async () => {
       await service.findAllVlans();
       expect(mockPrisma.vLAN.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: { vlanNumber: 'asc' },
+          orderBy: [{ vlanNumber: 'asc' }, { id: 'asc' }],
         }),
       );
     });
 
-    it('findAllSubnets enforces deterministic orderBy: { cidr: "asc" }', async () => {
+    it('findAllSubnets enforces deterministic orderBy: [{ cidr: "asc" }, { id: "asc" }]', async () => {
       await service.findAllSubnets();
       expect(mockPrisma.subnet.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: { cidr: 'asc' },
+          orderBy: [{ cidr: 'asc' }, { id: 'asc' }],
         }),
       );
     });
 
-    it('findAllIps enforces deterministic orderBy: { createdAt: "asc" }', async () => {
+    it('findAllIps enforces deterministic orderBy: [{ createdAt: "desc" }, { id: "asc" }]', async () => {
       await service.findAllIps();
       expect(mockPrisma.iPAddress.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: { createdAt: 'asc' },
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         }),
       );
     });
@@ -801,107 +769,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
   });
 
   // =========================================================================
-  // 5. CREDENTIAL REVEAL ENDPOINT AUDIT LOGGING VERIFICATION
-  // =========================================================================
-
-  describe('5. Credential Reveal Endpoint & Security AuditLog Emission', () => {
-    it('creates AuditLog entry with operator ID, IP address, and warning severity upon credential reveal', async () => {
-      const mockIpWithCred = {
-        id: 'ip-door-controller',
-        address: '10.232.130.10',
-        hostname: 'BSL-AC-Controller-01',
-        credential: {
-          id: 'cred-vault-uuid-42',
-          name: 'BSL Access Control Master',
-          username: 'admin',
-          encryptedData: 'ZW5jcnlwdGVkLXBhc3N3b3Jk',
-          iv: 'MTIzNDU2Nzg5MDEy',
-          authTag: 'MTIzNDU2Nzg5MDEyMzQ1Ng==',
-          keyVersion: 1,
-          protocol: 'HTTPS',
-          port: 443,
-          notes: 'Master credentials for door controller',
-        },
-      };
-
-      mockPrisma.iPAddress.findUnique.mockResolvedValue(mockIpWithCred);
-      mockVault.decrypt.mockReturnValue('DecryptedSuperAdminPassword!');
-      mockPrisma.auditLog.create.mockResolvedValue({ id: 'audit-log-uuid-99' });
-
-      const operatorId = 'user-sec-officer-007';
-      const result = await service.revealCredential('ip-door-controller', operatorId);
-
-      // Verify decrypted password returned
-      expect(result.password).toBe('DecryptedSuperAdminPassword!');
-      expect(result.username).toBe('admin');
-      expect(result.id).toBe('cred-vault-uuid-42');
-
-      // Verify AuditLog record in database
-      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
-        data: {
-          userId: operatorId,
-          action: 'REVEAL_CREDENTIAL',
-          severity: 'Warning',
-          entity: 'NetworkCredential',
-          entityId: 'cred-vault-uuid-42',
-          ipAddress: '10.232.130.10',
-          details:
-            'Admin revealed secure credential "BSL Access Control Master" for IP 10.232.130.10 (BSL-AC-Controller-01)',
-          status: 'Success',
-        },
-      });
-    });
-
-    it('throws NotFoundException when IP record does not exist', async () => {
-      mockPrisma.iPAddress.findUnique.mockResolvedValue(null);
-
-      await expect(service.revealCredential('non-existent-ip', 'admin-id')).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(mockPrisma.auditLog.create).not.toHaveBeenCalled();
-    });
-
-    it('throws NotFoundException when IP has no associated credentials', async () => {
-      mockPrisma.iPAddress.findUnique.mockResolvedValue({
-        id: 'ip-unmanaged',
-        address: '10.232.130.99',
-        credential: null,
-      });
-
-      await expect(service.revealCredential('ip-unmanaged', 'admin-id')).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(mockPrisma.auditLog.create).not.toHaveBeenCalled();
-    });
-
-    it('isolates AuditLog creation errors without crashing password reveal', async () => {
-      const mockIpWithCred = {
-        id: 'ip-vault',
-        address: '10.232.130.10',
-        hostname: 'controller',
-        credential: {
-          id: 'cred-1',
-          name: 'Cred 1',
-          username: 'admin',
-          encryptedData: 'dGVzdA==',
-          iv: 'MTIzNDU2Nzg5MDEy',
-          authTag: 'MTIzNDU2Nzg5MDEyMzQ1Ng==',
-          keyVersion: 1,
-        },
-      };
-
-      mockPrisma.iPAddress.findUnique.mockResolvedValue(mockIpWithCred);
-      mockVault.decrypt.mockReturnValue('DecryptedPassword');
-      // Simulate database audit write failure
-      mockPrisma.auditLog.create.mockRejectedValue(new Error('Audit DB write failed'));
-
-      // Service should catch and log error rather than throwing uncaught exception
-      const result = await service.revealCredential('ip-vault', 'admin-user');
-      expect(result.password).toBe('DecryptedPassword');
-    });
-  });
-
-  // =========================================================================
   // 6. STANDARD RESPONSE ENVELOPE FORMAT VERIFICATION
   // =========================================================================
 
@@ -946,17 +813,18 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
       expect(Number.isNaN(Date.parse(envelope.timestamp))).toBe(false);
     });
 
-    it('wraps IPAddress list and revealCredential responses in standard envelope', async () => {
-      const mockRevealed = {
-        id: 'cred-1',
-        name: 'Camera Pass',
-        username: 'admin',
-        password: 'DecryptedSecretPass',
-      };
+    it('wraps IPAddress list responses in standard envelope', async () => {
+      const mockIpList = [
+        {
+          id: 'ip-1',
+          address: '10.232.130.15',
+          hostname: 'reader-01',
+        },
+      ];
 
-      const envelope = await interceptResponse(mockRevealed);
+      const envelope = await interceptResponse(mockIpList);
       expect(envelope.success).toBe(true);
-      expect(envelope.data.password).toBe('DecryptedSecretPass');
+      expect(envelope.data).toEqual(mockIpList);
       expect(new Date(envelope.timestamp).getFullYear()).toBeGreaterThanOrEqual(2026);
     });
 

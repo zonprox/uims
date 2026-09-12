@@ -113,7 +113,19 @@ function renderActionTag(action?: string) {
   ) {
     color = 'processing';
   }
-  return <Tag color={color}>{upper || 'EVENT'}</Tag>;
+  return (
+    <Tag
+      color={color}
+      style={{
+        margin: 0,
+        fontSize: 10.5,
+        lineHeight: '16px',
+        padding: '0 5px',
+      }}
+    >
+      {upper || 'EVENT'}
+    </Tag>
+  );
 }
 
 function getEntityLink(entity?: string, entityType?: string, explicitUrl?: string): string {
@@ -801,40 +813,58 @@ const ActionQueueCard: React.FC<{
   return (
     <Card
       size="small"
+      style={{ height: '100%' }}
       title={
         <Flex align="center" gap={6}>
           <ThunderboltOutlined style={{ color: '#faad14' }} />
           <span>Action Items Queue</span>
+          {items.length > 0 && (
+            <Badge
+              count={items.length}
+              size="small"
+              style={{
+                backgroundColor: criticalCount > 0 ? '#ff4d4f' : '#faad14',
+                boxShadow: 'none',
+              }}
+            />
+          )}
         </Flex>
       }
       styles={{
-        header: { flexWrap: 'wrap', height: 'auto', gap: 6, padding: '8px 12px' },
+        header: { flexWrap: 'wrap', minHeight: 44, gap: 6, padding: '6px 12px' },
+        body: { padding: '8px 10px' },
       }}
       extra={
-        <Space size={6}>
-          <Segmented
-            size="small"
-            value={filter}
-            onChange={(val) => setFilter(val as 'all' | 'error' | 'warning' | 'info')}
-            options={filterOptions}
-          />
-        </Space>
+        <Segmented
+          size="small"
+          value={filter}
+          onChange={(val) => setFilter(val as 'all' | 'error' | 'warning' | 'info')}
+          options={filterOptions}
+        />
       }
     >
       {filteredItems.length === 0 ? (
-        <div style={{ padding: '28px 0', textAlign: 'center' }}>
-          <CheckCircleOutlined style={{ fontSize: 26, color: '#52c41a', marginBottom: 8 }} />
-          <Text strong style={{ display: 'block', fontSize: 13 }}>
+        <div style={{ padding: '24px 0', textAlign: 'center' }}>
+          <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a', marginBottom: 6 }} />
+          <Text strong style={{ display: 'block', fontSize: 12.5 }}>
             {items.length === 0 ? 'All Systems Operational' : 'No Matching Action Items'}
           </Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 11.5 }}>
             {items.length === 0
               ? 'No pending action items require immediate attention.'
               : 'No action items match the selected priority filter.'}
           </Text>
         </div>
       ) : (
-        <Flex vertical gap={10}>
+        <Flex
+          vertical
+          gap={6}
+          style={{
+            maxHeight: 330,
+            overflowY: 'auto',
+            paddingRight: 2,
+          }}
+        >
           {filteredItems.map((item) => {
             const isError = item.type === 'error';
             const isWarning = item.type === 'warning';
@@ -842,51 +872,81 @@ const ActionQueueCard: React.FC<{
               <div
                 key={item.id}
                 style={{
-                  padding: '10px 12px',
+                  padding: '7px 10px',
                   borderRadius: 6,
                   background: isError
-                    ? 'rgba(239, 68, 68, 0.06)'
+                    ? 'rgba(239, 68, 68, 0.05)'
                     : isWarning
-                      ? 'rgba(245, 158, 11, 0.06)'
-                      : 'rgba(22, 119, 255, 0.06)',
+                      ? 'rgba(245, 158, 11, 0.05)'
+                      : 'rgba(22, 119, 255, 0.05)',
                   border: isError
-                    ? '1px solid rgba(239, 68, 68, 0.2)'
+                    ? '1px solid rgba(239, 68, 68, 0.18)'
                     : isWarning
-                      ? '1px solid rgba(245, 158, 11, 0.2)'
-                      : '1px solid rgba(22, 119, 255, 0.2)',
+                      ? '1px solid rgba(245, 158, 11, 0.18)'
+                      : '1px solid rgba(22, 119, 255, 0.18)',
                 }}
               >
-                <Flex justify="space-between" align="flex-start">
-                  <Flex gap={6} align="center">
+                <Flex justify="space-between" align="center" gap={6}>
+                  <Flex gap={6} align="center" style={{ minWidth: 0 }}>
                     {isError ? (
-                      <AlertOutlined style={{ color: '#ef4444', fontSize: 14 }} />
+                      <AlertOutlined style={{ color: '#ef4444', fontSize: 13, flexShrink: 0 }} />
                     ) : isWarning ? (
-                      <WarningOutlined style={{ color: '#f59e0b', fontSize: 14 }} />
+                      <WarningOutlined style={{ color: '#f59e0b', fontSize: 13, flexShrink: 0 }} />
                     ) : (
-                      <InfoCircleOutlined style={{ color: '#1677ff', fontSize: 14 }} />
+                      <InfoCircleOutlined
+                        style={{ color: '#1677ff', fontSize: 13, flexShrink: 0 }}
+                      />
                     )}
-                    <Text strong style={{ fontSize: 12.5 }}>
+                    <Text strong ellipsis style={{ fontSize: 12, lineHeight: 1.3 }}>
                       {item.title}
                     </Text>
                   </Flex>
-                  <Tag color={item.tagColor} style={{ fontSize: 11, margin: 0 }}>
+                  <Tag
+                    color={item.tagColor}
+                    style={{
+                      fontSize: 10.5,
+                      lineHeight: '16px',
+                      padding: '0 4px',
+                      margin: 0,
+                      flexShrink: 0,
+                    }}
+                  >
                     {item.tag}
                   </Tag>
                 </Flex>
-                <Text type="secondary" style={{ fontSize: 11.5, display: 'block', marginTop: 4 }}>
-                  {item.description}
-                </Text>
-                <Button
-                  type="link"
-                  size="small"
-                  style={{ padding: 0, marginTop: 4, fontSize: 12, fontWeight: 500 }}
-                  onClick={() => onNavigate(item.linkUrl)}
-                >
-                  <Space size={4}>
-                    <span>{(item.linkText || '').replace(/[\s→←↑↓]+$/, '')}</span>
-                    <RightOutlined style={{ fontSize: 9 }} />
-                  </Space>
-                </Button>
+                <Flex justify="space-between" align="flex-end" gap={8} style={{ marginTop: 2 }}>
+                  <Text
+                    type="secondary"
+                    style={{
+                      fontSize: 11.5,
+                      lineHeight: 1.35,
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    {item.description}
+                  </Text>
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{
+                      padding: 0,
+                      height: 'auto',
+                      fontSize: 11.5,
+                      fontWeight: 500,
+                      flexShrink: 0,
+                      alignSelf: 'flex-end',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                    }}
+                    onClick={() => onNavigate(item.linkUrl)}
+                  >
+                    <Space size={2}>
+                      <span>{(item.linkText || '').replace(/[\s→←↑↓]+$/, '')}</span>
+                      <RightOutlined style={{ fontSize: 8.5 }} />
+                    </Space>
+                  </Button>
+                </Flex>
               </div>
             );
           })}
@@ -982,26 +1042,32 @@ const ActivityStreamCard: React.FC<{
       title: 'Actor',
       dataIndex: 'user',
       key: 'user',
-      width: 170,
+      width: 160,
       render: (text: string, record: RecentActivityItem) => (
-        <Flex align="center" gap={8}>
+        <Flex align="center" gap={7}>
           <Avatar
-            size="small"
-            style={{ backgroundColor: record.avatarColor || '#1677ff', fontSize: 12 }}
+            size={22}
+            style={{
+              backgroundColor: record.avatarColor || '#1677ff',
+              fontSize: 11,
+              flexShrink: 0,
+            }}
           >
             {text ? text[0] : 'U'}
           </Avatar>
-          <div>
-            <Text strong style={{ fontSize: 12.5, display: 'block' }}>
+          <Flex vertical gap={0} style={{ minWidth: 0 }}>
+            <Text strong ellipsis style={{ fontSize: 12, lineHeight: 1.25 }}>
               {text}
             </Text>
-            <Tag
-              color={getRoleColor(record.role)}
-              style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
-            >
-              {record.role || 'System'}
-            </Tag>
-          </div>
+            <div>
+              <Tag
+                color={getRoleColor(record.role)}
+                style={{ margin: 0, fontSize: 10, lineHeight: '14px', padding: '0 4px' }}
+              >
+                {record.role || 'System'}
+              </Tag>
+            </div>
+          </Flex>
         </Flex>
       ),
     },
@@ -1009,7 +1075,7 @@ const ActivityStreamCard: React.FC<{
       title: 'Action',
       dataIndex: 'action',
       key: 'action',
-      width: 120,
+      width: 115,
       render: renderActionTag,
     },
     {
@@ -1019,7 +1085,7 @@ const ActivityStreamCard: React.FC<{
       render: (entity: string, record: RecentActivityItem) => {
         const link = getEntityLink(entity, record.entityType, record.linkUrl);
         return (
-          <div>
+          <Flex vertical gap={1} style={{ minWidth: 0 }}>
             <Button
               type="link"
               size="small"
@@ -1027,20 +1093,27 @@ const ActivityStreamCard: React.FC<{
                 padding: 0,
                 height: 'auto',
                 fontWeight: 600,
-                fontSize: 12.5,
+                fontSize: 12,
                 textAlign: 'left',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
               onClick={() => onNavigate(link)}
             >
-              <Space size={3}>
+              <Space size={2}>
                 <span>{entity || 'System'}</span>
-                <RightOutlined style={{ fontSize: 9 }} />
+                <RightOutlined style={{ fontSize: 8.5 }} />
               </Space>
             </Button>
-            <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 1 }}>
+            <Text
+              type="secondary"
+              ellipsis
+              style={{ fontSize: 11, lineHeight: 1.3, margin: 0 }}
+              title={record.details}
+            >
               {record.details}
             </Text>
-          </div>
+          </Flex>
         );
       },
     },
@@ -1048,10 +1121,10 @@ const ActivityStreamCard: React.FC<{
       title: 'Timestamp',
       dataIndex: 'time',
       key: 'time',
-      width: 100,
+      width: 95,
       render: (time: string, record: RecentActivityItem) => (
         <Tooltip title={record.timestamp || time}>
-          <Text type="secondary" style={{ fontSize: 11.5, cursor: 'help' }}>
+          <Text type="secondary" style={{ fontSize: 11, cursor: 'help', whiteSpace: 'nowrap' }}>
             {time}
           </Text>
         </Tooltip>
@@ -1062,14 +1135,26 @@ const ActivityStreamCard: React.FC<{
   return (
     <Card
       size="small"
+      style={{ height: '100%' }}
       title={
         <Flex align="center" gap={6}>
           <HistoryOutlined style={{ color: '#1677ff' }} />
           <span>Live Activity Stream</span>
+          {activities.length > 0 && (
+            <Badge
+              count={activities.length}
+              size="small"
+              style={{
+                backgroundColor: '#e6f4ff',
+                color: '#1677ff',
+                boxShadow: 'none',
+              }}
+            />
+          )}
         </Flex>
       }
       extra={
-        <Flex gap={8} align="center" wrap="wrap">
+        <Flex gap={6} align="center" wrap="wrap">
           <Segmented
             size="small"
             value={actionFilter}
@@ -1090,7 +1175,12 @@ const ActivityStreamCard: React.FC<{
               onClick={onRefresh}
             />
           </Tooltip>
-          <Button type="link" size="small" onClick={() => onNavigate('/audit')}>
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: '0 4px', fontSize: 12 }}
+            onClick={() => onNavigate('/audit')}
+          >
             <Space size={2}>
               <span>Audit Trail</span>
               <RightOutlined style={{ fontSize: 9 }} />
@@ -1099,7 +1189,7 @@ const ActivityStreamCard: React.FC<{
         </Flex>
       }
       styles={{
-        header: { flexWrap: 'wrap', height: 'auto', gap: 6, padding: '8px 12px' },
+        header: { flexWrap: 'wrap', minHeight: 44, gap: 6, padding: '6px 12px' },
         body: { padding: 0, overflowX: 'auto' },
       }}
     >
@@ -1108,7 +1198,7 @@ const ActivityStreamCard: React.FC<{
         columns={columns}
         dataSource={filteredActivities}
         pagination={false}
-        size="middle"
+        size="small"
         scroll={{ x: 'max-content' }}
         locale={{
           emptyText:

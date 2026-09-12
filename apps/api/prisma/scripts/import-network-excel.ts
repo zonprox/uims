@@ -5,7 +5,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { type IPStatus, PrismaClient } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { Pool } from 'pg';
-import { CredentialVaultService } from '../../src/modules/network/credential-vault.service';
 
 interface SubnetSpec {
   cidr: string;
@@ -47,26 +46,26 @@ interface SheetConfig {
 }
 
 const SHEET_CONFIGS: Record<string, SheetConfig> = {
-  'VLAN 100': { vlan: 100, subnet: '10.232.100.0/24', loc: 'BSL-ST' },
-  'VLAN 998': { vlan: 998, subnet: '10.232.112.0/24', loc: 'BSL-ST' },
-  'VLAN 996': { vlan: 996, subnet: '192.168.232.128/25', loc: 'BSL-ST' },
-  'VLAN 129': { vlan: 129, subnet: '10.232.129.0/24', loc: 'BSL-ST' },
-  'VLAN 130': { vlan: 130, subnet: '10.232.130.0/24', loc: 'BSL-ST' },
-  'VLAN 131': { vlan: 131, subnet: '10.232.131.0/24', loc: 'BSL-ST' },
-  'VLAN 132': { vlan: 132, subnet: '10.232.132.0/24', loc: 'BSL-ST' },
-  'VLAN 133': { vlan: 133, subnet: '10.232.133.0/24', loc: 'BSL-ST' },
-  'VLAN 134': { vlan: 134, subnet: '10.232.134.0/24', loc: 'BSL-ST' },
-  'VLAN 135': { vlan: 135, subnet: '10.232.135.0/24', loc: 'BSL-ST' },
-  'VLAN 136': { vlan: 136, subnet: '10.232.136.0/24', loc: 'BSL-ST' },
-  Fingerprint: { vlan: 130, subnet: '10.232.130.0/24', loc: 'BSL-ST' },
-  'VLAN 137': { vlan: 137, subnet: '10.232.137.0/24', loc: 'BSL-ST' },
-  'VLAN 138': { vlan: 138, subnet: '10.232.138.0/24', loc: 'BSL-ST' },
-  'VLAN 139': { vlan: 139, subnet: '10.232.139.0/24', loc: 'BSL-ST' },
+  'VLAN 100': { vlan: 100, subnet: '10.232.100.0/24', loc: 'BC-F1-DC102' },
+  'VLAN 998': { vlan: 998, subnet: '10.232.112.0/24', loc: 'BSL-F7' },
+  'VLAN 996': { vlan: 996, subnet: '192.168.232.128/25', loc: 'BSL-BC' },
+  'VLAN 129': { vlan: 129, subnet: '10.232.129.0/24', loc: 'BC-F1-DC102' },
+  'VLAN 130': { vlan: 130, subnet: '10.232.130.0/24', loc: 'BSL-BC' },
+  'VLAN 131': { vlan: 131, subnet: '10.232.131.0/24', loc: 'BSL-F1' },
+  'VLAN 132': { vlan: 132, subnet: '10.232.132.0/24', loc: 'BSL-F2' },
+  'VLAN 133': { vlan: 133, subnet: '10.232.133.0/24', loc: 'BSL-F3' },
+  'VLAN 134': { vlan: 134, subnet: '10.232.134.0/24', loc: 'BSL-F4' },
+  'VLAN 135': { vlan: 135, subnet: '10.232.135.0/24', loc: 'BSL-F5' },
+  'VLAN 136': { vlan: 136, subnet: '10.232.136.0/24', loc: 'BSL-F6' },
+  Fingerprint: { vlan: 130, subnet: '10.232.130.0/24', loc: 'BSL-BC' },
+  'VLAN 137': { vlan: 137, subnet: '10.232.137.0/24', loc: 'BSL-F7' },
+  'VLAN 138': { vlan: 138, subnet: '10.232.138.0/24', loc: 'BSL-BC' },
+  'VLAN 139': { vlan: 139, subnet: '10.232.139.0/24', loc: 'BSL-F7' },
   'HCM OFFICE 7': { vlan: 233, subnet: '10.233.100.0/23', loc: 'HCM-D7' },
   'HCM OFFICE 3': { vlan: 1, subnet: '192.168.1.0/24', loc: 'HCM-D3' },
-  'VLAN 97': { vlan: 97, subnet: '10.232.97.0/24', loc: 'BSL-ST' },
+  'VLAN 97': { vlan: 97, subnet: '10.232.97.0/24', loc: 'BSL-BC' },
   'VLAN 98': { vlan: 98, subnet: '10.232.98.0/24', loc: 'BSL-ST' },
-  'VLAN 99': { vlan: 99, subnet: '10.232.99.0/24', loc: 'BSL-ST' },
+  'VLAN 99': { vlan: 99, subnet: '10.232.99.0/24', loc: 'BSL-F7' },
 };
 
 // Convert IPv4 string to 32-bit unsigned number
@@ -271,8 +270,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
     prisma = new PrismaClient({ adapter });
   }
 
-  const vault = new CredentialVaultService();
-
   const candidatePaths = [
     path.resolve(process.cwd(), 'temp/New IP Network(NW, Server).xlsx'),
     path.resolve(process.cwd(), '../../temp/New IP Network(NW, Server).xlsx'),
@@ -334,35 +331,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
     );
   }
 
-  // 0.3 Purge unlinked / duplicate credentials (INT-03)
-  // Disconnect assets pointing to orphaned credentials that have no linked IP addresses
-  await prisma.asset.updateMany({
-    where: {
-      credential: {
-        ipAddresses: { none: {} },
-      },
-    },
-    data: {
-      credentialId: null,
-    },
-  });
-
-  // Purge any unlinked credentials (including unlinked duplicate IPS VNPT)
-  const deletedOrphans = await prisma.networkCredential.deleteMany({
-    where: {
-      OR: [
-        {
-          name: 'IPS VNPT (192.168.1.1)',
-          ipAddresses: { none: {} },
-        },
-        {
-          ipAddresses: { none: {} },
-        },
-      ],
-    },
-  });
-  logger.log(`Purged ${deletedOrphans.count} unlinked orphaned credentials.`);
-
   // 0.4 Sanitize existing plaintext password records in IPAddress.description (INT-01)
   const sanitizedCount1 = await prisma.$executeRawUnsafe(`
     UPDATE "IPAddress"
@@ -379,48 +347,28 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
     `Sanitized legacy plaintext password records in IPAddress.description (${Number(sanitizedCount1) + Number(sanitizedCount2)} updated).`,
   );
 
-  // 1. Reconcile Enterprise Locations
-  logger.log('Reconciling enterprise physical locations...');
+  // 1. Reconcile Enterprise Locations from DB (eliminating buggy fallback location creation)
+  logger.log('Resolving enterprise physical locations from database...');
   const locationsMap = new Map<string, string>(); // code -> id
 
-  const locationsConfig = [
-    {
-      code: 'BSL-ST',
-      name: 'BSL - Soc Trang Campus',
-      building: 'Main Manufacturing Complex (F1-F7)',
-      type: 'Campus / Factory',
-      address: 'An Nghiep Industrial Park, Soc Trang Province, Vietnam',
-    },
-    {
-      code: 'HCM-D7',
-      name: 'HCM Office - District 7',
-      building: 'BSH1 + BSH2 Office',
-      type: 'Branch Office',
-      address: 'District 7, Ho Chi Minh City, Vietnam',
-    },
-    {
-      code: 'HCM-D3',
-      name: 'HCM Office - District 3',
-      building: 'District 3 Office',
-      type: 'Branch Office',
-      address: 'District 3, Ho Chi Minh City, Vietnam',
-    },
-  ];
-
-  for (const loc of locationsConfig) {
-    const existing = await prisma.location.findFirst({
-      where: { OR: [{ code: loc.code }, { name: loc.name }] },
-    });
-
-    if (existing) {
-      locationsMap.set(loc.code, existing.id);
-    } else {
-      const created = await prisma.location.create({
-        data: loc,
-      });
-      locationsMap.set(loc.code, created.id);
+  const allDbLocations = await prisma.location.findMany();
+  for (const loc of allDbLocations) {
+    if (loc.code) {
+      locationsMap.set(loc.code, loc.id);
+      locationsMap.set(loc.code.toUpperCase(), loc.id);
+      locationsMap.set(loc.code.toLowerCase(), loc.id);
     }
+    locationsMap.set(loc.id, loc.id);
+    locationsMap.set(loc.name.toLowerCase(), loc.id);
   }
+
+  // Query default IT departments for network assets
+  const [itDeptBsl, itDeptBsh] = await Promise.all([
+    prisma.department.findUnique({ where: { code: 'DEPT-BSL-IT' } }),
+    prisma.department.findUnique({ where: { code: 'DEPT-BSH-IT' } }),
+  ]);
+  const defaultDeptId = itDeptBsl?.id || (await prisma.department.findFirst())?.id || '';
+  const defaultLocId = locationsMap.get('BSL-ST') || allDbLocations[0]?.id || '';
 
   // 2. Standard Subnet & VLAN Specifications (Domain Reference Architecture)
   logger.log('Provisioning Enterprise VLAN and Subnet topology...');
@@ -430,7 +378,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Server Room & Core Infrastructure',
       vlanNumber: 100,
       vlanName: 'BSL Servers & Core',
-      locationCode: 'BSL-ST',
+      locationCode: 'BC-F1-DC102',
       gateway: '10.232.100.254',
       description: 'Production hypervisors, ERP servers, PBX, CATO SD-WAN, core portals',
     },
@@ -439,7 +387,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Core & Edge Switch Management',
       vlanNumber: 129,
       vlanName: 'BSL Switch Management',
-      locationCode: 'BSL-ST',
+      locationCode: 'BC-F1-DC102',
       gateway: '10.232.129.254',
       description: 'Cisco Catalyst 9300 and C1300 switch management interfaces',
     },
@@ -448,7 +396,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Access Control & Time Attendance',
       vlanNumber: 130,
       vlanName: 'BSL Access Control',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-BC',
       gateway: '10.232.130.254',
       description: 'Time attendance fingerprint terminals (MCC F1-F7) and wireless APs',
     },
@@ -457,7 +405,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 1 Terminals & Printers',
       vlanNumber: 131,
       vlanName: 'Factory 1 Devices',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F1',
       gateway: '10.232.131.254',
       description: 'Hikvision facial recognition terminals and local production printers',
     },
@@ -466,7 +414,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 2 Terminals & Printers',
       vlanNumber: 132,
       vlanName: 'Factory 2 Devices',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F2',
       gateway: '10.232.132.254',
       description: 'Factory 2 face recognition terminals and printers',
     },
@@ -475,7 +423,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 3 Terminals',
       vlanNumber: 133,
       vlanName: 'Factory 3 Devices',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F3',
       gateway: '10.232.133.254',
       description: 'Factory 3 face recognition door terminals',
     },
@@ -484,7 +432,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 4 Terminals & Cameras',
       vlanNumber: 134,
       vlanName: 'Factory 4 Devices',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F4',
       gateway: '10.232.134.254',
       description: 'Factory 4 face recognition door terminals and cameras',
     },
@@ -493,7 +441,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 5 Terminals & Printers',
       vlanNumber: 135,
       vlanName: 'Factory 5 Devices',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F5',
       gateway: '10.232.135.254',
       description: 'Factory 5 face recognition door terminals and printers',
     },
@@ -502,7 +450,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 6 Terminals',
       vlanNumber: 136,
       vlanName: 'Factory 6 Devices',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F6',
       gateway: '10.232.136.254',
       description: 'Factory 6 face recognition door terminals and MCD units',
     },
@@ -511,7 +459,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL CMCD QA & Lab Terminals',
       vlanNumber: 137,
       vlanName: 'CMCD QA & Lab',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F7',
       gateway: '10.232.137.254',
       description: 'Quality assurance and lab room access control terminals',
     },
@@ -520,7 +468,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Administrative Office Printers',
       vlanNumber: 138,
       vlanName: 'Office Printers',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-BC',
       gateway: '10.232.138.254',
       description: 'SAP, accounting, import-export network printers',
     },
@@ -529,7 +477,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 7 Office Printers',
       vlanNumber: 139,
       vlanName: 'Factory 7 Printers',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F7',
       gateway: '10.232.139.254',
       description: 'Factory 7 sales and maintenance office printers',
     },
@@ -538,7 +486,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL CCTV Backbone & NVR Storage',
       vlanNumber: 97,
       vlanName: 'CCTV Backbone',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-BC',
       gateway: '10.232.97.254',
       description: 'Hanwha Techwin NVR storage array and Alcatel OmniSwitch backbone',
     },
@@ -556,7 +504,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 7 CCTV Fleet',
       vlanNumber: 99,
       vlanName: 'CCTV Factory 7',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F7',
       gateway: '10.232.99.254',
       description: 'Hanwha Vision camera surveillance fleet across Factory 7',
     },
@@ -574,7 +522,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Factory 7 Construction Network',
       vlanNumber: 998,
       vlanName: 'Factory 7 Construction',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-F7',
       gateway: '10.232.112.1',
       description: 'Temporary construction field units at Factory 7 (normalized to /24)',
     },
@@ -583,7 +531,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Server Room WAN (VNPT)',
       vlanNumber: 996,
       vlanName: 'Legacy Construction & WAN',
-      locationCode: 'BSL-ST',
+      locationCode: 'BC-F1-DC102',
       gateway: '192.168.232.1',
       description: 'VNPT fiber modem WAN gateway for BSL server room (lower /25 block)',
     },
@@ -592,7 +540,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       name: 'BSL Legacy Construction Network',
       vlanNumber: 996,
       vlanName: 'Legacy Construction & WAN',
-      locationCode: 'BSL-ST',
+      locationCode: 'BSL-BC',
       gateway: '192.168.232.129',
       description: 'Legacy construction field units and Viettel modem (upper /25 block)',
     },
@@ -620,7 +568,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
   const subnetMap = new Map<string, string>(); // cidr -> id
 
   for (const spec of standardSubnets) {
-    const locId = locationsMap.get(spec.locationCode) || null;
+    const locId = locationsMap.get(spec.locationCode) || defaultLocId;
 
     // Upsert VLAN
     const vlan = await prisma.vLAN.upsert({
@@ -919,7 +867,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
 
   // 5. Chunked Transaction Execution
   const chunkSize = 100;
-  let vaultedCredsCount = 0;
   let createdAssetsCount = 0;
   let persistedIpsCount = 0;
 
@@ -933,83 +880,10 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       for (const rec of chunk) {
         const subnetId = subnetMap.get(rec.subnetCidr);
         const vlanId = vlanMap.get(rec.vlanNumber);
-        const locationId = locationsMap.get(rec.locationCode);
-
-        // 5.1 Secure Credential Vaulting (AES-256-GCM) with Strict Idempotency
-        let credentialId: string | undefined = undefined;
-        if (rec.password) {
-          const encrypted = vault.encrypt(rec.password);
-          const credName = `${rec.hostname} (${rec.ip})`;
-
-          // 1. Check if IPAddress already exists with a linked credential
-          const existingIp = await tx.iPAddress.findUnique({
-            where: {
-              address_subnetId: {
-                address: rec.ip,
-                subnetId: subnetId || '',
-              },
-            },
-            select: { credentialId: true },
-          });
-
-          if (existingIp?.credentialId) {
-            // Update existing linked credential
-            const cred = await tx.networkCredential.update({
-              where: { id: existingIp.credentialId },
-              data: {
-                name: credName,
-                username: rec.username || 'admin',
-                encryptedData: encrypted.encryptedData,
-                iv: encrypted.iv,
-                authTag: encrypted.authTag,
-                keyVersion: encrypted.keyVersion,
-                protocol: rec.protocol || 'HTTP',
-                port: rec.port || 80,
-                notes: `Vaulted from ${rec.sheetName} row ${rec.rowNumber}`,
-              },
-            });
-            credentialId = cred.id;
-          } else {
-            // 2. Fallback: check if a credential with identical name already exists
-            const existingCred = await tx.networkCredential.findFirst({
-              where: { name: credName },
-            });
-
-            if (existingCred) {
-              const cred = await tx.networkCredential.update({
-                where: { id: existingCred.id },
-                data: {
-                  username: rec.username || 'admin',
-                  encryptedData: encrypted.encryptedData,
-                  iv: encrypted.iv,
-                  authTag: encrypted.authTag,
-                  keyVersion: encrypted.keyVersion,
-                  protocol: rec.protocol || 'HTTP',
-                  port: rec.port || 80,
-                  notes: `Vaulted from ${rec.sheetName} row ${rec.rowNumber}`,
-                },
-              });
-              credentialId = cred.id;
-            } else {
-              // 3. Create fresh credential
-              const cred = await tx.networkCredential.create({
-                data: {
-                  name: credName,
-                  username: rec.username || 'admin',
-                  encryptedData: encrypted.encryptedData,
-                  iv: encrypted.iv,
-                  authTag: encrypted.authTag,
-                  keyVersion: encrypted.keyVersion,
-                  protocol: rec.protocol || 'HTTP',
-                  port: rec.port || 80,
-                  notes: `Vaulted from ${rec.sheetName} row ${rec.rowNumber}`,
-                },
-              });
-              credentialId = cred.id;
-            }
-          }
-          vaultedCredsCount++;
-        }
+        const locationId = locationsMap.get(rec.locationCode) || defaultLocId;
+        const assetDeptId = rec.locationCode?.startsWith('HCM')
+          ? itDeptBsh?.id || defaultDeptId
+          : itDeptBsl?.id || defaultDeptId;
 
         // 5.2 Physical Asset Creation (Optional Linkage)
         let assetId: string | undefined = undefined;
@@ -1023,7 +897,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
               manufacturer: rec.vendor,
               serialNumber: rec.serialNumber,
               locationId,
-              credentialId: credentialId ?? null,
+              departmentId: assetDeptId,
             },
             create: {
               assetTag,
@@ -1032,7 +906,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
               manufacturer: rec.vendor,
               serialNumber: rec.serialNumber,
               locationId,
-              credentialId: credentialId ?? null,
+              departmentId: assetDeptId,
               status: 'AVAILABLE',
             },
           });
@@ -1059,7 +933,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
             vlanId,
             locationId,
             assetId,
-            credentialId: credentialId ?? null,
             status: rec.status,
             pingStatus: 'online',
             lastSeen: new Date(),
@@ -1078,7 +951,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
             vlanId,
             locationId,
             assetId,
-            credentialId: credentialId ?? null,
             status: rec.status,
             pingStatus: 'online',
             lastSeen: new Date(),
@@ -1116,7 +988,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
   logger.log(`• Subnets Calculated & Seeded:   ${subnetMap.size}`);
   logger.log(`• IP Addresses Ingested:         ${persistedIpsCount}`);
   logger.log(`• Hardware Assets Associated:    ${createdAssetsCount}`);
-  logger.log(`• Device Credentials Vaulted:    ${vaultedCredsCount} (AES-256-GCM Encrypted)`);
   logger.log('=============================================================================');
 
   if (pool) {
@@ -1130,7 +1001,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
     subnetsCount: subnetMap.size,
     ipsCount: persistedIpsCount,
     assetsCount: createdAssetsCount,
-    credentialsCount: vaultedCredsCount,
   };
 }
 

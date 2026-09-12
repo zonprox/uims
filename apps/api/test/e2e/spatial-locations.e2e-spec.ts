@@ -40,7 +40,6 @@ interface DbAsset {
   locationId: string | null;
   departmentId: string | null;
   assignedToId: string | null;
-  credentialId: string | null;
   purchaseCost: number | null;
   purchaseDate: Date | null;
   warrantyExpiry: Date | null;
@@ -80,6 +79,7 @@ interface DbOrganization {
   name: string;
   code: string;
   status: string;
+  parentId?: string | null;
 }
 
 // --- Stateful In-Memory Database Simulator ---
@@ -133,7 +133,6 @@ class InMemorySpatialDb {
       locationId: data.locationId ?? null,
       departmentId: data.departmentId ?? null,
       assignedToId: data.assignedToId ?? null,
-      credentialId: data.credentialId ?? null,
       purchaseCost: data.purchaseCost ?? 1000,
       purchaseDate: data.purchaseDate ?? new Date('2026-01-01'),
       warrantyExpiry: data.warrantyExpiry ?? new Date('2028-01-01'),
@@ -396,7 +395,6 @@ describe('Multi-Tier Spatial Location Hierarchy E2E Suite', () => {
                   : null,
                 category: { id: a.categoryId ?? 'cat-1', name: 'Equipment' },
                 assignedTo: null,
-                credential: null,
               };
             });
           },
@@ -423,7 +421,6 @@ describe('Multi-Tier Spatial Location Hierarchy E2E Suite', () => {
               : null,
             category: { id: a.categoryId ?? 'cat-1', name: 'Equipment' },
             assignedTo: null,
-            credential: null,
           };
         }),
 
@@ -478,16 +475,11 @@ describe('Multi-Tier Spatial Location Hierarchy E2E Suite', () => {
                 : null,
               category: { id: updated.categoryId ?? 'cat-1', name: 'Equipment' },
               assignedTo: null,
-              credential: null,
             };
           },
         ),
 
         count: vi.fn(async () => db.assets.length),
-      },
-
-      assetHistory: {
-        create: vi.fn(async () => ({ id: 'hist-1' })),
       },
 
       inventoryItem: {

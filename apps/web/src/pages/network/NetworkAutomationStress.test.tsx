@@ -6,15 +6,11 @@ import type { Asset } from '../../services/assets.service';
 import type { LocationBranch } from '../../services/organization.service';
 import {
   type AutoDetectResult,
-  type IPAddress,
   type NetworkCalculation,
-  type RevealedCredentialResult,
   type Subnet,
   type VLAN,
   networkService,
 } from '../../services/network.service';
-import { CredentialRevealModal } from './components/CredentialRevealModal';
-import { IpAddressTable } from './components/IpAddressTable';
 import { IpFormModal } from './components/IpFormModal';
 import { SubnetFormModal } from './components/SubnetFormModal';
 
@@ -25,7 +21,7 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-const { mockLocations, mockVlans, mockSubnets, mockIps, mockAssets } = vi.hoisted(() => {
+const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
   const locations: LocationBranch[] = [
     { id: 'loc-1', name: 'BSL Factory 1', building: 'Building A', floor: 'Floor 1' },
     { id: 'loc-2', name: 'HCM Office D3', building: 'Main Tower', floor: 'Floor 7' },
@@ -93,24 +89,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockAssets } = vi.hoiste
     },
   ];
 
-  const ips: IPAddress[] = [
-    {
-      id: 'ip-1',
-      address: '10.232.10.10',
-      hostname: 'bsl-srv-01.uims.lan',
-      macAddress: '00:00:0C:11:22:33',
-      vendor: 'Cisco Systems',
-      deviceType: 'Server',
-      status: 'ASSIGNED',
-      subnetId: 'sub-1',
-      vlanId: 'vlan-1',
-      locationId: 'loc-1',
-      credentialId: 'cred-1',
-      createdAt: '2026-01-01T00:00:00Z',
-      updatedAt: '2026-01-01T00:00:00Z',
-    },
-  ];
-
   const assets: Asset[] = [
     {
       id: 'ast-1',
@@ -135,7 +113,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockAssets } = vi.hoiste
     mockLocations: locations,
     mockVlans: vlans,
     mockSubnets: subnets,
-    mockIps: ips,
     mockAssets: assets,
   };
 });
@@ -254,15 +231,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
           cidr: '',
           nextAvailableIp: null,
         });
-      }),
-      revealCredential: vi.fn().mockResolvedValue({
-        id: 'cred-1',
-        name: 'Cisco IMC Root Access',
-        username: 'admin',
-        password: 'SecretPassVault2026!',
-        protocol: 'HTTPS',
-        port: 443,
-        notes: 'Rack 4 Unit 12',
       }),
     },
   };
@@ -778,180 +746,6 @@ describe('Milestone 3 Empirical Stress Tests: Automation & Modals', () => {
 
       expect(networkService.lookupMacVendor).toHaveBeenCalledWith('AA:BB:CC:DD:EE:FF');
       expect(document.body.textContent).not.toContain('OUI Vendor:');
-    });
-  });
-
-  // -------------------------------------------------------------
-  // Test 5: Credential Reveal Modal Verification & Security Audit
-  // -------------------------------------------------------------
-  describe('Credential Reveal Modal: Security warning, password toggle, and audit inspection', () => {
-    it('renders audit warning and decrypts secret cleanly with mask toggle and copy', async () => {
-      const mockCred: RevealedCredentialResult = {
-        id: 'cred-1',
-        name: 'Cisco IMC Root Access',
-        username: 'admin',
-        password: 'SecretPassVault2026!',
-        protocol: 'HTTPS',
-        port: 443,
-        notes: 'Rack 4 Unit 12',
-      };
-
-      const onClose = vi.fn();
-
-      const Wrapper = () => (
-        <ConfigProvider>
-          <App>
-            <CredentialRevealModal
-              open={true}
-              targetIp="10.232.10.10"
-              credential={mockCred}
-              loading={false}
-              onClose={onClose}
-            />
-          </App>
-        </ConfigProvider>
-      );
-
-      const root = createRoot(container);
-      currentRoot = root;
-      await act(async () => {
-        root.render(createElement(Wrapper));
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      });
-
-      // 1. Verifies prominent security audit warning
-      expect(document.body.textContent).toContain('Audited Security Operation');
-      expect(document.body.textContent).toContain(
-        'Decryption event has been recorded in the immutable audit log with your account signature.',
-      );
-      expect(document.body.textContent).toContain('Device IP: 10.232.10.10');
-
-      // 2. Verifies secret data rendering
-      expect(document.body.textContent).toContain('Cisco IMC Root Access');
-      expect(document.body.textContent).toContain('admin');
-      expect(document.body.textContent).toContain('HTTPS');
-      expect(document.body.textContent).toContain('Port 443');
-      expect(document.body.textContent).toContain('Rack 4 Unit 12');
-
-      // 3. Verifies password is initially masked (type="password")
-      const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
-      expect(passwordInput).toBeTruthy();
-      expect(passwordInput.value).toBe('SecretPassVault2026!');
-
-      // 4. Verifies Show/Hide button toggles plaintext
-      const toggleBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Show'),
-      );
-      expect(toggleBtn).toBeTruthy();
-
-      await act(async () => {
-        toggleBtn?.click();
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      });
-
-      const revealedInput = document.querySelector('input[type="text"]') as HTMLInputElement;
-      expect(revealedInput).toBeTruthy();
-      expect(revealedInput.value).toBe('SecretPassVault2026!');
-
-      // 5. Test Copy Password button
-      const copyBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Copy'),
-      );
-      expect(copyBtn).toBeTruthy();
-
-      const writeTextMock = vi.fn().mockResolvedValue(undefined);
-      if (!navigator.clipboard) {
-        Object.defineProperty(navigator, 'clipboard', {
-          value: { writeText: writeTextMock },
-          configurable: true,
-          writable: true,
-        });
-      } else {
-        Object.defineProperty(navigator.clipboard, 'writeText', {
-          value: writeTextMock,
-          configurable: true,
-          writable: true,
-        });
-      }
-
-      await act(async () => {
-        copyBtn?.click();
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      });
-
-      expect(writeTextMock).toHaveBeenCalledWith('SecretPassVault2026!');
-
-      // 6. Test Close/Done button
-      const doneBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Done'),
-      );
-      expect(doneBtn).toBeTruthy();
-
-      await act(async () => {
-        doneBtn?.click();
-      });
-
-      expect(onClose).toHaveBeenCalled();
-    });
-
-    it('ADVERSARIAL CHALLENGE: verifies whether table action requires confirmation before triggering decryption', async () => {
-      // In IpAddressTable, inspect the "Reveal Admin Credential" action button
-      const onRevealCredentialMock = vi.fn();
-      const onDeleteIpMock = vi.fn();
-
-      const Wrapper = () => (
-        <ConfigProvider>
-          <App>
-            <IpAddressTable
-              ips={mockIps}
-              subnets={mockSubnets}
-              vlans={mockVlans}
-              locations={mockLocations}
-              loading={false}
-              searchQuery=""
-              siteFilter="all"
-              vlanFilter="all"
-              subnetFilter="all"
-              deviceTypeFilter="all"
-              statusFilter="all"
-              onSearchChange={vi.fn()}
-              onSiteChange={vi.fn()}
-              onVlanChange={vi.fn()}
-              onSubnetChange={vi.fn()}
-              onDeviceTypeChange={vi.fn()}
-              onStatusChange={vi.fn()}
-              onResetFilters={vi.fn()}
-              onOpenEditModal={vi.fn()}
-              onDeleteIp={onDeleteIpMock}
-              onRevealCredential={onRevealCredentialMock}
-            />
-          </App>
-        </ConfigProvider>
-      );
-
-      const root = createRoot(container);
-      currentRoot = root;
-      await act(async () => {
-        root.render(createElement(Wrapper));
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      });
-
-      // Find the Key button
-      const keyBtn = container
-        .querySelector('.anticon-key')
-        ?.closest('button') as HTMLButtonElement;
-      expect(keyBtn).toBeTruthy();
-
-      // Click the key button
-      await act(async () => {
-        keyBtn.click();
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      });
-
-      // EMPIRICAL OBSERVATION:
-      // Clicking the Key button directly triggers onRevealCredential immediately.
-      // Unlike Delete/Release IP (which has Popconfirm), the key button triggers decryption immediately.
-      expect(onRevealCredentialMock).toHaveBeenCalledWith(mockIps[0]);
     });
   });
 });

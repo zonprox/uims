@@ -83,11 +83,6 @@ export class CreateIPAddressDto {
   @IsString()
   assignedUserId?: string;
 
-  @ApiPropertyOptional({ description: 'Network Credential Vault UUID' })
-  @IsOptional()
-  @IsString()
-  credentialId?: string;
-
   @ApiPropertyOptional({ enum: IPStatus, default: IPStatus.AVAILABLE })
   @IsOptional()
   @IsEnum(IPStatus)

@@ -8,11 +8,17 @@ export const createLicenseSchema = z.object({
   publisher: z.string().max(100).optional(),
   licenseKey: z.string().max(255).nullable().optional(),
   key: z.string().max(255).nullable().optional(),
-  type: z.nativeEnum(LicenseType).default(LicenseType.SUBSCRIPTION),
-  status: z.nativeEnum(LicenseStatus).default(LicenseStatus.ACTIVE),
-  totalSeats: z.number().int().min(1, 'Total seats must be at least 1'),
-  costPerSeat: z.number().min(0).nullable().optional(),
-  cost: z.number().min(0).nullable().optional(),
+  type: z.union([z.nativeEnum(LicenseType), z.string()]).default(LicenseType.SUBSCRIPTION),
+  status: z.union([z.nativeEnum(LicenseStatus), z.string()]).default(LicenseStatus.ACTIVE),
+  totalSeats: z.union([z.number().int().min(1, 'Total seats must be at least 1'), z.string()]),
+  costPerSeat: z
+    .union([z.number().min(0), z.string()])
+    .nullable()
+    .optional(),
+  cost: z
+    .union([z.number().min(0), z.string()])
+    .nullable()
+    .optional(),
   purchaseDate: dateSchema.nullable().optional(),
   expiryDate: dateSchema.nullable().optional(),
   autoRenew: z.boolean().default(true),

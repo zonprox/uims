@@ -28,7 +28,6 @@ export interface AssetFormValues {
   departmentId?: string;
   location?: string;
   locationId?: string;
-  credentialId?: string;
   purchaseDate?: dayjs.Dayjs;
   purchasePrice?: number;
   warrantyExpiry?: dayjs.Dayjs;
@@ -76,7 +75,6 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
     departmentId: values.departmentId || undefined,
     location: values.location,
     locationId: values.locationId || undefined,
-    credentialId: values.credentialId || undefined,
     purchaseDate,
     purchasePrice: values.purchasePrice ?? 0,
     warrantyExpiry,
@@ -337,7 +335,6 @@ export function useAssetManagement(form: FormInstance) {
         assignedToId: asset.assignedToId,
         locationId: asset.locationId,
         departmentId: asset.departmentId,
-        credentialId: asset.credentialId,
         purchaseDate: asset.purchaseDate ? dayjs(asset.purchaseDate) : undefined,
         warrantyExpiry: asset.warrantyExpiry ? dayjs(asset.warrantyExpiry) : undefined,
         cpu: asset.specs?.cpu,

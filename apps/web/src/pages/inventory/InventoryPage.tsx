@@ -705,6 +705,7 @@ export default function InventoryPage() {
 
         {/* Data Table */}
         <Table
+          size="middle"
           columns={columns}
           dataSource={items}
           rowKey="id"

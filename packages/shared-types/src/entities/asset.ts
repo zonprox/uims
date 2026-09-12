@@ -1,6 +1,6 @@
 import type { Location } from './common';
 import type { DirectoryUser } from './directory';
-import type { IPAddress, NetworkCredential } from './network';
+import type { IPAddress } from './network';
 import type { Department } from './organization';
 
 export enum AssetStatus {
@@ -14,6 +14,7 @@ export enum AssetStatus {
 export interface AssetCategory {
   id: string;
   name: string;
+  code?: string;
   description?: string | null;
   parentId?: string | null;
   createdAt: string;
@@ -27,7 +28,7 @@ export interface Asset {
   description?: string | null;
   categoryId?: string | null;
   category?: AssetCategory | null;
-  status: AssetStatus;
+  status: AssetStatus | `${AssetStatus}` | string;
   serialNumber?: string | null;
   model?: string | null;
   manufacturer?: string | null;
@@ -36,14 +37,15 @@ export interface Asset {
   warrantyExpiry?: string | null;
   assignedToId?: string | null;
   assignedTo?: DirectoryUser | null;
+  assignedUser?: string;
+  assignedEmail?: string;
   departmentId?: string | null;
   department?: Department | null;
   locationId?: string | null;
   location?: Location | null;
+  locationPath?: string;
   organizationId?: string | null;
   organization?: string | null;
-  credentialId?: string | null;
-  credential?: NetworkCredential | null;
   ipAddresses?: IPAddress[];
   specs?: Record<string, unknown> | null;
   notes?: string | null;
@@ -52,14 +54,4 @@ export interface Asset {
   purchasePrice?: number | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface AssetHistory {
-  id: string;
-  assetId: string;
-  action: string;
-  changedBy: string;
-  oldValue?: Record<string, unknown> | null;
-  newValue?: Record<string, unknown> | null;
-  timestamp: string;
 }

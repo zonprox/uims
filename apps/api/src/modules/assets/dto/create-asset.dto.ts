@@ -75,9 +75,5 @@ export class CreateAssetDto {
 
   @IsOptional()
   @IsUUID()
-  credentialId?: string;
-
-  @IsOptional()
-  @IsUUID()
   assignedToId?: string;
 }

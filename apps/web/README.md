@@ -130,7 +130,7 @@ All routes are lazily loaded and defined in `src/app/router.tsx`:
 - **Hardware Assets (`/assets`)**: Asset inventory table, advanced filters, asset detail drawers, QR code generation, and lifecycle management modals.
 - **Software Licenses (`/licenses`)**: Software seat allocation tracking, license expiration alerts, and compliance overviews.
 - **Organization Structure (`/organization`)**: Interactive hierarchical organization canvas for company units, departments, and positions.
-- **Users & Access (`/users`)**: RBAC administration, role matrix inspection, custom role creation/cloning, access simulation, and directory integration.
+- **Users & Access (`/users`)**: RBAC administration, role matrix inspection, custom role creation/cloning, and directory integration.
 - **Network & IPAM (`/network`)**: IP address management, subnet visualization, and connectivity diagnostics.
 - **Inventory Management (`/inventory`)**: Consumable parts tracking, stock thresholds, and check-in/check-out audit workflows.
 - **Audit Trail (`/audit`)**: Security audit logs, user action tracking, entity diff inspection, and event filtering.

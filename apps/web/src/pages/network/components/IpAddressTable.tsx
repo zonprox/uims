@@ -7,9 +7,7 @@ import {
   FilterOutlined,
   HddOutlined,
   IdcardOutlined,
-  KeyOutlined,
   LaptopOutlined,
-  LinkOutlined,
   PrinterOutlined,
   UserOutlined,
   WifiOutlined,
@@ -56,7 +54,6 @@ export interface IpAddressTableProps {
   onStatusChange: (val: string) => void;
   onResetFilters: () => void;
   onOpenEditModal: (ip: IPAddress) => void;
-  onRevealCredential?: (ip: IPAddress) => void;
   onDeleteIp: (id: string) => void;
 }
 
@@ -81,7 +78,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     onStatusChange,
     onResetFilters,
     onOpenEditModal,
-    onRevealCredential,
     onDeleteIp,
   }) => {
     const isFiltered =
@@ -341,10 +337,9 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 140,
+          width: 100,
           render: (_: unknown, record: IPAddress) => {
             const ipVal = record.address || record.ip || '';
-            const hasCredential = Boolean(record.credentialId || record.credential);
             return (
               <Space size="small">
                 <Tooltip title="Edit Allocation">
@@ -356,27 +351,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
                     onClick={() => onOpenEditModal(record)}
                   />
                 </Tooltip>
-                {hasCredential ? (
-                  <Tooltip title="Reveal Admin Credential">
-                    <Button
-                      type="text"
-                      shape="circle"
-                      size="small"
-                      icon={<KeyOutlined style={{ color: '#fa8c16' }} />}
-                      onClick={() => onRevealCredential?.(record)}
-                    />
-                  </Tooltip>
-                ) : (
-                  <Tooltip title="Link Credential">
-                    <Button
-                      type="text"
-                      shape="circle"
-                      size="small"
-                      icon={<LinkOutlined style={{ color: '#94a3b8' }} />}
-                      onClick={() => onOpenEditModal(record)}
-                    />
-                  </Tooltip>
-                )}
                 <Popconfirm
                   title="Release IP address?"
                   description={`Release ${ipVal} and return it to the available subnet pool?`}
@@ -399,7 +373,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           },
         },
       ],
-      [onOpenEditModal, onRevealCredential, onDeleteIp],
+      [onOpenEditModal, onDeleteIp],
     );
 
     return (
@@ -491,6 +465,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
         </Row>
 
         <Table
+          size="middle"
           columns={columns}
           dataSource={filteredIps}
           rowKey="id"

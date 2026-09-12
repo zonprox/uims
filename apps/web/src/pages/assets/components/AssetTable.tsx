@@ -224,6 +224,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
 
     return (
       <Table
+        size="middle"
         columns={columns}
         dataSource={assets}
         rowKey="id"

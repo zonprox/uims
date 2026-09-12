@@ -99,8 +99,8 @@ export class AuditService {
 
   async exportCsv() {
     const logs = await this.prisma.auditLog.findMany({
-      orderBy: { timestamp: 'desc' },
-      take: 1000,
+      orderBy: [{ timestamp: 'desc' }, { id: 'asc' }],
+      take: 100,
     });
 
     const headers =

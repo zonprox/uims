@@ -115,7 +115,6 @@ describe('M1 Adversarial Challenger — Spatial Filtering & Orthogonal Departmen
               department: a.departmentId
                 ? { id: a.departmentId, name: `Dept-${a.departmentId}` }
                 : null,
-              credential: null,
             }));
           },
         ),

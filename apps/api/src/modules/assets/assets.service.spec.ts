@@ -31,9 +31,6 @@ describe('AssetsService', () => {
       directoryUser: {
         findUnique: vi.fn(),
       },
-      assetHistory: {
-        create: vi.fn(),
-      },
     };
 
     service = new AssetsService(

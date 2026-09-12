@@ -2,7 +2,6 @@ import type {
   AutoDetectResult,
   IPAddress,
   NetworkCalculation,
-  NetworkCredential,
   NetworkStats,
   Subnet,
   VLAN,
@@ -10,15 +9,7 @@ import type {
 import { IPStatus, VlanStatus } from '@uims/shared-types';
 import { api } from './api';
 
-export type {
-  AutoDetectResult,
-  IPAddress,
-  NetworkCalculation,
-  NetworkCredential,
-  NetworkStats,
-  Subnet,
-  VLAN,
-};
+export type { AutoDetectResult, IPAddress, NetworkCalculation, NetworkStats, Subnet, VLAN };
 export { IPStatus, VlanStatus };
 
 export interface VlanQueryParams {
@@ -63,18 +54,6 @@ export interface NextAvailableIpResult {
   subnetId: string;
   cidr: string;
   nextAvailableIp: string | null;
-}
-
-export interface RevealedCredentialResult {
-  id: string;
-  name: string;
-  username: string;
-  password?: string;
-  protocol?: string | null;
-  port?: number | null;
-  notes?: string | null;
-  accessedAt?: string;
-  accessedBy?: string;
 }
 
 export const networkService = {
@@ -190,19 +169,5 @@ export const networkService = {
 
   deleteIp: async (id: string): Promise<void> => {
     await api.delete(`/network/ips/${id}`);
-  },
-
-  revealCredential: async (id: string): Promise<RevealedCredentialResult> => {
-    const res = await api.post(`/network/ips/${id}/reveal-credential`);
-    return res.data.data;
-  },
-
-  getCredentials: async (): Promise<Array<NetworkCredential>> => {
-    try {
-      const res = await api.get('/network/credentials');
-      return res.data.data;
-    } catch (_error: unknown) {
-      return [];
-    }
   },
 };

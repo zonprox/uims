@@ -3,7 +3,6 @@ import { AssetStatus, LicenseType } from '@uims/shared-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssetsService } from './assets/assets.service';
 import { LicensesService } from './licenses/licenses.service';
-import type { CredentialVaultService } from './network/credential-vault.service';
 import { NetworkService } from './network/network.service';
 
 describe('Milestone 2 - Business Automation Adversarial & Empirical Verification Suite', () => {
@@ -345,11 +344,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         update: ReturnType<typeof vi.fn>;
       };
     };
-    let mockVault: {
-      encrypt: ReturnType<typeof vi.fn>;
-      decrypt: ReturnType<typeof vi.fn>;
-      maskSecret: ReturnType<typeof vi.fn>;
-    };
 
     beforeEach(() => {
       mockPrisma = {
@@ -364,15 +358,8 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         },
       };
 
-      mockVault = {
-        encrypt: vi.fn(),
-        decrypt: vi.fn(),
-        maskSecret: vi.fn(),
-      };
-
       networkService = new NetworkService(
         mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
-        mockVault as unknown as CredentialVaultService,
       );
     });
 
@@ -554,9 +541,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
       directoryUser: {
         findUnique: ReturnType<typeof vi.fn>;
       };
-      assetHistory: {
-        create: ReturnType<typeof vi.fn>;
-      };
     };
 
     beforeEach(() => {
@@ -577,9 +561,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         },
         directoryUser: {
           findUnique: vi.fn(),
-        },
-        assetHistory: {
-          create: vi.fn(),
         },
       };
 

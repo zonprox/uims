@@ -204,7 +204,7 @@ describe('networkService Unit Tests', () => {
     expect(nextIp.nextAvailableIp).toBe('10.232.10.45');
   });
 
-  it('handles full IP methods, credential reveal and ping', async () => {
+  it('handles full IP methods', async () => {
     // getIps
     vi.mocked(api.get).mockResolvedValueOnce({
       data: { success: true, data: [{ id: 'ip-1', address: '10.232.10.5' }] },
@@ -241,16 +241,5 @@ describe('networkService Unit Tests', () => {
     vi.mocked(api.delete).mockResolvedValueOnce({ data: { success: true } });
     await networkService.deleteIp('ip-2');
     expect(api.delete).toHaveBeenCalledWith('/network/ips/ip-2');
-
-    // revealCredential
-    vi.mocked(api.post).mockResolvedValueOnce({
-      data: {
-        success: true,
-        data: { id: 'cred-1', name: 'Switch Admin', username: 'admin', password: 'DecryptedPass!' },
-      },
-    });
-    const cred = await networkService.revealCredential('ip-1');
-    expect(api.post).toHaveBeenCalledWith('/network/ips/ip-1/reveal-credential');
-    expect(cred.password).toBe('DecryptedPass!');
   });
 });

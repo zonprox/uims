@@ -6,9 +6,7 @@ import { type DirectoryUser, directoryService } from '../../../services/director
 import { type LocationBranch, organizationService } from '../../../services/organization.service';
 import {
   type IPAddress,
-  type NetworkCredential,
   type NetworkStats,
-  type RevealedCredentialResult,
   type Subnet,
   type VLAN,
   networkService,
@@ -28,7 +26,6 @@ export function useNetworkManagement(
   const [locations, setLocations] = useState<Array<LocationBranch>>([]);
   const [assets, setAssets] = useState<Array<Asset>>([]);
   const [directoryUsers, setDirectoryUsers] = useState<Array<DirectoryUser>>([]);
-  const [credentials, setCredentials] = useState<Array<NetworkCredential>>([]);
   const [stats, setStats] = useState<NetworkStats>({
     totalVlans: 0,
     managedSubnets: 0,
@@ -68,47 +65,35 @@ export function useNetworkManagement(
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [editingIp, setEditingIp] = useState<IPAddress | null>(null);
 
-  // Credential Reveal Modal State
-  const [credentialModalOpen, setCredentialModalOpen] = useState(false);
-  const [targetIpForCredential, setTargetIpForCredential] = useState<string | null>(null);
-  const [revealedCredential, setRevealedCredential] = useState<RevealedCredentialResult | null>(
-    null,
-  );
-  const [credentialLoading, setCredentialLoading] = useState(false);
-
   // Load All Network Entities & Telemetry cleanly without silent catch
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [vlanList, subnetList, ipList, locList, assetList, empRes, credList] =
-        await Promise.all([
-          networkService.getVlans({
-            search: searchQuery || undefined,
-            locationId: siteFilter !== 'all' ? siteFilter : undefined,
-            status: statusFilter !== 'all' ? statusFilter : undefined,
-          }),
-          networkService.getSubnets({
-            search: searchQuery || undefined,
-            vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
-            locationId: siteFilter !== 'all' ? siteFilter : undefined,
-          }),
-          networkService.getIps({
-            search: searchQuery || undefined,
-            vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
-            subnetId: subnetFilter !== 'all' ? subnetFilter : undefined,
-            deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
-            status: statusFilter !== 'all' ? statusFilter : undefined,
-            locationId: siteFilter !== 'all' ? siteFilter : undefined,
-          }),
-          organizationService.getLocations(),
-          assetsService.getAssets(),
-          directoryService
-            .getEmployees({ pageSize: 100 })
-            .catch((_error: unknown) => ({ items: [] })),
-          networkService.getCredentials
-            ? networkService.getCredentials().catch((_error: unknown) => [])
-            : Promise.resolve([]),
-        ]);
+      const [vlanList, subnetList, ipList, locList, assetList, empRes] = await Promise.all([
+        networkService.getVlans({
+          search: searchQuery || undefined,
+          locationId: siteFilter !== 'all' ? siteFilter : undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+        }),
+        networkService.getSubnets({
+          search: searchQuery || undefined,
+          vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
+          locationId: siteFilter !== 'all' ? siteFilter : undefined,
+        }),
+        networkService.getIps({
+          search: searchQuery || undefined,
+          vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
+          subnetId: subnetFilter !== 'all' ? subnetFilter : undefined,
+          deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          locationId: siteFilter !== 'all' ? siteFilter : undefined,
+        }),
+        organizationService.getLocations(),
+        assetsService.getAssets(),
+        directoryService
+          .getEmployees({ pageSize: 100 })
+          .catch((_error: unknown) => ({ items: [] })),
+      ]);
 
       setVlans(vlanList);
       setSubnets(subnetList);
@@ -116,7 +101,6 @@ export function useNetworkManagement(
       setLocations(locList);
       setAssets(assetList);
       setDirectoryUsers(empRes?.items || []);
-      setCredentials(credList || []);
 
       // Load stats cleanly with structured error handling
       try {
@@ -341,7 +325,6 @@ export function useNetworkManagement(
         locationId: ip.locationId,
         assetId: ip.assetId || ip.asset?.id,
         assignedUserId: ip.assignedUserId || ip.assignedUser?.id,
-        credentialId: ip.credentialId || ip.credential?.id,
         section: ip.section,
         status: ip.status,
         description: ip.description,
@@ -361,7 +344,6 @@ export function useNetworkManagement(
         address: targetIp,
         ip: targetIp,
         assignedUserId: values.assignedUserId || undefined,
-        credentialId: values.credentialId || undefined,
         assetId: values.assetId || undefined,
         subnetId: values.subnetId || undefined,
         vlanId: values.vlanId || undefined,
@@ -401,34 +383,6 @@ export function useNetworkManagement(
     [loadData, message],
   );
 
-  // ==========================================
-  // CREDENTIAL REVEAL ACTION
-  // ==========================================
-
-  const handleRevealCredential = useCallback(
-    async (ip: IPAddress) => {
-      const ipAddr = ip.address || ip.ip || ip.id;
-      setTargetIpForCredential(ipAddr);
-      setRevealedCredential(null);
-      setCredentialLoading(true);
-      setCredentialModalOpen(true);
-
-      try {
-        const cred = await networkService.revealCredential(ip.id);
-        setRevealedCredential(cred);
-        message.info(`Credentials for ${ipAddr} decrypted.`);
-      } catch (err: unknown) {
-        const apiErr = err as { response?: { data?: { message?: string } } };
-        message.error(
-          apiErr.response?.data?.message || 'No accessible credentials found for this IP.',
-        );
-      } finally {
-        setCredentialLoading(false);
-      }
-    },
-    [message],
-  );
-
   const handleResetFilters = useCallback(() => {
     setSearchQuery('');
     setSiteFilter('all');
@@ -446,7 +400,6 @@ export function useNetworkManagement(
     locations,
     assets,
     directoryUsers,
-    credentials,
     stats,
     loading,
     activeTabKey,
@@ -505,14 +458,6 @@ export function useNetworkManagement(
     handleOpenEditIpModal,
     handleSaveIp,
     handleDeleteIp,
-
-    // Credential
-    credentialModalOpen,
-    setCredentialModalOpen,
-    targetIpForCredential,
-    revealedCredential,
-    credentialLoading,
-    handleRevealCredential,
 
     // General
     loadData,

@@ -34,7 +34,6 @@ async function clearDatabase(client: PrismaClient) {
   logger.log('🧹 Clearing legacy records for clean enterprise seeding...');
   await client.reportSchedule.deleteMany();
   await client.licenseAssignment.deleteMany();
-  await client.assetHistory.deleteMany();
   await client.notification.deleteMany();
   await client.auditLog.deleteMany();
   await client.refreshToken.deleteMany();
@@ -46,7 +45,6 @@ async function clearDatabase(client: PrismaClient) {
   await client.inventoryItem.deleteMany();
   await client.inventoryCategory.deleteMany();
   await client.asset.deleteMany();
-  await client.networkCredential.deleteMany();
   await client.assetCategory.deleteMany();
   await client.license.deleteMany();
   await client.rolePermission.deleteMany();
@@ -64,6 +62,9 @@ async function clearDatabase(client: PrismaClient) {
   // Clear self-referential parentId on Location before table deletion
   await client.location.updateMany({ data: { parentId: null } });
   await client.location.deleteMany();
+
+  // Clear self-referential parentId on Organization before table deletion
+  await client.organization.updateMany({ data: { parentId: null } });
   await client.organization.deleteMany();
   await client.vendor.deleteMany();
 }

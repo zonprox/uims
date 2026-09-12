@@ -74,7 +74,7 @@ const errorResponse: ApiErrorResponse = {
 
 ### 2. Assets & Hardware Management
 
-Type definitions for physical assets, category hierarchies, historical change audits, and asset CRUD DTOs:
+Type definitions for physical assets, category hierarchies, and asset CRUD DTOs:
 
 ```typescript
 import { Asset, AssetStatus, CreateAssetDto, UpdateAssetDto } from '@uims/shared-types';
@@ -176,7 +176,6 @@ const userPref: TimezonePreference = {
 | :--- | :--- | :--- | :--- |
 | `Asset` | `interface` | `entities/asset` | Hardware and physical device asset record |
 | `AssetCategory` | `interface` | `entities/asset` | Hierarchical asset categorization category |
-| `AssetHistory` | `interface` | `entities/asset` | Historical audit log entry for asset mutations |
 | `AuditLog` | `interface` | `entities/audit` | Enterprise audit trail log record |
 | `Location` | `interface` | `entities/common` | Physical facility or branch office location |
 | `Vendor` | `interface` | `entities/common` | Supplier and third-party vendor details |

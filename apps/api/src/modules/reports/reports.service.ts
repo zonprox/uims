@@ -52,7 +52,7 @@ export class ReportsService {
       totalSaaS === null || (totalSeats === 0 && usedSeats === 0)
         ? this.prisma.license.findMany({
             select: { totalSeats: true, usedSeats: true, costPerSeat: true },
-            take: 1000,
+            take: 100,
             orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
           })
         : Promise.resolve<Array<{ totalSeats: number; usedSeats: number; costPerSeat: number }>>(
@@ -195,7 +195,7 @@ export class ReportsService {
       totalSaaS === null
         ? this.prisma.license.findMany({
             select: { usedSeats: true, costPerSeat: true },
-            take: 1000,
+            take: 100,
             orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
           })
         : Promise.resolve<Array<{ usedSeats: number; costPerSeat: number }>>([]),

@@ -376,7 +376,7 @@ export default function AuditPage() {
               </Title>
             </div>
           }
-          size={520}
+          width={520}
           open={drawerOpen}
           destroyOnHidden
           onClose={() => setDrawerOpen(false)}

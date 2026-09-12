@@ -14,7 +14,6 @@ export interface CreateAssetDto {
   locationId?: string;
   departmentId?: string;
   assignedToId?: string;
-  credentialId?: string;
   status?: string | AssetStatus;
   purchaseDate?: string | Date;
   purchaseCost?: number | string;
