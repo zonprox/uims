@@ -61,7 +61,7 @@ export class OrganizationService {
           },
         },
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
     return orgs.map((o) => ({
@@ -175,7 +175,7 @@ export class OrganizationService {
   // 3. Departments
   async findAllDepartments() {
     const depts = await this.prisma.department.findMany({
-      take: 500,
+      take: 100,
       include: {
         organization: { select: { id: true, name: true, code: true } },
         parent: { select: { id: true, name: true, code: true } },
@@ -183,7 +183,7 @@ export class OrganizationService {
         positions: true,
         _count: { select: { users: true, positions: true } },
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
     return depts.map((d) => ({
@@ -269,7 +269,7 @@ export class OrganizationService {
         department: { select: { id: true, name: true, code: true } },
         _count: { select: { users: true } },
       },
-      orderBy: { title: 'asc' },
+      orderBy: [{ title: 'asc' }, { id: 'asc' }],
     });
 
     return positions.map((p) => ({
@@ -424,7 +424,7 @@ export class OrganizationService {
   async computeFullPath(locationId: string): Promise<string> {
     const allLocations = await this.prisma.location.findMany({
       select: { id: true, name: true, parentId: true },
-      take: 2000,
+      take: 100,
       orderBy: { id: 'asc' },
     });
     const locMap = new Map<string, { id: string; name: string; parentId: string | null }>();
@@ -479,13 +479,13 @@ export class OrganizationService {
 
     return this.prisma.location.findMany({
       where,
-      take: 200,
+      take: 100,
       include: {
         organization: { select: { id: true, name: true, code: true } },
         parent: { select: { id: true, name: true, code: true, type: true } },
         _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
   }
 
@@ -496,7 +496,7 @@ export class OrganizationService {
         organization: { select: { id: true, name: true, code: true } },
         parent: true,
         children: {
-          orderBy: { name: 'asc' },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
           include: {
             _count: { select: { assets: true, inventoryItems: true, users: true, children: true } },
           },
@@ -620,20 +620,20 @@ export class OrganizationService {
       take: 50,
       include: {
         locations: {
-          orderBy: { name: 'asc' },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
         },
         departments: {
           include: {
             positions: {
-              orderBy: { title: 'asc' },
+              orderBy: [{ title: 'asc' }, { id: 'asc' }],
             },
             _count: { select: { users: true } },
           },
-          orderBy: { name: 'asc' },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
         },
         _count: { select: { users: true } },
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
     interface OrgNodeItem {

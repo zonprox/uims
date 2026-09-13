@@ -37,8 +37,22 @@ export default defineConfig(({ mode, command }) => {
     process.env.NODE_ENV = 'production';
   }
 
-  const webPort = parseInt(env.WEB_PORT || '5679', 10);
-  const apiPort = parseInt(env.APP_PORT || '3002', 10);
+  const webPort = parseInt(
+    process.env.PORT ||
+      env.PORT ||
+      process.env.VITE_PORT ||
+      env.VITE_PORT ||
+      process.env.WEB_PORT ||
+      env.WEB_PORT ||
+      process.env.APP_PORT ||
+      env.APP_PORT ||
+      '5679',
+    10,
+  );
+  const apiPort = parseInt(
+    process.env.APP_PORT || env.APP_PORT || process.env.API_PORT || env.API_PORT || '3002',
+    10,
+  );
 
   // In Docker, proxy to internal container; otherwise localhost
   const isDocker = fs.existsSync('/.dockerenv') || Boolean(process.env.DOCKER_CONTAINER);
@@ -120,6 +134,11 @@ export default defineConfig(({ mode, command }) => {
           secure: false,
         },
       },
+    },
+    preview: {
+      port: webPort,
+      host: '0.0.0.0',
+      allowedHosts: true,
     },
     build: {
       outDir: 'dist',

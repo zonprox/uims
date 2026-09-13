@@ -349,6 +349,50 @@ describe('ScheduledAlertsWorker', () => {
         }),
       );
     });
+
+    it('should continue pagination in fallback mode across batches even when a batch contains zero low-stock items', async () => {
+      (mockPrisma as Record<string, unknown>).$queryRaw = undefined;
+
+      const batch1 = Array.from({ length: 100 }, (_, i) => ({
+        id: `batch1-inv-${i}`,
+        name: `Item B1 ${i}`,
+        sku: `SKU-B1-${i}`,
+        quantity: 50,
+        minThreshold: 10,
+      }));
+
+      const batch2 = [
+        {
+          id: 'batch2-inv-1',
+          name: 'Low Stock Cable',
+          sku: 'SKU-B2-01',
+          quantity: 2,
+          minThreshold: 5,
+        },
+        {
+          id: 'batch2-inv-2',
+          name: 'Normal Switch',
+          sku: 'SKU-B2-02',
+          quantity: 20,
+          minThreshold: 5,
+        },
+      ];
+
+      mockPrisma.inventoryItem.findMany.mockResolvedValueOnce(batch1).mockResolvedValueOnce(batch2);
+
+      const res = await worker.scanLowStock();
+
+      expect(mockPrisma.inventoryItem.findMany).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.inventoryItem.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          cursor: { id: 'batch1-inv-99' },
+          skip: 1,
+        }),
+      );
+      expect(res.scanned).toBe(1);
+      expect(res.notified).toBe(1);
+    });
   });
 
   describe('runDailyAlertScans', () => {

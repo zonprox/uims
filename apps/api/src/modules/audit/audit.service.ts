@@ -40,7 +40,7 @@ export class AuditService {
 
     const logs = await this.prisma.auditLog.findMany({
       where,
-      orderBy: { timestamp: 'desc' },
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       take: pageSize,
       skip,
     });

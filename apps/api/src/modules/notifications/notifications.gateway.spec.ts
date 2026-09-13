@@ -101,6 +101,143 @@ describe('NotificationsGateway', () => {
 
       expect(mockClient.disconnect).toHaveBeenCalledWith(true);
     });
+
+    it('should reject and disconnect client when token is passed via query string (query.token)', async () => {
+      const mockClient = {
+        id: 'client-query-token',
+        data: {},
+        handshake: {
+          auth: {},
+          headers: {},
+          query: { token: 'query-token-value' },
+        },
+        join: vi.fn(),
+        emit: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      await gateway.handleConnection(mockClient);
+
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(mockClient.join).not.toHaveBeenCalled();
+      expect(mockClient.emit).not.toHaveBeenCalled();
+    });
+
+    it('should reject and disconnect client when query.token is present even if valid auth.token is also provided', async () => {
+      const mockClient = {
+        id: 'client-query-and-auth',
+        data: {},
+        handshake: {
+          auth: { token: 'valid-auth-token' },
+          headers: {},
+          query: { token: 'sneaky-query-token' },
+        },
+        join: vi.fn(),
+        emit: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      await gateway.handleConnection(mockClient);
+
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(mockClient.join).not.toHaveBeenCalled();
+      expect(mockJwtService.verify).not.toHaveBeenCalled();
+    });
+
+    it('should disconnect client when role is missing in token payload', async () => {
+      const mockClient = {
+        id: 'client-no-role',
+        data: {},
+        handshake: {
+          auth: { token: 'token-without-role' },
+          headers: {},
+        },
+        join: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-no-role',
+      });
+
+      await gateway.handleConnection(mockClient);
+
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(mockClient.join).not.toHaveBeenCalled();
+    });
+
+    it('should disconnect client when role is empty string or whitespace', async () => {
+      const mockClient = {
+        id: 'client-whitespace-role',
+        data: {},
+        handshake: {
+          auth: { token: 'token-whitespace-role' },
+          headers: {},
+        },
+        join: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-ws',
+        role: '   ',
+      });
+
+      await gateway.handleConnection(mockClient);
+
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(mockClient.join).not.toHaveBeenCalled();
+    });
+
+    it('should disconnect client when userId (sub and id) is missing', async () => {
+      const mockClient = {
+        id: 'client-no-sub',
+        data: {},
+        handshake: {
+          auth: { token: 'token-no-sub' },
+          headers: {},
+        },
+        join: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      mockJwtService.verify.mockReturnValue({
+        role: 'Admin',
+      });
+
+      await gateway.handleConnection(mockClient);
+
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(mockClient.join).not.toHaveBeenCalled();
+    });
+
+    it('should disconnect client when JWT_SECRET is not configured', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+      const originalSecret = process.env.JWT_SECRET;
+      delete process.env.JWT_SECRET;
+
+      try {
+        const mockClient = {
+          id: 'client-no-secret',
+          data: {},
+          handshake: {
+            auth: { token: 'some-token' },
+            headers: {},
+          },
+          join: vi.fn(),
+          disconnect: vi.fn(),
+        } as unknown as import('socket.io').Socket;
+
+        await gateway.handleConnection(mockClient);
+
+        expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+        expect(mockClient.join).not.toHaveBeenCalled();
+      } finally {
+        if (originalSecret) {
+          process.env.JWT_SECRET = originalSecret;
+        }
+      }
+    });
   });
 
   describe('afterInit', () => {
@@ -160,6 +297,138 @@ describe('NotificationsGateway', () => {
       middlewareFn(socket, next);
 
       expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('should reject socket with Error in middleware if query.token is present', () => {
+      let middlewareFn: (socket: unknown, next: (err?: Error) => void) => void = () => {};
+      const fakeServer = {
+        use: vi.fn().mockImplementation((fn) => {
+          middlewareFn = fn;
+        }),
+      } as unknown as import('socket.io').Server;
+
+      gateway.afterInit(fakeServer);
+
+      const socket = {
+        handshake: {
+          auth: { token: 'valid-token' },
+          headers: {},
+          query: { token: 'forbidden-query-token' },
+        },
+        data: {},
+      };
+
+      const next = vi.fn();
+      middlewareFn(socket, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('Token transport via URL query parameters is forbidden'),
+        }),
+      );
+    });
+
+    it('should reject socket in middleware when role is missing from token payload', () => {
+      let middlewareFn: (socket: unknown, next: (err?: Error) => void) => void = () => {};
+      const fakeServer = {
+        use: vi.fn().mockImplementation((fn) => {
+          middlewareFn = fn;
+        }),
+      } as unknown as import('socket.io').Server;
+
+      gateway.afterInit(fakeServer);
+
+      const socket = {
+        handshake: {
+          auth: { token: 'valid-token' },
+          headers: {},
+        },
+        data: {},
+      };
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-no-role',
+      });
+
+      const next = vi.fn();
+      middlewareFn(socket, next);
+
+      expect(next).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('Missing role in token payload'),
+        }),
+      );
+    });
+  });
+
+  describe('onModuleDestroy', () => {
+    it('should broadcast server_shutdown, disconnect all sockets, and close server', async () => {
+      const mockSocket1 = { disconnect: vi.fn() };
+      const mockSocket2 = { disconnect: vi.fn() };
+      const mockSockets = [mockSocket1, mockSocket2];
+
+      const closeFn = vi.fn((cb?: () => void) => {
+        cb?.();
+      });
+
+      const shutdownServer = {
+        emit: vi.fn(),
+        fetchSockets: vi.fn().mockResolvedValue(mockSockets),
+        close: closeFn,
+      };
+
+      gateway.server = shutdownServer as unknown as import('socket.io').Server;
+
+      await gateway.onModuleDestroy();
+
+      expect(shutdownServer.emit).toHaveBeenCalledWith(
+        'server_shutdown',
+        expect.objectContaining({
+          message: expect.stringContaining('shutting down'),
+          timestamp: expect.any(String),
+        }),
+      );
+      expect(shutdownServer.fetchSockets).toHaveBeenCalledTimes(1);
+      expect(mockSocket1.disconnect).toHaveBeenCalledWith(true);
+      expect(mockSocket2.disconnect).toHaveBeenCalledWith(true);
+      expect(closeFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should complete gracefully when server is undefined', async () => {
+      gateway.server = undefined as unknown as import('socket.io').Server;
+
+      await expect(gateway.onModuleDestroy()).resolves.toBeUndefined();
+    });
+
+    it('should complete gracefully when fetchSockets throws an error', async () => {
+      const closeFn = vi.fn((cb?: () => void) => {
+        cb?.();
+      });
+
+      const shutdownServer = {
+        emit: vi.fn(),
+        fetchSockets: vi.fn().mockRejectedValue(new Error('Network error during fetchSockets')),
+        close: closeFn,
+      };
+
+      gateway.server = shutdownServer as unknown as import('socket.io').Server;
+
+      await expect(gateway.onModuleDestroy()).resolves.toBeUndefined();
+      expect(shutdownServer.emit).toHaveBeenCalledWith('server_shutdown', expect.any(Object));
+      expect(closeFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should complete gracefully when server.close throws an error', async () => {
+      const shutdownServer = {
+        emit: vi.fn(),
+        fetchSockets: vi.fn().mockResolvedValue([]),
+        close: vi.fn(() => {
+          throw new Error('Close failed');
+        }),
+      };
+
+      gateway.server = shutdownServer as unknown as import('socket.io').Server;
+
+      await expect(gateway.onModuleDestroy()).resolves.toBeUndefined();
     });
   });
 

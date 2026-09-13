@@ -2,7 +2,7 @@ import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../stores/auth.store';
 
 export const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -33,7 +33,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error),
+  (error: unknown) => Promise.reject(error),
 );
 
 const handleAuthRedirect = () => {
@@ -97,10 +97,16 @@ const handleUnauthorized = async (
       originalRequest.headers.Authorization = `Bearer ${newToken}`;
     }
     return api(originalRequest);
-  } catch (refreshErr) {
-    processQueue(refreshErr, null);
+  } catch (refreshErr: unknown) {
+    const normalizedError =
+      refreshErr instanceof Error
+        ? refreshErr
+        : new Error(
+            typeof refreshErr === 'string' ? refreshErr : 'Authentication token refresh failed',
+          );
+    processQueue(normalizedError, null);
     handleAuthRedirect();
-    return Promise.reject(refreshErr);
+    return Promise.reject(normalizedError);
   } finally {
     isRefreshing = false;
   }
@@ -108,13 +114,12 @@ const handleUnauthorized = async (
 
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (!originalRequest) {
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error) || !error.config) {
       return Promise.reject(error);
     }
 
+    const originalRequest = error.config;
     const status = error.response?.status;
     const isAuthEndpoint =
       originalRequest.url?.includes('/auth/login') ||

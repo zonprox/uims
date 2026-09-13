@@ -251,16 +251,19 @@ export class DashboardService {
       this.prisma.inventoryItem.count({ where: { quantity: { lte: 5 } } }),
       this.prisma.subnet.aggregate({ _sum: { totalIps: true } }),
       this.prisma.iPAddress.count({ where: { status: 'ASSIGNED' } }),
-      this.prisma.auditLog.findMany({ take: 10, orderBy: { timestamp: 'desc' } }),
+      this.prisma.auditLog.findMany({
+        take: 10,
+        orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      }),
       this.prisma.inventoryItem.findMany({
         where: { quantity: { lte: 5 } },
         take: 3,
-        orderBy: { quantity: 'asc' },
+        orderBy: [{ quantity: 'asc' }, { id: 'asc' }],
       }),
       this.prisma.license.findMany({
         where: { status: 'EXPIRING_SOON' },
         take: 3,
-        orderBy: { expiryDate: 'asc' },
+        orderBy: [{ expiryDate: 'asc' }, { id: 'asc' }],
       }),
       this.prisma.asset.findMany({
         where: {
@@ -271,7 +274,7 @@ export class DashboardService {
           status: { not: 'RETIRED' },
         },
         take: 3,
-        orderBy: { warrantyExpiry: 'asc' },
+        orderBy: [{ warrantyExpiry: 'asc' }, { id: 'asc' }],
       }),
       this.prisma.asset.findMany({
         where: {
@@ -279,7 +282,7 @@ export class DashboardService {
           assignedToId: null,
         },
         take: 3,
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
       }),
       this.prisma.auditLog.count(),
       this.prisma.auditLog.count({ where: { timestamp: { gte: twentyFourHoursAgo } } }),
@@ -294,7 +297,7 @@ export class DashboardService {
           OR: [{ action: 'LOGIN_FAILED' }, { severity: 'Error' }, { severity: 'Critical' }],
         },
         take: 2,
-        orderBy: { timestamp: 'desc' },
+        orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.directoryUser.count(),
     ]);

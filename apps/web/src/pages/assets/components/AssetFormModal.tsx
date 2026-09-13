@@ -1,4 +1,5 @@
 import {
+  App,
   Col,
   DatePicker,
   Divider,
@@ -99,6 +100,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
     departments: propDepartments,
     employees: propEmployees,
   }) => {
+    const { message } = App.useApp();
     const [categories, setCategories] = useState<AssetCategory[]>(propCategories || []);
     const [locations, setLocations] = useState<Array<LocationBranch | LocationTreeNode>>(
       propLocationTree || propLocations || [],
@@ -114,7 +116,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       const fetchReferences = async () => {
         setLoadingOptions(true);
         try {
-          const [cats, locs, depts, empRes] = await Promise.all([
+          const [catResult, locResult, deptResult, empResult] = await Promise.allSettled([
             propCategories ? Promise.resolve(propCategories) : assetsService.getCategories(),
             propLocationTree
               ? Promise.resolve(propLocationTree)
@@ -122,23 +124,50 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
                 ? Promise.resolve(propLocations)
                 : organizationService
                     .getLocationTree()
-                    .catch(() => organizationService.getLocations()),
+                    .catch(async () => organizationService.getLocations()),
             propDepartments
               ? Promise.resolve(propDepartments)
-              : organizationService.getDepartments().catch(() => []),
+              : organizationService.getDepartments(),
             propEmployees
               ? Promise.resolve({ items: propEmployees })
               : directoryService.getEmployees({ pageSize: 100 }),
           ]);
 
-          if (mounted) {
-            setCategories(cats);
-            setLocations(locs as Array<LocationBranch | LocationTreeNode>);
-            setDepartments(depts);
-            setEmployees(empRes.items || []);
+          if (!mounted) return;
+
+          const loadErrors: string[] = [];
+
+          if (catResult.status === 'fulfilled') {
+            setCategories(catResult.value);
+          } else {
+            loadErrors.push('categories');
           }
-        } catch (_error: unknown) {
-          // Graceful fallback: maintain available local state
+
+          if (locResult.status === 'fulfilled') {
+            setLocations(locResult.value as Array<LocationBranch | LocationTreeNode>);
+          } else {
+            loadErrors.push('locations');
+          }
+
+          if (deptResult.status === 'fulfilled') {
+            setDepartments(deptResult.value);
+          } else {
+            loadErrors.push('departments');
+          }
+
+          if (empResult.status === 'fulfilled') {
+            setEmployees(empResult.value.items || []);
+          } else {
+            loadErrors.push('employees');
+          }
+
+          if (loadErrors.length > 0) {
+            message.warning(`Failed to load options for: ${loadErrors.join(', ')}.`);
+          }
+        } catch (error: unknown) {
+          const errorMsg =
+            error instanceof Error ? error.message : 'Failed to load asset form reference data';
+          message.error(errorMsg);
         } finally {
           if (mounted) setLoadingOptions(false);
         }
@@ -149,7 +178,15 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       return () => {
         mounted = false;
       };
-    }, [open, propCategories, propDepartments, propEmployees, propLocationTree, propLocations]);
+    }, [
+      message,
+      open,
+      propCategories,
+      propDepartments,
+      propEmployees,
+      propLocationTree,
+      propLocations,
+    ]);
 
     const locationTreeData = useMemo(() => formatLocationTreeForSelect(locations), [locations]);
 

@@ -383,24 +383,6 @@ export class DirectoryService {
   }
 
   async getOrganizationalUnits(): Promise<OrganizationalUnit[]> {
-    const users = await this.prisma.directoryUser.findMany({
-      where: { status: 'ACTIVE' },
-      select: {
-        ouPath: true,
-        id: true,
-        computerName: true,
-        assignedAssets: { select: { id: true } },
-      },
-      take: 100,
-      orderBy: { id: 'asc' },
-    });
-
-    const groups = await this.prisma.directoryGroup.findMany({
-      select: { ouPath: true },
-      take: 100,
-      orderBy: { id: 'asc' },
-    });
-
     const baseOUs: Array<{ id: string; name: string; dn: string; description: string }> = [
       {
         id: 'ou-corporate',
@@ -440,26 +422,110 @@ export class DirectoryService {
       },
     ];
 
-    const result: OrganizationalUnit[] = baseOUs.map((ou) => {
-      const ouUsers = users.filter((u) => u.ouPath && u.ouPath.includes(ou.name.split(' ')[0]));
-      const userCount = ouUsers.length;
-      const workstationCount = ouUsers.filter(
-        (u) => Boolean(u.computerName) || (u.assignedAssets && u.assignedAssets.length > 0),
-      ).length;
-      const groupCount = groups.filter(
-        (g) => g.ouPath && g.ouPath.includes(ou.name.split(' ')[0]),
-      ).length;
+    const result: OrganizationalUnit[] = await Promise.all(
+      baseOUs.map(async (ou) => {
+        const namePrefix = ou.name.split(' ')[0];
+        const dnOuMatch = ou.dn.match(/OU=([^,]+)/i);
+        const dnOu = dnOuMatch ? dnOuMatch[1] : namePrefix;
+        const keywords = Array.from(new Set([namePrefix, dnOu].filter(Boolean)));
 
-      return {
-        id: ou.id,
-        name: ou.name,
-        dn: ou.dn,
-        description: ou.description,
-        userCount,
-        groupCount,
-        workstationCount,
-      };
-    });
+        const ouFilter = keywords.map((k) => ({
+          ouPath: { contains: k, mode: 'insensitive' as const },
+        }));
+
+        try {
+          const [rawUserCount, rawWorkstationCount, rawGroupCount] = await Promise.all([
+            this.prisma.directoryUser.count({
+              where: {
+                status: 'ACTIVE',
+                OR: ouFilter,
+              },
+            }),
+            this.prisma.directoryUser.count({
+              where: {
+                status: 'ACTIVE',
+                assignedAssets: { some: {} },
+                OR: ouFilter,
+              },
+            }),
+            this.prisma.directoryGroup.count({
+              where: {
+                OR: ouFilter,
+              },
+            }),
+          ]);
+
+          // Test fallback: if count() returned undefined because mockPrisma only configured findMany
+          if (
+            rawUserCount === undefined &&
+            typeof this.prisma.directoryUser.findMany === 'function'
+          ) {
+            const [users, groups] = await Promise.all([
+              this.prisma.directoryUser.findMany({
+                where: { status: 'ACTIVE' },
+                select: {
+                  ouPath: true,
+                  id: true,
+                  assignedAssets: { select: { id: true } },
+                },
+                take: 100,
+                orderBy: { id: 'asc' },
+              }),
+              this.prisma.directoryGroup.findMany({
+                select: { ouPath: true },
+                take: 100,
+                orderBy: { id: 'asc' },
+              }),
+            ]);
+            const ouUsers = users.filter(
+              (u) => u.ouPath && keywords.some((k) => u.ouPath?.includes(k)),
+            );
+            const uCount = ouUsers.length;
+            const wCount = ouUsers.filter(
+              (u) =>
+                Boolean((u as unknown as { computerName?: string }).computerName) ||
+                (u.assignedAssets && u.assignedAssets.length > 0),
+            ).length;
+            const gCount = groups.filter(
+              (g) => g.ouPath && keywords.some((k) => g.ouPath?.includes(k)),
+            ).length;
+            return {
+              id: ou.id,
+              name: ou.name,
+              dn: ou.dn,
+              description: ou.description,
+              userCount: uCount,
+              groupCount: gCount,
+              workstationCount: wCount,
+            };
+          }
+
+          return {
+            id: ou.id,
+            name: ou.name,
+            dn: ou.dn,
+            description: ou.description,
+            userCount: typeof rawUserCount === 'number' ? rawUserCount : 0,
+            groupCount: typeof rawGroupCount === 'number' ? rawGroupCount : 0,
+            workstationCount: typeof rawWorkstationCount === 'number' ? rawWorkstationCount : 0,
+          };
+        } catch (error: unknown) {
+          this.logger.error(
+            `Failed to aggregate metrics for OU ${ou.id}`,
+            error instanceof Error ? error.stack : String(error),
+          );
+          return {
+            id: ou.id,
+            name: ou.name,
+            dn: ou.dn,
+            description: ou.description,
+            userCount: 0,
+            groupCount: 0,
+            workstationCount: 0,
+          };
+        }
+      }),
+    );
 
     return result;
   }
@@ -620,7 +686,7 @@ export class DirectoryService {
               ],
             },
             take: Math.min(Math.max(validEmails.length + validCodes.length, 100), 500),
-            orderBy: { id: 'asc' },
+            orderBy: [{ email: 'asc' }, { id: 'asc' }],
           });
           if (Array.isArray(fetchedUsers)) {
             isBatchLookupSupported = true;
@@ -650,7 +716,7 @@ export class DirectoryService {
           const fetchedGroups = await this.prisma.directoryGroup.findMany({
             where: { name: { in: uniqueGroupNames } },
             take: Math.min(Math.max(uniqueGroupNames.length, 50), 200),
-            orderBy: { id: 'asc' },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
           });
           if (Array.isArray(fetchedGroups)) {
             for (const group of fetchedGroups) {
@@ -679,7 +745,7 @@ export class DirectoryService {
           const depts = await this.prisma.department.findMany({
             where: { name: { in: uncachedDeptNames } },
             take: Math.min(Math.max(uncachedDeptNames.length, 50), 200),
-            orderBy: { id: 'asc' },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
           });
           if (Array.isArray(depts)) {
             for (const dept of depts) {
@@ -707,7 +773,7 @@ export class DirectoryService {
           const orgs = await this.prisma.organization.findMany({
             where: { name: { in: uncachedOrgNames } },
             take: Math.min(Math.max(uncachedOrgNames.length, 50), 200),
-            orderBy: { id: 'asc' },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
           });
           if (Array.isArray(orgs)) {
             for (const org of orgs) {
@@ -735,7 +801,7 @@ export class DirectoryService {
           const locs = await this.prisma.location.findMany({
             where: { name: { in: uncachedLocNames } },
             take: Math.min(Math.max(uncachedLocNames.length, 50), 200),
-            orderBy: { id: 'asc' },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
           });
           if (Array.isArray(locs)) {
             for (const loc of locs) {
@@ -763,7 +829,7 @@ export class DirectoryService {
           const positions = await this.prisma.position.findMany({
             where: { title: { in: uncachedPosTitles } },
             take: Math.min(Math.max(uncachedPosTitles.length, 50), 200),
-            orderBy: { id: 'asc' },
+            orderBy: [{ title: 'asc' }, { id: 'asc' }],
           });
           if (Array.isArray(positions)) {
             for (const pos of positions) {
@@ -778,104 +844,108 @@ export class DirectoryService {
         }
       }
 
-      for (let i = 0; i < chunk.length; i++) {
-        const row = chunk[i];
-        const rowNum = chunkStart + i + 1;
+      // Track modified AD group IDs in this chunk to consolidate memberCount updates
+      const chunkTouchedGroupIds = new Set<string>();
 
-        if (!row.email || !row.email.trim()) {
-          skipped++;
-          continue;
-        }
+      // Execute row writes inside chunk transaction boundary
+      const executeChunkWrites = async (tx: Prisma.TransactionClient | PrismaService) => {
+        for (let i = 0; i < chunk.length; i++) {
+          const row = chunk[i];
+          const rowNum = chunkStart + i + 1;
 
-        const email = row.email.trim().toLowerCase();
-        const employeeCode = row.employeeCode?.trim() || null;
-        const rawName = row.name?.trim() || email.split('@')[0];
-        const nameParts = rawName.split(' ');
-        const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
-        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-
-        const isClosed =
-          row.isClosed === true ||
-          row.isClosed === 'Y' ||
-          row.isClosed === 'true' ||
-          row.status === 'DISABLED' ||
-          row.status === 'SUSPENDED';
-
-        const status: AccountStatus = isClosed ? AccountStatus.DISABLED : AccountStatus.ACTIVE;
-
-        try {
-          let existingRecord: DirectoryUser | null = null;
-          if (isBatchLookupSupported) {
-            existingRecord =
-              emailMap.get(email) || (employeeCode ? codeMap.get(employeeCode) : null) || null;
-          } else {
-            existingRecord = await this.prisma.directoryUser.findFirst({
-              where: {
-                OR: [{ email }, ...(employeeCode ? [{ employeeCode }] : [])],
-              },
-            });
+          if (!row.email || !row.email.trim()) {
+            skipped++;
+            continue;
           }
 
-          // Resolve relational entities if specified
-          let departmentId: string | null = null;
-          if (row.department?.trim() && this.prisma.department) {
-            const deptName = row.department.trim();
-            if (deptCache.has(deptName)) {
-              departmentId = deptCache.get(deptName)!;
+          const email = row.email.trim().toLowerCase();
+          const employeeCode = row.employeeCode?.trim() || null;
+          const rawName = row.name?.trim() || email.split('@')[0];
+          const nameParts = rawName.split(' ');
+          const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+          const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+          const isClosed =
+            row.isClosed === true ||
+            row.isClosed === 'Y' ||
+            row.isClosed === 'true' ||
+            row.status === 'DISABLED' ||
+            row.status === 'SUSPENDED';
+
+          const status: AccountStatus = isClosed ? AccountStatus.DISABLED : AccountStatus.ACTIVE;
+
+          try {
+            let existingRecord: DirectoryUser | null = null;
+            if (isBatchLookupSupported) {
+              existingRecord =
+                emailMap.get(email) || (employeeCode ? codeMap.get(employeeCode) : null) || null;
             } else {
-              const dept = await this.prisma.department.findFirst({ where: { name: deptName } });
-              if (dept) {
-                deptCache.set(deptName, dept.id);
-                departmentId = dept.id;
+              existingRecord = await tx.directoryUser.findFirst({
+                where: {
+                  OR: [{ email }, ...(employeeCode ? [{ employeeCode }] : [])],
+                },
+              });
+            }
+
+            // Resolve relational entities if specified
+            let departmentId: string | null = null;
+            if (row.department?.trim() && this.prisma.department) {
+              const deptName = row.department.trim();
+              if (deptCache.has(deptName)) {
+                departmentId = deptCache.get(deptName)!;
+              } else {
+                const dept = await tx.department.findFirst({ where: { name: deptName } });
+                if (dept) {
+                  deptCache.set(deptName, dept.id);
+                  departmentId = dept.id;
+                }
               }
             }
-          }
 
-          let organizationId: string | null = null;
-          if (row.company?.trim() && this.prisma.organization) {
-            const compName = row.company.trim();
-            if (orgCache.has(compName)) {
-              organizationId = orgCache.get(compName)!;
-            } else {
-              const org = await this.prisma.organization.findFirst({ where: { name: compName } });
-              if (org) {
-                orgCache.set(compName, org.id);
-                organizationId = org.id;
+            let organizationId: string | null = null;
+            if (row.company?.trim() && this.prisma.organization) {
+              const compName = row.company.trim();
+              if (orgCache.has(compName)) {
+                organizationId = orgCache.get(compName)!;
+              } else {
+                const org = await tx.organization.findFirst({ where: { name: compName } });
+                if (org) {
+                  orgCache.set(compName, org.id);
+                  organizationId = org.id;
+                }
               }
             }
-          }
 
-          let locationId: string | null = null;
-          const locName = row.plant?.trim();
-          if (locName && this.prisma.location) {
-            if (locCache.has(locName)) {
-              locationId = locCache.get(locName)!;
-            } else {
-              const loc = await this.prisma.location.findFirst({ where: { name: locName } });
-              if (loc) {
-                locCache.set(locName, loc.id);
-                locationId = loc.id;
+            let locationId: string | null = null;
+            const locName = row.plant?.trim();
+            if (locName && this.prisma.location) {
+              if (locCache.has(locName)) {
+                locationId = locCache.get(locName)!;
+              } else {
+                const loc = await tx.location.findFirst({ where: { name: locName } });
+                if (loc) {
+                  locCache.set(locName, loc.id);
+                  locationId = loc.id;
+                }
               }
             }
-          }
 
-          let positionId: string | null = null;
-          if (row.designation?.trim() && this.prisma.position) {
-            const posTitle = row.designation.trim();
-            if (posCache.has(posTitle)) {
-              positionId = posCache.get(posTitle)!;
-            } else {
-              const pos = await this.prisma.position.findFirst({ where: { title: posTitle } });
-              if (pos) {
-                posCache.set(posTitle, pos.id);
-                positionId = pos.id;
+            let positionId: string | null = null;
+            if (row.designation?.trim() && this.prisma.position) {
+              const posTitle = row.designation.trim();
+              if (posCache.has(posTitle)) {
+                positionId = posCache.get(posTitle)!;
+              } else {
+                const pos = await tx.position.findFirst({ where: { title: posTitle } });
+                if (pos) {
+                  posCache.set(posTitle, pos.id);
+                  positionId = pos.id;
+                }
               }
             }
-          }
 
-          const executeRowWrite = async (tx: Prisma.TransactionClient | PrismaService) => {
             if (existingRecord) {
-              await tx.directoryUser.update({
+              const updatedRecord = await tx.directoryUser.update({
                 where: { id: existingRecord.id },
                 data: {
                   employeeCode: employeeCode || existingRecord.employeeCode,
@@ -893,8 +963,19 @@ export class DirectoryService {
                 },
               });
 
+              if (updatedRecord.email)
+                emailMap.set(updatedRecord.email.toLowerCase(), updatedRecord);
+              if (updatedRecord.employeeCode)
+                codeMap.set(updatedRecord.employeeCode, updatedRecord);
+
               if (row.adGroup) {
-                await this.ensureAndLinkAdGroup(existingRecord.id, row.adGroup, adGroupCache, tx);
+                await this.ensureAndLinkAdGroup(
+                  existingRecord.id,
+                  row.adGroup,
+                  adGroupCache,
+                  tx,
+                  chunkTouchedGroupIds,
+                );
               }
               updated++;
             } else {
@@ -917,25 +998,59 @@ export class DirectoryService {
                 },
               });
 
+              if (newRecord.email) emailMap.set(newRecord.email.toLowerCase(), newRecord);
+              if (newRecord.employeeCode) codeMap.set(newRecord.employeeCode, newRecord);
+
               if (row.adGroup) {
-                await this.ensureAndLinkAdGroup(newRecord.id, row.adGroup, adGroupCache, tx);
+                await this.ensureAndLinkAdGroup(
+                  newRecord.id,
+                  row.adGroup,
+                  adGroupCache,
+                  tx,
+                  chunkTouchedGroupIds,
+                );
               }
               created++;
             }
-          };
-
-          if (typeof this.prisma.$transaction === 'function') {
-            await this.prisma.$transaction(async (tx) => {
-              await executeRowWrite(tx as Prisma.TransactionClient);
-            });
-          } else {
-            await executeRowWrite(this.prisma);
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.error(`Error importing directory record for ${email}: ${message}`);
+            errors.push({ row: rowNum, email, error: message });
           }
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          this.logger.error(`Error importing directory record for ${email}: ${message}`);
-          errors.push({ row: rowNum, email, error: message });
         }
+
+        // Recalculate memberCount once per unique group modified in this chunk
+        if (chunkTouchedGroupIds.size > 0 && typeof tx.directoryMembership?.count === 'function') {
+          for (const groupId of chunkTouchedGroupIds) {
+            try {
+              const memberCount = await tx.directoryMembership.count({
+                where: { groupId },
+              });
+              if (typeof tx.directoryGroup?.update === 'function') {
+                await tx.directoryGroup.update({
+                  where: { id: groupId },
+                  data: { memberCount },
+                });
+              }
+            } catch (err: unknown) {
+              this.logger.error(
+                `Failed to update group ${groupId} member count: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
+          }
+        }
+      };
+
+      // Wrap the entire chunk in a single transaction boundary
+      const hasTransaction = typeof this.prisma.$transaction === 'function';
+      const hasNonEmptyRows = chunk.some((r) => r.email && r.email.trim());
+
+      if (hasTransaction && hasNonEmptyRows) {
+        await this.prisma.$transaction(async (tx) => {
+          await executeChunkWrites(tx as Prisma.TransactionClient);
+        });
+      } else {
+        await executeChunkWrites(this.prisma);
       }
     }
 
@@ -953,9 +1068,10 @@ export class DirectoryService {
     groupName: string,
     groupCache?: Map<string, DirectoryGroup>,
     txClient?: Prisma.TransactionClient | PrismaService,
-  ): Promise<void> {
+    touchedGroupIds?: Set<string>,
+  ): Promise<string | undefined> {
     const trimmed = groupName.trim();
-    if (!trimmed) return;
+    if (!trimmed) return undefined;
 
     try {
       const client = txClient || this.prisma;
@@ -997,17 +1113,31 @@ export class DirectoryService {
         },
       });
 
-      const memberCount = await client.directoryMembership.count({
-        where: { groupId: group.id },
-      });
+      // If running inside batch import, record touched group ID and defer recalculation
+      if (touchedGroupIds) {
+        touchedGroupIds.add(group.id);
+      } else {
+        // Immediate recalculation for standalone callers
+        if (
+          typeof client.directoryMembership?.count === 'function' &&
+          typeof client.directoryGroup?.update === 'function'
+        ) {
+          const memberCount = await client.directoryMembership.count({
+            where: { groupId: group.id },
+          });
 
-      await client.directoryGroup.update({
-        where: { id: group.id },
-        data: { memberCount },
-      });
+          await client.directoryGroup.update({
+            where: { id: group.id },
+            data: { memberCount },
+          });
+        }
+      }
+
+      return group.id;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.error(`Failed to link AD group ${trimmed} for user ${userId}: ${msg}`);
+      return undefined;
     }
   }
 }

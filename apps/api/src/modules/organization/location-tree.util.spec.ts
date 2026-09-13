@@ -76,7 +76,8 @@ describe('resolveDescendantLocationIds', () => {
       expect(mockQueryRaw).toHaveBeenCalledTimes(1);
       expect(mockFindMany).toHaveBeenCalledWith({
         select: { id: true, parentId: true },
-        take: 5000,
+        take: 100,
+        orderBy: { id: 'asc' },
       });
       expect(result).toEqual(['loc-f1', 'loc-f1-cut', 'loc-f1-sew', 'loc-f1-sew-st1']);
     });
@@ -94,7 +95,8 @@ describe('resolveDescendantLocationIds', () => {
 
       expect(mockFindMany).toHaveBeenCalledWith({
         select: { id: true, parentId: true },
-        take: 5000,
+        take: 100,
+        orderBy: { id: 'asc' },
       });
       expect(result).toEqual(['loc-f1', 'loc-f1-cut', 'loc-f1-sew', 'loc-f1-sew-st1']);
     });

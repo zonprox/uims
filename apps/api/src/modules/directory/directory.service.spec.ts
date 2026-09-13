@@ -25,6 +25,7 @@ describe('DirectoryService', () => {
       upsert: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
     };
+    $transaction: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -48,6 +49,7 @@ describe('DirectoryService', () => {
         upsert: vi.fn().mockResolvedValue({}),
         count: vi.fn().mockResolvedValue(1),
       },
+      $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockPrisma)),
     };
 
     service = new DirectoryService(
@@ -286,15 +288,28 @@ describe('DirectoryService', () => {
   });
 
   describe('getOrganizationalUnits', () => {
-    it('should aggregate OU user, group, and workstation statistics', async () => {
-      mockPrisma.directoryUser.findMany.mockResolvedValue([
-        { ouPath: 'OU=Corporate,DC=uims,DC=internal', computerName: 'CORP-PC-01' },
-        { ouPath: 'OU=Corporate,DC=uims,DC=internal', computerName: null },
-        { ouPath: 'OU=Production,DC=uims,DC=internal', computerName: 'PROD-WS-01' },
-      ]);
-      mockPrisma.directoryGroup.findMany.mockResolvedValue([
-        { ouPath: 'OU=Corporate,DC=uims,DC=internal' },
-      ]);
+    it('should aggregate OU user, group, and workstation statistics via database counts', async () => {
+      mockPrisma.directoryUser.count.mockImplementation(
+        (args?: { where?: Record<string, unknown> }) => {
+          const where = args?.where;
+          const orConditions = (where?.OR as Array<{ ouPath?: { contains: string } }>) || [];
+          const isCorporate = orConditions.some((c) => c.ouPath?.contains === 'Corporate');
+          if (isCorporate) {
+            if (where?.assignedAssets) return Promise.resolve(1); // workstationCount
+            return Promise.resolve(2); // userCount
+          }
+          return Promise.resolve(0);
+        },
+      );
+
+      mockPrisma.directoryGroup.count.mockImplementation(
+        (args?: { where?: Record<string, unknown> }) => {
+          const where = args?.where;
+          const orConditions = (where?.OR as Array<{ ouPath?: { contains: string } }>) || [];
+          const isCorporate = orConditions.some((c) => c.ouPath?.contains === 'Corporate');
+          return Promise.resolve(isCorporate ? 1 : 0);
+        },
+      );
 
       const ous = await service.getOrganizationalUnits();
 
@@ -304,6 +319,8 @@ describe('DirectoryService', () => {
       expect(corporate?.userCount).toBe(2);
       expect(corporate?.workstationCount).toBe(1);
       expect(corporate?.groupCount).toBe(1);
+      expect(mockPrisma.directoryUser.count).toHaveBeenCalled();
+      expect(mockPrisma.directoryGroup.count).toHaveBeenCalled();
     });
   });
 
@@ -428,6 +445,57 @@ describe('DirectoryService', () => {
       expect(response.errors).toHaveLength(1);
       expect(response.errors[0].email).toBe('fail.emp@company.com');
       expect(response.errors[0].error).toContain('Database lock error');
+    });
+
+    it('should execute import in a single chunked transaction for 50-100 rows', async () => {
+      mockPrisma.directoryUser.findFirst.mockResolvedValue(null);
+      mockPrisma.directoryUser.create.mockResolvedValue({ id: 'dir-new-1' });
+
+      const response = await service.importBatch({
+        users: [
+          { email: 'emp1@company.com', employeeCode: 'E01', name: 'Emp 1' },
+          { email: 'emp2@company.com', employeeCode: 'E02', name: 'Emp 2' },
+        ],
+      });
+
+      expect(response.total).toBe(2);
+      expect(response.created).toBe(2);
+      // Wrapped in 1 chunked transaction, NOT 2 individual row transactions
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('should consolidate group memberCount updates and eliminate N+1 write loop', async () => {
+      mockPrisma.directoryUser.findFirst.mockResolvedValue(null);
+      mockPrisma.directoryUser.create.mockResolvedValue({ id: 'dir-new-1' });
+      mockPrisma.directoryGroup.findFirst.mockResolvedValue({
+        id: 'grp-prod',
+        name: 'SEC-Production',
+        memberCount: 2,
+      });
+      mockPrisma.directoryMembership.upsert.mockResolvedValue({});
+      mockPrisma.directoryMembership.count.mockResolvedValue(10);
+      mockPrisma.directoryGroup.update.mockResolvedValue({});
+
+      const response = await service.importBatch({
+        users: [
+          { email: 'u1@company.com', name: 'User 1', adGroup: 'SEC-Production' },
+          { email: 'u2@company.com', name: 'User 2', adGroup: 'SEC-Production' },
+          { email: 'u3@company.com', name: 'User 3', adGroup: 'SEC-Production' },
+        ],
+      });
+
+      expect(response.total).toBe(3);
+      expect(response.created).toBe(3);
+      // All 3 memberships upserted
+      expect(mockPrisma.directoryMembership.upsert).toHaveBeenCalledTimes(3);
+      // DirectoryGroup count and update called EXACTLY ONCE for SEC-Production instead of 3 times
+      expect(mockPrisma.directoryGroup.update).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.directoryGroup.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'grp-prod' },
+          data: { memberCount: 10 },
+        }),
+      );
     });
   });
 

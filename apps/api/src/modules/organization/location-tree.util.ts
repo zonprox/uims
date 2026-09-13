@@ -39,11 +39,12 @@ export async function resolveDescendantLocationIds(
     }
   }
 
-  // Fallback: bounded query (take: 5000) and BFS for unit test environments
+  // Fallback: bounded query (take: 100) and BFS for unit test environments
   if (typeof prisma?.location?.findMany === 'function') {
     const allLocations = await prisma.location.findMany({
       select: { id: true, parentId: true },
-      take: 5000,
+      take: 100,
+      orderBy: { id: 'asc' },
     });
 
     if (!Array.isArray(allLocations) || !allLocations.some((l) => l.id === locationId)) {

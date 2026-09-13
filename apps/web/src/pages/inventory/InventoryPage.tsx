@@ -34,6 +34,7 @@ import {
   TreeSelect,
   Typography,
 } from 'antd';
+import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
@@ -182,41 +183,66 @@ export default function InventoryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const locTreePromise = organizationService.getLocationTree
+      const locPromise = organizationService.getLocationTree
         ? organizationService
             .getLocationTree(orgFilter !== 'all' ? orgFilter : undefined)
-            .catch(() =>
-              organizationService.getLocations
-                ? organizationService.getLocations().catch(() => [])
-                : [],
+            .catch(async () =>
+              organizationService.getLocations ? organizationService.getLocations() : [],
             )
         : organizationService.getLocations
-          ? organizationService.getLocations().catch(() => [])
+          ? organizationService.getLocations()
           : Promise.resolve([]);
 
-      const [list, statsData, cats, locs, vends, orgs] = await Promise.all([
-        inventoryService.getItems({
-          search: searchQuery || undefined,
-          category: categoryFilter !== 'all' ? categoryFilter : undefined,
-          stockStatus: stockFilter !== 'all' ? stockFilter : undefined,
-          organizationId: orgFilter !== 'all' ? orgFilter : undefined,
-          locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
-        }),
-        inventoryService.getStats().catch((_error: unknown) => null),
-        inventoryService.getCategories().catch((_error: unknown) => []),
-        locTreePromise,
-        vendorService.getVendors().catch((_error: unknown) => []),
-        organizationService.getOrganizations().catch((_error: unknown) => []),
-      ]);
-      setItems(list);
-      setCategories(cats);
-      setLocations(locs);
-      setVendors(vends);
-      setOrganizations(orgs);
+      const [itemsResult, statsResult, catsResult, locsResult, vendsResult, orgsResult] =
+        await Promise.allSettled([
+          inventoryService.getItems({
+            search: searchQuery || undefined,
+            category: categoryFilter !== 'all' ? categoryFilter : undefined,
+            stockStatus: stockFilter !== 'all' ? stockFilter : undefined,
+            organizationId: orgFilter !== 'all' ? orgFilter : undefined,
+            locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
+          }),
+          inventoryService.getStats(),
+          inventoryService.getCategories(),
+          locPromise,
+          vendorService.getVendors(),
+          organizationService.getOrganizations(),
+        ]);
 
-      if (statsData) {
-        setStats(statsData);
+      if (itemsResult.status === 'fulfilled') {
+        setItems(itemsResult.value);
       } else {
+        message.error('Failed to load inventory items.');
+      }
+
+      if (catsResult.status === 'fulfilled') {
+        setCategories(catsResult.value);
+      } else {
+        message.warning('Failed to load inventory categories.');
+      }
+
+      if (locsResult.status === 'fulfilled') {
+        setLocations(locsResult.value);
+      } else {
+        message.warning('Failed to load inventory storage locations.');
+      }
+
+      if (vendsResult.status === 'fulfilled') {
+        setVendors(vendsResult.value);
+      } else {
+        message.warning('Failed to load approved vendors.');
+      }
+
+      if (orgsResult.status === 'fulfilled') {
+        setOrganizations(orgsResult.value);
+      } else {
+        message.warning('Failed to load organizations.');
+      }
+
+      if (statsResult.status === 'fulfilled' && statsResult.value) {
+        setStats(statsResult.value);
+      } else if (itemsResult.status === 'fulfilled') {
+        const list = itemsResult.value;
         const totalUnits = list.reduce((sum, i) => sum + i.quantity, 0);
         const totalValuation = list.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
         const lowStockCount = list.filter(
@@ -231,8 +257,9 @@ export default function InventoryPage() {
           outOfStockCount,
         });
       }
-    } catch (_err: unknown) {
-      message.error('Failed to load inventory items.');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load inventory records.';
+      message.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -381,8 +408,14 @@ export default function InventoryPage() {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save inventory item.');
+      let errorMessage = 'Failed to save inventory item.';
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { message?: string } | undefined;
+        if (data?.message) errorMessage = data.message;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      message.error(errorMessage);
     } finally {
       setModalSubmitting(false);
     }
@@ -393,8 +426,9 @@ export default function InventoryPage() {
       await inventoryService.deleteItem(id);
       message.success('Inventory item deleted successfully.');
       loadData();
-    } catch (_err: unknown) {
-      message.error('Failed to delete item.');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete item.';
+      message.error(errorMsg);
     }
   };
 
@@ -412,8 +446,9 @@ export default function InventoryPage() {
       message.success(`Restocked ${restockQty} units of ${restockItem.name}.`);
       setRestockModalOpen(false);
       loadData();
-    } catch (_err: unknown) {
-      message.error('Failed to restock item.');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to restock item.';
+      message.error(errorMsg);
     } finally {
       setRestocking(false);
     }

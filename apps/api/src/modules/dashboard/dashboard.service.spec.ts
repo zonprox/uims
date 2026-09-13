@@ -517,12 +517,12 @@ describe('DashboardService', () => {
 
     const overview = await service.getOverview('ordering-and-security-test', true);
 
-    // Verify license findMany called with orderBy: { expiryDate: 'asc' }
+    // Verify license findMany called with orderBy: [{ expiryDate: 'asc' }, { id: 'asc' }]
     expect(mockPrisma.license.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { status: 'EXPIRING_SOON' },
         take: 3,
-        orderBy: { expiryDate: 'asc' },
+        orderBy: [{ expiryDate: 'asc' }, { id: 'asc' }],
       }),
     );
 

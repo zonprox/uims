@@ -528,8 +528,8 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
         error: 'Unique constraint failed on employeeCode (E-DUP)',
       });
 
-      // Verify each row write was executed in its own $transaction
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(3);
+      // Verify chunk write was executed in a chunked batch transaction (1 transaction per chunk)
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it('Transaction Batching: updates existing records inside transaction and links AD group using tx', async () => {

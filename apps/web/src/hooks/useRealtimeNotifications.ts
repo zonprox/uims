@@ -9,7 +9,7 @@ import {
   useNotificationSettingsStore,
 } from '../stores/notification-settings.store';
 
-// Helper to determine socket server URL
+// Helper to determine socket server URL dynamically
 function getSocketUrl(): string {
   const envWsUrl = import.meta.env.VITE_WS_URL;
   if (envWsUrl) return envWsUrl;
@@ -19,11 +19,11 @@ function getSocketUrl(): string {
     return envApiUrl.replace(/\/api\/v1\/?$/, '');
   }
 
-  // Default to current origin so it seamlessly routes through Vite HTTPS proxy
-  if (typeof window !== 'undefined') {
+  // Seamlessly adapt to current window origin (any custom URL or port)
+  if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
-  return 'http://localhost:3002';
+  return '';
 }
 
 export function useRealtimeNotifications() {
@@ -77,7 +77,8 @@ export function useRealtimeNotifications() {
     }
 
     const socketUrl = getSocketUrl();
-    const socket: Socket = io(`${socketUrl}/notifications`, {
+    const socketEndpoint = socketUrl ? `${socketUrl}/notifications` : '/notifications';
+    const socket: Socket = io(socketEndpoint, {
       auth: { token },
       transports: ['polling', 'websocket'],
       reconnection: true,

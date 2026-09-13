@@ -72,7 +72,8 @@ describe('AssetsSpatialFiltering (AssetsService)', () => {
       // Expect location.findMany to be called for descendant resolution with bounded query
       expect(mockPrisma.location.findMany).toHaveBeenCalledWith({
         select: { id: true, parentId: true },
-        take: 5000,
+        take: 100,
+        orderBy: { id: 'asc' },
       });
 
       // Expect asset.findMany to query all descendant IDs of Factory 1:

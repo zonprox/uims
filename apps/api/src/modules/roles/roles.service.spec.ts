@@ -9,6 +9,7 @@ describe('RolesService', () => {
 
   const mockPrisma = {
     role: {
+      count: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -170,10 +171,9 @@ describe('RolesService', () => {
 
   describe('getStats', () => {
     it('should aggregate role statistics and use appUser count for assigned users', async () => {
-      mockPrisma.role.findMany.mockResolvedValue([
-        { name: 'Admin', _count: { users: 2 } },
-        { name: 'Custom Auditor', _count: { users: 3 } },
-      ]);
+      mockPrisma.role.count
+        .mockResolvedValueOnce(2) // totalRoles
+        .mockResolvedValueOnce(1); // systemRolesCount
       mockPrisma.permission.count.mockResolvedValue(25);
       mockPrisma.appUser.count
         .mockResolvedValueOnce(10) // totalUsers
@@ -181,6 +181,18 @@ describe('RolesService', () => {
         .mockResolvedValueOnce(5); // assignedUsers (roleId: not null)
 
       const stats = await service.getStats();
+
+      expect(mockPrisma.role.count).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.role.count).toHaveBeenNthCalledWith(1);
+      expect(mockPrisma.role.count).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: expect.any(Object),
+          }),
+        }),
+      );
+      expect(mockPrisma.role.findMany).not.toHaveBeenCalled();
 
       expect(stats.totalRoles).toBe(2);
       expect(stats.systemRolesCount).toBe(1);

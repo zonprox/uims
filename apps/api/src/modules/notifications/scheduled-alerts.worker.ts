@@ -367,6 +367,7 @@ export class ScheduledAlertsWorker {
         quantity: number;
         minThreshold: number;
       }>;
+      let hasMore = false;
 
       if (typeof this.prisma.$queryRaw === 'function') {
         items = await this.prisma.$queryRaw<
@@ -385,17 +386,30 @@ export class ScheduledAlertsWorker {
           ORDER BY id ASC
           LIMIT ${BATCH_SIZE}
         `;
+
+        if (items.length === 0) break;
+        cursor = items[items.length - 1].id;
+        hasMore = items.length === BATCH_SIZE;
       } else {
-        const fetched = await this.prisma.inventoryItem.findMany({
+        const fetched: Array<{
+          id: string;
+          name: string;
+          sku: string;
+          quantity: number;
+          minThreshold: number;
+        }> = await this.prisma.inventoryItem.findMany({
           take: BATCH_SIZE,
           skip: cursor ? 1 : 0,
           cursor: cursor ? { id: cursor } : undefined,
           orderBy: { id: 'asc' },
         });
+
+        if (fetched.length === 0) break;
+        cursor = fetched[fetched.length - 1].id;
+        hasMore = fetched.length === BATCH_SIZE;
         items = fetched.filter((item) => item.quantity <= item.minThreshold);
       }
 
-      if (items.length === 0) break;
       totalScanned += items.length;
 
       for (const item of items) {
@@ -428,8 +442,7 @@ export class ScheduledAlertsWorker {
         }
       }
 
-      cursor = items[items.length - 1].id;
-      if (items.length < BATCH_SIZE) break;
+      if (!hasMore) break;
     }
 
     return { scanned: totalScanned, notified, throttled };

@@ -71,7 +71,8 @@ describe('InventorySpatialFiltering (InventoryService)', () => {
       // Verify that getDescendantLocationIds queried locations with bounded query
       expect(mockPrisma.location.findMany).toHaveBeenCalledWith({
         select: { id: true, parentId: true },
-        take: 5000,
+        take: 100,
+        orderBy: { id: 'asc' },
       });
 
       // Verify that inventoryItem.findMany filtered by all descendant location IDs

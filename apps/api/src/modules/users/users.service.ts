@@ -176,7 +176,7 @@ export class UsersService {
         where,
         take: pageSize,
         skip,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         include: {
           role: true,
         },
@@ -429,7 +429,7 @@ export class UsersService {
 
     const roles = await this.prisma.role.findMany({
       take: 100,
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       include: {
         permissions: {
           include: {
@@ -492,7 +492,7 @@ export class UsersService {
     }
     return this.prisma.directoryGroup.findMany({
       take: 100,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     });
   }
 

@@ -7,10 +7,8 @@ allowBuilds:
   '@scarf/scarf': false
   bcrypt: true
   esbuild: true
-  msgpackr-extract: true
   prisma: true
 minimumReleaseAgeExclude:
-  - bullmq@6.1.1
   - '@biomejs/biome@2.5.13'
   - '@biomejs/cli-darwin-arm64@2.5.13'
   - '@biomejs/cli-darwin-x64@2.5.13'
@@ -21,6 +19,7 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-win32-arm64@2.5.13'
   - '@biomejs/cli-win32-x64@2.5.13'
   - vite@8.3.0
+  - zod@4.6.4
 peerDependencyRules:
   allowedVersions:
     antd: "^6.0.0"
