@@ -1,60 +1,92 @@
-# Code Conventions & Standards
-> Last Updated: 2026-09-12
+# Code Conventions
+> Generated: 2026-09-13 | Focus: Standards, patterns, and style enforcement
 
-## TypeScript Standards
-- **Strict mode configuration**: Enabled across all workspaces (`apps/api`, `apps/web`, shared packages).
-- **Zero `any` policy enforcement**: Biome configuration enforces `"noExplicitAny": "warn"` and `"noNonNullAssertion": "warn"`. Use `unknown` and type narrowing instead.
-- **Type narrowing patterns used**: Explicit narrowing using `typeof` and `instanceof`. 
-- **Error handling patterns**: Catch blocks type errors as `unknown` and narrow them via `error instanceof Error ? error.message : String(error)`.
-- **Import organization**: Biome's `organizeImports` is disabled (`"organizeImports": "off"`). Manual logical grouping is encouraged.
-
-## Backend Conventions
-### NestJS Patterns
-- **Module structure conventions**: Feature modules contain controllers, services, and tests (`users.controller.ts`, `users.service.ts`, `users.service.spec.ts`).
-- **Controller patterns**: Use class-based decorators (`@Controller()`, `@Get()`, `@Post()`, `@Patch()`, `@Delete()`). Decorate endpoints with `@ApiOperation` and `@ApiTags`. Use DTOs for request body parsing.
-- **Service patterns**: Use Dependency Injection via the constructor (e.g., `PrismaService`, `RedisService`). `Optional()` used for optional services like `DirectoryService`.
-- **Guard and interceptor patterns**: Use `@Roles()` custom decorator for role-based access control. Guards sit at the controller or method level.
-- **Data sanitization**: Service layer maps database results to strip sensitive fields (e.g., `const { passwordHash: _hash, ...safe } = user`).
-
-### Database Patterns
-- **Prisma query patterns**: Queries use strict bounds checking for pagination (e.g., `Math.min(100, Math.max(1, Number(pageSize)))`). Case-insensitive searching uses `mode: 'insensitive'`.
-- **Transaction usage**: Prisma transactions are used for batch updates.
-- **Data isolation**: Separation of `appUser` and `directoryUser` in the schema.
-
-### API Design Conventions
-- **URL naming**: Plural noun endpoints (e.g., `/users`, `/users/stats`, `/users/:id/toggle-status`). Use kebab-case for actions.
-- **Pagination contract**: Responses include `items`, `total`, `page`, `pageSize`, and `totalPages`.
-- **Error response format**: Standard NestJS HttpException formats (`NotFoundException`, `ConflictException`).
-
-## Frontend Conventions
-### React Patterns
-- **Component file structure**: PascalCase files (`UsersPage.tsx`, `NavbarSections.tsx`). Keep components modular. Use `React.memo` and `useMemo` for performance optimization on complex layouts.
-- **State management conventions**: Zustand 5 is used for global state (e.g., `useAuthStore`, `useThemeStore`), with `persist` middleware.
-- **Form handling**: Ant Design Form is the standard for complex forms.
-
-### Ant Design v6 Usage
-- **Theme configuration**: Centralized through `ConfigProvider`. `theme.useToken()` hook is widely used to access design tokens for inline styling.
-- **Component styling**: Inline styles using semantic tokens (e.g., `token.colorBgContainer`, `token.colorTextTertiary`) instead of magic colors.
-- **Notification/Message usage**: Use `App.useApp()` from Ant Design for contextual messages and modals.
-- **Icons**: Utilize `@ant-design/icons`.
-
-### Styling
-- **CSS approach**: Primary usage of Ant Design tokens within React `style` objects. Heavy reliance on Ant Design's `Flex` and `Layout` components.
-- **Responsive design patterns**: Explicit prop flags (e.g., `isMobile`, `isXs`) passed down from layout wrappers.
+## TypeScript Configuration
+- **Strictness**: TypeScript 7.x is used across the monorepo with strict type-checking enabled.
+- **Path Aliases**:
+  - Web: `@/` resolves to `apps/web/src`.
+  - Packages: `@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils` resolve to their respective workspace package `src` directories.
+- **Engine Requirements**: Node.js >=22.0.0, PNPM >=11.0.0.
 
 ## Naming Conventions
-- **Files and directories**: kebab-case for directories and standard TypeScript files (`users.service.ts`). PascalCase for React components (`NavbarSections.tsx`).
-- **Components, hooks, services**: `use[Feature]` for hooks, `[Feature]Service` for backend services.
-- **API endpoints and DTOs**: DTOs use `Create[Entity]Dto`, `Update[Entity]Dto`.
-- **Database models and enums**: Prisma uses PascalCase for models (`AppUser`) and UPPER_SNAKE_CASE or PascalCase for enum values.
+- **Files**: Kebab-case for standard files (e.g., `users.service.ts`, `app.config.ts`).
+- **Classes**: PascalCase (e.g., `UsersService`, `AuditInterceptor`).
+- **Functions/Variables**: camelCase (e.g., `generateSecureRandomPassword`).
+- **Constants**: UPPER_SNAKE_CASE.
 
-## Code Organization Rules
-- **Import ordering**: Biome automation is off; keep external dependencies grouped above internal paths. Use absolute aliases (e.g., `@uims/shared-types`).
-- **File length guidelines**: Keep files under 500 lines. Refactor large files.
-- **Function size guidelines**: Biome warns on `noExcessiveCognitiveComplexity`. Keep functions focused.
+## Code Formatting (Biome)
+The monorepo standardizes on **Biome (v2.5.13)** for fast, consistent formatting.
+- **Indentation**: 2 spaces (`indentStyle: "space"`, `indentWidth: 2`).
+- **Line Width**: 100 characters.
+- **Quotes**: Single quotes for JavaScript/TypeScript (`quoteStyle: "single"`).
+- **Trailing Commas**: All (`trailingCommas: "all"`) for JS/TS, but `none` for JSON.
+- **Semicolons**: Always required (`semicolons: "always"`).
 
-## Linting & Formatting
-- **Biome configuration details**: Biome acts as the primary linter and formatter.
-  - `indentStyle`: "space", `indentWidth`: 2, `lineWidth`: 100, `lineEnding`: "lf".
-  - `quoteStyle`: "single", `trailingCommas`: "all", `semicolons`: "always".
-- **ESLint**: Not used. Biome replaces ESLint and Prettier.
+## Linting Rules
+Linting is a hybrid of Biome and ESLint (`@uims/eslint-config` workspace package).
+- **Biome Linter**:
+  - Warns on `noExcessiveCognitiveComplexity` to enforce simpler logic.
+  - Warns on `noNonNullAssertion` and `noExplicitAny` for safer TypeScript usage.
+  - Enforces generic array types (`useConsistentArrayType` -> `generic`).
+- **ESLint**: Utilizes `typescript-eslint` (^8.70.0) alongside Prettier compatibility layers (`eslint-config-prettier` v10.1.8).
+
+## Backend Conventions (NestJS 11)
+### Module Pattern
+- Strongly structured around NestJS modules (`*.module.ts`, `*.controller.ts`, `*.service.ts`).
+- Feature-based directories inside `apps/api/src/modules/` (e.g., `users`, `directory`, `audit`, `auth`).
+
+### DTO & Validation
+- Relies heavily on **`class-validator` (^0.15.1)** and **`class-transformer` (^0.5.1)** for payload validation (e.g., `login.dto.ts`, `create-asset.dto.ts`).
+- **Zod** (v4.6.1) is also available for complex or functional schema validations where classes are not ideal.
+
+### Error Handling
+- Centralized exception filters: `http-exception.filter.ts` and `prisma-exception.filter.ts`.
+- These intercept standard HTTP errors and Prisma database errors to return consistent API responses.
+
+### Logging
+- Uses **Pino** (`pino` v10.3.1, `pino-http` v11.0.0) for high-performance structured JSON logging.
+- Audit trails are automatically intercepted via `AuditInterceptor` (`audit.interceptor.ts`).
+
+### API Response Pattern
+- Controllers respond directly with DTOs or entities, which are then shaped by interceptors (`transform.interceptor.ts`) into a consistent response envelope for the frontend.
+
+## Frontend Conventions (React 19)
+### Component Patterns
+- Functional components authored in `.tsx` files.
+- Uses Vite 8 for fast builds and HMR.
+
+### State Management
+- Local/Global State: **Zustand** (v5.0.15) is used for lightweight, boilerplate-free state management.
+- Server State: **TanStack Query** (v5.102) for data fetching, caching, and synchronization.
+
+### Data Fetching
+- Configured with Axios (^1.20.0). Wrapped by TanStack Query for caching and lifecycle management.
+
+### Styling
+- **Ant Design** (v6.6.3) and `@ant-design/pro-components` (v2.8.10) form the foundational UI library.
+
+## Database Conventions (Prisma 7.10)
+### Schema Patterns
+- Managed by `@prisma/adapter-pg` connecting to PostgreSQL 17.
+- Models represent domain entities.
+
+### Query Patterns
+- Direct injection of `PrismaService` into standard services.
+- Examples show strong typing and relationship includes utilized efficiently.
+
+## Git & CI Conventions
+- **CI Pipeline**: GitHub Actions (`.github/workflows/ci.yml`).
+- Triggers on push to `main` or PRs targeting `main`.
+- **Workflow Steps**:
+  1. Setup Node 22 & PNPM 11.21.
+  2. Install dependencies & generate Prisma Client.
+  3. Format Check (`biome format .`).
+  4. Lint (`eslint` & Biome).
+  5. Typecheck (`tsc --noEmit`).
+  6. Test (`vitest`).
+  7. Build (`turbo run build`).
+
+## Convention Compliance Assessment
+- **Modernity**: Extremely modern (Node 22, React 19, Nest 11, Prisma 7, Vitest 5).
+- **Tooling**: Shifting to Biome shows a proactive optimization for 2026 performance standards.
+- **Consistency**: High alignment. Turborepo handles monorepo orchestration beautifully.
