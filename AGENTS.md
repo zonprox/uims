@@ -84,7 +84,7 @@
 - **Data Protection & Schema Sanitation**:
   - Sensitive plaintext credentials (e.g. `adInitialPassword`) must NEVER be stored in relational models. Passwords must be hashed using salted bcrypt (12 rounds).
   - Predictable default passwords (such as `Ad#${username}2026!`) are banned. All new accounts must be provisioned with cryptographically secure random passwords and required to change passwords upon first authentication.
-  - Plaintext license keys in `schema.prisma` must be masked or encrypted at rest; initial temporary passwords must be purged from all API responses.
+  - Plaintext license keys in `schema.prisma` must be masked or encrypted at rest (see **Section 16.15**); initial temporary passwords must be purged from all API responses.
 
 ---
 
@@ -382,6 +382,30 @@ Every change must satisfy the full verification cycle prior to merging or pushin
 ### 16.14 Docker Compose Parameterization & Zero Hardcoded Secret Fallbacks
 - **Strict Parameterization in Container Manifests**: Connection strings, secrets, and API master keys in `docker-compose.yml` and `docker-compose.dev.yml` (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `MEILISEARCH_API_KEY`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`) MUST NEVER define hardcoded default string fallbacks (e.g., `${JWT_SECRET:-uims-jwt-secret-change-in-production}` is strictly banned).
 - **Fail-Fast Container Initialization**: If required secret environment variables are absent from the local `.env` file, Docker containers MUST fail to start immediately rather than falling back to publicly known credentials. All sensitive secrets must be explicitly populated from `.env` or `.env.example`.
+
+### 16.15 Application-Level License Key Authenticated Encryption
+- **Mandatory Encryption at Rest for License Keys**: Storing plaintext license keys in PostgreSQL or relational stores is strictly prohibited. All `licenseKey` values in `License` records must be encrypted at rest at the application layer prior to database persistence and decrypted only upon authorized service retrieval.
+- **Cryptographic Envelope Specification (AES-256-GCM)**: All encrypted values must use authenticated symmetric encryption via AES-256-GCM (Galois/Counter Mode). The serialized storage envelope format must adhere strictly to: `enc:v1:<iv-hex>:<authTag-hex>:<ciphertext-hex>`.
+- **Random Initialization Vector & Authentication Tag**: Every encryption operation must generate a cryptographically secure 96-bit (12-byte) random initialization vector (IV) (`crypto.randomBytes(12)`) and produce a 128-bit (16-byte) authentication tag to guarantee ciphertext authenticity and prevent tampering or replay attacks.
+- **Symmetric Key Derivation & Secret Hierarchy**: Symmetric 256-bit encryption keys must be derived deterministically via SHA-256 (`crypto.createHash('sha256').update(secret).digest()`) from environment secrets following the strict fallback hierarchy: `LICENSE_ENCRYPTION_KEY || AUDIT_SIGNING_KEY || JWT_SECRET`. Hardcoding keys or key derivation seeds in source code is strictly prohibited.
+- **Prohibited Sub-String SQL Searches on Ciphertext**: Because authenticated AES-GCM ciphertexts are non-deterministic (randomized per IV), executing sub-string SQL searches (`ILIKE %...%` or `contains`) against encrypted fields in PostgreSQL is strictly prohibited. Full-text search and query filters must target plaintext searchable metadata fields: `name`, `vendor`, and `notes`.
+- **Transparent Service Decryption & Public API Masking**: The service layer must transparently decrypt valid ciphertext envelopes for authorized business logic while gracefully handling legacy or empty records. On public API responses, exports, and UI views, sensitive license keys must be masked (e.g. `••••-••••-XXXX` exposing only the trailing 4 characters) unless an authorized explicit reveal operation is performed.
+
+### 16.16 Relational Schema Integrity & Non-Orphaned Model Invariants
+- **Zero Orphaned Domain Models**: Orphaned models with zero relational connections in `schema.prisma` are strictly prohibited. Every model in the schema must participate meaningfully in the domain graph via explicit `@relation` attributes or join tables.
+- **Catalog Integration for Vendors**: The `Vendor` entity must be connected to operational models via foreign keys:
+  - `License` must define `vendorId String?` referencing `Vendor.id` with `onDelete: SetNull` and explicit foreign key index `@@index([vendorId])` per Section 6.
+  - `Asset` must define `vendorId String?` referencing `Vendor.id` with `onDelete: SetNull` and explicit foreign key index `@@index([vendorId])` per Section 6.
+  - `Vendor` must define reverse relation collections: `licenses License[]` and `assets Asset[]`.
+- **Backward-Compatible Hybrid Schema Invariant**: Denormalized scalar fields (`vendor` on `License`, `manufacturer` on `Asset`) must be retained to maintain 100% backward compatibility with external APIs, existing DTOs, seeder scripts, and legacy UI views while relational foreign keys are populated.
+- **Canonical Enterprise Vendor Seeding**: Canonical enterprise vendor seeders (covering major IT hardware and software vendors such as Microsoft, Dell, Apple, JetBrains, Adobe, Cisco, etc.) must be maintained and executed as an integral step in database seeding pipelines (`prisma/seed.ts`), ensuring relational integrity upon initial deployment.
+
+### 16.17 Conditional Production Environment Validation Directives
+- **Zero Unchecked Optionality in Production**: Unchecked optionality of critical infrastructure secrets (such as `REDIS_URL`) in production environments is strictly prohibited. Services must not silently degrade to non-persistent in-memory fallbacks when deployed in production.
+- **Conditional Zod Schema Validation**: Application environment configuration schemas (such as `envSchema` in `apps/api/src/config/app.config.ts`) must validate `REDIS_URL` conditionally using `.superRefine()`:
+  - When `NODE_ENV === 'production'`, `REDIS_URL` must be a valid, non-empty connection string. If missing, undefined, or empty, validation must fail immediately.
+  - In non-production environments (`NODE_ENV !== 'production'` or test/development), `REDIS_URL` may remain optional to permit isolated unit tests, CI test runs, and local offline development with graceful fallback.
+- **Mandatory Fail-Fast Application Bootstrap**: Application bootstrap must fail fast immediately with an explicit, readable configuration error (`process.exit(1)`) if required production environment variables are absent, preventing improperly configured containers from entering service meshes or serving live traffic.
 
 ---
 

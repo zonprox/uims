@@ -1,73 +1,53 @@
-# Project: Multi-Tier Spatial Location Hierarchy for Hardware Assets and Inventory Items
+# Project: UIMS Monorepo Hardening, Security Modernization & Zero-Downgrade Invariants
 
 ## Architecture
-- **Monorepo Structure**: NestJS 11 API (`apps/api`), React 19 + Ant Design v6 SPA (`apps/web`), shared packages (`@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`).
-- **Database Engine**: PostgreSQL 17 via Prisma 7 ORM.
-- **Spatial Hierarchy Engine**: Self-referential parent-child tree on `Location` model with `parentId`, `parent`, `children`, `LocationType` enum, and denormalized `fullPath` for zero-N+1 query performance.
-- **Descendant Resolution Algorithm**: Recursive CTE in PostgreSQL with cycle detection (`WHERE NOT (l.id = ANY(lt.path))`) resolving `locationId=X` to `[X, child1, child2, ...]` to power high-speed spatial index scans (`where.locationId = { in: descendantIds }`).
-- **UI Architecture**: Ant Design v6 `<TreeSelect>` and `<Breadcrumb>` integration consuming `/api/v1/locations/tree`, rendering full hierarchical paths while submitting clean UUID scalars.
-- **Orthogonal Department Dimension**: `Asset.departmentId` (organizational owner) is strictly decoupled and independent from `Asset.locationId` (physical spatial location).
+- **Monorepo Architecture**: Modular monolith API (`apps/api`: NestJS 11 + Prisma 7 + PostgreSQL 17 + Redis 8) and SPA frontend (`apps/web`: React 19 + Ant Design v6 + Vite 8), shared packages (`@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`, `@uims/eslint-config`).
+- **Application-Level Cryptography**: Native Node.js `crypto` AES-256-GCM authenticated encryption for sensitive `License.licenseKey` values, storing serialized envelopes (`enc:v1:<iv>:<authTag>:<ciphertext>`) at rest. Transparent decryption on retrieval and masked presentation in UI.
+- **Relational Schema Integrity**: First-class `Vendor` entity in `schema.prisma` connected to `License` (`vendorId`) and `Asset` (`vendorId`) with `@@index([vendorId])` foreign key indexes and `onDelete: SetNull`. Scalar fields (`vendor`, `manufacturer`) preserved for 100% backward compatibility.
+- **Fail-Fast Environment Validation**: Zod `.superRefine()` validation in `apps/api/src/config/app.config.ts` strictly requiring `REDIS_URL` in production (`NODE_ENV === 'production'`) while allowing resilient in-memory fallback in dev/test.
+- **Module Resolution Modernization**: Backend `apps/api/tsconfig.json` modernized to `"module": "NodeNext"` and `"moduleResolution": "NodeNext"` for package exports compatibility without breaking NestJS DI or runtime CommonJS dependencies.
+- **Strict Zero-Downgrade Invariant**: Strict preservation of foundational stack (TypeScript 7.x, NestJS 11.x, React 19.x, Vite 8.x, Prisma 7.x, Ant Design v6+).
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| F1 | Self-referential Location Schema | Add `parentId`, `parent`, `children`, `fullPath`, `status`, and index `@@index([parentId])` to `Location` model in `schema.prisma` | M1 | Survey / R1 |
-| F2 | LocationType Enum Classification | Define 4-tier flexible classification types (`CAMPUS`, `SITE`, `BRANCH`, `BUILDING`, `WORKSHOP`, `WAREHOUSE`, `FLOOR`, `ZONE`, `LINE`, `AREA`, `ROOM`, `RACK`, `SHELF`, `STATION`, `BIN`) | M1 | Survey / R1 |
-| F3 | Shared Types & Tree Contracts | Update `@uims/shared-types` with `LocationType`, `LocationTreeNode`, `LocationPathNode`, updated `Location` and DTOs | M1 | Survey / R1 |
-| F4 | Backend Location Tree & Endpoints | Implement `getLocationTree()`, dedicated `LocationController` (`/api/v1/locations/tree`, `/api/v1/locations/:id/descendants`, etc.), and preserve `/organizations/locations/tree` | M1 | Survey / R1 |
-| F5 | Descendant-Aware Spatial Filter Engine | Recursive CTE descendant resolver integrated into `AssetsService.findAll` and `InventoryService.findAll` | M1 | Survey / R1 |
-| F6 | Frontend Web Location Service | Add `getLocationTree()` with memoized caching to `apps/web/src/services/organization.service.ts` | M2 | Survey / R2 |
-| F7 | Asset Hierarchical TreeSelect | Replace flat location select in `AssetFormModal.tsx` with Ant Design `<TreeSelect>` showing breadcrumb paths | M2 | Survey / R2 |
-| F8 | Orthogonal Department Selector | Preserve/add independent Department `<Select>` in `AssetFormModal.tsx` orthogonal to spatial location | M2 | Survey / R2 |
-| F9 | Asset Table & Detail Breadcrumbs | Display full location path tags/breadcrumbs with tooltips in `AssetTable.tsx` and `AssetDetailDrawer.tsx` | M2 | Survey / R2 |
-| F10 | Asset Hierarchical Location Filter | Add `<TreeSelect>` location filter to `AssetFilterBar.tsx` and connect through `useAssetManagement.ts` | M2 | Survey / R2 |
-| F11 | Inventory Service Location Param | Add `locationId?: string;` parameter to `inventoryService.getItems` in `apps/web` | M3 | Survey / R3 |
-| F12 | Inventory Hierarchical TreeSelect | Replace flat location select and disconnected bin text in `InventoryPage.tsx` modal with `<TreeSelect>` for warehouse/MDC storage | M3 | Survey / R3 |
-| F13 | Inventory Table & Detail Breadcrumbs | Display multi-tier location breadcrumbs and storage tags in `InventoryPage.tsx` | M3 | Survey / R3 |
-| F14 | Inventory Hierarchical Stock Filter | Add hierarchical location `<TreeSelect>` filter to `InventoryPage.tsx` toolbar for parent-location stock filtering | M3 | Survey / R3 |
-| F15 | BSL Facility Graph & Seed Pipeline | Standardize `seed.ts` and `seeders/` with complete BSL garment facility hierarchy (Business Center, Warehouse, Factories 1-7, MDC, Sewing Lines, Racks, Bins) and BSH HQ | M4 | Survey / R4 |
-| F16 | Asset & Inventory Seed Allocations | Bind realistic garment factory assets and inventory items to specific leaf location nodes in seeders | M4 | Survey / R4 |
-| F17 | Seed Pipeline Clean Deletion Order | Nullify `Location.parentId` prior to deletion in `clearDatabase` in `seed.ts` to prevent FK constraint violations | M4 | Survey / R4 |
-| F18 | Monorepo Quality Gate Compliance | 100% pass on `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm run test`, `pnpm run build` | M4 | Survey / R4 |
-| F19 | E2E Test Suite Pass (Tiers 1-4) | Pass 100% of requirement-driven E2E test suite published in `TEST_READY.md` | Final | Project Pattern |
-| F20 | Adversarial Coverage Hardening (Tier 5) | White-box adversarial testing, edge cases, cycle prevention, stress testing | Final | Project Pattern |
+| F1 | Application-Level License Encryption | AES-256-GCM encryption utility for `licenseKey`, transparent decryption in `LicensesService`, remove plaintext SQL search, encrypt in seeders | M1 | Survey 1 / R1 |
+| F2 | Relational Schema Integrity for Vendor | Connect `Vendor` model to `License` and `Asset` with `vendorId`, `@@index([vendorId])`, seed canonical vendors, generate Prisma migration | M1 | Survey 1 / R1 |
+| F3 | Production REDIS_URL Invariant | Enforce required `REDIS_URL` in production via Zod `.superRefine()` in `app.config.ts` | M1 | Survey 1 / R1 |
+| F4 | Backend Module Resolution Modernization | Update `apps/api/tsconfig.json` to `"module": "NodeNext"` & `"moduleResolution": "NodeNext"` | M2 | Survey 2 / R1 |
+| F5 | Frontend Feedback Safety Verification | Verify `App.useApp()` dynamic feedback usage across 100% of React components with zero static anti-patterns | M2 | Survey 2 / R1 |
+| F6 | Monorepo Dependency Invariant Verification | Verify all workspace packages adhere to zero-downgrade invariant, lockfile deduplication & synchronization | M3 | Survey 3 / R2 |
+| F7 | Authoritative Directives Codification in AGENTS.md | Codify Sections 16.15 (License Encryption), 16.16 (Vendor Relational Integrity), 16.17 (Production Redis Validation) in `AGENTS.md` | M3 | Survey 3 / R3 |
+| F8 | Local Verification, Git Delivery & CI Green | Run full monorepo verification loop (format, lint, typecheck, tests, build), commit, push to `origin/main`, and monitor CI until green | M4 | Survey 3 / R4 |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Hierarchical Location Data Architecture & Backend Engine | Schema enum & self-reference, shared types, tree builder, descendant resolution, API endpoints, spatial filtering in Assets & Inventory | none | DONE |
-| M2 | Hardware Asset Spatial Integration & Orthogonal Department | Frontend organization service tree method, AssetFormModal TreeSelect, orthogonal Department selector, AssetTable breadcrumbs, AssetFilterBar hierarchical filter | M1 | DONE |
-| M3 | Inventory Management Spatial Integration & Warehouse Storage | Inventory service parameter, InventoryPage TreeSelect for warehouse/MDC storage, breadcrumb display, parent-location stock filtering | M1, M2 | DONE |
-| M4 | Enterprise Seeding & Monorepo Verification | BSL Garment Manufacturing facility seeders, asset/inventory allocations, seed script execution, full monorepo test & build verification | M1, M2, M3 | DONE |
-| Final | E2E Test Pass & Adversarial Hardening | Pass 100% E2E tests (Tiers 1-4), white-box adversarial stress testing (Tier 5) | M4, TEST_READY | DONE |
+| M1 | Security & Database Integrity | License Key AES-256-GCM encryption, Vendor relational schema & migration, canonical vendor seeder, production Redis validation | none | DONE |
+| M2 | Module Resolution & Frontend Safety | Update `apps/api/tsconfig.json` to NodeNext, verify frontend feedback safety invariants | M1 | DONE |
+| M3 | Dependency Hygiene & AGENTS.md Directives | Lockfile deduplication & sync verification, codify Sections 16.15-16.17 in AGENTS.md | M2 | DONE |
+| M4 | Verification, Git Delivery & CI Green | Full monorepo verification (`typecheck`, `lint`, `format:check`, `test`, `build`), git commit & push, monitor CI until green | M3 | DONE |
 
 ## Interface Contracts
-### Location Entity ↔ Downstream Models
-- `Location.id`: UUID primary key.
-- `Location.parentId`: Optional UUID referencing `Location.id` with `onDelete: SetNull`.
-- `Location.fullPath`: Denormalized breadcrumb string (e.g. `"BSL - Soc Trang Campus > Factory 1 > Sewing Line 01"`).
-- `Location.type`: `LocationType` enum.
-- `Asset.locationId`: Foreign key to `Location.id` (`onDelete: SetNull`).
-- `Asset.departmentId`: Foreign key to `Department.id` (`onDelete: SetNull`) — independent, orthogonal dimension.
-- `InventoryItem.locationId`: Foreign key to `Location.id` (`onDelete: SetNull`).
+### License Encryption Envelope
+- Cipher: AES-256-GCM with 12-byte random IV and 16-byte authentication tag.
+- Storage format: `enc:v1:<iv-hex>:<authTag-hex>:<ciphertext-hex>`.
+- Derivation: Key derived via `crypto.createHash('sha256').update(secret).digest()` from `LICENSE_ENCRYPTION_KEY || AUDIT_SIGNING_KEY || JWT_SECRET`.
+- Non-encrypted fallback: Graceful handling of legacy plaintext or empty strings without throwing.
 
-### Location API Endpoints
-- `GET /api/v1/locations/tree?organizationId=UUID`: Returns `LocationTreeNode[]` with recursive `children`, Ant Design tree keys (`key`, `value`, `title`, `label`), and `fullPath`.
-- `GET /api/v1/locations/:id/descendants`: Returns `string[]` containing target ID and all descendant location IDs.
-- `GET /api/v1/locations`: Returns bounded list of locations with optional filters (`organizationId`, `type`, `parentId`, `search`).
-- `GET /api/v1/organizations/locations/tree`: Backward-compatible alias returning `LocationTreeNode[]`.
+### Vendor Relational Contract
+- `model License`: `vendorId String?` referencing `Vendor.id` with `onDelete: SetNull`, `@@index([vendorId])`. Scalar `vendor String?` preserved.
+- `model Asset`: `vendorId String?` referencing `Vendor.id` with `onDelete: SetNull`, `@@index([vendorId])`. Scalar `manufacturer String?` preserved.
+- `model Vendor`: `licenses License[]`, `assets Asset[]`.
 
-### Spatial Filtering Contract
-- `GET /api/v1/assets?locationId=UUID`: Service resolves `locationId` and all descendants via recursive CTE, querying `where: { locationId: { in: descendantIds } }`.
-- `GET /api/v1/inventory?locationId=UUID`: Service resolves `locationId` and all descendants via recursive CTE, querying `where: { locationId: { in: descendantIds } }`.
+### Production Environment Validation Contract
+- If `process.env.NODE_ENV === 'production'`, `REDIS_URL` must be a valid, non-empty connection string; otherwise startup throws an explicit configuration error.
+- In `development` or `test`, `REDIS_URL` remains optional.
 
 ## Code Layout
-- Backend Schema: `apps/api/prisma/schema.prisma`
-- Backend Modules: `apps/api/src/modules/organization/` (`organization.service.ts`, `organization.controller.ts`, `location.controller.ts`, `location.module.ts`)
-- Backend Services: `apps/api/src/modules/assets/assets.service.ts`, `apps/api/src/modules/inventory/inventory.service.ts`
-- Database Seeders: `apps/api/prisma/seed.ts`, `apps/api/prisma/seeders/` (`organization.seeder.ts`, `taxonomy.seeder.ts`, `assets.seeder.ts`, `inventory.seeder.ts`)
-- Shared Packages: `packages/shared-types/src/entities/common.ts`, `packages/shared-types/src/dto/organization.dto.ts`, `packages/shared-types/src/enums/index.ts`
-- Frontend Services: `apps/web/src/services/organization.service.ts`, `apps/web/src/services/inventory.service.ts`
-- Frontend Asset Components: `apps/web/src/pages/assets/components/` (`AssetFormModal.tsx`, `AssetTable.tsx`, `AssetFilterBar.tsx`, `AssetDetailDrawer.tsx`), `apps/web/src/pages/assets/hooks/useAssetManagement.ts`
-- Frontend Inventory Components: `apps/web/src/pages/inventory/InventoryPage.tsx`
-- Tests: `apps/api/src/modules/organization/location-tree.spec.ts`, `apps/api/src/modules/assets/assets-spatial.spec.ts`, `apps/api/src/modules/inventory/inventory-spatial.spec.ts`, `apps/web/src/pages/assets/components/AssetFormModalSpatial.test.tsx`, `apps/web/src/pages/inventory/InventorySpatialFilter.test.tsx`
+- Cryptographic Utilities: `apps/api/src/common/crypto/license-crypto.ts`
+- Backend Configuration: `apps/api/src/config/app.config.ts`, `apps/api/tsconfig.json`
+- Database Schema & Migrations: `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/`
+- Database Seeders: `apps/api/prisma/seed.ts`, `apps/api/prisma/seeders/` (`vendors.seeder.ts`, `licenses.seeder.ts`, `assets.seeder.ts`)
+- Backend Services: `apps/api/src/modules/licenses/licenses.service.ts`, `apps/api/src/modules/inventory/inventory.service.ts`
+- Authoritative Directives: `AGENTS.md`

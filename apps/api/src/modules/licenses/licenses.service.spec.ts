@@ -1,5 +1,6 @@
 import { LicenseStatus, LicenseType } from '@uims/shared-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { encryptLicenseKey } from '../../common/crypto/license-crypto';
 import { LicensesService } from './licenses.service';
 
 describe('LicensesService', () => {
@@ -25,6 +26,8 @@ describe('LicensesService', () => {
   };
 
   beforeEach(() => {
+    process.env.LICENSE_ENCRYPTION_KEY =
+      process.env.LICENSE_ENCRYPTION_KEY || 'test-license-key-32-chars-minimum-secure!';
     mockPrisma = {
       $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(mockPrisma)),
       license: {
@@ -77,6 +80,241 @@ describe('LicensesService', () => {
       expect(result.id).toBe('lic-1');
       expect(result.type).toBe('Subscription');
       expect(result.status).toBe('Active');
+    });
+
+    it('should encrypt licenseKey on create when provided', async () => {
+      mockPrisma.license.create.mockImplementation(async ({ data }) => ({
+        id: 'lic-enc-1',
+        ...data,
+        assignments: [],
+      }));
+
+      const plaintextKey = 'KEY-TO-ENCRYPT-1234';
+      const result = await service.create({
+        name: 'Visual Studio Enterprise',
+        vendor: 'Microsoft',
+        licenseKey: plaintextKey,
+      });
+
+      expect(mockPrisma.license.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            licenseKey: expect.stringMatching(/^enc:v1:/),
+          }),
+        }),
+      );
+      expect(result.licenseKey).toBe(plaintextKey);
+      expect(result.maskedKey).toBe('••••-••••-1234');
+    });
+
+    it('should default licenseKey to N/A when omitted on create', async () => {
+      mockPrisma.license.create.mockImplementation(async ({ data }) => ({
+        id: 'lic-no-key',
+        ...data,
+        assignments: [],
+      }));
+
+      const result = await service.create({
+        name: 'Open Source License',
+        vendor: 'Apache Foundation',
+      });
+
+      expect(mockPrisma.license.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            licenseKey: 'N/A',
+          }),
+        }),
+      );
+      expect(result.licenseKey).toBe('N/A');
+      expect(result.maskedKey).toBe('N/A');
+    });
+  });
+
+  describe('findAll', () => {
+    it('should query with search terms matching name, vendor, and notes but NOT licenseKey', async () => {
+      mockPrisma.license.findMany.mockResolvedValue([]);
+
+      await service.findAll({ search: 'security' });
+
+      expect(mockPrisma.license.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { name: { contains: 'security', mode: 'insensitive' } },
+              { vendor: { contains: 'security', mode: 'insensitive' } },
+              { notes: { contains: 'security', mode: 'insensitive' } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should filter by vendor, type, and status if provided', async () => {
+      mockPrisma.license.findMany.mockResolvedValue([]);
+
+      await service.findAll({
+        vendor: 'Microsoft',
+        type: 'Subscription',
+        status: 'Active',
+      });
+
+      expect(mockPrisma.license.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            vendor: { contains: 'Microsoft', mode: 'insensitive' },
+            type: LicenseType.SUBSCRIPTION,
+            status: LicenseStatus.ACTIVE,
+          }),
+        }),
+      );
+    });
+
+    it('should decrypt encrypted license keys and format maskedKey in returned list', async () => {
+      const plaintextKey = 'SECRET-PRODUCT-KEY-9988';
+      const encryptedKey = encryptLicenseKey(plaintextKey);
+
+      mockPrisma.license.findMany.mockResolvedValue([
+        {
+          id: 'lic-1',
+          name: 'CAD Tool',
+          vendor: 'Lectra',
+          type: LicenseType.SUBSCRIPTION,
+          totalSeats: 10,
+          usedSeats: 2,
+          costPerSeat: 100,
+          status: LicenseStatus.ACTIVE,
+          licenseKey: encryptedKey,
+          assignments: [],
+        },
+        {
+          id: 'lic-legacy',
+          name: 'Legacy Plaintext License',
+          vendor: 'Adobe',
+          type: LicenseType.PERPETUAL,
+          totalSeats: 5,
+          usedSeats: 1,
+          costPerSeat: 50,
+          status: LicenseStatus.ACTIVE,
+          licenseKey: 'LEGACY-PLAIN-KEY-1122',
+          assignments: [],
+        },
+      ]);
+
+      const results = await service.findAll();
+
+      expect(results[0].licenseKey).toBe(plaintextKey);
+      expect(results[0].maskedKey).toBe('••••-••••-9988');
+      expect(results[1].licenseKey).toBe('LEGACY-PLAIN-KEY-1122');
+      expect(results[1].maskedKey).toBe('••••-••••-1122');
+    });
+  });
+
+  describe('findOne', () => {
+    it('should find unique license, decrypt key, and return formatted payload', async () => {
+      const plaintext = 'MY-SECRET-KEY-5544';
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-find-1',
+        name: 'Database Tool',
+        vendor: 'JetBrains',
+        type: LicenseType.SUBSCRIPTION,
+        totalSeats: 5,
+        usedSeats: 1,
+        costPerSeat: 200,
+        status: LicenseStatus.ACTIVE,
+        licenseKey: encryptLicenseKey(plaintext),
+        assignments: [],
+      });
+
+      const result = await service.findOne('lic-find-1');
+
+      expect(result.id).toBe('lic-find-1');
+      expect(result.licenseKey).toBe(plaintext);
+      expect(result.maskedKey).toBe('••••-••••-5544');
+    });
+
+    it('should throw NotFoundException if license does not exist', async () => {
+      mockPrisma.license.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOne('non-existent')).rejects.toThrow();
+    });
+  });
+
+  describe('update', () => {
+    it('should encrypt licenseKey on update when provided', async () => {
+      const newKey = 'UPDATED-KEY-9999';
+      mockPrisma.license.update.mockImplementation(async ({ data }) => ({
+        id: 'lic-update-1',
+        name: 'Updated Name',
+        type: LicenseType.SUBSCRIPTION,
+        totalSeats: 20,
+        usedSeats: 5,
+        costPerSeat: 50,
+        status: LicenseStatus.ACTIVE,
+        ...data,
+        assignments: [],
+      }));
+
+      const result = await service.update('lic-update-1', {
+        licenseKey: newKey,
+      });
+
+      expect(mockPrisma.license.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'lic-update-1' },
+          data: expect.objectContaining({
+            licenseKey: expect.stringMatching(/^enc:v1:/),
+          }),
+        }),
+      );
+      expect(result.licenseKey).toBe(newKey);
+      expect(result.maskedKey).toBe('••••-••••-9999');
+    });
+
+    it('should notify admins when status changes to EXPIRING_SOON or EXPIRED', async () => {
+      const mockNotificationsService = {
+        notifyUser: vi.fn(),
+        notifyAdmins: vi.fn().mockResolvedValue([]),
+      };
+      const serviceWithNotif = new LicensesService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        mockNotificationsService as unknown as import('../notifications/notifications.service').NotificationsService,
+      );
+
+      mockPrisma.license.update.mockResolvedValue({
+        id: 'lic-exp',
+        name: 'Expiring License',
+        type: LicenseType.SUBSCRIPTION,
+        totalSeats: 10,
+        usedSeats: 5,
+        status: LicenseStatus.EXPIRING_SOON,
+        licenseKey: 'N/A',
+        assignments: [],
+      });
+
+      await serviceWithNotif.update('lic-exp', {
+        status: 'EXPIRING_SOON',
+      });
+
+      expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'License Expiry Notice',
+          type: 'WARNING',
+        }),
+      );
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete license from database', async () => {
+      mockPrisma.license.delete.mockResolvedValue({ id: 'lic-del-1' });
+
+      const result = await service.remove('lic-del-1');
+
+      expect(mockPrisma.license.delete).toHaveBeenCalledWith({
+        where: { id: 'lic-del-1' },
+      });
+      expect(result).toEqual({ id: 'lic-del-1' });
     });
   });
 

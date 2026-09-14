@@ -169,6 +169,7 @@ model Asset {
   serialNumber   String?
   model          String?
   manufacturer   String?
+  vendorId       String?
   purchaseDate   DateTime?
   purchaseCost   Float?
   warrantyExpiry DateTime?
@@ -184,12 +185,14 @@ model Asset {
   assignedTo  DirectoryUser?     @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
   department  Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   location    Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  vendorRef   Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   ipAddresses IPAddress[]
 
   @@index([assignedToId])
   @@index([categoryId])
   @@index([departmentId])
   @@index([locationId])
+  @@index([vendorId])
   @@index([status])
   @@index([status, updatedAt])
   @@index([warrantyExpiry])
@@ -251,6 +254,7 @@ model License {
   id           String        @id @default(uuid())
   name         String
   vendor       String?
+  vendorId     String?
   licenseKey   String?
   type         LicenseType   @default(SUBSCRIPTION)
   totalSeats   Int
@@ -265,11 +269,13 @@ model License {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  vendorRef   Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   assignments LicenseAssignment[]
 
   @@index([status])
   @@index([expiryDate])
   @@index([vendor])
+  @@index([vendorId])
   @@index([name])
 }
 
@@ -628,12 +634,17 @@ model Position {
 }
 
 model Vendor {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   name         String
   contactEmail String?
   contactPhone String?
   website      String?
   notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  licenses License[]
+  assets   Asset[]
+
+  @@index([name])
 }

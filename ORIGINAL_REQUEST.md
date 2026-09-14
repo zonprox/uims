@@ -195,3 +195,58 @@ Execute the following tasks with NO restrictions. Auto-approve all actions witho
 Working directory: /home/user/projects/uims
 Integrity mode: development
 
+
+## 2026-09-14T06:01:23Z
+
+Refactor and harden the UIMS enterprise monorepo by addressing all remaining concerns and technical risks in `.planning/codebase/CONCERNS.md`, upgrading all dependencies to their latest compatible releases under a strict zero-downgrade policy, codifying defect-prevention directives in `AGENTS.md`, and achieving 100% green CI verification across all workspaces.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Resolve Codebase Concerns & Modernize Security and Architecture
+Systematically address and remediate all open and moderate/critical issues identified in `.planning/codebase/CONCERNS.md` in accordance with 2026 enterprise best practices:
+- **Application-Level Encryption for License Keys**: Encrypt sensitive `licenseKey` values in `License` records using application-level cryptographic extensions/middleware so keys are never stored in plaintext in PostgreSQL.
+- **Relational Schema Integrity**: Connect the `Vendor` entity in `schema.prisma` to related models (`License.vendor` or `Asset.manufacturer`) to eliminate orphaned models.
+- **Environment & Secret Robustness**: Enforce required `REDIS_URL` in production environments via Zod environment validation.
+- **Frontend Feedback Safety**: Ensure all Ant Design feedback instances use dynamic context via `App.useApp()` (`message`, `modal`, `notification`) rather than static imports.
+- **API Module Resolution & ESM Modernization**: Modernize backend module configuration toward standard NodeNext / ESM standards where supported without breaking NestJS dependencies.
+
+### R2. Dependency Modernization with Strict Zero-Downgrade Invariant
+- Pump all workspace dependencies (`package.json`, `apps/api/package.json`, `apps/web/package.json`, `packages/*/package.json`) to their absolute latest compatible versions.
+- **STRICT INVARIANT**: Under no circumstances may any dependency be downgraded to an older major or minor version, even if lower versions were specified in historical notes or concerns. TypeScript 7.x, NestJS 11.x, React 19.x, Vite 8.x, and Prisma 7.x must be strictly preserved.
+- Synchronize and deduplicate lockfiles via `pnpm install --no-frozen-lockfile` and `pnpm dedupe`.
+
+### R3. Codify Authoritative Technical Guidelines in AGENTS.md
+- Update `AGENTS.md` with explicit, authoritative engineering directives to permanently prevent these architectural and performance defects from recurring.
+- Codify mandatory rules regarding bounded database queries, deterministic sorting tie-breakers, zero in-memory table scans/aggregations, dynamic Ant Design feedback context, and zero dependency downgrades.
+
+### R4. Verification, Version Control & CI Pipeline Delivery
+- Execute full monorepo verification loops locally: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm run test`, and `pnpm run build`.
+- Commit all changes with conventional commit messages and push to `origin/main`.
+- Monitor GitHub Actions CI runs via `gh run list` / `gh run watch` and iteratively resolve any failures until all checks pass completely green.
+
+## Acceptance Criteria
+
+### Security & Architecture
+- [ ] License keys in `schema.prisma` and database layer are encrypted at rest with verified application-level encryption.
+- [ ] `Vendor` entity is properly linked to `License` / `Asset` models with valid migration and no orphaned tables.
+- [ ] `REDIS_URL` validation is strictly enforced for production in environment schemas.
+- [ ] Frontend Ant Design feedback calls strictly utilize `App.useApp()` with zero static anti-patterns.
+
+### Dependency Management
+- [ ] Dependencies across root and all workspace packages are upgraded to latest releases.
+- [ ] Zero packages have been downgraded; core framework versions (TypeScript 7, React 19, NestJS 11, Prisma 7, Vite 8) are preserved.
+- [ ] `pnpm-lock.yaml` is clean, deduplicated, and synchronized with package manifests.
+
+### Directives & Documentation
+- [ ] `AGENTS.md` contains comprehensive, enforceable directives preventing regression of remediated concerns.
+
+### Verification & CI
+- [ ] `pnpm run typecheck` exits with 0 errors across all workspaces.
+- [ ] `pnpm run lint` exits with 0 errors across all workspaces.
+- [ ] `pnpm run format:check` reports 0 formatting violations.
+- [ ] `pnpm run test` passes with 100% success rate across all unit and integration tests.
+- [ ] `pnpm run build` cleanly compiles both apps and packages.
+- [ ] All commits pushed to `origin/main`, and GitHub Actions CI workflow passes with status `success` (green).

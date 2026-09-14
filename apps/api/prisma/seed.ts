@@ -20,6 +20,7 @@ import { seedOrganizations } from './seeders/organization.seeder';
 import { seedRolesAndUsers } from './seeders/roles-users.seeder';
 import { seedSettingsAndReports } from './seeders/settings-reports.seeder';
 import { seedTaxonomy } from './seeders/taxonomy.seeder';
+import { seedVendors } from './seeders/vendors.seeder';
 
 const logger = new Logger('DatabaseSeeder');
 
@@ -92,13 +93,17 @@ async function main() {
   logger.log('👥 Seeding Corporate Directory Users & Groups (DirectoryUser)...');
   const directoryUsersResult = await seedDirectory(prisma, appUsersResult.staffProfiles);
 
-  // 6. Hardware Assets (Assigned to DirectoryUser)
-  logger.log('💻 Seeding Hardware Assets Fleet...');
-  await seedAssets(prisma, taxonomyResult, directoryUsersResult, orgResult);
+  // 6. Canonical Enterprise Vendors
+  logger.log('🏢 Seeding Canonical Enterprise Vendors...');
+  const vendorMap = await seedVendors(prisma);
 
-  // 7. Software Licenses and Assignments (Assigned to DirectoryUser)
+  // 7. Hardware Assets (Assigned to DirectoryUser)
+  logger.log('💻 Seeding Hardware Assets Fleet...');
+  await seedAssets(prisma, taxonomyResult, directoryUsersResult, orgResult, vendorMap);
+
+  // 8. Software Licenses and Assignments (Assigned to DirectoryUser)
   logger.log('📄 Seeding Software Licenses and User Assignments...');
-  await seedLicenses(prisma, directoryUsersResult);
+  await seedLicenses(prisma, directoryUsersResult, vendorMap);
 
   // 8. Inventory Items
   logger.log('📦 Seeding Hardware Stockroom Inventory...');

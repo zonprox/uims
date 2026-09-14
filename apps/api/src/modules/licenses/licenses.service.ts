@@ -19,6 +19,11 @@ import {
   mapLicenseType,
   mapLicenseTypeToLabel,
 } from '@uims/shared-utils';
+import {
+  decryptLicenseKey,
+  encryptLicenseKey,
+  maskLicenseKey,
+} from '../../common/crypto/license-crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -48,7 +53,7 @@ export class LicensesService {
         usedSeats: 0,
         costPerSeat: data.costPerSeat ? Number(data.costPerSeat) : 0,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
-        licenseKey: data.licenseKey || 'N/A',
+        licenseKey: data.licenseKey ? encryptLicenseKey(data.licenseKey) : 'N/A',
         status,
         autoRenew: data.autoRenew ?? true,
         notes: data.notes || '',
@@ -66,7 +71,7 @@ export class LicensesService {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
         { vendor: { contains: query.search, mode: 'insensitive' } },
-        { licenseKey: { contains: query.search, mode: 'insensitive' } },
+        { notes: { contains: query.search, mode: 'insensitive' } },
       ];
     }
 
@@ -114,7 +119,9 @@ export class LicensesService {
     if (data.vendor !== undefined) updateData.vendor = data.vendor;
     if (data.totalSeats !== undefined) updateData.totalSeats = Number(data.totalSeats);
     if (data.costPerSeat !== undefined) updateData.costPerSeat = Number(data.costPerSeat);
-    if (data.licenseKey !== undefined) updateData.licenseKey = data.licenseKey;
+    if (data.licenseKey !== undefined) {
+      updateData.licenseKey = data.licenseKey ? encryptLicenseKey(data.licenseKey) : 'N/A';
+    }
     if (data.autoRenew !== undefined) updateData.autoRenew = data.autoRenew;
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.expiryDate) updateData.expiryDate = new Date(data.expiryDate);
@@ -443,7 +450,8 @@ export class LicensesService {
     const remainingSeats = Math.max(0, license.totalSeats - license.usedSeats);
     const expDate = license.expiryDate ? license.expiryDate.toISOString().split('T')[0] : '';
     const rawKey = license.licenseKey || 'N/A';
-    const maskedKey = rawKey.length > 8 ? `••••-••••-${rawKey.slice(-4)}` : rawKey;
+    const decryptedKey = decryptLicenseKey(rawKey) || 'N/A';
+    const maskedKey = maskLicenseKey(decryptedKey);
 
     return {
       id: license.id,
@@ -459,7 +467,7 @@ export class LicensesService {
       costPerSeat: license.costPerSeat || 0,
       expiryDate: expDate,
       expirationDate: expDate,
-      licenseKey: rawKey,
+      licenseKey: decryptedKey,
       maskedKey,
       status: statusLabel,
       autoRenew: license.autoRenew,

@@ -25,6 +25,7 @@ export async function seedAssets(
   taxonomy: SeedTaxonomyResult,
   users: SeedUsersResult,
   _orgResult?: SeedOrgResult,
+  vendorMap?: Map<string, string>,
 ) {
   const { categories } = taxonomy;
   const { users: u } = users;
@@ -54,6 +55,23 @@ export async function seedAssets(
 
   const getDept = (code: string): string => {
     return deptMap.get(code) || departments[0]?.id || code;
+  };
+
+  const getVendorId = (manufacturer?: string | null): string | null => {
+    if (!manufacturer) return null;
+    const lower = manufacturer.toLowerCase();
+    if (vendorMap?.has(lower)) return vendorMap.get(lower)!;
+    if (lower.includes('juki')) return vendorMap?.get('ven-juki') || 'ven-juki';
+    if (lower.includes('brother')) return vendorMap?.get('ven-brother') || 'ven-brother';
+    if (lower.includes('dell')) return vendorMap?.get('ven-dell') || 'ven-dell';
+    if (lower.includes('lenovo')) return vendorMap?.get('ven-lenovo') || 'ven-lenovo';
+    if (lower.includes('apple')) return vendorMap?.get('ven-apple') || 'ven-apple';
+    if (lower.includes('cisco')) return vendorMap?.get('ven-cisco') || 'ven-cisco';
+    if (lower.includes('lectra')) return vendorMap?.get('ven-lectra') || 'ven-lectra';
+    if (lower.includes('gerber')) return vendorMap?.get('ven-gerber') || 'ven-gerber';
+    if (lower.includes('microsoft')) return vendorMap?.get('ven-msft') || 'ven-msft';
+    if (lower.includes('sap')) return vendorMap?.get('ven-sap') || 'ven-sap';
+    return null;
   };
 
   const defaultUser = Object.values(u)[0];
@@ -957,11 +975,13 @@ export async function seedAssets(
   const createdAssets: Record<string, { id: string; assetTag: string }> = {};
 
   for (const asset of assetDefinitions) {
+    const vendorId = getVendorId(asset.manufacturer);
     const record = await prisma.asset.upsert({
       where: { assetTag: asset.assetTag },
       update: {
         name: asset.name,
         manufacturer: asset.manufacturer,
+        vendorId,
         model: asset.model,
         serialNumber: asset.serialNumber,
         status: asset.status,
@@ -975,7 +995,10 @@ export async function seedAssets(
         specs: asset.specs,
         notes: asset.notes,
       },
-      create: asset,
+      create: {
+        ...asset,
+        vendorId,
+      },
     });
     createdAssets[asset.assetTag] = record;
   }
