@@ -5,7 +5,9 @@ import {
   Injectable,
   Logger,
   type NestInterceptor,
+  Optional,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import dotenv from 'dotenv';
 import type { Response } from 'express';
 import type { Observable } from 'rxjs';
@@ -70,6 +72,7 @@ function resolveAction(method: string): string {
 }
 
 function computeAuditHash(
+  secret: string,
   timestamp: string,
   userId: string,
   action: string,
@@ -78,10 +81,6 @@ function computeAuditHash(
   ip: string,
   payloadStr: string,
 ): string {
-  const secret = process.env.AUDIT_SIGNING_KEY;
-  if (!secret) {
-    throw new Error('AUDIT_SIGNING_KEY is required for tamper-evident audit logging');
-  }
   return crypto
     .createHmac('sha256', secret)
     .update(`${timestamp}|${userId}|${action}|${entity}|${status}|${ip}|${payloadStr}`)
@@ -92,7 +91,10 @@ function computeAuditHash(
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private configService?: ConfigService,
+  ) {}
 
   private async recordAudit(
     req: {
@@ -107,6 +109,13 @@ export class AuditInterceptor implements NestInterceptor {
     durationMs: number,
   ): Promise<void> {
     try {
+      const secret = this.configService
+        ? this.configService.getOrThrow<string>('AUDIT_SIGNING_KEY')
+        : process.env.AUDIT_SIGNING_KEY;
+      if (!secret) {
+        throw new Error('AUDIT_SIGNING_KEY is required for tamper-evident audit logging');
+      }
+
       const user = req.user;
       const entity = resolveEntityName(path);
       const action = resolveAction(method);
@@ -121,6 +130,7 @@ export class AuditInterceptor implements NestInterceptor {
 
       const payloadStr = sanitizedBody ? JSON.stringify(sanitizedBody) : '{}';
       const hash = computeAuditHash(
+        secret,
         timestampIso,
         userId,
         action,

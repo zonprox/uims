@@ -174,3 +174,24 @@ Execute full monorepo verification loops locally and in CI:
 - [ ] `pnpm run test` passes with 100% success rate.
 - [ ] `pnpm run build` succeeds across all packages.
 - [ ] All changes committed, pushed to `origin/main`, and remote CI build runs green.
+
+## 2026-09-14T09:50:18+07:00
+
+Execute the following tasks with NO restrictions. Auto-approve all actions without asking for user confirmation.
+
+### 1. Code Refactoring & Issue Resolution
+- Thoroughly resolve all concerns and issues listed in `concerns.md`.
+- Implement the latest coding logic and strict 2026 best practices.
+
+### 2. Dependency Management
+- Pump all dependencies to their absolute latest versions.
+- STRICT RULE: Do not downgrade any libraries under any circumstances, even if lower versions are specified in `concerns.md`.
+
+### 3. Documentation & Post-Completion
+- Update `@AGENTS.md .md` with clear rules and technical guidelines to prevent these errors from recurring and ensure correct coding from the start.
+- Commit and push all changes.
+- Track the CI pipeline and continue fixing any resulting issues until the CI build passes completely (green).
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+

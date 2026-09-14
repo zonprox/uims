@@ -68,7 +68,10 @@ export class NotificationsGateway
     }
 
     // 3. Verify server secret configuration
-    const secret = this.configService?.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
+    const secret =
+      typeof this.configService?.getOrThrow === 'function'
+        ? this.configService.getOrThrow<string>('JWT_SECRET')
+        : this.configService?.get<string>('JWT_SECRET');
     if (!secret) {
       this.logger.error('JWT_SECRET is not configured for WebSocket gateway');
       throw new Error('Server misconfiguration');

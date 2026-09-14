@@ -76,17 +76,7 @@ export default function LicensesPage() {
       if (statsData) {
         setStats(statsData);
       } else {
-        const totalSpend = list.reduce((sum, l) => sum + l.usedSeats * l.costPerSeat, 0);
-        const totalSeats = list.reduce((sum, l) => sum + l.totalSeats, 0);
-        const usedSeats = list.reduce((sum, l) => sum + l.usedSeats, 0);
-        const overallUtilization = totalSeats > 0 ? Math.round((usedSeats / totalSeats) * 100) : 0;
-        const expiringCount = list.filter((l) => l.status === 'Expiring').length;
-        setStats({
-          total: list.length,
-          annualSpend: totalSpend,
-          utilization: overallUtilization,
-          expiringCount,
-        });
+        message.warning('Failed to load license aggregate statistics.');
       }
     } catch (_err: unknown) {
       message.error('Failed to load software licenses.');

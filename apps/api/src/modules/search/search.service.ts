@@ -48,24 +48,31 @@ export class SearchService implements OnModuleInit {
     private prisma: PrismaService,
     @Optional() private configService?: ConfigService,
   ) {
-    this.meiliHost =
-      this.configService?.get<string>('MEILISEARCH_HOST') ||
-      process.env.MEILISEARCH_HOST ||
-      'http://localhost:7700';
+    this.meiliHost = this.configService
+      ? this.configService.get<string>('MEILISEARCH_HOST') || 'http://localhost:7700'
+      : process.env.MEILISEARCH_HOST || 'http://localhost:7700';
 
-    const resolvedApiKey =
-      this.configService?.get<string>('MEILI_API_KEY') ||
-      this.configService?.get<string>('MEILISEARCH_API_KEY') ||
-      process.env.MEILI_API_KEY ||
-      process.env.MEILISEARCH_API_KEY;
+    if (this.configService) {
+      let apiKey =
+        this.configService.get<string>('MEILI_API_KEY') ||
+        this.configService.get<string>('MEILISEARCH_API_KEY');
 
-    if (!resolvedApiKey) {
-      if (this.configService && typeof this.configService.getOrThrow === 'function') {
-        this.meiliApiKey = this.configService.getOrThrow<string>('MEILI_API_KEY');
-      } else {
+      if (!apiKey && typeof this.configService.getOrThrow === 'function') {
+        apiKey = this.configService.getOrThrow<string>('MEILI_API_KEY');
+      }
+
+      if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+        if (typeof this.configService.getOrThrow === 'function') {
+          this.configService.getOrThrow<string>('MEILI_API_KEY');
+        }
         throw new Error('MEILI_API_KEY environment variable is required and must not be empty');
       }
+      this.meiliApiKey = apiKey;
     } else {
+      const resolvedApiKey = process.env.MEILI_API_KEY || process.env.MEILISEARCH_API_KEY;
+      if (!resolvedApiKey) {
+        throw new Error('MEILI_API_KEY environment variable is required and must not be empty');
+      }
       this.meiliApiKey = resolvedApiKey;
     }
   }

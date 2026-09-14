@@ -46,6 +46,7 @@ export const router = createBrowserRouter([
                 <DashboardPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'assets',
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
                 <AssetsPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'licenses',
@@ -62,6 +64,7 @@ export const router = createBrowserRouter([
                 <LicensesPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'users',
@@ -70,6 +73,7 @@ export const router = createBrowserRouter([
                 <AccessControlPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'directory',
@@ -78,6 +82,7 @@ export const router = createBrowserRouter([
                 <DirectoryPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'organization',
@@ -86,6 +91,7 @@ export const router = createBrowserRouter([
                 <OrganizationPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'access-control',
@@ -98,6 +104,7 @@ export const router = createBrowserRouter([
                 <NetworkPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'inventory',
@@ -106,6 +113,7 @@ export const router = createBrowserRouter([
                 <InventoryPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'audit',
@@ -114,6 +122,7 @@ export const router = createBrowserRouter([
                 <AuditPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'reports',
@@ -122,6 +131,7 @@ export const router = createBrowserRouter([
                 <ReportsPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'notifications',
@@ -130,6 +140,7 @@ export const router = createBrowserRouter([
                 <NotificationsPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'settings',
@@ -138,6 +149,7 @@ export const router = createBrowserRouter([
                 <SettingsPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: '*',
@@ -146,6 +158,7 @@ export const router = createBrowserRouter([
                 <NotFoundPage />
               </Suspense>
             ),
+            ErrorBoundary: RouteErrorBoundary,
           },
         ],
       },

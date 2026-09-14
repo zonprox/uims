@@ -109,23 +109,7 @@ export function useNetworkManagement(
           setStats(statsData);
         }
       } catch (_statsErr: unknown) {
-        // Fallback computation derived from loaded live records
-        const allocated = ipList.filter(
-          (i) => String(i.status).toUpperCase() === 'ASSIGNED',
-        ).length;
-        const reserved = ipList.filter((i) => String(i.status).toUpperCase() === 'RESERVED').length;
-        const totalCapacity = subnetList.reduce((sum, s) => sum + (s.totalIps || 0), 0);
-        const freeCapacity = Math.max(0, totalCapacity - allocated - reserved);
-        setStats({
-          totalVlans: vlanList.length,
-          managedSubnets: subnetList.length,
-          totalIps: ipList.length,
-          allocatedStaticIps: allocated,
-          reservedDhcpLeases: reserved,
-          availableIps: freeCapacity,
-          freeIpCapacity: freeCapacity,
-          averageUtilization: totalCapacity > 0 ? Math.round((allocated / totalCapacity) * 100) : 0,
-        });
+        message.warning('Failed to load authoritative network IPAM statistics.');
       }
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };

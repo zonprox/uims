@@ -359,9 +359,10 @@ Every change must satisfy the full verification cycle prior to merging or pushin
 - **Release Stability Gate**: Mission-critical infrastructure libraries must track latest stable releases, avoiding unproven release candidates (e.g., Prisma remains on stable 7.x, not 8.0.0-rc).
 
 ### 16.10 Fail-Fast Environment Variable Resolution & Zero Fallback Secrets
-- **No Hardcoded Fallback API Keys or Secrets**: External service API keys, secrets, master tokens, and connection strings (including `MEILI_API_KEY`, SeaweedFS S3 credentials, third-party webhook secrets) MUST NEVER have hardcoded fallback default strings in source code (e.g. `'uims_meili_master_key_2026'` is strictly banned).
+- **No Hardcoded Fallback API Keys or Secrets**: External service API keys, secrets, master tokens, and connection strings (including `MEILI_API_KEY`, SeaweedFS S3 credentials, JWT secrets, and audit signing keys) MUST NEVER have hardcoded fallback default strings in source code or default parameters (e.g. `'uims_meili_master_key_2026'`, `'uims-jwt-secret-change-in-production'` are strictly banned).
 - **Mandatory Fail-Fast Startup**: All required secrets and API tokens MUST fail fast immediately at application startup if absent or malformed:
   - Required pattern: `const apiKey = configService.getOrThrow<string>('MEILI_API_KEY');` or startup validation via Zod schemas that call `process.exit(1)` on configuration failure.
+- **Zero Insecure process.env Fallbacks**: Modules must never chain `configService.get(...) || process.env.SECRET` with loose defaults. Secrets must be queried strictly via `configService.getOrThrow<string>(...)` so configuration failures surface immediately upon startup rather than unpredictably at runtime.
 
 ### 16.11 Resilient Redis Service & Degraded Health Telemetry
 - **Structured Degradation Logging**: When the Redis connection fails or disconnects, `RedisService` may fall back to an in-memory `Map` solely for non-critical transient caching in single-instance environments, but MUST log an explicit warning via structured logger (`this.logger.warn('Redis unavailable; falling back to in-memory non-persistent cache')`).
@@ -372,6 +373,15 @@ Every change must satisfy the full verification cycle prior to merging or pushin
 - **Frontend Relative URLs**: The web application MUST default to relative paths for REST API requests (`baseURL: import.meta.env.VITE_API_URL || '/api/v1'`) and WebSocket connections (`/notifications` via `window.location.origin` or current window context). This guarantees the application functions seamlessly on any custom URL, domain, subdomain, IP address, or port without rebuilding.
 - **Dynamic Development CORS**: In non-production environments, CORS validation must dynamically accommodate arbitrary custom ports on loopback/localhost interfaces (`/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/`) and respect user-configured environment variables (`WEB_PORT`, `PORT`, `APP_PORT`, `CORS_ORIGIN`).
 - **Dynamic Port Binding**: Vite and NestJS servers must respect standard port environment variables (`PORT`, `VITE_PORT`, `WEB_PORT`, `APP_PORT`) and bind to `0.0.0.0` with `allowedHosts: true` to support containerized, remote, or proxied access out of the box.
+
+### 16.13 Route-Level Error Boundary Isolation & Shell Resilience
+- **Mandatory Leaf Route Error Boundaries**: Every leaf route declared in `apps/web/src/app/router.tsx` rendered inside `<MainLayout />` MUST define its own `ErrorBoundary: RouteErrorBoundary`.
+- **Navigation Shell Preservation**: Unhandled component crashes or corrupt data payloads within specific pages (e.g. `AssetsPage`, `LicensesPage`, `InventoryPage`) must be contained strictly to the page viewport. The primary navigation shell (`Sider`, `Header`, breadcrumb container, and user profile switcher) MUST remain active and functional, allowing users to navigate away from the errored screen without requiring a hard browser reload.
+- **Zero Unguarded Production Console Errors**: All React error boundaries (`ErrorBoundary.tsx`, `RouteErrorBoundary.tsx`) must guard debug logging (`if (import.meta.env.DEV) { console.error(...); }`) and avoid noisy unformatted console traces in production bundles.
+
+### 16.14 Docker Compose Parameterization & Zero Hardcoded Secret Fallbacks
+- **Strict Parameterization in Container Manifests**: Connection strings, secrets, and API master keys in `docker-compose.yml` and `docker-compose.dev.yml` (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `MEILISEARCH_API_KEY`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`) MUST NEVER define hardcoded default string fallbacks (e.g., `${JWT_SECRET:-uims-jwt-secret-change-in-production}` is strictly banned).
+- **Fail-Fast Container Initialization**: If required secret environment variables are absent from the local `.env` file, Docker containers MUST fail to start immediately rather than falling back to publicly known credentials. All sensitive secrets must be explicitly populated from `.env` or `.env.example`.
 
 ---
 

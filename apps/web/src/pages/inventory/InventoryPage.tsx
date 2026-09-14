@@ -241,21 +241,8 @@ export default function InventoryPage() {
 
       if (statsResult.status === 'fulfilled' && statsResult.value) {
         setStats(statsResult.value);
-      } else if (itemsResult.status === 'fulfilled') {
-        const list = itemsResult.value;
-        const totalUnits = list.reduce((sum, i) => sum + i.quantity, 0);
-        const totalValuation = list.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
-        const lowStockCount = list.filter(
-          (i) => i.quantity > 0 && i.quantity < i.minThreshold,
-        ).length;
-        const outOfStockCount = list.filter((i) => i.quantity === 0).length;
-        setStats({
-          totalSkus: list.length,
-          totalUnits,
-          totalValuation,
-          lowStockCount,
-          outOfStockCount,
-        });
+      } else {
+        message.warning('Failed to load inventory aggregate statistics.');
       }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load inventory records.';

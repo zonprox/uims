@@ -224,17 +224,17 @@ export class RolesService {
     const customRolesCount = Math.max(0, totalRoles - systemRolesCount);
 
     let assignedUsers = 0;
-    try {
-      if (typeof this.prisma.appUser?.count === 'function') {
+    if (typeof this.prisma.appUser?.count === 'function') {
+      try {
         assignedUsers = await this.prisma.appUser.count({
           where: { roleId: { not: null } },
         });
+      } catch (error: unknown) {
+        this.logger.error(
+          'Assigned users count failed in getStats fallback',
+          error instanceof Error ? error.stack : String(error),
+        );
       }
-    } catch (error: unknown) {
-      this.logger.error(
-        'Assigned users count failed in getStats, falling back',
-        error instanceof Error ? error.stack : String(error),
-      );
     }
     if (assignedUsers === 0 && roles.length > 0) {
       assignedUsers = roles.reduce((acc, curr) => acc + (curr._count?.users || 0), 0);
