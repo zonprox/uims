@@ -1,73 +1,114 @@
-# Project Structure
-> Generated: 2026-09-13 | Focus: Directory layout and file organization
+# UIMS Directory & File Structure
 
-## Monorepo Layout
-```
-/home/user/projects/uims
-├── apps/
-│   ├── api/            # NestJS Backend Application
-│   └── web/            # React Frontend Application
-├── packages/           # Shared Workspace Packages
-│   ├── eslint-config/
-│   ├── shared-types/
-│   ├── shared-utils/
-│   └── shared-validators/
-├── docker/             # Docker configuration files
-├── scripts/            # Development and operational scripts
-└── docs/               # System documentation
-```
+The UIMS project is a full-stack monorepo managed by Turborepo and PNPM workspaces. It contains ~450 source files spread across applications and shared packages.
 
-## Backend Structure (apps/api/)
-### Source Organization
-```
+## 1. Root-Level Organization
+- **`apps/`**: Contains the primary runnable applications (API and Web).
+- **`packages/`**: Shared libraries and utilities consumed by apps.
+- **`docker/`**: Infrastructure configuration, Nginx rules, and database init scripts.
+- **`docs/`**: Documentation (notable files like PROJECT.md, AGENTS.md, TEST_READY.md).
+- **`scripts/`**: Shell scripts for automation (e.g., `dev.sh` for stack management).
+- **`.planning/`**: Agent/planning and AI-related workspace files.
+- **Configuration Files**: `package.json`, `turbo.json`, `pnpm-workspace.yaml`, `biome.json` (for linting/formatting).
+
+---
+
+## 2. Backend Structure (`apps/api/src/`)
+Total Files: ~170 files.
+
+```text
 apps/api/src/
-├── common/             # Cross-cutting concerns (decorators, filters, guards, interceptors, redis)
-├── config/             # Environment & configuration mapping
-├── database/           # Prisma service and module
-├── modules/            # Domain feature modules
-├── app.module.ts       # Root module definition
-└── main.ts             # Application bootstrap
+├── main.ts                    # Entry point; sets up NestJS, Swagger, Filters, Interceptors
+├── app.module.ts              # Root module wiring up all domain modules
+├── common/                    # Cross-cutting utilities
+│   ├── decorators/
+│   ├── dto/
+│   ├── filters/               # HttpExceptionFilter, PrismaExceptionFilter
+│   ├── guards/                # JwtAuthGuard, RolesGuard, PermissionsGuard
+│   ├── interceptors/          # TransformInterceptor, AuditInterceptor
+│   └── redis/                 # RedisModule and connection setup
+├── config/                    # Configuration loaders and validation (CORS, app config)
+├── database/                  # Prisma module and extensions
+└── modules/                   # Domain-Driven Modules
+    ├── assets/                # Hardware & IT Assets tracking
+    ├── audit/                 # Audit logging
+    ├── auth/                  # Authentication & JWT strategies
+    ├── dashboard/             # Aggregated stats and widgets
+    ├── directory/             # Employee & AD/LDAP sync
+    ├── health/                # Service health checks
+    ├── inventory/             # Consumables and parts inventory
+    ├── licenses/              # Software license tracking
+    ├── network/               # VLANs, Subnets, IPAM
+    ├── notifications/         # Real-time user notifications
+    ├── organization/          # Company org chart and locations
+    ├── reports/               # Scheduled report generation
+    ├── roles/                 # RBAC and permissions management
+    ├── search/                # MeiliSearch integration
+    ├── settings/              # App-wide settings and JSON configurations
+    └── users/                 # Application users and profiles
 ```
-### Module Layout Pattern
-Inside `src/modules/`, logic is compartmentalised into domain-specific folders (e.g. `users`, `auth`, `inventory`). Each follows a standard NestJS file pattern containing controllers, services, DTOs, and the module definition file.
+*Note: Each domain module generally contains its own DTOs, Controllers, Services, and optionally specific Guards/Interceptors.*
 
-## Frontend Structure (apps/web/)
-### Source Organization
-```
+---
+
+## 3. Frontend Structure (`apps/web/src/`)
+Total Files: ~157 files.
+
+```text
 apps/web/src/
-├── app/                # App initialization (App.tsx, router.tsx, query-client.ts)
-├── assets/             # Static assets
-├── components/         # Reusable UI components
-├── hooks/              # Custom React hooks
-├── layouts/            # Page layout wrappers (MainLayout, AuthLayout)
-├── pages/              # Route-level components split by domain
-├── services/           # API interaction and client utilities
-├── stores/             # Zustand global state (theme.store.ts)
-├── styles/             # Global CSS and theming
-└── main.tsx            # React root mount point
+├── main.tsx                   # Entry point; mounts React to #root
+├── app/
+│   ├── App.tsx                # ConfigProviders (AntD, React Query), RouterProvider
+│   └── router.tsx             # React Router v6 definitions with Lazy Suspense Boundaries
+├── components/                # Shared generic UI components (PageLoader, ErrorBoundary)
+├── hooks/                     # Shared React hooks
+├── layouts/                   # Layout wrappers (AuthLayout, MainLayout)
+├── pages/                     # Domain-driven page components
+│   ├── access/                # Access control UI
+│   ├── assets/                # Assets UI (with internal /components, /hooks, /utils)
+│   ├── audit/
+│   ├── auth/
+│   ├── dashboard/
+│   ├── directory/
+│   ├── inventory/
+│   ├── licenses/
+│   ├── network/
+│   ├── notifications/
+│   ├── organization/
+│   ├── reports/
+│   ├── settings/
+│   └── users/
+├── services/                  # API client implementations (Axios or fetch wrappers)
+├── stores/                    # Zustand state stores (e.g., theme.store.ts)
+└── styles/                    # Global CSS (global.css) and theme variable files
 ```
-### Component Layout Pattern
-The `pages` directory mirrors the backend modules closely (`users`, `assets`, `dashboard`, `network`, etc.), reinforcing the unified domain boundaries across the monorepo.
 
-## Shared Packages
-- **`shared-types`**: Exports TypeScript types/interfaces consumed by both web and api.
-- **`shared-utils`**: Contains utility functions such as date manipulation routines.
-- **`shared-validators`**: Common validation schemas.
-- **`eslint-config`**: Standardized linting rules for the workspace.
+---
 
-## Configuration Files
-- **Workspace**: `pnpm-workspace.yaml`, `package.json`, `turbo.json`.
-- **Tooling**: `biome.json` (formatter/linter), `.gitignore`, `tsconfig.json`.
-- **Docker**: `docker-compose.yml`, `docker-compose.dev.yml`, and `Dockerfile`s within apps.
-- **Apps**: `nest-cli.json`, `vite.config.ts`, `vitest.config.ts`, `prisma.config.ts`.
+## 4. Shared Packages (`packages/`)
+Total Files: ~124 files.
 
-## Scripts & Tooling
-The `scripts/` directory hosts bash scripts and dev tooling utilities for managing the monorepo lifecycle.
+- **`packages/shared-types`**: Contains TypeScript definitions shared between Web and API. Includes DTOs, Entities, and Enums representing the shared schema.
+- **`packages/shared-utils`**: Contains common utility functions, date formatting (e.g., dayjs configuration), strings, math, etc.
+- **`packages/shared-validators`**: Zod or Class-Validator schemas utilized by both backend pipes and frontend form validations.
+- **`packages/eslint-config`**: Standardized linting rules for the monorepo.
 
-## Documentation
-The `docs/` directory is intended for system documentation, supplemented by `.planning/` files containing AI-generated or structural plans.
+---
 
-## Key Metrics
-- **API**: Highly structured feature modules (16+ modules).
-- **Web**: Parallel domain structure (14+ page groupings).
-- **Monorepo**: Utilizes Turborepo for efficient task running across 2 apps and 4 packages.
+## 5. Docker Infrastructure
+- **`docker-compose.yml`**: Defines the production-ready infrastructure services:
+  - `postgres` (port 5432)
+  - `redis` (port 6379)
+  - `meilisearch` (port 7700)
+  - `seaweedfs-master`, `seaweedfs-volume`, `seaweedfs-filer` (S3 gateway)
+  - `api` (NestJS backend)
+  - `web` (React frontend served via Nginx)
+- **`docker-compose.dev.yml`**: Overrides and volume mounts for local development environments.
+- **`docker/nginx/`**: Contains proxy pass rules, SSL certificates setup for the React frontend, and reverse proxying to the API.
+
+---
+
+## 6. Scripts & Tooling
+- **`scripts/dev.sh`**: A shell wrapper used in `package.json` (`pnpm stack:start`, `stack:status`) that manages running the infrastructure stack smoothly.
+- **Turbo Pipeline**: Defined in `turbo.json`, handles optimal caching for `build`, `lint`, `test`, `typecheck`.
+- **Biome**: Fast formatter and linter (`biome.json`) configured via package scripts (`pnpm format`).

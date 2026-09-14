@@ -1,68 +1,81 @@
-# Technology Stack
-> Generated: 2026-09-13 | Focus: Full stack inventory with 2026 assessment
+# Technology Stack Analysis (UIMS)
 
-## Runtime & Build
-- **Node.js**: `>=22.0.0` (API, Web, Packages)
-- **Package Manager**: `pnpm@11.21.0`
-- **Build/Monorepo Tool**: Turborepo `^2.10.12`
-- **Linter/Formatter**: Biome `^2.5.13` (formatting), ESLint `^10.10.0` (linting)
-- **Containerization**: Docker & Docker Compose
-- **Package Bundler**: tsdown `^0.23.0` (for shared packages)
+## 1. Runtime & Language
+- **Node.js**: >= 22.0.0
+- **TypeScript**: v7.0.2
+- **Configuration**: 
+  - **API (`apps/api/tsconfig.json`)**: `ES2022`, `commonjs` module, `strict: true`.
+  - **Web (`apps/web/tsconfig.json`)**: `ES2022`, `ESNext` module, `bundler` resolution, `strict: true`.
+- **Assessment (2026)**: Excellent. Using the absolute latest standard Node.js and TypeScript builds. Modern module resolutions are appropriately split between frontend and backend.
 
-## Backend Stack (apps/api)
-- **Framework**: NestJS `^11.2.3` (running on Express `^11.2.3`)
-- **Language**: TypeScript `^7.0.2`
-- **API Paradigm**: REST via NestJS controllers
-- **Validation**: class-validator `^0.15.1`, class-transformer `^0.5.1`, and Zod `^4.6.1`
-- **Real-time**: Socket.IO `^4.8.3`, `@nestjs/websockets` `^11.2.3`
-- **Background Jobs**: BullMQ `^6.3.4`, `@nestjs/bullmq` `^11.0.5`
-- **Testing**: Vitest `^5.0.0`
-- **Security**: Helmet `^8.3.0`, bcrypt `^6.0.0`, Passport `^0.7.0`, `@nestjs/jwt` `^11.0.2`
+## 2. Monorepo Tooling
+- **Package Manager**: pnpm v11.21.0
+- **Turborepo**: v2.10.12
+- **Workspace**: Configured via `pnpm-workspace.yaml` to include `apps/*` and `packages/*`.
+- **Assessment (2026)**: State-of-the-art. Combining pnpm v11 with Turborepo 2 ensures maximal caching efficiency and strict package hoist boundary definitions.
 
-## Frontend Stack (apps/web)
-- **Framework**: React `^19.3.0`
-- **Language**: TypeScript `^7.0.2`
-- **Build Tool**: Vite `^8.3.0`
-- **Component Library**: Ant Design (antd) `^6.6.3`, Pro Components `^2.8.10`
-- **State Management**: Zustand `^5.0.15`
-- **Data Fetching**: TanStack Query `^5.102.8`, Axios `^1.20.0`
-- **Router**: React Router `^8.3.1`
-- **Real-time**: socket.io-client `^4.8.3`
-- **Testing**: Vitest `^5.0.0`, Happy DOM `^20.14.3`
-- **Typography**: Fontsource Inter Variable `^5.3.0`
-- **E2E Testing**: Playwright `^1.63.0` (managed at root workspace)
+## 3. Backend Framework
+- **Framework**: NestJS v11.2.3
+- **Architecture**: Modular structure (`app.module.ts`, `assets.module.ts`, `search.module.ts`, etc.).
+- **Components**:
+  - *Interceptors*: `AuditInterceptor`, `TransformInterceptor`.
+  - *Guards*: `JwtAuthGuard`, `PermissionsGuard`, `RolesGuard`.
+  - *Filters*: `HttpExceptionFilter`, `PrismaExceptionFilter`.
+- **Versioning**: REST API versioning implemented (e.g., `/api/v1/health`).
+- **Assessment (2026)**: Very modern NestJS setup. Using v11 is bleeding-edge and guarantees long-term support. The strict boundary separations using custom decorators and guards demonstrate mature enterprise design.
 
-## Shared Packages
-- **`@uims/shared-types`**: Common TypeScript definitions and core business logic DTOs.
-- **`@uims/shared-utils`**: Utility functions, including a Day.js `^1.11.23` wrapper.
-- **`@uims/shared-validators`**: Shared isomorphic validation utilizing Zod `^4.6.1`.
-- **`@uims/eslint-config`**: Centralized ESLint 10 flat configuration leveraging `typescript-eslint` `^8.70.0`.
+## 4. ORM & Database
+- **ORM**: Prisma v7.10.0
+- **Database**: PostgreSQL 17 (via `postgres:17-alpine` Docker image)
+- **Features**: Connection pooling explicitly defined in the URL (`connection_limit=20&pool_timeout=30`).
+- **Schema Count**: At least 7 primary models (Assets, DirectoryUsers, Licenses, InventoryItems, AuditLogs, Subnets, Settings).
+- **Assessment (2026)**: Highly optimized. Postgres 17 is heavily performant, and Prisma 7 provides robust type-safe database access.
 
-## Database & Storage
-- **Relational Database**: PostgreSQL 17 (Alpine image)
-- **ORM**: Prisma `^7.10.0` (utilizing `@prisma/adapter-pg` driver)
-- **Object Storage**: SeaweedFS (S3-compatible via Filer gateway)
+## 5. Frontend Framework
+- **Framework**: React v19.3.0
+- **Bundler**: Vite v8.3.0
+- **UI Library**: Ant Design v6.6.3 (`@ant-design/pro-components` v2.8.10)
+- **Bundler Config**: Custom chunking strategy in `vite.config.ts` isolating `vendor-react`, `vendor-antd-core`, `vendor-query`, etc., to prevent bloated single-file bundles.
+- **Assessment (2026)**: Exceptional frontend stack. React 19 concurrent features paired with Vite 8 provides instant HMR and optimized builds.
 
-## Cache & Queue
-- **In-memory Datastore**: Redis 8 (Alpine image, LRU eviction policy)
-- **Queue System**: BullMQ for robust job scheduling and background processing
-- **Cache client**: ioredis `^6.0.0`
+## 6. State Management
+- **Local State**: Zustand v5.0.15
+- **Server State / Caching**: TanStack Query v5.102.8
+- **Assessment (2026)**: Standard and most effective combination for React apps in 2026. Zustand is vastly preferred over Redux for boilerplate reduction.
 
-## DevOps & Infrastructure
-- **Tunneling**: Cloudflared (Quick Tunnels for ad-hoc secure HTTPS web access)
-- **Orchestration**: Docker Compose (for robust, isolated dev environments)
-- **Process Manager**: Custom bash-based lifecycle script (`scripts/dev.sh`) utilizing `setsid` and `ss/lsof` port checks.
+## 7. Authentication
+- **Strategy**: JWT via Passport (`@nestjs/jwt` v11.0.2, `passport-jwt` v4.0.1).
+- **Security**: `bcrypt` v6.0.0 for hashing. Access tokens expire in 15m, refresh tokens in 7d.
+- **Enforcement**: Deep integration with Socket.io (forbidding URL query tokens) and `JwtAuthGuard` applied across endpoints.
 
-## 2026 Maturity Assessment
+## 8. Caching
+- **Engine**: Redis 8 (`redis:8-alpine`)
+- **Usage Patterns**:
+  - Cache TTLs set to 300s (5 minutes).
+  - High availability lookups for configuration (e.g., `uims:cache:settings:all` in `SettingsService`).
+- **Assessment (2026)**: Solid integration. Redis 8 handles high-throughput operations smoothly.
 
-| Component | Choice | 2026 Assessment | Notes |
-| :--- | :--- | :--- | :--- |
-| **Node Runtime** | Node >=22 | [Leading Edge] | Fully leverages modern V8 and LTS capabilities natively. |
-| **Monorepo** | pnpm 11 + Turbo 2.10 | [Modern] | Highly optimized industry standard for workspace management. |
-| **Frontend Framework** | React 19 + Vite 8 | [Leading Edge] | Employs the React compiler paradigm and ultra-fast HMR builds. |
-| **State Management** | Zustand 5 + TanStack 5 | [Modern] | Streamlined, un-opinionated state and sophisticated async caching. |
-| **Backend Framework** | NestJS 11 | [Modern] | Standardized, sturdy enterprise choice with mature DI container. |
-| **Database ORM** | Prisma 7 | [Modern] | Adopts modern `@prisma/adapter-pg` to circumvent legacy driver limits. |
-| **Queue / Background** | BullMQ 6 + Redis 8 | [Modern] | Robust, highly-performant, and Redis-backed ecosystem standard. |
-| **Dev Toolchain** | Biome 2.5 + Vitest 5 | [Leading Edge] | Massive performance gains over legacy tools (Jest/Prettier). |
-| **Validation Layer** | class-validator & Zod | [Current/Legacy] | Transitioning; the mix of `class-validator` (legacy) with shared `Zod` (modern isomorphic validation) represents tech debt being paid down. |
+## 9. Search
+- **Engine**: MeiliSearch (latest)
+- **Integration**: Batched synchronization (100 records at a time) for `assets`, `licenses`, and `users` indexes. Custom mapping layer in `SearchService`. Fallback to Postgres `OR` matching when Meilisearch is offline.
+- **Assessment (2026)**: Smart, resilient design. MeiliSearch offers superior typo-tolerance compared to native Postgres pg_trgm.
+
+## 10. Storage
+- **Engine**: SeaweedFS (latest) exposing an S3-compatible gateway (`seaweedfs-filer`).
+- **Integration**: Used for backing up database snapshots (`s3://uims-vault/backups/`) and file assets.
+- **Assessment (2026)**: SeaweedFS provides much faster distributed I/O than MinIO for large numbers of small files.
+
+## 11. Code Quality Tools
+- **Formatter**: Biome v2.5.13 (replaces Prettier; 100 char width, space indent, LF line endings).
+- **Linter**: ESLint v10.10.0.
+- **Assessment (2026)**: Biome is the de-facto standard in 2026 for rust-based, ultra-fast formatting.
+
+## 12. Testing Tools
+- **Unit/Integration**: Vitest v5.0.0.
+- **E2E**: Playwright v1.63.0 (`test:e2e` turbo script).
+- **Assessment (2026)**: Vitest seamlessly runs in the Vite ecosystem and is much faster than Jest. Playwright is industry standard.
+
+## 13. DevOps & Tooling
+- **Docker Compose**: Dedicated `docker-compose.yml` for data layer (Postgres, Redis, Meili, SeaweedFS) and application layer (API, Web via Nginx).
+- **Tunneling**: Cloudflare `cloudflared` tunnel script (`scripts/dev.sh`) exposes the local environment publicly for easy webhooks/testing.
+- **Assessment (2026)**: The `dev.sh` script is extremely mature, combining health checks, port collision prevention, and automatic HTTPS tunneling.

@@ -1,92 +1,172 @@
-# Code Conventions
-> Generated: 2026-09-13 | Focus: Standards, patterns, and style enforcement
+# UIMS Code Conventions & Patterns
 
-## TypeScript Configuration
-- **Strictness**: TypeScript 7.x is used across the monorepo with strict type-checking enabled.
-- **Path Aliases**:
-  - Web: `@/` resolves to `apps/web/src`.
-  - Packages: `@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils` resolve to their respective workspace package `src` directories.
-- **Engine Requirements**: Node.js >=22.0.0, PNPM >=11.0.0.
+## 1. TypeScript Strictness
+The codebase strictly adheres to standard TypeScript best practices across all environments.
+- **Strict Mode**: Configured globally via `"strict": true` in all TS configs (`apps/api/tsconfig.json`, `apps/web/tsconfig.json`).
+- **Any Usage**: The `any` keyword is discouraged but presently appears roughly 131 times. All new PRs must use `unknown` or strong types instead.
+- **Error Types**: Try-catch statements are strongly typed. Error variables (e.g. `catch (error: unknown)`) should be checked via type narrowing instead of assuming the error shape.
+- **Indexed Access**: It is strongly advised to enforce `noUncheckedIndexedAccess: true` in the `tsconfig.json` to prevent out-of-bounds array and object lookup errors.
 
-## Naming Conventions
-- **Files**: Kebab-case for standard files (e.g., `users.service.ts`, `app.config.ts`).
-- **Classes**: PascalCase (e.g., `UsersService`, `AuditInterceptor`).
-- **Functions/Variables**: camelCase (e.g., `generateSecureRandomPassword`).
-- **Constants**: UPPER_SNAKE_CASE.
+## 2. Naming Conventions
+Consistency is key across the repository to ensure predictability.
+- **Files and Directories**: Strictly **kebab-case** across the board. 
+  - *Correct*: `http-exception.filter.ts`, `scheduled-alerts.worker.ts`
+  - *Incorrect*: `HTTPExceptionFilter.ts`, `scheduledAlertsWorker.ts`
+- **React Components**: Strictly **PascalCase** for both the file name and the exported component.
+  - *Correct*: `NotificationDrawer.tsx`, `SidebarBrandHeader.tsx`
+- **Test Files**: Append `.test.ts(x)` or `.spec.ts(x)`. `.spec.ts` is favored for NestJS and `.test.tsx` for React components.
+- **Interfaces and Types**: Standard **PascalCase** without leading `I` prefixes (e.g., `ThemeState`, not `IThemeState`).
 
-## Code Formatting (Biome)
-The monorepo standardizes on **Biome (v2.5.13)** for fast, consistent formatting.
-- **Indentation**: 2 spaces (`indentStyle: "space"`, `indentWidth: 2`).
-- **Line Width**: 100 characters.
-- **Quotes**: Single quotes for JavaScript/TypeScript (`quoteStyle: "single"`).
-- **Trailing Commas**: All (`trailingCommas: "all"`) for JS/TS, but `none` for JSON.
-- **Semicolons**: Always required (`semicolons: "always"`).
+## 3. Zustand Store Patterns
+React state that transcends simple local component boundaries must reside in `apps/web/src/stores/`.
+- **Definition Pattern**: Use `zustand`'s `create` with explicit TypeScript generic typing `create<ThemeState>()(...)`.
+- **Middleware Usage**: `persist` is utilized heavily for UX continuity (theme, settings, auth). 
+- **Example Pattern (`theme.store.ts`)**:
+```typescript
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-## Linting Rules
-Linting is a hybrid of Biome and ESLint (`@uims/eslint-config` workspace package).
-- **Biome Linter**:
-  - Warns on `noExcessiveCognitiveComplexity` to enforce simpler logic.
-  - Warns on `noNonNullAssertion` and `noExplicitAny` for safer TypeScript usage.
-  - Enforces generic array types (`useConsistentArrayType` -> `generic`).
-- **ESLint**: Utilizes `typescript-eslint` (^8.70.0) alongside Prettier compatibility layers (`eslint-config-prettier` v10.1.8).
+export interface ThemeState {
+  mode: ThemeMode;
+  resolvedMode: ResolvedThemeMode;
+  setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
+}
 
-## Backend Conventions (NestJS 11)
-### Module Pattern
-- Strongly structured around NestJS modules (`*.module.ts`, `*.controller.ts`, `*.service.ts`).
-- Feature-based directories inside `apps/api/src/modules/` (e.g., `users`, `directory`, `audit`, `auth`).
+export const useThemeStore = create<ThemeState>()(
+  persist(
+    (set, get) => ({
+      mode: 'light',
+      resolvedMode: 'light',
+      setMode: (mode: ThemeMode) => set({ mode, resolvedMode: resolveThemeMode(mode) }),
+      toggleMode: () => {
+        const nextMode = get().resolvedMode === 'dark' ? 'light' : 'dark';
+        set({ mode: nextMode, resolvedMode: nextMode });
+      },
+    }),
+    { name: 'uims-theme-settings' }
+  )
+);
+```
 
-### DTO & Validation
-- Relies heavily on **`class-validator` (^0.15.1)** and **`class-transformer` (^0.5.1)** for payload validation (e.g., `login.dto.ts`, `create-asset.dto.ts`).
-- **Zod** (v4.6.1) is also available for complex or functional schema validations where classes are not ideal.
+## 4. Hook Patterns & Data Fetching
+- **Naming**: Custom hooks are prefixed with `use` (e.g. `useSystemHealth.ts`).
+- **Encapsulation**: Instead of invoking `fetch` or `axios` directly in React components, all API calls must be wrapped inside a custom hook. 
+- **Return Shape**: Standard hooks return a standardized object containing the data and meta-state variables.
+```typescript
+// useSystemHealth.ts return signature:
+export function useSystemHealth(options: UseSystemHealthOptions = {}) {
+  const [health, setHealth] = useState<HealthState | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  // ...
+  return { health, isLoading, isRefreshing, error, refresh: fetchHealth };
+}
+```
 
-### Error Handling
-- Centralized exception filters: `http-exception.filter.ts` and `prisma-exception.filter.ts`.
-- These intercept standard HTTP errors and Prisma database errors to return consistent API responses.
+## 5. DTO & Validation Pipeline
+Data transfer objects ensure strong boundary typing between the client and the NestJS server.
+- **Library Split**: The codebase uses `class-validator` and `class-transformer` exclusively in the API layer, while `Zod` is maintained in `packages/shared-validators/` for potential frontend overlap.
+- **DTO Structure**: Uses decorators from `@nestjs/swagger` and `class-validator`.
+```typescript
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-### Logging
-- Uses **Pino** (`pino` v10.3.1, `pino-http` v11.0.0) for high-performance structured JSON logging.
-- Audit trails are automatically intercepted via `AuditInterceptor` (`audit.interceptor.ts`).
+export class CreateNotificationDto {
+  @ApiProperty({ description: 'Notification headline / title' })
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
 
-### API Response Pattern
-- Controllers respond directly with DTOs or entities, which are then shaped by interceptors (`transform.interceptor.ts`) into a consistent response envelope for the frontend.
+  @ApiPropertyOptional({ enum: ['alerts', 'tasks'], description: 'Optional category' })
+  @IsString()
+  @IsOptional()
+  category?: 'alerts' | 'tasks' | 'general';
+}
+```
+- **Pipeline Implementation**: `ValidationPipe` is registered globally in `main.ts` with `whitelist: true` and `transform: true`.
 
-## Frontend Conventions (React 19)
-### Component Patterns
-- Functional components authored in `.tsx` files.
-- Uses Vite 8 for fast builds and HMR.
+## 6. Prisma Query Patterns
+- **Abstraction**: Controllers must never inject `PrismaService`. All database operations live inside the `Injectable` Services.
+- **Transactions**: For operations that modify multiple tables (like updating a user and spawning a notification), `$transaction` is strictly enforced.
+- **Types**: Service methods rely on Prisma's auto-generated types (e.g., `Notification` vs `CreateNotificationDto`) to ensure seamless database type mapping.
 
-### State Management
-- Local/Global State: **Zustand** (v5.0.15) is used for lightweight, boilerplate-free state management.
-- Server State: **TanStack Query** (v5.102) for data fetching, caching, and synchronization.
+## 7. Guard & Decorator Patterns
+- **Decorator Definition**: Custom decorators leverage NestJS `SetMetadata` to tag route handlers.
+```typescript
+import { SetMetadata } from '@nestjs/common';
+export const Roles = (...roles: Array<string>) => SetMetadata('roles', roles);
+```
+- **Guard Consumption**: Custom guards like `RolesGuard` read this metadata using the core `Reflector` service.
+```typescript
+const roles = this.reflector.getAllAndOverride<Array<string>>('roles', [
+  context.getHandler(),
+  context.getClass(),
+]);
+```
+- **Chaining**: Standard endpoints enforce `@UseGuards(JwtAuthGuard, RolesGuard)` sequentially to ensure authentication before authorization.
 
-### Data Fetching
-- Configured with Axios (^1.20.0). Wrapped by TanStack Query for caching and lifecycle management.
+## 8. Module Structure Pattern
+To prevent circular dependencies and maintain predictability, NestJS modules must be organized vertically by domain:
+```
+apps/api/src/modules/notifications/
+├── dto/                          # Sub-folder for all Data Transfer Objects
+│   ├── create-notification.dto.ts
+│   └── notification-query.dto.ts
+├── notifications.controller.ts   # Entry point: HTTP Routing and decorators
+├── notifications.controller.spec.ts
+├── notifications.service.ts      # Core logic: DB queries, business rules
+├── notifications.service.spec.ts
+├── notifications.gateway.ts      # Real-time WebSocket emission via Socket.io
+└── notifications.module.ts       # Module declaration binding Controller/Service
+```
 
-### Styling
-- **Ant Design** (v6.6.3) and `@ant-design/pro-components` (v2.8.10) form the foundational UI library.
+## 9. Frontend Page Pattern
+- **Layout Usage**: Route components are grouped under layout providers (e.g., `MainLayout.tsx`, `AuthLayout.tsx`).
+- **Page Construction**: A standard page begins with a structural container (`PageContainer`) wrapping breadcrumbs, dynamic headers, and feature-specific components.
+- **Lazy Loading**: Major routes are generally code-split to optimize initial bundle size.
 
-## Database Conventions (Prisma 7.10)
-### Schema Patterns
-- Managed by `@prisma/adapter-pg` connecting to PostgreSQL 17.
-- Models represent domain entities.
+## 10. Ant Design v6 Patterns
+- **Imperative UI**: Context-aware modals and alerts are triggered using Ant Design's `App.useApp()`. This guarantees the modal has access to the current theme/store context, unlike legacy `Modal.confirm()`.
+```typescript
+import { App } from 'antd';
 
-### Query Patterns
-- Direct injection of `PrismaService` into standard services.
-- Examples show strong typing and relationship includes utilized efficiently.
+export function ErrorResultView() {
+  const { modal, message } = App.useApp();
+  // Call modal.error(...) or message.info(...)
+}
+```
+- **Theming & Tokens**: Inline styles and dynamic CSS-in-JS properties utilize semantic tokens via `theme.useToken()`. This ensures absolute consistency across Light/Dark modes.
+```typescript
+import { theme } from 'antd';
 
-## Git & CI Conventions
-- **CI Pipeline**: GitHub Actions (`.github/workflows/ci.yml`).
-- Triggers on push to `main` or PRs targeting `main`.
-- **Workflow Steps**:
-  1. Setup Node 22 & PNPM 11.21.
-  2. Install dependencies & generate Prisma Client.
-  3. Format Check (`biome format .`).
-  4. Lint (`eslint` & Biome).
-  5. Typecheck (`tsc --noEmit`).
-  6. Test (`vitest`).
-  7. Build (`turbo run build`).
+export function NavIconWithBadge() {
+  const { token } = theme.useToken();
+  return <div style={{ color: token.colorPrimary, backgroundColor: token.colorBgContainer }}>...</div>;
+}
+```
 
-## Convention Compliance Assessment
-- **Modernity**: Extremely modern (Node 22, React 19, Nest 11, Prisma 7, Vitest 5).
-- **Tooling**: Shifting to Biome shows a proactive optimization for 2026 performance standards.
-- **Consistency**: High alignment. Turborepo handles monorepo orchestration beautifully.
+## 11. API Response Envelopes
+To ensure robust client-side parsing, all API endpoints are funneled through a global `TransformInterceptor`.
+```typescript
+// All 2xx success responses are shaped like:
+export interface Response<T> {
+  success: boolean;
+  data: T;
+  timestamp: string;
+}
+```
+
+## 12. Global Error Handling
+Errors are gracefully caught by a global `HttpExceptionFilter`. Raw error stack traces are never leaked to the client.
+```typescript
+// Standard 4xx/5xx payload:
+{
+  success: false,
+  statusCode: 400,
+  message: "Invalid UUID format",
+  errors?: ["id must be a UUID"], // Optional detailed messages
+  timestamp: "2026-09-14T02:42:04Z"
+}
+```
