@@ -118,3 +118,59 @@ Please ensure the following are implemented before concluding Milestone 4 and cl
 3. `apps/api/src/config/cors.config.ts`: Remove fixed port restrictions for dev/local environments. In non-production, permit any custom port on localhost/127.0.0.1/0.0.0.0 (`/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/`), as well as reading `process.env.WEB_PORT`, `PORT`, and explicit `CORS_ORIGIN`, so the API accepts requests from any custom URL or port.
 4. `apps/web/vite.config.ts`: Respect custom ports from `process.env.PORT`, `VITE_PORT`, `WEB_PORT`, `APP_PORT`, with `host: '0.0.0.0'` and `allowedHosts: true`.
 5. Run full verification (`typecheck`, `lint`, `format:check`, `test`, `build`) and push all changes to `origin/main`.
+
+## 2026-09-14T01:14:51Z
+
+Refactor and harden the UIMS enterprise monorepo by resolving all technical risks and performance bottlenecks in `.planning/codebase/CONCERNS.md`, modernizing monorepo dependencies under a strict zero-downgrade invariant, codifying defect-prevention rules in `AGENTS.md`, and achieving 100% green CI verification.
+
+Working directory: /home/user/projects/uims
+Integrity mode: development
+
+## Requirements
+
+### R1. Code Refactoring & Concern Resolution
+Systematically review and resolve all concerns and compliance gaps documented in `.planning/codebase/CONCERNS.md` adhering to 2026 enterprise best practices:
+- Verify and harden security postures (CORS configuration, WebSocket handshake token verification, rate limiting, and secret management).
+- Enforce bounded database queries (`take <= 100`), deterministic ordering with secondary tie-breakers, and eliminate in-memory aggregations and N+1 query patterns.
+- Ensure resilience mechanisms: health probe endpoints verifying PostgreSQL and Redis, graceful connection draining on shutdown, and structured logging with zero console output in production.
+
+### R2. Dependency Management (Strict Zero-Downgrade Invariant)
+Modernize dependencies across the monorepo root and all packages (`apps/api`, `apps/web`, `packages/*`) to their latest versions:
+- STRICT RULE: Under no circumstances may any package be downgraded to an older major or minor release, preserving TypeScript 7.x, NestJS 11.x, React 19.x, Vite 8.x, and Prisma 7.x.
+- Update `pnpm-lock.yaml` via `pnpm install --no-frozen-lockfile` and deduplicate via `pnpm dedupe`.
+
+### R3. Technical Guidelines & AGENTS.md Directives
+Update `AGENTS.md` with explicit, authoritative engineering directives to permanently prevent these architectural and performance defects:
+- Document zero-unbounded query invariants, mandatory pagination ceilings, and deterministic tie-breaker sorting.
+- Document zero-in-memory table scan and aggregation rules.
+- Document WebSocket auth and CORS allowlist standards.
+- Document structured logging and zero-downgrade policies.
+
+### R4. Quality Gates, Version Control & CI Delivery
+Execute full monorepo verification loops locally and in CI:
+- Run programmatic verification: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm run test`, and `pnpm run build`.
+- Stage all modified files, create clean conventional git commits, push to `origin/main`, and track GitHub Actions CI until all workflow jobs pass completely (green).
+
+## Acceptance Criteria
+
+### Security & Architecture
+- [ ] All remaining issues and risk vectors from `.planning/codebase/CONCERNS.md` are audited and resolved.
+- [ ] No unbounded `.findMany()` queries exist in services or workers; all queries enforce pagination and deterministic `orderBy`.
+- [ ] Health checks (`/api/v1/health`) accurately report DB and Redis connectivity.
+- [ ] Zero unhandled errors, empty catch blocks, or raw `console.log` statements in production code.
+
+### Dependency Modernization
+- [ ] Dependencies across root and all workspace packages are upgraded to latest versions.
+- [ ] Zero packages have been downgraded; core framework versions are preserved.
+- [ ] `pnpm-lock.yaml` is clean, deduplicated, and synchronized.
+
+### Directives & Documentation
+- [ ] `AGENTS.md` contains comprehensive, enforceable directives preventing regression of remediated concerns.
+
+### Verification & CI
+- [ ] `pnpm run typecheck` exits with 0 errors across all workspaces.
+- [ ] `pnpm run lint` exits with 0 errors across all workspaces.
+- [ ] `pnpm run format:check` reports 0 formatting violations.
+- [ ] `pnpm run test` passes with 100% success rate.
+- [ ] `pnpm run build` succeeds across all packages.
+- [ ] All changes committed, pushed to `origin/main`, and remote CI build runs green.
