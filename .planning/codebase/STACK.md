@@ -1,148 +1,110 @@
-# UIMS Technology Stack
+# UIMS Technology Stack Analysis
 
-Date: September 2026
+## 1. Runtime & Language Environment
 
-## 1. Runtime & Ecosystem
-- **Node.js**: >=22.0.0
-- **TypeScript**: ^7.0.2
-- **Package Manager**: pnpm 11.21.0
-- **Monorepo Build System**: Turborepo ^2.10.12
+### Node.js
+- **Version**: `>=22.0.0`
+- **Usage**: Serving as the core runtime for the API, build tooling, and package management.
+- **Best Practices**: Leveraging Node 22 ensures access to the latest V8 engine features, built-in standard library updates, and optimized garbage collection suited for enterprise applications.
 
-## 2. Backend Framework (apps/api)
-- **Framework**: NestJS 11
-- **Key Modules**:
-  - `@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`: ^11.2.3
-  - `@nestjs/config`: ^4.0.4
-  - `@nestjs/jwt`: ^11.0.2
-  - `@nestjs/passport`: ^11.0.5
-  - `@nestjs/platform-socket.io`, `@nestjs/websockets`: ^11.2.3
-  - `@nestjs/schedule`: ^6.1.3
-  - `@nestjs/swagger`: ^11.4.7
-  - `@nestjs/throttler`: ^6.5.0
+### TypeScript
+- **Version**: `^7.0.2`
+- **Configuration Path**: `apps/api/tsconfig.json`, `apps/web/tsconfig.json`, and root configurations.
+- **Strict Mode**: Fully enabled (`strict: true`, `noImplicitAny: true`).
+- **Target**: ES2022 output target, allowing native support for top-level await and advanced module resolution (`NodeNext` for the backend, `bundler` for the frontend).
+- **Patterns**: Zero `any` policy enforced across the repository. Type boundaries are explicitly defined between frontend and backend via shared workspace packages (`@uims/shared-types`).
+
+---
+
+## 2. Backend Framework: NestJS
+
+### Version & Core
+- **Version**: `^11.2.3`
+- **Runtime Environment**: Built on `@nestjs/platform-express` allowing seamless middleware integration.
+- **Modules Structure**: Following domain-driven design, isolated into `apps/api/src/modules/` with cross-cutting concerns in `apps/api/src/common/`.
+
+### Interceptors & Pipes
+- **Validation**: Uses `class-validator` `^0.15.1` and `class-transformer` `^0.5.1` inside global pipes for strict runtime payload verification against DTOs.
+- **Serialization**: Interceptors ensure response payloads are stripped of sensitive fields (e.g., passwords) and follow a standard JSON envelope format.
+
+### Guards & Security
+- **Authentication**: Custom AuthGuards relying on `@nestjs/jwt` `^11.0.2` and `passport-jwt`.
+- **Rate Limiting**: `@nestjs/throttler` `^6.5.0` protects against DDoS and brute-force endpoints.
+- **Headers**: `helmet` `^8.3.0` for safe HTTP header injection.
+
+### Real-time Communication
+- **WebSockets**: `@nestjs/websockets` with `socket.io` `^4.8.3` gateway integration to push live updates to connected web clients.
+
+---
 
 ## 3. Database & ORM
-- **Database**: PostgreSQL 17-alpine (via Docker)
-- **ORM**: Prisma ^7.10.0 (Client, Config, Adapter-PG)
-- **Driver**: pg ^8.23.0
-- **Scale**: ~640-line schema, 24+ models
 
-## 4. Cache Layer
-- **Store**: Redis 8-alpine (via Docker)
-- **Client**: ioredis ^6.0.0
+### Prisma Engine
+- **Version**: `^7.10.0`
+- **Schema Location**: `apps/api/prisma/schema.prisma` (approx 17KB, defining complex relations).
+- **Client Generation**: Managed via Turborepo scripts (`db:generate`) using `@prisma/client`.
+- **Database Driver**: Leveraging the new `@prisma/adapter-pg` `^7.10.0` working in tandem with the native `pg` (`^8.23.0`) driver to optimize connection pooling under heavy concurrent loads.
+- **Migrations**: Standard `prisma migrate dev` for local schema evolution and `prisma migrate deploy` for CI/CD environments.
 
-## 5. Search Engine
-- **Engine**: MeiliSearch latest (via Docker on port 7700)
-- **Integration**: Custom SearchService module in API
+### PostgreSQL
+- **Version**: `17-alpine`
+- **Connection Configuration**: Tuned via Docker Compose with `max_connections=200` and `shared_buffers=256MB`.
 
-## 6. Object Storage
-- **Store**: SeaweedFS (Master + Volume + Filer with S3 gateway, via Docker)
-- **Access**: S3 compatible gateway at port 8333
+### Redis Caching
+- **Version**: `8-alpine`
+- **Client**: `ioredis` `^6.0.0`
+- **Usage Patterns**:
+  - Distributive caching for heavy read-queries.
+  - Refresh token blacklisting and session tracking.
 
-## 7. Frontend Framework (apps/web)
-- **Library**: React ^19.3.0 (with react-dom)
-- **UI Framework**: Ant Design ^6.6.3
-- **UI Components**: `@ant-design/pro-components` ^2.8.10, `@ant-design/icons` ^6.3.4
-- **Fonts**: Fontsource Inter Variable ^5.3.0
+---
 
-## 8. State Management
-- **Store**: Zustand ^5.0.15 (used for auth, theme, timezone, notification-settings)
+## 4. Frontend Framework: React & Vite
 
-## 9. Data Fetching
-- **Client**: TanStack React Query ^5.102.8
-- **DevTools**: `@tanstack/react-query-devtools` ^5.102.8
+### React 19
+- **Version**: `^19.3.0`
+- **Rendering Mode**: Client-side rendering tailored for complex dashboard interactions, utilizing React 19 concurrent features.
+- **Routing**: `react-router` `^8.3.1` (Latest iteration, unified standard).
 
-## 10. Routing
-- **Router**: React Router ^8.3.1
+### UI Library: Ant Design
+- **Version**: `^6.6.3` with `@ant-design/pro-components` `^2.8.10`.
+- **Design Tokens**: Leverages Ant Design v6 semantic tokens and CSS-in-JS configurations mapped in `apps/web/src/styles`.
 
-## 11. HTTP Client
-- **Client**: Axios ^1.20.0
+### State Management: Zustand & TanStack Query
+- **Zustand**: `^5.0.15` used for global, volatile UI state (e.g., sidebar toggles, theme preferences). Found in `apps/web/src/stores`.
+- **TanStack Query**: `^5.102.8` managing all server-state, caching, background polling, and optimistic UI updates. Includes `@tanstack/react-query-devtools` for debugging.
 
-## 12. Real-time Communications
-- **Protocol**: WebSockets
-- **Server**: Socket.IO ^4.8.3 (`@nestjs/websockets`, `@nestjs/platform-socket.io`)
-- **Client**: `socket.io-client` ^4.8.3
+### Build Tooling: Vite
+- **Version**: `^8.3.0`
+- **Plugins**: `@vitejs/plugin-react` `^6.1.1` for Fast Refresh.
+- **Optimization**: Custom manual chunking implemented in `vite.config.ts` to strictly separate vendor boundaries (`vendor-react`, `vendor-antd-core`, etc.), achieving granular cache invalidation.
 
-## 13. Validation
-- **Runtime**: Zod ^4.6.4 (shared-validators)
-- **DTO Validation**: class-validator ^0.15.1, class-transformer ^0.5.1
+---
 
-## 14. Security
-- **Headers**: Helmet ^8.3.0
-- **Auth**: Passport ^0.7.0, passport-jwt ^4.0.1
-- **Hashing**: bcrypt ^6.0.0
-- **Rate Limiting**: `@nestjs/throttler` ^6.5.0
+## 5. Monorepo & Tooling
 
-## 15. API Documentation
-- **Specs**: `@nestjs/swagger` ^11.4.7
-- **UI**: Swagger UI hosted at `/api/v1/docs`
+### Package Management
+- **pnpm**: Version `11.21.0`.
+- **Configuration**: Workspaces defined in `pnpm-workspace.yaml`, spanning `apps/*` and `packages/*` (`shared-types`, `shared-utils`, `shared-validators`).
 
-## 16. Build & Development Tools
-- **Bundler**: Vite ^8.3.0 (with HTTPS dev server, HMR, custom API proxy, manual chunking)
-- **Compiler**: tsc for API
-- **Dev Runner**: nodemon ^3.1.14 for API watch/reload
+### Turborepo Pipeline
+- **Version**: `^2.10.12`
+- **Task Orchestration**: `turbo.json` defines task dependencies (e.g., `build` depends on `^build`), ensuring typed shared packages are compiled before API or Web consumption.
 
-## 17. Testing
-- **Unit/Integration**: Vitest ^5.0.0 (API and web)
-- **Browser Environment**: happy-dom ^20.14.5
-- **E2E**: Playwright ^1.63.0
+### Linting & Formatting (Biome)
+- **Tool**: Biome `^2.5.13` completely replaces ESLint and Prettier.
+- **Configuration Path**: `biome.json` at the root.
+- **Rules**: Enforces `noExplicitAny` as a warning, `useConsistentArrayType`, and strict formatting (indent style: space, width: 2).
 
-## 18. Linting & Formatting
-- **Formatter/Linter (Root)**: Biome ^2.5.13
-- **Linter (Workspaces)**: ESLint ^10.10.0
+### Testing Automation
+- **Unit/Integration**: `vitest` `^5.0.0` providing near-instant watch modes and native TS execution without compiling.
+- **E2E**: Playwright `^1.63.0` testing integration.
 
-## 19. Logging
-- **Logger**: Pino ^10.3.1
-- **HTTP Middleware**: pino-http ^11.0.0
+---
 
-## 20. Scheduling
-- **Task Runner**: `@nestjs/schedule` ^6.1.3 (cron-based workers)
+## 6. Emerging 2026 Best Practices Adherence
 
-## 21. Data Import
-- **Parser**: ExcelJS ^4.4.0 (for Excel/CSV parsing)
-
-
-## Dependency Version Matrix
-
-| Dependency | Version | Workspace |
-|------------|---------|-----------|
-| @biomejs/biome | ^2.5.13 | Root |
-| turbo | ^2.10.12 | Root |
-| playwright | ^1.63.0 | Root |
-| typescript | ^7.0.2 | API, Web |
-| eslint | ^10.10.0 | API, Web |
-| vitest | ^5.0.0 | API, Web |
-| @nestjs/* | ^11.2.3 | API |
-| @nestjs/swagger | ^11.4.7 | API |
-| @nestjs/jwt | ^11.0.2 | API |
-| @nestjs/passport | ^11.0.5 | API |
-| @nestjs/schedule | ^6.1.3 | API |
-| @nestjs/throttler | ^6.5.0 | API |
-| @prisma/client | ^7.10.0 | API |
-| @prisma/config | ^7.10.0 | API |
-| @prisma/adapter-pg | ^7.10.0 | API |
-| pg | ^8.23.0 | API |
-| ioredis | ^6.0.0 | API |
-| socket.io | ^4.8.3 | API |
-| class-validator | ^0.15.1 | API |
-| class-transformer | ^0.5.1 | API |
-| zod | ^4.6.4 | API, Web |
-| helmet | ^8.3.0 | API |
-| passport | ^0.7.0 | API |
-| passport-jwt | ^4.0.1 | API |
-| bcrypt | ^6.0.0 | API |
-| pino | ^10.3.1 | API |
-| pino-http | ^11.0.0 | API |
-| exceljs | ^4.4.0 | API |
-| react | ^19.3.0 | Web |
-| react-dom | ^19.3.0 | Web |
-| antd | ^6.6.3 | Web |
-| @ant-design/icons | ^6.3.4 | Web |
-| @ant-design/pro-components | ^2.8.10 | Web |
-| react-router | ^8.3.1 | Web |
-| @tanstack/react-query | ^5.102.8 | Web |
-| axios | ^1.20.0 | Web |
-| zustand | ^5.0.15 | Web |
-| socket.io-client | ^4.8.3 | Web |
-| dayjs | ^1.11.23 | Web |
-| vite | ^8.3.0 | Web |
-| happy-dom | ^20.14.5 | Web |
+1. **Rust-based Toolchain Adoption**: Fully adopted Biome over legacy ESLint/Prettier combinations, massively accelerating CI lint/format steps.
+2. **ESNext / NodeNext strictness**: Module resolution aligns perfectly with native ES Modules, dropping legacy CommonJS fallbacks.
+3. **Database Driver Optimization**: Using Prisma's `adapter-pg` over the native Rust engine interface reduces serialization overhead between Node and Rust binaries, a standard best practice in late 2025/2026 for high-throughput NestJS APIs.
+4. **Declarative Server State**: Segregating UI state (Zustand) from asynchronous server data (TanStack Query) entirely eliminates "fat store" anti-patterns.

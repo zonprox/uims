@@ -1,56 +1,108 @@
-# UIMS Integrations
+# UIMS External Service Integrations Map
 
-Date: September 2026
+## 1. Relational Database: PostgreSQL
 
-## 1. PostgreSQL Integration
-- **Connection**: Managed via Prisma's `adapter-pg` using a pg `Pool` with max connections set to `20` by default (from `DB_POOL_MAX`).
-- **Orchestration**: Docker container `uims-postgres` running `postgres:17-alpine`.
-- **Ports**: Host port `5433` maps to internal `5432`.
-- **Tuning**: Tuned on startup with `max_connections=200`, `shared_buffers=256MB`, `effective_cache_size=768MB`, `maintenance_work_mem=64MB`, `checkpoint_completion_target=0.9`, `wal_buffers=16MB`, `default_statistics_target=100`, `random_page_cost=1.1`.
+### Infrastructure & Containerization
+- **Engine**: PostgreSQL version `17-alpine` via Docker Compose.
+- **Connection Configuration**: 
+  - `max_connections=200`
+  - `shared_buffers=256MB`
+  - `effective_cache_size=768MB`
+  - `maintenance_work_mem=64MB`
+- **Application Integration**: The NestJS API connects using the Prisma ORM. The connection string is injected via the `DATABASE_URL` environment variable.
+- **Pooling Setup**: Prisma URL appends `?schema=public&connection_limit=20&pool_timeout=30`, ensuring the Node.js event loop doesn't overwhelm the database.
+- **Resilience**: Monitored via a `pg_isready` health check script polling every 5 seconds.
 
-## 2. Redis Integration
-- **Connection**: Integrated via `ioredis` in `RedisService`. Features a graceful degradation fallback to in-memory caching if Redis is unreachable.
-- **Orchestration**: Docker container `uims-redis` running `redis:8-alpine`.
-- **Ports**: Host port `6381` maps to internal `6379`.
-- **Tuning**: Configured with `--maxmemory 512mb` and `--maxmemory-policy allkeys-lru`, plus `--appendonly yes` and `--requirepass`.
+---
 
-## 3. MeiliSearch Integration
-- **Engine**: Full-text search indexer handling Users, Licenses, and Assets.
-- **Orchestration**: Docker container `uims-meilisearch` running `getmeili/meilisearch:latest`.
-- **Ports**: Mapped on port `7700`.
-- **Integration**: Used via HTTP API (`/multi-search`, `/indexes/.../documents`) in the API's `SearchService`. Implements a graceful fallback to a complex Prisma database query (`searchDatabaseFallback`) if MeiliSearch goes offline.
+## 2. In-Memory Datastore: Redis
 
-## 4. SeaweedFS S3 Integration
-- **Architecture**: Object storage split into three containers:
-  - `uims-seaweedfs-master`: Master node on port `9333`
-  - `uims-seaweedfs-volume`: Volume node on port `8080`
-  - `uims-seaweedfs-filer`: Filer/S3 Gateway on ports `8888` and `8333`
-- **Integration**: The API accesses it as an S3 compatible endpoint at `http://seaweedfs-filer:8333` using S3 credentials for file uploads (bucket `uims-files`).
+### Infrastructure & Containerization
+- **Engine**: Redis version `8-alpine`.
+- **Tuning**: Configured with `--maxmemory 512mb` and an eviction policy of `--maxmemory-policy allkeys-lru`. Persistence is guaranteed via `--appendonly yes`.
+- **Application Integration**: Connected to the NestJS application via the `REDIS_URL` environment variable.
+- **Usage Patterns**:
+  - Session and Refresh Token invalidation layer.
+  - Caching frequent, expensive API queries.
+  - Pub/Sub bus for real-time Socket.IO scaling (when operating across multiple API replicas).
+- **Resilience**: Monitored via `redis-cli ping` health check every 5 seconds.
 
-## 5. WebSocket Gateway
-- **Engine**: Socket.IO integrated with NestJS via `NotificationsGateway` at namespace `/notifications`.
-- **Security**: 
-  - Centralized CORS resolution managed by `resolveAllowedOrigins()` and `getWebSocketCorsOptions()` in `cors.config.ts`.
-  - Authentication validates JWT from the socket handshake `auth.token` or `authorization` header, strictly rejecting tokens in the URL query.
-- **Features**: Real-time notifications and unread counts targeted to users (`user:{id}`) and roles (`role:{role}`). Drains connections gracefully on server shutdown.
+---
 
-## 6. Cloudflare Tunnel
-- **Access**: Facilitated via a script (`dev.sh`) to spin up a quick Cloudflare tunnel, exposing the local environment securely.
-- **CORS Handling**: `cors.config.ts` specifically whitelists Cloudflare preview domains (`CLOUDFLARE_DEV_ORIGIN_REGEX = /^https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com$/`) exclusively in non-production modes.
+## 3. Search Infrastructure: MeiliSearch
 
-## 7. Vite Dev Proxy
-- **Configuration**: Managed in `apps/web/vite.config.ts`.
-- **Proxy Paths**: 
-  - `/api` requests proxy to `http://localhost:3002` (or `uims-api-dev:3000` in Docker).
-  - `/socket.io` handles WebSocket upgrades targeting the same backend.
-- **Optimization**: Features advanced manual chunking separating vendors (`vendor-react`, `vendor-antd-core`, `vendor-antd-pro`, `vendor-query`, etc.) to improve dev load times and build size.
+### Infrastructure & Containerization
+- **Engine**: `getmeili/meilisearch:latest`
+- **Environment**: Exposed on port `7700`.
+- **Application Integration**: 
+  - The API service interacts with MeiliSearch via HTTP requests.
+  - Configured using `MEILISEARCH_HOST` (`http://meilisearch:7700`) and secured with `MEILISEARCH_API_KEY`.
+- **Usage Patterns**:
+  - Full-text search capabilities for large textual entities (e.g., user directories, complex audits) offloading fuzzy-search burdens from PostgreSQL.
+- **Resilience**: A standard HTTP health check (`/health`) ensures the container is ready before the API boots.
 
-## 8. Docker Compose Orchestration
-- **Topology**: Defines a complete network with `postgres`, `redis`, `meilisearch`, `seaweedfs-*`, `api`, and `web`.
-- **Healthchecks**: Strict dependency sequencing with `condition: service_healthy`.
-  - Postgres: `pg_isready`
-  - Redis: `redis-cli ping`
-  - MeiliSearch: `curl /health`
-  - API: `wget /api/v1/health`
-  - Web: `wget https://localhost/`
-- **Networking**: Maps appropriate storage volumes for state persistence (`postgres_data`, `redis_data`, `meilisearch_data`, `seaweedfs_*`).
+---
+
+## 4. Object Storage: SeaweedFS
+
+### Infrastructure & Architecture
+SeaweedFS is deployed as a highly scalable distributed file system using three components:
+1. **Master Node** (`seaweedfs-master`): Port `9333`.
+2. **Volume Node** (`seaweedfs-volume`): Port `8080`.
+3. **Filer / S3 Gateway Node** (`seaweedfs-filer`): Exposes an S3-compatible HTTP API on port `8333`.
+
+### Application Integration
+- **Configuration**:
+  - `S3_ENDPOINT`: Set to `http://seaweedfs-filer:8333` targeting the local Filer gateway.
+  - `S3_ACCESS_KEY` & `S3_SECRET_KEY`: Used by the API's AWS S3 SDK (or similar S3-compatible client) to authenticate requests.
+  - `S3_BUCKET`: Default bucket name initialized as `uims-files`.
+- **Usage Patterns**:
+  - Storing user uploads, attachments, and generated reports.
+  - Using pre-signed URLs for secure, direct-to-storage client uploads, bypassing API memory bottlenecks.
+
+---
+
+## 5. Security & Cryptographic Integrations
+
+### JWT (JSON Web Tokens)
+- **Configuration**: 
+  - `JWT_SECRET` (symmetric key for access tokens, 15m expiration)
+  - `JWT_REFRESH_SECRET` (symmetric key for refresh tokens, 7d expiration).
+- **Integration**: Integrated deeply into the NestJS `@nestjs/jwt` module and custom Passport.js strategies.
+
+### Audit Trail Encryption
+- **Configuration**: `AUDIT_SIGNING_KEY`
+- **Usage Pattern**: Used to cryptographically sign audit logs to guarantee non-repudiation and prevent tampering by privileged actors or database administrators.
+
+---
+
+## 6. Networking & Web Serving
+
+### NGINX (Production Build)
+- **Role**: Serves the compiled Vite static assets (React frontend).
+- **Configuration Path**: `docker/nginx/nginx.conf`
+- **Integration**: Acts as an HTTPS terminator (binding to port `5679` mapping to `443` internally) and routes `/api` requests to the upstream NestJS container.
+
+### Dev Proxy (Vite)
+- **Role**: In development environments (`docker-compose.dev.yml`), the Vite dev server manages routing.
+- **Integration**: `vite.config.ts` proxies `/api` and `/socket.io` to the internal API Docker container (`http://uims-api-dev:3000`), resolving CORS issues naturally.
+
+---
+
+## 7. Comprehensive Environment Variable Index
+
+| Variable | Target Component | Purpose & Integration Path |
+|----------|------------------|----------------------------|
+| `DATABASE_URL` | Prisma ORM | Full connection string linking Node to Postgres with pooling. |
+| `REDIS_URL` | ioredis / API | Linking the Node API to the Redis instance for caching. |
+| `MEILISEARCH_HOST` | API | HTTP target for the search engine indexing service. |
+| `MEILISEARCH_API_KEY` | API | Auth token for search indexing and querying. |
+| `S3_ENDPOINT` | API | URL pointing to the SeaweedFS S3 API. |
+| `S3_ACCESS_KEY` | API | S3 equivalent access ID. |
+| `S3_SECRET_KEY` | API | S3 equivalent secret key. |
+| `S3_BUCKET` | API | Default target bucket for application file uploads. |
+| `JWT_SECRET` | API | Cryptographic seed for signing JWT access tokens. |
+| `JWT_REFRESH_SECRET`| API | Cryptographic seed for signing JWT refresh tokens. |
+| `AUDIT_SIGNING_KEY` | API | HMAC/RSA key used to secure append-only audit trails. |
+| `APP_PORT` | Docker / API | Maps internal NestJS port (3000) to the host. |
+| `WEB_PORT` | Docker / NGINX | Maps internal UI port to the host machine. |
