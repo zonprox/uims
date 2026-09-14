@@ -1,114 +1,186 @@
-# UIMS Directory & File Structure
+# UIMS Codebase Structure
+*Date: September 2026*
 
-The UIMS project is a full-stack monorepo managed by Turborepo and PNPM workspaces. It contains ~450 source files spread across applications and shared packages.
+This document outlines the full monorepo structure of the UIMS platform.
 
-## 1. Root-Level Organization
-- **`apps/`**: Contains the primary runnable applications (API and Web).
-- **`packages/`**: Shared libraries and utilities consumed by apps.
-- **`docker/`**: Infrastructure configuration, Nginx rules, and database init scripts.
-- **`docs/`**: Documentation (notable files like PROJECT.md, AGENTS.md, TEST_READY.md).
-- **`scripts/`**: Shell scripts for automation (e.g., `dev.sh` for stack management).
-- **`.planning/`**: Agent/planning and AI-related workspace files.
-- **Configuration Files**: `package.json`, `turbo.json`, `pnpm-workspace.yaml`, `biome.json` (for linting/formatting).
+## Monorepo Summary
 
----
-
-## 2. Backend Structure (`apps/api/src/`)
-Total Files: ~170 files.
-
-```text
-apps/api/src/
-├── main.ts                    # Entry point; sets up NestJS, Swagger, Filters, Interceptors
-├── app.module.ts              # Root module wiring up all domain modules
-├── common/                    # Cross-cutting utilities
-│   ├── decorators/
-│   ├── dto/
-│   ├── filters/               # HttpExceptionFilter, PrismaExceptionFilter
-│   ├── guards/                # JwtAuthGuard, RolesGuard, PermissionsGuard
-│   ├── interceptors/          # TransformInterceptor, AuditInterceptor
-│   └── redis/                 # RedisModule and connection setup
-├── config/                    # Configuration loaders and validation (CORS, app config)
-├── database/                  # Prisma module and extensions
-└── modules/                   # Domain-Driven Modules
-    ├── assets/                # Hardware & IT Assets tracking
-    ├── audit/                 # Audit logging
-    ├── auth/                  # Authentication & JWT strategies
-    ├── dashboard/             # Aggregated stats and widgets
-    ├── directory/             # Employee & AD/LDAP sync
-    ├── health/                # Service health checks
-    ├── inventory/             # Consumables and parts inventory
-    ├── licenses/              # Software license tracking
-    ├── network/               # VLANs, Subnets, IPAM
-    ├── notifications/         # Real-time user notifications
-    ├── organization/          # Company org chart and locations
-    ├── reports/               # Scheduled report generation
-    ├── roles/                 # RBAC and permissions management
-    ├── search/                # MeiliSearch integration
-    ├── settings/              # App-wide settings and JSON configurations
-    └── users/                 # Application users and profiles
-```
-*Note: Each domain module generally contains its own DTOs, Controllers, Services, and optionally specific Guards/Interceptors.*
+| Workspace | Description | File Count |
+| :--- | :--- | :--- |
+| **Root** | Config files, scripts, markdown docs | 18 |
+| **apps/api** | NestJS backend application | 214 |
+| **apps/web** | React SPA frontend application | 172 |
+| **packages/shared-types** | Shared TS entities, DTOs, enums | 37 |
+| **packages/shared-validators** | Zod 4 runtime schemas | 26 |
+| **packages/shared-utils** | Common utility functions | 19 |
+| **packages/eslint-config** | Shared ESLint configurations | 3 |
+| **docker** | Container definitions & initializers | 4 |
+| **scripts** | Build & deployment helper scripts | 3 |
 
 ---
 
-## 3. Frontend Structure (`apps/web/src/`)
-Total Files: ~157 files.
+## Directory Trees
 
+### 1. Root Workspace
+Configuration for the monorepo, continuous integration, and high-level documentation.
 ```text
-apps/web/src/
-├── main.tsx                   # Entry point; mounts React to #root
-├── app/
-│   ├── App.tsx                # ConfigProviders (AntD, React Query), RouterProvider
-│   └── router.tsx             # React Router v6 definitions with Lazy Suspense Boundaries
-├── components/                # Shared generic UI components (PageLoader, ErrorBoundary)
-├── hooks/                     # Shared React hooks
-├── layouts/                   # Layout wrappers (AuthLayout, MainLayout)
-├── pages/                     # Domain-driven page components
-│   ├── access/                # Access control UI
-│   ├── assets/                # Assets UI (with internal /components, /hooks, /utils)
-│   ├── audit/
-│   ├── auth/
-│   ├── dashboard/
-│   ├── directory/
-│   ├── inventory/
-│   ├── licenses/
-│   ├── network/
-│   ├── notifications/
-│   ├── organization/
-│   ├── reports/
-│   ├── settings/
-│   └── users/
-├── services/                  # API client implementations (Axios or fetch wrappers)
-├── stores/                    # Zustand state stores (e.g., theme.store.ts)
-└── styles/                    # Global CSS (global.css) and theme variable files
+/
+├── apps/                 # Application workspaces (api, web)
+├── packages/             # Shared packages (types, utils, validators)
+├── docker/               # Infrastructure definitions
+├── scripts/              # Utility scripts
+├── docs/                 # Documentation directory
+├── .planning/            # Architecture and agent planning docs
+├── .github/              # GitHub Actions workflows (ci.yml)
+├── package.json          # Monorepo dependencies & scripts
+├── pnpm-workspace.yaml   # pnpm workspace definitions
+├── pnpm-lock.yaml        # Lockfile
+├── turbo.json            # Turborepo configuration
+├── biome.json            # Biome linter/formatter config
+├── docker-compose.yml    # Main compose file
+├── docker-compose.dev.yml# Dev compose overrides
+└── README.md             # Project overview
 ```
 
----
+### 2. Backend (`apps/api/`)
+The NestJS API following a clean modular monolith structure.
 
-## 4. Shared Packages (`packages/`)
-Total Files: ~124 files.
+```text
+apps/api/
+├── package.json
+├── nest-cli.json
+├── tsconfig.json
+├── eslint.config.mjs
+├── prisma.config.ts
+├── prisma/               # Prisma schema & migrations
+│   └── schema.prisma
+├── test/                 # E2E test suite
+└── src/
+    ├── main.ts           # Application entry point
+    ├── app.module.ts     # Root module
+    ├── config/           # App, CORS, and external configurations
+    ├── common/           # Shared NestJS components
+    │   ├── decorators/   # public, roles, client-ip, require-permissions
+    │   ├── dto/          # pagination.dto.ts, generic dtos
+    │   ├── filters/      # http-exception, prisma-exception filters
+    │   ├── guards/       # jwt-auth, roles, permissions guards
+    │   └── interceptors/ # transform, audit interceptors
+    └── modules/          # 15 Domain modules (see structure pattern below)
+```
 
-- **`packages/shared-types`**: Contains TypeScript definitions shared between Web and API. Includes DTOs, Entities, and Enums representing the shared schema.
-- **`packages/shared-utils`**: Contains common utility functions, date formatting (e.g., dayjs configuration), strings, math, etc.
-- **`packages/shared-validators`**: Zod or Class-Validator schemas utilized by both backend pipes and frontend form validations.
-- **`packages/eslint-config`**: Standardized linting rules for the monorepo.
+#### API Domain Module Pattern
+Every business domain under `apps/api/src/modules/` adheres to a strict pattern:
+```text
+modules/<domain>/
+├── <domain>.module.ts       # Module wire-up
+├── <domain>.controller.ts   # HTTP Route definitions
+├── <domain>.service.ts      # Business logic
+├── <domain>.controller.spec.ts
+├── <domain>.service.spec.ts
+└── dto/
+    ├── create-<domain>.dto.ts
+    ├── update-<domain>.dto.ts
+    └── <domain>-query.dto.ts
+```
+*Note: Domains include auth, users, roles, directory, organization, assets, licenses, inventory, network, audit, reports, settings, dashboard, health, search, and notifications.*
 
----
+### 3. Frontend (`apps/web/`)
+The React 19 application built with Vite and Ant Design v6.
 
-## 5. Docker Infrastructure
-- **`docker-compose.yml`**: Defines the production-ready infrastructure services:
-  - `postgres` (port 5432)
-  - `redis` (port 6379)
-  - `meilisearch` (port 7700)
-  - `seaweedfs-master`, `seaweedfs-volume`, `seaweedfs-filer` (S3 gateway)
-  - `api` (NestJS backend)
-  - `web` (React frontend served via Nginx)
-- **`docker-compose.dev.yml`**: Overrides and volume mounts for local development environments.
-- **`docker/nginx/`**: Contains proxy pass rules, SSL certificates setup for the React frontend, and reverse proxying to the API.
+```text
+apps/web/
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── vitest.config.ts
+├── eslint.config.mjs
+├── index.html            # Vite HTML entry point
+└── src/
+    ├── app/              # Core App setup
+    │   ├── App.tsx       # Root wrapper (ConfigProvider, etc.)
+    │   ├── router.tsx    # React Router 8 configuration
+    │   ├── theme.ts      # Ant Design theme customization
+    │   └── query-client.ts # TanStack Query client setup
+    ├── layouts/          # UI Shells
+    │   ├── AuthLayout.tsx# Unauthenticated layout shell
+    │   └── MainLayout.tsx# Authenticated layout shell (Sidebar, Header)
+    ├── pages/            # Routable view components
+    ├── components/       # Shared UI components
+    ├── hooks/            # Custom React hooks
+    ├── stores/           # Zustand state management
+    │   └── auth.store.ts
+    ├── services/         # Axios-based API clients
+    │   └── api.ts        # Base Axios instance setup
+    └── utils/            # Frontend utilities
+```
 
----
+### 4. Shared Packages (`packages/`)
 
-## 6. Scripts & Tooling
-- **`scripts/dev.sh`**: A shell wrapper used in `package.json` (`pnpm stack:start`, `stack:status`) that manages running the infrastructure stack smoothly.
-- **Turbo Pipeline**: Defined in `turbo.json`, handles optimal caching for `build`, `lint`, `test`, `typecheck`.
-- **Biome**: Fast formatter and linter (`biome.json`) configured via package scripts (`pnpm format`).
+#### `packages/shared-types/`
+Cross-boundary TypeScript definitions used by both `api` and `web`.
+```text
+packages/shared-types/
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── index.ts
+    ├── dtos/             # Data Transfer Object interfaces
+    ├── entities/         # Domain entity interfaces
+    └── enums/            # Shared string/number enumerations
+```
+
+#### `packages/shared-validators/`
+Zod 4 schemas that mirror `shared-types` for runtime validation.
+```text
+packages/shared-validators/
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── index.ts
+    └── schemas/          # Zod schema definitions corresponding to entities/DTOs
+```
+
+#### `packages/shared-utils/`
+Pure functional utilities shared across both ecosystems.
+```text
+packages/shared-utils/
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── format.ts         # Number, date formatting
+    ├── network.ts        # IP/network utilities
+    ├── timezone.ts       # Timezone helpers
+    ├── string.ts         # String manipulation
+    ├── enum.ts           # Enum helpers
+    └── brand.ts          # Branded type utilities
+```
+
+#### `packages/eslint-config/`
+Centralized linting configs to enforce consistency.
+```text
+packages/eslint-config/
+├── package.json
+└── index.js              # Base ESLint rules
+```
+
+### 5. Infrastructure and Scripts
+
+#### `docker/`
+Infrastructure orchestration files.
+```text
+docker/
+├── nginx/
+│   ├── nginx.conf        # Reverse proxy config
+│   └── ssl/              # Local SSL certs
+└── postgres/
+    └── init.sql          # DB initialization script
+```
+
+#### `scripts/`
+Utility scripts for development operations.
+```text
+scripts/
+├── dev.sh                # Main local dev initialization script
+├── test-login.mjs        # Helper script for login testing
+└── test-responsive.mjs   # Helper script for UI testing
+```

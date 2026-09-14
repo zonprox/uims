@@ -1,60 +1,56 @@
-# External Service Integrations (UIMS)
+# UIMS Integrations
 
-## 1. Database (PostgreSQL 17)
-- **Connection Config**: Standard `postgresql://` URI configured via Prisma.
-- **Pooling**: `connection_limit=20` and `pool_timeout=30` baked into the URI.
-- **Init Scripts**: Initialized via `/docker/postgres/init.sql`.
-- **Health Checks**: 
-  - Docker: `pg_isready -U uims -d uims_db`.
-  - Application: `SettingsService.getHealthTelemetry()` executes a raw `SELECT 1` query with latency tracking.
+Date: September 2026
 
-## 2. Cache (Redis 8)
-- **Connection Config**: Connected via `ioredis` (v6.0.0) at `redis://:${REDIS_PASSWORD}@redis:6379`.
-- **Usage Patterns**:
-  - Read-through caching for application settings (`SettingsService`).
-  - Cache invalidation on setting updates via `redis.del('uims:cache:settings:all')`.
-- **Health Checks**: Pinged via `redis-cli ping` inside Docker and monitored via `redis.isHealthy()` inside NestJS telemetry.
+## 1. PostgreSQL Integration
+- **Connection**: Managed via Prisma's `adapter-pg` using a pg `Pool` with max connections set to `20` by default (from `DB_POOL_MAX`).
+- **Orchestration**: Docker container `uims-postgres` running `postgres:17-alpine`.
+- **Ports**: Host port `5433` maps to internal `5432`.
+- **Tuning**: Tuned on startup with `max_connections=200`, `shared_buffers=256MB`, `effective_cache_size=768MB`, `maintenance_work_mem=64MB`, `checkpoint_completion_target=0.9`, `wal_buffers=16MB`, `default_statistics_target=100`, `random_page_cost=1.1`.
 
-## 3. Search (MeiliSearch)
-- **Connection**: HTTP REST connection to `http://meilisearch:7700`.
-- **Index Configuration**: Three primary indices: `assets`, `licenses`, `users`.
-- **Sync Strategy**: 
-  - Executed via `SearchService.syncAllToMeilisearch()`.
-  - Paginates through PostgreSQL using cursor-based pagination in chunks of 100.
-- **Search Endpoints**: Uses MeiliSearch's `/multi-search` endpoint to query across all 3 indices simultaneously. If unavailable, falls back gracefully to Prisma OR queries.
+## 2. Redis Integration
+- **Connection**: Integrated via `ioredis` in `RedisService`. Features a graceful degradation fallback to in-memory caching if Redis is unreachable.
+- **Orchestration**: Docker container `uims-redis` running `redis:8-alpine`.
+- **Ports**: Host port `6381` maps to internal `6379`.
+- **Tuning**: Configured with `--maxmemory 512mb` and `--maxmemory-policy allkeys-lru`, plus `--appendonly yes` and `--requirepass`.
 
-## 4. Storage (SeaweedFS / S3 API)
-- **Architecture**: Master (`9333`), Volume (`8080`), and Filer (`8888`, `8333`) components.
-- **S3 Gateway**: The Filer acts as an S3 gateway on port `8333`.
-- **Usage**:
-  - Configured with `S3_ACCESS_KEY` and `S3_SECRET_KEY`.
-  - Stores encrypted JSON database snapshot backups via `SettingsService.runBackup()` mapped to `s3://uims-vault/backups/`.
+## 3. MeiliSearch Integration
+- **Engine**: Full-text search indexer handling Users, Licenses, and Assets.
+- **Orchestration**: Docker container `uims-meilisearch` running `getmeili/meilisearch:latest`.
+- **Ports**: Mapped on port `7700`.
+- **Integration**: Used via HTTP API (`/multi-search`, `/indexes/.../documents`) in the API's `SearchService`. Implements a graceful fallback to a complex Prisma database query (`searchDatabaseFallback`) if MeiliSearch goes offline.
 
-## 5. Email / Notifications
-- **SMTP**: No explicit SMTP configurations detected in the immediate service layer.
-- **WebSocket Push**: Notifications are handled in real-time via the WebSocket gateway (see below).
+## 4. SeaweedFS S3 Integration
+- **Architecture**: Object storage split into three containers:
+  - `uims-seaweedfs-master`: Master node on port `9333`
+  - `uims-seaweedfs-volume`: Volume node on port `8080`
+  - `uims-seaweedfs-filer`: Filer/S3 Gateway on ports `8888` and `8333`
+- **Integration**: The API accesses it as an S3 compatible endpoint at `http://seaweedfs-filer:8333` using S3 credentials for file uploads (bucket `uims-files`).
 
-## 6. WebSocket Gateway (Socket.IO)
-- **Location**: `NotificationsGateway` running on namespace `/notifications`.
-- **Authentication Strategy**:
-  - **Strict Enforcement**: Forbids token transport via URL query parameters for security.
-  - Extracts Bearer token from handshake headers or auth payload.
-  - Verifies JWT signatures and enforces non-empty role claims.
-- **Room Topology**: Clients are joined to `user:{userId}` and `role:{role}` rooms.
-- **Events**: Emits `notification:new`, `notification:count`, `notification:read`, `notification:cleared`.
-- **Graceful Shutdown**: Broadcasts `server_shutdown` events before intentionally disconnecting all sockets on module destroy.
+## 5. WebSocket Gateway
+- **Engine**: Socket.IO integrated with NestJS via `NotificationsGateway` at namespace `/notifications`.
+- **Security**: 
+  - Centralized CORS resolution managed by `resolveAllowedOrigins()` and `getWebSocketCorsOptions()` in `cors.config.ts`.
+  - Authentication validates JWT from the socket handshake `auth.token` or `authorization` header, strictly rejecting tokens in the URL query.
+- **Features**: Real-time notifications and unread counts targeted to users (`user:{id}`) and roles (`role:{role}`). Drains connections gracefully on server shutdown.
 
-## 7. Cloudflare Tunnel
-- **Purpose**: Exposes the local development environment securely to the public internet (`.trycloudflare.com` URLs).
-- **Execution**: Run via `cloudflared tunnel --url "https://localhost:5679" --no-tls-verify` from `scripts/dev.sh`.
-- **Log Scraping**: The script continuously tails the cloudflared logs to automatically extract and display the generated public URL.
+## 6. Cloudflare Tunnel
+- **Access**: Facilitated via a script (`dev.sh`) to spin up a quick Cloudflare tunnel, exposing the local environment securely.
+- **CORS Handling**: `cors.config.ts` specifically whitelists Cloudflare preview domains (`CLOUDFLARE_DEV_ORIGIN_REGEX = /^https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com$/`) exclusively in non-production modes.
 
-## 8. Docker Services Topology
-- **uims-postgres**: 5433 -> 5432
-- **uims-redis**: 6381 -> 6379
-- **uims-meilisearch**: 7700 -> 7700
-- **uims-seaweedfs-master**: 9333 -> 9333
-- **uims-seaweedfs-volume**: 8080 -> 8080
-- **uims-seaweedfs-filer**: 8888 -> 8888 / 8333 -> 8333
-- **uims-api**: 3002 -> 3000
-- **uims-web**: 5679 -> 443 (Runs Nginx wrapping the compiled Vite output for production, or Vite directly in dev).
+## 7. Vite Dev Proxy
+- **Configuration**: Managed in `apps/web/vite.config.ts`.
+- **Proxy Paths**: 
+  - `/api` requests proxy to `http://localhost:3002` (or `uims-api-dev:3000` in Docker).
+  - `/socket.io` handles WebSocket upgrades targeting the same backend.
+- **Optimization**: Features advanced manual chunking separating vendors (`vendor-react`, `vendor-antd-core`, `vendor-antd-pro`, `vendor-query`, etc.) to improve dev load times and build size.
+
+## 8. Docker Compose Orchestration
+- **Topology**: Defines a complete network with `postgres`, `redis`, `meilisearch`, `seaweedfs-*`, `api`, and `web`.
+- **Healthchecks**: Strict dependency sequencing with `condition: service_healthy`.
+  - Postgres: `pg_isready`
+  - Redis: `redis-cli ping`
+  - MeiliSearch: `curl /health`
+  - API: `wget /api/v1/health`
+  - Web: `wget https://localhost/`
+- **Networking**: Maps appropriate storage volumes for state persistence (`postgres_data`, `redis_data`, `meilisearch_data`, `seaweedfs_*`).
