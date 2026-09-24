@@ -168,18 +168,18 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
 
     return (
       <Flex align="center" gap={isXs ? 6 : 8}>
-        <Tooltip title="Quick create">
-          <Dropdown menu={{ items: quickCreateMenu }} placement="bottomRight">
-            <Button
-              type="primary"
-              size="small"
-              icon={<PlusOutlined />}
-              style={{ height: 32, borderRadius: token.borderRadius, fontWeight: 600 }}
-            >
-              {!isXs ? 'New' : ''}
-            </Button>
-          </Dropdown>
-        </Tooltip>
+        <Dropdown menu={{ items: quickCreateMenu }} placement="bottomRight" trigger={['hover', 'click']}>
+          <Button
+            type="primary"
+            size="small"
+            icon={<PlusOutlined />}
+            aria-label="Quick create"
+            aria-haspopup="menu"
+            style={{ height: 32, borderRadius: token.borderRadius, fontWeight: 600 }}
+          >
+            {!isXs ? 'New' : ''}
+          </Button>
+        </Dropdown>
 
         <Tooltip title="Notifications">
           <Badge
@@ -216,60 +216,68 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
             onClick: ({ key }) => setMode(key as ThemeMode),
           }}
           placement="bottomRight"
+          trigger={['hover', 'click']}
         >
-          <Tooltip title="Switch theme">
-            <Button
-              type="text"
-              shape="circle"
-              size="small"
-              icon={themeButtonIcon}
-              aria-label="Theme switcher"
-            />
-          </Tooltip>
+          <Button
+            type="text"
+            shape="circle"
+            size="small"
+            icon={themeButtonIcon}
+            aria-label="Theme switcher"
+            aria-haspopup="menu"
+          />
         </Dropdown>
 
         <Divider orientation="vertical" style={{ height: 20, margin: '0 4px' }} />
 
-        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
-          <Tooltip title={user?.email || 'User Profile'}>
-            <div
+        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow trigger={['hover', 'click']}>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="User profile"
+            aria-haspopup="menu"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.currentTarget.click();
+              }
+            }}
+            style={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: isXs ? '2px' : '2px 6px',
+              borderRadius: token.borderRadius,
+            }}
+          >
+            <Avatar
+              size={28}
               style={{
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: isXs ? '2px' : '2px 6px',
-                borderRadius: token.borderRadius,
+                backgroundColor: token.colorPrimary,
+                fontSize: 13,
+                fontWeight: 700,
               }}
             >
-              <Avatar
-                size={28}
-                style={{
-                  backgroundColor: token.colorPrimary,
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-              >
-                {user?.name?.[0] || 'A'}
-              </Avatar>
-              {!isXs && (
-                <div style={{ lineHeight: 1.2, textAlign: 'left' }}>
-                  <Text strong style={{ fontSize: 12.5, display: 'block', color: token.colorText }}>
-                    {user?.name || 'Alex Johnson'}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 10.5,
-                      color: token.colorTextTertiary,
-                      display: 'block',
-                    }}
-                  >
-                    {user?.role || 'Super Admin'}
-                  </Text>
-                </div>
-              )}
-            </div>
-          </Tooltip>
+              {user?.name?.[0] || 'A'}
+            </Avatar>
+            {!isXs && (
+              <div style={{ lineHeight: 1.2, textAlign: 'left' }}>
+                <Text strong style={{ fontSize: 12.5, display: 'block', color: token.colorText }}>
+                  {user?.name || 'Alex Johnson'}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 10.5,
+                    color: token.colorTextTertiary,
+                    display: 'block',
+                  }}
+                >
+                  {user?.role || 'Super Admin'}
+                </Text>
+              </div>
+            )}
+          </div>
         </Dropdown>
       </Flex>
     );

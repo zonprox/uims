@@ -1,5 +1,5 @@
 import { DownOutlined } from '@ant-design/icons';
-import { Dropdown, Flex, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { Dropdown, Flex, type MenuProps, Typography, theme } from 'antd';
 import React from 'react';
 import { useThemeStore } from '../../stores/theme.store';
 
@@ -27,58 +27,66 @@ export const SidebarOrgSelector: React.FC<SidebarOrgSelectorProps> = React.memo(
         }}
       >
         <Dropdown menu={{ items: orgMenuItems }} trigger={['click']}>
-          <Tooltip title={`Organization: ${activeOrg}`} placement="right" mouseEnterDelay={0.5}>
-            <div
-              style={{
-                padding: '6px 10px',
-                borderRadius: token.borderRadiusSM,
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : token.colorBgLayout,
-                border: isDark
-                  ? '1px solid rgba(255, 255, 255, 0.08)'
-                  : `1px solid ${token.colorBorderSecondary}`,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 8,
-                transition: 'all 0.2s',
-              }}
-              className={`sidebar-org-selector ${isDark ? 'sidebar-org-selector-dark' : 'sidebar-org-selector-light'}`}
-            >
-              <Flex align="center" gap={8} style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    backgroundColor: token.colorSuccess,
-                    boxShadow: `0 0 6px ${token.colorSuccess}99`,
-                    flexShrink: 0,
-                  }}
-                />
-                <Text
-                  style={{
-                    color: isDark ? 'rgba(255, 255, 255, 0.85)' : token.colorText,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    flex: 1,
-                  }}
-                >
-                  {activeOrg}
-                </Text>
-              </Flex>
-              <DownOutlined
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Organization selector"
+            aria-haspopup="menu"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.currentTarget.click();
+              }
+            }}
+            style={{
+              padding: '6px 10px',
+              borderRadius: token.borderRadiusSM,
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : token.colorBgLayout,
+              border: isDark
+                ? '1px solid rgba(255, 255, 255, 0.08)'
+                : `1px solid ${token.colorBorderSecondary}`,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              transition: 'all 0.2s',
+            }}
+            className={`sidebar-org-selector ${isDark ? 'sidebar-org-selector-dark' : 'sidebar-org-selector-light'}`}
+          >
+            <Flex align="center" gap={8} style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+              <div
                 style={{
-                  fontSize: 10,
-                  color: isDark ? 'rgba(255, 255, 255, 0.45)' : token.colorTextTertiary,
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  backgroundColor: token.colorSuccess,
+                  boxShadow: `0 0 6px ${token.colorSuccess}99`,
                   flexShrink: 0,
                 }}
               />
-            </div>
-          </Tooltip>
+              <Text
+                style={{
+                  color: isDark ? 'rgba(255, 255, 255, 0.85)' : token.colorText,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  flex: 1,
+                }}
+              >
+                {activeOrg}
+              </Text>
+            </Flex>
+            <DownOutlined
+              style={{
+                fontSize: 10,
+                color: isDark ? 'rgba(255, 255, 255, 0.45)' : token.colorTextTertiary,
+                flexShrink: 0,
+              }}
+            />
+          </div>
         </Dropdown>
       </div>
     );
