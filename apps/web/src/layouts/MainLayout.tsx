@@ -71,13 +71,10 @@ export default function MainLayout() {
   const {
     notifications,
     unreadCount,
-    isConnected,
     loading: notifLoading,
     refreshNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
-    clearAll,
   } = useRealtimeNotifications();
 
   const handleLogout = useCallback(() => {
@@ -208,12 +205,9 @@ export default function MainLayout() {
         notifications={notifications}
         unreadCount={unreadCount}
         loading={notifLoading}
-        isConnected={isConnected}
         onRefresh={refreshNotifications}
         onMarkAsRead={markAsRead}
         onMarkAllAsRead={markAllAsRead}
-        onDelete={deleteNotification}
-        onClearAll={clearAll}
       />
     </Layout>
   );

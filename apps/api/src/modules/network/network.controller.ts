@@ -5,13 +5,22 @@ import {
   AutoDetectQueryDto,
   CalculateSubnetQueryDto,
   CreateIPAddressDto,
+  CreateRackDto,
   CreateSubnetDto,
+  CreateSwitchDto,
+  CreateSwitchPortDto,
   CreateVlanDto,
   IPAddressQueryDto,
   MacVendorQueryDto,
+  RackQueryDto,
   SubnetQueryDto,
+  SwitchPortQueryDto,
+  SwitchQueryDto,
   UpdateIPAddressDto,
+  UpdateRackDto,
   UpdateSubnetDto,
+  UpdateSwitchDto,
+  UpdateSwitchPortDto,
   UpdateVlanDto,
   VlanQueryDto,
 } from './dto';
@@ -166,5 +175,122 @@ export class NetworkController {
   @ApiOperation({ summary: 'Deallocate IP address' })
   deleteIp(@Param('id') id: string) {
     return this.networkService.deleteIp(id);
+  }
+
+  // ==========================================
+  // RACK ENDPOINTS
+  // ==========================================
+
+  @Get('racks')
+  @ApiOperation({ summary: 'Get all network racks with bounded pagination and filters' })
+  findAllRacks(@Query() query: RackQueryDto) {
+    return this.networkService.findAllRacks(query);
+  }
+
+  @Post('racks')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Create a new network rack' })
+  createRack(@Body() body: CreateRackDto) {
+    return this.networkService.createRack(body);
+  }
+
+  @Get('racks/:id/elevation')
+  @ApiOperation({ summary: 'Get 2D visual rack elevation slotting and telemetry' })
+  getRackElevation(@Param('id') id: string) {
+    return this.networkService.getRackElevation(id);
+  }
+
+  @Get('racks/:id')
+  @ApiOperation({ summary: 'Get rack details by ID or rack code' })
+  findRack(@Param('id') id: string) {
+    return this.networkService.findRack(id);
+  }
+
+  @Patch('racks/:id')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Update rack properties' })
+  updateRack(@Param('id') id: string, @Body() body: UpdateRackDto) {
+    return this.networkService.updateRack(id, body);
+  }
+
+  @Delete('racks/:id')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Delete a rack (unmounts mounted switches)' })
+  deleteRack(@Param('id') id: string) {
+    return this.networkService.deleteRack(id);
+  }
+
+  // ==========================================
+  // SWITCH ENDPOINTS
+  // ==========================================
+
+  @Get('switches')
+  @ApiOperation({ summary: 'Get all network switches with bounded pagination and filters' })
+  findAllSwitches(@Query() query: SwitchQueryDto) {
+    return this.networkService.findAllSwitches(query);
+  }
+
+  @Post('switches')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Create a new network switch with auto-generated port matrix' })
+  createSwitch(@Body() body: CreateSwitchDto) {
+    return this.networkService.createSwitch(body);
+  }
+
+  @Get('switches/:id/ports')
+  @ApiOperation({ summary: 'Get all ports for a network switch' })
+  findSwitchPorts(@Param('id') id: string, @Query() query: SwitchPortQueryDto) {
+    return this.networkService.findSwitchPorts(id, query);
+  }
+
+  @Post('switches/:id/ports')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Add a custom port to a network switch' })
+  createPort(@Param('id') id: string, @Body() body: CreateSwitchPortDto) {
+    return this.networkService.createPort(id, body);
+  }
+
+  @Get('switches/:id')
+  @ApiOperation({ summary: 'Get switch details by ID or serial number' })
+  findSwitch(@Param('id') id: string) {
+    return this.networkService.findSwitch(id);
+  }
+
+  @Patch('switches/:id')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Update switch properties' })
+  updateSwitch(@Param('id') id: string, @Body() body: UpdateSwitchDto) {
+    return this.networkService.updateSwitch(id, body);
+  }
+
+  @Delete('switches/:id')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Delete a switch (cascades to ports)' })
+  deleteSwitch(@Param('id') id: string) {
+    return this.networkService.deleteSwitch(id);
+  }
+
+  // ==========================================
+  // PORT ENDPOINTS
+  // ==========================================
+
+  @Get('ports/:id')
+  @ApiOperation({ summary: 'Get port details by ID' })
+  findPort(@Param('id') id: string) {
+    return this.networkService.findPort(id);
+  }
+
+  @Patch('ports/:id')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Update switch port configuration and operational status' })
+  updatePort(@Param('id') id: string, @Body() body: UpdateSwitchPortDto) {
+    return this.networkService.updatePort(id, body);
+  }
+
+  @Delete('ports/:id')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Delete a switch port' })
+  deletePort(@Param('id') id: string) {
+    return this.networkService.deletePort(id);
   }
 }

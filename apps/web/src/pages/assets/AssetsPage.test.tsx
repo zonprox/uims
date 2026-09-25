@@ -29,12 +29,6 @@ const { mockAssets, mockStats } = vi.hoisted(() => {
       purchaseDate: '2026-01-15',
       purchasePrice: 3499,
       warrantyExpiry: '2029-01-15',
-      specs: {
-        cpu: 'Apple M3 Max',
-        ram: '64 GB',
-        storage: '1 TB NVMe',
-        os: 'macOS Sequoia',
-      },
     },
     {
       id: 'ast-2',
@@ -51,12 +45,6 @@ const { mockAssets, mockStats } = vi.hoisted(() => {
       purchaseDate: '2025-11-20',
       purchasePrice: 2899,
       warrantyExpiry: '2028-11-20',
-      specs: {
-        cpu: 'Intel Core i9-13950HX',
-        ram: '32 GB',
-        storage: '1 TB SSD',
-        os: 'Ubuntu 24.04 LTS',
-      },
     },
   ];
 
@@ -254,8 +242,8 @@ describe('AssetsPage QR Scanner Integration', () => {
       expect.stringContaining('Asset "AST-1001" (MacBook Pro 16) identified'),
     );
 
-    // Detail drawer opens with asset tag and specs
-    expect(document.body.textContent).toContain('Specifications');
+    // Detail drawer opens with asset tag and details
+    expect(document.body.textContent).toContain('Details');
     expect(document.body.textContent).toContain('Marcus Vance');
 
     act(() => {

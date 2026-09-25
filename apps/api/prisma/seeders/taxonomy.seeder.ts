@@ -4,7 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 const logger = new Logger('TaxonomySeeder');
 
 export async function seedTaxonomy(prisma: PrismaClient) {
-  logger.log('🏷️ Seeding Asset & Inventory Categories for Apparel Manufacturing...');
+  logger.log('🏷️ Seeding Standardized Pure IT Asset & Inventory Categories...');
 
   // 1. Resolve Locations from Database (seeded in organization.seeder.ts)
   const allLocations = await prisma.location.findMany();
@@ -17,83 +17,86 @@ export async function seedTaxonomy(prisma: PrismaClient) {
   const locBSH7 = locMapById.get('loc-bsh-d7') || locMapByCode.get('HCM-D7') || allLocations[0];
   const locBSH3 = locMapById.get('loc-bsh-d3') || locMapByCode.get('HCM-D3') || allLocations[0];
 
-  // 2. Asset Categories (Garment Manufacturing Domain Standardized)
+  // 2. Delete legacy textile and deprecated categories if existing
+  await prisma.assetCategory.deleteMany({
+    where: {
+      id: {
+        in: [
+          'cat-sewing',
+          'cat-cutting',
+          'cat-printing',
+          'cat-qa',
+          'cat-networking',
+          'cat-mobile',
+          'cat-peripherals',
+        ],
+      },
+    },
+  });
+
+  // 3. Authoritative Standardized IT Hardware Categories (11 Pure IT Categories)
   const assetCategoriesData = [
     {
-      id: 'cat-sewing',
-      name: 'Sewing Machinery',
-      description:
-        'Industrial lockstitch, overlock, flatlock, bar-tacking and programmable sewing machines',
-    },
-    {
-      id: 'cat-cutting',
-      name: 'Cutting & Plotting',
-      description:
-        'Automated conveyor fabric cutting tables, laser cutters, fabric spreading machines & pattern plotters',
-    },
-    {
-      id: 'cat-printing',
-      name: 'Printing & Heat Press',
-      description:
-        'Automatic rotary screen printing, digital textile sublimation printers & pneumatic heat presses',
-    },
-    {
-      id: 'cat-qa',
-      name: 'QA Inspection',
-      description:
-        'Fabric roll inspection machines, spectrophotometers, color assessment light cabinets & tensile testers',
-    },
-    {
-      id: 'cat-server',
-      name: 'IT Hardware & Server',
-      description:
-        'Rackmount virtualization servers, ERP database hosts, core switches & datacenter appliances',
+      id: 'cat-laptop',
+      name: 'Laptops / Notebooks',
+      description: 'Enterprise mobile laptops, ultrabooks, and portable engineering notebooks',
     },
     {
       id: 'cat-desktop',
-      name: 'Office Workstation',
-      description:
-        'Pattern design CAD/CAM workstations, production line terminals & desktop business PCs',
+      name: 'Desktops & Workstations',
+      description: 'Business desktop PCs, CAD/CAM workstations, and compact client terminals',
     },
     {
-      id: 'cat-laptop',
-      name: 'Laptop',
+      id: 'cat-server',
+      name: 'Servers (Rackmount / Host)',
       description:
-        'Enterprise laptops & mobile workstations for leadership, merchandisers & engineers',
+        'Enterprise 1U/2U/4U rackmount servers, tower hosts, and virtualization compute nodes',
     },
     {
-      id: 'cat-networking',
-      name: 'Networking',
-      description:
-        'Managed industrial switches, edge routers, SD-WAN gateways & wireless access points',
+      id: 'cat-switch',
+      name: 'Network Switches',
+      description: 'Managed L2/L3 access, distribution, and core datacenter ethernet switches',
     },
     {
-      id: 'cat-printer',
-      name: 'Industrial Printer',
+      id: 'cat-router',
+      name: 'Routers & Firewalls',
+      description: 'Edge routers, next-generation firewalls (NGFW), and SD-WAN gateway appliances',
+    },
+    {
+      id: 'cat-ap',
+      name: 'Wireless Access Points (AP)',
       description:
-        'Industrial Zebra thermal barcode label printers, wash care tag printers & office multi-function copiers',
+        'Enterprise indoor/outdoor wireless access points, Wi-Fi 6/6E/7 APs and controllers',
     },
     {
       id: 'cat-monitor',
-      name: 'Monitor',
+      name: 'Monitors & Displays',
       description:
-        'High-resolution FHD, 2K & 4K production display panels & office dual-monitor setups',
+        'Professional FHD, 2K, 4K desktop monitors, ultrawide displays, and conference panels',
+    },
+    {
+      id: 'cat-printer',
+      name: 'Printers & Scanners',
+      description:
+        'Network laser printers, multi-function copiers, document scanners, and industrial barcode printers',
     },
     {
       id: 'cat-storage',
-      name: 'Storage',
-      description: 'Enterprise SAN/NAS arrays, backup deduplication appliances & storage arrays',
-    },
-    {
-      id: 'cat-mobile',
-      name: 'Mobile & Handheld',
+      name: 'Storage (NAS / SAN)',
       description:
-        'Honeywell handheld mobile PDAs, wireless barcode scanners & Android shopfloor tablets',
+        'Network attached storage (NAS), SAN storage arrays, and backup deduplication appliances',
     },
     {
-      id: 'cat-peripherals',
-      name: 'Peripherals',
-      description: 'Docking stations, barcode scanners, input devices & meeting room A/V units',
+      id: 'cat-ups',
+      name: 'Power & UPS',
+      description:
+        'Online double-conversion rackmount UPS units, battery packs, and intelligent PDUs',
+    },
+    {
+      id: 'cat-peripheral',
+      name: 'Peripherals & Accessories',
+      description:
+        'Thunderbolt/USB-C docking stations, conference webcams, speakerphones, and barcode scanners',
     },
   ];
 
@@ -196,21 +199,23 @@ export async function seedTaxonomy(prisma: PrismaClient) {
       locDCSV5: locBSH7 || { id: 'loc-bsh-d7' },
     },
     categories: {
-      catSewing: seededCategories['cat-sewing'],
-      catCutting: seededCategories['cat-cutting'],
-      catPrinting: seededCategories['cat-printing'],
-      catQA: seededCategories['cat-qa'],
-      catITHardware: seededCategories['cat-server'],
-      catWorkstation: seededCategories['cat-desktop'],
       catLaptop: seededCategories['cat-laptop'],
       catDesktop: seededCategories['cat-desktop'],
       catServer: seededCategories['cat-server'],
-      catNetworking: seededCategories['cat-networking'],
-      catPrinter: seededCategories['cat-printer'],
+      catSwitch: seededCategories['cat-switch'],
+      catRouter: seededCategories['cat-router'],
+      catAP: seededCategories['cat-ap'],
       catMonitor: seededCategories['cat-monitor'],
+      catPrinter: seededCategories['cat-printer'],
       catStorage: seededCategories['cat-storage'],
-      catMobile: seededCategories['cat-mobile'],
-      catPeripherals: seededCategories['cat-peripherals'],
+      catUPS: seededCategories['cat-ups'],
+      catPeripheral: seededCategories['cat-peripheral'],
+      // Compatibility aliases
+      catWorkstation: seededCategories['cat-desktop'],
+      catITHardware: seededCategories['cat-server'],
+      catNetworking: seededCategories['cat-switch'],
+      catPeripherals: seededCategories['cat-peripheral'],
+      catMobile: seededCategories['cat-peripheral'],
     },
     inventoryCategories: seededInvCategories,
   };

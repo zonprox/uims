@@ -14,6 +14,53 @@ export enum VlanStatus {
   DEPRECATED = 'DEPRECATED',
 }
 
+export enum RackStatus {
+  ACTIVE = 'ACTIVE',
+  PLANNED = 'PLANNED',
+  MAINTENANCE = 'MAINTENANCE',
+  RETIRED = 'RETIRED',
+}
+
+export enum SwitchRole {
+  CORE = 'CORE',
+  DISTRIBUTION = 'DISTRIBUTION',
+  ACCESS = 'ACCESS',
+  TOR = 'TOR',
+}
+
+export enum SwitchStatus {
+  ONLINE = 'ONLINE',
+  OFFLINE = 'OFFLINE',
+  MAINTENANCE = 'MAINTENANCE',
+}
+
+export enum PortFormFactor {
+  RJ45_1G = 'RJ45_1G',
+  SFP_1G = 'SFP_1G',
+  SFP_PLUS_10G = 'SFP_PLUS_10G',
+  SFP28_25G = 'SFP28_25G',
+  QSFP_PLUS_40G = 'QSFP_PLUS_40G',
+  QSFP28_100G = 'QSFP28_100G',
+}
+
+export enum PortAdminStatus {
+  UP = 'UP',
+  DOWN = 'DOWN',
+}
+
+export enum PortOperStatus {
+  ACTIVE = 'ACTIVE',
+  DOWN = 'DOWN',
+  CONNECTED_NO_SIGNAL = 'CONNECTED_NO_SIGNAL',
+  RESERVED = 'RESERVED',
+}
+
+export enum PortMode {
+  ACCESS = 'ACCESS',
+  TRUNK = 'TRUNK',
+  LACP = 'LACP',
+}
+
 export interface VLAN {
   id: string;
   vlanNumber: number;
@@ -24,6 +71,7 @@ export interface VLAN {
   location?: Location | null;
   subnets?: Subnet[];
   ipAddresses?: IPAddress[];
+  switchPorts?: SwitchPort[];
   createdAt: string | Date;
   updatedAt: string | Date;
 }
@@ -54,6 +102,113 @@ export interface Subnet {
   updatedAt: string | Date;
 }
 
+export interface NetworkRack {
+  id: string;
+  name: string;
+  code: string;
+  locationId?: string | null;
+  location?: Location | null;
+  totalHeight: number; // 12, 24, 42, 48 RU
+  depth?: number | null; // mm
+  width?: number | null; // mm
+  maxPowerKw?: number | null; // kW capacity
+  maxWeightKg?: number | null; // kg capacity
+  status: RackStatus | `${RackStatus}`;
+  notes?: string | null;
+  switches?: NetworkSwitch[];
+  usedUnits?: number;
+  availableUnits?: number;
+  occupancyRate?: number;
+  powerUtilization?: number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface NetworkSwitch {
+  id: string;
+  name: string;
+  model: string;
+  vendor: string;
+  serialNumber?: string | null;
+  macAddress?: string | null;
+  ipAddressId?: string | null;
+  ipAddress?: IPAddress | null;
+  firmwareVersion?: string | null;
+  role: SwitchRole | `${SwitchRole}`;
+  status: SwitchStatus | `${SwitchStatus}`;
+  totalPorts: number;
+  rackId?: string | null;
+  rack?: NetworkRack | null;
+  rackPosition?: number | null; // 1-48 RU starting slot
+  rackHeight: number; // default 1
+  assetId?: string | null;
+  asset?: Asset | null;
+  locationId?: string | null;
+  location?: Location | null;
+  notes?: string | null;
+  ports?: SwitchPort[];
+  activePortsCount?: number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface SwitchPort {
+  id: string;
+  switchId: string;
+  switch?: NetworkSwitch | null;
+  portNumber: number;
+  name: string;
+  formFactor: PortFormFactor | `${PortFormFactor}`;
+  poeEnabled: boolean;
+  adminStatus: PortAdminStatus | `${PortAdminStatus}`;
+  operStatus: PortOperStatus | `${PortOperStatus}`;
+  speed?: string | null;
+  duplex?: string | null;
+  vlanId?: string | null;
+  vlan?: VLAN | null;
+  mode: PortMode | `${PortMode}`;
+  taggedVlanIds?: number[] | string[] | null;
+  ipAddressId?: string | null;
+  ipAddress?: IPAddress | null;
+  connectedAssetId?: string | null;
+  connectedAsset?: Asset | null;
+  description?: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface RackElevationSlot {
+  unitNumber: number; // 1..48
+  isOccupied: boolean;
+  switch?: {
+    id: string;
+    name: string;
+    model: string;
+    vendor: string;
+    role: SwitchRole | `${SwitchRole}`;
+    status: SwitchStatus | `${SwitchStatus}`;
+    rackHeight: number;
+    rackPosition: number;
+    totalPorts: number;
+    activePortsCount?: number;
+  } | null;
+  isStartingUnit: boolean;
+  occupiedByUnit?: number | null;
+}
+
+export interface RackElevationData {
+  rackId: string;
+  rackName: string;
+  rackCode: string;
+  totalHeight: number;
+  usedUnits: number;
+  availableUnits: number;
+  occupancyRate: number;
+  maxPowerKw?: number | null;
+  estimatedPowerUsageKw?: number | null;
+  slots: RackElevationSlot[];
+}
+
 export interface IPAddress {
   id: string;
   address: string;
@@ -80,6 +235,26 @@ export interface IPAddress {
   location?: Location | null;
   asset?: Asset | null;
   assignedUser?: DirectoryUser | null;
+  // Upstream Switch & Port linkage
+  switchPortId?: string | null;
+  switchPort?: SwitchPort | null;
+  switchPorts?: SwitchPort[];
+  upstreamSwitch?: {
+    id: string;
+    name: string;
+    model?: string | null;
+    rackName?: string | null;
+    rackPosition?: number | null;
+  } | null;
+  upstreamPort?: {
+    id: string;
+    name: string;
+    portNumber?: number;
+    operStatus?: string;
+  } | null;
+  switchName?: string | null;
+  portName?: string | null;
+  rackName?: string | null;
   // UI legacy / convenience aliases
   ip?: string;
   mac?: string;
@@ -119,4 +294,8 @@ export interface NetworkStats {
   availableIps: number;
   freeIpCapacity: number;
   averageUtilization: number;
+  totalRacks?: number;
+  totalSwitches?: number;
+  totalPorts?: number;
+  portUtilization?: number;
 }

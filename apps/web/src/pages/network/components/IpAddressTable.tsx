@@ -1,6 +1,7 @@
 import {
   CameraOutlined,
   CloudServerOutlined,
+  ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
   EnvironmentOutlined,
@@ -55,6 +56,8 @@ export interface IpAddressTableProps {
   onResetFilters: () => void;
   onOpenEditModal: (ip: IPAddress) => void;
   onDeleteIp: (id: string) => void;
+  onSelectSwitchPort?: (switchId?: string, portId?: string) => void;
+  onNavigateToSwitch?: (switchId?: string, portId?: string) => void;
 }
 
 export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
@@ -79,6 +82,8 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     onResetFilters,
     onOpenEditModal,
     onDeleteIp,
+    onSelectSwitchPort,
+    onNavigateToSwitch,
   }) => {
     const isFiltered =
       searchQuery ||
@@ -246,6 +251,82 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           },
         },
         {
+          title: 'Upstream Switch & Port',
+          key: 'switchPort',
+          sorter: (a: IPAddress, b: IPAddress) => {
+            const nameA =
+              a.switchPort?.switch?.name || a.switchName || a.upstreamSwitch?.name || '';
+            const nameB =
+              b.switchPort?.switch?.name || b.switchName || b.upstreamSwitch?.name || '';
+            if (nameA !== nameB) return nameA.localeCompare(nameB);
+            const portA = a.switchPort?.name || a.portName || a.upstreamPort?.name || '';
+            const portB = b.switchPort?.name || b.portName || b.upstreamPort?.name || '';
+            return portA.localeCompare(portB);
+          },
+          render: (_: unknown, record: IPAddress) => {
+            const switchId =
+              record.switchPort?.switchId ||
+              record.switchPort?.switch?.id ||
+              record.upstreamSwitch?.id;
+            const switchName =
+              record.switchPort?.switch?.name || record.upstreamSwitch?.name || record.switchName;
+            const portId = record.switchPort?.id || record.switchPortId || record.upstreamPort?.id;
+            const portName =
+              record.switchPort?.name || record.upstreamPort?.name || record.portName;
+            const linkStatus = record.switchPort?.operStatus || record.upstreamPort?.operStatus;
+            const rackName =
+              record.switchPort?.switch?.rack?.name ||
+              record.upstreamSwitch?.rackName ||
+              record.rackName;
+            const rackPos =
+              record.switchPort?.switch?.rackPosition || record.upstreamSwitch?.rackPosition;
+
+            if (!switchName && !portName) {
+              return <Text type="secondary">—</Text>;
+            }
+
+            const getStatusBadge = (
+              status?: string | null,
+            ): 'success' | 'warning' | 'processing' | 'default' => {
+              const s = String(status || '').toUpperCase();
+              if (s === 'ACTIVE' || s === 'UP') return 'success';
+              if (s === 'CONNECTED_NO_SIGNAL') return 'warning';
+              if (s === 'RESERVED') return 'processing';
+              return 'default';
+            };
+
+            const rackDisplay =
+              rackName && rackPos != null ? `${rackName} U${rackPos}` : rackName || null;
+
+            return (
+              <Flex vertical gap={2}>
+                <Tag
+                  icon={<ClusterOutlined />}
+                  color="geekblue"
+                  style={{ cursor: 'pointer', width: 'fit-content' }}
+                  onClick={() => {
+                    onSelectSwitchPort?.(switchId, portId);
+                    onNavigateToSwitch?.(switchId, portId);
+                  }}
+                >
+                  {switchName || 'Switch'}
+                </Tag>
+                <Flex align="center" gap={4}>
+                  <Badge status={getStatusBadge(linkStatus)} />
+                  <Text code style={{ fontSize: 11 }}>
+                    {portName || 'Port'}
+                  </Text>
+                  {rackDisplay && (
+                    <Text type="secondary" style={{ fontSize: 10.5 }}>
+                      [{rackDisplay}]
+                    </Text>
+                  )}
+                </Flex>
+              </Flex>
+            );
+          },
+        },
+        {
           title: 'Location & Section',
           key: 'location',
           render: (_: unknown, record: IPAddress) => {
@@ -373,7 +454,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           },
         },
       ],
-      [onOpenEditModal, onDeleteIp],
+      [onOpenEditModal, onDeleteIp, onSelectSwitchPort, onNavigateToSwitch],
     );
 
     return (

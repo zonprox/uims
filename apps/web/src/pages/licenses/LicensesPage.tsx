@@ -18,6 +18,7 @@ import { LicenseAssignmentModal } from './components/LicenseAssignmentModal';
 import { LicenseFormModal } from './components/LicenseFormModal';
 import { LicenseSeatsDrawer } from './components/LicenseSeatsDrawer';
 import { LicenseTable } from './components/LicenseTable';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const VENDOR_OPTIONS = [
   { label: 'All Vendors', value: 'all' },
@@ -78,8 +79,8 @@ export default function LicensesPage() {
       } else {
         message.warning('Failed to load license aggregate statistics.');
       }
-    } catch (_err: unknown) {
-      message.error('Failed to load software licenses.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'load software licenses'));
     } finally {
       setLoading(false);
     }
@@ -158,8 +159,7 @@ export default function LicensesPage() {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save license.');
+      message.error(formatErrorMessage(err, 'save software license'));
     } finally {
       setModalSubmitting(false);
     }
@@ -171,8 +171,8 @@ export default function LicensesPage() {
         await licensesService.deleteLicense(id);
         message.success('License deleted successfully.');
         loadData();
-      } catch (_err: unknown) {
-        message.error('Failed to delete license.');
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'delete software license'));
       }
     },
     [loadData, message],
@@ -209,8 +209,8 @@ export default function LicensesPage() {
         const freshLicense = await licensesService.getLicense(selectedLicense.id);
         setSelectedLicense(freshLicense);
         loadData();
-      } catch (_err: unknown) {
-        message.error('Failed to allocate seat.');
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'allocate license seat'));
       } finally {
         setAssigningSeat(false);
       }
@@ -228,8 +228,8 @@ export default function LicensesPage() {
         const freshLicense = await licensesService.getLicense(selectedLicense.id);
         setSelectedLicense(freshLicense);
         loadData();
-      } catch (_err: unknown) {
-        message.error('Failed to revoke seat.');
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'revoke license seat'));
       }
     },
     [loadData, message, selectedLicense],

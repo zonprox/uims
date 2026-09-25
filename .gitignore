@@ -127,6 +127,7 @@ apps/api/prisma/migrations/**/migration_lock.toml
 .agents/
 .planning/
 .planning/tmp/
+.codebase-memory/
 ORIGINAL_REQUEST.md
 PROJECT.md
 TEST_INFRA.md

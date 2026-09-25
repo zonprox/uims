@@ -9,10 +9,10 @@ export async function seedNotifications(prisma: PrismaClient, users: SeedUsersRe
   const { users: u } = users;
 
   const defaultUser = Object.values(u)[0];
-  const userAdmin = u['admin@uims.internal'] || u.userAlex || defaultUser;
-  const userNam = u['nam.pham@broadpeak.youngone.com'] || u.userSarah || defaultUser;
-  const userTri = u['tri.doan@broadpeak.youngone.com'] || u.userMarcusVance || defaultUser;
-  const userPhong = u['phong.dang@broadpeak.youngone.com'] || u.userMichael || defaultUser;
+  const userAdmin = u['admin@youngonevn.com'] || u.userAlex || defaultUser;
+  const userNam = u['nam.pham@youngonevn.com'] || u.userSarah || defaultUser;
+  const userTri = u['tri.doan@youngonevn.com'] || u.userMarcusVance || defaultUser;
+  const userPhong = u['phong.dang@youngonevn.com'] || u.userMichael || defaultUser;
 
   const notificationsData = [
     {

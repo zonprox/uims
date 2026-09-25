@@ -40,6 +40,9 @@ async function clearDatabase(client: PrismaClient) {
   await client.refreshToken.deleteMany();
   await client.directoryMembership.deleteMany();
   await client.directoryGroup.deleteMany();
+  await client.switchPort.deleteMany();
+  await client.networkSwitch.deleteMany();
+  await client.networkRack.deleteMany();
   await client.iPAddress.deleteMany();
   await client.subnet.deleteMany();
   await client.vLAN.deleteMany();

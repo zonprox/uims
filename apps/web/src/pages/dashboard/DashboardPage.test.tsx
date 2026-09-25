@@ -280,6 +280,23 @@ describe('DashboardPage', () => {
     });
   });
 
+  it('does not render the Asset Fleet & Inventory Audit notification alert banner', async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(DashboardPage));
+    });
+
+    expect(container.textContent).not.toContain('Asset Fleet & Inventory Audit');
+    expect(container.textContent).not.toContain(
+      'Physical asset inventory audit and barcode verification scheduled',
+    );
+    expect(container.querySelector('.ant-alert')).toBeNull();
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   it('renders prioritized action queue with urgent IT tasks and 1-click deep links (R2)', async () => {
     const root = createRoot(container);
     await act(async () => {
@@ -355,6 +372,72 @@ describe('DashboardPage', () => {
       entityLinkBtn?.click();
     });
     expect(mockNavigate).toHaveBeenCalledWith('/assets');
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('deduplicates activity records with duplicate keys or identical content in Live Activity Stream', async () => {
+    const { dashboardService } = await import('../../services/dashboard.service');
+    const duplicateActivityData: DashboardOverview = {
+      ...mockDashboardData,
+      recentActivity: [
+        {
+          key: 'dup-1',
+          user: 'Enterprise Admin',
+          role: 'Admin',
+          avatarColor: '#1677ff',
+          action: 'LOGIN_SUCCESS',
+          entity: 'Authentication',
+          details: 'User admin@uims.internal successfully authenticated via secure token grant.',
+          time: 'Just now',
+          linkUrl: '/audit',
+        },
+        {
+          key: 'dup-1',
+          user: 'Enterprise Admin',
+          role: 'Admin',
+          avatarColor: '#1677ff',
+          action: 'LOGIN_SUCCESS',
+          entity: 'Authentication',
+          details: 'User admin@uims.internal successfully authenticated via secure token grant.',
+          time: 'Just now',
+          linkUrl: '/audit',
+        },
+        {
+          key: 'dup-2',
+          user: 'Enterprise Admin',
+          role: 'Admin',
+          avatarColor: '#1677ff',
+          action: 'LOGIN_SUCCESS',
+          entity: 'Authentication',
+          details: 'User admin@uims.internal successfully authenticated via secure token grant.',
+          time: 'Just now',
+          linkUrl: '/audit',
+        },
+        {
+          key: 'unique-1',
+          user: 'Sarah Connor',
+          role: 'Admin',
+          avatarColor: '#1677ff',
+          action: 'PROVISIONED',
+          entity: 'Asset AST-5001',
+          details: 'Assigned MacBook Pro to Engineering',
+          time: '10m ago',
+          linkUrl: '/assets',
+        },
+      ],
+    };
+    vi.mocked(dashboardService.getOverview).mockResolvedValueOnce(duplicateActivityData);
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(DashboardPage));
+    });
+
+    const rows = container.querySelectorAll('.ant-table-row');
+    expect(rows.length).toBe(2);
 
     act(() => {
       root.unmount();

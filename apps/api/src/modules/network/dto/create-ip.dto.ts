@@ -86,7 +86,7 @@ export class CreateIPAddressDto {
   @ApiPropertyOptional({ enum: IPStatus, default: IPStatus.AVAILABLE })
   @IsOptional()
   @IsEnum(IPStatus)
-  status?: IPStatus | string;
+  status?: IPStatus;
 
   @ApiPropertyOptional({ default: 'online' })
   @IsOptional()

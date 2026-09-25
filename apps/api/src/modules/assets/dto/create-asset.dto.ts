@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateAssetDto {
   @IsString()
@@ -30,7 +30,7 @@ export class CreateAssetDto {
   category?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   categoryId?: string;
 
   @IsOptional()
@@ -58,11 +58,8 @@ export class CreateAssetDto {
   warrantyExpiry?: string | Date;
 
   @IsOptional()
-  @IsObject()
-  specs?: Record<string, unknown>;
-
-  @IsOptional()
   @IsString()
+  @MaxLength(1000)
   notes?: string;
 
   @IsOptional()

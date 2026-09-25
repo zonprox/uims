@@ -29,10 +29,10 @@ export async function seedOrganizations(prisma: PrismaClient) {
     update: {
       name: 'Youngone / Broadpeak Group',
       taxId: '0100100100',
-      email: 'contact@broadpeak.youngone.com',
+      email: 'contact@youngonevn.com',
       phone: '+84 (28) 3997-8888',
       address: 'Broadpeak Tower, Ho Chi Minh City / Seoul',
-      website: 'https://broadpeak.youngone.com',
+      website: 'https://youngonevn.com',
       status: 'ACTIVE',
       parentId: null,
     },
@@ -41,10 +41,10 @@ export async function seedOrganizations(prisma: PrismaClient) {
       name: 'Youngone / Broadpeak Group',
       code: 'HOLDING',
       taxId: '0100100100',
-      email: 'contact@broadpeak.youngone.com',
+      email: 'contact@youngonevn.com',
       phone: '+84 (28) 3997-8888',
       address: 'Broadpeak Tower, Ho Chi Minh City / Seoul',
-      website: 'https://broadpeak.youngone.com',
+      website: 'https://youngonevn.com',
       status: 'ACTIVE',
       parentId: null,
     },
@@ -56,10 +56,10 @@ export async function seedOrganizations(prisma: PrismaClient) {
       name: 'Broadpeak Soc Trang',
       parentId: orgHolding.id,
       taxId: '2200194820',
-      email: 'contact.bsl@broadpeak.youngone.com',
+      email: 'contact.bsl@youngonevn.com',
       phone: '+84 (299) 387-9000',
       address: 'An Nghiep Industrial Zone, Soc Trang Province, Vietnam',
-      website: 'https://broadpeak.youngone.com',
+      website: 'https://youngonevn.com',
       status: 'ACTIVE',
     },
     create: {
@@ -68,10 +68,10 @@ export async function seedOrganizations(prisma: PrismaClient) {
       code: 'BSL',
       parentId: orgHolding.id,
       taxId: '2200194820',
-      email: 'contact.bsl@broadpeak.youngone.com',
+      email: 'contact.bsl@youngonevn.com',
       phone: '+84 (299) 387-9000',
       address: 'An Nghiep Industrial Zone, Soc Trang Province, Vietnam',
-      website: 'https://broadpeak.youngone.com',
+      website: 'https://youngonevn.com',
       status: 'ACTIVE',
     },
   });
@@ -82,10 +82,10 @@ export async function seedOrganizations(prisma: PrismaClient) {
       name: 'Broadpeak Ho Chi Minh',
       parentId: orgHolding.id,
       taxId: '0314892019',
-      email: 'contact.bsh@broadpeak.youngone.com',
+      email: 'contact.bsh@youngonevn.com',
       phone: '+84 (28) 3997-8000',
       address: 'District 7, Ho Chi Minh City, Vietnam',
-      website: 'https://broadpeak.youngone.com',
+      website: 'https://youngonevn.com',
       status: 'ACTIVE',
     },
     create: {
@@ -94,10 +94,10 @@ export async function seedOrganizations(prisma: PrismaClient) {
       code: 'BSH',
       parentId: orgHolding.id,
       taxId: '0314892019',
-      email: 'contact.bsh@broadpeak.youngone.com',
+      email: 'contact.bsh@youngonevn.com',
       phone: '+84 (28) 3997-8000',
       address: 'District 7, Ho Chi Minh City, Vietnam',
-      website: 'https://broadpeak.youngone.com',
+      website: 'https://youngonevn.com',
       status: 'ACTIVE',
     },
   });
@@ -830,7 +830,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Section Lead F${fNum} Cutting`,
-        managerEmail: `cut.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `cut.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -841,7 +841,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Section Lead F${fNum} Printing`,
-        managerEmail: `prt.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `prt.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -852,7 +852,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Line Supervisor F${fNum} Sewing`,
-        managerEmail: `sew.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `sew.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -863,7 +863,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Maintenance Lead F${fNum}`,
-        managerEmail: `maint.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `maint.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -874,7 +874,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Storekeeper F${fNum} MDC`,
-        managerEmail: `mdc.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `mdc.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -885,7 +885,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `QA Lead F${fNum}`,
-        managerEmail: `qa.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `qa.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -896,7 +896,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Sample Lead F${fNum}`,
-        managerEmail: `sample.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `sample.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -907,7 +907,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Planner F${fNum}`,
-        managerEmail: `plan.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `plan.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
       {
@@ -918,7 +918,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
         organizationId: orgBSL.id,
         parentId: fId,
         managerName: `Packing Lead F${fNum}`,
-        managerEmail: `pck.f${fNum}@broadpeak.youngone.com`,
+        managerEmail: `pck.f${fNum}@youngonevn.com`,
         status: 'ACTIVE',
       },
     ];
@@ -936,7 +936,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: null,
       managerName: 'Tran Van Binh',
-      managerEmail: 'binh.tran@broadpeak.youngone.com',
+      managerEmail: 'binh.tran@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -952,7 +952,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Hoang Van Minh',
-      managerEmail: 'minh.hoang@broadpeak.youngone.com',
+      managerEmail: 'minh.hoang@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -964,7 +964,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Vo Thi Kim',
-      managerEmail: 'kim.vo@broadpeak.youngone.com',
+      managerEmail: 'kim.vo@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -976,7 +976,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Nguyen Quoc Huy',
-      managerEmail: 'huy.nguyen@broadpeak.youngone.com',
+      managerEmail: 'huy.nguyen@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -988,7 +988,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-mgmt',
       managerName: 'Le Thi Thu',
-      managerEmail: 'thu.le@broadpeak.youngone.com',
+      managerEmail: 'thu.le@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1005,7 +1005,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-ops',
       managerName: 'Hoang Van Minh',
-      managerEmail: 'minh.hoang@broadpeak.youngone.com',
+      managerEmail: 'minh.hoang@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1017,7 +1017,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-ops',
       managerName: 'Nguyen Mai Lan',
-      managerEmail: 'lan.nguyenmai@broadpeak.youngone.com',
+      managerEmail: 'lan.nguyenmai@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1029,7 +1029,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-ops',
       managerName: 'Dang Minh Chau',
-      managerEmail: 'chau.dang@broadpeak.youngone.com',
+      managerEmail: 'chau.dang@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1041,7 +1041,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-ops',
       managerName: 'Pham Hoang Nam',
-      managerEmail: 'nam.pham@broadpeak.youngone.com',
+      managerEmail: 'nam.pham@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1053,7 +1053,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-ops',
       managerName: 'Truong Van Hai',
-      managerEmail: 'hai.truong@broadpeak.youngone.com',
+      managerEmail: 'hai.truong@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1067,7 +1067,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-log',
       managerName: 'Vo Thi Kim',
-      managerEmail: 'kim.vo@broadpeak.youngone.com',
+      managerEmail: 'kim.vo@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1079,7 +1079,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-log',
       managerName: 'Tran Van Phuc',
-      managerEmail: 'phuc.tran@broadpeak.youngone.com',
+      managerEmail: 'phuc.tran@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1091,7 +1091,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-log',
       managerName: 'Nguyen Van Thang',
-      managerEmail: 'thang.nguyen@broadpeak.youngone.com',
+      managerEmail: 'thang.nguyen@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1105,7 +1105,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-qa',
       managerName: 'Nguyen Quoc Huy',
-      managerEmail: 'huy.nguyen@broadpeak.youngone.com',
+      managerEmail: 'huy.nguyen@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1117,7 +1117,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-qa',
       managerName: 'Phan Thi Mai',
-      managerEmail: 'mai.phan@broadpeak.youngone.com',
+      managerEmail: 'mai.phan@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1130,7 +1130,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Le Thi Thu',
-      managerEmail: 'thu.le@broadpeak.youngone.com',
+      managerEmail: 'thu.le@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1141,7 +1141,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Doan Van Thanh',
-      managerEmail: 'thanh.doan@broadpeak.youngone.com',
+      managerEmail: 'thanh.doan@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1152,7 +1152,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Tran Minh Tuan',
-      managerEmail: 'tuan.tran@broadpeak.youngone.com',
+      managerEmail: 'tuan.tran@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1163,7 +1163,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Nguyen Van Sang',
-      managerEmail: 'sang.nguyen@broadpeak.youngone.com',
+      managerEmail: 'sang.nguyen@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1174,7 +1174,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Bui Quang Hieu',
-      managerEmail: 'hieu.bui@broadpeak.youngone.com',
+      managerEmail: 'hieu.bui@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1185,7 +1185,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Phan Quoc Dat',
-      managerEmail: 'dat.phan@broadpeak.youngone.com',
+      managerEmail: 'dat.phan@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1196,7 +1196,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSL.id,
       parentId: 'dept-bsl-prod',
       managerName: 'Vu Dinh Nam',
-      managerEmail: 'nam.vudinh@broadpeak.youngone.com',
+      managerEmail: 'nam.vudinh@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1217,7 +1217,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: null,
       managerName: 'Doan Minh Tri',
-      managerEmail: 'tri.doan@broadpeak.youngone.com',
+      managerEmail: 'tri.doan@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1233,7 +1233,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-exec',
       managerName: 'Nguyen Thi Lan',
-      managerEmail: 'lan.nguyen@broadpeak.youngone.com',
+      managerEmail: 'lan.nguyen@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1245,7 +1245,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-exec',
       managerName: 'Vu Bich Ngoc',
-      managerEmail: 'ngoc.vu@broadpeak.youngone.com',
+      managerEmail: 'ngoc.vu@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1262,7 +1262,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-comm',
       managerName: 'Nguyen Thi Lan',
-      managerEmail: 'lan.nguyen@broadpeak.youngone.com',
+      managerEmail: 'lan.nguyen@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1274,7 +1274,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-comm',
       managerName: 'Ha Van Hung',
-      managerEmail: 'hung.ha@broadpeak.youngone.com',
+      managerEmail: 'hung.ha@youngonevn.com',
       status: 'ACTIVE',
     },
 
@@ -1288,7 +1288,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-corp',
       managerName: 'Dang Thanh Phong',
-      managerEmail: 'phong.dang@broadpeak.youngone.com',
+      managerEmail: 'phong.dang@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1300,7 +1300,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-corp',
       managerName: 'Vu Bich Ngoc',
-      managerEmail: 'ngoc.vu@broadpeak.youngone.com',
+      managerEmail: 'ngoc.vu@youngonevn.com',
       status: 'ACTIVE',
     },
     {
@@ -1312,7 +1312,7 @@ export async function seedOrganizations(prisma: PrismaClient) {
       organizationId: orgBSH.id,
       parentId: 'dept-bsh-corp',
       managerName: 'Bui Mai Phuong',
-      managerEmail: 'phuong.bui@broadpeak.youngone.com',
+      managerEmail: 'phuong.bui@youngonevn.com',
       status: 'ACTIVE',
     },
   ];

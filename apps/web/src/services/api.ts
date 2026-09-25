@@ -129,6 +129,17 @@ api.interceptors.response.use(
       return handleUnauthorized(originalRequest, error);
     }
 
+    if (status === 403) {
+      const data = error.response?.data as { message?: string; error?: string } | undefined;
+      const defaultPermissionMsg = 'Access denied: Insufficient permissions.';
+      if (!data?.message || data.message === 'Forbidden resource' || data.message === 'Forbidden') {
+        if (data && typeof data === 'object') {
+          data.message = defaultPermissionMsg;
+        }
+      }
+      error.message = data?.message || defaultPermissionMsg;
+    }
+
     return Promise.reject(error);
   },
 );

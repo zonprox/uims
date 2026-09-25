@@ -57,7 +57,7 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
       const secret = process.env.JWT_SECRET || 'uims-jwt-secret-change-in-production';
       const jwtService = new JwtService({ secret });
       authToken = jwtService.sign(
-        { sub: 'usr-admin', email: 'admin@uims.internal', role: 'Admin', permissions: ['*:*'] },
+        { sub: 'usr-admin', email: 'admin@youngonevn.com', role: 'Admin', permissions: ['*:*'] },
         { expiresIn: '1h' },
       );
     } catch {
@@ -121,50 +121,36 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
       }
     });
 
-    it('1.2 should verify operational machinery across the factory functional sections', async () => {
-      // Query Factory 1 assets which has complete representation of the factory operational machinery
+    it('1.2 should verify operational IT hardware infrastructure across the factory functional sections', async () => {
+      // Query Factory 1 assets which has complete representation of the factory operational IT infrastructure
       const f1Assets = await assetsService.findAll({ locationId: 'loc-bsl-f1', pageSize: 100 });
-      expect(f1Assets.length).toBeGreaterThanOrEqual(20);
+      expect(f1Assets.length).toBeGreaterThanOrEqual(5);
 
-      // Verify that the functional machinery asset types exist in Factory 1
-      const sewingAssets = f1Assets.filter(
+      // Verify that the functional IT hardware asset types exist in Factory 1
+      const itAssets = f1Assets.filter(
         (a) =>
-          a.department.includes('Sewing Assembly') ||
-          a.name.includes('Lockstitch') ||
-          a.name.includes('Overlock'),
-      );
-      const cuttingAssets = f1Assets.filter(
-        (a) => a.department.includes('Cutting') || a.name.includes('Cutting'),
-      );
-      const qaAssets = f1Assets.filter(
-        (a) =>
-          a.department.includes('QA/QC') ||
-          a.name.includes('Spectrophotometer') ||
-          a.name.includes('QA'),
-      );
-      const maintAssets = f1Assets.filter(
-        (a) => a.department.includes('Maintenance') || a.name.includes('Maintenance'),
-      );
-      const printAssets = f1Assets.filter(
-        (a) =>
-          a.department.includes('Printing') ||
-          a.name.includes('Printer') ||
-          a.name.includes('Heat Transfer'),
-      );
-      const sampleAssets = f1Assets.filter(
-        (a) => a.department.includes('Sample') || a.name.includes('Sample'),
-      );
-      const packAssets = f1Assets.filter(
-        (a) => a.department.includes('Packing') || a.name.includes('Barcode'),
+          a.department.includes('Factory IT') ||
+          a.name.includes('SINDOH') ||
+          a.name.includes('HP') ||
+          a.name.includes('Camera') ||
+          a.name.includes('DSK') ||
+          a.name.includes('DS-K'),
       );
 
-      expect(sewingAssets.length, 'Sewing assets must exist in Factory 1').toBeGreaterThan(0);
-      expect(cuttingAssets.length, 'Cutting assets must exist in Factory 1').toBeGreaterThan(0);
-      expect(qaAssets.length, 'QA assets must exist in Factory 1').toBeGreaterThan(0);
-      expect(maintAssets.length, 'Maintenance assets must exist in Factory 1').toBeGreaterThan(0);
-      expect(printAssets.length, 'Printing assets must exist in Factory 1').toBeGreaterThan(0);
-      expect(sampleAssets.length, 'Sample assets must exist in Factory 1').toBeGreaterThan(0);
-      expect(packAssets.length, 'Packing assets must exist in Factory 1').toBeGreaterThan(0);
+      const printerAssets = f1Assets.filter(
+        (a) => a.name.includes('SINDOH') || a.name.includes('HP') || a.name.includes('MFP'),
+      );
+
+      const securityAssets = f1Assets.filter(
+        (a) => a.name.includes('Camera') || a.name.includes('DSK') || a.name.includes('DS-K'),
+      );
+
+      expect(itAssets.length, 'Factory IT assets must exist in Factory 1').toBeGreaterThan(0);
+      expect(printerAssets.length, 'Printer assets must exist in Factory 1').toBeGreaterThan(0);
+      expect(
+        securityAssets.length,
+        'Security/attendance assets must exist in Factory 1',
+      ).toBeGreaterThan(0);
     });
 
     it('1.3 should successfully query assets via live HTTP endpoint GET /api/v1/assets', async () => {

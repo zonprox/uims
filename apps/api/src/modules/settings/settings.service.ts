@@ -73,7 +73,7 @@ export class SettingsService {
     await this.prisma.auditLog.create({
       data: {
         userName: 'Admin User',
-        userEmail: 'admin@uims.internal',
+        userEmail: 'admin@youngonevn.com',
         action: 'UPDATE',
         severity: 'Info',
         entity: `Settings (${group})`,
@@ -130,7 +130,7 @@ export class SettingsService {
     await this.prisma.auditLog.create({
       data: {
         userName: 'System Engine',
-        userEmail: 'daemon@uims.internal',
+        userEmail: 'daemon@youngonevn.com',
         action: 'CREATE',
         severity: 'Info',
         entity: `Encrypted Snapshot (${snapshotName})`,

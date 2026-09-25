@@ -1,13 +1,25 @@
 import {
   CrownOutlined,
-  DesktopOutlined,
+  EyeOutlined,
   LockOutlined,
   MoonOutlined,
   SunOutlined,
-  ToolOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { App, Button, Card, Checkbox, Flex, Form, Input, Tooltip, Typography } from 'antd';
+import {
+  App,
+  Button,
+  Card,
+  Checkbox,
+  Col,
+  Flex,
+  Form,
+  Input,
+  Row,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { SYSTEM_INFO } from '@uims/shared-utils';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -61,6 +73,17 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fillDemoAccount = (email: string) => {
+    form.setFieldsValue({
+      email,
+      password: 'Youngone@2026',
+    });
+    form.setFields([
+      { name: 'email', errors: [] },
+      { name: 'password', errors: [] },
+    ]);
   };
 
   return (
@@ -151,8 +174,8 @@ export default function LoginPage() {
             form={form}
             name="login"
             initialValues={{
-              email: 'admin@uims.local',
-              password: 'Admin@2026',
+              email: 'admin@youngonevn.com',
+              password: 'Youngone@2026',
               remember: true,
             }}
             onFinish={onFinish}
@@ -225,50 +248,80 @@ export default function LoginPage() {
               >
                 QUICK ACCESS / DEMO ACCOUNTS:
               </Text>
-              <Flex gap={6} wrap="wrap">
-                <Button
-                  size="small"
-                  type="dashed"
-                  icon={<CrownOutlined style={{ color: '#eab308' }} />}
-                  style={{ fontSize: 11, height: 24, padding: '0 8px' }}
-                  onClick={() => {
-                    form.setFieldsValue({
-                      email: 'admin@uims.local',
-                      password: 'Admin@2026',
-                    });
-                  }}
-                >
-                  Super Admin (admin)
-                </Button>
-                <Button
-                  size="small"
-                  type="dashed"
-                  icon={<ToolOutlined style={{ color: '#3b82f6' }} />}
-                  style={{ fontSize: 11, height: 24, padding: '0 8px' }}
-                  onClick={() => {
-                    form.setFieldsValue({
-                      email: 'sarah.chen',
-                      password: 'password123',
-                    });
-                  }}
-                >
-                  AD Login (sarah.chen)
-                </Button>
-                <Button
-                  size="small"
-                  type="dashed"
-                  icon={<DesktopOutlined style={{ color: '#10b981' }} />}
-                  style={{ fontSize: 11, height: 24, padding: '0 8px' }}
-                  onClick={() => {
-                    form.setFieldsValue({
-                      email: 'david.kim',
-                      password: 'password123',
-                    });
-                  }}
-                >
-                  AD Login (david.kim)
-                </Button>
-              </Flex>
+              <Row gutter={[6, 6]}>
+                <Col xs={12} sm={6}>
+                  <Button
+                    block
+                    size="small"
+                    type="dashed"
+                    htmlType="button"
+                    icon={<CrownOutlined style={{ color: '#eab308' }} />}
+                    style={{
+                      fontSize: 11,
+                      height: 26,
+                      padding: '0 4px',
+                    }}
+                    title="admin@youngonevn.com (Youngone@2026)"
+                    onClick={() => fillDemoAccount('admin@youngonevn.com')}
+                  >
+                    Admin
+                  </Button>
+                </Col>
+                <Col xs={12} sm={6}>
+                  <Button
+                    block
+                    size="small"
+                    type="dashed"
+                    htmlType="button"
+                    icon={<TeamOutlined style={{ color: '#3b82f6' }} />}
+                    style={{
+                      fontSize: 11,
+                      height: 26,
+                      padding: '0 4px',
+                    }}
+                    title="manager@youngonevn.com (Youngone@2026)"
+                    onClick={() => fillDemoAccount('manager@youngonevn.com')}
+                  >
+                    Manager
+                  </Button>
+                </Col>
+                <Col xs={12} sm={6}>
+                  <Button
+                    block
+                    size="small"
+                    type="dashed"
+                    htmlType="button"
+                    icon={<UserOutlined style={{ color: '#10b981' }} />}
+                    style={{
+                      fontSize: 11,
+                      height: 26,
+                      padding: '0 4px',
+                    }}
+                    title="user@youngonevn.com (Youngone@2026)"
+                    onClick={() => fillDemoAccount('user@youngonevn.com')}
+                  >
+                    User
+                  </Button>
+                </Col>
+                <Col xs={12} sm={6}>
+                  <Button
+                    block
+                    size="small"
+                    type="dashed"
+                    htmlType="button"
+                    icon={<EyeOutlined style={{ color: '#8b5cf6' }} />}
+                    style={{
+                      fontSize: 11,
+                      height: 26,
+                      padding: '0 4px',
+                    }}
+                    title="viewer@youngonevn.com (Youngone@2026)"
+                    onClick={() => fillDemoAccount('viewer@youngonevn.com')}
+                  >
+                    Viewer
+                  </Button>
+                </Col>
+              </Row>
             </div>
           </Form>
         </Card>

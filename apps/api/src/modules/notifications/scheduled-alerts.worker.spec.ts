@@ -41,6 +41,7 @@ describe('ScheduledAlertsWorker', () => {
 
     mockNotificationsService = {
       notifyAdmins: vi.fn().mockResolvedValue([]),
+      pruneAllOldNotifications: vi.fn().mockResolvedValue(0),
     };
 
     mockRedis = {

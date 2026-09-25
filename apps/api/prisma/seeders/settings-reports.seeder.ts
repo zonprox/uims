@@ -7,7 +7,7 @@ export async function seedSettingsAndReports(prisma: PrismaClient) {
     update: {
       value: {
         companyName: 'Broadpeak (Youngone Group)',
-        supportEmail: 'it-support@broadpeak.youngone.com',
+        supportEmail: 'it-support@youngonevn.com',
         timezone: 'Asia/Ho_Chi_Minh',
         dateFormat: 'YYYY-MM-DD',
         primaryDataCenter: 'BSH Regional Data Center (Ho Chi Minh)',
@@ -21,7 +21,7 @@ export async function seedSettingsAndReports(prisma: PrismaClient) {
       description: 'General Enterprise Organization Preferences for Broadpeak',
       value: {
         companyName: 'Broadpeak (Youngone Group)',
-        supportEmail: 'it-support@broadpeak.youngone.com',
+        supportEmail: 'it-support@youngonevn.com',
         timezone: 'Asia/Ho_Chi_Minh',
         dateFormat: 'YYYY-MM-DD',
         primaryDataCenter: 'BSH Regional Data Center (Ho Chi Minh)',
@@ -38,7 +38,7 @@ export async function seedSettingsAndReports(prisma: PrismaClient) {
         enforce2FA: true,
         sessionTimeout: 30,
         minPasswordLength: 12,
-        samlEntityId: 'https://uims.internal/saml/metadata',
+        samlEntityId: 'https://youngonevn.com/saml/metadata',
         allowedCidrRanges: ['10.232.0.0/16', '10.233.0.0/16', '192.168.0.0/16'],
         autoLockInactiveAccountsDays: 90,
       },
@@ -51,7 +51,7 @@ export async function seedSettingsAndReports(prisma: PrismaClient) {
         enforce2FA: true,
         sessionTimeout: 30,
         minPasswordLength: 12,
-        samlEntityId: 'https://uims.internal/saml/metadata',
+        samlEntityId: 'https://youngonevn.com/saml/metadata',
         allowedCidrRanges: ['10.232.0.0/16', '10.233.0.0/16', '192.168.0.0/16'],
         autoLockInactiveAccountsDays: 90,
       },
@@ -65,28 +65,28 @@ export async function seedSettingsAndReports(prisma: PrismaClient) {
       category: 'Finance & Hardware',
       frequency: 'Quarterly (1st of Quarter)',
       format: 'PDF + Excel summary',
-      recipients: 'ngoc.vu@broadpeak.youngone.com, tri.doan@broadpeak.youngone.com',
+      recipients: 'ngoc.vu@youngonevn.com, tri.doan@youngonevn.com',
     },
     {
       title: 'Monthly SaaS License Optimization & Waste Audit',
       category: 'Software & Cloud',
       frequency: 'Monthly (1st of Month)',
       format: 'PDF + Excel summary',
-      recipients: 'phong.dang@broadpeak.youngone.com, nam.pham@broadpeak.youngone.com',
+      recipients: 'phong.dang@youngonevn.com, nam.pham@youngonevn.com',
     },
     {
       title: 'Weekly Hardware Stock & Consumables Consumption Audit',
       category: 'Operations & Inventory',
       frequency: 'Weekly (Mondays 08:00 ICT)',
       format: 'Excel Spreadsheet',
-      recipients: 'kim.vo@broadpeak.youngone.com, nam.pham@broadpeak.youngone.com',
+      recipients: 'kim.vo@youngonevn.com, nam.pham@youngonevn.com',
     },
     {
       title: 'Bi-Weekly Network Capacity & IP Allocation Report',
       category: 'Infrastructure & Security',
       frequency: 'Bi-Weekly (Fridays 17:00 ICT)',
       format: 'PDF Diagnostic Document',
-      recipients: 'kien.le@broadpeak.youngone.com, son.huynh@broadpeak.youngone.com',
+      recipients: 'kien.le@youngonevn.com, son.huynh@youngonevn.com',
     },
   ];
 

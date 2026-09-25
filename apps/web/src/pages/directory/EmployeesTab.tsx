@@ -46,6 +46,7 @@ import {
   organizationService,
 } from '../../services/organization.service';
 import { EmployeeTable } from './components/EmployeeTable';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const { Text, Title } = Typography;
 
@@ -226,8 +227,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       createForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to create employee record.');
+      message.error(formatErrorMessage(err, 'create employee record'));
     } finally {
       setModalSubmitting(false);
     }
@@ -275,8 +275,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       editForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to update employee record.');
+      message.error(formatErrorMessage(err, 'update employee record'));
     } finally {
       setModalSubmitting(false);
     }
@@ -288,8 +287,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       message.success(`Employee ${emp.fullName || emp.email} removed from directory.`);
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to remove employee record.');
+      message.error(formatErrorMessage(err, 'remove employee record'));
     }
   };
 
@@ -350,8 +348,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       );
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to import employee batch.');
+      message.error(formatErrorMessage(err, 'import employee batch'));
     } finally {
       setImporting(false);
     }
@@ -518,7 +515,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   { type: 'email', message: 'Enter a valid corporate email.' },
                 ]}
               >
-                <Input placeholder="e.g. jsmith@uims.internal" />
+                <Input placeholder="e.g. jsmith@youngonevn.com" />
               </Form.Item>
             </Col>
             <Col span={12}>

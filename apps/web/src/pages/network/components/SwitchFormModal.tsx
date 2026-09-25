@@ -1,0 +1,345 @@
+import { ApartmentOutlined, CloudServerOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import {
+  Checkbox,
+  Col,
+  Form,
+  type FormInstance,
+  Input,
+  InputNumber,
+  Modal,
+  Row,
+  Select,
+  theme,
+} from 'antd';
+import React from 'react';
+import type { Asset } from '../../../services/assets.service';
+import type { LocationBranch } from '../../../services/organization.service';
+import type { NetworkRack, NetworkSwitch } from '../../../services/network.service';
+
+const { TextArea } = Input;
+
+export interface SwitchFormModalProps {
+  open: boolean;
+  editingSwitch?: NetworkSwitch | null;
+  form: FormInstance;
+  submitting?: boolean;
+  locations?: Array<LocationBranch>;
+  racks?: Array<NetworkRack>;
+  assets?: Array<Asset>;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
+  ({
+    open,
+    editingSwitch,
+    form,
+    submitting = false,
+    locations = [],
+    racks = [],
+    assets = [],
+    onSave,
+    onCancel,
+  }) => {
+    const { token } = theme.useToken();
+    const selectedRackId = Form.useWatch('rackId', form);
+    const selectedRack = React.useMemo(
+      () => racks.find((r) => r.id === selectedRackId),
+      [racks, selectedRackId],
+    );
+    const maxSlot = selectedRack?.totalHeight ?? 100;
+
+    return (
+      <Modal
+        title={editingSwitch ? 'Edit Network Switch' : 'Create Network Switch'}
+        open={open}
+        onOk={onSave}
+        onCancel={onCancel}
+        confirmLoading={submitting}
+        destroyOnHidden
+        width={680}
+        okText={editingSwitch ? 'Save Changes' : 'Create Switch'}
+        cancelText="Cancel"
+        styles={{ body: { padding: '16px 0' } }}
+      >
+        <Form form={form} layout="vertical" preserve={false}>
+          {/* Row 1: Name and Vendor */}
+          <Row gutter={16}>
+            <Col span={14}>
+              <Form.Item
+                name="name"
+                label="Switch Name"
+                rules={[
+                  { required: true, message: 'Please enter switch name' },
+                  { min: 2, message: 'Must be at least 2 characters' },
+                ]}
+              >
+                <Input
+                  prefix={<CloudServerOutlined style={{ color: token.colorTextQuaternary }} />}
+                  placeholder="e.g. BSL-CORE-SW01"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={10}>
+              <Form.Item
+                name="vendor"
+                label="Vendor / Make"
+                rules={[{ required: true, message: 'Please select vendor' }]}
+              >
+                <Select
+                  placeholder="Select vendor"
+                  options={[
+                    { label: 'Cisco Systems', value: 'Cisco Systems' },
+                    { label: 'Alcatel-Lucent Enterprise', value: 'Alcatel-Lucent' },
+                    { label: 'Juniper Networks', value: 'Juniper Networks' },
+                    { label: 'Aruba Networks', value: 'Aruba Networks' },
+                    { label: 'Mikrotik', value: 'Mikrotik' },
+                    { label: 'Dell Technologies', value: 'Dell' },
+                    { label: 'Generic / Other', value: 'Other' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 2: Model, Role, and Status */}
+          <Row gutter={16}>
+            <Col span={10}>
+              <Form.Item
+                name="model"
+                label="Hardware Model"
+                rules={[{ required: true, message: 'Please enter hardware model' }]}
+              >
+                <Input placeholder="e.g. Catalyst 9300-48P-A" />
+              </Form.Item>
+            </Col>
+
+            <Col span={7}>
+              <Form.Item
+                name="role"
+                label="Switch Role"
+                rules={[{ required: true, message: 'Please select role' }]}
+                initialValue="ACCESS"
+              >
+                <Select
+                  options={[
+                    { label: 'Core Switch', value: 'CORE' },
+                    { label: 'Distribution', value: 'DISTRIBUTION' },
+                    { label: 'Access Switch', value: 'ACCESS' },
+                    { label: 'Top of Rack (ToR)', value: 'TOR' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={7}>
+              <Form.Item
+                name="status"
+                label="Operating Status"
+                rules={[{ required: true, message: 'Please select status' }]}
+                initialValue="ONLINE"
+              >
+                <Select
+                  options={[
+                    { label: 'Online (Operational)', value: 'ONLINE' },
+                    { label: 'Offline', value: 'OFFLINE' },
+                    { label: 'Maintenance Mode', value: 'MAINTENANCE' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 3: Total Ports, Serial Number, MAC */}
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="totalPorts"
+                label="Total RJ45 Ports"
+                rules={[{ required: true, message: 'Select total ports' }]}
+                initialValue={24}
+              >
+                <Select
+                  options={[
+                    { label: '24 Ports (2x12 RJ45 + 4 SFP)', value: 24 },
+                    { label: '48 Ports (4x12 RJ45 + 4 SFP)', value: 48 },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item name="serialNumber" label="Serial Number">
+                <Input placeholder="e.g. FOC2488102" style={{ fontFamily: 'monospace' }} />
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item
+                name="macAddress"
+                label="Base MAC Address"
+                rules={[
+                  {
+                    pattern: /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/,
+                    message: 'Invalid MAC address format (e.g. 70:69:79:2A:41:01)',
+                  },
+                ]}
+              >
+                <Input placeholder="e.g. 70:69:79:2A:41:01" style={{ fontFamily: 'monospace' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 4: Firmware & Linked Asset */}
+          <Row gutter={16}>
+            <Col span={10}>
+              <Form.Item name="firmwareVersion" label="Firmware Version / OS">
+                <Input placeholder="e.g. Cisco IOS-XE 17.9.4a" />
+              </Form.Item>
+            </Col>
+
+            <Col span={14}>
+              <Form.Item
+                name="assetId"
+                label="Linked Hardware Asset Record"
+                extra="Correlate with inventory asset tag"
+              >
+                <Select
+                  placeholder="Select hardware asset..."
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  options={assets.map((ast) => ({
+                    label: `${ast.name || ast.model} [${ast.tag}]`,
+                    value: ast.id,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 5: Physical Mounting & Location */}
+          <Row gutter={16}>
+            <Col span={10}>
+              <Form.Item name="locationId" label="Physical Location">
+                <Select
+                  placeholder="Select datacenter or room"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  suffixIcon={<EnvironmentOutlined style={{ color: token.colorTextQuaternary }} />}
+                  options={locations.map((loc) => ({
+                    label: loc.name,
+                    value: loc.id,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item name="rackId" label="Equipment Rack Enclosure">
+                <Select
+                  placeholder="Select rack cabinet"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  suffixIcon={<ApartmentOutlined style={{ color: token.colorTextQuaternary }} />}
+                  options={racks.map((r) => ({
+                    label: `${r.name} (${r.code})`,
+                    value: r.id,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={3}>
+              <Form.Item
+                name="rackPosition"
+                label="RU Slot"
+                extra={selectedRack ? `1–${maxSlot} RU` : '1–100 RU'}
+                dependencies={['rackHeight']}
+                rules={[
+                  { type: 'number', min: 1, message: 'Must be at least 1U' },
+                  { type: 'number', max: maxSlot, message: `Must not exceed ${maxSlot}U` },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (value !== undefined && value !== null) {
+                        const height = getFieldValue('rackHeight') || 1;
+                        if (value + height - 1 > maxSlot) {
+                          return Promise.reject(
+                            new Error(
+                              `Slot U${value} + ${height}U exceeds rack capacity (U${maxSlot})`,
+                            ),
+                          );
+                        }
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
+                <InputNumber min={1} max={maxSlot} precision={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+
+            <Col span={3}>
+              <Form.Item
+                name="rackHeight"
+                label="Height"
+                initialValue={1}
+                dependencies={['rackPosition']}
+                rules={[
+                  { type: 'number', min: 1, message: 'Must be at least 1U' },
+                  { type: 'number', max: 10, message: 'Must not exceed 10U' },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const pos = getFieldValue('rackPosition');
+                      if (pos !== undefined && pos !== null && value) {
+                        if (pos + value - 1 > maxSlot) {
+                          return Promise.reject(
+                            new Error(
+                              `Chassis span U${pos}–U${pos + value - 1} exceeds rack capacity (U${maxSlot})`,
+                            ),
+                          );
+                        }
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
+                <InputNumber min={1} max={10} precision={0} suffix="U" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Creation-Only Feature: Auto Generate Ports */}
+          {!editingSwitch && (
+            <Row gutter={16}>
+              <Col span={24}>
+                <Form.Item name="autoGeneratePorts" valuePropName="checked" initialValue={true}>
+                  <Checkbox>
+                    Auto-generate standard port matrix (RJ45 ports + 4 SFP+ 10G uplinks)
+                  </Checkbox>
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {/* Row 6: Notes */}
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="notes" label="Operational Notes & Cable Schedule">
+                <TextArea rows={2} placeholder="Optional operational notes..." maxLength={500} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+    );
+  },
+);
+
+SwitchFormModal.displayName = 'SwitchFormModal';

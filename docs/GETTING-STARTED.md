@@ -178,13 +178,14 @@ Once the services are active, access the respective components:
 
 ### Default Credentials (from Seed)
 
-When you execute `pnpm run db:seed`, the database is populated with initial enterprise roles and an administrator account:
+When you execute `pnpm run db:seed`, the database is populated with initial enterprise roles and demo accounts:
 
-- **Username**: `admin` or `admin@uims.local`
-- **Password**: `Admin@2026`
-- **Role**: `Super Admin`
+- **Admin**: `admin@youngonevn.com` / `Youngone@2026` (Role: `Admin`)
+- **Manager**: `manager@youngonevn.com` / `Youngone@2026` (Role: `Manager`)
+- **User**: `user@youngonevn.com` / `Youngone@2026` (Role: `User`)
+- **Viewer**: `viewer@youngonevn.com` / `Youngone@2026` (Role: `Viewer`)
 
-*(Additional seeded test user accounts use the default password `password123`)*.
+*(All demo accounts use the standard password `Youngone@2026`)*.
 
 ---
 

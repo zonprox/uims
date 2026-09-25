@@ -50,6 +50,7 @@ import type { DataNode } from 'antd/es/tree';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
 import { type LocationBranch, organizationService } from '../../services/organization.service';
+import { formatErrorMessage } from '../../utils/feedback';
 import OrganizationCanvas from './OrganizationCanvas';
 
 const { Text, Title, Paragraph } = Typography;
@@ -225,8 +226,8 @@ export default function OrganizationPage() {
         setSelectedNodeKey(tree[0].key);
         setSelectedNode(tree[0]);
       }
-    } catch (_err: unknown) {
-      message.error('Failed to load organization structure.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'load organization structure'));
     } finally {
       setLoading(false);
     }
@@ -429,8 +430,7 @@ export default function OrganizationPage() {
       setOrgModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save organization.');
+      message.error(formatErrorMessage(err, 'save organization'));
     } finally {
       setModalSubmitting(false);
     }
@@ -441,8 +441,8 @@ export default function OrganizationPage() {
       await organizationService.deleteOrganization(id);
       message.success('Organization deleted successfully.');
       loadData();
-    } catch (_err: unknown) {
-      message.error('Failed to delete organization.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'delete organization'));
     }
   };
 
@@ -477,8 +477,7 @@ export default function OrganizationPage() {
       setDeptModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save department.');
+      message.error(formatErrorMessage(err, 'save department'));
     } finally {
       setModalSubmitting(false);
     }
@@ -489,8 +488,8 @@ export default function OrganizationPage() {
       await organizationService.deleteDepartment(id);
       message.success('Department deleted successfully.');
       loadData();
-    } catch (_err: unknown) {
-      message.error('Failed to delete department.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'delete department'));
     }
   };
 
@@ -525,8 +524,7 @@ export default function OrganizationPage() {
       setPosModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save position.');
+      message.error(formatErrorMessage(err, 'save position'));
     } finally {
       setModalSubmitting(false);
     }
@@ -537,8 +535,8 @@ export default function OrganizationPage() {
       await organizationService.deletePosition(id);
       message.success('Position deleted successfully.');
       loadData();
-    } catch (_err: unknown) {
-      message.error('Failed to delete position.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'delete position'));
     }
   };
 

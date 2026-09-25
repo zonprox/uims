@@ -37,7 +37,7 @@ export class CreateUserDto {
   @IsOptional()
   phone?: string;
 
-  @ApiPropertyOptional({ example: 'Admin@2026' })
+  @ApiPropertyOptional({ example: 'Youngone@2026' })
   @IsString()
   @MinLength(6)
   @IsOptional()

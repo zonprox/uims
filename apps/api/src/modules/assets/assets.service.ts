@@ -133,7 +133,6 @@ export class AssetsService {
           locationId,
           departmentId: data.departmentId || null,
           assignedToId: data.assignedToId || null,
-          specs: (data.specs as Prisma.InputJsonValue) || {},
           notes: data.notes || '',
         },
         include: {
@@ -289,7 +288,6 @@ export class AssetsService {
     if (data.manufacturer !== undefined) updateData.manufacturer = data.manufacturer;
     if (data.model !== undefined) updateData.model = data.model;
     if (data.serialNumber !== undefined) updateData.serialNumber = data.serialNumber;
-    if (data.specs) updateData.specs = data.specs as Prisma.InputJsonValue;
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.purchasePrice !== undefined) updateData.purchaseCost = Number(data.purchasePrice);
     if (data.purchaseCost !== undefined) updateData.purchaseCost = Number(data.purchaseCost);
@@ -418,13 +416,6 @@ export class AssetsService {
   private formatAsset(asset: AssetWithRelations) {
     const statusLabel = mapAssetStatusToLabel(asset.status);
 
-    const defaultSpecs = {
-      cpu: 'N/A',
-      ram: 'N/A',
-      storage: 'N/A',
-      os: 'N/A',
-    };
-
     const assignedUserName = asset.assignedTo
       ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`.trim()
       : 'Unassigned';
@@ -465,10 +456,6 @@ export class AssetsService {
       purchaseCost: asset.purchaseCost || 0,
       purchasePrice: asset.purchaseCost || 0,
       warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.toISOString().split('T')[0] : '',
-      specs: {
-        ...defaultSpecs,
-        ...(typeof asset.specs === 'object' && asset.specs ? asset.specs : {}),
-      },
       notes: asset.notes || '',
       createdAt: asset.createdAt ? asset.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: asset.updatedAt ? asset.updatedAt.toISOString() : new Date().toISOString(),

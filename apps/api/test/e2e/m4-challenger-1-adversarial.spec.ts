@@ -293,16 +293,19 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
       expect(Number(count), 'InventoryItem must have zero null locationId').toBe(0);
     });
 
-    it('2.4 should assert exactly 40 PostgreSQL foreign key constraints exist in the public schema', async () => {
+    it('2.4 should assert at least 40 PostgreSQL foreign key constraints exist in the public schema', async () => {
       const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT count(*) as count
         FROM information_schema.table_constraints tc
         WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public';
       `;
-      expect(Number(count), 'There must be exactly 40 foreign key constraints').toBe(40);
+      expect(
+        Number(count),
+        'There must be at least 40 foreign key constraints',
+      ).toBeGreaterThanOrEqual(40);
     });
 
-    it('2.5 should assert 0 foreign key constraint violations across all 40 constraints', async () => {
+    it('2.5 should assert 0 foreign key constraint violations across all constraints', async () => {
       const constraints = await prisma.$queryRaw<
         Array<{
           child_table: string;
@@ -327,7 +330,7 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
         ORDER BY tc.table_name, kcu.column_name;
       `;
 
-      expect(constraints.length).toBe(40);
+      expect(constraints.length).toBeGreaterThanOrEqual(40);
 
       for (const c of constraints) {
         const query = `

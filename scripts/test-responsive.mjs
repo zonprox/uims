@@ -28,8 +28,8 @@ async function runResponsiveTests() {
 
     // 1.1 Mobile Login
     await mobilePage.goto('https://localhost:5679/login', { waitUntil: 'networkidle' });
-    await mobilePage.locator('input#login_email').fill('admin@uims.internal');
-    await mobilePage.locator('input#login_password').fill('password123');
+    await mobilePage.locator('input#login_email').fill('admin@youngonevn.com');
+    await mobilePage.locator('input#login_password').fill('Youngone@2026');
     await mobilePage.locator('button[type="submit"]').click();
     await mobilePage.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
     console.log('   ✅ Mobile login & dashboard redirection successful.');
@@ -68,8 +68,8 @@ async function runResponsiveTests() {
     });
     const tabletPage = await tabletContext.newPage();
     await tabletPage.goto('https://localhost:5679/login', { waitUntil: 'networkidle' });
-    await tabletPage.locator('input#login_email').fill('admin@uims.internal');
-    await tabletPage.locator('input#login_password').fill('password123');
+    await tabletPage.locator('input#login_email').fill('admin@youngonevn.com');
+    await tabletPage.locator('input#login_password').fill('Youngone@2026');
     await tabletPage.locator('button[type="submit"]').click();
     await tabletPage.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
     await tabletPage.waitForSelector('text=Overview', { timeout: 10000 });
@@ -87,8 +87,8 @@ async function runResponsiveTests() {
     });
     const desktopPage = await desktopContext.newPage();
     await desktopPage.goto('https://localhost:5679/login', { waitUntil: 'networkidle' });
-    await desktopPage.locator('input#login_email').fill('admin@uims.internal');
-    await desktopPage.locator('input#login_password').fill('password123');
+    await desktopPage.locator('input#login_email').fill('admin@youngonevn.com');
+    await desktopPage.locator('input#login_password').fill('Youngone@2026');
     await desktopPage.locator('button[type="submit"]').click();
     await desktopPage.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
     await desktopPage.waitForSelector('text=Dashboard', { timeout: 10000 });

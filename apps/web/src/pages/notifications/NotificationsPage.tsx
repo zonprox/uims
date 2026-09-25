@@ -39,6 +39,7 @@ import { TimeAgo } from '../../components/FormattedDate';
 import PageContainer from '../../components/PageContainer';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { type NotificationItem } from '../../services/notifications.service';
+import { formatErrorMessage } from '../../utils/feedback';
 
 dayjs.extend(isBetween);
 
@@ -163,8 +164,8 @@ export default function NotificationsPage() {
       await Promise.all(selectedRowKeys.map((id) => markAsRead(String(id))));
       message.success(`Marked ${selectedRowKeys.length} notifications as read.`);
       setSelectedRowKeys([]);
-    } catch (_error: unknown) {
-      message.error('Failed to mark selected notifications as read.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'mark selected notifications as read'));
     } finally {
       setBatchLoading(false);
     }
@@ -177,8 +178,8 @@ export default function NotificationsPage() {
       await Promise.all(selectedRowKeys.map((id) => deleteNotification(String(id))));
       message.success(`Deleted ${selectedRowKeys.length} notifications.`);
       setSelectedRowKeys([]);
-    } catch (_error: unknown) {
-      message.error('Failed to delete selected notifications.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'delete selected notifications'));
     } finally {
       setBatchLoading(false);
     }

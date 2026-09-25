@@ -3,7 +3,6 @@ import {
   ArrowRightOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  DeleteOutlined,
   InfoCircleOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -17,7 +16,6 @@ import {
   Empty,
   Flex,
   Input,
-  Popconfirm,
   Spin,
   Tabs,
   Tag,
@@ -37,12 +35,12 @@ interface NotificationDrawerProps {
   notifications: Array<NotificationItem>;
   unreadCount: number;
   loading: boolean;
-  isConnected: boolean;
+  isConnected?: boolean;
   onRefresh: () => void;
   onMarkAsRead: (id: string, link?: string) => Promise<void>;
   onMarkAllAsRead: () => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-  onClearAll: () => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+  onClearAll?: () => Promise<void>;
 }
 
 export default function NotificationDrawer({
@@ -51,12 +49,9 @@ export default function NotificationDrawer({
   notifications,
   unreadCount,
   loading,
-  isConnected,
   onRefresh,
   onMarkAsRead,
   onMarkAllAsRead,
-  onDelete,
-  onClearAll,
 }: NotificationDrawerProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
@@ -128,34 +123,10 @@ export default function NotificationDrawer({
     <Drawer
       title={
         <Flex justify="space-between" align="center">
-          <Flex align="center" gap={8}>
-            <Title level={5} style={{ margin: 0, fontSize: 14 }}>
-              Notifications
-            </Title>
-            <Badge
-              status={isConnected ? 'success' : 'default'}
-              text={
-                <span
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 600,
-                    color: isConnected ? '#10b981' : '#94a3b8',
-                  }}
-                >
-                  {isConnected ? 'LIVE' : 'SYNCING'}
-                </span>
-              }
-            />
-          </Flex>
-          <Flex gap={6} align="center">
-            <Tooltip title="Refresh notifications">
-              <Button
-                type="text"
-                size="small"
-                icon={<ReloadOutlined spin={loading} />}
-                onClick={onRefresh}
-              />
-            </Tooltip>
+          <Title level={5} style={{ margin: 0, fontSize: 14 }}>
+            Notifications
+          </Title>
+          <Flex gap={8} align="center">
             {unreadCount > 0 && (
               <Button
                 type="link"
@@ -166,28 +137,20 @@ export default function NotificationDrawer({
                 Mark all as read
               </Button>
             )}
-            {safeNotifications.length > 0 && (
-              <Popconfirm
-                title="Clear all notifications?"
-                description="This action cannot be undone."
-                okText="Clear All"
-                cancelText="Cancel"
-                okButtonProps={{ danger: true, size: 'small' }}
-                onConfirm={onClearAll}
-              >
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  title="Clear all notifications"
-                />
-              </Popconfirm>
-            )}
+            <Tooltip title="Refresh notifications">
+              <Button
+                type="text"
+                size="small"
+                icon={<ReloadOutlined spin={loading} />}
+                onClick={onRefresh}
+              />
+            </Tooltip>
           </Flex>
         </Flex>
       }
       placement="right"
-      width={440}
+      size={440}
+      styles={{ wrapper: { width: 440 } }}
       open={open}
       destroyOnHidden
       onClose={onClose}
@@ -256,11 +219,11 @@ export default function NotificationDrawer({
           {filteredNotifications.map((item) => (
             <Flex
               key={item.id}
+              data-testid={`notif-item-${item.id}`}
               onClick={() => {
                 onMarkAsRead(item.id, item.link);
                 if (item.link) onClose();
               }}
-              justify="space-between"
               align="flex-start"
               style={{
                 cursor: 'pointer',
@@ -273,7 +236,7 @@ export default function NotificationDrawer({
                 transition: 'all 0.15s ease',
               }}
             >
-              <Flex gap={12} align="flex-start" style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+              <Flex gap={12} align="flex-start" style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ marginTop: 2, flexShrink: 0 }}>{getIcon(item.type)}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
@@ -311,28 +274,6 @@ export default function NotificationDrawer({
                   </Flex>
                 </div>
               </Flex>
-              <div onClick={(e) => e.stopPropagation()}>
-                <Popconfirm
-                  title="Dismiss notification?"
-                  description="Remove this notification permanently?"
-                  okText="Delete"
-                  cancelText="Cancel"
-                  okButtonProps={{ danger: true, size: 'small' }}
-                  cancelButtonProps={{ size: 'small' }}
-                  onConfirm={(e) => {
-                    if (e) e.stopPropagation();
-                    onDelete(item.id);
-                  }}
-                >
-                  <Button
-                    key="del"
-                    type="text"
-                    shape="circle"
-                    size="small"
-                    icon={<DeleteOutlined style={{ fontSize: 12, color: '#94a3b8' }} />}
-                  />
-                </Popconfirm>
-              </div>
             </Flex>
           ))}
         </Flex>

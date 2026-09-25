@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons';
 import { Button, Card, Flex, Form, Tooltip } from 'antd';
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import { AssetDetailDrawer } from './components/AssetDetailDrawer';
 import { AssetFilterBar } from './components/AssetFilterBar';
@@ -20,6 +21,7 @@ import { AssetTable } from './components/AssetTable';
 import { useAssetManagement } from './hooks/useAssetManagement';
 
 export default function AssetsPage() {
+  const navigate = useNavigate();
   const [form] = Form.useForm();
   const {
     assets,
@@ -34,6 +36,10 @@ export default function AssetsPage() {
     setCategoryFilter,
     statusFilter,
     setStatusFilter,
+    locationFilter,
+    setLocationFilter,
+    filterState,
+    handleFilterChange,
     modalOpen,
     setModalOpen,
     modalSubmitting,
@@ -124,6 +130,10 @@ export default function AssetsPage() {
           onCategoryChange={setCategoryFilter}
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
+          locationFilter={locationFilter}
+          onLocationChange={setLocationFilter}
+          filterState={filterState}
+          onFilterChange={handleFilterChange}
           onReset={handleResetFilters}
           onScanQr={() => setScannerModalOpen(true)}
         />
@@ -152,6 +162,16 @@ export default function AssetsPage() {
         selectedAsset={selectedAsset}
         onClose={() => setDetailDrawerOpen(false)}
         onOpenEditModal={handleOpenEditModal}
+        onViewSwitchFaceplate={(switchId) => {
+          setDetailDrawerOpen(false);
+          navigate(`/network?tab=switches${switchId ? `&switchId=${switchId}` : ''}`);
+        }}
+        onViewRackElevation={(rackId, unit) => {
+          setDetailDrawerOpen(false);
+          navigate(
+            `/network?tab=racks${rackId ? `&rackId=${rackId}` : ''}${unit ? `&unit=${unit}` : ''}`,
+          );
+        }}
       />
 
       <AssetQrModal open={qrModalOpen} qrAsset={qrAsset} onClose={() => setQrModalOpen(false)} />

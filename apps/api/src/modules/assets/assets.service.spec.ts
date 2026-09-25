@@ -59,7 +59,6 @@ describe('AssetsService', () => {
         category: { name: 'Laptops' },
         location: { name: 'HQ Storage' },
         assignedTo: { firstName: 'Alex', lastName: 'Johnson', email: 'alex@company.com' },
-        specs: { cpu: 'M3 Max', ram: '64GB' },
         notes: 'Lead engineer laptop',
       });
 
@@ -297,6 +296,98 @@ describe('AssetsService', () => {
         { id: 'cat-1', name: 'Laptops', code: 'LAPTOPS', parentId: null },
         { id: 'cat-2', name: 'Network Switches', code: 'NETWORK_SWITCHES', parentId: null },
       ]);
+    });
+  });
+
+  describe('formatAsset', () => {
+    it('should format asset core fields and retain notes cleanly', async () => {
+      mockPrisma.asset.findUnique.mockResolvedValue({
+        id: 'ast-sw-1',
+        assetTag: 'AST-1010',
+        name: 'Cisco Catalyst 9300-48P',
+        status: AssetStatus.IN_USE,
+        category: { name: 'Network Switches' },
+        location: { name: 'Datacenter' },
+        assignedTo: null,
+        notes: 'Rack 4 - Switch 2',
+      });
+
+      const result = await service.findOne('ast-sw-1');
+
+      expect(result.id).toBe('ast-sw-1');
+      expect(result.notes).toBe('Rack 4 - Switch 2');
+      expect(result).not.toHaveProperty('specs');
+    });
+
+    it('should handle multiline notes, Unicode, and empty notes gracefully in formatting', async () => {
+      const multilineNotes = 'Line 1: Rack 01\nLine 2: Port 24\r\nLine 3: 10G uplink';
+      mockPrisma.asset.findUnique.mockResolvedValueOnce({
+        id: 'ast-ml-1',
+        assetTag: 'AST-1011',
+        name: 'Switch 01',
+        status: AssetStatus.IN_USE,
+        notes: multilineNotes,
+      });
+
+      const multilineResult = await service.findOne('ast-ml-1');
+      expect(multilineResult.notes).toBe(multilineNotes);
+      expect(multilineResult).not.toHaveProperty('specs');
+
+      const unicodeNotes = 'Thiết bị cấp cho phòng Kỹ thuật công nghệ 🚀';
+      mockPrisma.asset.findUnique.mockResolvedValueOnce({
+        id: 'ast-uni-1',
+        assetTag: 'AST-1012',
+        name: 'Workstation',
+        status: AssetStatus.AVAILABLE,
+        notes: unicodeNotes,
+      });
+
+      const unicodeResult = await service.findOne('ast-uni-1');
+      expect(unicodeResult.notes).toBe(unicodeNotes);
+      expect(unicodeResult).not.toHaveProperty('specs');
+
+      mockPrisma.asset.findUnique.mockResolvedValueOnce({
+        id: 'ast-null-1',
+        assetTag: 'AST-1013',
+        name: 'Monitor',
+        status: AssetStatus.AVAILABLE,
+        notes: null,
+      });
+
+      const nullResult = await service.findOne('ast-null-1');
+      expect(nullResult.notes).toBe('');
+      expect(nullResult).not.toHaveProperty('specs');
+    });
+  });
+
+  describe('update notes', () => {
+    it('should update asset notes cleanly and omit specs', async () => {
+      mockPrisma.asset.findUnique.mockResolvedValue({
+        id: 'ast-upd-1',
+        assetTag: 'AST-1014',
+      });
+      mockPrisma.asset.update.mockResolvedValue({
+        id: 'ast-upd-1',
+        assetTag: 'AST-1014',
+        name: 'Updated Server',
+        status: AssetStatus.IN_USE,
+        notes: 'Updated deployment notes',
+      });
+
+      const result = await service.update('ast-upd-1', {
+        notes: 'Updated deployment notes',
+      });
+
+      expect(mockPrisma.asset.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'ast-upd-1' },
+          data: expect.objectContaining({
+            notes: 'Updated deployment notes',
+          }),
+        }),
+      );
+      expect(result.notes).toBe('Updated deployment notes');
+      expect(result).not.toHaveProperty('specs');
     });
   });
 });

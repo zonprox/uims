@@ -1,4 +1,14 @@
-import type { IPStatus, VlanStatus } from '../entities/network';
+import type {
+  IPStatus,
+  PortAdminStatus,
+  PortFormFactor,
+  PortMode,
+  PortOperStatus,
+  RackStatus,
+  SwitchRole,
+  SwitchStatus,
+  VlanStatus,
+} from '../entities/network';
 
 // --- VLAN DTOs ---
 
@@ -6,7 +16,7 @@ export interface CreateVlanDto {
   vlanNumber: number;
   name: string;
   description?: string | null;
-  status?: VlanStatus | `${VlanStatus}` | string;
+  status?: VlanStatus | `${VlanStatus}`;
   locationId?: string | null;
 }
 
@@ -73,11 +83,12 @@ export interface CreateIPAddressDto {
   locationId?: string | null;
   assetId?: string | null;
   assignedUserId?: string | null;
-  status?: IPStatus | `${IPStatus}` | string;
+  status?: IPStatus | `${IPStatus}`;
   pingStatus?: string;
   responseTimeMs?: number;
   lastSeen?: string | Date;
   description?: string | null;
+  switchPortId?: string | null;
   // legacy fields
   subnet?: string;
   subnetName?: string;
@@ -99,6 +110,118 @@ export interface IPAddressQueryDto {
   status?: string;
   deviceType?: string;
   locationId?: string;
+  switchPortId?: string;
+  switchId?: string;
+}
+
+// --- Network Rack DTOs ---
+
+export interface CreateRackDto {
+  name: string;
+  code: string;
+  locationId?: string | null;
+  totalHeight?: number; // default 42
+  depth?: number | null; // mm
+  width?: number | null; // mm
+  maxPowerKw?: number | null; // kW
+  maxWeightKg?: number | null; // kg
+  status?: RackStatus | `${RackStatus}`;
+  notes?: string | null;
+}
+
+export interface UpdateRackDto extends Partial<CreateRackDto> {}
+
+export interface RackQueryDto {
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  search?: string;
+  locationId?: string;
+  status?: string;
+}
+
+// --- Network Switch DTOs ---
+
+export interface CreateSwitchDto {
+  name: string;
+  model: string;
+  vendor: string;
+  serialNumber?: string | null;
+  macAddress?: string | null;
+  ipAddressId?: string | null;
+  firmwareVersion?: string | null;
+  role?: SwitchRole | `${SwitchRole}`;
+  status?: SwitchStatus | `${SwitchStatus}`;
+  totalPorts?: number;
+  rackId?: string | null;
+  rackPosition?: number | null;
+  rackHeight?: number;
+  assetId?: string | null;
+  locationId?: string | null;
+  notes?: string | null;
+  autoGeneratePorts?: boolean;
+}
+
+export interface UpdateSwitchDto extends Partial<CreateSwitchDto> {}
+
+export interface SwitchQueryDto {
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  search?: string;
+  rackId?: string;
+  locationId?: string;
+  vendor?: string;
+  role?: string;
+  status?: string;
+}
+
+// --- Switch Port DTOs ---
+
+export interface CreateSwitchPortDto {
+  switchId: string;
+  portNumber: number;
+  name: string;
+  formFactor?: PortFormFactor | `${PortFormFactor}`;
+  poeEnabled?: boolean;
+  adminStatus?: PortAdminStatus | `${PortAdminStatus}`;
+  operStatus?: PortOperStatus | `${PortOperStatus}`;
+  speed?: string | null;
+  duplex?: string | null;
+  vlanId?: string | null;
+  mode?: PortMode | `${PortMode}`;
+  taggedVlanIds?: number[] | string[] | null;
+  ipAddressId?: string | null;
+  connectedAssetId?: string | null;
+  description?: string | null;
+}
+
+export interface UpdateSwitchPortDto {
+  name?: string;
+  formFactor?: PortFormFactor | `${PortFormFactor}`;
+  poeEnabled?: boolean;
+  adminStatus?: PortAdminStatus | `${PortAdminStatus}`;
+  operStatus?: PortOperStatus | `${PortOperStatus}`;
+  speed?: string | null;
+  duplex?: string | null;
+  vlanId?: string | null;
+  mode?: PortMode | `${PortMode}`;
+  taggedVlanIds?: number[] | string[] | null;
+  ipAddressId?: string | null;
+  connectedAssetId?: string | null;
+  description?: string | null;
+}
+
+export interface SwitchPortQueryDto {
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  switchId?: string;
+  vlanId?: string;
+  adminStatus?: string;
+  operStatus?: string;
+  mode?: string;
+  search?: string;
 }
 
 // --- Network Automation & Utility DTOs ---
@@ -124,4 +247,8 @@ export interface NetworkStatsDto {
   availableIps: number;
   freeIpCapacity: number;
   averageUtilization: number;
+  totalRacks?: number;
+  totalSwitches?: number;
+  totalPorts?: number;
+  portUtilization?: number;
 }

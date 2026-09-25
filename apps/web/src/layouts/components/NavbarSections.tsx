@@ -168,7 +168,11 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
 
     return (
       <Flex align="center" gap={isXs ? 6 : 8}>
-        <Dropdown menu={{ items: quickCreateMenu }} placement="bottomRight" trigger={['hover', 'click']}>
+        <Dropdown
+          menu={{ items: quickCreateMenu }}
+          placement="bottomRight"
+          trigger={['hover', 'click']}
+        >
           <Button
             type="primary"
             size="small"
@@ -230,7 +234,12 @@ export const NavbarRightSection: React.FC<NavbarRightSectionProps> = React.memo(
 
         <Divider orientation="vertical" style={{ height: 20, margin: '0 4px' }} />
 
-        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow trigger={['hover', 'click']}>
+        <Dropdown
+          menu={{ items: userMenuItems }}
+          placement="bottomRight"
+          arrow
+          trigger={['hover', 'click']}
+        >
           <div
             role="button"
             tabIndex={0}

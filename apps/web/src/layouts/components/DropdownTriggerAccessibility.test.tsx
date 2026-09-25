@@ -147,20 +147,26 @@ describe('Dropdown Triggers Decoupled from Tooltips (R1, R2)', () => {
         );
       });
 
-      const profileTrigger = container.querySelector('[aria-label="User profile"]') as HTMLDivElement;
+      const profileTrigger = container.querySelector(
+        '[aria-label="User profile"]',
+      ) as HTMLDivElement;
       expect(profileTrigger).not.toBeNull();
 
       const clickSpy = vi.spyOn(profileTrigger, 'click');
 
       // Dispatch Enter
       await act(async () => {
-        profileTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        profileTrigger.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+        );
       });
       expect(clickSpy).toHaveBeenCalledTimes(1);
 
       // Dispatch Space
       await act(async () => {
-        profileTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+        profileTrigger.dispatchEvent(
+          new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+        );
       });
       expect(clickSpy).toHaveBeenCalledTimes(2);
 
@@ -238,20 +244,26 @@ describe('Dropdown Triggers Decoupled from Tooltips (R1, R2)', () => {
         );
       });
 
-      const orgTrigger = container.querySelector('[aria-label="Organization selector"]') as HTMLDivElement;
+      const orgTrigger = container.querySelector(
+        '[aria-label="Organization selector"]',
+      ) as HTMLDivElement;
       expect(orgTrigger).not.toBeNull();
 
       const clickSpy = vi.spyOn(orgTrigger, 'click');
 
       // Dispatch Enter
       await act(async () => {
-        orgTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        orgTrigger.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+        );
       });
       expect(clickSpy).toHaveBeenCalledTimes(1);
 
       // Dispatch Space
       await act(async () => {
-        orgTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+        orgTrigger.dispatchEvent(
+          new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+        );
       });
       expect(clickSpy).toHaveBeenCalledTimes(2);
 

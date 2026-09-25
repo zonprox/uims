@@ -1,16 +1,71 @@
 import type {
   AutoDetectResult,
+  CreateRackDto,
+  CreateSwitchDto,
+  CreateSwitchPortDto,
   IPAddress,
   NetworkCalculation,
+  NetworkRack,
   NetworkStats,
+  NetworkSwitch,
+  RackElevationData,
+  RackElevationSlot,
+  RackQueryDto,
   Subnet,
+  SwitchPort,
+  SwitchPortQueryDto,
+  SwitchQueryDto,
+  UpdateRackDto,
+  UpdateSwitchDto,
+  UpdateSwitchPortDto,
   VLAN,
 } from '@uims/shared-types';
-import { IPStatus, VlanStatus } from '@uims/shared-types';
+import {
+  IPStatus,
+  PortAdminStatus,
+  PortFormFactor,
+  PortMode,
+  PortOperStatus,
+  RackStatus,
+  SwitchRole,
+  SwitchStatus,
+  VlanStatus,
+} from '@uims/shared-types';
 import { api } from './api';
 
-export type { AutoDetectResult, IPAddress, NetworkCalculation, NetworkStats, Subnet, VLAN };
-export { IPStatus, VlanStatus };
+export type {
+  AutoDetectResult,
+  CreateRackDto,
+  CreateSwitchDto,
+  CreateSwitchPortDto,
+  IPAddress,
+  NetworkCalculation,
+  NetworkRack,
+  NetworkStats,
+  NetworkSwitch,
+  RackElevationData,
+  RackElevationSlot,
+  RackQueryDto,
+  Subnet,
+  SwitchPort,
+  SwitchPortQueryDto,
+  SwitchQueryDto,
+  UpdateRackDto,
+  UpdateSwitchDto,
+  UpdateSwitchPortDto,
+  VLAN,
+};
+export {
+  IPStatus,
+  PortAdminStatus,
+  PortFormFactor,
+  PortMode,
+  PortOperStatus,
+  RackStatus,
+  SwitchRole,
+  SwitchStatus,
+  VlanStatus,
+};
 
 export interface VlanQueryParams {
   page?: number;
@@ -169,5 +224,94 @@ export const networkService = {
 
   deleteIp: async (id: string): Promise<void> => {
     await api.delete(`/network/ips/${id}`);
+  },
+
+  // Equipment Rack Management
+  getRacks: async (params?: RackQueryDto): Promise<Array<NetworkRack>> => {
+    const res = await api.get('/network/racks', { params });
+    return res.data.data;
+  },
+
+  getRack: async (id: string): Promise<NetworkRack> => {
+    const res = await api.get(`/network/racks/${id}`);
+    return res.data.data;
+  },
+
+  createRack: async (data: CreateRackDto): Promise<NetworkRack> => {
+    const res = await api.post('/network/racks', data);
+    return res.data.data;
+  },
+
+  updateRack: async (id: string, data: UpdateRackDto): Promise<NetworkRack> => {
+    const res = await api.patch(`/network/racks/${id}`, data);
+    return res.data.data;
+  },
+
+  deleteRack: async (id: string): Promise<void> => {
+    await api.delete(`/network/racks/${id}`);
+  },
+
+  getRackElevation: async (id: string): Promise<RackElevationData> => {
+    const res = await api.get(`/network/racks/${id}/elevation`);
+    return res.data.data;
+  },
+
+  // Network Switch Management
+  getSwitches: async (params?: SwitchQueryDto): Promise<Array<NetworkSwitch>> => {
+    const res = await api.get('/network/switches', { params });
+    return res.data.data;
+  },
+
+  getSwitch: async (id: string): Promise<NetworkSwitch> => {
+    const res = await api.get(`/network/switches/${id}`);
+    return res.data.data;
+  },
+
+  createSwitch: async (data: CreateSwitchDto): Promise<NetworkSwitch> => {
+    const res = await api.post('/network/switches', data);
+    return res.data.data;
+  },
+
+  updateSwitch: async (id: string, data: UpdateSwitchDto): Promise<NetworkSwitch> => {
+    const res = await api.patch(`/network/switches/${id}`, data);
+    return res.data.data;
+  },
+
+  deleteSwitch: async (id: string): Promise<void> => {
+    await api.delete(`/network/switches/${id}`);
+  },
+
+  // Switch Port Management
+  getSwitchPorts: async (
+    switchId: string,
+    params?: SwitchPortQueryDto,
+  ): Promise<Array<SwitchPort>> => {
+    const res = await api.get(`/network/switches/${switchId}/ports`, { params });
+    return res.data.data;
+  },
+
+  createSwitchPort: async (switchId: string, data: CreateSwitchPortDto): Promise<SwitchPort> => {
+    const res = await api.post(`/network/switches/${switchId}/ports`, data);
+    return res.data.data;
+  },
+
+  getPort: async (id: string): Promise<SwitchPort> => {
+    const res = await api.get(`/network/ports/${id}`);
+    return res.data.data;
+  },
+
+  updateSwitchPort: async (
+    targetOrSwitchId: string,
+    portIdOrData: string | UpdateSwitchPortDto,
+    maybeData?: UpdateSwitchPortDto,
+  ): Promise<SwitchPort> => {
+    const portId = typeof portIdOrData === 'string' ? portIdOrData : targetOrSwitchId;
+    const payload = typeof portIdOrData === 'string' ? maybeData : portIdOrData;
+    const res = await api.patch(`/network/ports/${portId}`, payload);
+    return res.data.data;
+  },
+
+  deleteSwitchPort: async (portId: string): Promise<void> => {
+    await api.delete(`/network/ports/${portId}`);
   },
 };

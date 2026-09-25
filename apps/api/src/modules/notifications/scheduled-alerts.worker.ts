@@ -43,6 +43,11 @@ export class ScheduledAlertsWorker {
   async runDailyAlertScans(): Promise<DailyAlertScanSummary> {
     this.logger.log('Starting proactive scheduled alert scans...');
 
+    // Auto-prune old notifications exceeding capacity across all users
+    if (typeof this.notificationsService?.pruneAllOldNotifications === 'function') {
+      await this.notificationsService.pruneAllOldNotifications();
+    }
+
     const [licenses, warranties, maintenance, lowStock] = await Promise.allSettled([
       this.scanExpiringLicenses(),
       this.scanExpiringWarranties(),

@@ -105,7 +105,6 @@ const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
       purchaseDate: '2025-01-01',
       purchasePrice: 4500,
       warrantyExpiry: '2028-01-01',
-      specs: { cpu: 'Xeon Silver', ram: '128GB', storage: '2TB NVMe', os: 'RHEL 9' },
     },
   ];
 

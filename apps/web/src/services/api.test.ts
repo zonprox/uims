@@ -3,6 +3,7 @@ import {
   AxiosHeaders,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
+  isAxiosError,
 } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '../stores/auth.store';
@@ -491,6 +492,37 @@ describe('API Client & Interceptor', () => {
       }
 
       expect(caughtError).toBe('Raw network string rejection');
+    });
+
+    it('should normalize HTTP 403 Forbidden with clear Access Denied message', async () => {
+      const headers = new AxiosHeaders();
+      const config: InternalAxiosRequestConfig = { url: '/forbidden-resource', headers };
+      const forbiddenError = new AxiosError(
+        'Request failed with status code 403',
+        'ERR_BAD_REQUEST',
+        config,
+        null,
+        {
+          status: 403,
+          statusText: 'Forbidden',
+          headers: {},
+          config,
+          data: { statusCode: 403, message: 'Forbidden resource' },
+        },
+      );
+
+      const mockAdapter = vi.fn().mockRejectedValue(forbiddenError);
+
+      try {
+        await api.get('/forbidden-resource', { adapter: mockAdapter });
+        expect.unreachable('Should have rejected with 403');
+      } catch (err: unknown) {
+        expect(isAxiosError(err)).toBe(true);
+        if (isAxiosError(err)) {
+          expect(err.message).toBe('Access denied: Insufficient permissions.');
+          expect(err.response?.data?.message).toBe('Access denied: Insufficient permissions.');
+        }
+      }
     });
   });
 });

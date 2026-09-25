@@ -7,7 +7,7 @@ export const createAssetSchema = z.object({
   assetTag: z.string().max(100).optional(),
   tag: z.string().max(100).optional(),
   description: z.string().max(500).nullable().optional(),
-  categoryId: uuidSchema.nullable().optional(),
+  categoryId: z.string().max(100).nullable().optional(),
   category: z.string().max(100).optional(),
   locationId: uuidSchema.nullable().optional(),
   location: z.string().max(100).optional(),
@@ -27,7 +27,6 @@ export const createAssetSchema = z.object({
     .nullable()
     .optional(),
   warrantyExpiry: dateSchema.nullable().optional(),
-  specs: z.record(z.string(), z.unknown()).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
 });
 
@@ -38,7 +37,7 @@ export const assetQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().max(100).optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),
   search: z.string().optional(),
-  categoryId: uuidSchema.optional(),
+  categoryId: z.string().max(100).optional(),
   category: z.string().optional(),
   locationId: uuidSchema.optional(),
   departmentId: uuidSchema.optional(),

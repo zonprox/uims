@@ -31,6 +31,7 @@ import {
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 
 const { Text, Title } = Typography;
 
@@ -188,8 +189,7 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to update role permissions.');
+      message.error(formatErrorMessage(err, 'update role permissions'));
     } finally {
       setSaving(false);
     }

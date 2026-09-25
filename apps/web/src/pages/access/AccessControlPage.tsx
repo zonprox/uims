@@ -20,6 +20,7 @@ import { usersService } from '../../services/users.service';
 import { CreateRoleModal } from '../users/components/CreateRoleModal';
 import { RolesTab } from '../users/components/RolesTab';
 import { AppUsersTab } from './AppUsersTab';
+import { formatErrorMessage } from '../../utils/feedback';
 
 export default function AccessControlPage() {
   const { message } = App.useApp();
@@ -60,8 +61,8 @@ export default function AccessControlPage() {
         : (catalogRes as { data?: PermissionCatalogSubject[] })?.data || [];
       setRolesCatalog(catalogItems);
       setRolesStats(rStatsRes);
-    } catch (_error: unknown) {
-      message.error('Failed to load user management data.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'load user management data'));
     } finally {
       setLoading(false);
     }

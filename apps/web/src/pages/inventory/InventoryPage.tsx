@@ -34,10 +34,10 @@ import {
   TreeSelect,
   Typography,
 } from 'antd';
-import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
+import { formatErrorMessage } from '../../utils/feedback';
 import {
   type InventoryCategory,
   type InventoryItem,
@@ -245,8 +245,7 @@ export default function InventoryPage() {
         message.warning('Failed to load inventory aggregate statistics.');
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to load inventory records.';
-      message.error(errorMsg);
+      message.error(formatErrorMessage(err, 'load inventory records'));
     } finally {
       setLoading(false);
     }
@@ -304,7 +303,6 @@ export default function InventoryPage() {
       minThreshold: 5,
       unitCost: 15,
       locationId: locations[0]?.id,
-      binNumber: 'Bin A-01',
       vendorId: vendors[0]?.id,
     });
     setModalOpen(true);
@@ -327,7 +325,6 @@ export default function InventoryPage() {
         vendorId:
           item.vendorId ||
           (item.vendor && typeof item.vendor === 'object' ? item.vendor.id : undefined),
-        binNumber: item.binNumber,
         quantity: item.quantity,
         minThreshold: item.minThreshold,
         unitCost: item.unitCost,
@@ -379,7 +376,6 @@ export default function InventoryPage() {
         unitCost: Number(values.unitCost || 0),
         locationId: values.locationId,
         vendorId: values.vendorId,
-        binNumber: values.binNumber || 'Unassigned',
         supplier: supplierName,
         notes: values.notes,
       };
@@ -395,14 +391,7 @@ export default function InventoryPage() {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      let errorMessage = 'Failed to save inventory item.';
-      if (axios.isAxiosError(err)) {
-        const data = err.response?.data as { message?: string } | undefined;
-        if (data?.message) errorMessage = data.message;
-      } else if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      message.error(errorMessage);
+      message.error(formatErrorMessage(err, 'save inventory item'));
     } finally {
       setModalSubmitting(false);
     }
@@ -414,8 +403,7 @@ export default function InventoryPage() {
       message.success('Inventory item deleted successfully.');
       loadData();
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to delete item.';
-      message.error(errorMsg);
+      message.error(formatErrorMessage(err, 'delete inventory item'));
     }
   };
 
@@ -434,8 +422,7 @@ export default function InventoryPage() {
       setRestockModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to restock item.';
-      message.error(errorMsg);
+      message.error(formatErrorMessage(err, 'restock inventory item'));
     } finally {
       setRestocking(false);
     }
@@ -832,7 +819,7 @@ export default function InventoryPage() {
           </Row>
 
           <Row gutter={14}>
-            <Col span={12}>
+            <Col span={24}>
               <Form.Item label="Storage Location" name="locationId">
                 <TreeSelect
                   showSearch
@@ -844,11 +831,6 @@ export default function InventoryPage() {
                   treeData={locationTreeData}
                   style={{ width: '100%' }}
                 />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Bin / Shelf Number" name="binNumber">
-                <Input placeholder="e.g. Bin A-04" />
               </Form.Item>
             </Col>
           </Row>
@@ -879,8 +861,8 @@ export default function InventoryPage() {
                 ? restockItem.location.name
                 : typeof restockItem.location === 'string'
                   ? restockItem.location
-                  : 'Unassigned'}{' '}
-              - {restockItem.binNumber})
+                  : 'Unassigned'}
+              )
             </Text>
             <Divider style={{ margin: '12px 0' }} />
             <Text strong style={{ display: 'block', marginBottom: 6 }}>

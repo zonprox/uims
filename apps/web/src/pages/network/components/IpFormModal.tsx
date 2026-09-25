@@ -23,6 +23,7 @@ import {
   type VLAN,
   networkService,
 } from '../../../services/network.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 
 export interface IpFormModalProps {
   open: boolean;
@@ -217,8 +218,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
           message.warning('No unallocated IP addresses remaining in this subnet.');
         }
       } catch (err: unknown) {
-        const apiErr = err as { response?: { data?: { message?: string } } };
-        message.error(apiErr.response?.data?.message || 'Failed to fetch next available IP.');
+        message.error(formatErrorMessage(err, 'fetch next available IP'));
       } finally {
         setFetchingNextIp(false);
       }

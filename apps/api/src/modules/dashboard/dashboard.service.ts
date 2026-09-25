@@ -252,7 +252,10 @@ export class DashboardService {
       this.prisma.subnet.aggregate({ _sum: { totalIps: true } }),
       this.prisma.iPAddress.count({ where: { status: 'ASSIGNED' } }),
       this.prisma.auditLog.findMany({
-        take: 10,
+        where: {
+          NOT: [{ entity: 'Auth', action: 'CREATE' }],
+        },
+        take: 20,
         orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.inventoryItem.findMany({
@@ -329,7 +332,20 @@ export class DashboardService {
           )
         : 100;
 
-    const recentActivity = recentLogs.map((log) => formatRecentLog(log, (d) => this.timeAgo(d)));
+    const seenSignatures = new Set<string>();
+    const recentActivity: DashboardOverviewDto['recentActivity'] = [];
+
+    for (const log of recentLogs) {
+      const formatted = formatRecentLog(log, (d) => this.timeAgo(d));
+      const sig = `${formatted.user}:${formatted.action}:${formatted.entity}:${formatted.details}`;
+      if (!seenSignatures.has(sig)) {
+        seenSignatures.add(sig);
+        recentActivity.push(formatted);
+      }
+      if (recentActivity.length >= 10) {
+        break;
+      }
+    }
 
     // Compute uptime percentage based on process uptime
     const uptimeSecs = process.uptime();

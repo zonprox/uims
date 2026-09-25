@@ -43,7 +43,6 @@ interface DbAsset {
   purchaseCost: number | null;
   purchaseDate: Date | null;
   warrantyExpiry: Date | null;
-  specs: Prisma.JsonValue | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -136,7 +135,6 @@ class InMemorySpatialDb {
       purchaseCost: data.purchaseCost ?? 1000,
       purchaseDate: data.purchaseDate ?? new Date('2026-01-01'),
       warrantyExpiry: data.warrantyExpiry ?? new Date('2028-01-01'),
-      specs: data.specs ?? null,
       notes: data.notes ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),

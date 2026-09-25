@@ -39,7 +39,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Asset Tag & Name',
           key: 'tag',
           sorter: (a: Asset, b: Asset) =>
-            a.tag.localeCompare(b.tag) || a.name.localeCompare(b.name),
+            a.tag.localeCompare(b.tag) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
           render: (_: unknown, record: Asset) => (
             <div>
               <Flex align="center" gap={6} wrap="wrap">
@@ -49,11 +49,6 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
                   {record.category}
                 </Tag>
-                {record.organization && (
-                  <Tag color="purple" icon={<BankOutlined />} style={{ fontSize: 10.5, margin: 0 }}>
-                    {record.organization}
-                  </Tag>
-                )}
               </Flex>
               <Text
                 strong
@@ -73,7 +68,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           dataIndex: 'serialNumber',
           key: 'serialNumber',
           render: (serial: string) => (
-            <Text code style={{ fontSize: 12 }}>
+            <Text code copyable={Boolean(serial && serial !== 'N/A')} style={{ fontSize: 12 }}>
               {serial || 'N/A'}
             </Text>
           ),
@@ -82,7 +77,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Status',
           dataIndex: 'status',
           key: 'status',
-          sorter: (a: Asset, b: Asset) => a.status.localeCompare(b.status),
+          sorter: (a: Asset, b: Asset) =>
+            a.status.localeCompare(b.status) || a.tag.localeCompare(b.tag),
           render: (status: Asset['status']) => {
             let color = 'default';
             if (status === 'Active') color = 'success';
@@ -96,7 +92,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Assigned User',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
-          sorter: (a: Asset, b: Asset) => (a.assignedTo || '').localeCompare(b.assignedTo || ''),
+          sorter: (a: Asset, b: Asset) =>
+            (a.assignedTo || '').localeCompare(b.assignedTo || '') || a.tag.localeCompare(b.tag),
           render: (user: string) => {
             if (!user || user === 'Unassigned') {
               return <Tag color="default">Unassigned</Tag>;
@@ -112,7 +109,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Location & Facility',
           dataIndex: 'location',
           key: 'location',
-          sorter: (a: Asset, b: Asset) => (a.location || '').localeCompare(b.location || ''),
+          sorter: (a: Asset, b: Asset) =>
+            (a.location || '').localeCompare(b.location || '') || a.tag.localeCompare(b.tag),
           render: (loc: string, record: Asset) => {
             const fullPath = record.locationPath || record.location || 'Storage Vault';
             const leafName = loc ? loc.split(' > ').pop() || loc : 'Storage Vault';
@@ -147,7 +145,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           dataIndex: 'warrantyExpiry',
           key: 'warrantyExpiry',
           sorter: (a: Asset, b: Asset) =>
-            (a.warrantyExpiry || '').localeCompare(b.warrantyExpiry || ''),
+            (a.warrantyExpiry || '').localeCompare(b.warrantyExpiry || '') ||
+            a.tag.localeCompare(b.tag),
           render: (date: string) => {
             if (!date) return <Text type="secondary">N/A</Text>;
             const isExpiringSoon = dayjs(date).diff(dayjs(), 'day') < 90;

@@ -1,6 +1,7 @@
 import { FilterOutlined, QrcodeOutlined } from '@ant-design/icons';
 import { App, Button, Col, Flex, Input, Row, Select, Tooltip, TreeSelect } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import type { AssetCategory } from '../../../services/assets.service';
 import type { LocationBranch, LocationTreeNode } from '../../../services/organization.service';
 import { organizationService } from '../../../services/organization.service';
 import type { AssetFilterState } from '../hooks/useAssetManagement';
@@ -12,6 +13,7 @@ export interface AssetFilterBarProps {
   orgFilter?: string;
   onOrgChange?: (val: string) => void;
   orgOptions?: Array<{ label: string; value: string }>;
+  categories?: AssetCategory[];
   categoryFilter?: string;
   onCategoryChange?: (val: string) => void;
   statusFilter?: string;
@@ -25,14 +27,19 @@ export interface AssetFilterBarProps {
   onScanQr?: () => void;
 }
 
-const CATEGORY_FILTER_OPTIONS = [
+export const CATEGORY_FILTER_OPTIONS = [
   { label: 'All Categories', value: 'all' },
-  { label: 'Laptops', value: 'Laptop' },
-  { label: 'Desktops', value: 'Desktop' },
-  { label: 'Servers', value: 'Server' },
-  { label: 'Monitors', value: 'Monitor' },
-  { label: 'Networking', value: 'Networking' },
-  { label: 'Mobile', value: 'Mobile' },
+  { label: 'Laptops', value: 'cat-laptop' },
+  { label: 'Desktops', value: 'cat-desktop' },
+  { label: 'Servers', value: 'cat-server' },
+  { label: 'Network Switches', value: 'cat-switch' },
+  { label: 'Routers & Firewalls', value: 'cat-router' },
+  { label: 'Wireless Access Points', value: 'cat-ap' },
+  { label: 'Monitors & Displays', value: 'cat-monitor' },
+  { label: 'Printers & Scanners', value: 'cat-printer' },
+  { label: 'Storage', value: 'cat-storage' },
+  { label: 'Power & UPS', value: 'cat-ups' },
+  { label: 'Peripherals & Accessories', value: 'cat-peripheral' },
 ];
 
 const STATUS_FILTER_OPTIONS = [
@@ -50,6 +57,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
     orgFilter = 'all',
     onOrgChange,
     orgOptions = [],
+    categories: propCategories,
     categoryFilter = 'all',
     onCategoryChange,
     statusFilter = 'all',
@@ -111,6 +119,19 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
       () => formatLocationTreeForSelect(locations),
       [locations],
     );
+
+    const categoryOptions = useMemo(() => {
+      if (propCategories && propCategories.length > 0) {
+        return [
+          { label: 'All Categories', value: 'all' },
+          ...propCategories.map((c) => ({
+            label: c.name,
+            value: c.id,
+          })),
+        ];
+      }
+      return CATEGORY_FILTER_OPTIONS;
+    }, [propCategories]);
 
     const [internalLocation, setInternalLocation] = useState<string | undefined>(undefined);
     const activeLocation = filterState?.locationFilter ?? locationFilter ?? internalLocation;
@@ -181,9 +202,9 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
               <Select
                 value={categoryFilter}
                 onChange={onCategoryChange}
-                style={{ width: 135 }}
+                style={{ width: 170 }}
                 placeholder="Category"
-                options={CATEGORY_FILTER_OPTIONS}
+                options={categoryOptions}
               />
             )}
 

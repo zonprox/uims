@@ -12,6 +12,8 @@ import { NotificationsGateway } from './notifications.gateway';
 
 export type FormattedNotification = NotificationItem;
 
+export const MAX_NOTIFICATIONS_PER_USER = 100;
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -267,6 +269,9 @@ export class NotificationsService {
 
     const formatted = this.formatNotification(created);
 
+    // Auto-prune old notifications when exceeding capacity
+    await this.pruneOldNotifications(data.userId);
+
     // Real-time dispatch via WebSocket Gateway
     if (this.gateway) {
       this.gateway.sendToUser(data.userId, formatted);
@@ -275,6 +280,96 @@ export class NotificationsService {
     }
 
     return formatted;
+  }
+
+  /**
+   * Auto-prune old notifications for a single user when exceeding max capacity (FIFO retention).
+   */
+  async pruneOldNotifications(
+    userId: string,
+    maxLimit: number = MAX_NOTIFICATIONS_PER_USER,
+  ): Promise<number> {
+    try {
+      const count = await this.prisma.notification.count({ where: { userId } });
+      if (!count || count <= maxLimit) return 0;
+
+      const excess = count - maxLimit;
+      const oldest = await this.prisma.notification.findMany({
+        where: { userId },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take: excess,
+        select: { id: true },
+      });
+
+      if (oldest.length === 0) return 0;
+
+      const res = await this.prisma.notification.deleteMany({
+        where: { id: { in: oldest.map((n) => n.id) } },
+      });
+
+      this.logger.log(
+        `Auto-pruned ${res.count} excess notifications for user ${userId} (cap: ${maxLimit}).`,
+      );
+      return res.count;
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to prune old notifications for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * Auto-prune old notifications across all users who exceed max capacity.
+   */
+  async pruneAllOldNotifications(maxLimit: number = MAX_NOTIFICATIONS_PER_USER): Promise<number> {
+    try {
+      if (typeof this.prisma.notification?.groupBy !== 'function') {
+        return 0;
+      }
+
+      const usersExceeding = await this.prisma.notification.groupBy({
+        by: ['userId'],
+        _count: { id: true },
+        having: {
+          id: { _count: { gt: maxLimit } },
+        },
+      });
+
+      let totalPruned = 0;
+      for (const group of usersExceeding) {
+        const excess = group._count.id - maxLimit;
+        if (excess > 0) {
+          const oldest = await this.prisma.notification.findMany({
+            where: { userId: group.userId },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            take: excess,
+            select: { id: true },
+          });
+
+          if (oldest.length > 0) {
+            const res = await this.prisma.notification.deleteMany({
+              where: { id: { in: oldest.map((n) => n.id) } },
+            });
+            totalPruned += res.count;
+          }
+        }
+      }
+
+      if (totalPruned > 0) {
+        this.logger.log(
+          `Auto-pruned ${totalPruned} old notifications across ${usersExceeding.length} users (cap: ${maxLimit}).`,
+        );
+      }
+      return totalPruned;
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to run bulk notification auto-pruning: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return 0;
+    }
   }
 
   /**

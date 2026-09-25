@@ -55,6 +55,7 @@ import {
 import { useNotificationSettingsStore } from '../../stores/notification-settings.store';
 import { COLOR_PRESETS, type ThemeMode, useThemeStore } from '../../stores/theme.store';
 import { useTimezoneStore } from '../../stores/timezone.store';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const { Text, Paragraph } = Typography;
 
@@ -175,8 +176,14 @@ export default function SettingsPage() {
 
       setIsGeneralDirty(false);
       setIsAppearanceDirty(false);
-    } catch (_err: unknown) {
-      message.error('Failed to load system settings from server.');
+    } catch (err: unknown) {
+      message.error(
+        formatErrorMessage(
+          err,
+          'load system settings from server',
+          'Failed to load system settings from server.',
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -198,8 +205,14 @@ export default function SettingsPage() {
       });
       setIsAppearanceDirty(false);
       message.success('Appearance & theme tokens saved and synchronized to enterprise profile.');
-    } catch (_err: unknown) {
-      message.error('Failed to persist theme preferences to server.');
+    } catch (err: unknown) {
+      message.error(
+        formatErrorMessage(
+          err,
+          'persist theme preferences',
+          'Failed to persist theme preferences to server.',
+        ),
+      );
     } finally {
       setSavingAppearance(false);
     }
@@ -228,8 +241,10 @@ export default function SettingsPage() {
       }
       setIsGeneralDirty(false);
       message.success('Enterprise localization and organization identity settings updated.');
-    } catch (_err: unknown) {
-      message.error('Failed to save general settings.');
+    } catch (err: unknown) {
+      message.error(
+        formatErrorMessage(err, 'save general settings', 'Failed to save general settings.'),
+      );
     } finally {
       setSavingGeneral(false);
     }
@@ -315,8 +330,10 @@ export default function SettingsPage() {
         try {
           const res = await settingsService.runBackup();
           message.success(res.message || 'Database snapshot created and saved to secure S3 vault.');
-        } catch (_err: unknown) {
-          message.error('Failed to run backup snapshot.');
+        } catch (err: unknown) {
+          message.error(
+            formatErrorMessage(err, 'run backup snapshot', 'Failed to run backup snapshot.'),
+          );
         } finally {
           setBackupRunning(false);
         }
@@ -351,8 +368,8 @@ export default function SettingsPage() {
         try {
           await new Promise((resolve) => setTimeout(resolve, 800));
           message.success('Redis cache flushed and key indices rebuilt successfully.');
-        } catch (_err: unknown) {
-          message.error('Failed to purge cache.');
+        } catch (err: unknown) {
+          message.error(formatErrorMessage(err, 'purge cache', 'Failed to purge cache.'));
         } finally {
           setPurgingCache(false);
         }
@@ -401,8 +418,10 @@ export default function SettingsPage() {
           setBorderRadius(8);
           await loadSettings();
           message.success('System settings restored to default baseline.');
-        } catch (_err: unknown) {
-          message.error('Failed to execute factory reset.');
+        } catch (err: unknown) {
+          message.error(
+            formatErrorMessage(err, 'execute factory reset', 'Failed to execute factory reset.'),
+          );
         }
       },
     });

@@ -35,6 +35,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import { FormattedDateTime } from '../../components/FormattedDate';
 import { usersService } from '../../services/users.service';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const { Text } = Typography;
 
@@ -141,8 +142,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       createForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to create user account.');
+      message.error(formatErrorMessage(err, 'create user account'));
     } finally {
       setModalSubmitting(false);
     }
@@ -180,8 +180,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       editForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to update user account.');
+      message.error(formatErrorMessage(err, 'update user account'));
     } finally {
       setModalSubmitting(false);
     }
@@ -198,8 +197,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       );
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to update account lock state.');
+      message.error(formatErrorMessage(err, 'update account lock state'));
     }
   };
 
@@ -220,8 +218,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       resetForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to reset password.');
+      message.error(formatErrorMessage(err, 'reset password'));
     } finally {
       setModalSubmitting(false);
     }
@@ -233,8 +230,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       message.success(`User ${user.username} deleted successfully.`);
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to delete user.');
+      message.error(formatErrorMessage(err, 'delete user'));
     }
   };
 
@@ -536,7 +532,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
               { type: 'email', message: 'Enter a valid email address.' },
             ]}
           >
-            <Input placeholder="e.g. jsmith@uims.internal" />
+            <Input placeholder="e.g. jsmith@youngonevn.com" />
           </Form.Item>
 
           <Form.Item name="displayName" label="Display Name">
@@ -614,7 +610,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
               { type: 'email', message: 'Enter a valid email address.' },
             ]}
           >
-            <Input placeholder="user@uims.internal" />
+            <Input placeholder="user@youngonevn.com" />
           </Form.Item>
 
           <Row gutter={16}>

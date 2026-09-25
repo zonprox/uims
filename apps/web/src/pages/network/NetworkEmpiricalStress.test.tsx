@@ -211,7 +211,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       purchaseDate: '2025-01-01',
       purchasePrice: 4500,
       warrantyExpiry: '2028-01-01',
-      specs: { cpu: 'Xeon Silver', ram: '128GB', storage: '2TB NVMe', os: 'RHEL 9' },
     },
   ];
 
@@ -943,19 +942,19 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
       await renderNetworkPage();
 
       const tabs = container.querySelectorAll('.ant-tabs-tab-btn');
-      expect(tabs.length).toBe(3);
+      expect(tabs.length).toBe(5);
 
       // Rapidly switch tabs 10 times in tight loop
       await act(async () => {
         for (let i = 0; i < 10; i++) {
-          const tabBtn = tabs[i % 3] as HTMLElement;
+          const tabBtn = tabs[i % 5] as HTMLElement;
           tabBtn.click();
         }
         await new Promise((resolve) => setTimeout(resolve, 50));
       });
 
       // The UI remains stable and no unhandled error occurred
-      expect(container.textContent).toContain('Network & IPAM');
+      expect(container.textContent).toContain('Network');
       expect(unhandledErrors).toEqual([]);
     });
   });

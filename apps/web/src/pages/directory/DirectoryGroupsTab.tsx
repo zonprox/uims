@@ -28,6 +28,7 @@ import {
 } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { directoryService } from '../../services/directory.service';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const { Text } = Typography;
 
@@ -78,8 +79,7 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
       form.resetFields();
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to create directory group.');
+      message.error(formatErrorMessage(err, 'create directory group'));
     } finally {
       setSubmitting(false);
     }
@@ -253,7 +253,7 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
             label="Distribution Email"
             rules={[{ type: 'email', message: 'Enter a valid email.' }]}
           >
-            <Input placeholder="e.g. engineering-staff@uims.internal" />
+            <Input placeholder="e.g. engineering-staff@youngonevn.com" />
           </Form.Item>
 
           <Row gutter={16}>

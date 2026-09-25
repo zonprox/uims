@@ -23,7 +23,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: process.env.NODE_ENV === 'production' ? 5 : 30, ttl: 60000 } })
   @ApiOperation({ summary: 'User login' })
   @Post('login')
   async login(

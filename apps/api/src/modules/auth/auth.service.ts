@@ -73,7 +73,7 @@ export class AuthService {
           .create({
             data: {
               userName: clean,
-              userEmail: clean.includes('@') ? clean : `${clean}@uims.internal`,
+              userEmail: clean.includes('@') ? clean : `${clean}@youngonevn.com`,
               action: 'LOGIN_FAILED',
               severity: 'Warning',
               entity: 'Authentication',

@@ -1,4 +1,14 @@
-import { IPStatus, VlanStatus } from '@uims/shared-types';
+import {
+  IPStatus,
+  PortAdminStatus,
+  PortFormFactor,
+  PortMode,
+  PortOperStatus,
+  RackStatus,
+  SwitchRole,
+  SwitchStatus,
+  VlanStatus,
+} from '@uims/shared-types';
 import { z } from 'zod';
 import { uuidSchema } from './common.validator';
 
@@ -89,6 +99,7 @@ export const createIpAddressSchema = z.object({
   responseTimeMs: z.number().min(0).nullable().optional(),
   lastSeen: z.string().datetime().nullable().optional(),
   description: z.string().max(500).nullable().optional(),
+  switchPortId: uuidSchema.nullable().optional(),
   // legacy compatibility
   subnet: z.string().optional(),
   subnetName: z.string().optional(),
@@ -110,6 +121,123 @@ export const ipAddressQuerySchema = z.object({
   status: z.string().optional(),
   deviceType: z.string().optional(),
   locationId: uuidSchema.optional(),
+  switchPortId: uuidSchema.optional(),
+  switchId: uuidSchema.optional(),
+});
+
+// --- Network Rack Schemas ---
+
+export const createRackSchema = z.object({
+  name: z.string().min(1, 'Rack name is required').max(100),
+  code: z.string().min(1, 'Rack code is required').max(50),
+  locationId: uuidSchema.nullable().optional(),
+  totalHeight: z.number().int().min(1).max(100).default(42).optional(),
+  depth: z.number().positive().nullable().optional(),
+  width: z.number().positive().nullable().optional(),
+  maxPowerKw: z.number().positive().nullable().optional(),
+  maxWeightKg: z.number().positive().nullable().optional(),
+  status: z.nativeEnum(RackStatus).optional(),
+  notes: z.string().max(1000).nullable().optional(),
+});
+
+export const updateRackSchema = createRackSchema.partial();
+
+export const rackQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  search: z.string().optional(),
+  locationId: uuidSchema.optional(),
+  status: z.string().optional(),
+});
+
+// --- Network Switch Schemas ---
+
+export const createSwitchSchema = z.object({
+  name: z.string().min(1, 'Switch name is required').max(100),
+  model: z.string().min(1, 'Switch model is required').max(100),
+  vendor: z.string().min(1, 'Vendor is required').max(100),
+  serialNumber: z.string().max(100).nullable().optional(),
+  macAddress: z.string().regex(macRegex, 'Invalid MAC address').nullable().optional(),
+  ipAddressId: uuidSchema.nullable().optional(),
+  firmwareVersion: z.string().max(100).nullable().optional(),
+  role: z.nativeEnum(SwitchRole).optional(),
+  status: z.nativeEnum(SwitchStatus).optional(),
+  totalPorts: z.number().int().min(1).max(128).default(24).optional(),
+  rackId: uuidSchema.nullable().optional(),
+  rackPosition: z.number().int().min(1).max(100).nullable().optional(),
+  rackHeight: z.number().int().min(1).max(10).default(1).optional(),
+  assetId: uuidSchema.nullable().optional(),
+  locationId: uuidSchema.nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
+});
+
+export const updateSwitchSchema = createSwitchSchema.partial();
+
+export const switchQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  search: z.string().optional(),
+  rackId: uuidSchema.optional(),
+  locationId: uuidSchema.optional(),
+  vendor: z.string().optional(),
+  role: z.string().optional(),
+  status: z.string().optional(),
+});
+
+// --- Switch Port Schemas ---
+
+export const createSwitchPortSchema = z.object({
+  switchId: uuidSchema,
+  portNumber: z.number().int().min(1).max(128),
+  name: z.string().min(1, 'Port name is required').max(50),
+  formFactor: z.nativeEnum(PortFormFactor).optional(),
+  poeEnabled: z.boolean().optional(),
+  adminStatus: z.nativeEnum(PortAdminStatus).optional(),
+  operStatus: z.nativeEnum(PortOperStatus).optional(),
+  speed: z.string().max(50).nullable().optional(),
+  duplex: z.string().max(50).nullable().optional(),
+  vlanId: uuidSchema.nullable().optional(),
+  mode: z.nativeEnum(PortMode).optional(),
+  taggedVlanIds: z
+    .array(z.union([z.number().int(), z.string()]))
+    .nullable()
+    .optional(),
+  ipAddressId: uuidSchema.nullable().optional(),
+  connectedAssetId: uuidSchema.nullable().optional(),
+  description: z.string().max(255).nullable().optional(),
+});
+
+export const updateSwitchPortSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  formFactor: z.nativeEnum(PortFormFactor).optional(),
+  poeEnabled: z.boolean().optional(),
+  adminStatus: z.nativeEnum(PortAdminStatus).optional(),
+  operStatus: z.nativeEnum(PortOperStatus).optional(),
+  speed: z.string().max(50).nullable().optional(),
+  duplex: z.string().max(50).nullable().optional(),
+  vlanId: uuidSchema.nullable().optional(),
+  mode: z.nativeEnum(PortMode).optional(),
+  taggedVlanIds: z
+    .array(z.union([z.number().int(), z.string()]))
+    .nullable()
+    .optional(),
+  ipAddressId: uuidSchema.nullable().optional(),
+  connectedAssetId: uuidSchema.nullable().optional(),
+  description: z.string().max(255).nullable().optional(),
+});
+
+export const switchPortQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  switchId: uuidSchema.optional(),
+  vlanId: uuidSchema.optional(),
+  adminStatus: z.string().optional(),
+  operStatus: z.string().optional(),
+  mode: z.string().optional(),
+  search: z.string().optional(),
 });
 
 // --- Utility & Automation Schemas ---

@@ -32,9 +32,9 @@ async function runTest() {
     console.log('   Page Title:', await page.title());
 
     // 2. Perform Login via Super Admin
-    console.log('2️⃣ Submitting Admin credentials (admin@uims.internal)...');
-    await page.locator('input#login_email').fill('admin@uims.internal');
-    await page.locator('input#login_password').fill('password123');
+    console.log('2️⃣ Submitting Admin credentials (admin@youngonevn.com)...');
+    await page.locator('input#login_email').fill('admin@youngonevn.com');
+    await page.locator('input#login_password').fill('Youngone@2026');
     await page.locator('button[type="submit"]').click();
 
     // 3. Verify Dashboard
@@ -86,9 +86,9 @@ async function runTest() {
     console.log('   ✅ Organization page loaded successfully!');
 
     // 9. Test Network Page
-    console.log('9️⃣ Testing Network IPAM (/network)...');
+    console.log('9️⃣ Testing Network (/network)...');
     await page.goto('https://localhost:5679/network', { waitUntil: 'networkidle', timeout: 15000 });
-    await page.waitForSelector('text=Network & IPAM', { timeout: 10000 });
+    await page.waitForSelector('text=Network', { timeout: 10000 });
     console.log('   ✅ Network page loaded successfully!');
 
     // 10. Test Security Audit Trail Page

@@ -1,10 +1,9 @@
 import { PrinterOutlined } from '@ant-design/icons';
-import { Button, Flex, Modal, QRCode, Typography, theme } from 'antd';
+import { Button, Flex, Modal, theme } from 'antd';
 import React, { useRef } from 'react';
 import type { Asset } from '../../../services/assets.service';
 import { printAssetLabel } from '../utils/printAssetLabel';
-
-const { Text } = Typography;
+import { PrintableAssetLabel } from './PrintableAssetLabel';
 
 export interface AssetQrModalProps {
   open: boolean;
@@ -46,41 +45,7 @@ export const AssetQrModal: React.FC<AssetQrModalProps> = React.memo(
         }}
       >
         <Flex vertical align="center" justify="center" gap={12}>
-          <div
-            ref={labelContainerRef}
-            className="printable-asset-label"
-            style={{
-              padding: token.paddingLG,
-              backgroundColor: token.colorFillAlter,
-              border: `1px solid ${token.colorBorderSecondary}`,
-              borderRadius: token.borderRadiusLG,
-              textAlign: 'center',
-              width: '100%',
-              maxWidth: 280,
-              boxSizing: 'border-box',
-            }}
-          >
-            <Flex justify="center" align="center" style={{ marginBottom: 12 }}>
-              <QRCode
-                value={qrAsset.tag}
-                size={160}
-                bordered={false}
-                color={token.colorText}
-                bgColor="transparent"
-              />
-            </Flex>
-            <Text strong style={{ fontSize: 16, display: 'block' }}>
-              {qrAsset.tag}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
-              {qrAsset.name}
-            </Text>
-            {qrAsset.serialNumber && (
-              <Text code style={{ fontSize: 11, display: 'inline-block', marginTop: 6 }}>
-                {qrAsset.serialNumber}
-              </Text>
-            )}
-          </div>
+          <PrintableAssetLabel asset={qrAsset} containerRef={labelContainerRef} />
         </Flex>
       </Modal>
     );

@@ -22,6 +22,7 @@
     "format:check": "biome format .",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
+    "test:e2e:network": "node scripts/run-e2e-network.mjs",
     "typecheck": "turbo run typecheck",
     "db:generate": "pnpm --filter @uims/api prisma:generate",
     "db:migrate": "pnpm --filter @uims/api prisma:migrate",

@@ -176,7 +176,6 @@ model Asset {
   assignedToId   String?
   departmentId   String?
   locationId     String?
-  specs          Json?
   notes          String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -187,6 +186,8 @@ model Asset {
   location    Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
   vendorRef   Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   ipAddresses IPAddress[]
+  networkSwitch  NetworkSwitch? @relation("SwitchAsset")
+  connectedPorts SwitchPort[]   @relation("ConnectedAssetPorts")
 
   @@index([assignedToId])
   @@index([categoryId])
@@ -345,6 +346,7 @@ model VLAN {
   location    Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
   subnets     Subnet[]
   ipAddresses IPAddress[]
+  switchPorts SwitchPort[]
 
   @@index([locationId])
   @@index([vlanNumber])
@@ -409,6 +411,8 @@ model IPAddress {
   location     Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
   asset        Asset?             @relation(fields: [assetId], references: [id], onDelete: SetNull)
   assignedUser DirectoryUser?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  managementSwitches NetworkSwitch[] @relation("SwitchManagementIP")
+  switchPorts        SwitchPort[]    @relation("PortIPAddress")
 
   @@unique([address, subnetId])
   @@index([subnetId])
@@ -421,6 +425,159 @@ model IPAddress {
   @@index([macAddress])
   @@index([hostname])
   @@index([deviceType])
+}
+
+// ==========================================
+// NETWORK RACK & SWITCH MANAGEMENT ENUMS
+// ==========================================
+
+enum RackStatus {
+  ACTIVE
+  PLANNED
+  MAINTENANCE
+  RETIRED
+}
+
+enum SwitchRole {
+  CORE
+  DISTRIBUTION
+  ACCESS
+  TOR
+}
+
+enum SwitchStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum PortFormFactor {
+  RJ45_1G
+  SFP_1G
+  SFP_PLUS_10G
+  SFP28_25G
+  QSFP_PLUS_40G
+  QSFP28_100G
+}
+
+enum PortAdminStatus {
+  UP
+  DOWN
+}
+
+enum PortOperStatus {
+  ACTIVE
+  DOWN
+  CONNECTED_NO_SIGNAL
+  RESERVED
+}
+
+enum PortMode {
+  ACCESS
+  TRUNK
+  LACP
+}
+
+// ==========================================
+// NETWORK RACK & SWITCH MANAGEMENT MODELS
+// ==========================================
+
+model NetworkRack {
+  id          String     @id @default(uuid())
+  name        String
+  code        String     @unique
+  locationId  String?
+  totalHeight Int        @default(42) // 12, 24, 42, 48 RU
+  depth       Float?     // mm (e.g. 1000, 1070)
+  width       Float?     // mm (e.g. 600, 800)
+  maxPowerKw  Float?     // kW capacity (e.g. 5.0, 7.5, 10.0)
+  maxWeightKg Float?     // kg capacity (e.g. 1000)
+  status      RackStatus @default(ACTIVE)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  location Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  switches NetworkSwitch[]
+
+  @@index([locationId])
+  @@index([code])
+  @@index([name])
+  @@index([status])
+}
+
+model NetworkSwitch {
+  id              String       @id @default(uuid())
+  name            String
+  model           String
+  vendor          String       // Cisco, Alcatel-Lucent, Juniper, Aruba, Mikrotik
+  serialNumber    String?      @unique
+  macAddress      String?
+  ipAddressId     String?
+  firmwareVersion String?
+  role            SwitchRole   @default(ACCESS)
+  status          SwitchStatus @default(ONLINE)
+  totalPorts      Int          @default(24) // 24, 48
+  rackId          String?
+  rackPosition    Int?         // 1-48 RU starting slot
+  rackHeight      Int          @default(1)  // RU occupied (1, 2, 4)
+  assetId         String?      @unique
+  locationId      String?
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  rack      NetworkRack? @relation(fields: [rackId], references: [id], onDelete: SetNull)
+  asset     Asset?       @relation("SwitchAsset", fields: [assetId], references: [id], onDelete: SetNull)
+  ipAddress IPAddress?   @relation("SwitchManagementIP", fields: [ipAddressId], references: [id], onDelete: SetNull)
+  location  Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  ports     SwitchPort[]
+
+  @@index([rackId])
+  @@index([assetId])
+  @@index([locationId])
+  @@index([ipAddressId])
+  @@index([role])
+  @@index([status])
+  @@index([vendor])
+  @@index([name])
+  @@index([model])
+}
+
+model SwitchPort {
+  id               String          @id @default(uuid())
+  switchId         String
+  portNumber       Int             // 1..48, 52
+  name             String          // Gi1/0/1, Te1/0/49, port1
+  formFactor       PortFormFactor  @default(RJ45_1G)
+  poeEnabled       Boolean         @default(false)
+  adminStatus      PortAdminStatus @default(UP)
+  operStatus       PortOperStatus  @default(DOWN)
+  speed            String?         // 1 Gbps, 10 Gbps, Auto
+  duplex           String?         // Full, Half, Auto
+  vlanId           String?
+  mode             PortMode        @default(ACCESS)
+  taggedVlanIds    Json?           // Array of VLAN numbers/IDs for trunk
+  ipAddressId      String?
+  connectedAssetId String?
+  description      String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  switch         NetworkSwitch @relation(fields: [switchId], references: [id], onDelete: Cascade)
+  vlan           VLAN?         @relation(fields: [vlanId], references: [id], onDelete: SetNull)
+  ipAddress      IPAddress?    @relation("PortIPAddress", fields: [ipAddressId], references: [id], onDelete: SetNull)
+  connectedAsset Asset?        @relation("ConnectedAssetPorts", fields: [connectedAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([switchId, portNumber])
+  @@index([switchId])
+  @@index([vlanId])
+  @@index([ipAddressId])
+  @@index([connectedAssetId])
+  @@index([adminStatus])
+  @@index([operStatus])
+  @@index([mode])
+  @@index([portNumber])
 }
 
 model AuditLog {
@@ -559,6 +716,8 @@ model Location {
   subnets        Subnet[]
   ipAddresses    IPAddress[]
   inventoryItems InventoryItem[]
+  racks          NetworkRack[]
+  switches       NetworkSwitch[]
 
   @@index([organizationId])
   @@index([parentId])

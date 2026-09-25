@@ -36,6 +36,7 @@ import {
 import React, { useMemo, useState } from 'react';
 import { Can } from '../../../components/Access';
 import { rolesService } from '../../../services/roles.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 import { CreateRoleModal } from './CreateRoleModal';
 import { PermissionMatrixDrawer } from './PermissionMatrixDrawer';
 import { RoleCloneModal } from './RoleCloneModal';
@@ -112,8 +113,8 @@ export const RolesTab: React.FC<RolesTabProps> = ({
     try {
       const detail = await rolesService.getRole(role.id);
       setRoleDetail(detail);
-    } catch (_error: unknown) {
-      message.error('Failed to load role details.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'load role details'));
     } finally {
       setDetailLoading(false);
     }
@@ -125,8 +126,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
       message.success(`Role "${role.name}" deleted successfully.`);
       onRefresh();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to delete role.');
+      message.error(formatErrorMessage(err, 'delete role'));
     }
   };
 

@@ -28,6 +28,7 @@ describe('NotificationsService', () => {
         delete: vi.fn(),
         deleteMany: vi.fn(),
         count: vi.fn(),
+        groupBy: vi.fn(),
       },
       user: userMock,
       appUser: userMock,
@@ -372,6 +373,58 @@ describe('NotificationsService', () => {
       expect(res.count).toBe(4);
       expect(mockGateway.emitNotificationsCleared).toHaveBeenCalledWith('u1');
       expect(mockGateway.sendCountToUser).toHaveBeenCalledWith('u1', 0);
+    });
+  });
+
+  describe('pruneOldNotifications', () => {
+    it('should not delete anything when count <= maxLimit', async () => {
+      mockPrisma.notification.count.mockResolvedValue(50);
+      const pruned = await service.pruneOldNotifications('u1', 100);
+      expect(pruned).toBe(0);
+      expect(mockPrisma.notification.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('should auto-delete oldest excess notifications when count exceeds maxLimit', async () => {
+      mockPrisma.notification.count.mockResolvedValue(105);
+      mockPrisma.notification.findMany.mockResolvedValue([
+        { id: 'old-1' },
+        { id: 'old-2' },
+        { id: 'old-3' },
+        { id: 'old-4' },
+        { id: 'old-5' },
+      ]);
+      mockPrisma.notification.deleteMany.mockResolvedValue({ count: 5 });
+
+      const pruned = await service.pruneOldNotifications('u1', 100);
+      expect(pruned).toBe(5);
+      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith({
+        where: { userId: 'u1' },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take: 5,
+        select: { id: true },
+      });
+      expect(mockPrisma.notification.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['old-1', 'old-2', 'old-3', 'old-4', 'old-5'] } },
+      });
+    });
+  });
+
+  describe('pruneAllOldNotifications', () => {
+    it('should group by user and prune oldest notifications for users exceeding cap', async () => {
+      mockPrisma.notification.groupBy.mockResolvedValue([{ userId: 'u1', _count: { id: 103 } }]);
+      mockPrisma.notification.findMany.mockResolvedValue([
+        { id: 'old-1' },
+        { id: 'old-2' },
+        { id: 'old-3' },
+      ]);
+      mockPrisma.notification.deleteMany.mockResolvedValue({ count: 3 });
+
+      const pruned = await service.pruneAllOldNotifications(100);
+      expect(pruned).toBe(3);
+      expect(mockPrisma.notification.groupBy).toHaveBeenCalled();
+      expect(mockPrisma.notification.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['old-1', 'old-2', 'old-3'] } },
+      });
     });
   });
 });

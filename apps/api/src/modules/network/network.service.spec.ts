@@ -34,6 +34,36 @@ describe('NetworkService', () => {
       delete: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
     };
+    networkRack: {
+      findMany: ReturnType<typeof vi.fn>;
+      findFirst: ReturnType<typeof vi.fn>;
+      findUnique: ReturnType<typeof vi.fn>;
+      create: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+      count: ReturnType<typeof vi.fn>;
+    };
+    networkSwitch: {
+      findMany: ReturnType<typeof vi.fn>;
+      findFirst: ReturnType<typeof vi.fn>;
+      findUnique: ReturnType<typeof vi.fn>;
+      create: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+      count: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
+    };
+    switchPort: {
+      findMany: ReturnType<typeof vi.fn>;
+      findFirst: ReturnType<typeof vi.fn>;
+      findUnique: ReturnType<typeof vi.fn>;
+      create: ReturnType<typeof vi.fn>;
+      createMany: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+      count: ReturnType<typeof vi.fn>;
+    };
     auditLog: {
       create: ReturnType<typeof vi.fn>;
     };
@@ -67,6 +97,36 @@ describe('NetworkService', () => {
         create: vi.fn(),
         update: vi.fn(),
         delete: vi.fn(),
+        count: vi.fn(),
+      },
+      networkRack: {
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        count: vi.fn(),
+      },
+      networkSwitch: {
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        count: vi.fn(),
+        updateMany: vi.fn(),
+      },
+      switchPort: {
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        createMany: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        deleteMany: vi.fn(),
         count: vi.fn(),
       },
       auditLog: {
@@ -408,6 +468,11 @@ describe('NetworkService', () => {
         .mockResolvedValueOnce(50) // reserved
         .mockResolvedValueOnce(10) // available
         .mockResolvedValueOnce(260); // total
+      mockPrisma.networkRack.count.mockResolvedValue(4);
+      mockPrisma.networkSwitch.count.mockResolvedValue(6);
+      mockPrisma.switchPort.count
+        .mockResolvedValueOnce(192) // totalPorts
+        .mockResolvedValueOnce(96); // activePorts
 
       const stats = await service.getStats();
 
@@ -417,6 +482,658 @@ describe('NetworkService', () => {
       expect(stats.reservedDhcpLeases).toBe(50);
       expect(stats.freeIpCapacity).toBe(762 - 250);
       expect(stats.averageUtilization).toBe(26.2);
+      expect(stats.totalRacks).toBe(4);
+      expect(stats.totalSwitches).toBe(6);
+      expect(stats.totalPorts).toBe(192);
+      expect(stats.portUtilization).toBe(50);
+    });
+  });
+
+  // ==========================================
+  // RACK CRUD & 2D ELEVATION TESTS
+  // ==========================================
+
+  describe('Rack CRUD & 2D Elevation', () => {
+    it('findAllRacks returns list of racks with pagination and formatted stats', async () => {
+      const mockRacks = [
+        {
+          id: 'rack-1',
+          name: 'Server Rack 01',
+          code: 'RACK-01',
+          totalHeight: 42,
+          maxPowerKw: 10,
+          maxWeightKg: 800,
+          locationId: 'loc-1',
+          location: { id: 'loc-1', name: 'Main DC' },
+          switches: [
+            {
+              id: 'sw-1',
+              rackHeight: 2,
+              ports: [
+                { operStatus: 'ACTIVE', adminStatus: 'UP' },
+                { operStatus: 'DOWN', adminStatus: 'UP' },
+              ],
+            },
+          ],
+          _count: { switches: 1 },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+      mockPrisma.networkRack.findMany.mockResolvedValue(mockRacks);
+
+      const result = await service.findAllRacks({ page: 1, limit: 10 });
+      expect(result).toHaveLength(1);
+      expect(result[0].code).toBe('RACK-01');
+      expect(result[0].usedUnits).toBe(2);
+      expect(result[0].occupancyRate).toBeGreaterThan(0);
+    });
+
+    it('findRack returns rack by ID or throws NotFoundException when missing', async () => {
+      mockPrisma.networkRack.findFirst.mockResolvedValue(null);
+      await expect(service.findRack('missing-id')).rejects.toThrow(NotFoundException);
+
+      mockPrisma.networkRack.findFirst.mockResolvedValue({
+        id: 'rack-1',
+        name: 'Server Rack 01',
+        code: 'RACK-01',
+        totalHeight: 42,
+        maxPowerKw: 10,
+        maxWeightKg: 800,
+        locationId: 'loc-1',
+        location: { id: 'loc-1', name: 'Main DC' },
+        switches: [],
+        _count: { switches: 0 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const rack = await service.findRack('rack-1');
+      expect(rack.id).toBe('rack-1');
+      expect(rack.name).toBe('Server Rack 01');
+    });
+
+    it('createRack creates a new rack and validates unique code', async () => {
+      mockPrisma.networkRack.findUnique.mockResolvedValue({ id: 'existing' });
+      await expect(
+        service.createRack({
+          name: 'Duplicate Rack',
+          code: 'DUP-01',
+          totalHeight: 42,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      mockPrisma.networkRack.findUnique.mockResolvedValue(null);
+      mockPrisma.networkRack.create.mockResolvedValue({
+        id: 'rack-created-1',
+        name: 'New Rack',
+        code: 'RACK-NEW',
+        totalHeight: 42,
+        maxPowerKw: 10,
+        maxWeightKg: 800,
+        locationId: null,
+        location: null,
+        switches: [],
+        _count: { switches: 0 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const created = await service.createRack({
+        name: 'New Rack',
+        code: 'RACK-NEW',
+        totalHeight: 42,
+      });
+
+      expect(created.code).toBe('RACK-NEW');
+      expect(mockPrisma.networkRack.create).toHaveBeenCalled();
+    });
+
+    it('updateRack updates rack attributes', async () => {
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+        code: 'RACK-01',
+      });
+
+      mockPrisma.networkRack.update.mockResolvedValue({
+        id: 'rack-1',
+        name: 'Updated Rack Name',
+        code: 'RACK-01',
+        totalHeight: 42,
+        maxPowerKw: 15,
+        maxWeightKg: 900,
+        locationId: null,
+        location: null,
+        switches: [],
+        _count: { switches: 0 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const updated = await service.updateRack('rack-1', {
+        name: 'Updated Rack Name',
+        maxPowerKw: 15,
+      });
+
+      expect(updated.name).toBe('Updated Rack Name');
+      expect(mockPrisma.networkRack.update).toHaveBeenCalled();
+    });
+
+    it('updateRack supports custom height expansion up to 52U+ hyperscale cabinets', async () => {
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+        code: 'RACK-01',
+      });
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([]);
+      mockPrisma.networkRack.update.mockResolvedValue({
+        id: 'rack-1',
+        name: 'Hyperscale 52U Cabinet',
+        code: 'RACK-01',
+        totalHeight: 52,
+        maxPowerKw: 12,
+        maxWeightKg: 1000,
+        locationId: null,
+        location: null,
+        switches: [],
+        _count: { switches: 0 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const updated = await service.updateRack('rack-1', { totalHeight: 52 });
+      expect(updated.totalHeight).toBe(52);
+    });
+
+    it('updateRack rejects out-of-bounds totalHeight (< 1 or > 100)', async () => {
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+        code: 'RACK-01',
+      });
+
+      await expect(service.updateRack('rack-1', { totalHeight: 0 })).rejects.toThrow(
+        'Rack totalHeight must be between 1 and 100 RU.',
+      );
+      await expect(service.updateRack('rack-1', { totalHeight: 101 })).rejects.toThrow(
+        'Rack totalHeight must be between 1 and 100 RU.',
+      );
+      await expect(service.updateRack('rack-1', { totalHeight: 42.5 })).rejects.toThrow(
+        'Rack totalHeight must be between 1 and 100 RU.',
+      );
+    });
+
+    it('updateRack rejects decreasing totalHeight below highest occupied slot of mounted switches', async () => {
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+        code: 'RACK-01',
+      });
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([
+        {
+          name: 'Core Switch Alpha',
+          rackPosition: 24,
+          rackHeight: 2, // occupies U24-U25 -> highest occupied is U25
+        },
+      ]);
+
+      await expect(service.updateRack('rack-1', { totalHeight: 24 })).rejects.toThrow(
+        'Cannot decrease rack height to 24U. Mounted device "Core Switch Alpha" occupies up to U25.',
+      );
+    });
+
+    it('updateRack allows decreasing totalHeight when above highest occupied slot', async () => {
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+        code: 'RACK-01',
+      });
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([
+        {
+          name: 'Core Switch Alpha',
+          rackPosition: 20,
+          rackHeight: 2, // occupies U20-U21
+        },
+      ]);
+      mockPrisma.networkRack.update.mockResolvedValue({
+        id: 'rack-1',
+        name: 'Rack 1',
+        code: 'RACK-01',
+        totalHeight: 24,
+        maxPowerKw: 8,
+        maxWeightKg: 600,
+        locationId: null,
+        location: null,
+        switches: [],
+        _count: { switches: 0 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const updated = await service.updateRack('rack-1', { totalHeight: 24 });
+      expect(updated.totalHeight).toBe(24);
+    });
+
+    it('deleteRack sets mounted switches rackId to null and deletes rack', async () => {
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-del',
+        code: 'RACK-DEL',
+      });
+      mockPrisma.networkSwitch.updateMany.mockResolvedValue({ count: 2 });
+      mockPrisma.networkRack.delete.mockResolvedValue({ id: 'rack-del' });
+
+      const res = await service.deleteRack('rack-del');
+      expect(res.id).toBe('rack-del');
+      expect(mockPrisma.networkSwitch.updateMany).toHaveBeenCalledWith({
+        where: { rackId: 'rack-del' },
+        data: { rackId: null, rackPosition: null },
+      });
+      expect(mockPrisma.networkRack.delete).toHaveBeenCalledWith({
+        where: { id: 'rack-del' },
+      });
+    });
+
+    it('getRackElevation generates 2D slot array and telemetry calculations', async () => {
+      mockPrisma.networkRack.findFirst.mockResolvedValue({
+        id: 'rack-elev',
+        name: 'Elevation Rack',
+        code: 'RACK-EL-01',
+        totalHeight: 4,
+        maxPowerKw: 5,
+        maxWeightKg: 500,
+        locationId: 'loc-1',
+        location: { name: 'DC1' },
+        switches: [
+          {
+            id: 'sw-1',
+            name: 'Switch-1',
+            model: 'Catalyst 9300',
+            vendor: 'Cisco',
+            role: 'ACCESS',
+            status: 'ONLINE',
+            rackPosition: 2,
+            rackHeight: 2,
+            totalPorts: 24,
+            ports: [
+              { operStatus: 'ACTIVE', adminStatus: 'UP' },
+              { operStatus: 'DOWN', adminStatus: 'UP' },
+            ],
+          },
+        ],
+      });
+
+      const elevation = await service.getRackElevation('rack-elev');
+      expect(elevation.rackCode).toBe('RACK-EL-01');
+      expect(elevation.totalHeight).toBe(4);
+      expect(elevation.usedUnits).toBe(2);
+      expect(elevation.availableUnits).toBe(2);
+      expect(elevation.slots).toHaveLength(4);
+
+      // Slot 1: unoccupied
+      expect(elevation.slots[0].unitNumber).toBe(1);
+      expect(elevation.slots[0].isOccupied).toBe(false);
+
+      // Slot 2: start unit
+      expect(elevation.slots[1].unitNumber).toBe(2);
+      expect(elevation.slots[1].isOccupied).toBe(true);
+      expect(elevation.slots[1].isStartingUnit).toBe(true);
+      expect(elevation.slots[1].switch?.name).toBe('Switch-1');
+
+      // Slot 3: continuation unit
+      expect(elevation.slots[2].unitNumber).toBe(3);
+      expect(elevation.slots[2].isOccupied).toBe(true);
+      expect(elevation.slots[2].isStartingUnit).toBe(false);
+
+      // Slot 4: unoccupied
+      expect(elevation.slots[3].unitNumber).toBe(4);
+      expect(elevation.slots[3].isOccupied).toBe(false);
+    });
+  });
+
+  // ==========================================
+  // SWITCH FLEET & PORT CRUD TESTS
+  // ==========================================
+
+  describe('Network Switch CRUD & Ports', () => {
+    it('findAllSwitches returns paginated switches with relations', async () => {
+      const mockSwitches = [
+        {
+          id: 'sw-1',
+          name: 'SW-CORE-01',
+          model: 'Catalyst 9500',
+          vendor: 'Cisco',
+          role: 'CORE',
+          status: 'ONLINE',
+          totalPorts: 48,
+          rackPosition: 40,
+          rackHeight: 2,
+          rackId: 'rack-1',
+          rack: { id: 'rack-1', name: 'RACK-DC-01', code: 'RACK-DC-01' },
+          ipAddress: { id: 'ip-1', address: '10.232.1.1' },
+          asset: { id: 'ast-1', assetTag: 'AST-1010', name: 'Core Switch' },
+          location: { id: 'loc-1', name: 'Main DC' },
+          ports: [
+            { operStatus: 'ACTIVE', adminStatus: 'UP' },
+            { operStatus: 'DOWN', adminStatus: 'UP' },
+          ],
+          _count: { ports: 48 },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      mockPrisma.networkSwitch.findMany.mockResolvedValue(mockSwitches);
+
+      const result = await service.findAllSwitches({ page: 1, limit: 10 });
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe('SW-CORE-01');
+      expect(result[0].activePortsCount).toBe(1);
+      expect(result[0].rack?.code).toBe('RACK-DC-01');
+    });
+
+    it('findSwitch returns switch by ID or throws NotFoundException when missing', async () => {
+      mockPrisma.networkSwitch.findFirst.mockResolvedValue(null);
+      await expect(service.findSwitch('missing-sw')).rejects.toThrow(NotFoundException);
+
+      mockPrisma.networkSwitch.findFirst.mockResolvedValue({
+        id: 'sw-1',
+        name: 'SW-CORE-01',
+        model: 'Catalyst 9500',
+        vendor: 'Cisco',
+        role: 'CORE',
+        status: 'ONLINE',
+        totalPorts: 48,
+        rackPosition: 40,
+        rackHeight: 2,
+        rackId: 'rack-1',
+        rack: { id: 'rack-1', name: 'RACK-DC-01', code: 'RACK-DC-01' },
+        ipAddress: null,
+        asset: null,
+        location: null,
+        ports: [],
+        _count: { ports: 48 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const sw = await service.findSwitch('sw-1');
+      expect(sw.id).toBe('sw-1');
+      expect(sw.name).toBe('SW-CORE-01');
+    });
+
+    it('createSwitch auto-generates RJ45 and SFP+ ports', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue(null); // serial check
+      mockPrisma.networkSwitch.create.mockResolvedValue({ id: 'sw-new-1' });
+      mockPrisma.switchPort.createMany.mockResolvedValue({ count: 52 });
+      mockPrisma.networkSwitch.findFirst.mockResolvedValue({
+        id: 'sw-new-1',
+        name: 'SW-ACC-01',
+        model: 'C9300-48P',
+        vendor: 'Cisco',
+        role: 'ACCESS',
+        status: 'ONLINE',
+        totalPorts: 48,
+        rackPosition: null,
+        rackHeight: 1,
+        rackId: null,
+        rack: null,
+        ipAddress: null,
+        asset: null,
+        location: null,
+        ports: [],
+        _count: { ports: 52 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const created = await service.createSwitch({
+        name: 'SW-ACC-01',
+        model: 'C9300-48P',
+        vendor: 'Cisco',
+        totalPorts: 48,
+        autoGeneratePorts: true,
+      });
+
+      expect(created.name).toBe('SW-ACC-01');
+      expect(mockPrisma.switchPort.createMany).toHaveBeenCalled();
+      const callArgs = mockPrisma.switchPort.createMany.mock.calls[0][0];
+      // 48 RJ45 + 4 SFP = 52 ports generated
+      expect(callArgs.data).toHaveLength(52);
+      expect(callArgs.data[0].name).toBe('Gi1/0/1');
+      expect(callArgs.data[48].name).toBe('Te1/0/49');
+    });
+
+    it('createSwitch rejects duplicate serial number', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue({ id: 'existing-sw' });
+
+      await expect(
+        service.createSwitch({
+          name: 'SW-DUP',
+          model: 'Catalyst',
+          vendor: 'Cisco',
+          serialNumber: 'SN-DUPLICATE',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('createSwitch validates rack mount with bounded query take: 100 and deterministic orderBy', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+        totalHeight: 42,
+      });
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([]);
+      mockPrisma.networkSwitch.create.mockResolvedValue({ id: 'sw-mounted-1' });
+      mockPrisma.networkSwitch.findFirst.mockResolvedValue({
+        id: 'sw-mounted-1',
+        name: 'SW-MOUNTED',
+        model: 'Catalyst',
+        vendor: 'Cisco',
+        role: 'ACCESS',
+        status: 'ONLINE',
+        totalPorts: 24,
+        rackPosition: 10,
+        rackHeight: 2,
+        rackId: 'rack-1',
+        rack: { id: 'rack-1', name: 'Rack 01', code: 'RCK-01' },
+        ipAddress: null,
+        asset: null,
+        location: null,
+        ports: [],
+        _count: { ports: 0 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await service.createSwitch({
+        name: 'SW-MOUNTED',
+        model: 'Catalyst',
+        vendor: 'Cisco',
+        rackId: 'rack-1',
+        rackPosition: 10,
+        rackHeight: 2,
+        autoGeneratePorts: false,
+      });
+
+      expect(mockPrisma.networkSwitch.findMany).toHaveBeenCalledWith({
+        where: {
+          rackId: 'rack-1',
+          rackPosition: { not: null },
+        },
+        take: 100,
+        orderBy: [{ rackPosition: 'asc' }, { id: 'asc' }],
+      });
+    });
+
+    it('createSwitch rejects mount when RU slot collides with existing switch', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+        totalHeight: 42,
+      });
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([
+        {
+          id: 'sw-existing',
+          name: 'SW-CORE-01',
+          rackPosition: 10,
+          rackHeight: 2,
+        },
+      ]);
+
+      await expect(
+        service.createSwitch({
+          name: 'SW-NEW',
+          model: 'Catalyst',
+          vendor: 'Cisco',
+          rackId: 'rack-1',
+          rackPosition: 11,
+          rackHeight: 1,
+          autoGeneratePorts: false,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('deleteSwitch cascades and deletes associated switch ports', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue({ id: 'sw-del' });
+      mockPrisma.switchPort.deleteMany.mockResolvedValue({ count: 24 });
+      mockPrisma.networkSwitch.delete.mockResolvedValue({ id: 'sw-del' });
+
+      const result = await service.deleteSwitch('sw-del');
+      expect(result.id).toBe('sw-del');
+      expect(mockPrisma.switchPort.deleteMany).toHaveBeenCalledWith({
+        where: { switchId: 'sw-del' },
+      });
+      expect(mockPrisma.networkSwitch.delete).toHaveBeenCalledWith({
+        where: { id: 'sw-del' },
+      });
+    });
+
+    it('findSwitchPorts returns switch ports ordered by portNumber', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue({ id: 'sw-1' });
+      mockPrisma.switchPort.findMany.mockResolvedValue([
+        {
+          id: 'port-1',
+          switchId: 'sw-1',
+          portNumber: 1,
+          name: 'Gi1/0/1',
+          formFactor: 'RJ45_1G',
+          poeEnabled: true,
+          adminStatus: 'UP',
+          operStatus: 'ACTIVE',
+          speed: '1 Gbps',
+          duplex: 'FULL',
+          vlanId: 'vlan-1',
+          vlan: {
+            id: 'vlan-1',
+            vlanNumber: 10,
+            name: 'Data',
+            status: 'ACTIVE',
+            description: null,
+            locationId: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          ipAddressId: null,
+          ipAddress: null,
+          connectedAssetId: null,
+          connectedAsset: null,
+          taggedVlanIds: [20, 30],
+          description: 'Uplink',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      const res = await service.findSwitchPorts('sw-1');
+      expect(res).toHaveLength(1);
+      expect(res[0].name).toBe('Gi1/0/1');
+      expect(res[0].vlan?.vlanNumber).toBe(10);
+      expect(res[0].taggedVlanIds).toEqual([20, 30]);
+    });
+  });
+
+  describe('Switch Port CRUD', () => {
+    it('findPort returns port details or throws NotFoundException', async () => {
+      mockPrisma.switchPort.findUnique.mockResolvedValue(null);
+      await expect(service.findPort('missing-port')).rejects.toThrow(NotFoundException);
+
+      mockPrisma.switchPort.findUnique.mockResolvedValue({
+        id: 'port-1',
+        switchId: 'sw-1',
+        portNumber: 1,
+        name: 'Gi1/0/1',
+        formFactor: 'RJ45_1G',
+        poeEnabled: true,
+        adminStatus: 'UP',
+        operStatus: 'ACTIVE',
+        speed: '1 Gbps',
+        duplex: 'FULL',
+        vlanId: 'vlan-1',
+        vlan: { vlanNumber: 10, name: 'Data' },
+        ipAddressId: null,
+        ipAddress: null,
+        connectedAssetId: null,
+        connectedAsset: null,
+        switch: { id: 'sw-1', name: 'SW-01' },
+        taggedVlanIds: null,
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const port = await service.findPort('port-1');
+      expect(port.id).toBe('port-1');
+      expect(port.name).toBe('Gi1/0/1');
+    });
+
+    it('updatePort updates configuration and forces operStatus DOWN when adminStatus is DOWN', async () => {
+      mockPrisma.switchPort.findUnique
+        .mockResolvedValueOnce({
+          id: 'port-1',
+          adminStatus: 'UP',
+          operStatus: 'ACTIVE',
+        })
+        .mockResolvedValueOnce({
+          id: 'port-1',
+          switchId: 'sw-1',
+          portNumber: 1,
+          name: 'Gi1/0/1',
+          formFactor: 'RJ45_1G',
+          poeEnabled: true,
+          adminStatus: 'DOWN',
+          operStatus: 'DOWN',
+          speed: '1 Gbps',
+          duplex: 'FULL',
+          vlanId: null,
+          vlan: null,
+          ipAddressId: null,
+          ipAddress: null,
+          connectedAssetId: null,
+          connectedAsset: null,
+          switch: { id: 'sw-1', name: 'SW-01' },
+          taggedVlanIds: null,
+          description: 'Disabled port',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+      mockPrisma.switchPort.update.mockResolvedValue({
+        id: 'port-1',
+        adminStatus: 'DOWN',
+        operStatus: 'DOWN',
+      });
+
+      const updated = await service.updatePort('port-1', {
+        adminStatus: 'DOWN',
+        description: 'Disabled port',
+      });
+
+      expect(updated.adminStatus).toBe('DOWN');
+      expect(updated.operStatus).toBe('DOWN');
+      expect(mockPrisma.switchPort.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            adminStatus: 'DOWN',
+            operStatus: 'DOWN',
+          }),
+        }),
+      );
     });
   });
 });

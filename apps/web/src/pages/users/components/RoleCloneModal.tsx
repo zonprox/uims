@@ -3,6 +3,7 @@ import type { Role } from '@uims/shared-types';
 import { App, Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 
 const { Text } = Typography;
 
@@ -45,9 +46,9 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const errorObj = err as { errorFields?: unknown; response?: { data?: { message?: string } } };
+      const errorObj = err as { errorFields?: unknown };
       if (errorObj?.errorFields) return;
-      message.error(errorObj?.response?.data?.message || 'Failed to clone role.');
+      message.error(formatErrorMessage(err, 'clone role'));
     } finally {
       setLoading(false);
     }

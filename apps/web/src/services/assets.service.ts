@@ -1,15 +1,9 @@
 import { api } from './api';
 
-export interface AssetSpecs {
-  cpu: string;
-  ram: string;
-  storage: string;
-  os: string;
-}
-
 export interface AssetCategory {
   id: string;
   name: string;
+  code?: string;
   description?: string | null;
   parentId?: string | null;
 }
@@ -36,8 +30,17 @@ export interface Asset {
   purchaseDate: string;
   purchasePrice: number;
   warrantyExpiry: string;
-  specs: AssetSpecs;
   notes?: string;
+  networkConnectivity?: {
+    upstreamSwitch: string;
+    switchModel?: string | null;
+    upstreamPort: string;
+    linkStatus: string;
+    rackName?: string | null;
+    rackUnit?: number | string | null;
+    vlan?: string | null;
+    ipAddress?: string | null;
+  } | null;
 }
 
 export interface AssetStats {
@@ -74,12 +77,17 @@ export const assetsService = {
       return res.data.data;
     } catch (_error: unknown) {
       return [
-        { id: 'cat-laptop', name: 'Laptop' },
-        { id: 'cat-desktop', name: 'Desktop' },
-        { id: 'cat-server', name: 'Server' },
-        { id: 'cat-monitor', name: 'Monitor' },
-        { id: 'cat-networking', name: 'Networking' },
-        { id: 'cat-mobile', name: 'Mobile' },
+        { id: 'cat-laptop', name: 'Laptops / Notebooks' },
+        { id: 'cat-desktop', name: 'Desktops & Workstations' },
+        { id: 'cat-server', name: 'Servers (Rackmount / Host)' },
+        { id: 'cat-switch', name: 'Network Switches' },
+        { id: 'cat-router', name: 'Routers & Firewalls' },
+        { id: 'cat-ap', name: 'Wireless Access Points (AP)' },
+        { id: 'cat-monitor', name: 'Monitors & Displays' },
+        { id: 'cat-printer', name: 'Printers & Scanners' },
+        { id: 'cat-storage', name: 'Storage (NAS / SAN)' },
+        { id: 'cat-ups', name: 'Power & UPS' },
+        { id: 'cat-peripheral', name: 'Peripherals & Accessories' },
       ];
     }
   },

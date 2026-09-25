@@ -581,4 +581,52 @@ describe('DashboardService', () => {
     expect(overview.recentActivity[1].linkUrl).toBe('/network');
     expect(overview.recentActivity[2].linkUrl).toBe('/licenses');
   });
+
+  it('should deduplicate identical recent activity records in the live activity stream', async () => {
+    mockPrisma.asset.count.mockResolvedValue(100);
+    mockPrisma.license.aggregate.mockResolvedValue({ _sum: { totalSeats: 100, usedSeats: 50 } });
+    mockPrisma.license.count.mockResolvedValue(10);
+    mockPrisma.inventoryItem.aggregate.mockResolvedValue({ _sum: { quantity: 10 } });
+    mockPrisma.inventoryItem.count.mockResolvedValue(5);
+    mockPrisma.subnet.aggregate.mockResolvedValue({ _sum: { totalIps: 256 } });
+    mockPrisma.iPAddress.count.mockResolvedValue(50);
+    mockPrisma.user.count.mockResolvedValue(30);
+    mockPrisma.auditLog.count.mockResolvedValue(10);
+
+    const timestamp = new Date();
+    mockPrisma.auditLog.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'log-dup-1',
+          userName: 'Enterprise Admin',
+          action: 'LOGIN_SUCCESS',
+          entity: 'Authentication',
+          details: 'User admin@uims.internal successfully authenticated via secure token grant.',
+          timestamp,
+        },
+        {
+          id: 'log-dup-2',
+          userName: 'Enterprise Admin',
+          action: 'LOGIN_SUCCESS',
+          entity: 'Authentication',
+          details: 'User admin@uims.internal successfully authenticated via secure token grant.',
+          timestamp,
+        },
+        {
+          id: 'log-unique',
+          userName: 'John Doe',
+          action: 'ASSET_ASSIGN',
+          entity: 'AST-1001',
+          details: 'Assigned laptop to staff',
+          timestamp,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const overview = await service.getOverview('dedup-test', true);
+
+    expect(overview.recentActivity).toHaveLength(2);
+    expect(overview.recentActivity[0].key).toBe('log-dup-1');
+    expect(overview.recentActivity[1].key).toBe('log-unique');
+  });
 });

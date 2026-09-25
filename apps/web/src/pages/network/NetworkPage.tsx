@@ -1,7 +1,6 @@
 import {
   ApartmentOutlined,
   ApiOutlined,
-  CheckCircleOutlined,
   CloudServerOutlined,
   GlobalOutlined,
   PlusOutlined,
@@ -12,9 +11,11 @@ import { useMemo } from 'react';
 import PageContainer from '../../components/PageContainer';
 import { IpAddressTable } from './components/IpAddressTable';
 import { IpFormModal } from './components/IpFormModal';
+import { RackManagementTab } from './components/RackManagementTab';
 import { SubnetDetailDrawer } from './components/SubnetDetailDrawer';
 import { SubnetFormModal } from './components/SubnetFormModal';
 import { SubnetManagementTab } from './components/SubnetManagementTab';
+import { SwitchManagementTab } from './components/SwitchManagementTab';
 import { VlanDetailDrawer } from './components/VlanDetailDrawer';
 import { VlanFormModal } from './components/VlanFormModal';
 import { VlanManagementTab } from './components/VlanManagementTab';
@@ -99,39 +100,74 @@ export default function NetworkPage() {
   const statsItems = useMemo(
     () => [
       {
-        title: 'Active VLANs',
-        value: stats.totalVlans || vlans.length,
+        title: 'Total Racks',
+        value: stats.totalRacks ?? 0,
         prefix: <ApartmentOutlined />,
         color: '#722ed1',
       },
       {
-        title: 'Managed Subnets',
-        value: stats.managedSubnets || subnets.length,
+        title: 'Total Switches',
+        value: stats.totalSwitches ?? 0,
         prefix: <CloudServerOutlined />,
         color: '#1677ff',
       },
       {
-        title: 'Allocated Static IPs',
-        value: stats.allocatedStaticIps,
-        prefix: <CheckCircleOutlined />,
+        title: 'Total Ports',
+        value: stats.totalPorts ?? 0,
+        prefix: <ApiOutlined />,
         color: '#10b981',
       },
       {
-        title: 'Free IP Capacity',
-        value: stats.freeIpCapacity || stats.availableIps,
+        title: 'Port Utilization',
+        value: stats.portUtilization !== undefined ? `${stats.portUtilization}%` : '0%',
         prefix: <GlobalOutlined />,
         color: '#059669',
       },
     ],
-    [stats, vlans.length, subnets.length],
+    [stats],
   );
 
   const tabItems = useMemo(
     () => [
       {
+        key: 'racks',
+        icon: <ApartmentOutlined />,
+        label: 'Racks & Elevation',
+        children: (
+          <RackManagementTab
+            locations={locations}
+            loading={loading}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            siteFilter={siteFilter}
+            onSiteChange={setSiteFilter}
+            onResetFilters={handleResetFilters}
+            onSelectSwitch={() => setActiveTabKey('switches')}
+          />
+        ),
+      },
+      {
+        key: 'switches',
+        icon: <CloudServerOutlined />,
+        label: 'Switches',
+        children: (
+          <SwitchManagementTab
+            locations={locations}
+            loading={loading}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            siteFilter={siteFilter}
+            onSiteChange={setSiteFilter}
+            onResetFilters={handleResetFilters}
+            onSelectRack={() => setActiveTabKey('racks')}
+          />
+        ),
+      },
+      {
         key: 'ipam',
         icon: <ApiOutlined />,
         label: `IP Allocations (${ips.length})`,
+        forceRender: true,
         children: (
           <IpAddressTable
             ips={ips}
@@ -154,6 +190,7 @@ export default function NetworkPage() {
             onResetFilters={handleResetFilters}
             onOpenEditModal={handleOpenEditIpModal}
             onDeleteIp={handleDeleteIp}
+            onSelectSwitchPort={() => setActiveTabKey('switches')}
           />
         ),
       },
@@ -233,8 +270,8 @@ export default function NetworkPage() {
 
   return (
     <PageContainer
-      title="Network & IPAM"
-      subtitle="Manage IP allocations, CIDR subnets, VLAN segmentation, and network telemetry."
+      title="Network"
+      subtitle="Enterprise rack elevation, switch fleet inventory, interactive port matrix, and IPAM lifecycle."
       breadcrumbs={[{ title: 'Network' }]}
       stats={statsItems}
       extra={
@@ -274,6 +311,7 @@ export default function NetworkPage() {
         onClose={() => setVlanDrawerOpen(false)}
         onFilterSubnetsByVlan={handleFilterSubnetsByVlan}
         onFilterIpsByVlan={handleFilterIpsByVlan}
+        onViewPort={() => setActiveTabKey('switches')}
       />
 
       {/* Subnet Modals & Drawers */}

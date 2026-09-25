@@ -191,6 +191,10 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
     availableIps: 504,
     freeIpCapacity: 504,
     averageUtilization: 14,
+    totalRacks: 4,
+    totalSwitches: 12,
+    totalPorts: 576,
+    portUtilization: 74.2,
   };
 
   const assets: Asset[] = [
@@ -209,7 +213,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       purchaseDate: '2025-01-01',
       purchasePrice: 4500,
       warrantyExpiry: '2028-01-01',
-      specs: { cpu: 'Xeon Silver', ram: '128GB', storage: '2TB NVMe', os: 'RHEL 9' },
     },
   ];
 
@@ -392,17 +395,22 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
     });
   };
 
-  it('renders NetworkPage with telemetry stats and 3 primary tabs', async () => {
+  it('renders NetworkPage with telemetry stats and 5 primary tabs', async () => {
     await renderComponent();
 
     // Verify Title & Subtitle
-    expect(container.textContent).toContain('Network & IPAM');
-    expect(container.textContent).toContain('Active VLANs');
-    expect(container.textContent).toContain('Managed Subnets');
-    expect(container.textContent).toContain('Allocated Static IPs');
-    expect(container.textContent).toContain('Free IP Capacity');
+    expect(container.textContent).toContain('Network');
+    expect(container.textContent).toContain(
+      'Enterprise rack elevation, switch fleet inventory, interactive port matrix, and IPAM lifecycle.',
+    );
+    expect(container.textContent).toContain('Total Racks');
+    expect(container.textContent).toContain('Total Switches');
+    expect(container.textContent).toContain('Total Ports');
+    expect(container.textContent).toContain('Port Utilization');
 
-    // Verify 3 Tabs exist
+    // Verify 5 Tabs exist
+    expect(container.textContent).toContain('Racks & Elevation');
+    expect(container.textContent).toContain('Switches');
     expect(container.textContent).toContain('IP Allocations');
     expect(container.textContent).toContain('Subnets');
     expect(container.textContent).toContain('VLANs');
@@ -411,6 +419,30 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
     expect(container.textContent).toContain('Create VLAN');
     expect(container.textContent).toContain('Create Subnet');
     expect(container.textContent).toContain('Allocate IP');
+  });
+
+  it('renders Racks & Elevation shell on the racks tab', async () => {
+    await renderComponent();
+
+    expect(container.textContent).toContain('Racks & Elevation Management');
+    expect(container.textContent).toContain('1U–48U Rails');
+  });
+
+  it('switches to Switches tab and renders switch fleet shell', async () => {
+    await renderComponent();
+
+    const switchesTab = Array.from(container.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+      tab.textContent?.includes('Switches'),
+    );
+    expect(switchesTab).toBeTruthy();
+
+    await act(async () => {
+      (switchesTab?.querySelector('.ant-tabs-tab-btn') as HTMLElement)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(container.textContent).toContain('Switch Fleet & Port Matrix');
+    expect(container.textContent).toContain('24/48 Port Faceplates');
   });
 
   it('renders IP Allocations table with rich columns and filters', async () => {

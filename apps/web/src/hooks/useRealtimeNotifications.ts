@@ -111,11 +111,15 @@ export function useRealtimeNotifications() {
 
     // Handle real-time incoming notification
     socket.on('notification:new', (newNotif: NotificationItem) => {
-      // 1. Prepend to state
+      // 1. Prepend to state and auto-trim old notifications beyond limit (FIFO cap)
       setNotifications((prev) => {
         const exists = prev.some((n) => n.id === newNotif.id);
         if (exists) return prev;
-        return [newNotif, ...prev];
+        const updated = [newNotif, ...prev];
+        const MAX_CLIENT_NOTIFICATIONS = 100;
+        return updated.length > MAX_CLIENT_NOTIFICATIONS
+          ? updated.slice(0, MAX_CLIENT_NOTIFICATIONS)
+          : updated;
       });
 
       // 2. Increment unread count

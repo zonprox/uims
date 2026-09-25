@@ -242,4 +242,186 @@ describe('networkService Unit Tests', () => {
     await networkService.deleteIp('ip-2');
     expect(api.delete).toHaveBeenCalledWith('/network/ips/ip-2');
   });
+
+  it('handles rack methods and elevation data retrieval', async () => {
+    // getRacks
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [{ id: 'rack-1', name: 'Rack 01', code: 'RCK-01', totalHeight: 42 }],
+      },
+    });
+    const racks = await networkService.getRacks({ search: 'RCK' });
+    expect(api.get).toHaveBeenCalledWith('/network/racks', { params: { search: 'RCK' } });
+    expect(racks).toHaveLength(1);
+    expect(racks[0].name).toBe('Rack 01');
+
+    // getRack
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { id: 'rack-1', name: 'Rack 01', code: 'RCK-01', totalHeight: 42 },
+      },
+    });
+    const rack = await networkService.getRack('rack-1');
+    expect(api.get).toHaveBeenCalledWith('/network/racks/rack-1');
+    expect(rack.code).toBe('RCK-01');
+
+    // createRack
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { id: 'rack-2', name: 'Rack 02', code: 'RCK-02', totalHeight: 48 },
+      },
+    });
+    const created = await networkService.createRack({
+      name: 'Rack 02',
+      code: 'RCK-02',
+      totalHeight: 48,
+    });
+    expect(api.post).toHaveBeenCalledWith('/network/racks', {
+      name: 'Rack 02',
+      code: 'RCK-02',
+      totalHeight: 48,
+    });
+    expect(created.totalHeight).toBe(48);
+
+    // updateRack
+    vi.mocked(api.patch).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { id: 'rack-2', name: 'Rack 02 Updated', code: 'RCK-02', totalHeight: 48 },
+      },
+    });
+    const updated = await networkService.updateRack('rack-2', { name: 'Rack 02 Updated' });
+    expect(api.patch).toHaveBeenCalledWith('/network/racks/rack-2', { name: 'Rack 02 Updated' });
+    expect(updated.name).toBe('Rack 02 Updated');
+
+    // deleteRack
+    vi.mocked(api.delete).mockResolvedValueOnce({ data: { success: true } });
+    await networkService.deleteRack('rack-2');
+    expect(api.delete).toHaveBeenCalledWith('/network/racks/rack-2');
+
+    // getRackElevation
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          rackId: 'rack-1',
+          rackName: 'Rack 01',
+          rackCode: 'RCK-01',
+          totalHeight: 42,
+          usedUnits: 2,
+          availableUnits: 40,
+          occupancyRate: 4.8,
+          slots: [],
+        },
+      },
+    });
+    const elevation = await networkService.getRackElevation('rack-1');
+    expect(api.get).toHaveBeenCalledWith('/network/racks/rack-1/elevation');
+    expect(elevation.totalHeight).toBe(42);
+    expect(elevation.usedUnits).toBe(2);
+  });
+
+  it('handles switch and port methods', async () => {
+    // getSwitches
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { success: true, data: [{ id: 'sw-1', name: 'SW-CORE-01', model: 'C9300-48P' }] },
+    });
+    const switches = await networkService.getSwitches({ vendor: 'Cisco' });
+    expect(api.get).toHaveBeenCalledWith('/network/switches', { params: { vendor: 'Cisco' } });
+    expect(switches[0].name).toBe('SW-CORE-01');
+
+    // getSwitch
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'sw-1', name: 'SW-CORE-01', model: 'C9300-48P' } },
+    });
+    const sw = await networkService.getSwitch('sw-1');
+    expect(api.get).toHaveBeenCalledWith('/network/switches/sw-1');
+    expect(sw.model).toBe('C9300-48P');
+
+    // createSwitch
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { id: 'sw-2', name: 'SW-ACC-01', vendor: 'Cisco', model: 'C9200-24T' },
+      },
+    });
+    const createdSw = await networkService.createSwitch({
+      name: 'SW-ACC-01',
+      vendor: 'Cisco',
+      model: 'C9200-24T',
+    });
+    expect(api.post).toHaveBeenCalledWith('/network/switches', {
+      name: 'SW-ACC-01',
+      vendor: 'Cisco',
+      model: 'C9200-24T',
+    });
+    expect(createdSw.id).toBe('sw-2');
+
+    // updateSwitch
+    vi.mocked(api.patch).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'sw-2', name: 'SW-ACC-01-RENAMED' } },
+    });
+    const updatedSw = await networkService.updateSwitch('sw-2', { name: 'SW-ACC-01-RENAMED' });
+    expect(api.patch).toHaveBeenCalledWith('/network/switches/sw-2', { name: 'SW-ACC-01-RENAMED' });
+    expect(updatedSw.name).toBe('SW-ACC-01-RENAMED');
+
+    // deleteSwitch
+    vi.mocked(api.delete).mockResolvedValueOnce({ data: { success: true } });
+    await networkService.deleteSwitch('sw-2');
+    expect(api.delete).toHaveBeenCalledWith('/network/switches/sw-2');
+
+    // getSwitchPorts
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { success: true, data: [{ id: 'p-1', portNumber: 1, name: 'Gi1/0/1' }] },
+    });
+    const ports = await networkService.getSwitchPorts('sw-1');
+    expect(api.get).toHaveBeenCalledWith('/network/switches/sw-1/ports', { params: undefined });
+    expect(ports).toHaveLength(1);
+
+    // createSwitchPort
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'p-2', portNumber: 2, name: 'Gi1/0/2' } },
+    });
+    const createdPort = await networkService.createSwitchPort('sw-1', {
+      switchId: 'sw-1',
+      portNumber: 2,
+      name: 'Gi1/0/2',
+    });
+    expect(api.post).toHaveBeenCalledWith('/network/switches/sw-1/ports', {
+      switchId: 'sw-1',
+      portNumber: 2,
+      name: 'Gi1/0/2',
+    });
+    expect(createdPort.name).toBe('Gi1/0/2');
+
+    // getPort
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'p-1', name: 'Gi1/0/1' } },
+    });
+    const port = await networkService.getPort('p-1');
+    expect(api.get).toHaveBeenCalledWith('/network/ports/p-1');
+    expect(port.name).toBe('Gi1/0/1');
+
+    // updateSwitchPort (2-arg and 3-arg support)
+    vi.mocked(api.patch).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'p-1', operStatus: 'ACTIVE' } },
+    });
+    const updatedPort = await networkService.updateSwitchPort('p-1', { operStatus: 'ACTIVE' });
+    expect(api.patch).toHaveBeenCalledWith('/network/ports/p-1', { operStatus: 'ACTIVE' });
+    expect(updatedPort.operStatus).toBe('ACTIVE');
+
+    vi.mocked(api.patch).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'p-1', operStatus: 'DOWN' } },
+    });
+    await networkService.updateSwitchPort('sw-1', 'p-1', { operStatus: 'DOWN' });
+    expect(api.patch).toHaveBeenCalledWith('/network/ports/p-1', { operStatus: 'DOWN' });
+
+    // deleteSwitchPort
+    vi.mocked(api.delete).mockResolvedValueOnce({ data: { success: true } });
+    await networkService.deleteSwitchPort('p-1');
+    expect(api.delete).toHaveBeenCalledWith('/network/ports/p-1');
+  });
 });

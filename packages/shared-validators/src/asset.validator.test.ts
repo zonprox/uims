@@ -43,6 +43,29 @@ describe('asset.validator', () => {
       expect(result.success).toBe(false);
     });
 
+    it('accepts string category slugs and notes', () => {
+      const input = {
+        name: 'Cisco Catalyst 9300',
+        categoryId: 'cat-switch',
+        notes: 'Core switch in server rack',
+      };
+      const result = createAssetSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.categoryId).toBe('cat-switch');
+        expect(result.data.notes).toBe('Core switch in server rack');
+      }
+    });
+
+    it('accepts UUID categoryId for createAssetSchema', () => {
+      const input = {
+        name: 'ThinkPad T14',
+        categoryId: '123e4567-e89b-12d3-a456-426614174000',
+      };
+      const result = createAssetSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
     it('validates partial updates via updateAssetSchema', () => {
       const result = updateAssetSchema.safeParse({
         status: 'In Storage',
@@ -92,6 +115,100 @@ describe('asset.validator', () => {
     it('rejects invalid UUID for organizationId', () => {
       const result = assetQuerySchema.safeParse({ organizationId: 'not-a-uuid' });
       expect(result.success).toBe(false);
+    });
+
+    it('accepts both string category slugs and UUIDs in categoryId filter', () => {
+      const slugResult = assetQuerySchema.safeParse({ categoryId: 'cat-switch' });
+      expect(slugResult.success).toBe(true);
+
+      const uuidResult = assetQuerySchema.safeParse({
+        categoryId: '123e4567-e89b-12d3-a456-426614174000',
+      });
+      expect(uuidResult.success).toBe(true);
+    });
+  });
+
+  describe('Notes field robustness and specs omission', () => {
+    it('handles newlines in notes correctly', () => {
+      const multiline = 'Line 1: Rack Unit 42\nLine 2: Connected to SW-01\r\nLine 3: 10GbE uplink';
+      const result = createAssetSchema.safeParse({
+        name: 'Core Switch',
+        notes: multiline,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.notes).toBe(multiline);
+      }
+    });
+
+    it('handles Unicode and emoji in notes correctly', () => {
+      const unicodeNotes =
+        'Thiết bị cấp cho phòng CNTT — Youngone Nam Định 🇻🇳 💻 [Tủ Rack #04, Cổng 24]';
+      const result = createAssetSchema.safeParse({
+        name: 'Workstation',
+        notes: unicodeNotes,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.notes).toBe(unicodeNotes);
+      }
+    });
+
+    it('accepts notes up to 1000 characters and rejects 1001 characters', () => {
+      const validNotes = 'A'.repeat(1000);
+      const invalidNotes = 'A'.repeat(1001);
+
+      const passResult = createAssetSchema.safeParse({
+        name: 'Device',
+        notes: validNotes,
+      });
+      expect(passResult.success).toBe(true);
+
+      const failResult = createAssetSchema.safeParse({
+        name: 'Device',
+        notes: invalidNotes,
+      });
+      expect(failResult.success).toBe(false);
+    });
+
+    it('handles null, undefined, empty, and whitespace-only notes gracefully', () => {
+      const nullResult = createAssetSchema.safeParse({ name: 'Device', notes: null });
+      expect(nullResult.success).toBe(true);
+      if (nullResult.success) {
+        expect(nullResult.data.notes).toBeNull();
+      }
+
+      const undefinedResult = createAssetSchema.safeParse({ name: 'Device', notes: undefined });
+      expect(undefinedResult.success).toBe(true);
+      if (undefinedResult.success) {
+        expect(undefinedResult.data.notes).toBeUndefined();
+      }
+
+      const emptyResult = createAssetSchema.safeParse({ name: 'Device', notes: '' });
+      expect(emptyResult.success).toBe(true);
+      if (emptyResult.success) {
+        expect(emptyResult.data.notes).toBe('');
+      }
+
+      const whitespaceResult = createAssetSchema.safeParse({ name: 'Device', notes: '   \t\n   ' });
+      expect(whitespaceResult.success).toBe(true);
+      if (whitespaceResult.success) {
+        expect(whitespaceResult.data.notes).toBe('   \t\n   ');
+      }
+    });
+
+    it('strips legacy specs property and does not include it in parsed data', () => {
+      const input = {
+        name: 'Legacy Specs Device',
+        specs: { cpu: 'M3 Max', ram: '64GB' },
+        notes: 'Remarks only',
+      };
+      const result = createAssetSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect('specs' in result.data).toBe(false);
+        expect(result.data.notes).toBe('Remarks only');
+      }
     });
   });
 });

@@ -3,6 +3,7 @@ import type { PermissionCatalogSubject, Role } from '@uims/shared-types';
 import { App, Form, Input, Modal, Radio, Select } from 'antd';
 import React, { useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 
 interface CreateRoleModalProps {
   open: boolean;
@@ -63,9 +64,9 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const errorObj = err as { errorFields?: unknown; response?: { data?: { message?: string } } };
+      const errorObj = err as { errorFields?: unknown };
       if (errorObj?.errorFields) return;
-      message.error(errorObj?.response?.data?.message || 'Failed to create role.');
+      message.error(formatErrorMessage(err, 'create role'));
     } finally {
       setLoading(false);
     }

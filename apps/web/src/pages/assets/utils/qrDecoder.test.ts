@@ -27,7 +27,7 @@ describe('qrDecoder utilities', () => {
       );
       expect(parseAssetQrPayload('https://uims.internal/assets/AST-1099/')).toBe('AST-1099');
       expect(
-        parseAssetQrPayload('https://uims.internal/assets/AST-2026-0042?view=full&tab=specs'),
+        parseAssetQrPayload('https://uims.internal/assets/AST-2026-0042?view=full&tab=details'),
       ).toBe('AST-2026-0042');
     });
 

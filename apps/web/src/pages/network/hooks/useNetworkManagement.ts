@@ -11,6 +11,7 @@ import {
   type VLAN,
   networkService,
 } from '../../../services/network.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 
 export function useNetworkManagement(
   form: FormInstance,
@@ -35,10 +36,14 @@ export function useNetworkManagement(
     availableIps: 0,
     freeIpCapacity: 0,
     averageUtilization: 0,
+    totalRacks: 0,
+    totalSwitches: 0,
+    totalPorts: 0,
+    portUtilization: 0,
   });
 
   const [loading, setLoading] = useState(false);
-  const [activeTabKey, setActiveTabKey] = useState<string>('ipam');
+  const [activeTabKey, setActiveTabKey] = useState<string>('racks');
 
   // Multi-dimensional Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,8 +117,7 @@ export function useNetworkManagement(
         message.warning('Failed to load authoritative network IPAM statistics.');
       }
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to load network IPAM from server.');
+      message.error(formatErrorMessage(err, 'load network IPAM from server'));
     } finally {
       setLoading(false);
     }
@@ -165,8 +169,7 @@ export function useNetworkManagement(
       setVlanModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save VLAN configuration.');
+      message.error(formatErrorMessage(err, 'save VLAN configuration'));
     } finally {
       setModalSubmitting(false);
     }
@@ -179,8 +182,7 @@ export function useNetworkManagement(
         message.success('VLAN removed successfully.');
         loadData();
       } catch (err: unknown) {
-        const apiErr = err as { response?: { data?: { message?: string } } };
-        message.error(apiErr.response?.data?.message || 'Failed to delete VLAN.');
+        message.error(formatErrorMessage(err, 'delete VLAN'));
       }
     },
     [loadData, message],
@@ -245,8 +247,7 @@ export function useNetworkManagement(
       setSubnetModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save Subnet.');
+      message.error(formatErrorMessage(err, 'save Subnet'));
     } finally {
       setModalSubmitting(false);
     }
@@ -259,8 +260,7 @@ export function useNetworkManagement(
         message.success('Subnet removed successfully.');
         loadData();
       } catch (err: unknown) {
-        const apiErr = err as { response?: { data?: { message?: string } } };
-        message.error(apiErr.response?.data?.message || 'Failed to delete Subnet.');
+        message.error(formatErrorMessage(err, 'delete Subnet'));
       }
     },
     [loadData, message],
@@ -346,8 +346,7 @@ export function useNetworkManagement(
       setIpModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to allocate IP.');
+      message.error(formatErrorMessage(err, 'allocate IP'));
     } finally {
       setModalSubmitting(false);
     }
@@ -360,8 +359,7 @@ export function useNetworkManagement(
         message.success('IP address released successfully.');
         loadData();
       } catch (err: unknown) {
-        const apiErr = err as { response?: { data?: { message?: string } } };
-        message.error(apiErr.response?.data?.message || 'Failed to release IP address.');
+        message.error(formatErrorMessage(err, 'release IP address'));
       }
     },
     [loadData, message],

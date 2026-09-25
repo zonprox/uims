@@ -19,7 +19,6 @@ export interface CreateAssetDto {
   purchaseCost?: number | string;
   purchasePrice?: number | string;
   warrantyExpiry?: string | Date;
-  specs?: Record<string, unknown>;
   notes?: string;
 }
 

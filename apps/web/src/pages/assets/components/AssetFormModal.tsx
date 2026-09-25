@@ -2,7 +2,6 @@ import {
   App,
   Col,
   DatePicker,
-  Divider,
   Form,
   type FormInstance,
   Input,
@@ -12,7 +11,9 @@ import {
   Select,
   TreeSelect,
 } from 'antd';
+import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
+import { IT_ASSET_CATEGORIES } from '@uims/shared-types';
 import type { Asset, AssetCategory } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
@@ -22,6 +23,7 @@ import {
   type LocationTreeNode,
   organizationService,
 } from '../../../services/organization.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 
 export interface AssetFormModalProps {
   open: boolean;
@@ -165,9 +167,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             message.warning(`Failed to load options for: ${loadErrors.join(', ')}.`);
           }
         } catch (error: unknown) {
-          const errorMsg =
-            error instanceof Error ? error.message : 'Failed to load asset form reference data';
-          message.error(errorMsg);
+          message.error(formatErrorMessage(error, 'load asset form reference data'));
         } finally {
           if (mounted) setLoadingOptions(false);
         }
@@ -189,6 +189,46 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
     ]);
 
     const locationTreeData = useMemo(() => formatLocationTreeForSelect(locations), [locations]);
+
+    const categorySelectOptions = useMemo(() => {
+      if (categories && categories.length > 0) {
+        return categories.map((c) => ({
+          label: c.name,
+          value: c.id,
+        }));
+      }
+      return Object.values(IT_ASSET_CATEGORIES).map((c) => ({
+        label: c.name,
+        value: c.id,
+      }));
+    }, [categories]);
+
+    useEffect(() => {
+      if (open && editingAsset) {
+        const resolvedCatId =
+          editingAsset.categoryId ||
+          (typeof editingAsset.category === 'string' ? editingAsset.category : undefined);
+
+        form.setFieldsValue({
+          tag: editingAsset.tag,
+          serialNumber: editingAsset.serialNumber,
+          name: editingAsset.name,
+          manufacturer: editingAsset.manufacturer,
+          model: editingAsset.model,
+          categoryId: resolvedCatId,
+          status: editingAsset.status,
+          purchasePrice: editingAsset.purchasePrice,
+          locationId: editingAsset.locationId,
+          departmentId: editingAsset.departmentId,
+          assignedToId: editingAsset.assignedToId,
+          purchaseDate: editingAsset.purchaseDate ? dayjs(editingAsset.purchaseDate) : undefined,
+          warrantyExpiry: editingAsset.warrantyExpiry
+            ? dayjs(editingAsset.warrantyExpiry)
+            : undefined,
+          notes: editingAsset.notes,
+        });
+      }
+    }, [open, editingAsset, form]);
 
     return (
       <Modal
@@ -262,10 +302,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
                   allowClear
                   loading={loadingOptions}
                   placeholder="Select category"
-                  options={categories.map((c) => ({
-                    label: c.name,
-                    value: c.id,
-                  }))}
+                  options={categorySelectOptions}
                   filterOption={(input, option) =>
                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                   }
@@ -352,35 +389,13 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             </Col>
           </Row>
 
-          <Divider style={{ margin: '8px 0 14px 0' }}>Technical Specifications</Divider>
-
-          <Row gutter={14}>
-            <Col span={6}>
-              <Form.Item label="Processor (CPU)" name="cpu">
-                <Input placeholder="e.g. M3 Max 16-Core" />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="Memory (RAM)" name="ram">
-                <Input placeholder="e.g. 64 GB" />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="Storage (SSD)" name="storage">
-                <Input placeholder="e.g. 1 TB NVMe" />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="Operating System" name="os">
-                <Input placeholder="e.g. macOS Sonoma" />
-              </Form.Item>
-            </Col>
-          </Row>
-
           <Form.Item label="Notes" name="notes">
             <Input.TextArea
               rows={2}
-              placeholder="Add deployment details or dock serial number..."
+              autoSize={{ minRows: 2, maxRows: 6 }}
+              maxLength={1000}
+              showCount
+              placeholder="Add deployment details, remarks, or notes..."
             />
           </Form.Item>
         </Form>

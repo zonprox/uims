@@ -59,7 +59,7 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       const secret = process.env.JWT_SECRET || 'uims-jwt-secret-change-in-production';
       const jwtService = new JwtService({ secret });
       authToken = jwtService.sign(
-        { sub: 'usr-admin', email: 'admin@uims.internal', role: 'Admin', permissions: ['*:*'] },
+        { sub: 'usr-admin', email: 'admin@youngonevn.com', role: 'Admin', permissions: ['*:*'] },
         { expiresIn: '1h' },
       );
     } catch {

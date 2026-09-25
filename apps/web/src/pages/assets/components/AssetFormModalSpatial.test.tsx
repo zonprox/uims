@@ -326,7 +326,6 @@ describe('AssetFormModal Spatial TreeSelect & Orthogonal Department Integration'
         purchaseDate: '2026-03-01',
         purchasePrice: 650,
         warrantyExpiry: '2029-03-01',
-        specs: { cpu: 'N/A', ram: 'N/A', storage: 'N/A', os: 'N/A' },
       };
 
       currentRoot = createRoot(container);

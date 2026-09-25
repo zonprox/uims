@@ -152,18 +152,18 @@ export async function seedLicenses(
 
   // 2. Normalized License Assignments
   const defaultUser = Object.values(u)[0];
-  const userBinh = u['binh.tran@broadpeak.youngone.com'] || u.userAlex || defaultUser;
-  const userNam = u['nam.pham@broadpeak.youngone.com'] || u.userSarah || defaultUser;
-  const userThu = u['thu.le@broadpeak.youngone.com'] || u.userCarlosMendez || defaultUser;
-  const userHuy = u['huy.nguyen@broadpeak.youngone.com'] || u.userElena || defaultUser;
-  const userKim = u['kim.vo@broadpeak.youngone.com'] || u.userRobertTorres || defaultUser;
-  const userTri = u['tri.doan@broadpeak.youngone.com'] || u.userMarcusVance || defaultUser;
-  const userPhong = u['phong.dang@broadpeak.youngone.com'] || u.userMichael || defaultUser;
-  const userLan = u['lan.nguyen@broadpeak.youngone.com'] || u.userSophiaPatel || defaultUser;
-  const userNgoc = u['ngoc.vu@broadpeak.youngone.com'] || u.userMarcusBell || defaultUser;
-  const userPhuong = u['phuong.bui@broadpeak.youngone.com'] || u.userChloeMartin || defaultUser;
-  const userKien = u['kien.le@broadpeak.youngone.com'] || u.userDavidKim || defaultUser;
-  const userSon = u['son.huynh@broadpeak.youngone.com'] || u.userLiamNguyen || defaultUser;
+  const userBinh = u['binh.tran@youngonevn.com'] || u.userAlex || defaultUser;
+  const userNam = u['nam.pham@youngonevn.com'] || u.userSarah || defaultUser;
+  const userThu = u['thu.le@youngonevn.com'] || u.userCarlosMendez || defaultUser;
+  const userHuy = u['huy.nguyen@youngonevn.com'] || u.userElena || defaultUser;
+  const userKim = u['kim.vo@youngonevn.com'] || u.userRobertTorres || defaultUser;
+  const userTri = u['tri.doan@youngonevn.com'] || u.userMarcusVance || defaultUser;
+  const userPhong = u['phong.dang@youngonevn.com'] || u.userMichael || defaultUser;
+  const userLan = u['lan.nguyen@youngonevn.com'] || u.userSophiaPatel || defaultUser;
+  const userNgoc = u['ngoc.vu@youngonevn.com'] || u.userMarcusBell || defaultUser;
+  const userPhuong = u['phuong.bui@youngonevn.com'] || u.userChloeMartin || defaultUser;
+  const userKien = u['kien.le@youngonevn.com'] || u.userDavidKim || defaultUser;
+  const userSon = u['son.huynh@youngonevn.com'] || u.userLiamNguyen || defaultUser;
 
   const candidateAssignments: Array<{ licenseId: string; userObj: { id: string } | undefined }> = [
     // Microsoft 365 E5

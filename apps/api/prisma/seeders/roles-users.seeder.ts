@@ -26,14 +26,13 @@ export interface StaffProfile {
 
 export async function seedRolesAndUsers(prisma: PrismaClient) {
   // 1. Password Hashes: Salted bcrypt (12 rounds) strictly adhering to AGENTS.md
-  const adminPassword =
-    process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
-  const demoPassword = process.env.INITIAL_DEMO_PASSWORD || crypto.randomBytes(16).toString('hex');
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Youngone@2026';
+  const demoPassword = process.env.INITIAL_DEMO_PASSWORD || 'Youngone@2026';
 
   const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
   const defaultPasswordHash = await bcrypt.hash(demoPassword, 12);
 
-  // 2. Standard Roles Catalog - Exactly 4 Clean RBAC Roles: Admin, Manager, User, Viewer (Chỉ xem)
+  // 2. Standard Roles Catalog - Exactly 4 Clean RBAC Roles: Admin, Manager, User, Viewer
   const rolesData = [
     {
       name: 'Admin',
@@ -147,7 +146,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       return false;
     },
 
-    // 4. Viewer (Chỉ xem): Pure read-only inspection visibility across enterprise resources
+    // 4. Viewer: Pure read-only inspection visibility across enterprise resources
     Viewer: (k) => {
       const allowedSubjects = [
         'Asset',
@@ -189,7 +188,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
   const coreStaffData = [
     {
       username: 'admin',
-      email: 'admin@uims.internal',
+      email: 'admin@youngonevn.com',
       employeeCode: 'YON-001',
       firstName: 'Enterprise',
       lastName: 'Admin',
@@ -208,29 +207,69 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       passwordHash: adminPasswordHash,
     },
     {
-      username: 'admin.local',
-      email: 'admin@uims.local',
+      username: 'manager',
+      email: 'manager@youngonevn.com',
       employeeCode: 'YON-002',
-      firstName: 'System',
-      lastName: 'Root',
-      displayName: 'System Root Operator',
-      jobTitle: 'Local Platform Superuser',
-      roleId: seededRoles['Admin'].id,
+      firstName: 'Operations',
+      lastName: 'Manager',
+      displayName: 'Operations Manager (Youngone)',
+      jobTitle: 'Operations & Department Lead',
+      roleId: seededRoles['Manager'].id,
       status: 'ACTIVE' as const,
       source: 'LOCAL' as const,
       organizationCode: 'BSH',
-      departmentCode: 'DEPT-BSH-IT',
-      positionCode: 'POS-BSH-IT-ARCH',
+      departmentCode: 'DEPT-BSH-CORP',
+      positionCode: 'POS-BSH-CORP-DIR',
       locationId: 'loc-bsh-d7',
       adGroup: 'GR_Youngone_Executive',
       phone: '+84 (28) 3997-8002',
-      ouPath: 'OU=LocalAdmin,OU=Broadpeak,DC=youngone,DC=internal',
-      passwordHash: adminPasswordHash,
+      ouPath: 'OU=Operations,OU=Broadpeak,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'user',
+      email: 'user@youngonevn.com',
+      employeeCode: 'YON-003',
+      firstName: 'Standard',
+      lastName: 'User',
+      displayName: 'Standard User (Youngone)',
+      jobTitle: 'Enterprise IT Specialist',
+      roleId: seededRoles['User'].id,
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
+      organizationCode: 'BSL',
+      departmentCode: 'DEPT-BSL-IT',
+      positionCode: 'POS-BSL-IT-SPEC',
+      locationId: 'loc-bsl-st',
+      adGroup: 'GR_BSL_FactoryOperations',
+      phone: '+84 (299) 387-9003',
+      ouPath: 'OU=Staff,OU=Broadpeak,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
+    },
+    {
+      username: 'viewer',
+      email: 'viewer@youngonevn.com',
+      employeeCode: 'YON-004',
+      firstName: 'Compliance',
+      lastName: 'Viewer',
+      displayName: 'Compliance Viewer (Youngone)',
+      jobTitle: 'Read-Only Auditor & Observer',
+      roleId: seededRoles['Viewer'].id,
+      status: 'ACTIVE' as const,
+      source: 'LOCAL' as const,
+      organizationCode: 'BSH',
+      departmentCode: 'DEPT-BSH-FIN',
+      positionCode: 'POS-BSH-FIN-CTRL',
+      locationId: 'loc-bsh-d7',
+      adGroup: 'GR_BSH_CorporateOffice',
+      phone: '+84 (28) 3997-8004',
+      ouPath: 'OU=Audit,OU=Broadpeak,DC=youngone,DC=internal',
+      passwordHash: defaultPasswordHash,
     },
     // BSL (Soc Trang) Core Staff
     {
       username: 'binh.tran',
-      email: 'binh.tran@broadpeak.youngone.com',
+      email: 'binh.tran@youngonevn.com',
       employeeCode: 'BSL-001',
       firstName: 'Binh',
       lastName: 'Tran Van',
@@ -250,7 +289,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'nam.pham',
-      email: 'nam.pham@broadpeak.youngone.com',
+      email: 'nam.pham@youngonevn.com',
       employeeCode: 'BSL-002',
       firstName: 'Nam',
       lastName: 'Pham Hoang',
@@ -270,7 +309,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'son.huynh',
-      email: 'son.huynh@broadpeak.youngone.com',
+      email: 'son.huynh@youngonevn.com',
       employeeCode: 'BSL-003',
       firstName: 'Son',
       lastName: 'Huynh Thanh',
@@ -290,7 +329,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'thu.le',
-      email: 'thu.le@broadpeak.youngone.com',
+      email: 'thu.le@youngonevn.com',
       employeeCode: 'BSL-004',
       firstName: 'Thu',
       lastName: 'Le Thi',
@@ -310,7 +349,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'huy.nguyen',
-      email: 'huy.nguyen@broadpeak.youngone.com',
+      email: 'huy.nguyen@youngonevn.com',
       employeeCode: 'BSL-005',
       firstName: 'Huy',
       lastName: 'Nguyen Quoc',
@@ -330,7 +369,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'kim.vo',
-      email: 'kim.vo@broadpeak.youngone.com',
+      email: 'kim.vo@youngonevn.com',
       employeeCode: 'BSL-006',
       firstName: 'Kim',
       lastName: 'Vo Thi',
@@ -350,7 +389,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'chau.dang',
-      email: 'chau.dang@broadpeak.youngone.com',
+      email: 'chau.dang@youngonevn.com',
       employeeCode: 'BSL-007',
       firstName: 'Chau',
       lastName: 'Dang Minh',
@@ -372,7 +411,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     // BSH (Ho Chi Minh) Core Staff
     {
       username: 'tri.doan',
-      email: 'tri.doan@broadpeak.youngone.com',
+      email: 'tri.doan@youngonevn.com',
       employeeCode: 'BSH-001',
       firstName: 'Tri',
       lastName: 'Doan Minh',
@@ -392,7 +431,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'phong.dang',
-      email: 'phong.dang@broadpeak.youngone.com',
+      email: 'phong.dang@youngonevn.com',
       employeeCode: 'BSH-002',
       firstName: 'Phong',
       lastName: 'Dang Thanh',
@@ -412,7 +451,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'kien.le',
-      email: 'kien.le@broadpeak.youngone.com',
+      email: 'kien.le@youngonevn.com',
       employeeCode: 'BSH-003',
       firstName: 'Kien',
       lastName: 'Le Van',
@@ -432,7 +471,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'lan.nguyen',
-      email: 'lan.nguyen@broadpeak.youngone.com',
+      email: 'lan.nguyen@youngonevn.com',
       employeeCode: 'BSH-004',
       firstName: 'Lan',
       lastName: 'Nguyen Thi',
@@ -452,7 +491,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'tuan.hoang',
-      email: 'tuan.hoang@broadpeak.youngone.com',
+      email: 'tuan.hoang@youngonevn.com',
       employeeCode: 'BSH-005',
       firstName: 'Tuan',
       lastName: 'Hoang Anh',
@@ -472,7 +511,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'ngoc.vu',
-      email: 'ngoc.vu@broadpeak.youngone.com',
+      email: 'ngoc.vu@youngonevn.com',
       employeeCode: 'BSH-006',
       firstName: 'Ngoc',
       lastName: 'Vu Bich',
@@ -492,7 +531,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     },
     {
       username: 'phuong.bui',
-      email: 'phuong.bui@broadpeak.youngone.com',
+      email: 'phuong.bui@youngonevn.com',
       employeeCode: 'BSH-007',
       firstName: 'Phuong',
       lastName: 'Bui Mai',
@@ -563,10 +602,10 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
     `✅ Seeded ${rolesData.length} roles, ${seededPermissionsMap.size} permissions, and ${coreStaffData.length} Broadpeak operator accounts.`,
   );
 
-  const adminUser = seededUsers['admin@uims.internal'];
-  const bslAdmin = seededUsers['nam.pham@broadpeak.youngone.com'];
-  const bshAdmin = seededUsers['phong.dang@broadpeak.youngone.com'];
-  const defaultUser = seededUsers['binh.tran@broadpeak.youngone.com'] || adminUser;
+  const adminUser = seededUsers['admin@youngonevn.com'];
+  const bslAdmin = seededUsers['nam.pham@youngonevn.com'];
+  const bshAdmin = seededUsers['phong.dang@youngonevn.com'];
+  const defaultUser = seededUsers['binh.tran@youngonevn.com'] || adminUser;
 
   return {
     roles: {
@@ -576,20 +615,24 @@ export async function seedRolesAndUsers(prisma: PrismaClient) {
       Auditor: seededRoles['Viewer'],
     },
     users: {
-      userAdminLocal: seededUsers['admin@uims.local'],
+      userAdminLocal: adminUser,
+      userAdmin: adminUser,
+      userManager: seededUsers['manager@youngonevn.com'],
+      userUser: seededUsers['user@youngonevn.com'],
+      userViewer: seededUsers['viewer@youngonevn.com'],
       userAlex: adminUser,
       userSarah: bslAdmin,
       userMichael: bshAdmin,
-      userMarcusBell: seededUsers['ngoc.vu@broadpeak.youngone.com'] || adminUser,
-      userDavidKim: seededUsers['kien.le@broadpeak.youngone.com'] || defaultUser,
-      userSophiaPatel: seededUsers['lan.nguyen@broadpeak.youngone.com'] || defaultUser,
-      userLiamNguyen: seededUsers['son.huynh@broadpeak.youngone.com'] || defaultUser,
-      userCarlosMendez: seededUsers['thu.le@broadpeak.youngone.com'] || defaultUser,
-      userMarcusVance: seededUsers['tuan.hoang@broadpeak.youngone.com'] || defaultUser,
-      userChloeMartin: seededUsers['phuong.bui@broadpeak.youngone.com'] || defaultUser,
-      userElena: seededUsers['huy.nguyen@broadpeak.youngone.com'] || defaultUser,
-      userRobertTorres: seededUsers['kim.vo@broadpeak.youngone.com'] || defaultUser,
-      userLisaWang: seededUsers['chau.dang@broadpeak.youngone.com'] || defaultUser,
+      userMarcusBell: seededUsers['ngoc.vu@youngonevn.com'] || adminUser,
+      userDavidKim: seededUsers['kien.le@youngonevn.com'] || defaultUser,
+      userSophiaPatel: seededUsers['lan.nguyen@youngonevn.com'] || defaultUser,
+      userLiamNguyen: seededUsers['son.huynh@youngonevn.com'] || defaultUser,
+      userCarlosMendez: seededUsers['thu.le@youngonevn.com'] || defaultUser,
+      userMarcusVance: seededUsers['tuan.hoang@youngonevn.com'] || defaultUser,
+      userChloeMartin: seededUsers['phuong.bui@youngonevn.com'] || defaultUser,
+      userElena: seededUsers['huy.nguyen@youngonevn.com'] || defaultUser,
+      userRobertTorres: seededUsers['kim.vo@youngonevn.com'] || defaultUser,
+      userLisaWang: seededUsers['chau.dang@youngonevn.com'] || defaultUser,
       userRachelAdams: defaultUser,
       userJamesWilson: defaultUser,
       userHannahScott: defaultUser,

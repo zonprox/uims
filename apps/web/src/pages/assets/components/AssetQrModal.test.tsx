@@ -29,12 +29,6 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
     purchaseDate: '2026-02-10',
     purchasePrice: 2499,
     warrantyExpiry: '2029-02-10',
-    specs: {
-      cpu: 'Intel Core i7-12800H',
-      ram: '32 GB',
-      storage: '1 TB SSD',
-      os: 'Windows 11 Pro',
-    },
   };
 
   beforeEach(() => {

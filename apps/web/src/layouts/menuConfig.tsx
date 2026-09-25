@@ -148,7 +148,7 @@ export function getUserMenuItems(
             {user?.name || 'Administrator'}
           </Text>
           <Text type="secondary" style={{ fontSize: 11.5 }}>
-            {user?.email || 'admin@uims.internal'}
+            {user?.email || 'admin@youngonevn.com'}
           </Text>
           <Tag color="blue" style={{ marginTop: 6, fontSize: 10, padding: '0 6px' }}>
             {user?.role || 'Super Admin'}
@@ -310,8 +310,8 @@ export function getNavMenuItems(
     assetChildren.push({
       key: '/network',
       icon: <NavIconWithBadge icon={<GlobalOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Network & IPAM'),
-      title: 'Network & IPAM',
+      label: renderNavLabel('Network'),
+      title: 'Network',
     });
   }
 

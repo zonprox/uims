@@ -359,6 +359,9 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
       it('should set vendorId to null on both Asset and License when Vendor is deleted, preserving child rows', async () => {
         if (!isDbAvailable) return;
 
+        const sampleDept = await prisma.department.findFirst();
+        const sampleLoc = await prisma.location.findFirst();
+
         // 1. Create a dedicated vendor
         const testVendor = await prisma.vendor.create({
           data: {
@@ -367,61 +370,75 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           },
         });
 
-        // 2. Associate an Asset and a License with this Vendor
-        const testAsset = await prisma.asset.create({
-          data: {
-            assetTag: `TAG-SETNULL-${Date.now()}`,
-            name: 'Asset Associated With Vendor',
-            vendorId: testVendor.id,
-          },
-        });
+        let testAssetId: string | null = null;
+        let testLicenseId: string | null = null;
 
-        const testLicense = await prisma.license.create({
-          data: {
-            name: 'License Associated With Vendor',
-            totalSeats: 15,
-            vendorId: testVendor.id,
-          },
-        });
+        try {
+          // 2. Associate an Asset and a License with this Vendor
+          const testAsset = await prisma.asset.create({
+            data: {
+              assetTag: `TAG-SETNULL-${Date.now()}`,
+              name: 'Asset Associated With Vendor',
+              vendorId: testVendor.id,
+              departmentId: sampleDept?.id,
+              locationId: sampleLoc?.id,
+            },
+          });
+          testAssetId = testAsset.id;
 
-        // Verify initial associations
-        expect(testAsset.vendorId).toBe(testVendor.id);
-        expect(testLicense.vendorId).toBe(testVendor.id);
+          const testLicense = await prisma.license.create({
+            data: {
+              name: 'License Associated With Vendor',
+              totalSeats: 15,
+              vendorId: testVendor.id,
+            },
+          });
+          testLicenseId = testLicense.id;
 
-        // 3. Delete the Vendor
-        await prisma.vendor.delete({
-          where: { id: testVendor.id },
-        });
+          // Verify initial associations
+          expect(testAsset.vendorId).toBe(testVendor.id);
+          expect(testLicense.vendorId).toBe(testVendor.id);
 
-        // Verify Vendor is deleted
-        const foundVendor = await prisma.vendor.findUnique({
-          where: { id: testVendor.id },
-        });
-        expect(foundVendor).toBeNull();
+          // 3. Delete the Vendor
+          await prisma.vendor.delete({
+            where: { id: testVendor.id },
+          });
 
-        // 4. Verify Asset is preserved and its vendorId became null
-        const preservedAsset = await prisma.asset.findUnique({
-          where: { id: testAsset.id },
-        });
-        expect(preservedAsset).not.toBeNull();
-        expect(preservedAsset?.id).toBe(testAsset.id);
-        expect(preservedAsset?.vendorId).toBeNull();
+          // Verify Vendor is deleted
+          const foundVendor = await prisma.vendor.findUnique({
+            where: { id: testVendor.id },
+          });
+          expect(foundVendor).toBeNull();
 
-        // 5. Verify License is preserved and its vendorId became null
-        const preservedLicense = await prisma.license.findUnique({
-          where: { id: testLicense.id },
-        });
-        expect(preservedLicense).not.toBeNull();
-        expect(preservedLicense?.id).toBe(testLicense.id);
-        expect(preservedLicense?.vendorId).toBeNull();
+          // 4. Verify Asset is preserved and its vendorId became null
+          const preservedAsset = await prisma.asset.findUnique({
+            where: { id: testAsset.id },
+          });
+          expect(preservedAsset).not.toBeNull();
+          expect(preservedAsset?.id).toBe(testAsset.id);
+          expect(preservedAsset?.vendorId).toBeNull();
 
-        // 6. Cleanup test records
-        await prisma.asset.delete({ where: { id: testAsset.id } });
-        await prisma.license.delete({ where: { id: testLicense.id } });
+          // 5. Verify License is preserved and its vendorId became null
+          const preservedLicense = await prisma.license.findUnique({
+            where: { id: testLicense.id },
+          });
+          expect(preservedLicense).not.toBeNull();
+          expect(preservedLicense?.id).toBe(testLicense.id);
+          expect(preservedLicense?.vendorId).toBeNull();
+        } finally {
+          // 6. Cleanup test records
+          if (testAssetId)
+            await prisma.asset.delete({ where: { id: testAssetId } }).catch(() => {});
+          if (testLicenseId)
+            await prisma.license.delete({ where: { id: testLicenseId } }).catch(() => {});
+        }
       });
 
       it('should set vendorId to null across multiple assets and licenses concurrently upon vendor deletion', async () => {
         if (!isDbAvailable) return;
+
+        const sampleDept = await prisma.department.findFirst();
+        const sampleLoc = await prisma.location.findFirst();
 
         const vendor = await prisma.vendor.create({
           data: {
@@ -433,48 +450,54 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         const assetIds: Array<string> = [];
         const licenseIds: Array<string> = [];
 
-        for (let i = 0; i < 3; i++) {
-          const a = await prisma.asset.create({
-            data: {
-              assetTag: `TAG-MULTI-SETNULL-${Date.now()}-${i}`,
-              name: `Multi-Child Asset ${i}`,
-              vendorId: vendor.id,
-            },
-          });
-          assetIds.push(a.id);
+        try {
+          for (let i = 0; i < 3; i++) {
+            const a = await prisma.asset.create({
+              data: {
+                assetTag: `TAG-MULTI-SETNULL-${Date.now()}-${i}`,
+                name: `Multi-Child Asset ${i}`,
+                vendorId: vendor.id,
+                departmentId: sampleDept?.id,
+                locationId: sampleLoc?.id,
+              },
+            });
+            assetIds.push(a.id);
 
-          const l = await prisma.license.create({
-            data: {
-              name: `Multi-Child License ${i}`,
-              totalSeats: 5,
-              vendorId: vendor.id,
-            },
-          });
-          licenseIds.push(l.id);
+            const l = await prisma.license.create({
+              data: {
+                name: `Multi-Child License ${i}`,
+                totalSeats: 5,
+                vendorId: vendor.id,
+              },
+            });
+            licenseIds.push(l.id);
+          }
+
+          // Verify all 6 records reference the vendor
+          const preAssets = await prisma.asset.findMany({ where: { id: { in: assetIds } } });
+          const preLicenses = await prisma.license.findMany({ where: { id: { in: licenseIds } } });
+          expect(preAssets.every((a) => a.vendorId === vendor.id)).toBe(true);
+          expect(preLicenses.every((l) => l.vendorId === vendor.id)).toBe(true);
+
+          // Delete the parent vendor
+          await prisma.vendor.delete({ where: { id: vendor.id } });
+
+          // Verify all 3 assets still exist and have vendorId === null
+          const postAssets = await prisma.asset.findMany({ where: { id: { in: assetIds } } });
+          expect(postAssets.length).toBe(3);
+          expect(postAssets.every((a) => a.vendorId === null)).toBe(true);
+
+          // Verify all 3 licenses still exist and have vendorId === null
+          const postLicenses = await prisma.license.findMany({ where: { id: { in: licenseIds } } });
+          expect(postLicenses.length).toBe(3);
+          expect(postLicenses.every((l) => l.vendorId === null)).toBe(true);
+        } finally {
+          // Cleanup
+          if (assetIds.length > 0)
+            await prisma.asset.deleteMany({ where: { id: { in: assetIds } } }).catch(() => {});
+          if (licenseIds.length > 0)
+            await prisma.license.deleteMany({ where: { id: { in: licenseIds } } }).catch(() => {});
         }
-
-        // Verify all 6 records reference the vendor
-        const preAssets = await prisma.asset.findMany({ where: { id: { in: assetIds } } });
-        const preLicenses = await prisma.license.findMany({ where: { id: { in: licenseIds } } });
-        expect(preAssets.every((a) => a.vendorId === vendor.id)).toBe(true);
-        expect(preLicenses.every((l) => l.vendorId === vendor.id)).toBe(true);
-
-        // Delete the parent vendor
-        await prisma.vendor.delete({ where: { id: vendor.id } });
-
-        // Verify all 3 assets still exist and have vendorId === null
-        const postAssets = await prisma.asset.findMany({ where: { id: { in: assetIds } } });
-        expect(postAssets.length).toBe(3);
-        expect(postAssets.every((a) => a.vendorId === null)).toBe(true);
-
-        // Verify all 3 licenses still exist and have vendorId === null
-        const postLicenses = await prisma.license.findMany({ where: { id: { in: licenseIds } } });
-        expect(postLicenses.length).toBe(3);
-        expect(postLicenses.every((l) => l.vendorId === null)).toBe(true);
-
-        // Cleanup
-        await prisma.asset.deleteMany({ where: { id: { in: assetIds } } });
-        await prisma.license.deleteMany({ where: { id: { in: licenseIds } } });
       });
     });
   });

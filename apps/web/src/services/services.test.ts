@@ -208,7 +208,7 @@ describe('Frontend Service Clients', () => {
       vi.mocked(api.get).mockResolvedValueOnce({
         data: {
           data: {
-            items: [{ id: 'u1', email: 'admin@uims.local' }],
+            items: [{ id: 'u1', email: 'admin@youngonevn.com' }],
             total: 1,
             page: 1,
             pageSize: 10,

@@ -18,7 +18,6 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import {
-  Alert,
   App,
   Avatar,
   Badge,
@@ -813,7 +812,7 @@ const ActionQueueCard: React.FC<{
   return (
     <Card
       size="small"
-      style={{ height: '100%' }}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
       title={
         <Flex align="center" gap={6}>
           <ThunderboltOutlined style={{ color: '#faad14' }} />
@@ -832,7 +831,14 @@ const ActionQueueCard: React.FC<{
       }
       styles={{
         header: { flexWrap: 'wrap', minHeight: 44, gap: 6, padding: '6px 12px' },
-        body: { padding: '8px 10px' },
+        body: {
+          padding: '8px 10px',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'hidden',
+        },
       }}
       extra={
         <Segmented
@@ -844,7 +850,17 @@ const ActionQueueCard: React.FC<{
       }
     >
       {filteredItems.length === 0 ? (
-        <div style={{ padding: '24px 0', textAlign: 'center' }}>
+        <div
+          style={{
+            padding: '24px 0',
+            textAlign: 'center',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
           <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a', marginBottom: 6 }} />
           <Text strong style={{ display: 'block', fontSize: 12.5 }}>
             {items.length === 0 ? 'All Systems Operational' : 'No Matching Action Items'}
@@ -858,11 +874,13 @@ const ActionQueueCard: React.FC<{
       ) : (
         <Flex
           vertical
-          gap={6}
+          gap={8}
           style={{
-            maxHeight: 330,
+            flex: 1,
             overflowY: 'auto',
-            paddingRight: 2,
+            minHeight: 0,
+            paddingRight: 4,
+            paddingBottom: 4,
           }}
         >
           {filteredItems.map((item) => {
@@ -872,7 +890,7 @@ const ActionQueueCard: React.FC<{
               <div
                 key={item.id}
                 style={{
-                  padding: '7px 10px',
+                  padding: '8px 10px',
                   borderRadius: 6,
                   background: isError
                     ? 'rgba(239, 68, 68, 0.05)'
@@ -914,7 +932,7 @@ const ActionQueueCard: React.FC<{
                     {item.tag}
                   </Tag>
                 </Flex>
-                <Flex justify="space-between" align="flex-end" gap={8} style={{ marginTop: 2 }}>
+                <Flex justify="space-between" align="center" gap={8} style={{ marginTop: 4 }}>
                   <Text
                     type="secondary"
                     style={{
@@ -930,12 +948,11 @@ const ActionQueueCard: React.FC<{
                     type="link"
                     size="small"
                     style={{
-                      padding: 0,
+                      padding: '2px 0',
                       height: 'auto',
                       fontSize: 11.5,
                       fontWeight: 500,
                       flexShrink: 0,
-                      alignSelf: 'flex-end',
                       display: 'inline-flex',
                       alignItems: 'center',
                     }}
@@ -964,9 +981,24 @@ const ActivityStreamCard: React.FC<{
 }> = ({ activities = [], refreshing, onRefresh, onNavigate }) => {
   const [actionFilter, setActionFilter] = useState<string>('ALL');
 
-  const filteredActivities = useMemo(() => {
-    if (actionFilter === 'ALL') return activities;
+  const deduplicatedActivities = useMemo(() => {
+    const seenKeys = new Set<string>();
+    const seenSignatures = new Set<string>();
     return activities.filter((act) => {
+      if (act.key) {
+        if (seenKeys.has(act.key)) return false;
+        seenKeys.add(act.key);
+      }
+      const sig = `${act.user || ''}-${act.action || ''}-${act.entity || ''}-${act.details || ''}-${act.time || ''}`;
+      if (seenSignatures.has(sig)) return false;
+      seenSignatures.add(sig);
+      return true;
+    });
+  }, [activities]);
+
+  const filteredActivities = useMemo(() => {
+    if (actionFilter === 'ALL') return deduplicatedActivities;
+    return deduplicatedActivities.filter((act) => {
       const actUpper = (act.action || '').toUpperCase();
       if (actUpper === actionFilter) return true;
       if (
@@ -1042,7 +1074,7 @@ const ActivityStreamCard: React.FC<{
       title: 'Actor',
       dataIndex: 'user',
       key: 'user',
-      width: 160,
+      width: 155,
       render: (text: string, record: RecentActivityItem) => (
         <Flex align="center" gap={7}>
           <Avatar
@@ -1082,10 +1114,18 @@ const ActivityStreamCard: React.FC<{
       title: 'Target Entity & Details',
       dataIndex: 'entity',
       key: 'entity',
+      align: 'left' as const,
+      ellipsis: true,
       render: (entity: string, record: RecentActivityItem) => {
         const link = getEntityLink(entity, record.entityType, record.linkUrl);
         return (
-          <Flex vertical gap={1} style={{ minWidth: 0 }}>
+          <Flex
+            vertical
+            justify="center"
+            align="flex-start"
+            gap={2}
+            style={{ minWidth: 0, width: '100%', textAlign: 'left' }}
+          >
             <Button
               type="link"
               size="small"
@@ -1095,21 +1135,48 @@ const ActivityStreamCard: React.FC<{
                 fontWeight: 600,
                 fontSize: 12,
                 textAlign: 'left',
+                justifyContent: 'flex-start',
                 display: 'inline-flex',
                 alignItems: 'center',
+                maxWidth: '100%',
               }}
               onClick={() => onNavigate(link)}
             >
-              <Space size={2}>
-                <span>{entity || 'System'}</span>
-                <RightOutlined style={{ fontSize: 8.5 }} />
+              <Space
+                size={2}
+                style={{
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  justifyContent: 'flex-start',
+                }}
+              >
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'inline-block',
+                    maxWidth: '100%',
+                    textAlign: 'left',
+                  }}
+                  title={entity || 'System'}
+                >
+                  {entity || 'System'}
+                </span>
+                <RightOutlined style={{ fontSize: 8.5, flexShrink: 0 }} />
               </Space>
             </Button>
             <Text
               type="secondary"
-              ellipsis
-              style={{ fontSize: 11, lineHeight: 1.3, margin: 0 }}
-              title={record.details}
+              ellipsis={{ tooltip: record.details }}
+              style={{
+                fontSize: 11,
+                lineHeight: 1.3,
+                margin: 0,
+                maxWidth: '100%',
+                textAlign: 'left',
+                display: 'block',
+              }}
             >
               {record.details}
             </Text>
@@ -1122,6 +1189,7 @@ const ActivityStreamCard: React.FC<{
       dataIndex: 'time',
       key: 'time',
       width: 95,
+      align: 'right' as const,
       render: (time: string, record: RecentActivityItem) => (
         <Tooltip title={record.timestamp || time}>
           <Text type="secondary" style={{ fontSize: 11, cursor: 'help', whiteSpace: 'nowrap' }}>
@@ -1135,14 +1203,14 @@ const ActivityStreamCard: React.FC<{
   return (
     <Card
       size="small"
-      style={{ height: '100%' }}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
       title={
         <Flex align="center" gap={6}>
           <HistoryOutlined style={{ color: '#1677ff' }} />
           <span>Live Activity Stream</span>
-          {activities.length > 0 && (
+          {deduplicatedActivities.length > 0 && (
             <Badge
-              count={activities.length}
+              count={deduplicatedActivities.length}
               size="small"
               style={{
                 backgroundColor: '#e6f4ff',
@@ -1190,7 +1258,7 @@ const ActivityStreamCard: React.FC<{
       }
       styles={{
         header: { flexWrap: 'wrap', minHeight: 44, gap: 6, padding: '6px 12px' },
-        body: { padding: 0, overflowX: 'auto' },
+        body: { padding: 0, overflowX: 'auto', flex: 1 },
       }}
     >
       <Table
@@ -1199,10 +1267,11 @@ const ActivityStreamCard: React.FC<{
         dataSource={filteredActivities}
         pagination={false}
         size="small"
-        scroll={{ x: 'max-content' }}
+        tableLayout="fixed"
+        scroll={{ x: '100%' }}
         locale={{
           emptyText:
-            activities.length === 0
+            deduplicatedActivities.length === 0
               ? 'No recent activity records.'
               : 'No recent activity records match filter.',
         }}
@@ -1282,15 +1351,6 @@ export default function DashboardPage() {
         </Flex>
       }
     >
-      <Alert
-        title="Asset Fleet & Inventory Audit"
-        description="Physical asset inventory audit and barcode verification scheduled for Saturday at 09:00 AM. Estimated duration: 2 hours."
-        type="info"
-        showIcon
-        closable
-        style={{ marginBottom: 16, borderRadius: 6, fontSize: 13 }}
-      />
-
       {loading && !data ? (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
           <Spin size="large" />
@@ -1326,7 +1386,13 @@ export default function DashboardPage() {
           </Row>
 
           <Row gutter={[14, 14]}>
-            <Col xs={24} md={24} lg={15} xl={15}>
+            <Col
+              xs={24}
+              md={24}
+              lg={15}
+              xl={15}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            >
               <ActivityStreamCard
                 activities={data?.recentActivity}
                 refreshing={refreshing}
@@ -1335,7 +1401,7 @@ export default function DashboardPage() {
               />
             </Col>
 
-            <Col xs={24} md={24} lg={9} xl={9}>
+            <Col xs={24} md={24} lg={9} xl={9} style={{ display: 'flex', flexDirection: 'column' }}>
               <ActionQueueCard items={data?.actionItems} onNavigate={navigate} />
             </Col>
           </Row>

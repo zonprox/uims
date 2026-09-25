@@ -45,7 +45,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     category: 'Assets',
     path: '/assets',
     icon: <LaptopOutlined />,
-    description: 'Manage laptops, workstations, monitors, servers, and specs',
+    description: 'Manage laptops, workstations, monitors, and servers',
     shortcut: '2',
   },
   {
@@ -68,11 +68,11 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'network',
-    title: 'Network & IPAM',
+    title: 'Network',
     category: 'Infrastructure',
     path: '/network',
     icon: <GlobalOutlined />,
-    description: 'IPAM, subnets, VLANs, and hardware network reservations',
+    description: 'Racks, switches, IP allocations, subnets, and VLANs',
     shortcut: '5',
   },
   {

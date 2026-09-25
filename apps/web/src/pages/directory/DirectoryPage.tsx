@@ -25,6 +25,7 @@ import { directoryService } from '../../services/directory.service';
 import { OrganizationalUnitsTab } from '../users/components/OrganizationalUnitsTab';
 import { DirectoryGroupsTab } from './DirectoryGroupsTab';
 import { EmployeesTab } from './EmployeesTab';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const { Text } = Typography;
 
@@ -62,8 +63,8 @@ export default function DirectoryPage() {
       setGroups(groupsRes || []);
       setOrganizationalUnits(ousRes || []);
       setStats(statsRes);
-    } catch (_error: unknown) {
-      message.error('Failed to load corporate directory records.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'load corporate directory records'));
     } finally {
       setLoading(false);
     }
@@ -83,8 +84,7 @@ export default function DirectoryPage() {
       );
       loadData();
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      message.error(errorObj.response?.data?.message || 'Failed to synchronize Active Directory.');
+      message.error(formatErrorMessage(err, 'synchronize Active Directory'));
     } finally {
       setSyncing(false);
     }
@@ -124,8 +124,8 @@ export default function DirectoryPage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       message.success('Directory records exported successfully.');
-    } catch (_error: unknown) {
-      message.error('Failed to export employee directory records.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'export employee directory records'));
     }
   };
 

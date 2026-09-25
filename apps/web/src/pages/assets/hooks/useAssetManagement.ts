@@ -1,3 +1,4 @@
+import { IT_ASSET_CATEGORY_IDS } from '@uims/shared-types';
 import { App, Button } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs from 'dayjs';
@@ -5,6 +6,7 @@ import { createElement, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router';
 import { type Asset, type AssetStats, assetsService } from '../../../services/assets.service';
 import { type Organization, organizationService } from '../../../services/organization.service';
+import { formatErrorMessage } from '../../../utils/feedback';
 import { parseAssetQrPayload, playSuccessChime, triggerHapticFeedback } from '../utils/qrDecoder';
 
 declare module '../../../services/assets.service' {
@@ -31,11 +33,8 @@ export interface AssetFormValues {
   purchaseDate?: dayjs.Dayjs;
   purchasePrice?: number;
   warrantyExpiry?: dayjs.Dayjs;
-  cpu?: string;
-  ram?: string;
-  storage?: string;
-  os?: string;
   notes?: string;
+  [key: string]: unknown;
 }
 
 export interface AssetFilterState {
@@ -46,17 +45,7 @@ export interface AssetFilterState {
   locationFilter?: string;
 }
 
-export function buildAssetSpecs(values: AssetFormValues) {
-  return {
-    cpu: values.cpu ?? 'N/A',
-    ram: values.ram ?? 'N/A',
-    storage: values.storage ?? 'N/A',
-    os: values.os ?? 'N/A',
-  };
-}
-
 export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
-  const specs = buildAssetSpecs(values);
   const purchaseDate = values.purchaseDate?.format('YYYY-MM-DD');
   const warrantyExpiry = values.warrantyExpiry?.format('YYYY-MM-DD');
 
@@ -66,7 +55,7 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
     manufacturer: values.manufacturer ?? '',
     model: values.model ?? '',
     serialNumber: values.serialNumber ?? '',
-    category: values.category ?? 'Laptop',
+    category: values.category ?? 'Laptops / Notebooks',
     categoryId: values.categoryId || undefined,
     status: values.status ?? 'Active',
     assignedTo: values.assignedTo,
@@ -78,7 +67,6 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
     purchaseDate,
     purchasePrice: values.purchasePrice ?? 0,
     warrantyExpiry,
-    specs,
     notes: values.notes,
   };
 }
@@ -106,8 +94,8 @@ export function useAssetManagement(form: FormInstance) {
     organizationService
       .getOrganizations()
       .then((orgs) => setOrganizations(orgs))
-      .catch((_error: unknown) => {
-        message.error('Failed to load organizations.');
+      .catch((err: unknown) => {
+        message.error(formatErrorMessage(err, 'load organizations'));
       });
   }, [message]);
 
@@ -152,10 +140,15 @@ export function useAssetManagement(form: FormInstance) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const isCategoryId =
+        categoryFilter !== 'all' &&
+        (categoryFilter.startsWith('cat-') || categoryFilter.includes('-'));
+
       const [list, statsData] = await Promise.all([
         assetsService.getAssets({
           search: searchQuery || undefined,
-          category: categoryFilter !== 'all' ? categoryFilter : undefined,
+          categoryId: isCategoryId ? categoryFilter : undefined,
+          category: categoryFilter !== 'all' && !isCategoryId ? categoryFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
           organizationId: orgFilter !== 'all' ? orgFilter : undefined,
           locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
@@ -185,8 +178,8 @@ export function useAssetManagement(form: FormInstance) {
           retired: filtered.filter((a) => a.status === 'Retired').length,
         });
       }
-    } catch (_err: unknown) {
-      message.error('Failed to load assets from server.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'load assets from server'));
     } finally {
       setLoading(false);
     }
@@ -235,7 +228,8 @@ export function useAssetManagement(form: FormInstance) {
       form.setFieldsValue({
         tag,
         status: 'Active',
-        category: 'Laptop',
+        categoryId: IT_ASSET_CATEGORY_IDS.LAPTOP,
+        category: 'Laptops / Notebooks',
         purchaseDate: dayjs(),
         warrantyExpiry: dayjs().add(3, 'year'),
         purchasePrice: 1500,
@@ -317,7 +311,8 @@ export function useAssetManagement(form: FormInstance) {
     form.setFieldsValue({
       tag: `AST-${Math.floor(1000 + Math.random() * 9000)}`,
       status: 'Active',
-      category: 'Laptop',
+      categoryId: IT_ASSET_CATEGORY_IDS.LAPTOP,
+      category: 'Laptops / Notebooks',
       purchaseDate: dayjs(),
       warrantyExpiry: dayjs().add(3, 'year'),
       purchasePrice: 1500,
@@ -329,18 +324,18 @@ export function useAssetManagement(form: FormInstance) {
   const handleOpenEditModal = useCallback(
     (asset: Asset) => {
       setEditingAsset(asset);
+      const resolvedCategoryId =
+        asset.categoryId || (typeof asset.category === 'string' ? asset.category : undefined);
+
       form.setFieldsValue({
         ...asset,
-        categoryId: asset.categoryId,
+        categoryId: resolvedCategoryId,
         assignedToId: asset.assignedToId,
         locationId: asset.locationId,
         departmentId: asset.departmentId,
         purchaseDate: asset.purchaseDate ? dayjs(asset.purchaseDate) : undefined,
         warrantyExpiry: asset.warrantyExpiry ? dayjs(asset.warrantyExpiry) : undefined,
-        cpu: asset.specs?.cpu,
-        ram: asset.specs?.ram,
-        storage: asset.specs?.storage,
-        os: asset.specs?.os,
+        notes: asset.notes,
       });
       setModalOpen(true);
     },
@@ -364,8 +359,7 @@ export function useAssetManagement(form: FormInstance) {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: { message?: string } } };
-      message.error(apiErr.response?.data?.message || 'Failed to save asset.');
+      message.error(formatErrorMessage(err, 'save asset'));
     } finally {
       setModalSubmitting(false);
     }
@@ -377,8 +371,8 @@ export function useAssetManagement(form: FormInstance) {
         await assetsService.deleteAsset(id);
         message.success('Asset deleted successfully.');
         loadData();
-      } catch (_err: unknown) {
-        message.error('Failed to delete asset.');
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'delete asset'));
       }
     },
     [loadData, message],
@@ -407,8 +401,8 @@ export function useAssetManagement(form: FormInstance) {
       link.click();
       document.body.removeChild(link);
       message.success('Assets exported successfully.');
-    } catch (_err: unknown) {
-      message.error('Failed to export CSV.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'export assets'));
     } finally {
       setExporting(false);
     }
