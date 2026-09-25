@@ -19,8 +19,9 @@ const SENSITIVE_KEY_PATTERNS = [
   'privatekey',
   'creditcard',
   'cvv',
-  'auth',
   'authorization',
+  'authheader',
+  'authkey',
   'credential',
   'sessionid',
   'ssn',
@@ -28,6 +29,7 @@ const SENSITIVE_KEY_PATTERNS = [
 
 function isSensitiveKey(key: string): boolean {
   const normalized = key.toLowerCase().replace(/[-_]/g, '');
+  if (normalized === 'auth') return true;
   return SENSITIVE_KEY_PATTERNS.some((pattern) => normalized.includes(pattern));
 }
 
@@ -40,7 +42,9 @@ export function sanitizePayload(
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== 'object') return obj;
 
-  if (obj instanceof Date) return obj.toISOString();
+  if (obj instanceof Date) {
+    return Number.isNaN(obj.getTime()) ? null : obj.toISOString();
+  }
   if (typeof Buffer !== 'undefined' && Buffer.isBuffer(obj)) return '[BINARY BUFFER]';
   if (obj instanceof Uint8Array) return '[BINARY DATA]';
 

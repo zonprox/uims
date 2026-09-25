@@ -158,7 +158,11 @@ export class AuditService {
       .map((l) =>
         [
           escapeCell(l.id),
-          escapeCell(l.timestamp ? l.timestamp.toISOString() : ''),
+          escapeCell(
+            l.timestamp instanceof Date && !Number.isNaN(l.timestamp.getTime())
+              ? l.timestamp.toISOString()
+              : '',
+          ),
           escapeCell(l.userName || ''),
           escapeCell(l.userEmail || ''),
           escapeCell(l.action),
@@ -207,9 +211,10 @@ export class AuditService {
   private formatLog(log: AuditLog) {
     return {
       id: log.id,
-      timestamp: log.timestamp
-        ? log.timestamp.toISOString().replace('T', ' ').substring(0, 19)
-        : '',
+      timestamp:
+        log.timestamp instanceof Date && !Number.isNaN(log.timestamp.getTime())
+          ? log.timestamp.toISOString().replace('T', ' ').substring(0, 19)
+          : '',
       user: log.userName || 'System Engine',
       userName: log.userName || 'System Engine',
       userEmail: log.userEmail || 'system@youngonevn.com',

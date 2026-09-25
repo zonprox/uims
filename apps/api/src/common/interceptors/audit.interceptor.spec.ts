@@ -250,6 +250,38 @@ describe('AuditInterceptor', () => {
     expect(sanitized.apiKey).toBe('[REDACTED]');
   });
 
+  it('should avoid false-positive redaction on author, authorId, authority while redacting sensitive auth tokens/keys', () => {
+    const input = {
+      author: 'John Doe',
+      authorId: 'usr-123',
+      authority: 'APAC Headquarters',
+      auth: 'secret-token',
+      auth_key: 'key-456',
+      authHeader: 'Bearer token-789',
+    };
+
+    const sanitized = sanitizePayload(input) as Record<string, unknown>;
+    expect(sanitized.author).toBe('John Doe');
+    expect(sanitized.authorId).toBe('usr-123');
+    expect(sanitized.authority).toBe('APAC Headquarters');
+    expect(sanitized.auth).toBe('[REDACTED]');
+    expect(sanitized.auth_key).toBe('[REDACTED]');
+    expect(sanitized.authHeader).toBe('[REDACTED]');
+  });
+
+  it('should safely serialize invalid Date instances as null without throwing RangeError', () => {
+    const input = {
+      validDate: new Date('2026-09-25T12:00:00.000Z'),
+      invalidDate: new Date('invalid-time-value'),
+      nanDate: new Date(Number.NaN),
+    };
+
+    const sanitized = sanitizePayload(input) as Record<string, unknown>;
+    expect(sanitized.validDate).toBe('2026-09-25T12:00:00.000Z');
+    expect(sanitized.invalidDate).toBeNull();
+    expect(sanitized.nanDate).toBeNull();
+  });
+
   it('should ensure database error in audit logging does not fail the primary business request (error isolation)', async () => {
     mockPrisma.auditLog.create.mockRejectedValue(new Error('Postgres connection pool exhausted'));
 

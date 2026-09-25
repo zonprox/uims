@@ -293,5 +293,47 @@ describe('AuditService', () => {
       expect(csv).toContain('"\'=HYPERLINK(""http://evil.com"")"');
       expect(csv).toContain('"\'\tTab indented text"');
     });
+
+    it('should safely handle records with invalid Date timestamps without throwing RangeError', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([
+        {
+          id: 'log-invalid-date',
+          userId: 'u-1',
+          userName: 'Test User',
+          userEmail: 'test@example.com',
+          action: 'CREATE',
+          severity: 'Info',
+          entity: 'Asset',
+          ipAddress: '10.0.0.1',
+          status: 'Success',
+          statusCode: 200,
+          durationMs: 10,
+          details: 'Test details',
+          timestamp: new Date(Number.NaN),
+        },
+      ]);
+
+      const csv = await service.exportCsv();
+      expect(csv).toContain('log-invalid-date');
+
+      mockPrisma.auditLog.findUnique.mockResolvedValueOnce({
+        id: 'log-invalid-date',
+        userId: 'u-1',
+        userName: 'Test User',
+        userEmail: 'test@example.com',
+        action: 'CREATE',
+        severity: 'Info',
+        entity: 'Asset',
+        ipAddress: '10.0.0.1',
+        status: 'Success',
+        statusCode: 200,
+        durationMs: 10,
+        details: 'Test details',
+        timestamp: new Date(Number.NaN),
+      });
+
+      const single = await service.findOne('log-invalid-date');
+      expect(single.timestamp).toBe('');
+    });
   });
 });

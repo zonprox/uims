@@ -263,4 +263,49 @@ describe('AuditPage Component Tests', () => {
 
     expect(auditService.exportCsv).toHaveBeenCalled();
   });
+
+  it('handles copying payload to clipboard in inspector drawer', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      await renderComponent();
+
+      const inspectBtn = container.querySelector('button[aria-label="Inspect event aud-001"]');
+      expect(inspectBtn).toBeTruthy();
+
+      await act(async () => {
+        (inspectBtn as HTMLButtonElement).click();
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const copyBtn = document.querySelector('.ant-drawer button .anticon-copy')
+        ?.parentElement as HTMLButtonElement | null;
+      expect(copyBtn).toBeTruthy();
+
+      await act(async () => {
+        copyBtn?.click();
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      expect(writeTextMock).toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
 });

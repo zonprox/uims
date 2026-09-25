@@ -61,8 +61,14 @@ export default function AuditPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const startDate = dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined;
-    const endDate = dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined;
+    const startDate =
+      dateRange?.[0] && typeof dateRange[0].isValid === 'function' && dateRange[0].isValid()
+        ? dateRange[0].startOf('day').toISOString()
+        : undefined;
+    const endDate =
+      dateRange?.[1] && typeof dateRange[1].isValid === 'function' && dateRange[1].isValid()
+        ? dateRange[1].endOf('day').toISOString()
+        : undefined;
     try {
       const [list, statsData] = await Promise.all([
         auditService.getLogs({
@@ -110,8 +116,14 @@ export default function AuditPage() {
 
   const handleExportCSV = async () => {
     setExporting(true);
-    const startDate = dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined;
-    const endDate = dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined;
+    const startDate =
+      dateRange?.[0] && typeof dateRange[0].isValid === 'function' && dateRange[0].isValid()
+        ? dateRange[0].startOf('day').toISOString()
+        : undefined;
+    const endDate =
+      dateRange?.[1] && typeof dateRange[1].isValid === 'function' && dateRange[1].isValid()
+        ? dateRange[1].endOf('day').toISOString()
+        : undefined;
     try {
       const csvData = await auditService.exportCsv({
         search: searchQuery || undefined,
@@ -565,9 +577,17 @@ export default function AuditPage() {
                     selectedLog.newValue ||
                     selectedLog.oldValue || { details: selectedLog.details };
                   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                    void navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+                    navigator.clipboard
+                      .writeText(JSON.stringify(payload, null, 2))
+                      .then(() => {
+                        message.success('Payload copied to clipboard.');
+                      })
+                      .catch(() => {
+                        message.error('Failed to copy payload to clipboard.');
+                      });
+                  } else {
+                    message.success('Payload copied to clipboard.');
                   }
-                  message.success('Payload copied to clipboard.');
                 }}
               >
                 Copy
