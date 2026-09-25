@@ -224,4 +224,43 @@ describe('AuditPage Component Tests', () => {
     expect(drawer?.textContent).toContain('Updated State (After Mutation)');
     expect(drawer?.textContent).toContain('192.168.2.0/24');
   });
+
+  it('triggers exportCsv on button click and handles successful CSV download', async () => {
+    await renderComponent();
+
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const exportBtn = buttons.find((b) => b.textContent?.includes('Export CSV'));
+    expect(exportBtn).toBeTruthy();
+
+    await act(async () => {
+      exportBtn?.click();
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    expect(auditService.exportCsv).toHaveBeenCalled();
+  });
+
+  it('displays user error notification when exportCsv fails', async () => {
+    (auditService.exportCsv as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Export service unavailable'),
+    );
+    await renderComponent();
+
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const exportBtn = buttons.find((b) => b.textContent?.includes('Export CSV'));
+    expect(exportBtn).toBeTruthy();
+
+    await act(async () => {
+      exportBtn?.click();
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+
+    expect(auditService.exportCsv).toHaveBeenCalled();
+  });
 });

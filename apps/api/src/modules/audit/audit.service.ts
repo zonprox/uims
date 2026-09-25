@@ -138,7 +138,7 @@ export class AuditService {
     const limit = Math.min(100, Math.max(1, Number(query?.limit || query?.pageSize) || 100));
     const logs = await this.prisma.auditLog.findMany({
       where,
-      orderBy: [{ timestamp: 'desc' }, { id: 'asc' }],
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       take: limit,
     });
 

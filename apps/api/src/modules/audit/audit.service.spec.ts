@@ -103,6 +103,67 @@ describe('AuditService', () => {
       );
     });
 
+    it('should handle date range when startDate is later than endDate without throwing error', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+
+      const result = await service.findAll({
+        startDate: '2026-09-30T00:00:00Z',
+        endDate: '2026-09-01T00:00:00Z',
+      });
+
+      expect(result).toEqual([]);
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            timestamp: {
+              gte: new Date('2026-09-30T00:00:00Z'),
+              lte: new Date('2026-09-01T00:00:00Z'),
+            },
+          },
+        }),
+      );
+    });
+
+    it('should clamp and sanitize pagination edge cases (page=0, page=-1, limit=0, limit=1000, NaN)', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+
+      // Test page=0 and limit=0 fallback
+      await service.findAll({ page: 0, limit: 0 });
+      expect(mockPrisma.auditLog.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          take: 50,
+          skip: 0,
+        }),
+      );
+
+      // Test page=-1 and limit=-5 clamping
+      await service.findAll({ page: -1, limit: -5 });
+      expect(mockPrisma.auditLog.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          take: 1,
+          skip: 0,
+        }),
+      );
+
+      // Test limit ceiling clamping (limit=1000 capped to 100)
+      await service.findAll({ page: 2, limit: 1000 });
+      expect(mockPrisma.auditLog.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          take: 100,
+          skip: 100,
+        }),
+      );
+
+      // Test NaN pagination fallback
+      await service.findAll({ page: Number.NaN, limit: Number.NaN });
+      expect(mockPrisma.auditLog.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          take: 50,
+          skip: 0,
+        }),
+      );
+    });
+
     it('should ignore whitespace-only search queries without creating empty OR conditions', async () => {
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
 
@@ -193,7 +254,7 @@ describe('AuditService', () => {
       const csv = await service.exportCsv();
       expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: [{ timestamp: 'desc' }, { id: 'asc' }],
+          orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
         }),
       );
       expect(csv).toContain(

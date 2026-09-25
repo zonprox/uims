@@ -122,13 +122,19 @@ export default function AuditPage() {
         endDate,
       });
       const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `activity_logs_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (typeof window !== 'undefined' && typeof window.URL?.createObjectURL === 'function') {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute(
+          'download',
+          `activity_logs_${new Date().toISOString().split('T')[0]}.csv`,
+        );
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
       message.success('Activity logs exported successfully as RFC 4180 CSV.');
     } catch (err: unknown) {
       message.error(formatErrorMessage(err, 'export activity logs'));
