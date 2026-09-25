@@ -26,30 +26,3 @@ export const toggleAppUserStatusSchema = z.object({
 export const resetAppUserPasswordSchema = z.object({
   newPassword: z.string().min(6, 'Password must be at least 6 characters').max(100),
 });
-
-// Backward-compatible exports
-export const createUserSchema = createAppUserSchema.extend({
-  employeeCode: z.string().optional(),
-  jobTitle: z.string().optional(),
-  company: z.string().optional(),
-  groupCompany: z.string().optional(),
-  plant: z.string().optional(),
-  section: z.string().optional(),
-  subSection: z.string().optional(),
-  computerName: z.string().optional(),
-  computerName2: z.string().optional(),
-  adGroup: z.string().optional(),
-  telephone: z.string().optional(),
-  isClosed: z.boolean().optional(),
-  ouPath: z.string().optional(),
-  managerName: z.string().optional(),
-  department: z.string().optional(),
-  location: z.string().optional(),
-  departmentId: z.string().optional(),
-  positionId: z.string().optional(),
-  organizationId: z.string().optional(),
-  locationId: z.string().optional(),
-});
-
-export const updateUserSchema = createUserSchema.partial();
-export const toggleUserStatusSchema = toggleAppUserStatusSchema;

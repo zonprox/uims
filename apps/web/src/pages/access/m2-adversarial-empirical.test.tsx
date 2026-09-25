@@ -5,9 +5,9 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type AppUser,
+  type AppUserSummaryStats,
   type Role,
   type RoleSummaryStats,
-  type UserSummaryStats,
   UserStatus,
 } from '@uims/shared-types';
 import AccessControlPage from './AccessControlPage';
@@ -173,8 +173,8 @@ describe('Milestone 2 Empirical Challenger Adversarial Suite', () => {
       { id: 'r-2', name: 'Fleet Operator', isSystem: false, permissions: [] },
     ];
 
-    it('empirically verifies stats rendering with unwrapped UserSummaryStats API payload', async () => {
-      const mockStatsPayload: UserSummaryStats = {
+    it('empirically verifies stats rendering with unwrapped AppUserSummaryStats API payload', async () => {
+      const mockStatsPayload: AppUserSummaryStats = {
         totalUsers: 142,
         activeUsers: 125,
         adminUsers: 10,
@@ -222,9 +222,9 @@ describe('Milestone 2 Empirical Challenger Adversarial Suite', () => {
     });
 
     it('empirically verifies type fix: unwrapped API payload without .data does not throw undefined property error', async () => {
-      // In strict mode, usersService.getStats() returns UserSummaryStats.
+      // In strict mode, usersService.getStats() returns AppUserSummaryStats.
       // Prior bug tried to access statsRes?.data which is undefined at runtime and a compiler error in TS strict mode.
-      const unwrappedStats: UserSummaryStats = {
+      const unwrappedStats: AppUserSummaryStats = {
         totalUsers: 99,
         activeUsers: 85,
         adminUsers: 5,

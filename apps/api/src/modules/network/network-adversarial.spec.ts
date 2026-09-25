@@ -308,7 +308,7 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
         });
 
         expect(created.address).toBe('10.232.130.50');
-        expect(created.mac).toBe('44:19:B6:AA:BB:CC');
+        expect(created.macAddress).toBe('44:19:B6:AA:BB:CC');
         expect(created.vendor).toBe('Hikvision');
         expect(created.status).toBe('Allocated');
       });

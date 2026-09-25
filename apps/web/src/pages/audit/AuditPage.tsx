@@ -36,17 +36,57 @@ import { formatErrorMessage } from '../../utils/feedback';
 
 const { Text, Title } = Typography;
 
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_clipErr: unknown) {
+      // Fallback to execCommand below
+    }
+  }
+
+  if (typeof document !== 'undefined' && document.body) {
+    let textarea: HTMLTextAreaElement | null = null;
+    try {
+      textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      textarea.style.width = '2em';
+      textarea.style.height = '2em';
+      textarea.style.padding = '0';
+      textarea.style.border = 'none';
+      textarea.style.outline = 'none';
+      textarea.style.boxShadow = 'none';
+      textarea.style.background = 'transparent';
+      textarea.setAttribute('readonly', '');
+      document.body.appendChild(textarea);
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      const successful = document.execCommand('copy');
+      if (successful) return true;
+    } catch (_execErr: unknown) {
+      // Fallback failed
+    } finally {
+      if (textarea && textarea.parentNode) {
+        try {
+          textarea.parentNode.removeChild(textarea);
+        } catch (_removeErr: unknown) {
+          // Ignore removal error
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 export default function AuditPage() {
   const { message } = App.useApp();
   const [logs, setLogs] = useState<Array<AuditLog>>([]);
-  const [stats, setStats] = useState<AuditStats>({
-    totalEvents: 0,
-    failedEvents: 0,
-    criticalEvents: 0,
-    errorRate: '0.0%',
-    totalEventRecords: '0',
-    securityAnomalies: '0 Alerts',
-  });
+  const [stats, setStats] = useState<AuditStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +99,16 @@ export default function AuditPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const handleCopyPayload = async (payload: unknown) => {
+    const text = JSON.stringify(payload, null, 2);
+    const copied = await copyTextToClipboard(text);
+    if (copied) {
+      message.success('Payload copied to clipboard.');
+    } else {
+      message.error('Failed to copy payload to clipboard.');
+    }
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     const startDate =
@@ -70,7 +120,7 @@ export default function AuditPage() {
         ? dateRange[1].endOf('day').toISOString()
         : undefined;
     try {
-      const [list, statsData] = await Promise.all([
+      const [logsResult, statsResult] = await Promise.allSettled([
         auditService.getLogs({
           search: searchQuery || undefined,
           action: actionFilter !== 'all' ? actionFilter : undefined,
@@ -79,29 +129,21 @@ export default function AuditPage() {
           startDate,
           endDate,
         }),
-        auditService.getStats().catch((_error: unknown) => null),
+        auditService.getStats(),
       ]);
-      setLogs(list);
-      if (statsData) {
-        setStats(statsData);
+
+      if (logsResult.status === 'fulfilled') {
+        setLogs(logsResult.value);
       } else {
-        const failedCount = list.filter(
-          (l) =>
-            l.status === 'Failed' ||
-            l.status === 'Blocked' ||
-            (l.statusCode && l.statusCode >= 400),
-        ).length;
-        const criticalCount = list.filter((l) => l.severity === 'Critical').length;
-        const errorPct =
-          list.length > 0 ? `${((failedCount / list.length) * 100).toFixed(1)}%` : '0.0%';
-        setStats({
-          totalEvents: list.length,
-          failedEvents: failedCount,
-          criticalEvents: criticalCount,
-          errorRate: errorPct,
-          totalEventRecords: list.length.toString(),
-          securityAnomalies: `${criticalCount} Alerts`,
-        });
+        setLogs([]);
+        message.error(formatErrorMessage(logsResult.reason, 'load activity logs'));
+      }
+
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value);
+      } else {
+        setStats(null);
+        message.error(formatErrorMessage(statsResult.reason, 'load operational telemetry'));
       }
     } catch (err: unknown) {
       message.error(formatErrorMessage(err, 'load activity logs'));
@@ -311,32 +353,36 @@ export default function AuditPage() {
       title="System Activity Logs"
       subtitle="Track real-time system mutations, operational events, and security access telemetry."
       breadcrumbs={[{ title: 'Activity Logs' }]}
-      stats={[
-        {
-          title: 'Total Recorded Events',
-          value: stats.totalEvents,
-          prefix: <AuditOutlined />,
-          color: '#6366f1',
-        },
-        {
-          title: 'Failed Actions',
-          value: stats.failedEvents,
-          prefix: <CloseCircleOutlined />,
-          color: stats.failedEvents > 0 ? '#ef4444' : '#10b981',
-        },
-        {
-          title: 'Security Alerts',
-          value: stats.criticalEvents,
-          prefix: <SafetyCertificateOutlined />,
-          color: stats.criticalEvents > 0 ? '#f59e0b' : '#10b981',
-        },
-        {
-          title: 'Error Rate',
-          value: stats.errorRate,
-          prefix: <WarningOutlined />,
-          color: '#0ea5e9',
-        },
-      ]}
+      stats={
+        stats
+          ? [
+              {
+                title: 'Total Recorded Events',
+                value: stats.totalEvents,
+                prefix: <AuditOutlined />,
+                color: '#6366f1',
+              },
+              {
+                title: 'Failed Actions',
+                value: stats.failedEvents,
+                prefix: <CloseCircleOutlined />,
+                color: stats.failedEvents > 0 ? '#ef4444' : '#10b981',
+              },
+              {
+                title: 'Security Alerts',
+                value: stats.criticalEvents,
+                prefix: <SafetyCertificateOutlined />,
+                color: stats.criticalEvents > 0 ? '#f59e0b' : '#10b981',
+              },
+              {
+                title: 'Error Rate',
+                value: stats.errorRate,
+                prefix: <WarningOutlined />,
+                color: '#0ea5e9',
+              },
+            ]
+          : undefined
+      }
       extra={
         <Flex gap={8}>
           <Tooltip title="Reload from server">
@@ -576,18 +622,7 @@ export default function AuditPage() {
                   const payload = selectedLog.diffPayload ||
                     selectedLog.newValue ||
                     selectedLog.oldValue || { details: selectedLog.details };
-                  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                    navigator.clipboard
-                      .writeText(JSON.stringify(payload, null, 2))
-                      .then(() => {
-                        message.success('Payload copied to clipboard.');
-                      })
-                      .catch(() => {
-                        message.error('Failed to copy payload to clipboard.');
-                      });
-                  } else {
-                    message.success('Payload copied to clipboard.');
-                  }
+                  void handleCopyPayload(payload);
                 }}
               >
                 Copy

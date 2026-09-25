@@ -10,11 +10,11 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import type {
+  AppUser,
   PermissionCatalogSubject,
   Role,
   RoleDetailResponse,
   RoleSummaryStats,
-  User,
 } from '@uims/shared-types';
 import {
   App,
@@ -48,7 +48,7 @@ interface RolesTabProps {
   roles: Role[];
   stats: RoleSummaryStats | null;
   catalog: PermissionCatalogSubject[];
-  users: User[];
+  users: AppUser[];
   loading: boolean;
   onRefresh: () => void;
 }

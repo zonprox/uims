@@ -226,16 +226,6 @@ describe('Frontend Service Clients', () => {
       expect(users.items).toHaveLength(1);
     });
 
-    it('should fetch directory groups', async () => {
-      vi.mocked(api.get).mockResolvedValueOnce({
-        data: { data: [{ id: 'grp-1', name: 'DevOps Core' }] },
-      });
-
-      const groups = await usersService.getGroups();
-      expect(api.get).toHaveBeenCalledWith('/users/groups');
-      expect(groups).toHaveLength(1);
-    });
-
     it('should create and update user', async () => {
       vi.mocked(api.post).mockResolvedValueOnce({
         data: { data: { id: 'u2', email: 'test@youngonevn.com' } },
@@ -272,35 +262,16 @@ describe('Frontend Service Clients', () => {
       expect(toggled.status).toBe('SUSPENDED');
     });
 
-    it('should export users, import users, and sync domain', async () => {
-      vi.mocked(api.get).mockResolvedValueOnce({
-        data: { data: [{ HEmploy: '63020037', HName: 'Test' }] },
-      });
-      vi.mocked(api.post).mockResolvedValueOnce({
-        data: { data: { created: 1, updated: 0, skipped: 0, errors: [] } },
-      });
-      vi.mocked(api.post).mockResolvedValueOnce({
-        data: { data: { status: 'SYNCHRONIZED', latencyMs: 12 } },
-      });
-
-      const exported = await usersService.exportUsers();
-      const imported = await usersService.importUsers([
-        { email: 'test@test.com', name: 'Test User' },
-      ]);
-      const sync = await usersService.syncDomain();
-
-      expect(api.get).toHaveBeenCalledWith('/users/export');
-      expect(api.post).toHaveBeenCalledWith('/users/import', {
-        users: [{ email: 'test@test.com', name: 'Test User' }],
-      });
-      expect(api.post).toHaveBeenCalledWith('/users/sync-domain');
-      expect(exported).toHaveLength(1);
-      expect(imported.created).toBe(1);
-      expect(sync.status).toBe('SYNCHRONIZED');
-    });
-
-    it('should confirm resetPassword method is removed from usersService', () => {
-      expect((usersService as unknown as Record<string, unknown>).resetPassword).toBeUndefined();
+    it('should confirm deprecated delegation methods are removed from usersService', () => {
+      const s = usersService as unknown as Record<string, unknown>;
+      expect(s.resetPassword).toBeUndefined();
+      expect(s.getRoles).toBeUndefined();
+      expect(s.getGroups).toBeUndefined();
+      expect(s.createGroup).toBeUndefined();
+      expect(s.getOrganizationalUnits).toBeUndefined();
+      expect(s.syncDomain).toBeUndefined();
+      expect(s.importUsers).toBeUndefined();
+      expect(s.exportUsers).toBeUndefined();
     });
   });
 

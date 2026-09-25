@@ -64,17 +64,4 @@ export class CreateSubnetDto {
   @IsOptional()
   @IsString()
   description?: string;
-
-  // Legacy compatibility fields
-  @IsOptional()
-  @IsString()
-  vlan?: string;
-
-  @IsOptional()
-  @IsString()
-  vlanName?: string;
-
-  @IsOptional()
-  @IsString()
-  location?: string;
 }

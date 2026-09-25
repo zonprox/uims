@@ -1,4 +1,4 @@
-import type { User } from '../entities/user';
+import type { AppUser } from '../entities/user';
 
 export interface LoginRequest {
   email: string;
@@ -6,7 +6,7 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  user: User;
+  user: AppUser;
   accessToken: string;
   refreshToken: string;
   permissions?: string[];

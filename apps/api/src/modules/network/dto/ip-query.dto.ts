@@ -36,20 +36,10 @@ export class IPAddressQueryDto {
   @IsString()
   vlanId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by VLAN name or ID (legacy support)' })
-  @IsOptional()
-  @IsString()
-  vlan?: string;
-
   @ApiPropertyOptional({ description: 'Filter by Subnet UUID' })
   @IsOptional()
   @IsString()
   subnetId?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by Subnet name or CIDR (legacy support)' })
-  @IsOptional()
-  @IsString()
-  subnet?: string;
 
   @ApiPropertyOptional({ description: 'Filter by IP status' })
   @IsOptional()
@@ -66,6 +56,3 @@ export class IPAddressQueryDto {
   @IsString()
   locationId?: string;
 }
-
-export type IpQueryDto = IPAddressQueryDto;
-export const IpQueryDto = IPAddressQueryDto;

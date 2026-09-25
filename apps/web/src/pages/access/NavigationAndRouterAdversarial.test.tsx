@@ -19,7 +19,6 @@ import {
 } from '../../layouts/menuConfig';
 import AccessControlPage from './AccessControlPage';
 import DirectoryPage from '../directory/DirectoryPage';
-import UsersPage from '../users/UsersPage';
 import { router } from '../../app/router';
 import { useAuthStore } from '../../stores/auth.store';
 
@@ -390,14 +389,18 @@ describe('Adversarial Navigation & Router State Suite', () => {
       act(() => rootAccess.unmount());
     });
 
-    it('verifies UsersPage backward compatibility wrapper renders AccessControlPage', async () => {
+    it('verifies AccessControlPage renders canonical access control view', async () => {
       const root = createRoot(container);
       await act(async () => {
         root.render(
           createElement(
             MemoryRouter,
             null,
-            createElement(ConfigProvider, null, createElement(App, null, createElement(UsersPage))),
+            createElement(
+              ConfigProvider,
+              null,
+              createElement(App, null, createElement(AccessControlPage)),
+            ),
           ),
         );
       });

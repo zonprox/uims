@@ -196,7 +196,7 @@ describe('LicensesService', () => {
           usedSeats: 1,
           costPerSeat: 50,
           status: LicenseStatus.ACTIVE,
-          licenseKey: 'LEGACY-PLAIN-KEY-1122',
+          licenseKey: encryptLicenseKey('LEGACY-PLAIN-KEY-1122'),
           assignments: [],
         },
       ]);

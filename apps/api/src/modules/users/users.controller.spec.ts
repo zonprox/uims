@@ -8,13 +8,6 @@ describe('UsersController', () => {
 
   const mockService = {
     getStats: vi.fn(),
-    getOrganizationalUnits: vi.fn(),
-    syncDomain: vi.fn(),
-    getRoles: vi.fn(),
-    findAllGroups: vi.fn(),
-    createGroup: vi.fn(),
-    exportMaster: vi.fn(),
-    importBatch: vi.fn(),
     create: vi.fn(),
     findAll: vi.fn(),
     findOne: vi.fn(),
@@ -36,64 +29,17 @@ describe('UsersController', () => {
     expect(mockService.getStats).toHaveBeenCalled();
   });
 
-  it('should get stats summary alias', async () => {
-    mockService.getStats.mockResolvedValue({ totalUsers: 10 });
-    const res = await controller.getStatsSummary();
-    expect(res.totalUsers).toBe(10);
-  });
-
-  it('should get organizational units', async () => {
-    mockService.getOrganizationalUnits.mockResolvedValue([{ id: 'ou-1', name: 'Production' }]);
-    const res = await controller.getOrganizationalUnits();
-    expect(res).toHaveLength(1);
-  });
-
-  it('should trigger domain sync', async () => {
-    mockService.syncDomain.mockResolvedValue({ status: 'SYNCHRONIZED', replicatedObjects: 50 });
-    const res = await controller.syncDomain();
-    expect(res.status).toBe('SYNCHRONIZED');
-  });
-
-  it('should get roles list', async () => {
-    mockService.getRoles.mockResolvedValue([{ id: 'r1', name: 'Employee' }]);
-    const res = await controller.getRoles();
-    expect(res).toHaveLength(1);
-  });
-
-  it('should get groups', async () => {
-    mockService.findAllGroups.mockResolvedValue([{ id: 'g1', name: 'GR_Printing' }]);
-    const res = await controller.getGroups();
-    expect(res).toHaveLength(1);
-  });
-
-  it('should create group', async () => {
-    const dto = { name: 'GR_Sample', email: 'sample@youngonevn.com' };
-    mockService.createGroup.mockResolvedValue({ id: 'g2', ...dto });
-    const res = await controller.createGroup(dto);
-    expect(res.id).toBe('g2');
-  });
-
-  it('should export master dataset', async () => {
-    mockService.exportMaster.mockResolvedValue([
-      { 'Employee Code': '63020037', 'Full Name': 'Test User' },
-    ]);
-    const res = await controller.exportMaster();
-    expect(res).toHaveLength(1);
-  });
-
-  it('should import batch', async () => {
-    const dto = { users: [{ email: 'test@example.com', name: 'Test' }] };
-    mockService.importBatch.mockResolvedValue({
-      total: 1,
-      created: 1,
-      updated: 0,
-      skipped: 0,
-      errors: [],
-    });
-    const res = await controller.importBatch(
-      dto as unknown as import('./dto/import-users.dto').BatchImportUsersDto,
-    );
-    expect(res.created).toBe(1);
+  it('should confirm deprecated delegation endpoints are removed from controller', () => {
+    const c = controller as unknown as Record<string, unknown>;
+    expect(c.getStatsSummary).toBeUndefined();
+    expect(c.getOrganizationalUnits).toBeUndefined();
+    expect(c.syncDomain).toBeUndefined();
+    expect(c.getRoles).toBeUndefined();
+    expect(c.getGroups).toBeUndefined();
+    expect(c.createGroup).toBeUndefined();
+    expect(c.exportMaster).toBeUndefined();
+    expect(c.importBatch).toBeUndefined();
+    expect(c.resetPassword).toBeUndefined();
   });
 
   it('should create user', async () => {

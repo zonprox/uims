@@ -60,15 +60,7 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(45) // activeUsers
         .mockResolvedValueOnce(5) // adminUsers
         .mockResolvedValueOnce(2) // suspendedUsers
-        .mockResolvedValueOnce(0); // lockedCount
-      (mockPrisma.directoryUser as { count: ReturnType<typeof vi.fn> }).count
-        .mockResolvedValueOnce(38) // totalEmployees (custodians)
-        .mockResolvedValueOnce(38) // activeEmployees
-        .mockResolvedValueOnce(38) // assignedWorkstations
-        .mockResolvedValueOnce(0); // closedAccounts
-      (
-        mockPrisma.directoryGroup as { count: ReturnType<typeof vi.fn> }
-      ).count.mockResolvedValueOnce(12); // totalGroups
+        .mockResolvedValueOnce(0); // lockedUsers
 
       const stats = await service.getStats();
 
@@ -76,14 +68,9 @@ describe('UsersService', () => {
         totalUsers: 50,
         activeUsers: 45,
         adminUsers: 5,
-        custodiansCount: 38,
         suspendedUsers: 2,
         recentActiveCount: 45,
-        totalGroups: 12,
-        totalWorkstations: 38,
-        lockedCount: 0,
         lockedUsers: 0,
-        totalOUs: 6,
       });
     });
   });
@@ -267,89 +254,17 @@ describe('UsersService', () => {
     });
   });
 
-  describe('syncDomain', () => {
-    it('should simulate active directory replication telemetry', async () => {
-      (mockPrisma.directoryUser as { count: ReturnType<typeof vi.fn> }).count
-        .mockResolvedValueOnce(50) // total
-        .mockResolvedValueOnce(45); // active
-      (
-        mockPrisma.directoryGroup as { count: ReturnType<typeof vi.fn> }
-      ).count.mockResolvedValueOnce(12);
-
-      const res = await service.syncDomain();
-
-      expect(res.domain).toBe('uims.internal');
-      expect(res.controller).toBe('DC01-PRIMARY.corp.uims.internal');
-      expect(res.status).toBe('SYNCHRONIZED');
-      expect(res.replicatedObjects).toBe(62);
-    });
-  });
-
-  describe('exportMaster', () => {
-    it('should export all user attributes correctly without passwords', async () => {
-      (
-        mockPrisma.directoryUser as { findMany: ReturnType<typeof vi.fn> }
-      ).findMany.mockResolvedValueOnce([
-        {
-          id: 'usr-1',
-          employeeCode: '63020037',
-          displayName: 'Phung Thi Nhu Y',
-          email: 'yptn.st@youngonevn.com',
-          jobTitle: 'Asst. Officer',
-          groupCompany: 'BSL',
-          company: 'BSL Others',
-          plant: 'BSL Others',
-          department: 'Production',
-          section: 'Printing',
-          subSection: 'Printing',
-          telephone: '888152675',
-          isClosed: false,
-          computerName: 'STOTHPR102',
-          computerName2: null,
-          adGroup: 'GR_BSLOTHPrinting',
-          ouPath: 'OU=Production,DC=uims,DC=internal',
-          status: 'ACTIVE',
-        },
-      ]);
-
-      const records = await service.exportMaster();
-      expect(records).toHaveLength(1);
-      expect(records[0]['Employee Code']).toBe('63020037');
-      expect(records[0]['Directory Group']).toBe('GR_BSLOTHPrinting');
-    });
-  });
-
-  describe('importBatch', () => {
-    it('should create new directory users during batch import', async () => {
-      (
-        mockPrisma.directoryUser as { findFirst: ReturnType<typeof vi.fn> }
-      ).findFirst.mockResolvedValueOnce(null);
-      (
-        mockPrisma.directoryUser as { create: ReturnType<typeof vi.fn> }
-      ).create.mockResolvedValueOnce({
-        id: 'new-u1',
-        email: 'imported@youngonevn.com',
-      });
-
-      const result = await service.importBatch({
-        users: [
-          {
-            email: 'imported@youngonevn.com',
-            name: 'Imported User',
-            employeeCode: '99001122',
-          },
-        ],
-      });
-
-      expect(result.created).toBe(1);
-      expect(result.updated).toBe(0);
-      expect(result.errors).toHaveLength(0);
-    });
-  });
-
-  describe('absence of resetPassword', () => {
-    it('should verify resetPassword method is completely eliminated', () => {
-      expect((service as unknown as Record<string, unknown>).resetPassword).toBeUndefined();
+  describe('absence of deprecated methods', () => {
+    it('should verify resetPassword and delegation methods are completely eliminated', () => {
+      const s = service as unknown as Record<string, unknown>;
+      expect(s.resetPassword).toBeUndefined();
+      expect(s.getRoles).toBeUndefined();
+      expect(s.getOrganizationalUnits).toBeUndefined();
+      expect(s.syncDomain).toBeUndefined();
+      expect(s.findAllGroups).toBeUndefined();
+      expect(s.createGroup).toBeUndefined();
+      expect(s.exportMaster).toBeUndefined();
+      expect(s.importBatch).toBeUndefined();
     });
   });
 });

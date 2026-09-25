@@ -6,7 +6,6 @@ import type { PrismaService } from '../../src/database/prisma.service';
 import { AssetsService } from '../../src/modules/assets/assets.service';
 import { InventoryService } from '../../src/modules/inventory/inventory.service';
 import { LocationController } from '../../src/modules/organization/location.controller';
-import { OrganizationController } from '../../src/modules/organization/organization.controller';
 import { OrganizationService } from '../../src/modules/organization/organization.service';
 
 // --- In-Memory Relational Fixture Database Types ---
@@ -182,7 +181,6 @@ describe('Multi-Tier Spatial Location Hierarchy E2E Suite', () => {
   let mockPrisma: Record<string, unknown>;
   let orgService: OrganizationService;
   let locController: LocationController;
-  let orgController: OrganizationController;
   let assetsService: AssetsService;
   let inventoryService: InventoryService;
 
@@ -557,7 +555,6 @@ describe('Multi-Tier Spatial Location Hierarchy E2E Suite', () => {
 
     orgService = new OrganizationService(mockPrisma as unknown as PrismaService);
     locController = new LocationController(orgService);
-    orgController = new OrganizationController(orgService);
     assetsService = new AssetsService(mockPrisma as unknown as PrismaService);
     inventoryService = new InventoryService(mockPrisma as unknown as PrismaService);
   });
@@ -958,10 +955,10 @@ describe('Multi-Tier Spatial Location Hierarchy E2E Suite', () => {
         expect(fac1._count!.children).toBeGreaterThanOrEqual(2); // sewing section + MDC
       });
 
-      it('T1.1.6: should support backward-compatible endpoint /organizations/locations/tree with identical structure', async () => {
-        const compatTree = await orgController.getLocationsTree('org-bsl');
+      it('T1.1.6: should verify canonical dedicated location tree endpoint', async () => {
         const dedicatedTree = await locController.getTree('org-bsl');
-        expect(compatTree).toEqual(dedicatedTree);
+        expect(dedicatedTree).toBeDefined();
+        expect(dedicatedTree.length).toBeGreaterThan(0);
       });
     });
 

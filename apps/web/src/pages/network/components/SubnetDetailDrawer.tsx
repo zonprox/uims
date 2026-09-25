@@ -60,9 +60,9 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
         title: 'IP Address',
         dataIndex: 'address',
         key: 'address',
-        render: (address: string, record: IPAddress) => (
+        render: (address: string) => (
           <Text code strong style={{ color: '#1677ff' }}>
-            {address || record.ip}
+            {address}
           </Text>
         ),
       },
@@ -78,7 +78,7 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
         render: (_: unknown, record: IPAddress) => (
           <div>
             <Text code style={{ fontSize: 11.5 }}>
-              {record.macAddress || record.mac || '—'}
+              {record.macAddress || '—'}
             </Text>
             {record.vendor && (
               <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>

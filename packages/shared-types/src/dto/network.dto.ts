@@ -47,10 +47,6 @@ export interface CreateSubnetDto {
   totalIps?: number | string;
   reservedIps?: number;
   description?: string | null;
-  // legacy compatibility fields
-  vlan?: string;
-  vlanName?: string;
-  location?: string;
 }
 
 export interface UpdateSubnetDto extends Partial<CreateSubnetDto> {}
@@ -68,10 +64,8 @@ export interface SubnetQueryDto {
 
 export interface CreateIPAddressDto {
   address?: string;
-  ip?: string; // legacy support
   hostname?: string | null;
   macAddress?: string | null;
-  mac?: string | null; // legacy support
   vendor?: string | null;
   deviceType?: string | null;
   model?: string | null;
@@ -89,11 +83,6 @@ export interface CreateIPAddressDto {
   lastSeen?: string | Date;
   description?: string | null;
   switchPortId?: string | null;
-  // legacy fields
-  subnet?: string;
-  subnetName?: string;
-  vlan?: string;
-  vlanName?: string;
 }
 
 export interface UpdateIPAddressDto extends Partial<CreateIPAddressDto> {}
@@ -104,9 +93,7 @@ export interface IPAddressQueryDto {
   limit?: number;
   search?: string;
   vlanId?: string;
-  vlan?: string; // legacy support
   subnetId?: string;
-  subnet?: string; // legacy support
   status?: string;
   deviceType?: string;
   locationId?: string;

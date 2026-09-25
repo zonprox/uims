@@ -227,16 +227,7 @@ export class NetworkService {
     // Auto-calculate network parameters if not manually overridden
     const calc = calculateSubnet(data.cidr);
 
-    let vlanId = data.vlanId;
-    if (!vlanId && (data.vlan || data.vlanName)) {
-      const vlanSearch = (data.vlan || data.vlanName)?.replace(/\D/g, '');
-      if (vlanSearch) {
-        const found = await this.prisma.vLAN.findUnique({
-          where: { vlanNumber: Number(vlanSearch) },
-        });
-        if (found) vlanId = found.id;
-      }
-    }
+    const vlanId = data.vlanId;
 
     const created = await this.prisma.subnet.create({
       data: {
@@ -347,23 +338,10 @@ export class NetworkService {
 
     if (query?.vlanId) {
       where.vlanId = query.vlanId;
-    } else if (query?.vlan && query.vlan !== 'all') {
-      where.OR = [
-        ...(where.OR || []),
-        { vlan: { name: { contains: query.vlan, mode: 'insensitive' } } },
-        { vlanId: query.vlan },
-      ];
     }
 
     if (query?.subnetId) {
       where.subnetId = query.subnetId;
-    } else if (query?.subnet && query.subnet !== 'all') {
-      where.OR = [
-        ...(where.OR || []),
-        { subnet: { cidr: { contains: query.subnet, mode: 'insensitive' } } },
-        { subnet: { name: { contains: query.subnet, mode: 'insensitive' } } },
-        { subnetId: query.subnet },
-      ];
     }
 
     if (query?.status && query.status !== 'all') {
@@ -419,7 +397,7 @@ export class NetworkService {
   }
 
   async createIp(data: CreateIPAddressDto) {
-    let targetIp = data.address || data.ip;
+    let targetIp = data.address;
     let subnetId = data.subnetId;
     let vlanId = data.vlanId;
     let locationId = data.locationId;
@@ -457,7 +435,7 @@ export class NetworkService {
     }
 
     if (!targetIp) {
-      targetIp = '10.0.0.1';
+      throw new BadRequestException('IPv4 address is required');
     }
 
     if (!isValidIp(targetIp)) {
@@ -477,7 +455,7 @@ export class NetworkService {
       );
     }
 
-    const rawMac = data.macAddress || data.mac;
+    const rawMac = data.macAddress;
     const normalizedMac = rawMac ? normalizeMac(rawMac) : undefined;
     let vendor = data.vendor;
     if (normalizedMac && (!vendor || vendor === 'Generic' || vendor === 'Generic Device')) {
@@ -542,7 +520,7 @@ export class NetworkService {
       throw new NotFoundException(`IP address with ID "${id}" not found`);
     }
 
-    const rawMac = data.macAddress ?? data.mac;
+    const rawMac = data.macAddress;
     const normalizedMac = rawMac ? normalizeMac(rawMac) : undefined;
     let vendor = data.vendor;
     if (normalizedMac && (!vendor || vendor === 'Generic' || vendor === 'Generic Device')) {
@@ -553,7 +531,7 @@ export class NetworkService {
     const newStatus = data.status ? mapIPStatus(data.status as string) : undefined;
 
     const updatePayload: Prisma.IPAddressUpdateInput = {
-      address: data.address ?? data.ip,
+      address: data.address,
       hostname: data.hostname,
       macAddress: normalizedMac,
       vendor,
@@ -1829,15 +1807,13 @@ export class NetworkService {
 
     return {
       id: ip.id,
-      ip: ip.address,
       address: ip.address,
       hostname: ip.hostname || 'unnamed-host',
-      mac: ip.macAddress || '00:00:00:00:00:00',
       macAddress: ip.macAddress,
       vendor: ip.vendor || 'Generic',
-      subnet: ip.subnet?.cidr || ip.subnet?.name || '192.168.1.0/24',
+      subnet: ip.subnet?.cidr || ip.subnet?.name || null,
       subnetId: ip.subnetId,
-      vlan: ip.vlan ? `VLAN ${ip.vlan.vlanNumber} (${ip.vlan.name})` : 'VLAN 10',
+      vlan: ip.vlan ? `VLAN ${ip.vlan.vlanNumber} (${ip.vlan.name})` : null,
       vlanId: ip.vlanId,
       locationId: ip.locationId,
       deviceType: ip.deviceType || 'Workstation',

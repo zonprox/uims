@@ -335,6 +335,15 @@ describe('NetworkService', () => {
       });
     });
 
+    it('createIp throws BadRequestException when address is omitted and cannot be allocated', async () => {
+      await expect(
+        service.createIp({
+          hostname: 'Orphan-Host',
+          macAddress: '44:19:B6:11:22:33',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('updateIp updates IP allocation and synchronizes subnet stats', async () => {
       mockPrisma.iPAddress.findUnique.mockResolvedValue({
         id: 'ip-1',

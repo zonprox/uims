@@ -294,10 +294,15 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
       it('should reject updating existing Asset to invalid vendorId with SQLSTATE 23503', async () => {
         if (!isDbAvailable) return;
 
+        const sampleDept = await prisma.department.findFirst();
+        const sampleLoc = await prisma.location.findFirst();
+
         const testAsset = await prisma.asset.create({
           data: {
             assetTag: `TAG-UPDATE-ASSET-${Date.now()}`,
             name: 'Asset For FK Update Test',
+            departmentId: sampleDept?.id,
+            locationId: sampleLoc?.id,
           },
         });
 

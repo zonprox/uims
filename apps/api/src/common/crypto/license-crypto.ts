@@ -73,8 +73,8 @@ export function decryptLicenseKey(
 ): string | null;
 /**
  * Decrypts an AES-256-GCM encrypted license key.
- * If the stored value is legacy plaintext, 'N/A', empty, or null, it is returned as-is.
- * If corrupted or authentication tag fails, returns '••••-DECRYPTION-FAILED' or throws if throwOnError is true.
+ * If the stored value is 'N/A', empty, or null, it is returned as-is.
+ * If unencrypted, corrupted, or authentication tag fails, returns '••••-DECRYPTION-FAILED' or throws if throwOnError is true.
  */
 export function decryptLicenseKey(
   storedValue?: string | null,
@@ -87,7 +87,10 @@ export function decryptLicenseKey(
     return storedValue;
   }
   if (!isLicenseKeyEncrypted(storedValue)) {
-    return storedValue; // Graceful legacy plaintext compatibility
+    if (options?.throwOnError) {
+      throw new Error('License key is unencrypted or invalid');
+    }
+    return '••••-DECRYPTION-FAILED';
   }
 
   try {

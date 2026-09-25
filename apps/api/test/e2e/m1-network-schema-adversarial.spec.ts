@@ -66,25 +66,37 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
         });
       }
 
+      const sampleDept = await prisma.department.findFirst();
+
       await prisma.asset.upsert({
         where: { id: testAssetId },
-        update: {},
+        update: {
+          locationId: loc.id,
+          departmentId: sampleDept?.id,
+        },
         create: {
           id: testAssetId,
           assetTag: 'TAG-CHALLENGER-01',
           name: 'Challenger Switch Asset',
           categoryId: category.id,
+          locationId: loc.id,
+          departmentId: sampleDept?.id,
         },
       });
 
       await prisma.asset.upsert({
         where: { id: testAsset2Id },
-        update: {},
+        update: {
+          locationId: loc.id,
+          departmentId: sampleDept?.id,
+        },
         create: {
           id: testAsset2Id,
           assetTag: 'TAG-CHALLENGER-02',
           name: 'Challenger Server Endpoint',
           categoryId: category.id,
+          locationId: loc.id,
+          departmentId: sampleDept?.id,
         },
       });
 

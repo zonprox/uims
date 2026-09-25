@@ -11,10 +11,7 @@ import { ScheduledAlertsWorker } from './scheduled-alerts.worker';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
-        if (!secret) {
-          throw new Error('JWT_SECRET is required');
-        }
+        const secret = configService.getOrThrow<string>('JWT_SECRET');
         return {
           secret,
           signOptions: { expiresIn: '1d' },

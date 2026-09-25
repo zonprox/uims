@@ -618,7 +618,6 @@ describe('Milestone 3 Empirical Stress Tests: Automation & Modals', () => {
       const ipInput = document.querySelector('input#address') as HTMLInputElement;
       expect(ipInput.value).toBe('10.232.130.16');
       expect(capturedForm?.getFieldValue('address')).toBe('10.232.130.16');
-      expect(capturedForm?.getFieldValue('ip')).toBe('10.232.130.16');
     });
 
     it('Next Available IP button is disabled when no Subnet is selected', async () => {

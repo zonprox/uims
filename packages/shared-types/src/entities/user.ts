@@ -29,9 +29,6 @@ export interface AppUser {
   updatedAt: string;
 }
 
-// Backward-compatible alias for existing consumers during transition
-export type User = AppUser;
-
 export interface AppUserSummaryStats {
   totalUsers: number;
   activeUsers: number;
@@ -39,12 +36,4 @@ export interface AppUserSummaryStats {
   lockedUsers?: number;
   suspendedUsers: number;
   recentActiveCount: number;
-}
-
-export interface UserSummaryStats extends AppUserSummaryStats {
-  custodiansCount?: number;
-  totalGroups?: number;
-  totalWorkstations?: number;
-  lockedCount?: number;
-  totalOUs?: number;
 }

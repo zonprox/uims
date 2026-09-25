@@ -1,13 +1,10 @@
 import * as crypto from 'node:crypto';
 import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma, UserStatus } from '@prisma/client';
-import type { CreateAppUserDto, UpdateAppUserDto, UserSummaryStats } from '@uims/shared-types';
+import type { AppUserSummaryStats, CreateAppUserDto, UpdateAppUserDto } from '@uims/shared-types';
 import * as bcrypt from 'bcrypt';
 import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
-import { DirectoryService } from '../directory/directory.service';
-import type { CreateDirectoryGroupDto } from '../directory/dto/create-directory-group.dto';
-import type { BatchImportDirectoryDto } from '../directory/dto/import-directory.dto';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 import type { UserQueryDto } from './dto/user-query.dto';
@@ -44,12 +41,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly redis?: RedisService,
-    @Optional() private directoryService?: DirectoryService,
-  ) {
-    if (!this.directoryService && this.prisma) {
-      this.directoryService = new DirectoryService(this.prisma);
-    }
-  }
+  ) {}
 
   async findByIdentifier(identifier: string) {
     const clean = identifier.trim().toLowerCase();
@@ -101,7 +93,7 @@ export class UsersService {
     const username = userData.username || userData.email.split('@')[0];
     const hasExplicitPassword = Boolean(userData.password);
     const plainPassword = userData.password || generateSecureRandomPassword(20);
-    const passwordHash = await bcrypt.hash(plainPassword, 10);
+    const passwordHash = await bcrypt.hash(plainPassword, 12);
     const mustChangePassword =
       userData.mustChangePassword !== undefined
         ? userData.mustChangePassword
@@ -268,7 +260,7 @@ export class UsersService {
     }
 
     if (updateUserDto.password) {
-      updateData.passwordHash = await bcrypt.hash(updateUserDto.password, 10);
+      updateData.passwordHash = await bcrypt.hash(updateUserDto.password, 12);
     }
 
     const updated = await this.prisma.appUser.update({
@@ -305,7 +297,7 @@ export class UsersService {
     return this.prisma.appUser.delete({ where: { id } });
   }
 
-  async getStats(): Promise<UserSummaryStats> {
+  async getStats(): Promise<AppUserSummaryStats> {
     const [totalUsers, activeUsers, adminUsers, suspendedUsers, lockedUsers] = await Promise.all([
       this.prisma.appUser.count(),
       this.prisma.appUser.count({ where: { status: 'ACTIVE' } }),
@@ -318,208 +310,13 @@ export class UsersService {
       this.prisma.appUser.count({ where: { isLocked: true } }),
     ]);
 
-    let custodiansCount = 0;
-    let totalGroups = 0;
-    let totalWorkstations = 0;
-
-    try {
-      if (this.directoryService) {
-        const dirStats = await this.directoryService.getStats();
-        totalGroups = dirStats.totalGroups;
-        custodiansCount = dirStats.totalEmployees;
-        totalWorkstations = dirStats.assignedWorkstations;
-      } else {
-        const directoryUserDelegate = (
-          this.prisma as unknown as { directoryUser?: { count: () => Promise<number> } }
-        ).directoryUser;
-        const directoryGroupDelegate = (
-          this.prisma as unknown as { directoryGroup?: { count: () => Promise<number> } }
-        ).directoryGroup;
-        const assetDelegate = (
-          this.prisma as unknown as { asset?: { count: () => Promise<number> } }
-        ).asset;
-
-        if (assetDelegate) {
-          try {
-            custodiansCount = await assetDelegate.count();
-          } catch (error: unknown) {
-            this.logger.warn(
-              'Failed to count assets for custodiansCount',
-              error instanceof Error ? error.message : String(error),
-            );
-            custodiansCount = 0;
-          }
-        } else if (directoryUserDelegate) {
-          try {
-            custodiansCount = await directoryUserDelegate.count();
-          } catch (error: unknown) {
-            this.logger.warn(
-              'Failed to count directory users for custodiansCount',
-              error instanceof Error ? error.message : String(error),
-            );
-            custodiansCount = 0;
-          }
-        }
-
-        if (directoryGroupDelegate) {
-          try {
-            totalGroups = await directoryGroupDelegate.count();
-          } catch (error: unknown) {
-            this.logger.warn(
-              'Failed to count directory groups',
-              error instanceof Error ? error.message : String(error),
-            );
-            totalGroups = 0;
-          }
-        }
-
-        if (directoryUserDelegate) {
-          try {
-            totalWorkstations = await (
-              this.prisma as unknown as {
-                directoryUser: {
-                  count: (args: { where: { computerName: { not: null } } }) => Promise<number>;
-                };
-              }
-            ).directoryUser.count({ where: { computerName: { not: null } } });
-          } catch (error: unknown) {
-            this.logger.warn(
-              'Failed to count directory workstations',
-              error instanceof Error ? error.message : String(error),
-            );
-            totalWorkstations = 0;
-          }
-        }
-      }
-    } catch (error: unknown) {
-      this.logger.warn(
-        'Failed to query directory stats during user getStats aggregation',
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-
     return {
       totalUsers,
       activeUsers,
       adminUsers,
-      custodiansCount,
       suspendedUsers,
       recentActiveCount: activeUsers,
-      totalGroups,
-      totalWorkstations,
-      lockedCount: lockedUsers,
       lockedUsers,
-      totalOUs: 6,
     };
-  }
-
-  async getRoles() {
-    const cacheKey = 'cache:roles:permissions';
-    if (this.redis) {
-      try {
-        const cached = await this.redis.get<unknown[]>(cacheKey);
-        if (cached) return cached;
-      } catch (error: unknown) {
-        this.logger.warn(
-          'Redis cache read failed for roles',
-          error instanceof Error ? error.message : String(error),
-        );
-      }
-    }
-
-    const roles = await this.prisma.role.findMany({
-      take: 100,
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      include: {
-        permissions: {
-          include: {
-            permission: true,
-          },
-        },
-      },
-    });
-
-    const result = roles.map((r) => ({
-      ...r,
-      permissions: r.permissions.map((p) => ({
-        id: p.permission.id,
-        action: p.permission.action,
-        subject: p.permission.subject,
-        conditions: p.permission.conditions,
-      })),
-    }));
-
-    if (this.redis) {
-      try {
-        await this.redis.set(cacheKey, result, 300);
-      } catch (error: unknown) {
-        this.logger.warn(
-          'Redis cache write failed for roles',
-          error instanceof Error ? error.message : String(error),
-        );
-      }
-    }
-
-    return result;
-  }
-
-  // Delegated Directory Methods (for backward compatibility during transition)
-  async getOrganizationalUnits() {
-    if (this.directoryService) {
-      return this.directoryService.getOrganizationalUnits();
-    }
-    return [];
-  }
-
-  async syncDomain() {
-    if (this.directoryService) {
-      return this.directoryService.syncDomain();
-    }
-    return {
-      domain: 'uims.internal',
-      controller: 'DC01-PRIMARY.corp.uims.internal',
-      status: 'SYNCHRONIZED',
-      latencyMs: 14,
-      replicatedObjects: 0,
-      activeIdentities: 0,
-      lastSyncTimestamp: new Date().toISOString(),
-    };
-  }
-
-  async findAllGroups() {
-    if (this.directoryService) {
-      return this.directoryService.findAllGroups();
-    }
-    return this.prisma.directoryGroup.findMany({
-      take: 100,
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-    });
-  }
-
-  async createGroup(dto: CreateDirectoryGroupDto) {
-    if (this.directoryService) {
-      return this.directoryService.createGroup(dto);
-    }
-    return this.prisma.directoryGroup.create({
-      data: {
-        name: dto.name,
-        email: dto.email,
-        description: dto.description,
-      },
-    });
-  }
-
-  async exportMaster() {
-    if (this.directoryService) {
-      return this.directoryService.exportMaster();
-    }
-    return [];
-  }
-
-  async importBatch(dto: BatchImportDirectoryDto) {
-    if (this.directoryService) {
-      return this.directoryService.importBatch(dto);
-    }
-    return { total: 0, created: 0, updated: 0, skipped: 0, errors: [] };
   }
 }

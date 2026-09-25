@@ -8,11 +8,6 @@ export class CreateIPAddressDto {
   @IsString()
   address?: string;
 
-  @ApiPropertyOptional({ description: 'Legacy IPv4 address alias' })
-  @IsOptional()
-  @IsString()
-  ip?: string;
-
   @ApiPropertyOptional({ description: 'Device Hostname', example: 'BSL-AC-01' })
   @IsOptional()
   @IsString()
@@ -22,11 +17,6 @@ export class CreateIPAddressDto {
   @IsOptional()
   @IsString()
   macAddress?: string;
-
-  @ApiPropertyOptional({ description: 'Legacy MAC alias' })
-  @IsOptional()
-  @IsString()
-  mac?: string;
 
   @ApiPropertyOptional({ description: 'Hardware vendor name' })
   @IsOptional()
@@ -105,24 +95,4 @@ export class CreateIPAddressDto {
   @IsOptional()
   @IsString()
   description?: string;
-
-  // Legacy compatibility fields
-  @IsOptional()
-  @IsString()
-  subnet?: string;
-
-  @IsOptional()
-  @IsString()
-  subnetName?: string;
-
-  @IsOptional()
-  @IsString()
-  vlan?: string;
-
-  @IsOptional()
-  @IsString()
-  vlanName?: string;
 }
-
-export type CreateIpDto = CreateIPAddressDto;
-export const CreateIpDto = CreateIPAddressDto;

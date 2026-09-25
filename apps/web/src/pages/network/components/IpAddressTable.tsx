@@ -95,9 +95,9 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
 
     const filteredIps = useMemo(() => {
       return ips.filter((ip) => {
-        const ipAddr = ip.address || ip.ip || '';
+        const ipAddr = ip.address || '';
         const host = ip.hostname || '';
-        const mac = ip.macAddress || ip.mac || '';
+        const mac = ip.macAddress || '';
         const vendor = ip.vendor || '';
         const model = ip.model || '';
         const assetTag = ip.asset?.assetTag || '';
@@ -151,11 +151,11 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           title: 'IP Address & Hostname',
           key: 'ipHostname',
           sorter: (a: IPAddress, b: IPAddress) =>
-            (a.address || a.ip || '').localeCompare(b.address || b.ip || '', undefined, {
+            (a.address || '').localeCompare(b.address || '', undefined, {
               numeric: true,
             }),
           render: (_: unknown, record: IPAddress) => {
-            const ipStr = record.address || record.ip;
+            const ipStr = record.address;
             return (
               <div>
                 <Text code strong style={{ fontSize: 13, color: '#1677ff' }} copyable>
@@ -175,7 +175,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           title: 'MAC Address & Vendor',
           key: 'hardware',
           render: (_: unknown, record: IPAddress) => {
-            const macStr = record.macAddress || record.mac;
+            const macStr = record.macAddress;
             return (
               <div>
                 {macStr ? (
@@ -420,7 +420,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           key: 'actions',
           width: 100,
           render: (_: unknown, record: IPAddress) => {
-            const ipVal = record.address || record.ip || '';
+            const ipVal = record.address || '';
             return (
               <Space size="small">
                 <Tooltip title="Edit Allocation">

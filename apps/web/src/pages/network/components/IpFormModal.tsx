@@ -211,7 +211,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
         const res = await networkService.getNextAvailableIp(currentSubnetId);
         if (res?.nextAvailableIp) {
           form.setFieldValue('address', res.nextAvailableIp);
-          form.setFieldValue('ip', res.nextAvailableIp);
           handleIpChange(res.nextAvailableIp);
           message.success(`Populated next available IP: ${res.nextAvailableIp}`);
         } else {
@@ -241,11 +240,11 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
       if (open) {
         setDetectedNetwork(null);
         setDetectedVendor(null);
-        const currentIp = form.getFieldValue('address') || form.getFieldValue('ip');
+        const currentIp = form.getFieldValue('address');
         if (currentIp) {
           handleIpChange(currentIp);
         }
-        const currentMac = form.getFieldValue('macAddress') || form.getFieldValue('mac');
+        const currentMac = form.getFieldValue('macAddress');
         if (currentMac) {
           handleMacChange(currentMac);
         }
@@ -254,11 +253,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
 
     return (
       <Modal
-        title={
-          editingIp
-            ? `Edit IP Allocation: ${editingIp.address || editingIp.ip}`
-            : 'Allocate IP Address'
-        }
+        title={editingIp ? `Edit IP Allocation: ${editingIp.address}` : 'Allocate IP Address'}
         open={open}
         onOk={onSave}
         onCancel={onCancel}

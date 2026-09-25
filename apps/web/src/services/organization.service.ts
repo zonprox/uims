@@ -44,7 +44,7 @@ export const organizationService = {
   },
 
   getLocations: async (): Promise<LocationBranch[]> => {
-    const res = await api.get('/organizations/locations');
+    const res = await api.get('/locations');
     return res.data.data;
   },
 

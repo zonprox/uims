@@ -4,8 +4,10 @@ import * as dotenv from 'dotenv';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../src/database/prisma.service';
 import { AuditService } from '../../src/modules/audit/audit.service';
+import { DirectoryService } from '../../src/modules/directory/directory.service';
 import { resolveDescendantLocationIds } from '../../src/modules/organization/location-tree.util';
 import { OrganizationService } from '../../src/modules/organization/organization.service';
+import { RolesService } from '../../src/modules/roles/roles.service';
 import { UsersService } from '../../src/modules/users/users.service';
 
 dotenv.config({ path: '.env' });
@@ -79,6 +81,8 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
     let mockAuditService: AuditService;
     let mockUsersService: UsersService;
     let mockOrgService: OrganizationService;
+    let mockRolesService: RolesService;
+    let mockDirectoryService: DirectoryService;
 
     beforeEach(() => {
       mockPrisma = {
@@ -120,6 +124,8 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
       mockAuditService = new AuditService(mockPrisma as unknown as PrismaService);
       mockUsersService = new UsersService(mockPrisma as unknown as PrismaService);
       mockOrgService = new OrganizationService(mockPrisma as unknown as PrismaService);
+      mockRolesService = new RolesService(mockPrisma as unknown as PrismaService);
+      mockDirectoryService = new DirectoryService(mockPrisma as unknown as PrismaService);
     });
 
     it('1.1 AuditService.findAll: strictly clamps excessive limit: 500 to take: 100', async () => {
@@ -182,32 +188,22 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
       expect(callArgs.take).toBe(1);
     });
 
-    it('1.9 UsersService.getRoles: enforces ceiling take: 100', async () => {
-      await mockUsersService.getRoles();
+    it('1.9 RolesService.findAll: enforces ceiling take: 100', async () => {
+      await mockRolesService.findAll();
       expect(mockPrisma.role.findMany).toHaveBeenCalledTimes(1);
       const callArgs = mockPrisma.role.findMany.mock.calls[0][0];
       expect(callArgs.take).toBe(100);
+      expect((mockUsersService as unknown as Record<string, unknown>).getRoles).toBeUndefined();
     });
 
-    it('1.10 UsersService.findAllGroups: enforces bounded take <= 100 (delegated & direct)', async () => {
-      // Delegated via DirectoryService
-      await mockUsersService.findAllGroups();
+    it('1.10 DirectoryService.findAllGroups: enforces bounded take <= 100', async () => {
+      await mockDirectoryService.findAllGroups();
       expect(mockPrisma.directoryGroup.findMany).toHaveBeenCalledTimes(1);
       const callArgs = mockPrisma.directoryGroup.findMany.mock.calls[0][0];
       expect(callArgs.take).toBeLessThanOrEqual(100);
-
-      // Direct fallback when directoryService is undefined
-      const directUsersService = new UsersService(
-        mockPrisma as unknown as PrismaService,
-        undefined,
-        null as unknown as undefined,
-      );
-      // Explicitly set directoryService to undefined to test fallback
-      (directUsersService as unknown as { directoryService?: unknown }).directoryService =
-        undefined;
-      await directUsersService.findAllGroups();
-      const fallbackCallArgs = mockPrisma.directoryGroup.findMany.mock.calls[1][0];
-      expect(fallbackCallArgs.take).toBe(100);
+      expect(
+        (mockUsersService as unknown as Record<string, unknown>).findAllGroups,
+      ).toBeUndefined();
     });
 
     it('1.11 OrganizationService.findAllOrganizations: enforces ceiling take: 100', async () => {
@@ -296,6 +292,8 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
     let mockAuditService: AuditService;
     let mockUsersService: UsersService;
     let mockOrgService: OrganizationService;
+    let mockRolesService: RolesService;
+    let mockDirectoryService: DirectoryService;
 
     beforeEach(() => {
       mockPrisma = {
@@ -337,6 +335,8 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
       mockAuditService = new AuditService(mockPrisma as unknown as PrismaService);
       mockUsersService = new UsersService(mockPrisma as unknown as PrismaService);
       mockOrgService = new OrganizationService(mockPrisma as unknown as PrismaService);
+      mockRolesService = new RolesService(mockPrisma as unknown as PrismaService);
+      mockDirectoryService = new DirectoryService(mockPrisma as unknown as PrismaService);
     });
 
     it('2.1 AuditService.findAll specifies composite orderBy: [{ timestamp: "desc" }, { id: "desc" }]', async () => {
@@ -345,10 +345,10 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
       expect(callArgs.orderBy).toEqual([{ timestamp: 'desc' }, { id: 'desc' }]);
     });
 
-    it('2.2 AuditService.exportCsv specifies composite orderBy: [{ timestamp: "desc" }, { id: "asc" }]', async () => {
+    it('2.2 AuditService.exportCsv specifies composite orderBy: [{ timestamp: "desc" }, { id: "desc" }]', async () => {
       await mockAuditService.exportCsv();
       const callArgs = mockPrisma.auditLog.findMany.mock.calls[0][0];
-      expect(callArgs.orderBy).toEqual([{ timestamp: 'desc' }, { id: 'asc' }]);
+      expect(callArgs.orderBy).toEqual([{ timestamp: 'desc' }, { id: 'desc' }]);
     });
 
     it('2.3 UsersService.findAll specifies composite orderBy: [{ createdAt: "desc" }, { id: "asc" }]', async () => {
@@ -357,29 +357,19 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
       expect(callArgs.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'asc' }]);
     });
 
-    it('2.4 UsersService.getRoles specifies composite orderBy: [{ name: "asc" }, { id: "asc" }]', async () => {
-      await mockUsersService.getRoles();
+    it('2.4 RolesService.findAll specifies composite orderBy: [{ name: "asc" }, { id: "asc" }]', async () => {
+      await mockRolesService.findAll();
       const callArgs = mockPrisma.role.findMany.mock.calls[0][0];
       expect(callArgs.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
     });
 
-    it('2.5 UsersService.findAllGroups specifies deterministic tie-breaker sorting', async () => {
-      // Delegated via DirectoryService
-      await mockUsersService.findAllGroups();
-      const delegatedCallArgs = mockPrisma.directoryGroup.findMany.mock.calls[0][0];
-      expect(delegatedCallArgs.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
-
-      // Fallback direct query
-      const directUsersService = new UsersService(
-        mockPrisma as unknown as PrismaService,
-        undefined,
-        null as unknown as undefined,
-      );
-      (directUsersService as unknown as { directoryService?: unknown }).directoryService =
-        undefined;
-      await directUsersService.findAllGroups();
-      const fallbackCallArgs = mockPrisma.directoryGroup.findMany.mock.calls[1][0];
-      expect(fallbackCallArgs.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'asc' }]);
+    it('2.5 DirectoryService.findAllGroups specifies deterministic tie-breaker sorting', async () => {
+      await mockDirectoryService.findAllGroups();
+      const callArgs = mockPrisma.directoryGroup.findMany.mock.calls[0][0];
+      expect(callArgs.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
+      expect(
+        (mockUsersService as unknown as Record<string, unknown>).findAllGroups,
+      ).toBeUndefined();
     });
 
     it('2.6 OrganizationService.findAllOrganizations specifies composite orderBy: [{ name: "asc" }, { id: "asc" }]', async () => {

@@ -343,12 +343,12 @@ describe('Milestone 1 Challenger M1-1 — Empirical License Key Cryptography Str
       'enc:v1',
     ];
 
-    it('should return legacy plaintext as-is on decryption and upgrade cleanly on encryption', () => {
+    it('should reject unencrypted legacy keys on decryption and encrypt/decrypt cleanly when upgraded', () => {
       for (const lk of legacyKeys) {
-        // Safe fallback: return as-is
-        expect(decryptLicenseKey(lk)).toBe(lk);
+        // Plaintext keys must NOT pass through decryption; reject unencrypted keys
+        expect(decryptLicenseKey(lk)).toBe('••••-DECRYPTION-FAILED');
 
-        // Upgrade
+        // Upgrade / Encrypt
         const upgraded = encryptLicenseKey(lk);
         expect(upgraded.startsWith('enc:v1:')).toBe(true);
 

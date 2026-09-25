@@ -296,11 +296,9 @@ export function useNetworkManagement(
     (ip: IPAddress) => {
       setEditingIp(ip);
       form.setFieldsValue({
-        address: ip.address || ip.ip,
-        ip: ip.address || ip.ip,
+        address: ip.address,
         hostname: ip.hostname,
-        macAddress: ip.macAddress || ip.mac,
-        mac: ip.macAddress || ip.mac,
+        macAddress: ip.macAddress,
         vendor: ip.vendor,
         deviceType: ip.deviceType || 'Workstation',
         model: ip.model,
@@ -321,12 +319,10 @@ export function useNetworkManagement(
   const handleSaveIp = useCallback(async () => {
     try {
       const values = await form.validateFields();
-      // Ensure both address and ip are populated for backend and frontend compatibility
-      const targetIp = values.address || values.ip;
+      const targetIp = values.address;
       const payload = {
         ...values,
         address: targetIp,
-        ip: targetIp,
         assignedUserId: values.assignedUserId || undefined,
         assetId: values.assetId || undefined,
         subnetId: values.subnetId || undefined,

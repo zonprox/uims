@@ -61,6 +61,39 @@ const mockStats: AuditStats = {
   securityAnomalies: '3 Alerts',
 };
 
+const mockMessageError = vi.fn();
+const mockMessageSuccess = vi.fn();
+const mockMessageWarning = vi.fn();
+const mockMessageInfo = vi.fn();
+
+const mockAppInstance = {
+  message: {
+    success: mockMessageSuccess,
+    error: mockMessageError,
+    warning: mockMessageWarning,
+    info: mockMessageInfo,
+  },
+  modal: {
+    confirm: vi.fn(),
+  },
+  notification: {
+    error: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+};
+
+vi.mock('antd', async () => {
+  const actual = await vi.importActual<typeof import('antd')>('antd');
+  return {
+    ...actual,
+    App: Object.assign(actual.App, {
+      useApp: () => mockAppInstance,
+    }),
+  };
+});
+
 vi.mock('../../services/audit.service', () => ({
   auditService: {
     getLogs: vi.fn().mockImplementation(() => Promise.resolve(mockLogs)),
@@ -74,8 +107,15 @@ describe('AuditPage Component Tests', () => {
   let currentRoot: Root | null = null;
 
   beforeEach(() => {
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
     document.body.appendChild(container);
+    mockMessageError.mockClear();
+    mockMessageSuccess.mockClear();
+    mockMessageWarning.mockClear();
+    mockMessageInfo.mockClear();
   });
 
   afterEach(async () => {
@@ -262,6 +302,7 @@ describe('AuditPage Component Tests', () => {
     });
 
     expect(auditService.exportCsv).toHaveBeenCalled();
+    expect(mockMessageError).toHaveBeenCalledWith('Export service unavailable');
   });
 
   it('handles copying payload to clipboard in inspector drawer', async () => {
@@ -300,6 +341,147 @@ describe('AuditPage Component Tests', () => {
       });
 
       expect(writeTextMock).toHaveBeenCalled();
+      expect(mockMessageSuccess).toHaveBeenCalledWith('Payload copied to clipboard.');
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
+  it('displays user error notification when getStats fails and avoids in-memory approximations', async () => {
+    (auditService.getStats as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Operational telemetry service offline'),
+    );
+    await renderComponent();
+
+    expect(auditService.getStats).toHaveBeenCalled();
+    expect(mockMessageError).toHaveBeenCalledWith('Operational telemetry service offline');
+    // Table should still render logs
+    expect(container.textContent).toContain('Alex Vance');
+    // Stats must not be populated with filtered slice approximation or fake metrics
+    expect(container.textContent).not.toContain('Total Recorded Events');
+    expect(container.textContent).not.toContain('2 Alerts');
+  });
+
+  it('displays user error notification when getLogs fails', async () => {
+    (auditService.getLogs as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Audit logs store unavailable'),
+    );
+    await renderComponent();
+
+    expect(auditService.getLogs).toHaveBeenCalled();
+    expect(mockMessageError).toHaveBeenCalledWith('Audit logs store unavailable');
+  });
+
+  it('renders stats and logs correctly when both succeed', async () => {
+    await renderComponent();
+
+    expect(auditService.getLogs).toHaveBeenCalled();
+    expect(auditService.getStats).toHaveBeenCalled();
+    expect(mockMessageError).not.toHaveBeenCalled();
+
+    // Stats rendered correctly
+    expect(container.textContent).toContain('Total Recorded Events');
+    expect(container.textContent).toContain('142');
+    expect(container.textContent).toContain('Failed Actions');
+    expect(container.textContent).toContain('7');
+    expect(container.textContent).toContain('Security Alerts');
+    expect(container.textContent).toContain('3');
+    expect(container.textContent).toContain('Error Rate');
+    expect(container.textContent).toContain('4.9%');
+
+    // Logs rendered correctly
+    expect(container.textContent).toContain('Alex Vance');
+    expect(container.textContent).toContain('System Threat Defense');
+  });
+
+  it('falls back to document.execCommand when navigator.clipboard is unavailable', async () => {
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    const execCommandMock = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommandMock;
+
+    try {
+      await renderComponent();
+
+      const inspectBtn = container.querySelector('button[aria-label="Inspect event aud-001"]');
+      expect(inspectBtn).toBeTruthy();
+
+      await act(async () => {
+        (inspectBtn as HTMLButtonElement).click();
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const copyBtn = document.querySelector('.ant-drawer button .anticon-copy')
+        ?.parentElement as HTMLButtonElement | null;
+      expect(copyBtn).toBeTruthy();
+
+      await act(async () => {
+        copyBtn?.click();
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      expect(execCommandMock).toHaveBeenCalledWith('copy');
+      expect(mockMessageSuccess).toHaveBeenCalledWith('Payload copied to clipboard.');
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
+  it('displays error notification when copying payload to clipboard fails completely', async () => {
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    const execCommandMock = vi.fn().mockReturnValue(false);
+    document.execCommand = execCommandMock;
+
+    try {
+      await renderComponent();
+
+      const inspectBtn = container.querySelector('button[aria-label="Inspect event aud-001"]');
+      expect(inspectBtn).toBeTruthy();
+
+      await act(async () => {
+        (inspectBtn as HTMLButtonElement).click();
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const copyBtn = document.querySelector('.ant-drawer button .anticon-copy')
+        ?.parentElement as HTMLButtonElement | null;
+      expect(copyBtn).toBeTruthy();
+
+      await act(async () => {
+        copyBtn?.click();
+      });
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      expect(mockMessageError).toHaveBeenCalledWith('Failed to copy payload to clipboard.');
     } finally {
       Object.defineProperty(navigator, 'clipboard', {
         value: originalClipboard,

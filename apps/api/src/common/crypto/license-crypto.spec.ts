@@ -141,9 +141,10 @@ describe('license-crypto', () => {
       expect(decrypted).toBe(complexKey);
     });
 
-    it('should return legacy unencrypted plaintext as-is without throwing', () => {
+    it('should reject unencrypted plaintext key with fallback or error', () => {
       const legacyKey = 'LEGACY-PLAINTEXT-KEY-1234';
-      expect(decryptLicenseKey(legacyKey)).toBe(legacyKey);
+      expect(decryptLicenseKey(legacyKey)).toBe('••••-DECRYPTION-FAILED');
+      expect(() => decryptLicenseKey(legacyKey, { throwOnError: true })).toThrow();
     });
 
     it('should return null, undefined, empty, or N/A as-is', () => {
@@ -153,13 +154,19 @@ describe('license-crypto', () => {
       expect(decryptLicenseKey('N/A')).toBe('N/A');
     });
 
+    const flipHexByte = (hex: string, index = 0): string => {
+      const byte = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+      const flipped = (byte ^ 0xff).toString(16).padStart(2, '0');
+      return `${hex.slice(0, index * 2)}${flipped}${hex.slice(index * 2 + 2)}`;
+    };
+
     it('should return fallback string on corrupted ciphertext', () => {
       const plaintext = 'KEY-TO-BE-TAMPERED';
       const encrypted = encryptLicenseKey(plaintext);
       const parts = encrypted.slice('enc:v1:'.length).split(':');
 
       // Tamper ciphertext
-      const tamperedCipher = `${parts[0]}:${parts[1]}:ff${parts[2].slice(2)}`;
+      const tamperedCipher = `${parts[0]}:${parts[1]}:${flipHexByte(parts[2])}`;
       const tamperedKey = `enc:v1:${tamperedCipher}`;
 
       expect(decryptLicenseKey(tamperedKey)).toBe('••••-DECRYPTION-FAILED');
@@ -170,7 +177,7 @@ describe('license-crypto', () => {
       const encrypted = encryptLicenseKey(plaintext);
       const parts = encrypted.slice('enc:v1:'.length).split(':');
 
-      const tamperedCipher = `${parts[0]}:${parts[1]}:00${parts[2].slice(2)}`;
+      const tamperedCipher = `${parts[0]}:${parts[1]}:${flipHexByte(parts[2])}`;
       const tamperedKey = `enc:v1:${tamperedCipher}`;
 
       expect(() => decryptLicenseKey(tamperedKey, { throwOnError: true })).toThrow();
@@ -182,7 +189,7 @@ describe('license-crypto', () => {
       const parts = encrypted.slice('enc:v1:'.length).split(':');
 
       // Flip byte in auth tag
-      const corruptedTag = `00${parts[1].slice(2)}`;
+      const corruptedTag = flipHexByte(parts[1]);
       const tamperedKey = `enc:v1:${parts[0]}:${corruptedTag}:${parts[2]}`;
 
       expect(decryptLicenseKey(tamperedKey)).toBe('••••-DECRYPTION-FAILED');
@@ -195,7 +202,7 @@ describe('license-crypto', () => {
       const parts = encrypted.slice('enc:v1:'.length).split(':');
 
       // Flip byte in IV
-      const corruptedIV = `aa${parts[0].slice(2)}`;
+      const corruptedIV = flipHexByte(parts[0]);
       const tamperedKey = `enc:v1:${corruptedIV}:${parts[1]}:${parts[2]}`;
 
       expect(decryptLicenseKey(tamperedKey)).toBe('••••-DECRYPTION-FAILED');

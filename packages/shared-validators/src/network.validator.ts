@@ -58,10 +58,6 @@ export const createSubnetSchema = z.object({
   totalIps: z.union([z.number().int().positive(), z.string()]).optional(),
   reservedIps: z.number().int().min(0).optional(),
   description: z.string().max(500).nullable().optional(),
-  // legacy compatibility
-  vlan: z.string().optional(),
-  vlanName: z.string().optional(),
-  location: z.string().optional(),
 });
 
 export const updateSubnetSchema = createSubnetSchema.partial();
@@ -79,10 +75,8 @@ export const subnetQuerySchema = z.object({
 
 export const createIpAddressSchema = z.object({
   address: z.string().regex(ipv4Regex, 'Invalid IPv4 address').optional(),
-  ip: z.string().regex(ipv4Regex, 'Invalid IPv4 address').optional(),
   hostname: z.string().max(255).nullable().optional(),
   macAddress: z.string().max(50).nullable().optional(),
-  mac: z.string().max(50).nullable().optional(),
   vendor: z.string().max(100).nullable().optional(),
   deviceType: z.string().max(100).nullable().optional(),
   model: z.string().max(100).nullable().optional(),
@@ -100,11 +94,6 @@ export const createIpAddressSchema = z.object({
   lastSeen: z.string().datetime().nullable().optional(),
   description: z.string().max(500).nullable().optional(),
   switchPortId: uuidSchema.nullable().optional(),
-  // legacy compatibility
-  subnet: z.string().optional(),
-  subnetName: z.string().optional(),
-  vlan: z.string().optional(),
-  vlanName: z.string().optional(),
 });
 
 export const updateIpAddressSchema = createIpAddressSchema.partial();
@@ -115,9 +104,7 @@ export const ipAddressQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
   search: z.string().optional(),
   vlanId: z.string().optional(),
-  vlan: z.string().optional(),
   subnetId: z.string().optional(),
-  subnet: z.string().optional(),
   status: z.string().optional(),
   deviceType: z.string().optional(),
   locationId: uuidSchema.optional(),
