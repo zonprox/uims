@@ -9,6 +9,8 @@ export interface LogEventDto {
   entityId?: string;
   ipAddress?: string;
   status?: string;
+  statusCode?: number;
+  durationMs?: number;
   details?: string;
   diffPayload?: Record<string, unknown>;
   oldValue?: Record<string, unknown>;
@@ -23,11 +25,17 @@ export interface AuditQueryDto {
   search?: string;
   action?: string;
   severity?: string;
+  status?: string;
+  entity?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface AuditStatsDto {
-  soc2Score: string;
-  isoReadiness: string;
-  securityAnomalies: string;
-  totalEventRecords: string;
+  totalEvents: number;
+  failedEvents: number;
+  criticalEvents: number;
+  errorRate: string;
+  totalEventRecords?: string;
+  securityAnomalies?: string;
 }

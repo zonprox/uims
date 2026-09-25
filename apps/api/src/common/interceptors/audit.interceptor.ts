@@ -1,59 +1,64 @@
-import * as crypto from 'node:crypto';
 import {
   type CallHandler,
   type ExecutionContext,
   Injectable,
   Logger,
   type NestInterceptor,
-  Optional,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import dotenv from 'dotenv';
 import type { Response } from 'express';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { PrismaService } from '../../database/prisma.service';
 import { extractClientIp } from '../decorators/client-ip.decorator';
 
-dotenv.config();
-dotenv.config({ path: '../../.env' });
-
-const SENSITIVE_KEYS = new Set([
+const SENSITIVE_KEY_PATTERNS = [
   'password',
-  'passwordHash',
   'token',
-  'accessToken',
-  'refreshToken',
   'secret',
-  'adInitialPassword',
-  'apiKey',
-  'privateKey',
-  'creditCard',
+  'apikey',
+  'privatekey',
+  'creditcard',
   'cvv',
-]);
+  'auth',
+  'authorization',
+  'credential',
+];
 
-function sanitizePayload(obj: unknown): unknown {
+function isSensitiveKey(key: string): boolean {
+  const normalized = key.toLowerCase().replace(/[-_]/g, '');
+  return SENSITIVE_KEY_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+export function sanitizePayload(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(sanitizePayload);
 
   const copy: Record<string, unknown> = { ...(obj as Record<string, unknown>) };
-  for (const key of Object.keys(copy)) {
-    if (SENSITIVE_KEYS.has(key)) {
+  for (const [key, value] of Object.entries(copy)) {
+    if (isSensitiveKey(key)) {
       copy[key] = '[REDACTED]';
-    } else if (typeof copy[key] === 'object' && copy[key] !== null) {
-      copy[key] = sanitizePayload(copy[key]);
+    } else if (typeof value === 'object' && value !== null) {
+      copy[key] = sanitizePayload(value);
     }
   }
   return copy;
 }
 
-function resolveEntityName(path: string): string {
-  const segments = path
-    .replace(/^\/api\/v1\//, '')
+const EXCLUDED_AUDIT_RESOURCES = new Set(['health', 'auth', 'audit', 'settings', 'notifications']);
+
+function extractResource(path: string): string {
+  const cleanPath = path.split('?')[0];
+  const segments = cleanPath
+    .replace(/^\/api(\/v\d+)?\//, '')
+    .replace(/^\//, '')
     .split('/')
     .filter(Boolean);
-  if (segments.length === 0) return 'System';
-  const resource = segments[0];
+  return segments[0]?.toLowerCase() || '';
+}
+
+function resolveEntityName(path: string): string {
+  const resource = extractResource(path);
+  if (!resource) return 'System';
   return resource.charAt(0).toUpperCase() + resource.slice(1);
 }
 
@@ -71,30 +76,11 @@ function resolveAction(method: string): string {
   }
 }
 
-function computeAuditHash(
-  secret: string,
-  timestamp: string,
-  userId: string,
-  action: string,
-  entity: string,
-  status: string,
-  ip: string,
-  payloadStr: string,
-): string {
-  return crypto
-    .createHmac('sha256', secret)
-    .update(`${timestamp}|${userId}|${action}|${entity}|${status}|${ip}|${payloadStr}`)
-    .digest('hex');
-}
-
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
 
-  constructor(
-    private prisma: PrismaService,
-    @Optional() private configService?: ConfigService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   private async recordAudit(
     req: {
@@ -103,19 +89,13 @@ export class AuditInterceptor implements NestInterceptor {
       ip?: string;
       body?: unknown;
     },
-    res: Response,
+    _res: Response,
     method: string,
     path: string,
     durationMs: number,
+    statusCode = 200,
   ): Promise<void> {
     try {
-      const secret = this.configService
-        ? this.configService.getOrThrow<string>('AUDIT_SIGNING_KEY')
-        : process.env.AUDIT_SIGNING_KEY;
-      if (!secret) {
-        throw new Error('AUDIT_SIGNING_KEY is required for tamper-evident audit logging');
-      }
-
       const user = req.user;
       const entity = resolveEntityName(path);
       const action = resolveAction(method);
@@ -123,37 +103,30 @@ export class AuditInterceptor implements NestInterceptor {
       const userAgent =
         typeof req.headers?.['user-agent'] === 'string' ? req.headers['user-agent'] : undefined;
       const sanitizedBody = sanitizePayload(req.body);
-      const timestampIso = new Date().toISOString();
-      const userId = user?.id || user?.sub || 'SYSTEM';
-      const statusCode = res.statusCode || 200;
       const status = statusCode >= 400 ? 'Failed' : 'Success';
-
-      const payloadStr = sanitizedBody ? JSON.stringify(sanitizedBody) : '{}';
-      const hash = computeAuditHash(
-        secret,
-        timestampIso,
-        userId,
-        action,
-        entity,
-        status,
-        ipAddress,
-        payloadStr,
-      );
+      const severity =
+        statusCode >= 500
+          ? 'Critical'
+          : statusCode >= 400 || action === 'DELETE'
+            ? 'Warning'
+            : 'Info';
 
       await this.prisma.auditLog.create({
         data: {
           userId: user?.id || user?.sub || null,
-          userName: user?.name || user?.email?.split('@')[0] || 'Authenticated User',
-          userEmail: user?.email || 'admin@uims.internal',
+          userName:
+            user?.name ||
+            user?.email?.split('@')[0] ||
+            (user ? 'Authenticated User' : 'System Engine'),
+          userEmail: user?.email || (user ? undefined : 'system@youngonevn.com'),
           action,
-          severity: action === 'DELETE' ? 'Warning' : 'Info',
+          severity,
           entity,
           entityType: entity,
           ipAddress,
           status,
           statusCode,
           durationMs: Number(durationMs.toFixed(2)),
-          hash,
           details: `${action} performed on ${entity} via ${method} ${path} (${statusCode})`,
           diffPayload: sanitizedBody
             ? (sanitizedBody as import('@prisma/client').Prisma.InputJsonValue)
@@ -163,7 +136,7 @@ export class AuditInterceptor implements NestInterceptor {
       });
     } catch (error: unknown) {
       this.logger.error(
-        `Failed to persist audit log record for action "${method}" on path "${path}": ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to persist activity log record for action "${method}" on path "${path}": ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     }
@@ -182,16 +155,33 @@ export class AuditInterceptor implements NestInterceptor {
     }
 
     const path = req.url || '';
-    if (path.includes('/health')) {
+    const resource = extractResource(path);
+    if (!resource || EXCLUDED_AUDIT_RESOURCES.has(resource)) {
       return next.handle();
     }
 
     const startTime = performance.now();
 
     return next.handle().pipe(
-      tap(() => {
-        const durationMs = performance.now() - startTime;
-        void this.recordAudit(req, res, method, path, durationMs);
+      tap({
+        next: () => {
+          const durationMs = performance.now() - startTime;
+          const statusCode = res.statusCode || 200;
+          void this.recordAudit(req, res, method, path, durationMs, statusCode);
+        },
+        error: (error: unknown) => {
+          const durationMs = performance.now() - startTime;
+          const statusCode =
+            error &&
+            typeof error === 'object' &&
+            'getStatus' in error &&
+            typeof (error as { getStatus: () => number }).getStatus === 'function'
+              ? (error as { getStatus: () => number }).getStatus()
+              : res.statusCode >= 400
+                ? res.statusCode
+                : 500;
+          void this.recordAudit(req, res, method, path, durationMs, statusCode);
+        },
       }),
     );
   }

@@ -92,12 +92,11 @@ describe('app.config', () => {
         JWT_REFRESH_SECRET: 'short-refresh',
       };
       expect(envSchema.safeParse(shortRefresh).success).toBe(false);
+    });
 
-      const shortAudit = {
-        ...validBaseConfig,
-        AUDIT_SIGNING_KEY: 'short-audit',
-      };
-      expect(envSchema.safeParse(shortAudit).success).toBe(false);
+    it('should allow configuration without AUDIT_SIGNING_KEY', () => {
+      const { AUDIT_SIGNING_KEY: _audit, ...withoutAudit } = validBaseConfig;
+      expect(envSchema.safeParse(withoutAudit).success).toBe(true);
     });
 
     it('should validate optional LICENSE_ENCRYPTION_KEY if provided', () => {

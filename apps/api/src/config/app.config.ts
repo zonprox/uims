@@ -10,7 +10,7 @@ export const envSchema = z
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
     JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
-    AUDIT_SIGNING_KEY: z.string().min(32, 'AUDIT_SIGNING_KEY must be at least 32 characters'),
+    AUDIT_SIGNING_KEY: z.string().optional(),
     LICENSE_ENCRYPTION_KEY: z
       .string()
       .min(32, 'LICENSE_ENCRYPTION_KEY must be at least 32 characters')

@@ -13,16 +13,18 @@ export class AuditService {
     @Optional() private notificationsService?: NotificationsService,
   ) {}
 
-  async findAll(query?: AuditQueryDto) {
+  private buildWhere(query?: AuditQueryDto): Prisma.AuditLogWhereInput {
     const where: Prisma.AuditLogWhereInput = {};
 
     if (query?.search) {
+      const term = query.search.trim();
       where.OR = [
-        { userName: { contains: query.search, mode: 'insensitive' } },
-        { userEmail: { contains: query.search, mode: 'insensitive' } },
-        { entity: { contains: query.search, mode: 'insensitive' } },
-        { details: { contains: query.search, mode: 'insensitive' } },
-        { ipAddress: { contains: query.search, mode: 'insensitive' } },
+        { userName: { contains: term, mode: 'insensitive' } },
+        { userEmail: { contains: term, mode: 'insensitive' } },
+        { entity: { contains: term, mode: 'insensitive' } },
+        { details: { contains: term, mode: 'insensitive' } },
+        { ipAddress: { contains: term, mode: 'insensitive' } },
+        { action: { contains: term, mode: 'insensitive' } },
       ];
     }
 
@@ -34,6 +36,29 @@ export class AuditService {
       where.severity = query.severity;
     }
 
+    if (query?.status && query.status !== 'all') {
+      where.status = query.status;
+    }
+
+    if (query?.entity && query.entity !== 'all') {
+      where.entity = { contains: query.entity, mode: 'insensitive' };
+    }
+
+    if (query?.startDate || query?.endDate) {
+      where.timestamp = {};
+      if (query.startDate) {
+        where.timestamp.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.timestamp.lte = new Date(query.endDate);
+      }
+    }
+
+    return where;
+  }
+
+  async findAll(query?: AuditQueryDto) {
+    const where = this.buildWhere(query);
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
@@ -59,7 +84,7 @@ export class AuditService {
       data: {
         userId: data.userId,
         userName: data.userName || 'System Engine',
-        userEmail: data.userEmail || 'daemon@uims.internal',
+        userEmail: data.userEmail || 'daemon@youngonevn.com',
         action: data.action,
         severity: data.severity || 'Info',
         entity: data.entity,
@@ -67,6 +92,8 @@ export class AuditService {
         entityId: data.entityId,
         ipAddress: data.ipAddress || '127.0.0.1 (Localhost)',
         status: data.status || 'Success',
+        statusCode: data.statusCode || (data.status === 'Failed' ? 400 : 200),
+        durationMs: data.durationMs,
         details: data.details || '',
         diffPayload: (data.diffPayload as Prisma.InputJsonValue) ?? undefined,
         oldValue: (data.oldValue as Prisma.InputJsonValue) ?? undefined,
@@ -97,18 +124,40 @@ export class AuditService {
     return log;
   }
 
-  async exportCsv() {
+  async exportCsv(query?: AuditQueryDto): Promise<string> {
+    const where = this.buildWhere(query);
+    const limit = Math.min(100, Math.max(1, Number(query?.limit || query?.pageSize) || 100));
     const logs = await this.prisma.auditLog.findMany({
+      where,
       orderBy: [{ timestamp: 'desc' }, { id: 'asc' }],
-      take: 100,
+      take: limit,
     });
 
+    const escapeCell = (val: unknown): string => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const headers =
-      'ID,Timestamp (UTC),User,Email,Action,Severity,Entity,IP Address,Status,Details\n';
+      'ID,Timestamp (UTC),User,Email,Action,Severity,Entity,IP Address,Status,Details,Status Code,Duration (ms)\n';
+
     const rows = logs
-      .map(
-        (l) =>
-          `"${l.id}","${l.timestamp.toISOString()}","${l.userName || ''}","${l.userEmail || ''}","${l.action}","${l.severity}","${l.entity}","${l.ipAddress || ''}","${l.status}","${(l.details || '').replace(/"/g, '""')}"`,
+      .map((l) =>
+        [
+          escapeCell(l.id),
+          escapeCell(l.timestamp ? l.timestamp.toISOString() : ''),
+          escapeCell(l.userName || ''),
+          escapeCell(l.userEmail || ''),
+          escapeCell(l.action),
+          escapeCell(l.severity || 'Info'),
+          escapeCell(l.entity),
+          escapeCell(l.ipAddress || ''),
+          escapeCell(l.status || 'Success'),
+          escapeCell(l.details || ''),
+          escapeCell(l.statusCode ?? 200),
+          escapeCell(l.durationMs != null ? `${l.durationMs.toFixed(2)}ms` : ''),
+        ].join(','),
       )
       .join('\n');
 
@@ -116,16 +165,30 @@ export class AuditService {
   }
 
   async getStats(): Promise<AuditStatsDto> {
-    const [totalCount, anomalyCount] = await Promise.all([
+    const [totalEvents, failedEvents, criticalEvents] = await Promise.all([
       this.prisma.auditLog.count(),
-      this.prisma.auditLog.count({ where: { severity: 'Critical' } }),
+      this.prisma.auditLog.count({
+        where: {
+          OR: [{ status: 'Failed' }, { status: 'Blocked' }, { statusCode: { gte: 400 } }],
+        },
+      }),
+      this.prisma.auditLog.count({
+        where: {
+          OR: [{ severity: 'Critical' }, { severity: 'Alert' }],
+        },
+      }),
     ]);
 
+    const errorRate =
+      totalEvents > 0 ? `${((failedEvents / totalEvents) * 100).toFixed(1)}%` : '0.0%';
+
     return {
-      soc2Score: '98.4%',
-      isoReadiness: '96.0%',
-      securityAnomalies: `${anomalyCount} Blocked`,
-      totalEventRecords: totalCount.toLocaleString(),
+      totalEvents,
+      failedEvents,
+      criticalEvents,
+      errorRate,
+      totalEventRecords: totalEvents.toLocaleString(),
+      securityAnomalies: `${criticalEvents} Alerts`,
     };
   }
 
@@ -137,18 +200,24 @@ export class AuditService {
         : '',
       user: log.userName || 'System Engine',
       userName: log.userName || 'System Engine',
-      userEmail: log.userEmail || 'system@uims.internal',
+      userEmail: log.userEmail || 'system@youngonevn.com',
       action: log.action,
       severity: log.severity || 'Info',
       entity: log.entity,
       entityType: log.entityType || 'Asset',
+      entityId: log.entityId || null,
       ipAddress: log.ipAddress || '127.0.0.1',
       status: log.status || 'Success',
+      statusCode: log.statusCode ?? (log.status === 'Success' ? 200 : 400),
+      durationMs: log.durationMs ?? null,
+      userAgent: log.userAgent || null,
       details: log.details || '',
       diffPayload: log.diffPayload || {
         requestId: `req_${log.id.substring(0, 8)}`,
         userAgent: log.userAgent || 'UIMS-Console/2.4',
       },
+      oldValue: log.oldValue || null,
+      newValue: log.newValue || null,
     };
   }
 }

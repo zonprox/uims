@@ -9,27 +9,26 @@ export interface AuditLog {
   severity: string;
   entity: string;
   entityType: string;
+  entityId?: string | null;
   ipAddress: string;
   status: string;
+  statusCode?: number | null;
+  durationMs?: number | null;
+  userAgent?: string | null;
   details?: string;
   userName?: string;
-  diffPayload?: {
-    before?: Record<string, unknown> | null;
-    after?: Record<string, unknown> | null;
-    requestId?: string;
-    userAgent?: string;
-    ipAddress?: string;
-    severity?: string;
-    status?: string;
-    [key: string]: unknown;
-  } | null;
+  diffPayload?: Record<string, unknown> | null;
+  oldValue?: Record<string, unknown> | null;
+  newValue?: Record<string, unknown> | null;
 }
 
 export interface AuditStats {
-  soc2Score: string;
-  isoReadiness: string;
-  securityAnomalies: string;
-  totalEventRecords: string;
+  totalEvents: number;
+  failedEvents: number;
+  criticalEvents: number;
+  errorRate: string;
+  totalEventRecords?: string;
+  securityAnomalies?: string;
 }
 
 export const auditService = {
@@ -37,6 +36,12 @@ export const auditService = {
     search?: string;
     action?: string;
     severity?: string;
+    status?: string;
+    entity?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
   }): Promise<Array<AuditLog>> => {
     const res = await api.get('/audit', { params });
     return res.data.data;
@@ -45,8 +50,16 @@ export const auditService = {
     const res = await api.get(`/audit/${id}`);
     return res.data.data;
   },
-  exportCsv: async (): Promise<string> => {
-    const res = await api.get('/audit/export', { responseType: 'text' });
+  exportCsv: async (params?: {
+    search?: string;
+    action?: string;
+    severity?: string;
+    status?: string;
+    entity?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<string> => {
+    const res = await api.get('/audit/export', { params, responseType: 'text' });
     return res.data;
   },
   getStats: async (): Promise<AuditStats> => {

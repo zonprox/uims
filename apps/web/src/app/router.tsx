@@ -100,7 +100,7 @@ export const router = createBrowserRouter([
           {
             path: 'network',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Network & IPAM..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Network..." />}>
                 <NetworkPage />
               </Suspense>
             ),
@@ -118,7 +118,16 @@ export const router = createBrowserRouter([
           {
             path: 'audit',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Audit Trail..." />}>
+              <Suspense fallback={<PageLoader tip="Loading System Activity Logs..." />}>
+                <AuditPage />
+              </Suspense>
+            ),
+            ErrorBoundary: RouteErrorBoundary,
+          },
+          {
+            path: 'activity-logs',
+            element: (
+              <Suspense fallback={<PageLoader tip="Loading System Activity Logs..." />}>
                 <AuditPage />
               </Suspense>
             ),

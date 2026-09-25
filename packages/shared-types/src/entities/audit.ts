@@ -10,6 +10,8 @@ export interface AuditLog {
   entityId?: string | null;
   ipAddress?: string | null;
   status: string;
+  statusCode?: number | null;
+  durationMs?: number | null;
   details?: string | null;
   diffPayload?: Record<string, unknown> | null;
   oldValue?: Record<string, unknown> | null;

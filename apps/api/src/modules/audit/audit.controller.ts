@@ -21,8 +21,8 @@ export class AuditController {
   @ApiOperation({ summary: 'Export audit logs' })
   @Header('Content-Type', 'text/csv')
   @Header('Content-Disposition', 'attachment; filename="audit-logs.csv"')
-  async exportCsv(@Res() res: Response) {
-    const csv = await this.auditService.exportCsv();
+  async exportCsv(@Query() query: AuditQueryDto, @Res() res: Response) {
+    const csv = await this.auditService.exportCsv(query);
     res.send(csv);
   }
 

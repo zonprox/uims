@@ -1,11 +1,11 @@
 import {
   AuditOutlined,
+  CloseCircleOutlined,
   DownloadOutlined,
   EyeOutlined,
   FilterOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
-  SafetyOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import {
@@ -29,6 +29,7 @@ import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
 import { FormattedDateTime } from '../../components/FormattedDate';
 import { type AuditLog, type AuditStats, auditService } from '../../services/audit.service';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const { Text, Title } = Typography;
 
@@ -36,16 +37,19 @@ export default function AuditPage() {
   const { message } = App.useApp();
   const [logs, setLogs] = useState<Array<AuditLog>>([]);
   const [stats, setStats] = useState<AuditStats>({
-    soc2Score: '98.4%',
-    isoReadiness: '96.0%',
-    securityAnomalies: '1 Blocked',
-    totalEventRecords: '5',
+    totalEvents: 0,
+    failedEvents: 0,
+    criticalEvents: 0,
+    errorRate: '0.0%',
+    totalEventRecords: '0',
+    securityAnomalies: '0 Alerts',
   });
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Inspector Drawer
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -59,6 +63,7 @@ export default function AuditPage() {
           search: searchQuery || undefined,
           action: actionFilter !== 'all' ? actionFilter : undefined,
           severity: severityFilter !== 'all' ? severityFilter : undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
         }),
         auditService.getStats().catch((_error: unknown) => null),
       ]);
@@ -66,20 +71,30 @@ export default function AuditPage() {
       if (statsData) {
         setStats(statsData);
       } else {
-        const anomalyCount = list.filter((l) => l.severity === 'Critical').length;
+        const failedCount = list.filter(
+          (l) =>
+            l.status === 'Failed' ||
+            l.status === 'Blocked' ||
+            (l.statusCode && l.statusCode >= 400),
+        ).length;
+        const criticalCount = list.filter((l) => l.severity === 'Critical').length;
+        const errorPct =
+          list.length > 0 ? `${((failedCount / list.length) * 100).toFixed(1)}%` : '0.0%';
         setStats({
-          soc2Score: '98.4%',
-          isoReadiness: '96.0%',
-          securityAnomalies: `${anomalyCount} Blocked`,
+          totalEvents: list.length,
+          failedEvents: failedCount,
+          criticalEvents: criticalCount,
+          errorRate: errorPct,
           totalEventRecords: list.length.toString(),
+          securityAnomalies: `${criticalCount} Alerts`,
         });
       }
-    } catch (_err: unknown) {
-      message.error('Failed to load audit logs from server.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'load activity logs'));
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, message, searchQuery, severityFilter]);
+  }, [actionFilter, message, searchQuery, severityFilter, statusFilter]);
 
   useEffect(() => {
     loadData();
@@ -88,18 +103,23 @@ export default function AuditPage() {
   const handleExportCSV = async () => {
     setExporting(true);
     try {
-      const csvData = await auditService.exportCsv();
+      const csvData = await auditService.exportCsv({
+        search: searchQuery || undefined,
+        action: actionFilter !== 'all' ? actionFilter : undefined,
+        severity: severityFilter !== 'all' ? severityFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+      });
       const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `audit_trail_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `activity_logs_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      message.success('Audit trail exported successfully as CSV.');
-    } catch (_err: unknown) {
-      message.error('Failed to export CSV.');
+      message.success('Activity logs exported successfully as RFC 4180 CSV.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'export activity logs'));
     } finally {
       setExporting(false);
     }
@@ -135,7 +155,7 @@ export default function AuditPage() {
                 {actorName}
               </Text>
               <Text type="secondary" style={{ fontSize: 11 }}>
-                {record.userEmail || 'system@uims.internal'}
+                {record.userEmail || 'system@youngonevn.com'}
               </Text>
             </div>
           </Flex>
@@ -149,11 +169,15 @@ export default function AuditPage() {
       sorter: (a: AuditLog, b: AuditLog) => a.action.localeCompare(b.action),
       render: (action: string) => {
         let color = 'default';
-        if (action.includes('DELETE') || action.includes('REVOKE') || action.includes('FAILED'))
+        if (action.includes('DELETE') || action.includes('REVOKE') || action.includes('FAILED')) {
           color = 'error';
-        if (action.includes('CREATE') || action.includes('GRANT')) color = 'processing';
-        if (action.includes('UPDATE') || action.includes('ROTATE')) color = 'warning';
-        if (action === 'LOGIN_SUCCESS') color = 'success';
+        } else if (action.includes('CREATE') || action.includes('GRANT')) {
+          color = 'processing';
+        } else if (action.includes('UPDATE') || action.includes('ROTATE')) {
+          color = 'warning';
+        } else if (action === 'LOGIN_SUCCESS') {
+          color = 'success';
+        }
         return <Tag color={color}>{action}</Tag>;
       },
     },
@@ -164,7 +188,7 @@ export default function AuditPage() {
         <div>
           <Flex align="center" gap={6}>
             <Tag color="geekblue" style={{ fontSize: 11 }}>
-              {record.entityType}
+              {record.entityType || 'General'}
             </Tag>
             <Text strong style={{ fontSize: 12.5 }}>
               {record.entity}
@@ -182,7 +206,7 @@ export default function AuditPage() {
       key: 'ipAddress',
       render: (ip: string) => (
         <Text code style={{ fontSize: 11.5 }}>
-          {ip}
+          {ip || '127.0.0.1'}
         </Text>
       ),
     },
@@ -204,11 +228,33 @@ export default function AuditPage() {
       dataIndex: 'status',
       key: 'status',
       sorter: (a: AuditLog, b: AuditLog) => a.status.localeCompare(b.status),
-      render: (status: string) => (
-        <Tag color={status === 'Success' ? 'success' : status === 'Blocked' ? 'error' : 'warning'}>
-          {status}
-        </Tag>
+      render: (status: string, record: AuditLog) => (
+        <Flex align="center" gap={4}>
+          <Tag color={status === 'Success' ? 'success' : status === 'Blocked' ? 'error' : 'error'}>
+            {status}
+          </Tag>
+          {record.statusCode && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              ({record.statusCode})
+            </Text>
+          )}
+        </Flex>
       ),
+    },
+    {
+      title: 'Duration',
+      dataIndex: 'durationMs',
+      key: 'durationMs',
+      render: (durationMs: number | null | undefined) =>
+        durationMs != null ? (
+          <Text style={{ fontSize: 11.5, fontFamily: 'monospace' }}>
+            {durationMs.toFixed(1)} ms
+          </Text>
+        ) : (
+          <Text type="secondary" style={{ fontSize: 11.5 }}>
+            -
+          </Text>
+        ),
     },
     {
       title: 'Inspect',
@@ -219,6 +265,7 @@ export default function AuditPage() {
           type="text"
           shape="circle"
           icon={<EyeOutlined />}
+          aria-label={`Inspect event ${record.id}`}
           onClick={() => handleInspectLog(record)}
         />
       ),
@@ -227,33 +274,33 @@ export default function AuditPage() {
 
   return (
     <PageContainer
-      title="Audit Trail"
-      subtitle="Track security events, user access changes, and system activity records."
-      breadcrumbs={[{ title: 'Audit Trail' }]}
+      title="System Activity Logs"
+      subtitle="Track real-time system mutations, operational events, and security access telemetry."
+      breadcrumbs={[{ title: 'Activity Logs' }]}
       stats={[
         {
-          title: 'SOC2 Type II Adherence',
-          value: stats.soc2Score,
-          prefix: <SafetyCertificateOutlined />,
-          color: '#10b981',
-        },
-        {
-          title: 'ISO 27001 Readiness',
-          value: stats.isoReadiness,
-          prefix: <SafetyOutlined />,
-          color: '#1677ff',
-        },
-        {
-          title: 'Security Anomalies',
-          value: stats.securityAnomalies,
-          prefix: <WarningOutlined />,
-          color: stats.securityAnomalies.includes('0') ? '#94a3b8' : '#ef4444',
-        },
-        {
-          title: 'Total Event Records',
-          value: stats.totalEventRecords,
+          title: 'Total Recorded Events',
+          value: stats.totalEvents,
           prefix: <AuditOutlined />,
           color: '#6366f1',
+        },
+        {
+          title: 'Failed Actions',
+          value: stats.failedEvents,
+          prefix: <CloseCircleOutlined />,
+          color: stats.failedEvents > 0 ? '#ef4444' : '#10b981',
+        },
+        {
+          title: 'Security Alerts',
+          value: stats.criticalEvents,
+          prefix: <SafetyCertificateOutlined />,
+          color: stats.criticalEvents > 0 ? '#f59e0b' : '#10b981',
+        },
+        {
+          title: 'Error Rate',
+          value: stats.errorRate,
+          prefix: <WarningOutlined />,
+          color: '#0ea5e9',
         },
       ]}
       extra={
@@ -270,7 +317,7 @@ export default function AuditPage() {
       <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
         {/* Search & Filter Toolbar */}
         <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
-          <Col xs={24} md={10}>
+          <Col xs={24} md={9}>
             <Input
               placeholder="Search by actor, entity, IP address, details..."
               prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
@@ -279,46 +326,35 @@ export default function AuditPage() {
               allowClear
             />
           </Col>
-          <Col xs={24} md={14}>
+          <Col xs={24} md={15}>
             <Flex gap={10} justify="flex-end" wrap>
               <Select
                 value={actionFilter}
                 onChange={setActionFilter}
-                style={{ width: 220 }}
+                style={{ width: 190 }}
                 placeholder="Action"
                 showSearch
                 options={[
                   { label: 'All Actions', value: 'all' },
-                  { label: 'USER_PROVISION', value: 'USER_PROVISION' },
-                  { label: 'USER_PASSWORD_RESET', value: 'USER_PASSWORD_RESET' },
-                  { label: 'USER_SUSPEND', value: 'USER_SUSPEND' },
-                  { label: 'USER_LOCKOUT', value: 'USER_LOCKOUT' },
-                  { label: 'USER_UNLOCK', value: 'USER_UNLOCK' },
-                  { label: 'MFA_RESET', value: 'MFA_RESET' },
-                  { label: 'ROLE_ASSIGNMENT_CHANGE', value: 'ROLE_ASSIGNMENT_CHANGE' },
-                  { label: 'PRIVILEGE_ELEVATION_GRANT', value: 'PRIVILEGE_ELEVATION_GRANT' },
-                  { label: 'PRIVILEGE_ELEVATION_EXPIRE', value: 'PRIVILEGE_ELEVATION_EXPIRE' },
-                  { label: 'PERMISSION_CATALOG_UPDATE', value: 'PERMISSION_CATALOG_UPDATE' },
-                  { label: 'BRUTE_FORCE_DETECTED', value: 'BRUTE_FORCE_DETECTED' },
-                  { label: 'ANOMALOUS_ACCESS', value: 'ANOMALOUS_ACCESS' },
-                  { label: 'UNAUTHORIZED_OU_ACCESS', value: 'UNAUTHORIZED_OU_ACCESS' },
-                  { label: 'ASSET_PROVISION', value: 'ASSET_PROVISION' },
-                  { label: 'ASSET_DECOMMISSION', value: 'ASSET_DECOMMISSION' },
-                  { label: 'LICENSE_ALLOCATION', value: 'LICENSE_ALLOCATION' },
-                  { label: 'LICENSE_RECLAIM', value: 'LICENSE_RECLAIM' },
-                  { label: 'CONFIG_CHANGE', value: 'CONFIG_CHANGE' },
-                  { label: 'SNAPSHOT_VERIFY', value: 'SNAPSHOT_VERIFY' },
-                  { label: 'INVENTORY_REORDER', value: 'INVENTORY_REORDER' },
                   { label: 'CREATE', value: 'CREATE' },
                   { label: 'UPDATE', value: 'UPDATE' },
                   { label: 'DELETE', value: 'DELETE' },
+                  { label: 'LOGIN_SUCCESS', value: 'LOGIN_SUCCESS' },
+                  { label: 'LOGIN_FAILED', value: 'LOGIN_FAILED' },
+                  { label: 'USER_PROVISION', value: 'USER_PROVISION' },
+                  { label: 'USER_PASSWORD_RESET', value: 'USER_PASSWORD_RESET' },
+                  { label: 'USER_SUSPEND', value: 'USER_SUSPEND' },
+                  { label: 'ROLE_ASSIGNMENT_CHANGE', value: 'ROLE_ASSIGNMENT_CHANGE' },
+                  { label: 'ASSET_ASSIGN', value: 'ASSET_ASSIGN' },
+                  { label: 'LICENSE_GRANT', value: 'LICENSE_GRANT' },
+                  { label: 'CONFIG_CHANGE', value: 'CONFIG_CHANGE' },
                 ]}
               />
 
               <Select
                 value={severityFilter}
                 onChange={setSeverityFilter}
-                style={{ width: 140 }}
+                style={{ width: 130 }}
                 placeholder="Severity"
                 options={[
                   { label: 'All Severities', value: 'all' },
@@ -328,12 +364,29 @@ export default function AuditPage() {
                 ]}
               />
 
-              {(searchQuery || actionFilter !== 'all' || severityFilter !== 'all') && (
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                style={{ width: 130 }}
+                placeholder="Status"
+                options={[
+                  { label: 'All Statuses', value: 'all' },
+                  { label: 'Success', value: 'Success' },
+                  { label: 'Failed', value: 'Failed' },
+                  { label: 'Blocked', value: 'Blocked' },
+                ]}
+              />
+
+              {(searchQuery ||
+                actionFilter !== 'all' ||
+                severityFilter !== 'all' ||
+                statusFilter !== 'all') && (
                 <Button
                   onClick={() => {
                     setSearchQuery('');
                     setActionFilter('all');
                     setSeverityFilter('all');
+                    setStatusFilter('all');
                   }}
                 >
                   Reset
@@ -353,7 +406,7 @@ export default function AuditPage() {
             pageSize: 10,
             showSizeChanger: true,
             pageSizeOptions: ['10', '25', '50', '100'],
-            showTotal: (total) => `Total ${total} audit records`,
+            showTotal: (total) => `Total ${total} activity records`,
           }}
         />
       </Card>
@@ -376,9 +429,10 @@ export default function AuditPage() {
               </Title>
             </div>
           }
-          width={520}
+          size="large"
           open={drawerOpen}
           destroyOnHidden
+          styles={{ body: { padding: '20px' } }}
           onClose={() => setDrawerOpen(false)}
         >
           <Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
@@ -387,18 +441,42 @@ export default function AuditPage() {
               <FormattedDateTime date={selectedLog.timestamp} showOffset showTimezone />
             </Descriptions.Item>
             <Descriptions.Item label="Actor">
-              {selectedLog.user} ({selectedLog.userEmail})
+              {selectedLog.userName || selectedLog.user} ({selectedLog.userEmail})
             </Descriptions.Item>
-            <Descriptions.Item label="Origin IP">{selectedLog.ipAddress}</Descriptions.Item>
+            <Descriptions.Item label="Target Entity">
+              {selectedLog.entity} ({selectedLog.entityType || 'General'})
+            </Descriptions.Item>
+            <Descriptions.Item label="Origin IP">
+              {selectedLog.ipAddress || '127.0.0.1'}
+            </Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag color={selectedLog.status === 'Success' ? 'success' : 'error'}>
                 {selectedLog.status}
               </Tag>
+              {selectedLog.statusCode && (
+                <Text type="secondary" style={{ fontSize: 12, marginLeft: 6 }}>
+                  (HTTP {selectedLog.statusCode})
+                </Text>
+              )}
             </Descriptions.Item>
+            {selectedLog.durationMs != null && (
+              <Descriptions.Item label="Execution Latency">
+                <Text code>{selectedLog.durationMs.toFixed(2)} ms</Text>
+              </Descriptions.Item>
+            )}
+            {selectedLog.userAgent && (
+              <Descriptions.Item label="User Agent">
+                <Text style={{ fontSize: 11.5 }}>{selectedLog.userAgent}</Text>
+              </Descriptions.Item>
+            )}
             <Descriptions.Item label="Details Summary">{selectedLog.details}</Descriptions.Item>
           </Descriptions>
 
-          <Card size="small" title="Payload Details">
+          <Card
+            size="small"
+            title="Sanitized Request Payload & Diff"
+            styles={{ body: { padding: 12 } }}
+          >
             <pre
               style={{
                 background: '#090d16',
@@ -408,9 +486,14 @@ export default function AuditPage() {
                 fontSize: 12,
                 fontFamily: 'monospace',
                 overflowX: 'auto',
+                margin: 0,
               }}
             >
-              {JSON.stringify(selectedLog.diffPayload, null, 2)}
+              {JSON.stringify(
+                selectedLog.diffPayload || selectedLog.newValue || { details: selectedLog.details },
+                null,
+                2,
+              )}
             </pre>
           </Card>
         </Drawer>
