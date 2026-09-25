@@ -16,7 +16,7 @@ export class AuditService {
   private buildWhere(query?: AuditQueryDto): Prisma.AuditLogWhereInput {
     const where: Prisma.AuditLogWhereInput = {};
 
-    if (query?.search) {
+    if (query?.search && query.search.trim().length > 0) {
       const term = query.search.trim();
       where.OR = [
         { userName: { contains: term, mode: 'insensitive' } },
@@ -28,29 +28,38 @@ export class AuditService {
       ];
     }
 
-    if (query?.action && query.action !== 'all') {
-      where.action = query.action;
+    if (query?.action && query.action.trim() && query.action !== 'all') {
+      where.action = query.action.trim();
     }
 
-    if (query?.severity && query.severity !== 'all') {
-      where.severity = query.severity;
+    if (query?.severity && query.severity.trim() && query.severity !== 'all') {
+      where.severity = query.severity.trim();
     }
 
-    if (query?.status && query.status !== 'all') {
-      where.status = query.status;
+    if (query?.status && query.status.trim() && query.status !== 'all') {
+      where.status = query.status.trim();
     }
 
-    if (query?.entity && query.entity !== 'all') {
-      where.entity = { contains: query.entity, mode: 'insensitive' };
+    if (query?.entity && query.entity.trim() && query.entity !== 'all') {
+      where.entity = { contains: query.entity.trim(), mode: 'insensitive' };
     }
 
     if (query?.startDate || query?.endDate) {
-      where.timestamp = {};
-      if (query.startDate) {
-        where.timestamp.gte = new Date(query.startDate);
+      const timestampFilter: Prisma.DateTimeFilter = {};
+      if (query.startDate && query.startDate.trim()) {
+        const start = new Date(query.startDate.trim());
+        if (!Number.isNaN(start.getTime())) {
+          timestampFilter.gte = start;
+        }
       }
-      if (query.endDate) {
-        where.timestamp.lte = new Date(query.endDate);
+      if (query.endDate && query.endDate.trim()) {
+        const end = new Date(query.endDate.trim());
+        if (!Number.isNaN(end.getTime())) {
+          timestampFilter.lte = end;
+        }
+      }
+      if (timestampFilter.gte !== undefined || timestampFilter.lte !== undefined) {
+        where.timestamp = timestampFilter;
       }
     }
 
@@ -135,7 +144,10 @@ export class AuditService {
 
     const escapeCell = (val: unknown): string => {
       if (val === null || val === undefined) return '""';
-      const str = String(val);
+      let str = String(val);
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
       return `"${str.replace(/"/g, '""')}"`;
     };
 

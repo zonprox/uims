@@ -195,4 +195,94 @@ describe('AuditInterceptor', () => {
       { id: 2, clientSecret: '[REDACTED]', list: [{ token: '[REDACTED]', val: 123 }] },
     ]);
   });
+
+  it('should safely handle circular references without stack overflow', () => {
+    const circularObj: Record<string, unknown> = {
+      name: 'Recursive Node',
+      secretToken: 'super-secret',
+    };
+    circularObj.self = circularObj;
+
+    const sanitized = sanitizePayload(circularObj) as Record<string, unknown>;
+    expect(sanitized.name).toBe('Recursive Node');
+    expect(sanitized.secretToken).toBe('[REDACTED]');
+    expect(sanitized.self).toBe('[CIRCULAR]');
+  });
+
+  it('should truncate deeply nested objects beyond maximum depth', () => {
+    let deep: Record<string, unknown> = { depth: 10, password: 'xyz' };
+    for (let i = 9; i >= 0; i--) {
+      deep = { level: i, next: deep };
+    }
+
+    const sanitized = sanitizePayload(deep) as Record<string, unknown>;
+    expect(sanitized).toBeDefined();
+    // Verify it traversed safely without call stack overflow
+    let current = sanitized;
+    let depthCount = 0;
+    while (current && typeof current === 'object' && 'next' in current) {
+      depthCount++;
+      if (typeof current.next === 'string') {
+        expect(current.next).toBe('[TRUNCATED]');
+        break;
+      }
+      current = current.next as Record<string, unknown>;
+    }
+    expect(depthCount).toBeLessThanOrEqual(9);
+  });
+
+  it('should preserve Date instances as ISO strings and handle Buffer/binary payloads', () => {
+    const testDate = new Date('2026-09-25T12:00:00.000Z');
+    const testBuf = Buffer.from('binary-data');
+    const testUint8 = new Uint8Array([1, 2, 3]);
+
+    const input = {
+      createdAt: testDate,
+      rawBuffer: testBuf,
+      binaryData: testUint8,
+      apiKey: 'secret-key-123',
+    };
+
+    const sanitized = sanitizePayload(input) as Record<string, unknown>;
+    expect(sanitized.createdAt).toBe('2026-09-25T12:00:00.000Z');
+    expect(sanitized.rawBuffer).toBe('[BINARY BUFFER]');
+    expect(sanitized.binaryData).toBe('[BINARY DATA]');
+    expect(sanitized.apiKey).toBe('[REDACTED]');
+  });
+
+  it('should ensure database error in audit logging does not fail the primary business request (error isolation)', async () => {
+    mockPrisma.auditLog.create.mockRejectedValue(new Error('Postgres connection pool exhausted'));
+
+    const context = {
+      switchToHttp: () => ({
+        getRequest: () => ({
+          method: 'POST',
+          url: '/api/v1/assets',
+          user: { id: 'usr-1', email: 'admin@company.com' },
+          body: { name: 'Switch-01' },
+          headers: {},
+        }),
+      }),
+    } as unknown as ExecutionContext;
+
+    const next = {
+      handle: () => of({ success: true, data: { id: 'asset-created' } }),
+    } as CallHandler;
+
+    let responseResult: unknown;
+    await new Promise((resolve) => {
+      interceptor.intercept(context, next).subscribe({
+        next: (val) => {
+          responseResult = val;
+          resolve(val);
+        },
+      });
+    });
+
+    // Verify primary request completed successfully despite audit log write rejection
+    expect(responseResult).toEqual({ success: true, data: { id: 'asset-created' } });
+    await vi.waitFor(() => {
+      expect(mockPrisma.auditLog.create).toHaveBeenCalled();
+    });
+  });
 });

@@ -22,6 +22,8 @@ const SENSITIVE_KEY_PATTERNS = [
   'auth',
   'authorization',
   'credential',
+  'sessionid',
+  'ssn',
 ];
 
 function isSensitiveKey(key: string): boolean {
@@ -29,16 +31,38 @@ function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_PATTERNS.some((pattern) => normalized.includes(pattern));
 }
 
-export function sanitizePayload(obj: unknown): unknown {
-  if (!obj || typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) return obj.map(sanitizePayload);
+export function sanitizePayload(
+  obj: unknown,
+  seen = new WeakSet<object>(),
+  depth = 0,
+  maxDepth = 8,
+): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
 
-  const copy: Record<string, unknown> = { ...(obj as Record<string, unknown>) };
-  for (const [key, value] of Object.entries(copy)) {
+  if (obj instanceof Date) return obj.toISOString();
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(obj)) return '[BINARY BUFFER]';
+  if (obj instanceof Uint8Array) return '[BINARY DATA]';
+
+  if (depth >= maxDepth) return '[TRUNCATED]';
+
+  if (seen.has(obj)) {
+    return '[CIRCULAR]';
+  }
+  seen.add(obj);
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizePayload(item, seen, depth + 1, maxDepth));
+  }
+
+  const copy: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
     if (isSensitiveKey(key)) {
       copy[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null) {
-      copy[key] = sanitizePayload(value);
+      copy[key] = sanitizePayload(value, seen, depth + 1, maxDepth);
+    } else {
+      copy[key] = value;
     }
   }
   return copy;
@@ -167,7 +191,12 @@ export class AuditInterceptor implements NestInterceptor {
         next: () => {
           const durationMs = performance.now() - startTime;
           const statusCode = res.statusCode || 200;
-          void this.recordAudit(req, res, method, path, durationMs, statusCode);
+          this.recordAudit(req, res, method, path, durationMs, statusCode).catch((err: unknown) => {
+            this.logger.error(
+              `Failed to record activity log on success: ${err instanceof Error ? err.message : String(err)}`,
+              err instanceof Error ? err.stack : undefined,
+            );
+          });
         },
         error: (error: unknown) => {
           const durationMs = performance.now() - startTime;
@@ -180,7 +209,12 @@ export class AuditInterceptor implements NestInterceptor {
               : res.statusCode >= 400
                 ? res.statusCode
                 : 500;
-          void this.recordAudit(req, res, method, path, durationMs, statusCode);
+          this.recordAudit(req, res, method, path, durationMs, statusCode).catch((err: unknown) => {
+            this.logger.error(
+              `Failed to record activity log on error: ${err instanceof Error ? err.message : String(err)}`,
+              err instanceof Error ? err.stack : undefined,
+            );
+          });
         },
       }),
     );

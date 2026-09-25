@@ -4,7 +4,7 @@ import type { Root } from 'react-dom/client';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuditLog, AuditStats } from '../../services/audit.service';
+import { type AuditLog, type AuditStats, auditService } from '../../services/audit.service';
 import AuditPage from './AuditPage';
 
 const mockLogs: AuditLog[] = [
@@ -179,5 +179,49 @@ describe('AuditPage Component Tests', () => {
     expect(drawer?.textContent).toContain('Alex Vance');
     expect(drawer?.textContent).toContain('Sanitized Request Payload & Diff');
     expect(drawer?.textContent).toContain('Dell Precision 3660');
+  });
+
+  it('renders DatePicker RangePicker in toolbar', async () => {
+    await renderComponent();
+
+    const rangePicker = container.querySelector('.ant-picker-range');
+    expect(rangePicker).toBeTruthy();
+  });
+
+  it('renders before and after state cards in drawer when oldValue and newValue exist', async () => {
+    const logWithDiff: AuditLog = {
+      id: 'aud-003',
+      timestamp: '2026-09-21T09:00:00Z',
+      user: 'IT Admin',
+      userEmail: 'it.admin@uims.internal',
+      action: 'UPDATE',
+      severity: 'Warning',
+      entity: 'VLAN-100',
+      entityType: 'Network',
+      ipAddress: '10.0.0.1',
+      status: 'Success',
+      oldValue: { subnet: '192.168.1.0/24' },
+      newValue: { subnet: '192.168.2.0/24' },
+    };
+
+    (auditService.getLogs as ReturnType<typeof vi.fn>).mockResolvedValueOnce([logWithDiff]);
+    await renderComponent();
+
+    const inspectBtn = container.querySelector('button[aria-label="Inspect event aud-003"]');
+    expect(inspectBtn).toBeTruthy();
+
+    await act(async () => {
+      (inspectBtn as HTMLButtonElement).click();
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    const drawer = document.querySelector('.ant-drawer');
+    expect(drawer?.textContent).toContain('Previous State (Before Mutation)');
+    expect(drawer?.textContent).toContain('192.168.1.0/24');
+    expect(drawer?.textContent).toContain('Updated State (After Mutation)');
+    expect(drawer?.textContent).toContain('192.168.2.0/24');
   });
 });

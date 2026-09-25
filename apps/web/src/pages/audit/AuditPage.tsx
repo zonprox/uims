@@ -1,6 +1,7 @@
 import {
   AuditOutlined,
   CloseCircleOutlined,
+  CopyOutlined,
   DownloadOutlined,
   EyeOutlined,
   FilterOutlined,
@@ -14,6 +15,7 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
   Descriptions,
   Drawer,
   Flex,
@@ -25,6 +27,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
+import type dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
 import { FormattedDateTime } from '../../components/FormattedDate';
@@ -50,6 +53,7 @@ export default function AuditPage() {
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
 
   // Inspector Drawer
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -57,6 +61,8 @@ export default function AuditPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    const startDate = dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined;
+    const endDate = dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined;
     try {
       const [list, statsData] = await Promise.all([
         auditService.getLogs({
@@ -64,6 +70,8 @@ export default function AuditPage() {
           action: actionFilter !== 'all' ? actionFilter : undefined,
           severity: severityFilter !== 'all' ? severityFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
+          startDate,
+          endDate,
         }),
         auditService.getStats().catch((_error: unknown) => null),
       ]);
@@ -94,7 +102,7 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, message, searchQuery, severityFilter, statusFilter]);
+  }, [actionFilter, dateRange, message, searchQuery, severityFilter, statusFilter]);
 
   useEffect(() => {
     loadData();
@@ -102,12 +110,16 @@ export default function AuditPage() {
 
   const handleExportCSV = async () => {
     setExporting(true);
+    const startDate = dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined;
+    const endDate = dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined;
     try {
       const csvData = await auditService.exportCsv({
         search: searchQuery || undefined,
         action: actionFilter !== 'all' ? actionFilter : undefined,
         severity: severityFilter !== 'all' ? severityFilter : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
+        startDate,
+        endDate,
       });
       const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -135,7 +147,7 @@ export default function AuditPage() {
       title: 'Timestamp',
       dataIndex: 'timestamp',
       key: 'timestamp',
-      sorter: (a: AuditLog, b: AuditLog) => a.timestamp.localeCompare(b.timestamp),
+      sorter: (a: AuditLog, b: AuditLog) => (a.timestamp || '').localeCompare(b.timestamp || ''),
       render: (ts: string) => <FormattedDateTime date={ts} showOffset monospace />,
     },
     {
@@ -166,8 +178,9 @@ export default function AuditPage() {
       title: 'Action',
       dataIndex: 'action',
       key: 'action',
-      sorter: (a: AuditLog, b: AuditLog) => a.action.localeCompare(b.action),
+      sorter: (a: AuditLog, b: AuditLog) => (a.action || '').localeCompare(b.action || ''),
       render: (action: string) => {
+        if (!action) return <Tag color="default">-</Tag>;
         let color = 'default';
         if (action.includes('DELETE') || action.includes('REVOKE') || action.includes('FAILED')) {
           color = 'error';
@@ -194,9 +207,11 @@ export default function AuditPage() {
               {record.entity}
             </Text>
           </Flex>
-          <Text type="secondary" style={{ display: 'block', fontSize: 11.5, marginTop: 2 }}>
-            {record.details}
-          </Text>
+          {record.details && (
+            <Text type="secondary" style={{ display: 'block', fontSize: 11.5, marginTop: 2 }}>
+              {record.details}
+            </Text>
+          )}
         </div>
       ),
     },
@@ -214,24 +229,24 @@ export default function AuditPage() {
       title: 'Severity',
       dataIndex: 'severity',
       key: 'severity',
-      sorter: (a: AuditLog, b: AuditLog) => a.severity.localeCompare(b.severity),
+      sorter: (a: AuditLog, b: AuditLog) => (a.severity || '').localeCompare(b.severity || ''),
       render: (sev: string) => {
         let color = 'default';
         if (sev === 'Critical') color = 'error';
         if (sev === 'Warning') color = 'warning';
         if (sev === 'Info') color = 'blue';
-        return <Tag color={color}>{sev}</Tag>;
+        return <Tag color={color}>{sev || 'Info'}</Tag>;
       },
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      sorter: (a: AuditLog, b: AuditLog) => a.status.localeCompare(b.status),
+      sorter: (a: AuditLog, b: AuditLog) => (a.status || '').localeCompare(b.status || ''),
       render: (status: string, record: AuditLog) => (
         <Flex align="center" gap={4}>
           <Tag color={status === 'Success' ? 'success' : status === 'Blocked' ? 'error' : 'error'}>
-            {status}
+            {status || 'Success'}
           </Tag>
           {record.statusCode && (
             <Text type="secondary" style={{ fontSize: 11 }}>
@@ -245,6 +260,7 @@ export default function AuditPage() {
       title: 'Duration',
       dataIndex: 'durationMs',
       key: 'durationMs',
+      sorter: (a: AuditLog, b: AuditLog) => (a.durationMs || 0) - (b.durationMs || 0),
       render: (durationMs: number | null | undefined) =>
         durationMs != null ? (
           <Text style={{ fontSize: 11.5, fontFamily: 'monospace' }}>
@@ -317,7 +333,7 @@ export default function AuditPage() {
       <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
         {/* Search & Filter Toolbar */}
         <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
-          <Col xs={24} md={9}>
+          <Col xs={24} lg={8}>
             <Input
               placeholder="Search by actor, entity, IP address, details..."
               prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
@@ -326,12 +342,18 @@ export default function AuditPage() {
               allowClear
             />
           </Col>
-          <Col xs={24} md={15}>
+          <Col xs={24} lg={16}>
             <Flex gap={10} justify="flex-end" wrap>
+              <DatePicker.RangePicker
+                value={dateRange}
+                onChange={(dates) => setDateRange(dates)}
+                style={{ width: 230 }}
+                allowClear
+              />
               <Select
                 value={actionFilter}
                 onChange={setActionFilter}
-                style={{ width: 190 }}
+                style={{ width: 170 }}
                 placeholder="Action"
                 showSearch
                 options={[
@@ -354,7 +376,7 @@ export default function AuditPage() {
               <Select
                 value={severityFilter}
                 onChange={setSeverityFilter}
-                style={{ width: 130 }}
+                style={{ width: 120 }}
                 placeholder="Severity"
                 options={[
                   { label: 'All Severities', value: 'all' },
@@ -367,7 +389,7 @@ export default function AuditPage() {
               <Select
                 value={statusFilter}
                 onChange={setStatusFilter}
-                style={{ width: 130 }}
+                style={{ width: 120 }}
                 placeholder="Status"
                 options={[
                   { label: 'All Statuses', value: 'all' },
@@ -380,13 +402,15 @@ export default function AuditPage() {
               {(searchQuery ||
                 actionFilter !== 'all' ||
                 severityFilter !== 'all' ||
-                statusFilter !== 'all') && (
+                statusFilter !== 'all' ||
+                dateRange !== null) && (
                 <Button
                   onClick={() => {
                     setSearchQuery('');
                     setActionFilter('all');
                     setSeverityFilter('all');
                     setStatusFilter('all');
+                    setDateRange(null);
                   }}
                 >
                   Reset
@@ -472,9 +496,77 @@ export default function AuditPage() {
             <Descriptions.Item label="Details Summary">{selectedLog.details}</Descriptions.Item>
           </Descriptions>
 
+          {/* Previous State (Before Mutation) if present */}
+          {selectedLog.oldValue && (
+            <Card
+              size="small"
+              title="Previous State (Before Mutation)"
+              styles={{ body: { padding: 12 } }}
+              style={{ marginBottom: 16 }}
+            >
+              <pre
+                style={{
+                  background: '#090d16',
+                  color: '#f87171',
+                  padding: 12,
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  overflowX: 'auto',
+                  margin: 0,
+                }}
+              >
+                {JSON.stringify(selectedLog.oldValue, null, 2)}
+              </pre>
+            </Card>
+          )}
+
+          {/* Updated State (After Mutation) if present */}
+          {selectedLog.newValue && (
+            <Card
+              size="small"
+              title="Updated State (After Mutation)"
+              styles={{ body: { padding: 12 } }}
+              style={{ marginBottom: 16 }}
+            >
+              <pre
+                style={{
+                  background: '#090d16',
+                  color: '#4ade80',
+                  padding: 12,
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  overflowX: 'auto',
+                  margin: 0,
+                }}
+              >
+                {JSON.stringify(selectedLog.newValue, null, 2)}
+              </pre>
+            </Card>
+          )}
+
+          {/* Sanitized Request Payload & Diff */}
           <Card
             size="small"
             title="Sanitized Request Payload & Diff"
+            extra={
+              <Button
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => {
+                  const payload = selectedLog.diffPayload ||
+                    selectedLog.newValue ||
+                    selectedLog.oldValue || { details: selectedLog.details };
+                  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                    void navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+                  }
+                  message.success('Payload copied to clipboard.');
+                }}
+              >
+                Copy
+              </Button>
+            }
             styles={{ body: { padding: 12 } }}
           >
             <pre
@@ -490,7 +582,9 @@ export default function AuditPage() {
               }}
             >
               {JSON.stringify(
-                selectedLog.diffPayload || selectedLog.newValue || { details: selectedLog.details },
+                selectedLog.diffPayload ||
+                  selectedLog.newValue ||
+                  selectedLog.oldValue || { details: selectedLog.details },
                 null,
                 2,
               )}

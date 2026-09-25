@@ -86,6 +86,36 @@ describe('AuditService', () => {
         }),
       );
     });
+
+    it('should safely ignore invalid dates without passing Invalid Date to Prisma', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+
+      await service.findAll({
+        startDate: 'not-a-valid-date',
+        endDate: 'invalid-end-date',
+      });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+          orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+        }),
+      );
+    });
+
+    it('should ignore whitespace-only search queries without creating empty OR conditions', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+
+      await service.findAll({
+        search: '    ',
+      });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+        }),
+      );
+    });
   });
 
   describe('findOne', () => {
@@ -161,6 +191,11 @@ describe('AuditService', () => {
       ]);
 
       const csv = await service.exportCsv();
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ timestamp: 'desc' }, { id: 'asc' }],
+        }),
+      );
       expect(csv).toContain(
         'ID,Timestamp (UTC),User,Email,Action,Severity,Entity,IP Address,Status,Details',
       );
@@ -168,6 +203,34 @@ describe('AuditService', () => {
       expect(csv).toContain('"Vance, ""Special"" Ops"');
       expect(csv).toContain('"Firewall, Core-1"');
       expect(csv).toContain('"Updated rules: added ""allow 443"" & ""drop all""\nNew line note"');
+    });
+
+    it('should neutralize CSV formula injection characters (=, +, -, @, \\t)', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([
+        {
+          id: '=cmd|calc!A0',
+          userId: 'u-1',
+          userName: '+Admin User',
+          userEmail: '@injected.com',
+          action: '-DELETE_DANGEROUS',
+          severity: 'Critical',
+          entity: '=HYPERLINK("http://evil.com")',
+          ipAddress: '10.0.0.1',
+          status: 'Failed',
+          statusCode: 400,
+          durationMs: 5.5,
+          details: '\tTab indented text',
+          timestamp: new Date('2026-09-02T10:00:00Z'),
+        },
+      ]);
+
+      const csv = await service.exportCsv();
+      expect(csv).toContain('"\'=cmd|calc!A0"');
+      expect(csv).toContain('"\' +Admin User"'.replace(' ', ''));
+      expect(csv).toContain('"\'@injected.com"');
+      expect(csv).toContain('"\' -DELETE_DANGEROUS"'.replace(' ', ''));
+      expect(csv).toContain('"\'=HYPERLINK(""http://evil.com"")"');
+      expect(csv).toContain('"\'\tTab indented text"');
     });
   });
 });
