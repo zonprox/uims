@@ -36,14 +36,20 @@ out/
 .parcel-cache/
 .swc/
 .tsdown/
+.vite/
 *.tsbuildinfo
 tsconfig.tsbuildinfo
+.eslintcache
+.stylelintcache
+.prettiercache
 
 # ------------------------------------------------------------------------------
 # Environment, Credentials & Secrets
 # ------------------------------------------------------------------------------
 .env
 .env.*
+.env.local
+.env.*.local
 !.env.example
 !.env.*.example
 *.pem
@@ -62,9 +68,11 @@ secrets/
 logs/
 .pids/
 *.log
+*.log.*
 *.pid
 *.seed
 *.pid.lock
+lerna-debug.log*
 
 # ------------------------------------------------------------------------------
 # Testing, Coverage & Playwright Reports
@@ -74,6 +82,7 @@ coverage/
 test-results/
 playwright-report/
 playwright/.cache/
+.playwright/
 blob-report/
 .vitest/
 
@@ -105,6 +114,8 @@ apps/api/prisma/migrations/**/migration_lock.toml
 *.swn
 *~
 *.bak
+*.orig
+*.rej
 *.sublime-project
 *.sublime-workspace
 .claude/
@@ -115,6 +126,11 @@ apps/api/prisma/migrations/**/migration_lock.toml
 .antigravity/
 .agents/
 .planning/
+.planning/tmp/
+ORIGINAL_REQUEST.md
+PROJECT.md
+TEST_INFRA.md
+TEST_READY.md
 
 # ------------------------------------------------------------------------------
 # Operating System Artifacts
@@ -125,11 +141,13 @@ apps/api/prisma/migrations/**/migration_lock.toml
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+ehthumbs_vista.db
 Thumbs.db
 desktop.ini
+[Dd]esktop.ini
 
 # ------------------------------------------------------------------------------
-# Packaging & Temporary Files
+# Packaging, Temporary & Scratch Files
 # ------------------------------------------------------------------------------
 *.tgz
 *.tar.gz
@@ -138,3 +156,9 @@ desktop.ini
 tmp/
 temp/
 .temp/
+.tmp/
+scratch/
+.scratch/
+*.core
+*.dump
+*.stackdump
