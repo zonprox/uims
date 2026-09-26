@@ -377,7 +377,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             {port.poeEnabled && (
               <div style={{ color: '#fadb14' }}>
                 <ThunderboltFilled style={{ marginRight: 4 }} />
-                PoE: Active (802.3at PoE+ · 30.0W)
+                PoE: Active
               </div>
             )}
             {port.description && (

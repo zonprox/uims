@@ -319,11 +319,14 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
             fiberSpeed: values.fiberSpeed || null,
             serialNumber: values.serialNumber || null,
             macAddress: values.macAddress || null,
-            firmwareVersion: values.firmwareVersion || null,
+            firmwareVersion: editingSwitch.firmwareVersion ?? null,
             locationId: values.locationId || null,
             rackId: values.rackId || null,
-            rackPosition: values.rackPosition || null,
-            rackHeight: values.rackHeight || 1,
+            rackPosition:
+              values.rackId && values.rackId === editingSwitch.rackId
+                ? (editingSwitch.rackPosition ?? null)
+                : null,
+            rackHeight: editingSwitch.rackHeight ?? 1,
             assetId: values.assetId || null,
             notes: values.notes || null,
           };
@@ -343,14 +346,14 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
             fiberSpeed: values.fiberSpeed || '10 Gbps',
             serialNumber: values.serialNumber || null,
             macAddress: values.macAddress || null,
-            firmwareVersion: values.firmwareVersion || null,
+            firmwareVersion: null,
             locationId: values.locationId || null,
             rackId: values.rackId || null,
             rackPosition: values.rackPosition || null,
-            rackHeight: values.rackHeight || 1,
+            rackHeight: 1,
             assetId: values.assetId || null,
             notes: values.notes || null,
-            autoGeneratePorts: Boolean(values.autoGeneratePorts),
+            autoGeneratePorts: true,
           };
           await networkService.createSwitch(payload);
           message.success(`Switch "${values.name}" created successfully`);

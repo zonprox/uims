@@ -146,51 +146,70 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
               <span>Technical CIDR Parameters</span>
             </Flex>
           }
-          styles={{ body: { padding: '14px 16px' } }}
+          styles={{ body: { padding: '16px 20px' } }}
           style={{ marginBottom: 16 }}
         >
-          <Descriptions column={2} size="small" bordered>
+          <Descriptions
+            column={2}
+            size="small"
+            bordered
+            styles={{ label: { whiteSpace: 'nowrap' } }}
+          >
             <Descriptions.Item label="CIDR Block">
-              <Text code strong style={{ color: '#1677ff', fontSize: 13 }}>
+              <Text code strong style={{ color: '#1677ff', fontSize: 13, whiteSpace: 'nowrap' }}>
                 {subnet.cidr}
               </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Subnet Mask">
-              <Text code>{subnet.netmask || '255.255.255.0'}</Text>
+              <Text code style={{ whiteSpace: 'nowrap' }}>
+                {subnet.netmask || '255.255.255.0'}
+              </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Network Address">
-              <Text code>{subnet.networkAddress || '—'}</Text>
+              <Text code style={{ whiteSpace: 'nowrap' }}>
+                {subnet.networkAddress || '—'}
+              </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Broadcast Address">
-              <Text code>{subnet.broadcastAddress || '—'}</Text>
+              <Text code style={{ whiteSpace: 'nowrap' }}>
+                {subnet.broadcastAddress || '—'}
+              </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Usable IP Range" span={2}>
-              <Text code>
+              <Text code style={{ whiteSpace: 'nowrap' }}>
                 {subnet.startIp && subnet.endIp
                   ? `${subnet.startIp} — ${subnet.endIp}`
                   : 'Derived from CIDR block'}
               </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Default Gateway">
-              <Text code strong>
+              <Text code strong style={{ whiteSpace: 'nowrap' }}>
                 {subnet.gateway || '—'}
               </Text>
             </Descriptions.Item>
             <Descriptions.Item label="VLAN Mapping">
               {subnet.vlan ? (
-                <Tag color="purple">
+                <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
                   VLAN {subnet.vlan.vlanNumber} ({subnet.vlan.name})
                 </Tag>
               ) : subnet.vlanName ? (
-                <Tag color="purple">{subnet.vlanName}</Tag>
+                <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
+                  {subnet.vlanName}
+                </Tag>
               ) : (
-                <Text type="secondary">Unassigned</Text>
+                <Text type="secondary">—</Text>
               )}
             </Descriptions.Item>
             <Descriptions.Item label="Location / Site" span={2}>
-              <Flex align="center" gap={6}>
+              <Flex align="center" gap={6} wrap="wrap">
                 <EnvironmentOutlined style={{ color: '#1677ff' }} />
-                <Text strong>{subnet.location?.name || subnet.locationName || 'HQ'}</Text>
+                <Text
+                  strong
+                  ellipsis={{ tooltip: subnet.location?.name || subnet.locationName || 'HQ' }}
+                  style={{ maxWidth: 220, display: 'inline-block' }}
+                >
+                  {subnet.location?.name || subnet.locationName || 'HQ'}
+                </Text>
               </Flex>
             </Descriptions.Item>
           </Descriptions>
@@ -200,7 +219,7 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
         <Card
           size="small"
           title="IP Pool Allocation"
-          styles={{ body: { padding: '14px 16px' } }}
+          styles={{ body: { padding: '16px 20px' } }}
           style={{ marginBottom: 16 }}
         >
           <Row gutter={16} style={{ marginBottom: 12 }}>

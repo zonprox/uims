@@ -336,23 +336,43 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
           {/* Switch Hardware Metadata Summary Card */}
           {switchEntity && (
             <Card styles={{ body: { padding: '16px 20px' } }}>
-              <Descriptions size="small" column={{ xxl: 4, xl: 4, lg: 3, md: 2, sm: 1, xs: 1 }}>
+              <Descriptions
+                size="small"
+                column={{ xxl: 3, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}
+                styles={{ label: { whiteSpace: 'nowrap' } }}
+              >
                 <Descriptions.Item label="Vendor / Make">
-                  <Tag color="blue">{switchEntity.vendor}</Tag>
+                  <Tag color="blue" style={{ whiteSpace: 'nowrap', margin: 0 }}>
+                    {switchEntity.vendor || '—'}
+                  </Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Hardware Model">
-                  <Text strong>{switchEntity.model}</Text>
+                  <Text
+                    strong
+                    ellipsis={{ tooltip: switchEntity.model || '—' }}
+                    style={{ maxWidth: 220, display: 'inline-block' }}
+                  >
+                    {switchEntity.model || '—'}
+                  </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Serial Number">
-                  <Text code>{switchEntity.serialNumber || '—'}</Text>
+                  <Text code style={{ whiteSpace: 'nowrap' }}>
+                    {switchEntity.serialNumber || '—'}
+                  </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="MAC Address">
-                  <Text code>{switchEntity.macAddress || '—'}</Text>
+                  <Text code style={{ whiteSpace: 'nowrap' }}>
+                    {switchEntity.macAddress || '—'}
+                  </Text>
                 </Descriptions.Item>
 
                 <Descriptions.Item label="Management IP">
                   {switchEntity.ipAddress ? (
-                    <Tag icon={<ApiOutlined />} color="geekblue">
+                    <Tag
+                      icon={<ApiOutlined />}
+                      color="geekblue"
+                      style={{ whiteSpace: 'nowrap', margin: 0 }}
+                    >
                       {switchEntity.ipAddress.address}
                     </Tag>
                   ) : (
@@ -360,15 +380,21 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
                   )}
                 </Descriptions.Item>
                 <Descriptions.Item label="Firmware Version">
-                  <Text>{switchEntity.firmwareVersion || '—'}</Text>
+                  <Text style={{ whiteSpace: 'nowrap' }}>
+                    {switchEntity.firmwareVersion || '—'}
+                  </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Rack Enclosure">
                   {switchEntity.rack ? (
-                    <Flex align="center" gap={4}>
+                    <Flex align="center" gap={6} wrap="wrap">
                       <Tag
                         icon={<ApartmentOutlined />}
                         color="purple"
-                        style={{ cursor: onSelectRack ? 'pointer' : 'default' }}
+                        style={{
+                          cursor: onSelectRack ? 'pointer' : 'default',
+                          whiteSpace: 'nowrap',
+                          margin: 0,
+                        }}
                         onClick={() => {
                           if (switchEntity.rack?.id && onSelectRack) {
                             onSelectRack(switchEntity.rack.id);
@@ -378,7 +404,7 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
                         {switchEntity.rack.code || switchEntity.rack.name}
                       </Tag>
                       {switchEntity.rackPosition && (
-                        <Text strong style={{ fontSize: 11.5 }}>
+                        <Text strong style={{ fontSize: 11.5, whiteSpace: 'nowrap' }}>
                           U{switchEntity.rackPosition} ({switchEntity.rackHeight || 1}U)
                         </Text>
                       )}
@@ -389,9 +415,14 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
                 </Descriptions.Item>
                 <Descriptions.Item label="Location">
                   {switchEntity.location?.name ? (
-                    <Flex align="center" gap={4}>
+                    <Flex align="center" gap={6} wrap="wrap">
                       <EnvironmentOutlined style={{ color: token.colorTextQuaternary }} />
-                      <Text>{switchEntity.location.name}</Text>
+                      <Text
+                        ellipsis={{ tooltip: switchEntity.location.name }}
+                        style={{ maxWidth: 220, display: 'inline-block' }}
+                      >
+                        {switchEntity.location.name}
+                      </Text>
                     </Flex>
                   ) : (
                     <Text type="secondary">—</Text>

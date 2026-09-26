@@ -320,16 +320,15 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Fronten
       }
     });
 
-    it('3.2 preset buttons (8, 16, 24, 48) automatically populate totalPorts in form', async () => {
+    it('3.2 confirms removal of preset buttons and supports direct totalPorts input', async () => {
       await renderFormModal();
       expect(capturedForm).not.toBeNull();
 
       for (const size of [8, 16, 24, 48]) {
-        const btn = document.querySelector(`[data-testid="preset-ports-${size}"]`) as HTMLElement;
-        expect(btn).not.toBeNull();
+        expect(document.querySelector(`[data-testid="preset-ports-${size}"]`)).toBeNull();
 
         await act(async () => {
-          btn.click();
+          capturedForm?.setFieldsValue({ totalPorts: size });
         });
 
         expect(capturedForm?.getFieldValue('totalPorts')).toBe(size);

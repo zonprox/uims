@@ -348,10 +348,10 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
           </Space>
         }
       >
-        <Card size="small" styles={{ body: { padding: '14px 16px' } }} style={{ marginBottom: 16 }}>
-          <Descriptions column={2} size="small">
+        <Card size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 16 }}>
+          <Descriptions column={2} size="small" styles={{ label: { whiteSpace: 'nowrap' } }}>
             <Descriptions.Item label="VLAN ID">
-              <Tag color="purple" style={{ fontWeight: 600 }}>
+              <Tag color="purple" style={{ fontWeight: 600, whiteSpace: 'nowrap', margin: 0 }}>
                 VLAN {vlan.vlanNumber}
               </Tag>
             </Descriptions.Item>
@@ -365,13 +365,22 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
                       : 'default'
                 }
                 text={vlan.status}
+                style={{ whiteSpace: 'nowrap' }}
               />
             </Descriptions.Item>
             <Descriptions.Item label="Location / Site" span={2}>
-              <Flex align="center" gap={6}>
+              <Flex align="center" gap={6} wrap="wrap">
                 <EnvironmentOutlined style={{ color: '#1677ff' }} />
-                <Text strong>{vlan.location?.name || 'Unassigned / Global'}</Text>
-                {vlan.location?.city && <Tag>{vlan.location.city}</Tag>}
+                <Text
+                  strong
+                  ellipsis={{ tooltip: vlan.location?.name || 'Unassigned / Global' }}
+                  style={{ maxWidth: 220, display: 'inline-block' }}
+                >
+                  {vlan.location?.name || 'Unassigned / Global'}
+                </Text>
+                {vlan.location?.city && (
+                  <Tag style={{ whiteSpace: 'nowrap', margin: 0 }}>{vlan.location.city}</Tag>
+                )}
               </Flex>
             </Descriptions.Item>
             <Descriptions.Item label="Description" span={2}>
@@ -383,7 +392,7 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
         <Card
           size="small"
           title="IP Utilization & Pool Capacity"
-          styles={{ body: { padding: '14px 16px' } }}
+          styles={{ body: { padding: '16px 20px' } }}
           style={{ marginBottom: 16 }}
         >
           <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>

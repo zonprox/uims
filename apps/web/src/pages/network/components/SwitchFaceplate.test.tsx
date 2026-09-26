@@ -558,6 +558,23 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       const poe2 = container.querySelector('[data-testid="poe-badge-2"]');
       expect(poe2).toBeNull();
     });
+
+    it('Case 2.4: renders simplified boolean PoE active status without wattage detail in port tooltip', async () => {
+      await renderWithContext(
+        <SwitchPortFaceplate switchEntity={mock24PortSwitch} ports={mock24Ports} totalPorts={24} />,
+      );
+
+      const port1 = container.querySelector('[data-testid="switch-port-1"]');
+      expect(port1).not.toBeNull();
+      if (port1) {
+        await act(async () => {
+          port1.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        });
+        const bodyText = document.body.textContent || '';
+        expect(bodyText).not.toContain('30.0W');
+        expect(bodyText).not.toContain('802.3at PoE+ · 30.0W');
+      }
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -730,6 +747,57 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       expect(body.textContent).toContain('FOC2533K92');
       expect(body.textContent).toContain('Physical Front Panel Faceplate');
       expect(body.textContent).toContain('Port Matrix & Endpoint Directory');
+    });
+
+    it('Case 4.4: SwitchFaceplateDrawer renders very long switch names, models, and locations cleanly with responsive ellipsis without overflowing', async () => {
+      const longSwitch = {
+        ...mock24PortSwitch,
+        name: 'Enterprise Ultra Core Spine Distribution Chassis Switch Stack Unit 01',
+        model:
+          'Catalyst 9600 Series Supervisor 2 High-Density Multi-Rate Modular Enterprise Core Switch',
+        location: {
+          ...mockSwitchLocation,
+          id: 'loc-long',
+          name: 'Global Enterprise Hyperscale Multi-Tenant Datacenter Facility Building 404 Floor 3 Server Room Alpha',
+          code: 'DC-LONG',
+        },
+      };
+
+      vi.mocked(networkService.getSwitchPorts).mockResolvedValueOnce([]);
+
+      await renderWithContext(
+        <SwitchFaceplateDrawer open={true} switchEntity={longSwitch} onClose={vi.fn()} />,
+      );
+
+      const body = document.body;
+      expect(body.textContent).toContain('Enterprise Ultra');
+      expect(body.textContent).toContain('Catalyst 9600');
+      expect(body.textContent).toContain('Global Enterprise Hyperscale');
+    });
+
+    it('Case 4.5: SwitchFaceplateDrawer renders empty and undefined metadata gracefully with fallback dashes', async () => {
+      const minimalSwitch = {
+        ...mock24PortSwitch,
+        vendor: '',
+        model: '',
+        serialNumber: undefined,
+        macAddress: undefined,
+        ipAddress: undefined,
+        firmwareVersion: undefined,
+        rack: null,
+        rackPosition: null,
+        location: null,
+      };
+
+      vi.mocked(networkService.getSwitchPorts).mockResolvedValueOnce([]);
+
+      await renderWithContext(
+        <SwitchFaceplateDrawer open={true} switchEntity={minimalSwitch} onClose={vi.fn()} />,
+      );
+
+      const body = document.body;
+      expect(body.textContent).toContain('—');
+      expect(body.textContent).toContain('Unmounted');
     });
 
     it('Case 4.3: SwitchManagementTab renders integrated view with filter bar, add button, and switches table', async () => {

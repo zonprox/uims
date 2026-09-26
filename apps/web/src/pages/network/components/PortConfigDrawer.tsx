@@ -8,7 +8,6 @@ import {
   Flex,
   Form,
   Input,
-  InputNumber,
   Radio,
   Row,
   Select,
@@ -63,7 +62,6 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
     const [form] = Form.useForm();
     const [submitting, setSubmitting] = useState(false);
     const [portMode, setPortMode] = useState<string>('ACCESS');
-    const [poeActive, setPoeActive] = useState<boolean>(true);
 
     const statusInfo = useMemo(() => getPortStatusInfo(port), [port]);
 
@@ -72,7 +70,6 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
       if (port && open) {
         const mode = port.mode || 'ACCESS';
         setPortMode(mode);
-        setPoeActive(Boolean(port.poeEnabled));
 
         form.setFieldsValue({
           name: port.name,
@@ -88,7 +85,6 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
           ipAddressId: port.ipAddressId || undefined,
           connectedAssetId: port.connectedAssetId || undefined,
           poeEnabled: Boolean(port.poeEnabled),
-          poeWatts: 30,
           description: port.description || '',
         });
       } else if (open) {
@@ -213,7 +209,6 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
             speed: '1 Gbps',
             duplex: 'Full',
             poeEnabled: true,
-            poeWatts: 30,
           }}
         >
           {/* Administrative & Operational Status Section */}
@@ -449,7 +444,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
           </Divider>
 
           <Row gutter={16} align="middle">
-            <Col span={10}>
+            <Col span={24}>
               <Form.Item
                 name="poeEnabled"
                 label="PoE Power Delivery"
@@ -459,23 +454,10 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
                 <Switch
                   checkedChildren={<ThunderboltOutlined />}
                   unCheckedChildren="Off"
-                  onChange={setPoeActive}
                   data-testid="port-poe-switch"
                 />
               </Form.Item>
             </Col>
-
-            {poeActive && (
-              <Col span={14}>
-                <Form.Item
-                  name="poeWatts"
-                  label="Power Budget Allocation (Watts)"
-                  extra="Max power output ceiling"
-                >
-                  <InputNumber min={1} max={90} step={1} suffix="Watts" style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-            )}
           </Row>
 
           {/* Operational Notes / Interface Description */}

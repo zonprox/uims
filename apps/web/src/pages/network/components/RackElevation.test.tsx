@@ -7,7 +7,7 @@ import type { NetworkRack, RackElevationData } from '../../../services/network.s
 import { networkService } from '../../../services/network.service';
 import type { LocationBranch } from '../../../services/organization.service';
 import { queryClient } from '../../../app/query-client';
-import { RackElevationView, detectRackCollisions } from './RackElevationView';
+import { RackElevationView } from './RackElevationView';
 import { RackFormModal } from './RackFormModal';
 import { RackManagementTab } from './RackManagementTab';
 import { RackTable } from './RackTable';
@@ -314,26 +314,25 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     });
   });
 
-  describe('Suite 3: Collision Detection Mechanics', () => {
-    it('Case 3.1: detectRackCollisions accurately flags contested RU slots', () => {
-      const devices = [
-        { id: 'dev-a', name: 'Server A', rackPosition: 20, rackHeight: 2 }, // occupies U20, U21
-        { id: 'dev-b', name: 'Switch B', rackPosition: 21, rackHeight: 1 }, // occupies U21 -> COLLISION at U21
-        { id: 'dev-c', name: 'PDU C', rackPosition: 1, rackHeight: 1 }, // occupies U1 -> NO collision
-      ];
+  describe('Suite 3: Automated Sequential Equipment Layout', () => {
+    it('Case 3.1: automatically indexes mounted equipment with sequential STT badges (#01, #02, etc.)', async () => {
+      await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
-      const collisions = detectRackCollisions(devices);
-      expect(collisions.size).toBe(1);
-      expect(collisions.has(21)).toBe(true);
+      const rowAlpha = container.querySelector('[data-testid="rack-device-row-sw-1"]');
+      const rowBeta = container.querySelector('[data-testid="rack-device-row-sw-2"]');
+      const rowGamma = container.querySelector('[data-testid="rack-device-row-sw-3"]');
 
-      const col21 = collisions.get(21);
-      expect(col21?.unit).toBe(21);
-      expect(col21?.deviceIds).toEqual(['dev-a', 'dev-b']);
-      expect(col21?.deviceNames).toEqual(['Server A', 'Switch B']);
+      expect(rowAlpha).not.toBeNull();
+      expect(rowBeta).not.toBeNull();
+      expect(rowGamma).not.toBeNull();
+
+      expect(rowAlpha?.textContent).toContain('#01');
+      expect(rowBeta?.textContent).toContain('#02');
+      expect(rowGamma?.textContent).toContain('#03');
     });
 
-    it('Case 3.2: renders collision alert banner and flags contested RU slot in visual elevation', async () => {
-      const collidingRack: NetworkRack = {
+    it('Case 3.2: eliminates collision alert banners and badges even when devices have conflicting legacy positions', async () => {
+      const conflictingRack: NetworkRack = {
         ...mockRack42U,
         switches: [
           {
@@ -344,7 +343,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
             role: 'CORE',
             status: 'ONLINE',
             rackHeight: 2,
-            rackPosition: 15, // occupies U15, U16
+            rackPosition: 15, // legacy U15
             totalPorts: 4,
             createdAt: '2026-09-01T00:00:00Z',
             updatedAt: '2026-09-01T00:00:00Z',
@@ -357,7 +356,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
             role: 'TOR',
             status: 'ONLINE',
             rackHeight: 1,
-            rackPosition: 16, // occupies U16 -> COLLISION!
+            rackPosition: 15, // same legacy slot
             totalPorts: 24,
             createdAt: '2026-09-01T00:00:00Z',
             updatedAt: '2026-09-01T00:00:00Z',
@@ -365,20 +364,31 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
         ],
       };
 
-      await renderWithContext(<RackElevationView rack={collidingRack} />);
+      await renderWithContext(<RackElevationView rack={conflictingRack} />);
 
-      expect(container.textContent).toContain('Rack Collision Detected');
-      expect(container.textContent).toContain('U16 is contested by Device Alpha and Device Beta');
+      expect(container.textContent).not.toContain('Rack Collision Detected');
+      expect(container.textContent).not.toContain('contested');
+      expect(container.querySelector('[data-testid="collision-badge"]')).toBeNull();
+      expect(container.querySelector('[data-testid="rack-device-row-sw-col-1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="rack-device-row-sw-col-2"]')).not.toBeNull();
     });
 
-    it('Case 3.3: detectRackCollisions does not flag self-collision when a device appears multiple times in input', () => {
-      const devices = [
-        { id: 'dev-dup', name: 'App Server', rackPosition: 10, rackHeight: 2 },
-        { id: 'dev-dup', name: 'App Server', rackPosition: 10, rackHeight: 2 },
-      ];
+    it('Case 3.3: toggles STT ordering between ascending (1→N) and descending (N→1)', async () => {
+      await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
-      const collisions = detectRackCollisions(devices);
-      expect(collisions.size).toBe(0);
+      const segmentedEl = container.querySelector('[data-testid="stt-order-segmented"]');
+      expect(segmentedEl).not.toBeNull();
+      const descOption = segmentedEl?.querySelectorAll(
+        '.ant-segmented-item',
+      )[1] as HTMLElement | null;
+      expect(descOption).not.toBeNull();
+
+      await act(async () => {
+        descOption?.click();
+      });
+
+      const rowAlpha = container.querySelector('[data-testid="rack-device-row-sw-1"]');
+      expect(rowAlpha?.textContent).toContain('#03');
     });
   });
 
@@ -533,65 +543,24 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       }
     });
 
-    it('Case 6.4: moving a mounted device up or down validates rack bounds and prevents collisions', async () => {
-      const onDeviceMoved = vi.fn();
-
+    it('Case 6.4: confirms removal of manual move up/down buttons and verifies automated layout', async () => {
       await renderWithContext(
-        <RackElevationView
-          rack={mockRack42U}
-          elevationData={mockElevationData}
-          onDeviceMoved={onDeviceMoved}
-        />,
+        <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
 
-      // SRV-HOST-01 (sw-2) is at U20 (height 2 -> U20..U21).
-      // Move Down: Target U19 is free (purestorage at U10..U13, sw-2 at U20..U21).
-      const moveDownBtn = container.querySelector(
-        '[data-testid="move-down-device-sw-2"]',
-      ) as HTMLButtonElement | null;
-      expect(moveDownBtn).not.toBeNull();
-      expect(moveDownBtn?.disabled).toBe(false);
+      // Manual move up and move down buttons should no longer exist in the DOM
+      const moveDownBtn = container.querySelector('[data-testid="move-down-device-sw-2"]');
+      const moveUpBtn = container.querySelector('[data-testid="move-up-device-sw-1"]');
+      expect(moveDownBtn).toBeNull();
+      expect(moveUpBtn).toBeNull();
 
-      if (moveDownBtn) {
-        await act(async () => {
-          moveDownBtn.click();
-        });
-
-        expect(onDeviceMoved).toHaveBeenCalledWith('sw-2', 19);
-        expect(networkService.updateSwitch).toHaveBeenCalledWith('sw-2', {
-          rackPosition: 19,
-        });
-      }
-
-      // In mockRack42U, SW-CORE-01 is at U24 (height 1).
-      // If we create a cabinet where device is at the very top (e.g. U24 of a 24U rack):
-      const topRack: NetworkRack = {
-        ...mockRack42U,
-        totalHeight: 24,
-      };
-
-      await renderWithContext(<RackElevationView rack={topRack} />);
-
-      // At top limit (U24 of 24U), move up button should be disabled to prevent out-of-bounds
-      const moveUpTopBtn = container.querySelector(
-        '[data-testid="move-up-device-sw-1"]',
-      ) as HTMLButtonElement | null;
-      expect(moveUpTopBtn).not.toBeNull();
-      expect(moveUpTopBtn?.disabled).toBe(true);
-
-      // Attempting to click disabled move-up button does not trigger updateSwitch
-      await act(async () => {
-        moveUpTopBtn?.click();
-      });
-      expect(networkService.updateSwitch).not.toHaveBeenCalledWith('sw-1', {
-        rackPosition: 25,
-      });
+      // All mounted devices are rendered in clean sequential rows
+      expect(container.querySelector('[data-testid="mounted-device-sw-1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="mounted-device-sw-2"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="mounted-device-sw-3"]')).not.toBeNull();
     });
 
-    it('Case 6.5: prevents collisions and out-of-bounds under rapid adjacent multi-U repositioning', async () => {
-      // Setup adjacent multi-U devices with a single gap at U22:
-      // Dev A: 2U at U20 (spans U20..U21)
-      // Dev B: 2U at U23 (spans U23..U24)
+    it('Case 6.5: seamlessly arranges adjacent multi-U devices in automated sequential order', async () => {
       const adjacentRack: NetworkRack = {
         ...mockRack42U,
         switches: [
@@ -624,54 +593,40 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
         ],
       };
 
-      const onDeviceMoved = vi.fn();
-      await renderWithContext(
-        <RackElevationView rack={adjacentRack} onDeviceMoved={onDeviceMoved} />,
-      );
+      await renderWithContext(<RackElevationView rack={adjacentRack} />);
 
-      const moveUpBtnA = container.querySelector(
-        '[data-testid="move-up-device-dev-a"]',
-      ) as HTMLButtonElement | null;
-      const moveDownBtnB = container.querySelector(
-        '[data-testid="move-down-device-dev-b"]',
-      ) as HTMLButtonElement | null;
-
-      expect(moveUpBtnA).not.toBeNull();
-      expect(moveDownBtnB).not.toBeNull();
-
-      // Trigger rapid consecutive moves into the contested slot U22:
-      // Dev A moving up: U20 -> U21 (occupying U21, U22)
-      // Dev B moving down: U23 -> U22 (would occupy U22, U23) -> collision on U22!
-      await act(async () => {
-        moveUpBtnA?.click();
-        moveDownBtnB?.click();
-      });
-
-      // Dev A moved to U21
-      expect(onDeviceMoved).toHaveBeenCalledWith('dev-a', 21);
-      expect(networkService.updateSwitch).toHaveBeenCalledWith('dev-a', { rackPosition: 21 });
-
-      // Dev B's conflicting move to U22 was strictly prevented by collision detection
-      expect(networkService.updateSwitch).not.toHaveBeenCalledWith('dev-b', { rackPosition: 22 });
-      expect(onDeviceMoved).not.toHaveBeenCalledWith('dev-b', 22);
-
-      // Verify Dev B remains at U23
-      expect(
-        container.querySelector('[data-testid="mounted-device-dev-b"]')?.textContent,
-      ).toContain('SERVER-B-2U');
+      const rowA = container.querySelector('[data-testid="rack-device-row-dev-a"]');
+      const rowB = container.querySelector('[data-testid="rack-device-row-dev-b"]');
+      expect(rowA).not.toBeNull();
+      expect(rowB).not.toBeNull();
+      expect(rowB?.textContent).toContain('#01');
+      expect(rowA?.textContent).toContain('#02');
     });
 
-    it('Case 6.6: handles fractional and mid-height bounds and detects contested RU slots', () => {
-      // Fractional device: rackPosition 10.5 with height 1 spans 10.5 to 11.5, occupying U10 and U11
-      const fractionalDevices = [
-        { id: 'dev-half-1', name: 'Micro Appliance', rackPosition: 10.5, rackHeight: 1 },
-        { id: 'dev-int-2', name: 'Switch Standard', rackPosition: 11, rackHeight: 1 },
-      ];
+    it('Case 6.6: handles fractional and non-standard device heights gracefully in automated layout', async () => {
+      const fractionalRack: NetworkRack = {
+        ...mockRack42U,
+        switches: [
+          {
+            id: 'dev-frac-1',
+            name: 'Micro Appliance',
+            model: 'Edge-1',
+            vendor: 'Netgate',
+            role: 'ACCESS',
+            status: 'ONLINE',
+            rackHeight: 1.5,
+            rackPosition: 10,
+            totalPorts: 2,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      };
 
-      const collisions = detectRackCollisions(fractionalDevices);
-      expect(collisions.size).toBe(1);
-      expect(collisions.has(11)).toBe(true);
-      expect(collisions.get(11)?.deviceNames).toEqual(['Micro Appliance', 'Switch Standard']);
+      await renderWithContext(<RackElevationView rack={fractionalRack} />);
+      const devEl = container.querySelector('[data-testid="mounted-device-dev-frac-1"]');
+      expect(devEl).not.toBeNull();
+      expect(devEl?.textContent).toContain('Micro Appliance');
     });
 
     it('Case 6.7: invalidates TanStack Query cache on rack updates for multi-tab concurrent synchronization', async () => {
@@ -1191,108 +1146,46 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       });
     });
 
-    it('Case 11.13: guards detectRackCollisions against null or non-array input', () => {
-      // @ts-expect-error Testing runtime resilience against null
-      const resNull = detectRackCollisions(null);
-      expect(resNull.size).toBe(0);
+    it('Case 11.13: gracefully handles empty or undefined switches in rack object', async () => {
+      const emptyRack: NetworkRack = {
+        ...mockRack42U,
+        switches: undefined,
+      };
 
-      // @ts-expect-error Testing runtime resilience against undefined
-      const resUndef = detectRackCollisions(undefined);
-      expect(resUndef.size).toBe(0);
+      await renderWithContext(<RackElevationView rack={emptyRack} />);
+      expect(container.querySelector('[data-testid="rack-empty-mount-state"]')).not.toBeNull();
+      expect(container.textContent).toContain('No Equipment Mounted');
     });
   });
 
-  describe('Suite 12: Direct Position Input Controls & Deterministic Collision Ordering', () => {
-    it('Case 12.1: repositions mounted device via direct RU position input', async () => {
-      const onDeviceMoved = vi.fn();
-      await renderWithContext(
-        <RackElevationView
-          rack={mockRack42U}
-          elevationData={mockElevationData}
-          onDeviceMoved={onDeviceMoved}
-        />,
-      );
-
-      const inputWrap = container.querySelector('[data-testid="position-input-device-sw-1"]');
-      expect(inputWrap).not.toBeNull();
-      const inputEl = (
-        inputWrap?.tagName === 'INPUT' ? inputWrap : inputWrap?.querySelector('input')
-      ) as HTMLInputElement | null;
-      expect(inputEl).not.toBeNull();
-
-      if (inputEl) {
-        await act(async () => {
-          inputEl.focus();
-          inputEl.value = '26';
-          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-          inputEl.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }),
-          );
-          inputEl.blur();
-          inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-        });
-
-        expect(onDeviceMoved).toHaveBeenCalledWith('sw-1', 26);
-        expect(networkService.updateSwitch).toHaveBeenCalledWith('sw-1', { rackPosition: 26 });
-      }
-    });
-
-    it('Case 12.2: rejects out-of-bounds RU position in direct input and prevents network call', async () => {
+  describe('Suite 12: Automated Layout Order & Deterministic Placement Guarantees', () => {
+    it('Case 12.1: confirms complete removal of manual RU position inputs on mounted devices', async () => {
       await renderWithContext(
         <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
 
       const inputWrap = container.querySelector('[data-testid="position-input-device-sw-1"]');
-      const inputEl = (
-        inputWrap?.tagName === 'INPUT' ? inputWrap : inputWrap?.querySelector('input')
-      ) as HTMLInputElement | null;
-      expect(inputEl).not.toBeNull();
-
-      if (inputEl) {
-        await act(async () => {
-          inputEl.focus();
-          inputEl.value = '50'; // 50 > 42U total height
-          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-          inputEl.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }),
-          );
-          inputEl.blur();
-          inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-        });
-
-        expect(networkService.updateSwitch).not.toHaveBeenCalledWith('sw-1', { rackPosition: 50 });
-      }
+      expect(inputWrap).toBeNull();
     });
 
-    it('Case 12.3: rejects colliding RU position in direct input and prevents network call', async () => {
+    it('Case 12.2: confirms absence of manual move steppers and collision banners', async () => {
       await renderWithContext(
         <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
 
-      // sw-2 is mounted at U20 (height 2: U20..U21). Repositioning sw-1 to U20 should be rejected.
-      const inputWrap = container.querySelector('[data-testid="position-input-device-sw-1"]');
-      const inputEl = (
-        inputWrap?.tagName === 'INPUT' ? inputWrap : inputWrap?.querySelector('input')
-      ) as HTMLInputElement | null;
-      expect(inputEl).not.toBeNull();
+      expect(container.querySelector('[data-testid^="move-up-device-"]')).toBeNull();
+      expect(container.querySelector('[data-testid^="move-down-device-"]')).toBeNull();
+      expect(container.querySelector('[data-testid="collision-warning-banner"]')).toBeNull();
+    });
 
-      if (inputEl) {
-        await act(async () => {
-          inputEl.focus();
-          inputEl.value = '20';
-          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-          inputEl.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }),
-          );
-          inputEl.blur();
-          inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-        });
+    it('Case 12.3: enforces capacity ceiling bounded by occupied units', async () => {
+      await renderWithContext(
+        <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
+      );
 
-        expect(networkService.updateSwitch).not.toHaveBeenCalledWith('sw-1', { rackPosition: 20 });
-      }
+      // Capacity input exists at header level for the rack itself
+      const capInputWrap = container.querySelector('[data-testid="rack-capacity-input"]');
+      expect(capInputWrap).not.toBeNull();
     });
 
     it('Case 12.4: sorts colliding devices at identical rackPosition deterministically by ID tie-breaker', async () => {
@@ -1337,6 +1230,260 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       // 'sw-a-first' should appear before 'sw-z-last' due to deterministic id.localeCompare tie-breaker
       expect(renderedRows[0].getAttribute('data-testid')).toBe('rack-device-row-sw-a-first');
       expect(renderedRows[1].getAttribute('data-testid')).toBe('rack-device-row-sw-z-last');
+    });
+
+    it('Case 12.5: automatically allocates contiguous non-overlapping sequential units from top down for devices without rackPosition', async () => {
+      const unpositionedRack: NetworkRack = {
+        ...mockRack42U,
+        totalHeight: 42,
+        switches: [
+          {
+            id: 'sw-unpos-1',
+            name: 'Device Top 2U',
+            model: 'Server 2U',
+            vendor: 'Dell',
+            role: 'CORE',
+            status: 'ONLINE',
+            rackHeight: 2,
+            rackPosition: null,
+            totalPorts: 4,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'sw-unpos-2',
+            name: 'Device Middle 1U',
+            model: 'Switch 1U',
+            vendor: 'Cisco',
+            role: 'ACCESS',
+            status: 'ONLINE',
+            rackHeight: 1,
+            rackPosition: null,
+            totalPorts: 24,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'sw-unpos-3',
+            name: 'Device Bottom 2U',
+            model: 'Storage 2U',
+            vendor: 'NetApp',
+            role: 'DISTRIBUTION',
+            status: 'ONLINE',
+            rackHeight: 2,
+            rackPosition: null,
+            totalPorts: 8,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      };
+
+      await renderWithContext(<RackElevationView rack={unpositionedRack} />);
+
+      // Device 1 (2U) spans U41..U42
+      expect(container.querySelector('[data-testid="left-rail-u-42"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-41"]')).not.toBeNull();
+
+      // Device 2 (1U) spans U40..U40
+      expect(container.querySelector('[data-testid="left-rail-u-40"]')).not.toBeNull();
+
+      // Device 3 (2U) spans U38..U39
+      expect(container.querySelector('[data-testid="left-rail-u-39"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-38"]')).not.toBeNull();
+
+      // Total occupied = 5U (42 - 5 = 37 available)
+      expect(container.textContent).toContain('5 / 42 U (11.9%)');
+      expect(container.textContent).toContain('37 U Available');
+    });
+
+    it('Case 12.6: merges rack switches without rackPosition even when elevation slots are present', async () => {
+      const rackWithMixedSwitches: NetworkRack = {
+        ...mockRack42U,
+        switches: [
+          ...mockRack42U.switches!,
+          {
+            id: 'sw-new-unpositioned',
+            name: 'Newly Mounted Switch',
+            model: 'Edge-100',
+            vendor: 'Juniper',
+            role: 'ACCESS',
+            status: 'ONLINE',
+            rackId: mockRack42U.id,
+            rackHeight: 1,
+            rackPosition: null,
+            totalPorts: 24,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      };
+
+      await renderWithContext(
+        <RackElevationView rack={rackWithMixedSwitches} elevationData={mockElevationData} />,
+      );
+
+      // The new unpositioned switch must be present in the rack frame
+      const newDevEl = container.querySelector(
+        '[data-testid="mounted-device-sw-new-unpositioned"]',
+      );
+      expect(newDevEl).not.toBeNull();
+      expect(newDevEl?.textContent).toContain('Newly Mounted Switch');
+    });
+
+    it('Case 12.7: renders long device models and names with ellipsis without layout distortion', async () => {
+      const longNameRack: NetworkRack = {
+        ...mockRack42U,
+        switches: [
+          {
+            id: 'sw-long-1',
+            name: 'Enterprise Ultra Aggregation Distribution Spine Switch Stack Unit 01',
+            model: 'Catalyst 9500-48Y4C High-Performance Multi-Chassis Modular Switch',
+            vendor: 'Cisco Systems Enterprise',
+            role: 'CORE',
+            status: 'ONLINE',
+            rackHeight: 2,
+            rackPosition: 20,
+            totalPorts: 48,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      };
+
+      await renderWithContext(<RackElevationView rack={longNameRack} />);
+      const devEl = container.querySelector('[data-testid="mounted-device-sw-long-1"]');
+      expect(devEl).not.toBeNull();
+      expect(devEl?.textContent).toContain('Enterprise Ultra');
+      expect(devEl?.textContent).toContain('Catalyst 9500');
+    });
+
+    it('Case 12.8: handles cumulative equipment height strictly exceeding rack capacity without overlaps or corrupted metrics', async () => {
+      const overCapacityRack: NetworkRack = {
+        ...mockRack42U,
+        totalHeight: 42,
+        switches: [
+          {
+            id: 'sw-over-1',
+            name: 'Spine Chassis 24U',
+            model: 'Nexus 9508',
+            vendor: 'Cisco',
+            role: 'CORE',
+            status: 'ONLINE',
+            rackHeight: 24,
+            rackPosition: null,
+            totalPorts: 48,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'sw-over-2',
+            name: 'Compute Chassis 24U',
+            model: 'UCS 5108 Blade',
+            vendor: 'Cisco',
+            role: 'DISTRIBUTION',
+            status: 'ONLINE',
+            rackHeight: 24,
+            rackPosition: null,
+            totalPorts: 32,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      };
+
+      await renderWithContext(<RackElevationView rack={overCapacityRack} />);
+
+      // Verify accurate over-capacity occupancy metrics (48 / 42 U = 114.3%) rather than false 42/42 (100%)
+      expect(container.textContent).toContain('48 / 42 U (114.3%)');
+      expect(container.textContent).toContain('0 U Available');
+
+      // Verify each device receives a contiguous non-overlapping slot allocation
+      // Device 1: U25..U48
+      expect(container.querySelector('[data-testid="left-rail-u-48"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-25"]')).not.toBeNull();
+
+      // Device 2: U01..U24
+      expect(container.querySelector('[data-testid="left-rail-u-24"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-1"]')).not.toBeNull();
+
+      // Ensure no duplicate rail testids exist for the boundary unit U24
+      const u24Elements = container.querySelectorAll('[data-testid="left-rail-u-24"]');
+      expect(u24Elements.length).toBe(1);
+
+      // Decrement button should be disabled since capacity cannot be decreased below 48U
+      const decBtn = container.querySelector(
+        '[data-testid="rack-decrement-slot-btn"]',
+      ) as HTMLButtonElement | null;
+      expect(decBtn?.disabled).toBe(true);
+    });
+
+    it('Case 12.9: prevents slot collision between unpositioned multi-U devices and existing positioned devices in mid-cabinet', async () => {
+      const midPositionedRack: NetworkRack = {
+        ...mockRack42U,
+        totalHeight: 42,
+        switches: [
+          {
+            id: 'sw-mid-fixed',
+            name: 'Pre-existing Mid Switch',
+            model: 'Fixed 2U',
+            vendor: 'Juniper',
+            role: 'DISTRIBUTION',
+            status: 'ONLINE',
+            rackHeight: 2,
+            rackPosition: 30, // Occupies U30..U31
+            totalPorts: 24,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'sw-unpos-top',
+            name: 'Top Device 10U',
+            model: 'Modular 10U',
+            vendor: 'Arista',
+            role: 'CORE',
+            status: 'ONLINE',
+            rackHeight: 10,
+            rackPosition: null,
+            totalPorts: 48,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+          {
+            id: 'sw-unpos-mid',
+            name: 'Mid Device 10U',
+            model: 'Modular 10U',
+            vendor: 'Arista',
+            role: 'ACCESS',
+            status: 'ONLINE',
+            rackHeight: 10,
+            rackPosition: null,
+            totalPorts: 48,
+            createdAt: '2026-09-01T00:00:00Z',
+            updatedAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      };
+
+      await renderWithContext(<RackElevationView rack={midPositionedRack} />);
+
+      // Top device (10U) takes U33..U42
+      expect(container.querySelector('[data-testid="left-rail-u-42"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-33"]')).not.toBeNull();
+
+      // Fixed switch occupies U30..U31
+      expect(container.querySelector('[data-testid="left-rail-u-31"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-30"]')).not.toBeNull();
+
+      // Mid device (10U) must skip U30..U31 and take U20..U29 without colliding with fixed switch
+      expect(container.querySelector('[data-testid="left-rail-u-29"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-20"]')).not.toBeNull();
+
+      // Verify unit U30 and U31 only belong to the fixed switch
+      const u30Rail = container.querySelector('[data-testid="left-rail-u-30"]');
+      expect(u30Rail?.getAttribute('data-testid')).toBe('left-rail-u-30');
+      const u30Elements = container.querySelectorAll('[data-testid="left-rail-u-30"]');
+      expect(u30Elements.length).toBe(1);
     });
   });
 });

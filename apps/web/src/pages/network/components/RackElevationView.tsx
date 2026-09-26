@@ -1,11 +1,8 @@
 import {
   AlertOutlined,
-  ArrowDownOutlined,
-  ArrowUpOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined,
   EyeOutlined,
   MinusOutlined,
   PlusOutlined,
@@ -15,7 +12,6 @@ import {
 } from '@ant-design/icons';
 import {
   App,
-  Badge,
   Button,
   Card,
   Empty,
@@ -51,17 +47,11 @@ export interface MountedDeviceSummary {
   role: SwitchRole | `${SwitchRole}`;
   status: SwitchStatus | `${SwitchStatus}`;
   rackHeight: number;
-  rackPosition: number;
+  rackPosition?: number | null;
   totalPorts?: number;
   activePortsCount?: number;
   unitHeight?: number;
   startUnit?: number;
-}
-
-export interface SlotCollision {
-  unit: number;
-  deviceIds: string[];
-  deviceNames: string[];
 }
 
 export interface RackElevationViewProps {
@@ -74,53 +64,10 @@ export interface RackElevationViewProps {
   onRefresh?: () => void;
   onRackUpdated?: (updatedRack: NetworkRack) => void;
   onDeviceUnmounted?: (deviceId: string) => void;
-  onDeviceMoved?: (deviceId: string, newPosition: number) => void;
   extraActions?: React.ReactNode;
 }
 
 const UNIT_HEIGHT_PX = 28;
-
-export function detectRackCollisions(
-  devices: Array<{
-    id: string;
-    name: string;
-    rackPosition?: number | null;
-    rackHeight?: number | null;
-  }>,
-): Map<number, SlotCollision> {
-  if (!devices || !Array.isArray(devices)) return new Map();
-  const unitOccupancy = new Map<number, Array<{ id: string; name: string }>>();
-
-  for (const dev of devices) {
-    if (dev.rackPosition === null || dev.rackPosition === undefined) continue;
-    const start = Math.floor(dev.rackPosition);
-    const height = Math.max(1, dev.rackHeight ?? 1);
-    const end = Math.ceil(dev.rackPosition + height - 1);
-
-    for (let u = start; u <= end; u++) {
-      const existing = unitOccupancy.get(u) || [];
-      existing.push({ id: dev.id, name: dev.name });
-      unitOccupancy.set(u, existing);
-    }
-  }
-
-  const collisions = new Map<number, SlotCollision>();
-  for (const [unit, occupants] of unitOccupancy.entries()) {
-    const uniqueIds = new Set(occupants.map((o) => o.id));
-    if (uniqueIds.size > 1) {
-      const uniqueOccupants = occupants.filter(
-        (o, idx, arr) => arr.findIndex((x) => x.id === o.id) === idx,
-      );
-      collisions.set(unit, {
-        unit,
-        deviceIds: uniqueOccupants.map((o) => o.id),
-        deviceNames: uniqueOccupants.map((o) => o.name),
-      });
-    }
-  }
-
-  return collisions;
-}
 
 export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
   ({
@@ -133,7 +80,6 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
     onRefresh,
     onRackUpdated,
     onDeviceUnmounted,
-    onDeviceMoved,
     extraActions,
   }) => {
     const { message } = App.useApp();
@@ -202,12 +148,13 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
         elevation: RackElevationData | null,
         switches: NetworkRack['switches'],
       ): MountedDeviceSummary[] => {
+        const found = new Map<string, MountedDeviceSummary>();
+
         if (elevation?.slots && elevation.slots.length > 0) {
-          const found = new Map<string, MountedDeviceSummary>();
           for (const slot of elevation.slots) {
             if (slot.isOccupied && slot.switch) {
               const sw = slot.switch;
-              const pos = sw.rackPosition ?? slot.occupiedByUnit ?? slot.unitNumber;
+              const pos = sw.rackPosition ?? slot.occupiedByUnit ?? slot.unitNumber ?? undefined;
               if (!found.has(sw.id)) {
                 found.set(sw.id, {
                   id: sw.id,
@@ -226,36 +173,35 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
               }
             }
           }
-          if (found.size > 0) {
-            return Array.from(found.values());
-          }
         }
 
         if (switches && switches.length > 0) {
-          return switches
-            .filter((s) => s.rackPosition !== null && s.rackPosition !== undefined)
-            .map((s) => ({
-              id: s.id,
-              name: s.name,
-              model: s.model,
-              vendor: s.vendor,
-              role: s.role,
-              status: s.status,
-              rackHeight: s.rackHeight || 1,
-              rackPosition: s.rackPosition as number,
-              totalPorts: s.totalPorts,
-              activePortsCount: s.activePortsCount,
-              unitHeight: s.rackHeight || 1,
-              startUnit: s.rackPosition as number,
-            }));
+          for (const s of switches) {
+            const isAssignedToRack = !s.rackId || s.rackId === rack.id || s.rackPosition !== null;
+            if (isAssignedToRack && !found.has(s.id)) {
+              found.set(s.id, {
+                id: s.id,
+                name: s.name,
+                model: s.model,
+                vendor: s.vendor,
+                role: s.role,
+                status: s.status,
+                rackHeight: s.rackHeight || 1,
+                rackPosition: s.rackPosition ?? undefined,
+                totalPorts: s.totalPorts,
+                activePortsCount: s.activePortsCount,
+                unitHeight: s.rackHeight || 1,
+                startUnit: s.rackPosition ?? undefined,
+              });
+            }
+          }
         }
 
-        return [];
+        return Array.from(found.values());
       },
-      [],
+      [rack.id],
     );
 
-    // Mounted devices state for immediate UI reflection upon user operations
     const initialDevices = extractMountedDevices(activeElevation, rack.switches);
     const [devices, setDevices] = useState<MountedDeviceSummary[]>(initialDevices);
     const devicesRef = useRef<MountedDeviceSummary[]>(initialDevices);
@@ -268,21 +214,34 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
       devicesRef.current = extracted;
     }, [activeElevation, rack.switches, extractMountedDevices]);
 
-    // Highest occupied unit validation for capacity controls
-    const maxOccupiedSlot = useMemo(() => {
+    // Total physical equipment height mounted in cabinet
+    const totalEquipmentHeight = useMemo(() => {
+      let sum = 0;
+      for (const dev of devices) {
+        sum += Math.max(1, Math.round(dev.rackHeight || 1));
+      }
+      return sum;
+    }, [devices]);
+
+    // Highest unit occupied by devices with explicit positions
+    const maxPositionedUnit = useMemo(() => {
       let max = 0;
       for (const dev of devices) {
-        const start = dev.rackPosition;
-        if (start === null || start === undefined) continue;
-        const end = start + Math.max(1, dev.rackHeight || 1) - 1;
-        if (end > max) {
-          max = end;
+        if (dev.rackPosition && dev.rackPosition > 0) {
+          const end = dev.rackPosition + Math.max(1, Math.round(dev.rackHeight || 1)) - 1;
+          if (end > max) max = end;
         }
       }
       return max;
     }, [devices]);
 
-    const minCapacity = Math.max(1, maxOccupiedSlot);
+    // Streamlined Telemetry calculations based on mounted devices
+    const occupiedUnitsCount = totalEquipmentHeight;
+    const availableUnits = Math.max(0, totalHeight - occupiedUnitsCount);
+    const spaceUtilPercent =
+      totalHeight > 0 ? Number(((occupiedUnitsCount / totalHeight) * 100).toFixed(1)) : 0;
+
+    const minCapacity = Math.max(1, maxPositionedUnit, totalEquipmentHeight);
     const canDecrement = capacity > minCapacity;
 
     // Handle capacity change via API
@@ -333,168 +292,100 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
       }
     };
 
-    // Collision Detection
-    const collisionMap = useMemo(() => {
-      return detectRackCollisions(devices);
-    }, [devices]);
-
-    const hasCollisions = collisionMap.size > 0;
-
-    // Streamlined Telemetry calculations (no dummy empty slot array)
-    const occupiedUnitsCount = useMemo(() => {
-      const occupiedSet = new Set<number>();
-      for (const dev of devices) {
-        if (dev.rackPosition === null || dev.rackPosition === undefined) continue;
-        const height = Math.max(1, dev.rackHeight || 1);
-        for (let u = dev.rackPosition; u < dev.rackPosition + height && u <= totalHeight; u++) {
-          if (u >= 1) {
-            occupiedSet.add(u);
-          }
-        }
-      }
-      return occupiedSet.size;
-    }, [devices, totalHeight]);
-
-    const availableUnits = Math.max(0, totalHeight - occupiedUnitsCount);
-    const spaceUtilPercent =
-      totalHeight > 0
-        ? Math.min(100, Math.max(0, Number(((occupiedUnitsCount / totalHeight) * 100).toFixed(1))))
-        : 0;
-
-    // Devices sorted top-to-bottom (descending by rackPosition with deterministic ID tie-breaker)
+    // Devices sorted top-to-bottom sequentially (1..N)
     const sortedDevices = useMemo(() => {
       return [...devices].sort((a, b) => {
-        const diff = (b.rackPosition ?? 0) - (a.rackPosition ?? 0);
-        if (diff !== 0) return diff;
+        const posA = a.rackPosition ?? 0;
+        const posB = b.rackPosition ?? 0;
+        if (posA !== posB) {
+          return posB - posA;
+        }
         return a.id.localeCompare(b.id);
       });
     }, [devices]);
 
-    // Collision check for repositioning (supporting fractional/mid-height bounds)
-    const wouldCollide = useCallback(
-      (
-        deviceId: string,
-        targetPos: number,
-        height: number,
-        deviceList: MountedDeviceSummary[] = devicesRef.current,
-      ): boolean => {
-        const targetStart = Math.floor(targetPos);
-        const targetEnd = Math.ceil(targetPos + height - 1);
-        for (const other of deviceList) {
-          if (other.id === deviceId) continue;
-          if (other.rackPosition === null || other.rackPosition === undefined) continue;
-          const otherStart = Math.floor(other.rackPosition);
-          const otherHeight = Math.max(1, other.rackHeight || 1);
-          const otherEnd = Math.ceil(other.rackPosition + otherHeight - 1);
-
-          if (Math.max(targetStart, otherStart) <= Math.min(targetEnd, otherEnd)) {
-            return true;
+    // Precompute automated sequential layout and rail unit allocations
+    const positionedDevices = useMemo(() => {
+      // Track units occupied by devices with explicit positions
+      const reservedUnits = new Set<number>();
+      for (const dev of sortedDevices) {
+        if (dev.rackPosition && dev.rackPosition > 0) {
+          const h = Math.max(1, Math.round(dev.rackHeight || 1));
+          for (let u = dev.rackPosition; u < dev.rackPosition + h; u++) {
+            reservedUnits.add(u);
           }
         }
-        return false;
-      },
-      [],
-    );
+      }
 
-    // Validation for move up/down
-    const checkMoveAllowed = useCallback(
-      (device: MountedDeviceSummary, direction: 'up' | 'down') => {
-        if (busyDeviceIdsRef.current.has(device.id)) {
-          return {
-            allowed: false,
-            reason: `Operation in-flight for ${device.name}`,
-          };
-        }
-        const devHeight = Math.max(1, Math.round(device.rackHeight || 1));
-        const currentPos = Math.round(device.rackPosition);
-        const targetPos = direction === 'up' ? currentPos + 1 : currentPos - 1;
+      // Ensure effective allocation height can accommodate all mounted equipment without visual overlaps
+      const effectiveAllocationHeight = Math.max(
+        totalHeight,
+        maxPositionedUnit,
+        totalEquipmentHeight,
+      );
+      let topCursor = effectiveAllocationHeight;
 
-        if (direction === 'up') {
-          if (targetPos + devHeight - 1 > totalHeight) {
-            return {
-              allowed: false,
-              reason: `Cannot move up: top rack limit (U${totalHeight}) reached`,
-            };
-          }
+      return sortedDevices.map((device, index) => {
+        const devHeightU = Math.max(1, Math.round(device.rackHeight || 1));
+        let startU: number;
+        let endU: number;
+
+        if (device.rackPosition && device.rackPosition > 0) {
+          startU = Math.round(device.rackPosition);
+          endU = startU + devHeightU - 1;
         } else {
-          if (targetPos < 1) {
-            return {
-              allowed: false,
-              reason: 'Cannot move down: bottom rack limit (U01) reached',
-            };
+          // Find next available contiguous slot range of devHeightU units from topCursor down
+          while (topCursor >= devHeightU) {
+            let conflict = false;
+            for (let u = topCursor; u >= topCursor - devHeightU + 1; u--) {
+              if (reservedUnits.has(u)) {
+                conflict = true;
+                topCursor = u - 1;
+                break;
+              }
+            }
+            if (!conflict) {
+              break;
+            }
+          }
+
+          if (topCursor >= devHeightU) {
+            endU = topCursor;
+            startU = topCursor - devHeightU + 1;
+          } else {
+            endU = Math.max(1, topCursor);
+            startU = Math.max(1, endU - devHeightU + 1);
+          }
+
+          topCursor = startU - 1;
+
+          // Reserve newly allocated units to prevent subsequent collisions
+          for (let u = startU; u <= endU; u++) {
+            reservedUnits.add(u);
           }
         }
 
-        if (wouldCollide(device.id, targetPos, devHeight)) {
-          return {
-            allowed: false,
-            reason: `Cannot move ${direction}: slot collision with another device at U${String(targetPos).padStart(2, '0')}`,
-          };
+        const spannedUnits: number[] = [];
+        for (let u = endU; u >= startU; u--) {
+          spannedUnits.push(u);
         }
+
+        const sttNumber = sttOrder === 'asc' ? index + 1 : sortedDevices.length - index;
+        const sttLabel = `#${String(sttNumber).padStart(2, '0')}`;
 
         return {
-          allowed: true,
-          reason: `Move ${direction} to U${String(targetPos).padStart(2, '0')}`,
+          device,
+          index,
+          sttNumber,
+          sttLabel,
+          devHeightU,
+          startU,
+          endU,
+          spannedUnits,
+          pixelHeight: devHeightU * UNIT_HEIGHT_PX,
         };
-      },
-      [totalHeight, wouldCollide],
-    );
-
-    // Reposition device handler with immediate UI state reflection and concurrency lock
-    const handleRepositionDevice = useCallback(
-      async (device: MountedDeviceSummary, newPosition: number, e?: React.SyntheticEvent) => {
-        e?.stopPropagation();
-        if (busyDeviceIdsRef.current.has(device.id)) return;
-
-        const normalizedPos = Math.round(newPosition);
-        const devHeight = Math.max(1, Math.round(device.rackHeight || 1));
-
-        if (normalizedPos < 1 || normalizedPos + devHeight - 1 > totalHeight) {
-          message.error(`Position U${normalizedPos} is out of rack bounds (U01–U${totalHeight}).`);
-          return;
-        }
-
-        if (wouldCollide(device.id, normalizedPos, devHeight, devicesRef.current)) {
-          message.error(
-            `Cannot reposition ${device.name} to U${normalizedPos}: slot collision with another mounted device.`,
-          );
-          return;
-        }
-
-        if (normalizedPos === device.rackPosition) {
-          return;
-        }
-
-        busyDeviceIdsRef.current.add(device.id);
-        setBusyDeviceIds(new Set(busyDeviceIdsRef.current));
-
-        const prevPosition = device.rackPosition;
-        devicesRef.current = devicesRef.current.map((d) =>
-          d.id === device.id ? { ...d, rackPosition: normalizedPos, startUnit: normalizedPos } : d,
-        );
-        setDevices(devicesRef.current);
-        message.success(
-          `Repositioned ${device.name} to U${String(normalizedPos).padStart(2, '0')}.`,
-        );
-        onDeviceMoved?.(device.id, normalizedPos);
-        try {
-          await networkService.updateSwitch(device.id, { rackPosition: normalizedPos });
-          queryClient.invalidateQueries({ queryKey: ['racks'] });
-          queryClient.invalidateQueries({ queryKey: ['rack-elevation', rack.id] });
-          onRefresh?.();
-        } catch (err: unknown) {
-          devicesRef.current = devicesRef.current.map((d) =>
-            d.id === device.id ? { ...d, rackPosition: prevPosition, startUnit: prevPosition } : d,
-          );
-          setDevices(devicesRef.current);
-          message.error(formatErrorMessage(err, 'reposition device'));
-        } finally {
-          busyDeviceIdsRef.current.delete(device.id);
-          setBusyDeviceIds(new Set(busyDeviceIdsRef.current));
-        }
-      },
-      [totalHeight, wouldCollide, message, onDeviceMoved, onRefresh, rack.id],
-    );
+      });
+    }, [sortedDevices, totalHeight, sttOrder, maxPositionedUnit, totalEquipmentHeight]);
 
     // Unmount device handler with immediate UI state reflection and concurrency lock
     const handleUnmountDevice = useCallback(
@@ -533,10 +424,8 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
     // Find first unoccupied unit bottom-up for mounting new equipment
     const findFirstAvailableUnit = useCallback(() => {
       const occupiedUnits = new Set<number>();
-      for (const dev of devices) {
-        if (dev.rackPosition === null || dev.rackPosition === undefined) continue;
-        const height = Math.max(1, dev.rackHeight || 1);
-        for (let u = dev.rackPosition; u < dev.rackPosition + height; u++) {
+      for (const item of positionedDevices) {
+        for (const u of item.spannedUnits) {
           occupiedUnits.add(u);
         }
       }
@@ -546,7 +435,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
         }
       }
       return 1;
-    }, [devices, totalHeight]);
+    }, [positionedDevices, totalHeight]);
 
     const handleMountEquipment = useCallback(() => {
       if (availableUnits <= 0) {
@@ -751,36 +640,6 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
             </Flex>
           </Flex>
 
-          {/* Collision Warning Banner */}
-          {hasCollisions && (
-            <Card
-              size="small"
-              styles={{
-                body: {
-                  backgroundColor: token.colorErrorBg,
-                  border: `1px solid ${token.colorErrorBorder}`,
-                  padding: '10px 16px',
-                  borderRadius: token.borderRadiusSM,
-                },
-              }}
-            >
-              <Flex align="center" gap={8}>
-                <ExclamationCircleOutlined style={{ color: token.colorError, fontSize: 16 }} />
-                <Text strong style={{ color: token.colorErrorText }}>
-                  Rack Collision Detected:
-                </Text>
-                <Text style={{ color: token.colorErrorText }}>
-                  {Array.from(collisionMap.values())
-                    .map(
-                      (c) =>
-                        `U${String(c.unit).padStart(2, '0')} is contested by ${c.deviceNames.join(' and ')}`,
-                    )
-                    .join('; ')}
-                </Text>
-              </Flex>
-            </Card>
-          )}
-
           {/* Telemetry Space Utilization Row */}
           <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
             <Flex vertical gap={4} style={{ width: '100%' }}>
@@ -788,12 +647,18 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                 <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>
                   Space Utilization
                 </Text>
-                <Text strong style={{ fontSize: 13 }}>
+                <Text
+                  strong
+                  style={{
+                    fontSize: 13,
+                    color: occupiedUnitsCount > totalHeight ? token.colorError : undefined,
+                  }}
+                >
                   {occupiedUnitsCount} / {totalHeight} U ({spaceUtilPercent}%)
                 </Text>
               </Flex>
               <Progress
-                percent={spaceUtilPercent}
+                percent={Math.min(100, Math.max(0, spaceUtilPercent))}
                 size="small"
                 strokeColor={
                   spaceUtilPercent > 90
@@ -914,398 +779,300 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                     backgroundColor: token.colorBgLayout,
                   }}
                 >
-                  {sortedDevices.map((device, index) => {
-                    const sttNumber = sttOrder === 'asc' ? index + 1 : sortedDevices.length - index;
-                    const sttLabel = `#${String(sttNumber).padStart(2, '0')}`;
-                    const devHeightU = Math.max(1, device.rackHeight || 1);
-                    const startU = device.rackPosition;
-                    const endU = startU + devHeightU - 1;
-                    let isCollision = false;
-                    for (let u = startU; u <= endU; u++) {
-                      if (collisionMap.has(u)) {
-                        isCollision = true;
-                        break;
-                      }
-                    }
-                    const pixelHeight = devHeightU * UNIT_HEIGHT_PX;
-
-                    const moveUpInfo = checkMoveAllowed(device, 'up');
-                    const moveDownInfo = checkMoveAllowed(device, 'down');
-
-                    // Rail units spanned by this device (descending order: endU down to startU)
-                    const spannedUnits: number[] = [];
-                    for (let u = endU; u >= startU; u--) {
-                      spannedUnits.push(u);
-                    }
-
-                    return (
-                      <div
-                        key={`mounted-row-${device.id}`}
-                        data-testid={`rack-device-row-${device.id}`}
-                        data-stt={sttNumber}
-                        style={{
-                          display: 'flex',
-                          position: 'relative',
-                          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                        }}
-                      >
-                        {/* Left EIA-310 Rail */}
+                  {positionedDevices.map(
+                    ({
+                      device,
+                      sttNumber,
+                      sttLabel,
+                      devHeightU,
+                      startU,
+                      endU,
+                      spannedUnits,
+                      pixelHeight,
+                    }) => {
+                      return (
                         <div
+                          key={`mounted-row-${device.id}`}
+                          data-testid={`rack-device-row-${device.id}`}
+                          data-stt={sttNumber}
                           style={{
-                            width: 44,
-                            backgroundColor: token.colorFillAlter,
-                            borderRight: `1px solid ${token.colorBorderSecondary}`,
                             display: 'flex',
-                            flexDirection: 'column',
-                            userSelect: 'none',
+                            position: 'relative',
+                            borderBottom: `1px solid ${token.colorBorderSecondary}`,
                           }}
                         >
-                          {spannedUnits.map((u) => (
-                            <div
-                              key={`left-rail-${device.id}-${u}`}
-                              data-testid={`left-rail-u-${u}`}
-                              data-stt={sttNumber}
-                              style={{
-                                height: UNIT_HEIGHT_PX,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '0 4px',
-                                borderBottom:
-                                  u > startU ? `1px solid ${token.colorBorderSecondary}` : 'none',
-                                color:
-                                  hoveredUnit === u || hoveredDeviceId === device.id
-                                    ? token.colorPrimary
-                                    : token.colorTextTertiary,
-                                fontSize: 10,
-                                fontFamily: 'monospace',
-                                fontWeight: 700,
-                              }}
-                            >
-                              <span style={{ fontSize: 9 }}>{sttLabel}</span>
-                              <span style={{ fontSize: 7, opacity: 0.6, letterSpacing: -1 }}>
-                                ●●●
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Central Equipment Chassis */}
-                        <Tooltip
-                          key={`device-slot-${device.id}`}
-                          title={
-                            <Flex
-                              vertical
-                              gap={4}
-                              style={{ padding: 4, color: token.colorTextLightSolid }}
-                            >
-                              <Text strong style={{ color: token.colorTextLightSolid }}>
-                                {device.name}
-                              </Text>
-                              <span style={{ fontSize: 12, opacity: 0.85 }}>
-                                Vendor: {device.vendor} | Model: {device.model}
-                              </span>
-                              <span style={{ fontSize: 11, opacity: 0.75 }}>
-                                STT: {sttLabel} ({devHeightU}U · Rack Unit U
-                                {String(startU).padStart(2, '0')}
-                                {devHeightU > 1 ? `–U${String(endU).padStart(2, '0')}` : ''})
-                              </span>
-                              <span style={{ fontSize: 11, opacity: 0.75 }}>
-                                Role: {device.role} | Status: {device.status}
-                              </span>
-                              {device.totalPorts && (
-                                <span
-                                  style={{
-                                    color: token.colorPrimaryActive,
-                                    fontSize: 11,
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  Ports: {device.activePortsCount ?? 0} active / {device.totalPorts}{' '}
-                                  total
-                                </span>
-                              )}
-                              <span style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>
-                                Click to view device specifications & port matrix
-                              </span>
-                            </Flex>
-                          }
-                        >
+                          {/* Left EIA-310 Rail */}
                           <div
-                            data-testid={`mounted-device-${device.id}`}
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`Mounted switch ${device.name} at STT ${sttLabel}`}
-                            onClick={() => handleDeviceClick(device)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleDeviceClick(device);
-                              }
-                            }}
-                            onMouseEnter={() => {
-                              setHoveredUnit(startU);
-                              setHoveredDeviceId(device.id);
-                            }}
-                            onMouseLeave={() => {
-                              setHoveredUnit(null);
-                              setHoveredDeviceId(null);
-                            }}
                             style={{
-                              flex: 1,
-                              height: pixelHeight,
-                              backgroundColor:
-                                viewMode === 'front'
-                                  ? token.colorBgElevated
-                                  : token.colorFillSecondary,
-                              borderLeft: isCollision ? `2px solid ${token.colorError}` : 'none',
-                              borderRight: isCollision ? `2px solid ${token.colorError}` : 'none',
-                              outline: isCollision ? `2px solid ${token.colorError}` : 'none',
-                              cursor: 'pointer',
+                              width: 44,
+                              backgroundColor: token.colorFillAlter,
+                              borderRight: `1px solid ${token.colorBorderSecondary}`,
                               display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '0 12px',
-                              boxSizing: 'border-box',
-                              transition: 'all 0.15s ease',
-                              position: 'relative',
-                              gap: 8,
+                              flexDirection: 'column',
+                              userSelect: 'none',
                             }}
                           >
-                            {/* Device Left Section: Bezel Screws, Status, STT Tag, Vendor Tag, Name */}
-                            <Flex align="center" gap={8} style={{ overflow: 'hidden', flex: 1 }}>
+                            {spannedUnits.map((u) => (
                               <div
+                                key={`left-rail-${device.id}-${u}`}
+                                data-testid={`left-rail-u-${u}`}
+                                data-stt={sttNumber}
                                 style={{
-                                  width: 6,
-                                  height: Math.min(16, pixelHeight - 6),
-                                  borderRadius: token.borderRadiusSM,
-                                  backgroundColor: token.colorTextQuaternary,
-                                }}
-                              />
-                              {getStatusIndicator(device.status)}
-                              <Tag
-                                color="blue"
-                                style={{
+                                  height: UNIT_HEIGHT_PX,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '0 4px',
+                                  borderBottom:
+                                    u > startU ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                                  color:
+                                    hoveredUnit === u || hoveredDeviceId === device.id
+                                      ? token.colorPrimary
+                                      : token.colorTextTertiary,
                                   fontSize: 10,
-                                  lineHeight: '16px',
                                   fontFamily: 'monospace',
                                   fontWeight: 700,
-                                  padding: '0 4px',
-                                  margin: 0,
                                 }}
                               >
-                                {sttLabel}
-                              </Tag>
-                              <Tag
-                                color={getRoleTagColor(device.role)}
-                                style={{
-                                  fontSize: 10,
-                                  lineHeight: '16px',
-                                  padding: '0 4px',
-                                  margin: 0,
-                                }}
-                              >
-                                {device.vendor || 'DEV'}
-                              </Tag>
-                              <Text
-                                strong
-                                ellipsis
-                                style={{
-                                  color: token.colorText,
-                                  fontSize: 12,
-                                  maxWidth: 140,
-                                }}
-                              >
-                                {device.name}
-                              </Text>
-                            </Flex>
-
-                            {/* Device Middle Section: Front/Rear Details */}
-                            {viewMode === 'front' ? (
-                              <Flex align="center" gap={6}>
-                                <Text
-                                  style={{
-                                    color: token.colorTextSecondary,
-                                    fontSize: 11,
-                                    fontFamily: 'monospace',
-                                  }}
-                                >
-                                  {device.model}
-                                </Text>
-                                <Tag
-                                  color={device.status === 'ONLINE' ? 'success' : 'default'}
-                                  style={{ fontSize: 9, margin: 0 }}
-                                >
-                                  {devHeightU}U
-                                </Tag>
-                              </Flex>
-                            ) : (
-                              /* Rear View Details: PSUs and Fans */
-                              <Flex align="center" gap={6}>
-                                <Tag color="gold" style={{ fontSize: 9, margin: 0 }}>
-                                  PSU 1 [AC]
-                                </Tag>
-                                <Tag color="gold" style={{ fontSize: 9, margin: 0 }}>
-                                  PSU 2 [AC]
-                                </Tag>
-                                <Tag color="blue" style={{ fontSize: 9, margin: 0 }}>
-                                  FAN
-                                </Tag>
-                              </Flex>
-                            )}
-
-                            {/* Device Right Section: Position Input, Move Up/Down & Unmount Controls */}
-                            <Flex
-                              align="center"
-                              gap={4}
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => e.stopPropagation()}
-                            >
-                              <Tooltip
-                                title={`Position: U${String(device.rackPosition).padStart(2, '0')}. Enter unit number (1–${totalHeight - devHeightU + 1}) to reposition.`}
-                              >
-                                <InputNumber
-                                  key={`pos-input-${device.id}-${device.rackPosition}`}
-                                  size="small"
-                                  min={1}
-                                  max={totalHeight - devHeightU + 1}
-                                  defaultValue={device.rackPosition}
-                                  disabled={busyDeviceIds.has(device.id)}
-                                  controls={false}
-                                  style={{ width: 48, textAlign: 'center', fontSize: 11 }}
-                                  formatter={(val) =>
-                                    val !== undefined && val !== null
-                                      ? `U${String(val).padStart(2, '0')}`
-                                      : ''
-                                  }
-                                  parser={(val) => Number(val?.replace(/[^0-9]/g, ''))}
-                                  onPressEnter={(e) => {
-                                    const rawVal = (e.target as HTMLInputElement)?.value ?? '';
-                                    const parsed = Number(rawVal.replace(/[^0-9]/g, ''));
-                                    const valToCommit =
-                                      !Number.isNaN(parsed) && parsed >= 1
-                                        ? parsed
-                                        : device.rackPosition;
-                                    if (valToCommit !== device.rackPosition) {
-                                      handleRepositionDevice(device, valToCommit, e);
-                                    }
-                                  }}
-                                  onBlur={(e) => {
-                                    const rawVal = (e.target as HTMLInputElement)?.value ?? '';
-                                    const parsed = Number(rawVal.replace(/[^0-9]/g, ''));
-                                    const valToCommit =
-                                      !Number.isNaN(parsed) && parsed >= 1
-                                        ? parsed
-                                        : device.rackPosition;
-                                    if (valToCommit !== device.rackPosition) {
-                                      handleRepositionDevice(device, valToCommit, e);
-                                    }
-                                  }}
-                                  aria-label={`Position of ${device.name} in rack units`}
-                                  data-testid={`position-input-device-${device.id}`}
-                                />
-                              </Tooltip>
-                              <Tooltip title={moveUpInfo.reason}>
-                                <Button
-                                  size="small"
-                                  type="text"
-                                  icon={<ArrowUpOutlined style={{ fontSize: 11 }} />}
-                                  disabled={!moveUpInfo.allowed || busyDeviceIds.has(device.id)}
-                                  onClick={(e) =>
-                                    handleRepositionDevice(device, device.rackPosition + 1, e)
-                                  }
-                                  aria-label={`Move ${device.name} up`}
-                                  data-testid={`move-up-device-${device.id}`}
-                                  style={{ width: 22, height: 22, padding: 0 }}
-                                />
-                              </Tooltip>
-                              <Tooltip title={moveDownInfo.reason}>
-                                <Button
-                                  size="small"
-                                  type="text"
-                                  icon={<ArrowDownOutlined style={{ fontSize: 11 }} />}
-                                  disabled={!moveDownInfo.allowed || busyDeviceIds.has(device.id)}
-                                  onClick={(e) =>
-                                    handleRepositionDevice(device, device.rackPosition - 1, e)
-                                  }
-                                  aria-label={`Move ${device.name} down`}
-                                  data-testid={`move-down-device-${device.id}`}
-                                  style={{ width: 22, height: 22, padding: 0 }}
-                                />
-                              </Tooltip>
-                              <Tooltip title="Unmount device from rack">
-                                <Button
-                                  size="small"
-                                  type="text"
-                                  danger
-                                  icon={<DeleteOutlined style={{ fontSize: 11 }} />}
-                                  disabled={busyDeviceIds.has(device.id)}
-                                  onClick={(e) => handleUnmountDevice(device, e)}
-                                  aria-label={`Unmount ${device.name}`}
-                                  data-testid={`unmount-device-${device.id}`}
-                                  style={{ width: 22, height: 22, padding: 0 }}
-                                />
-                              </Tooltip>
-                            </Flex>
-
-                            {isCollision && (
-                              <Badge
-                                count="COLLISION"
-                                style={{
-                                  backgroundColor: token.colorError,
-                                  fontSize: 9,
-                                  position: 'absolute',
-                                  right: 8,
-                                  top: 2,
-                                }}
-                              />
-                            )}
+                                <span style={{ fontSize: 9 }}>{sttLabel}</span>
+                                <span style={{ fontSize: 7, opacity: 0.6, letterSpacing: -1 }}>
+                                  ●●●
+                                </span>
+                              </div>
+                            ))}
                           </div>
-                        </Tooltip>
 
-                        {/* Right EIA-310 Rail */}
-                        <div
-                          style={{
-                            width: 44,
-                            backgroundColor: token.colorFillAlter,
-                            borderLeft: `1px solid ${token.colorBorderSecondary}`,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            userSelect: 'none',
-                          }}
-                        >
-                          {spannedUnits.map((u) => (
+                          {/* Central Equipment Chassis */}
+                          <Tooltip
+                            key={`device-slot-${device.id}`}
+                            title={
+                              <Flex
+                                vertical
+                                gap={4}
+                                style={{ padding: 4, color: token.colorTextLightSolid }}
+                              >
+                                <Text strong style={{ color: token.colorTextLightSolid }}>
+                                  {device.name}
+                                </Text>
+                                <span style={{ fontSize: 12, opacity: 0.85 }}>
+                                  Vendor: {device.vendor} | Model: {device.model}
+                                </span>
+                                <span style={{ fontSize: 11, opacity: 0.75 }}>
+                                  STT: {sttLabel} ({devHeightU}U · Slot U
+                                  {String(startU).padStart(2, '0')}
+                                  {devHeightU > 1 ? `–U${String(endU).padStart(2, '0')}` : ''})
+                                </span>
+                                <span style={{ fontSize: 11, opacity: 0.75 }}>
+                                  Role: {device.role} | Status: {device.status}
+                                </span>
+                                {device.totalPorts && (
+                                  <span
+                                    style={{
+                                      color: token.colorPrimaryActive,
+                                      fontSize: 11,
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Ports: {device.activePortsCount ?? 0} active /{' '}
+                                    {device.totalPorts} total
+                                  </span>
+                                )}
+                                <span style={{ fontSize: 10, opacity: 0.5, marginTop: 4 }}>
+                                  Click to view device specifications & port matrix
+                                </span>
+                              </Flex>
+                            }
+                          >
                             <div
-                              key={`right-rail-${device.id}-${u}`}
-                              data-testid={`right-rail-u-${u}`}
-                              data-stt={sttNumber}
+                              data-testid={`mounted-device-${device.id}`}
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Mounted switch ${device.name} at STT ${sttLabel}`}
+                              onClick={() => handleDeviceClick(device)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handleDeviceClick(device);
+                                }
+                              }}
+                              onMouseEnter={() => {
+                                setHoveredUnit(startU);
+                                setHoveredDeviceId(device.id);
+                              }}
+                              onMouseLeave={() => {
+                                setHoveredUnit(null);
+                                setHoveredDeviceId(null);
+                              }}
                               style={{
-                                height: UNIT_HEIGHT_PX,
+                                flex: 1,
+                                height: pixelHeight,
+                                backgroundColor:
+                                  viewMode === 'front'
+                                    ? token.colorBgElevated
+                                    : token.colorFillSecondary,
+                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                padding: '0 4px',
-                                borderBottom:
-                                  u > startU ? `1px solid ${token.colorBorderSecondary}` : 'none',
-                                color:
-                                  hoveredUnit === u || hoveredDeviceId === device.id
-                                    ? token.colorPrimary
-                                    : token.colorTextTertiary,
-                                fontSize: 10,
-                                fontFamily: 'monospace',
-                                fontWeight: 700,
+                                padding: '0 12px',
+                                boxSizing: 'border-box',
+                                transition: 'all 0.15s ease',
+                                position: 'relative',
+                                gap: 8,
                               }}
                             >
-                              <span style={{ fontSize: 7, opacity: 0.6, letterSpacing: -1 }}>
-                                ●●●
-                              </span>
-                              <span style={{ fontSize: 9 }}>{sttLabel}</span>
+                              {/* Device Left Section: Bezel Screws, Status, STT Tag, Vendor Tag, Name */}
+                              <Flex align="center" gap={8} style={{ overflow: 'hidden', flex: 1 }}>
+                                <div
+                                  style={{
+                                    width: 6,
+                                    height: Math.min(16, pixelHeight - 6),
+                                    borderRadius: token.borderRadiusSM,
+                                    backgroundColor: token.colorTextQuaternary,
+                                  }}
+                                />
+                                {getStatusIndicator(device.status)}
+                                <Tag
+                                  color="blue"
+                                  style={{
+                                    fontSize: 10,
+                                    lineHeight: '16px',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 700,
+                                    padding: '0 4px',
+                                    margin: 0,
+                                  }}
+                                >
+                                  {sttLabel}
+                                </Tag>
+                                <Tag
+                                  color={getRoleTagColor(device.role)}
+                                  style={{
+                                    fontSize: 10,
+                                    lineHeight: '16px',
+                                    padding: '0 4px',
+                                    margin: 0,
+                                  }}
+                                >
+                                  {device.vendor || 'DEV'}
+                                </Tag>
+                                <Text
+                                  strong
+                                  ellipsis
+                                  style={{
+                                    color: token.colorText,
+                                    fontSize: 12,
+                                    maxWidth: 140,
+                                  }}
+                                >
+                                  {device.name}
+                                </Text>
+                              </Flex>
+
+                              {/* Device Middle Section: Front/Rear Details */}
+                              {viewMode === 'front' ? (
+                                <Flex align="center" gap={6}>
+                                  <Text
+                                    ellipsis
+                                    style={{
+                                      color: token.colorTextSecondary,
+                                      fontSize: 11,
+                                      fontFamily: 'monospace',
+                                      maxWidth: 120,
+                                    }}
+                                  >
+                                    {device.model}
+                                  </Text>
+                                  <Tag
+                                    color={device.status === 'ONLINE' ? 'success' : 'default'}
+                                    style={{ fontSize: 9, margin: 0 }}
+                                  >
+                                    {devHeightU}U
+                                  </Tag>
+                                </Flex>
+                              ) : (
+                                /* Rear View Details: PSUs and Fans */
+                                <Flex align="center" gap={6}>
+                                  <Tag color="gold" style={{ fontSize: 9, margin: 0 }}>
+                                    PSU 1 [AC]
+                                  </Tag>
+                                  <Tag color="gold" style={{ fontSize: 9, margin: 0 }}>
+                                    PSU 2 [AC]
+                                  </Tag>
+                                  <Tag color="blue" style={{ fontSize: 9, margin: 0 }}>
+                                    FAN
+                                  </Tag>
+                                </Flex>
+                              )}
+
+                              {/* Device Right Section: Unmount Control */}
+                              <Flex
+                                align="center"
+                                gap={4}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              >
+                                <Tooltip title="Unmount device from rack">
+                                  <Button
+                                    size="small"
+                                    type="text"
+                                    danger
+                                    icon={<DeleteOutlined style={{ fontSize: 11 }} />}
+                                    disabled={busyDeviceIds.has(device.id)}
+                                    onClick={(e) => handleUnmountDevice(device, e)}
+                                    aria-label={`Unmount ${device.name}`}
+                                    data-testid={`unmount-device-${device.id}`}
+                                    style={{ width: 22, height: 22, padding: 0 }}
+                                  />
+                                </Tooltip>
+                              </Flex>
                             </div>
-                          ))}
+                          </Tooltip>
+
+                          {/* Right EIA-310 Rail */}
+                          <div
+                            style={{
+                              width: 44,
+                              backgroundColor: token.colorFillAlter,
+                              borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              userSelect: 'none',
+                            }}
+                          >
+                            {spannedUnits.map((u) => (
+                              <div
+                                key={`right-rail-${device.id}-${u}`}
+                                data-testid={`right-rail-u-${u}`}
+                                data-stt={sttNumber}
+                                style={{
+                                  height: UNIT_HEIGHT_PX,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '0 4px',
+                                  borderBottom:
+                                    u > startU ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                                  color:
+                                    hoveredUnit === u || hoveredDeviceId === device.id
+                                      ? token.colorPrimary
+                                      : token.colorTextTertiary,
+                                  fontSize: 10,
+                                  fontFamily: 'monospace',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <span style={{ fontSize: 7, opacity: 0.6, letterSpacing: -1 }}>
+                                  ●●●
+                                </span>
+                                <span style={{ fontSize: 9 }}>{sttLabel}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    },
+                  )}
                 </div>
               )}
 

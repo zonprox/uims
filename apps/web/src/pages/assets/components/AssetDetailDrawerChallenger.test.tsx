@@ -173,6 +173,29 @@ describe('Empirical Adversarial Stress Tests — AssetDetailDrawer Challenger', 
       expect(text).not.toContain('Processor (CPU)');
       expect(text).not.toContain('Memory (RAM)');
     });
+
+    it('renders long upstream switch name and rack name with responsive ellipsis without overflowing', async () => {
+      const connectedAsset = createMockAsset({
+        id: 'ast-connected-long',
+        name: 'Datacenter Server Blade',
+        networkConnectivity: {
+          upstreamSwitch: 'Global Aggregation Spine Switch Extended Chassis Stack Unit 01',
+          switchModel: 'Catalyst 9600 Multi-Rate Modular Switch',
+          upstreamPort: 'TenGigabitEthernet 1/0/48',
+          rackName: 'Hyperscale High-Density Compute Cabinet Building 4 Server Room 2',
+          rackUnit: 42,
+          ipAddress: '10.250.100.150',
+          vlan: 'VLAN 100 (Management)',
+          linkStatus: 'UP',
+        },
+      });
+
+      await renderDrawer(connectedAsset);
+      const text = document.body.textContent || '';
+      expect(text).toContain('Global Aggregation Spine');
+      expect(text).toContain('Hyperscale High-Density');
+      expect(text).toContain('U42');
+    });
   });
 
   describe('Adversarial Task 2.3: Empty and Undefined Notes Handling', () => {

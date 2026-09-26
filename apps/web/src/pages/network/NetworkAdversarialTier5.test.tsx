@@ -16,7 +16,7 @@ import { networkService } from '../../services/network.service';
 import { AssetDetailDrawer } from '../assets/components/AssetDetailDrawer';
 import { IpAddressTable } from './components/IpAddressTable';
 import { PortConfigDrawer } from './components/PortConfigDrawer';
-import { RackElevationView, detectRackCollisions } from './components/RackElevationView';
+import { RackElevationView } from './components/RackElevationView';
 import { SwitchFaceplateDrawer } from './components/SwitchFaceplateDrawer';
 import { SwitchPortFaceplate } from './components/SwitchPortFaceplate';
 import { VlanDetailDrawer } from './components/VlanDetailDrawer';
@@ -265,10 +265,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
         switches: fullSwitches,
       };
 
-      // Collision detector must verify 0 collisions
-      const collisions = detectRackCollisions(fullSwitches);
-      expect(collisions.size).toBe(0);
-
       await renderWithContext(<RackElevationView rack={saturatedRack} />);
 
       // Telemetry: 42 / 42 U (100%), 0 U Available
@@ -287,22 +283,17 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(emptySlots.length).toBe(0);
     });
 
-    it('Case 1.5: detects multi-device 3-way collision and displays collision alert banner', async () => {
-      const multiCollidingSwitches = [
-        { id: 'dev-1', name: 'Host Alpha', rackPosition: 10, rackHeight: 2 }, // U10..U11
-        { id: 'dev-2', name: 'Switch Beta', rackPosition: 10, rackHeight: 1 }, // U10
-        { id: 'dev-3', name: 'Storage Gamma', rackPosition: 10, rackHeight: 4 }, // U10..U13
+    it('Case 1.5: automatically lays out multiple devices sequentially without collision banners or manual position inputs', async () => {
+      const multiSwitches = [
+        { id: 'dev-1', name: 'Host Alpha', rackHeight: 2 },
+        { id: 'dev-2', name: 'Switch Beta', rackHeight: 1 },
+        { id: 'dev-3', name: 'Storage Gamma', rackHeight: 4 },
       ];
 
-      const collisions = detectRackCollisions(multiCollidingSwitches);
-      expect(collisions.has(10)).toBe(true);
-      const col10 = collisions.get(10);
-      expect(col10?.deviceNames).toEqual(['Host Alpha', 'Switch Beta', 'Storage Gamma']);
-
-      const collidingRack: NetworkRack = {
+      const multiRack: NetworkRack = {
         ...mockRackTemplate,
-        id: 'rack-3way-col',
-        switches: multiCollidingSwitches.map((d) => ({
+        id: 'rack-multi-dev',
+        switches: multiSwitches.map((d) => ({
           ...d,
           model: 'M',
           vendor: 'V',
@@ -315,12 +306,24 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
         })),
       };
 
-      await renderWithContext(<RackElevationView rack={collidingRack} />);
+      await renderWithContext(<RackElevationView rack={multiRack} />);
 
-      expect(container.textContent).toContain('Rack Collision Detected');
-      expect(container.textContent).toContain(
-        'U10 is contested by Host Alpha and Switch Beta and Storage Gamma',
-      );
+      // Zero collision banners or badges
+      expect(container.textContent).not.toContain('Rack Collision Detected');
+      expect(container.querySelectorAll('.ant-badge-count')).toHaveLength(0);
+
+      // No manual position inputs or move steppers
+      expect(container.querySelectorAll('[data-testid^="position-input-device-"]')).toHaveLength(0);
+      expect(container.querySelectorAll('[data-testid^="move-up-device-"]')).toHaveLength(0);
+      expect(container.querySelectorAll('[data-testid^="move-down-device-"]')).toHaveLength(0);
+
+      // Devices are cleanly rendered in sequential layout
+      expect(container.querySelector('[data-testid="mounted-device-dev-1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="mounted-device-dev-2"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="mounted-device-dev-3"]')).not.toBeNull();
+
+      // Occupancy metrics: 2 + 1 + 4 = 7U
+      expect(container.textContent).toContain('7 / 42 U (16.7%)');
     });
   });
 

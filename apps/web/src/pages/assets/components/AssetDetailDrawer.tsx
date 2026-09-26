@@ -246,17 +246,31 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
           }
           size="small"
           style={{ marginBottom: 16 }}
-          styles={{ body: { padding: '14px 16px' } }}
+          styles={{ body: { padding: '16px 20px' } }}
         >
           {hasConnectivity ? (
             <div>
-              <Descriptions bordered size="small" column={1}>
+              <Descriptions
+                bordered
+                size="small"
+                column={1}
+                styles={{ label: { whiteSpace: 'nowrap' } }}
+              >
                 <Descriptions.Item label="Upstream Switch">
-                  <Flex align="center" gap={6}>
+                  <Flex align="center" gap={6} wrap="wrap">
                     <ClusterOutlined style={{ color: '#1677ff' }} />
-                    <Text strong>{switchName || '—'}</Text>
+                    <Text
+                      strong
+                      ellipsis={{ tooltip: switchName || '—' }}
+                      style={{ maxWidth: 220, display: 'inline-block' }}
+                    >
+                      {switchName || '—'}
+                    </Text>
                     {switchModel && (
-                      <Tag color="geekblue" style={{ fontSize: 10.5 }}>
+                      <Tag
+                        color="geekblue"
+                        style={{ fontSize: 10.5, whiteSpace: 'nowrap', margin: 0 }}
+                      >
                         {switchModel}
                       </Tag>
                     )}
@@ -264,23 +278,33 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                 </Descriptions.Item>
 
                 <Descriptions.Item label="Connected Port">
-                  <Flex align="center" gap={8}>
-                    <Text code strong>
+                  <Flex align="center" gap={8} wrap="wrap">
+                    <Text code strong style={{ whiteSpace: 'nowrap' }}>
                       {portName || '—'}
                     </Text>
-                    <Badge status={linkBadge.status} text={linkBadge.label} />
+                    <Badge
+                      status={linkBadge.status}
+                      text={linkBadge.label}
+                      style={{ whiteSpace: 'nowrap' }}
+                    />
                   </Flex>
                 </Descriptions.Item>
 
                 <Descriptions.Item label="Configured VLAN & IP">
                   <Flex align="center" gap={8} wrap="wrap">
                     {vlanDisplay ? (
-                      <Tag color="purple">{vlanDisplay}</Tag>
+                      <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
+                        {vlanDisplay}
+                      </Tag>
                     ) : (
                       <Text type="secondary">—</Text>
                     )}
                     {ipDisplay ? (
-                      <Text code copyable style={{ fontSize: 11.5, color: '#1677ff' }}>
+                      <Text
+                        code
+                        copyable
+                        style={{ fontSize: 11.5, color: '#1677ff', whiteSpace: 'nowrap' }}
+                      >
                         {ipDisplay}
                       </Text>
                     ) : null}
@@ -288,11 +312,17 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                 </Descriptions.Item>
 
                 <Descriptions.Item label="Rack Cabinet & RU">
-                  <Flex align="center" gap={6}>
+                  <Flex align="center" gap={6} wrap="wrap">
                     <AppstoreOutlined style={{ color: '#722ed1' }} />
-                    <Text strong>{rackName || 'Unassigned Rack'}</Text>
+                    <Text
+                      strong
+                      ellipsis={{ tooltip: rackName || 'Unassigned Rack' }}
+                      style={{ maxWidth: 220, display: 'inline-block' }}
+                    >
+                      {rackName || 'Unassigned Rack'}
+                    </Text>
                     {rackUnit !== undefined && rackUnit !== null && (
-                      <Tag color="purple">
+                      <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
                         {String(rackUnit).startsWith('U') ? String(rackUnit) : `U${rackUnit}`}
                       </Tag>
                     )}
@@ -374,6 +404,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     bordered
                     size="small"
                     column={1}
+                    styles={{ label: { whiteSpace: 'nowrap' } }}
                     style={{ marginBottom: 16 }}
                   >
                     <Descriptions.Item label="Asset Tag">{selectedAsset.tag}</Descriptions.Item>
@@ -412,6 +443,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     bordered
                     size="small"
                     column={1}
+                    styles={{ label: { whiteSpace: 'nowrap' } }}
                     style={{ marginBottom: 16 }}
                   >
                     {selectedAsset.organization && (
@@ -445,7 +477,13 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
 
                   {renderNetworkConnectivity()}
 
-                  <Descriptions title="Lifecycle & Warranty" bordered size="small" column={1}>
+                  <Descriptions
+                    title="Lifecycle & Warranty"
+                    bordered
+                    size="small"
+                    column={1}
+                    styles={{ label: { whiteSpace: 'nowrap' } }}
+                  >
                     <Descriptions.Item label="Purchase Date">
                       <FormattedDate date={selectedAsset.purchaseDate} />
                     </Descriptions.Item>

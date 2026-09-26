@@ -80,13 +80,17 @@ describe('SwitchFormModal Component Tests', () => {
       expect(input.getAttribute('aria-valuenow')).toBe('24');
     });
 
-    it('renders all four quick preset buttons: 8, 16, 24, 48 Ports', async () => {
+    it('confirms complete removal of quick preset buttons, firmwareVersion, rackHeight, and auto-generate checkbox', async () => {
       await renderWithProviders(<TestHarness />);
 
-      expect(document.querySelector('[data-testid="preset-ports-8"]')).not.toBeNull();
-      expect(document.querySelector('[data-testid="preset-ports-16"]')).not.toBeNull();
-      expect(document.querySelector('[data-testid="preset-ports-24"]')).not.toBeNull();
-      expect(document.querySelector('[data-testid="preset-ports-48"]')).not.toBeNull();
+      // Zero preset buttons
+      expect(document.querySelector('[data-testid^="preset-ports-"]')).toBeNull();
+      // Zero firmwareVersion input
+      expect(document.querySelector('input[id*="firmwareVersion"]')).toBeNull();
+      // Zero rackHeight input
+      expect(document.querySelector('input[id*="rackHeight"]')).toBeNull();
+      // Zero autoGeneratePorts checkbox
+      expect(document.querySelector('input[id*="autoGeneratePorts"]')).toBeNull();
     });
 
     it('renders dedicated inputs for RJ45 Uplinks and Optical Fiber SFP/SFP+ ports', async () => {
@@ -111,39 +115,16 @@ describe('SwitchFormModal Component Tests', () => {
     });
   });
 
-  describe('Quick Preset Button Interactions', () => {
-    it('clicking preset buttons (8, 16, 24, 48) updates form totalPorts value', async () => {
+  describe('Direct Port Count Selection', () => {
+    it('directly updating totalPorts in form sets valid values', async () => {
       await renderWithProviders(<TestHarness />);
 
       expect(capturedForm).not.toBeNull();
 
-      // Click preset 8
-      const btn8 = document.querySelector('[data-testid="preset-ports-8"]') as HTMLButtonElement;
       await act(async () => {
-        btn8.click();
-      });
-      expect(capturedForm?.getFieldValue('totalPorts')).toBe(8);
-
-      // Click preset 16
-      const btn16 = document.querySelector('[data-testid="preset-ports-16"]') as HTMLButtonElement;
-      await act(async () => {
-        btn16.click();
-      });
-      expect(capturedForm?.getFieldValue('totalPorts')).toBe(16);
-
-      // Click preset 48
-      const btn48 = document.querySelector('[data-testid="preset-ports-48"]') as HTMLButtonElement;
-      await act(async () => {
-        btn48.click();
+        capturedForm?.setFieldsValue({ totalPorts: 48 });
       });
       expect(capturedForm?.getFieldValue('totalPorts')).toBe(48);
-
-      // Click preset 24
-      const btn24 = document.querySelector('[data-testid="preset-ports-24"]') as HTMLButtonElement;
-      await act(async () => {
-        btn24.click();
-      });
-      expect(capturedForm?.getFieldValue('totalPorts')).toBe(24);
     });
   });
 

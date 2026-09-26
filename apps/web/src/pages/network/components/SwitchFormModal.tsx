@@ -1,18 +1,5 @@
 import { ApartmentOutlined, CloudServerOutlined, EnvironmentOutlined } from '@ant-design/icons';
-import {
-  Button,
-  Checkbox,
-  Col,
-  Form,
-  type FormInstance,
-  Input,
-  InputNumber,
-  Modal,
-  Row,
-  Select,
-  Space,
-  theme,
-} from 'antd';
+import { Col, Form, type FormInstance, Input, InputNumber, Modal, Row, Select, theme } from 'antd';
 import React from 'react';
 import type { Asset } from '../../../services/assets.service';
 import type { LocationBranch } from '../../../services/organization.service';
@@ -45,12 +32,6 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
     onCancel,
   }) => {
     const { token } = theme.useToken();
-    const selectedRackId = Form.useWatch('rackId', form);
-    const selectedRack = React.useMemo(
-      () => racks.find((r) => r.id === selectedRackId),
-      [racks, selectedRackId],
-    );
-    const maxSlot = selectedRack?.totalHeight ?? 100;
 
     return (
       <Modal
@@ -154,9 +135,9 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
             </Col>
           </Row>
 
-          {/* Row 3: Access Ports & Quick Presets */}
-          <Row gutter={16} align="bottom">
-            <Col span={10}>
+          {/* Row 3: Access Ports */}
+          <Row gutter={16}>
+            <Col span={12}>
               <Form.Item
                 name="totalPorts"
                 label="Access Ports (RJ45)"
@@ -195,28 +176,6 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
                   data-testid="input-total-ports"
                 />
               </Form.Item>
-            </Col>
-
-            <Col span={14} style={{ marginBottom: 24 }}>
-              <div style={{ marginBottom: 8, fontSize: 12, color: token.colorTextSecondary }}>
-                Quick Presets
-              </div>
-              <Space wrap size={6}>
-                {[8, 16, 24, 48].map((size) => (
-                  <Button
-                    key={size}
-                    size="small"
-                    data-testid={`preset-ports-${size}`}
-                    onClick={() => {
-                      form.setFieldsValue({
-                        totalPorts: size,
-                      });
-                    }}
-                  >
-                    {size} Ports
-                  </Button>
-                ))}
-              </Space>
             </Col>
           </Row>
 
@@ -312,15 +271,9 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
             </Col>
           </Row>
 
-          {/* Row 4: Firmware & Linked Asset */}
+          {/* Row 4: Linked Asset */}
           <Row gutter={16}>
-            <Col span={10}>
-              <Form.Item name="firmwareVersion" label="Firmware Version / OS">
-                <Input placeholder="e.g. Cisco IOS-XE 17.9.4a" />
-              </Form.Item>
-            </Col>
-
-            <Col span={14}>
+            <Col span={24}>
               <Form.Item
                 name="assetId"
                 label="Linked Hardware Asset Record"
@@ -342,7 +295,7 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
 
           {/* Row 5: Physical Mounting & Location */}
           <Row gutter={16}>
-            <Col span={10}>
+            <Col span={12}>
               <Form.Item name="locationId" label="Physical Location">
                 <Select
                   placeholder="Select datacenter or room"
@@ -358,7 +311,7 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
               </Form.Item>
             </Col>
 
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item name="rackId" label="Equipment Rack Enclosure">
                 <Select
                   placeholder="Select rack cabinet"
@@ -373,81 +326,7 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
                 />
               </Form.Item>
             </Col>
-
-            <Col span={3}>
-              <Form.Item
-                name="rackPosition"
-                label="RU Slot"
-                extra={selectedRack ? `1–${maxSlot} RU` : '1–100 RU'}
-                dependencies={['rackHeight']}
-                rules={[
-                  { type: 'number', min: 1, message: 'Must be at least 1U' },
-                  { type: 'number', max: maxSlot, message: `Must not exceed ${maxSlot}U` },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (value !== undefined && value !== null) {
-                        const height = getFieldValue('rackHeight') || 1;
-                        if (value + height - 1 > maxSlot) {
-                          return Promise.reject(
-                            new Error(
-                              `Slot U${value} + ${height}U exceeds rack capacity (U${maxSlot})`,
-                            ),
-                          );
-                        }
-                      }
-                      return Promise.resolve();
-                    },
-                  }),
-                ]}
-              >
-                <InputNumber min={1} max={maxSlot} precision={0} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-
-            <Col span={3}>
-              <Form.Item
-                name="rackHeight"
-                label="Height"
-                initialValue={1}
-                dependencies={['rackPosition']}
-                rules={[
-                  { type: 'number', min: 1, message: 'Must be at least 1U' },
-                  { type: 'number', max: 10, message: 'Must not exceed 10U' },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      const pos = getFieldValue('rackPosition');
-                      if (pos !== undefined && pos !== null && value) {
-                        if (pos + value - 1 > maxSlot) {
-                          return Promise.reject(
-                            new Error(
-                              `Chassis span U${pos}–U${pos + value - 1} exceeds rack capacity (U${maxSlot})`,
-                            ),
-                          );
-                        }
-                      }
-                      return Promise.resolve();
-                    },
-                  }),
-                ]}
-              >
-                <InputNumber min={1} max={10} precision={0} suffix="U" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
           </Row>
-
-          {/* Creation-Only Feature: Auto Generate Ports */}
-          {!editingSwitch && (
-            <Row gutter={16}>
-              <Col span={24}>
-                <Form.Item name="autoGeneratePorts" valuePropName="checked" initialValue={true}>
-                  <Checkbox>
-                    Auto-generate standard port matrix (Access RJ45 + Uplink RJ45 + SFP/SFP+ Fiber
-                    cages)
-                  </Checkbox>
-                </Form.Item>
-              </Col>
-            </Row>
-          )}
 
           {/* Row 6: Notes */}
           <Row gutter={16}>
