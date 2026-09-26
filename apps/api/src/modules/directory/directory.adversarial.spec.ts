@@ -696,7 +696,6 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
         serialNumber: 'SN987654321',
         status: 'IN_USE',
         purchaseDate: new Date('2026-01-15'),
-        purchaseCost: 3499,
         warrantyExpiry: new Date('2029-01-15'),
         categoryId: 'cat-1',
         locationId: 'loc-1',
@@ -715,7 +714,6 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
         serialNumber: 'SN987654321',
         status: 'In Use',
         assignedToId: 'dir-custodian-1',
-        purchaseCost: 3499,
       });
 
       // Verify that prisma.asset.create receives the DirectoryUser ID in assignedToId

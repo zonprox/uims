@@ -7,7 +7,7 @@ export interface CreateAssetDto {
   description?: string | null;
   manufacturer?: string;
   model?: string;
-  serialNumber?: string;
+  serialNumber?: string | null;
   category?: string;
   categoryId?: string;
   location?: string;
@@ -16,8 +16,6 @@ export interface CreateAssetDto {
   assignedToId?: string;
   status?: string | AssetStatus;
   purchaseDate?: string | Date;
-  purchaseCost?: number | string;
-  purchasePrice?: number | string;
   warrantyExpiry?: string | Date;
   notes?: string;
 }

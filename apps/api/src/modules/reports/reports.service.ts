@@ -47,8 +47,8 @@ export class ReportsService {
       );
     }
 
-    const [assetCost, fallbackLicenses] = await Promise.all([
-      this.prisma.asset.aggregate({ _sum: { purchaseCost: true } }),
+    const [assetCount, fallbackLicenses] = await Promise.all([
+      this.prisma.asset.count(),
       totalSaaS === null || (totalSeats === 0 && usedSeats === 0)
         ? this.prisma.license.findMany({
             select: { totalSeats: true, usedSeats: true, costPerSeat: true },
@@ -71,7 +71,7 @@ export class ReportsService {
       usedSeats = fallbackLicenses.reduce<number>((sum, l) => sum + l.usedSeats, 0);
     }
 
-    const totalValuation = assetCost._sum.purchaseCost || 482000;
+    const totalAssets = assetCount || 0;
     const utilization = totalSeats > 0 ? ((usedSeats / totalSeats) * 100).toFixed(1) : '88.5';
 
     return [
@@ -83,8 +83,8 @@ export class ReportsService {
         category: 'Finance & Hardware',
         frequency: 'Quarterly',
         stats: {
-          primary: `$${Math.round(totalValuation).toLocaleString()}`,
-          label: 'Total Valuation',
+          primary: `${totalAssets.toLocaleString()} Assets`,
+          label: 'Managed Fleet',
           secondary: '3.4 yrs avg age',
         },
       },

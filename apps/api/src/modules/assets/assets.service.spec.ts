@@ -52,7 +52,6 @@ describe('AssetsService', () => {
         serialNumber: 'C02XYZ123',
         status: AssetStatus.IN_USE,
         purchaseDate: new Date('2026-01-15'),
-        purchaseCost: 3499,
         warrantyExpiry: new Date('2029-01-15'),
         categoryId: 'cat-1',
         locationId: 'loc-1',
@@ -67,7 +66,6 @@ describe('AssetsService', () => {
         category: 'Laptops',
         location: 'HQ Storage',
         status: 'Active',
-        purchasePrice: 3499,
         serialNumber: 'C02XYZ123',
         manufacturer: 'Apple',
         model: 'M3 Max',
@@ -77,7 +75,6 @@ describe('AssetsService', () => {
       expect(result.id).toBe('ast-1');
       expect(result.status).toBe('Active');
       expect(result.assignedTo).toBe('Alex Johnson');
-      expect(result.purchasePrice).toBe(3499);
       expect(result.categoryId).toBe('cat-1');
       expect(result.locationId).toBe('loc-1');
     });
@@ -236,7 +233,6 @@ describe('AssetsService', () => {
           category: { name: 'Laptops' },
           location: { name: 'Floor 3' },
           assignedTo: null,
-          purchaseCost: 1999,
         },
       ]);
 

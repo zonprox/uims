@@ -4,24 +4,20 @@ import { assetQuerySchema, createAssetSchema, updateAssetSchema } from './asset.
 
 describe('asset.validator', () => {
   describe('createAssetSchema', () => {
-    it('validates a valid asset with enum status and number costs', () => {
+    it('validates a valid asset with enum status', () => {
       const input = {
         name: 'MacBook Pro 16',
         assetTag: 'AST-0001',
         status: AssetStatus.AVAILABLE,
-        purchaseCost: 2499.99,
-        purchasePrice: 2499.99,
       };
       const result = createAssetSchema.safeParse(input);
       expect(result.success).toBe(true);
     });
 
-    it('accepts string status values and string numeric costs', () => {
+    it('accepts string status values', () => {
       const input = {
         name: 'Dell XPS 15',
         status: 'Active',
-        purchaseCost: '1899.50',
-        purchasePrice: '1899.50',
       };
       const result = createAssetSchema.safeParse(input);
       expect(result.success).toBe(true);
@@ -35,12 +31,18 @@ describe('asset.validator', () => {
       expect(resultMissing.success).toBe(false);
     });
 
-    it('rejects negative numeric purchaseCost', () => {
-      const result = createAssetSchema.safeParse({
-        name: 'Test Device',
-        purchaseCost: -10,
-      });
-      expect(result.success).toBe(false);
+    it('accepts null, undefined, valid string, and omitted for serialNumber', () => {
+      expect(
+        createAssetSchema.safeParse({ name: 'Asset Null SN', serialNumber: null }).success,
+      ).toBe(true);
+      expect(
+        createAssetSchema.safeParse({ name: 'Asset Undefined SN', serialNumber: undefined })
+          .success,
+      ).toBe(true);
+      expect(
+        createAssetSchema.safeParse({ name: 'Asset Valid SN', serialNumber: 'SN-998822' }).success,
+      ).toBe(true);
+      expect(createAssetSchema.safeParse({ name: 'Asset Omitted SN' }).success).toBe(true);
     });
 
     it('accepts string category slugs and notes', () => {

@@ -177,15 +177,14 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
         mockPrisma.license.aggregate.mockResolvedValue({
           _sum: { totalSeats: null, usedSeats: null },
         });
-        mockPrisma.asset.aggregate.mockResolvedValue({
-          _sum: { purchaseCost: null },
-        });
+        mockPrisma.asset.count.mockResolvedValue(0);
 
         const suites = await service.getReportSuites();
 
         expect(suites).toHaveLength(5);
-        // Report r1 (Lifecycle) uses fallback valuation $482,000
-        expect(suites[0].stats.primary).toBe('$482,000');
+        // Report r1 (Lifecycle) uses asset count 0
+        expect(suites[0].stats.primary).toBe('0 Assets');
+        expect(suites[0].stats.label).toBe('Managed Fleet');
         // Report r2 (SaaS) uses fallback spend $42,500/yr and fallback 88.5%
         expect(suites[1].stats.primary).toBe('$42,500/yr');
         expect(suites[1].stats.secondary).toBe('88.5% Seat Usage');
@@ -197,13 +196,12 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
         mockPrisma.license.aggregate.mockResolvedValue({
           _sum: { totalSeats: 200, usedSeats: 150 },
         });
-        mockPrisma.asset.aggregate.mockResolvedValue({
-          _sum: { purchaseCost: 876543.21 },
-        });
+        mockPrisma.asset.count.mockResolvedValue(876543);
 
         const suites = await service.getReportSuites();
 
-        expect(suites[0].stats.primary).toBe('$876,543');
+        expect(suites[0].stats.primary).toBe('876,543 Assets');
+        expect(suites[0].stats.label).toBe('Managed Fleet');
         expect(suites[1].stats.primary).toBe('$12,346/yr');
         expect(suites[1].stats.secondary).toBe('75.0% Seat Usage');
       });
@@ -211,16 +209,15 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
       it('should handle $queryRaw failure gracefully and use findMany fallback in getReportSuites', async () => {
         mockPrisma.$queryRaw.mockRejectedValue(new Error('Syntax error'));
         mockPrisma.license.aggregate.mockRejectedValue(new Error('Agg error'));
-        mockPrisma.asset.aggregate.mockResolvedValue({
-          _sum: { purchaseCost: 100000 },
-        });
+        mockPrisma.asset.count.mockResolvedValue(100);
         mockPrisma.license.findMany.mockResolvedValue([
           { totalSeats: 50, usedSeats: 25, costPerSeat: 40 },
         ]);
 
         const suites = await service.getReportSuites();
 
-        expect(suites[0].stats.primary).toBe('$100,000');
+        expect(suites[0].stats.primary).toBe('100 Assets');
+        expect(suites[0].stats.label).toBe('Managed Fleet');
         expect(suites[1].stats.primary).toBe('$1,000/yr'); // 25 * 40 = 1000
         expect(suites[1].stats.secondary).toBe('50.0% Seat Usage');
       });

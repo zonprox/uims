@@ -18,14 +18,6 @@ export const createAssetSchema = z.object({
   model: z.string().max(100).nullable().optional(),
   manufacturer: z.string().max(100).nullable().optional(),
   purchaseDate: dateSchema.nullable().optional(),
-  purchaseCost: z
-    .union([z.number().min(0), z.string()])
-    .nullable()
-    .optional(),
-  purchasePrice: z
-    .union([z.number().min(0), z.string()])
-    .nullable()
-    .optional(),
   warrantyExpiry: dateSchema.nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
 });

@@ -223,13 +223,10 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
       }
     }, [form, handleIpChange, message]);
 
-    // Handle Asset selection to auto-populate hostname or model
+    // Handle Asset selection to auto-populate model
     const handleAssetSelect = (assetId: string) => {
       const matched = assets.find((a) => a.id === assetId);
       if (matched) {
-        if (!form.getFieldValue('hostname')) {
-          form.setFieldValue('hostname', matched.tag || matched.name);
-        }
         if (!form.getFieldValue('model') && matched.model) {
           form.setFieldValue('model', matched.model);
         }
@@ -265,7 +262,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
       >
         <Form form={form} layout="vertical">
           <Row gutter={16}>
-            <Col span={14}>
+            <Col span={24}>
               <Form.Item
                 label={
                   <Flex justify="space-between" align="center" style={{ width: '100%' }}>
@@ -307,15 +304,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                   </Tag>
                 </div>
               )}
-            </Col>
-            <Col span={10}>
-              <Form.Item
-                label="Hostname & FQDN"
-                name="hostname"
-                rules={[{ required: true, message: 'Hostname is required' }]}
-              >
-                <Input placeholder="e.g. bsl-sw-core01.uims.lan" />
-              </Form.Item>
             </Col>
           </Row>
 

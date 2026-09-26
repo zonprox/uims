@@ -432,7 +432,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
                   optionFilterProp="label"
                   data-testid="port-ip-address-select"
                   options={ips.map((ip) => ({
-                    label: `${ip.address} (${ip.hostname || ip.status})`,
+                    label: `${ip.address} (${ip.status})`,
                     value: ip.id,
                   }))}
                 />

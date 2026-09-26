@@ -171,7 +171,6 @@ model Asset {
   manufacturer   String?
   vendorId       String?
   purchaseDate   DateTime?
-  purchaseCost   Float?
   warrantyExpiry DateTime?
   assignedToId   String?
   departmentId   String?
@@ -385,7 +384,6 @@ model Subnet {
 model IPAddress {
   id             String    @id @default(uuid())
   address        String
-  hostname       String?
   macAddress     String?
   vendor         String?
   deviceType     String?   @default("Workstation")
@@ -423,7 +421,6 @@ model IPAddress {
   @@index([status])
   @@index([pingStatus])
   @@index([macAddress])
-  @@index([hostname])
   @@index([deviceType])
 }
 
@@ -517,7 +514,9 @@ model NetworkSwitch {
   firmwareVersion String?
   role            SwitchRole   @default(ACCESS)
   status          SwitchStatus @default(ONLINE)
-  totalPorts      Int          @default(24) // 24, 48
+  totalPorts      Int          @default(24) // 2..48 even
+  uplinkPorts     Int?         @default(2)  // 0-8 dedicated RJ45 uplinks
+  fiberPorts      Int?         @default(2)  // 0-8 dedicated optical SFP/SFP+ ports
   rackId          String?
   rackPosition    Int?         // 1-48 RU starting slot
   rackHeight      Int          @default(1)  // RU occupied (1, 2, 4)

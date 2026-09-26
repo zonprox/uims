@@ -14,7 +14,7 @@ export interface Asset {
   name: string;
   manufacturer: string;
   model: string;
-  serialNumber: string;
+  serialNumber?: string | null;
   category: string;
   categoryId?: string | null;
   status: 'Active' | 'In Repair' | 'In Storage' | 'Retired';
@@ -28,7 +28,6 @@ export interface Asset {
   organization?: string | null;
   organizationId?: string | null;
   purchaseDate: string;
-  purchasePrice: number;
   warrantyExpiry: string;
   notes?: string;
   networkConnectivity?: {
@@ -122,7 +121,6 @@ export const assetsService = {
       'Status',
       'Assigned To',
       'Location',
-      'Purchase Price',
     ];
     const rows = assets.map((a) => [
       a.tag,
@@ -133,7 +131,6 @@ export const assetsService = {
       a.status,
       a.assignedTo || '',
       a.location || '',
-      a.purchasePrice || 0,
     ]);
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   },

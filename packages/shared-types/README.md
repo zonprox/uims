@@ -84,7 +84,6 @@ const newAsset: CreateAssetDto = {
   assetTag: 'AST-2026-0042',
   serialNumber: 'C02G1234MD6R',
   status: AssetStatus.AVAILABLE,
-  purchaseCost: 3499,
   purchaseDate: '2026-01-15',
 };
 ```

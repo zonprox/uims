@@ -55,7 +55,6 @@ function createMockAsset(overrides: Partial<Asset> = {}): Asset {
     assignedEmail: 'admin@youngonevn.com',
     location: 'DC-01',
     purchaseDate: '2026-01-01',
-    purchasePrice: 1000,
     warrantyExpiry: '2029-01-01',
     notes: 'Configured for primary VLAN trunking',
     ...overrides,

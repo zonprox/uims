@@ -37,7 +37,7 @@ The primary source of truth for runtime configuration is the process environment
 | Name | Required | Default | Description |
 |---|---|---|---|
 | `REDIS_URL` | **Required** (prod) | None | Full Redis connection URI (e.g., `redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}`). Required in production for distributed caching, session invalidation, and BullMQ queues. In local dev, falls back to in-memory caching if omitted. |
-| `REDIS_HOST` | Optional | `localhost` | Redis server hostname for connection URL interpolation. In Docker Compose, the container host is `redis`. |
+| `REDIS_HOST` | Optional | `localhost` | Redis server host for connection URL interpolation. In Docker Compose, the container host is `redis`. |
 | `REDIS_PORT` | Optional | `6379` | Redis server port (`.env.example` default `6379`). In Docker Compose, the host port mapping defaults to `${REDIS_PORT:-6381}:6379`. |
 | `REDIS_PASSWORD` | Optional | None | Authentication password for Redis. Set securely; `.env.example` specifies the placeholder `your_secure_redis_password`. |
 
@@ -118,11 +118,11 @@ The primary source of truth for runtime configuration is the process environment
   - Development tools (Turbo, Vite, NestJS, Prisma) automatically load variables from `.env`.
 - **Docker Compose**:
   - Compose services inherit variables defined in `.env`.
-  - Service-to-service communication uses internal Docker bridge hostnames (`postgres:5432`, `redis:6379`, `meilisearch:7700`, `seaweedfs-filer:8333`, `api:3000`).
+  - Service-to-service communication uses internal Docker bridge hosts (`postgres:5432`, `redis:6379`, `meilisearch:7700`, `seaweedfs-filer:8333`, `api:3000`).
   - Container host port mappings prevent collisions with local system services by defaulting PostgreSQL to `5433` and Redis to `6381`.
 - **Staging and Production**:
   - `NODE_ENV` must be strictly set to `production`.
   - All secrets (`DATABASE_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AUDIT_SIGNING_KEY`, `MEILISEARCH_API_KEY`, `S3_SECRET_KEY`) must be generated with cryptographically secure random values (minimum 32 characters for JWT and audit keys).
-  - External managed database and cache instances should replace local container hostnames in `DATABASE_URL` and `REDIS_URL`.
+  - External managed database and cache instances should replace local container hosts in `DATABASE_URL` and `REDIS_URL`.
   - Database pool size (`DB_POOL_MAX`) and CORS origins (`CORS_ORIGIN`) should be tuned to production capacity and domain configurations.
   <!-- VERIFY: Clarify the exact secret management strategy for staging/production (e.g., AWS Parameter Store, Kubernetes Secrets, HashiCorp Vault, GitHub Actions Secrets). -->

@@ -96,7 +96,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     const filteredIps = useMemo(() => {
       return ips.filter((ip) => {
         const ipAddr = ip.address || '';
-        const host = ip.hostname || '';
         const mac = ip.macAddress || '';
         const vendor = ip.vendor || '';
         const model = ip.model || '';
@@ -106,7 +105,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           const q = searchQuery.toLowerCase();
           const matches =
             ipAddr.toLowerCase().includes(q) ||
-            host.toLowerCase().includes(q) ||
             mac.toLowerCase().includes(q) ||
             vendor.toLowerCase().includes(q) ||
             model.toLowerCase().includes(q) ||
@@ -148,8 +146,8 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     const columns = useMemo(
       () => [
         {
-          title: 'IP Address & Hostname',
-          key: 'ipHostname',
+          title: 'IP Address',
+          key: 'address',
           sorter: (a: IPAddress, b: IPAddress) =>
             (a.address || '').localeCompare(b.address || '', undefined, {
               numeric: true,
@@ -160,12 +158,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
               <div>
                 <Text code strong style={{ fontSize: 13, color: '#1677ff' }} copyable>
                   {ipStr}
-                </Text>
-                <Text
-                  strong
-                  style={{ display: 'block', fontSize: 12, color: '#1f2937', marginTop: 2 }}
-                >
-                  {record.hostname || 'unnamed-host'}
                 </Text>
               </div>
             );
@@ -462,7 +454,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
         <Row gutter={[12, 12]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} lg={7}>
             <Input
-              placeholder="Search by IP, hostname, MAC, vendor, model, asset tag..."
+              placeholder="Search by IP, MAC, vendor, model, asset tag..."
               prefix={<FilterOutlined style={{ color: '#94a3b8' }} />}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}

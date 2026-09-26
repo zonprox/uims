@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
 
 export class CreateAssetDto {
   @IsString()
@@ -22,8 +22,9 @@ export class CreateAssetDto {
   model?: string;
 
   @IsOptional()
+  @ValidateIf((_obj, val) => val !== null && val !== undefined)
   @IsString()
-  serialNumber?: string;
+  serialNumber?: string | null;
 
   @IsOptional()
   @IsString()
@@ -47,12 +48,6 @@ export class CreateAssetDto {
 
   @IsOptional()
   purchaseDate?: string | Date;
-
-  @IsOptional()
-  purchaseCost?: number | string;
-
-  @IsOptional()
-  purchasePrice?: number | string;
 
   @IsOptional()
   warrantyExpiry?: string | Date;

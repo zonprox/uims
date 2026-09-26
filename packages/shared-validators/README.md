@@ -140,7 +140,6 @@ const newAsset = createAssetSchema.parse({
   status: AssetStatus.IN_STOCK,
   categoryId: 'c3a1e2f3-1234-5678-9abc-def012345678',
   serialNumber: 'DL7440-998822',
-  purchasePrice: 1450.0,
   purchaseDate: '2026-01-15T00:00:00.000Z',
 });
 

@@ -198,7 +198,7 @@ describe('NetworkController', () => {
   // ==========================================
 
   it('findAllIps calls networkService.findAllIps with query filters', async () => {
-    const mockIps = [{ id: 'ip-1', address: '192.168.1.1', hostname: 'cisco-gw' }];
+    const mockIps = [{ id: 'ip-1', address: '192.168.1.1' }];
     mockNetworkService.findAllIps.mockResolvedValue(mockIps);
 
     const result = await controller.findAllIps({ search: 'cisco', status: 'ASSIGNED' });
@@ -212,7 +212,6 @@ describe('NetworkController', () => {
   it('createIp calls networkService.createIp with CreateIPAddressDto', async () => {
     const dto: CreateIPAddressDto = {
       address: '192.168.1.25',
-      hostname: 'srv-db-01.uims.lan',
       macAddress: '00:11:22:33:44:55',
       deviceType: 'Server',
       status: 'Allocated',

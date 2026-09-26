@@ -119,7 +119,6 @@ describe('network.validator', () => {
     it('validates a complete IP record', () => {
       const valid = {
         address: '10.232.130.15',
-        hostname: 'BSL-AC-01',
         macAddress: '00:1A:2B:3C:4D:5E',
         vendor: 'Cisco',
         status: IPStatus.ASSIGNED,
@@ -221,6 +220,65 @@ describe('network.validator', () => {
       };
       const result = createSwitchSchema.safeParse(valid);
       expect(result.success).toBe(true);
+    });
+
+    it('validates switch configurations with even totalPorts in [2, 48]', () => {
+      const base = {
+        name: 'Edge Switch',
+        model: 'Catalyst 1000',
+        vendor: 'Cisco',
+      };
+      for (const ports of [2, 4, 8, 12, 16, 20, 24, 32, 48]) {
+        expect(createSwitchSchema.safeParse({ ...base, totalPorts: ports }).success).toBe(true);
+      }
+    });
+
+    it('rejects odd totalPorts with explicit message', () => {
+      const base = {
+        name: 'Edge Switch',
+        model: 'Catalyst 1000',
+        vendor: 'Cisco',
+      };
+      for (const oddPorts of [1, 3, 7, 23, 25, 47, 49]) {
+        const result = createSwitchSchema.safeParse({ ...base, totalPorts: oddPorts });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          const messages = result.error.issues.map((i) => i.message);
+          expect(
+            messages.includes('Total ports must be an even number') ||
+              messages.some((m) => m.includes('Total ports')),
+          ).toBe(true);
+        }
+      }
+    });
+
+    it('validates uplinkPorts and fiberPorts bounds (0..8)', () => {
+      const base = {
+        name: 'Edge Switch',
+        model: 'Catalyst 1000',
+        vendor: 'Cisco',
+      };
+      expect(createSwitchSchema.safeParse({ ...base, uplinkPorts: 0, fiberPorts: 0 }).success).toBe(
+        true,
+      );
+      expect(createSwitchSchema.safeParse({ ...base, uplinkPorts: 4, fiberPorts: 4 }).success).toBe(
+        true,
+      );
+      expect(createSwitchSchema.safeParse({ ...base, uplinkPorts: 8, fiberPorts: 8 }).success).toBe(
+        true,
+      );
+      expect(createSwitchSchema.safeParse({ ...base, uplinkPorts: -1 }).success).toBe(false);
+      expect(createSwitchSchema.safeParse({ ...base, uplinkPorts: 9 }).success).toBe(false);
+      expect(createSwitchSchema.safeParse({ ...base, fiberPorts: -1 }).success).toBe(false);
+      expect(createSwitchSchema.safeParse({ ...base, fiberPorts: 9 }).success).toBe(false);
+    });
+
+    it('validates updateSwitchSchema allows partial updates without requiring totalPorts', () => {
+      expect(updateSwitchSchema.safeParse({ name: 'Renamed Switch' }).success).toBe(true);
+      expect(updateSwitchSchema.safeParse({ totalPorts: 12 }).success).toBe(true);
+      expect(updateSwitchSchema.safeParse({ totalPorts: 11 }).success).toBe(false);
+      expect(updateSwitchSchema.safeParse({ uplinkPorts: 4 }).success).toBe(true);
+      expect(updateSwitchSchema.safeParse({ uplinkPorts: 12 }).success).toBe(false);
     });
 
     it('rejects missing name, model, or vendor', () => {

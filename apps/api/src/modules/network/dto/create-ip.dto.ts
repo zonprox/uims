@@ -8,11 +8,6 @@ export class CreateIPAddressDto {
   @IsString()
   address?: string;
 
-  @ApiPropertyOptional({ description: 'Device Hostname', example: 'BSL-AC-01' })
-  @IsOptional()
-  @IsString()
-  hostname?: string;
-
   @ApiPropertyOptional({ description: 'MAC address', example: '00:1A:2B:3C:4D:5E' })
   @IsOptional()
   @IsString()

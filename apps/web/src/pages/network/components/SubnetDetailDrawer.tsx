@@ -67,12 +67,6 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
         ),
       },
       {
-        title: 'Hostname',
-        dataIndex: 'hostname',
-        key: 'hostname',
-        render: (hostname: string) => hostname || '—',
-      },
-      {
         title: 'MAC Address & Vendor',
         key: 'hardware',
         render: (_: unknown, record: IPAddress) => (

@@ -58,9 +58,7 @@ describe('ReportsService', () => {
 
   describe('getReportSuites', () => {
     it('should return system report definitions with dynamic stats', async () => {
-      mockPrisma.asset.aggregate.mockResolvedValue({
-        _sum: { purchaseCost: 200000 },
-      });
+      mockPrisma.asset.count.mockResolvedValue(200);
       mockPrisma.license.findMany.mockResolvedValue([
         { totalSeats: 100, usedSeats: 80, costPerSeat: 30 },
       ]);
@@ -69,13 +67,13 @@ describe('ReportsService', () => {
 
       expect(reports.length).toBeGreaterThan(0);
       expect(reports[0].id).toBe('r1');
+      expect(reports[0].stats.label).toBe('Managed Fleet');
+      expect(reports[0].stats.primary).toBe('200 Assets');
       expect(reports[1].id).toBe('r2');
     });
 
     it('should use database aggregations for license seats and spend when available in getReportSuites', async () => {
-      mockPrisma.asset.aggregate.mockResolvedValue({
-        _sum: { purchaseCost: 350000 },
-      });
+      mockPrisma.asset.count.mockResolvedValue(350);
       (mockPrisma as Record<string, unknown>).$queryRaw = vi
         .fn()
         .mockResolvedValue([{ totalSpend: 60000 }]);
@@ -86,7 +84,8 @@ describe('ReportsService', () => {
       const reports = await service.getReportSuites();
 
       expect(reports.length).toBeGreaterThan(0);
-      expect(reports[0].stats.primary).toBe('$350,000');
+      expect(reports[0].stats.label).toBe('Managed Fleet');
+      expect(reports[0].stats.primary).toBe('350 Assets');
       expect(reports[1].stats.secondary).toBe('80.0% Seat Usage');
     });
   });

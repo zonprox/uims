@@ -50,7 +50,6 @@ describe('AssetsController', () => {
       serialNumber: 'SN99281',
       category: 'Laptop',
       status: 'Active',
-      purchasePrice: 2000,
     };
     const created = { id: 'a2', ...dto };
     mockAssetsService.create.mockResolvedValue(created);

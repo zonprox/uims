@@ -131,7 +131,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       id: 'ip-1',
       address: '10.232.10.10',
       ip: '10.232.10.10',
-      hostname: 'bsl-srv-app01.uims.lan',
       macAddress: '00:1B:44:11:3A:B7',
       mac: '00:1B:44:11:3A:B7',
       vendor: 'Cisco Systems',
@@ -154,7 +153,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
         serialNumber: 'FCH2144V0AB',
         location: vlans[0].location,
         purchaseDate: '2025-01-01',
-        purchaseCost: 4500,
         warrantyExpiry: '2028-01-01',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
@@ -166,7 +164,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       id: 'ip-2',
       address: '10.232.130.15',
       ip: '10.232.130.15',
-      hostname: 'bsl-fp-gate02.uims.lan',
       macAddress: 'BC:5E:CD:99:88:77',
       mac: 'BC:5E:CD:99:88:77',
       vendor: 'Hikvision',
@@ -209,7 +206,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       assignedEmail: 'alex.chen@uims.internal',
       location: 'BSL Factory 1',
       purchaseDate: '2025-01-01',
-      purchasePrice: 4500,
       warrantyExpiry: '2028-01-01',
     },
   ];
@@ -488,7 +484,6 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
 
       // Should match Cisco UCS Server (10.232.10.10)
       expect(container.textContent).toContain('10.232.10.10');
-      expect(container.textContent).toContain('bsl-srv-app01.uims.lan');
       expect(container.textContent).toContain('Cisco Systems');
 
       // Should NOT match Hikvision (10.232.130.15)

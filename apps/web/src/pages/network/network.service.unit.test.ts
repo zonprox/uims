@@ -231,11 +231,14 @@ describe('networkService Unit Tests', () => {
 
     // updateIp
     vi.mocked(api.patch).mockResolvedValueOnce({
-      data: { success: true, data: { id: 'ip-2', address: '10.232.10.6', hostname: 'host-2' } },
+      data: {
+        success: true,
+        data: { id: 'ip-2', address: '10.232.10.6', description: 'Updated IP' },
+      },
     });
-    const updated = await networkService.updateIp('ip-2', { hostname: 'host-2' });
-    expect(api.patch).toHaveBeenCalledWith('/network/ips/ip-2', { hostname: 'host-2' });
-    expect(updated.hostname).toBe('host-2');
+    const updated = await networkService.updateIp('ip-2', { description: 'Updated IP' });
+    expect(api.patch).toHaveBeenCalledWith('/network/ips/ip-2', { description: 'Updated IP' });
+    expect(updated.description).toBe('Updated IP');
 
     // deleteIp
     vi.mocked(api.delete).mockResolvedValueOnce({ data: { success: true } });

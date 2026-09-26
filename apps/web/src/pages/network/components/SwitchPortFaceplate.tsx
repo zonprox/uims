@@ -2,6 +2,7 @@ import { ApiOutlined, ThunderboltFilled } from '@ant-design/icons';
 import { Flex, Tag, Tooltip, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import type { NetworkSwitch, PortAdminStatus, SwitchPort } from '../../../services/network.service';
+import { calculatePortClusters } from '../utils/clustering';
 
 const { Text } = Typography;
 
@@ -9,8 +10,11 @@ export interface SwitchPortFaceplateProps {
   switchEntity?: NetworkSwitch | null;
   ports?: Array<SwitchPort>;
   totalPorts?: number;
+  uplinkPorts?: number;
+  fiberPorts?: number;
   selectedPortId?: string | null;
   onSelectPort?: (port: SwitchPort) => void;
+  onPortClick?: (port: SwitchPort) => void;
   loading?: boolean;
 }
 
@@ -91,49 +95,113 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
     switchEntity,
     ports = [],
     totalPorts: propTotalPorts,
+    uplinkPorts: propUplinkPorts,
+    fiberPorts: propFiberPorts,
     selectedPortId,
     onSelectPort,
+    onPortClick,
     loading = false,
   }) => {
-    const totalCount = propTotalPorts ?? switchEntity?.totalPorts ?? 24;
-    // Standard switch sizes: 24 or 48 RJ45 ports
-    const rj45Count = totalCount >= 48 ? 48 : 24;
+    // Arbitrary even access port count supported in [2, 48]
+    const rawTotal = propTotalPorts ?? switchEntity?.totalPorts ?? 24;
+    const rj45Count = Math.min(Math.max(2, Math.floor(rawTotal / 2) * 2), 48);
 
-    // Separate RJ45 access ports from SFP uplink ports
-    const { rj45Ports, sfpPorts } = useMemo(() => {
-      const portMap = new Map<number, SwitchPort>();
-      const extraSfps: SwitchPort[] = [];
+    // Resolve dedicated RJ45 Uplinks count (0..8)
+    const finalUplinkRj45Count = useMemo(() => {
+      if (propUplinkPorts !== undefined) {
+        return Math.min(Math.max(0, propUplinkPorts), 8);
+      }
+      if (switchEntity?.uplinkPorts !== undefined && switchEntity?.uplinkPorts !== null) {
+        return Math.min(Math.max(0, switchEntity.uplinkPorts), 8);
+      }
+      // Check if ports contains explicit RJ45 uplinks beyond access range
+      const explicitRj45Uplinks = ports.filter((p) => {
+        const ff = (p.formFactor || '').toUpperCase();
+        const isSfp = ff.includes('SFP') || ff.includes('QSFP') || p.name.startsWith('Te');
+        return (
+          !isSfp &&
+          (p.name.toLowerCase().includes('uplink') ||
+            (p.mode === 'TRUNK' && p.portNumber > rj45Count))
+        );
+      });
+      return explicitRj45Uplinks.length;
+    }, [propUplinkPorts, switchEntity?.uplinkPorts, ports, rj45Count]);
+
+    // Resolve SFP/SFP+ optical fiber cages count (0..8)
+    const finalFiberCount = useMemo(() => {
+      if (propFiberPorts !== undefined) {
+        return Math.min(Math.max(0, propFiberPorts), 8);
+      }
+      if (switchEntity?.fiberPorts !== undefined && switchEntity?.fiberPorts !== null) {
+        return Math.min(Math.max(0, switchEntity.fiberPorts), 8);
+      }
+      // Check if ports contains SFP ports
+      const sfpInPorts = ports.filter((p) => {
+        const ff = (p.formFactor || '').toUpperCase();
+        return ff.includes('SFP') || ff.includes('QSFP') || p.name.startsWith('Te');
+      }).length;
+      if (sfpInPorts > 0) return sfpInPorts;
+
+      // Standard enterprise switch preset: 2 for <=16 ports, 4 for >16 ports
+      return rj45Count <= 16 ? 2 : 4;
+    }, [propFiberPorts, switchEntity?.fiberPorts, ports, rj45Count]);
+
+    // Partition ports into access ports, dedicated RJ45 uplinks, and optical SFP cages
+    const { rj45Ports, rj45Uplinks, sfpPorts } = useMemo(() => {
+      const accessPortMap = new Map<number, SwitchPort>();
+      const uplinkList: SwitchPort[] = [];
+      const sfpList: SwitchPort[] = [];
 
       for (const p of ports) {
         const formFactor = (p.formFactor || '').toUpperCase();
         const isSfpForm =
           formFactor.includes('SFP') || formFactor.includes('QSFP') || p.name.startsWith('Te');
 
-        if (isSfpForm || p.portNumber > rj45Count) {
-          extraSfps.push(p);
+        if (isSfpForm) {
+          sfpList.push(p);
+        } else if (
+          p.name.toLowerCase().includes('uplink') ||
+          (p.mode === 'TRUNK' && p.portNumber > rj45Count)
+        ) {
+          uplinkList.push(p);
+        } else if (p.portNumber <= rj45Count) {
+          accessPortMap.set(p.portNumber, p);
         } else {
-          portMap.set(p.portNumber, p);
+          sfpList.push(p);
         }
       }
 
-      // Ensure 1..rj45Count indexed list
+      sfpList.sort((a, b) => a.portNumber - b.portNumber);
+      uplinkList.sort((a, b) => a.portNumber - b.portNumber);
+
+      // Access ports 1..rj45Count indexed list
       const rj45List: Array<SwitchPort | null> = [];
       for (let i = 1; i <= rj45Count; i++) {
-        rj45List.push(portMap.get(i) || null);
+        rj45List.push(accessPortMap.get(i) || null);
       }
 
-      // If no SFP ports passed but switch typically has 4 uplinks, prepare 4 slots
-      const sfpList: Array<SwitchPort | null> = [];
-      for (let u = 0; u < 4; u++) {
-        sfpList.push(extraSfps[u] || null);
+      // RJ45 Uplinks list
+      const rj45UplinkSlots: Array<SwitchPort | null> = [];
+      for (let u = 0; u < finalUplinkRj45Count; u++) {
+        rj45UplinkSlots.push(uplinkList[u] || null);
       }
 
-      return { rj45Ports: rj45List, sfpPorts: sfpList };
-    }, [ports, rj45Count]);
+      // SFP Cages list
+      const sfpSlots: Array<SwitchPort | null> = [];
+      for (let s = 0; s < finalFiberCount; s++) {
+        sfpSlots.push(sfpList[s] || null);
+      }
 
-    // Group RJ45 ports into 12-port modular blocks
-    // 24 ports = 2 blocks (ports 1-12, 13-24)
-    // 48 ports = 4 blocks (ports 1-12, 13-24, 25-36, 37-48)
+      return {
+        rj45Ports: rj45List,
+        rj45Uplinks: rj45UplinkSlots,
+        sfpPorts: sfpSlots,
+      };
+    }, [ports, rj45Count, finalUplinkRj45Count, finalFiberCount]);
+
+    // Intelligent Modular Port Clustering via calculatePortClusters
+    const clusterSizes = useMemo(() => calculatePortClusters(rj45Count), [rj45Count]);
+
     const modularBlocks = useMemo(() => {
       const blocks: Array<{
         blockIndex: number;
@@ -141,15 +209,14 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
         lowerEven: Array<{ portNum: number; port: SwitchPort | null }>;
       }> = [];
 
-      const numBlocks = Math.ceil(rj45Count / 12);
-      for (let b = 0; b < numBlocks; b++) {
-        const start = b * 12 + 1;
+      let portCounter = 1;
+      for (let b = 0; b < clusterSizes.length; b++) {
+        const size = clusterSizes[b];
         const upperOdd: Array<{ portNum: number; port: SwitchPort | null }> = [];
         const lowerEven: Array<{ portNum: number; port: SwitchPort | null }> = [];
 
-        for (let i = 0; i < 12; i++) {
-          const portNum = start + i;
-          if (portNum > rj45Count) break;
+        for (let i = 0; i < size; i++) {
+          const portNum = portCounter++;
           const port = rj45Ports[portNum - 1] || null;
 
           if (portNum % 2 !== 0) {
@@ -163,7 +230,45 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
       }
 
       return blocks;
-    }, [rj45Count, rj45Ports]);
+    }, [clusterSizes, rj45Ports]);
+
+    // SFP Cage columns (grouped 2 per vertical column)
+    const sfpColumns = useMemo(() => {
+      const cols: Array<Array<{ sIndex: number; port: SwitchPort | null; label: string }>> = [];
+      const numCols = Math.ceil(finalFiberCount / 2);
+      for (let c = 0; c < numCols; c++) {
+        const col: Array<{ sIndex: number; port: SwitchPort | null; label: string }> = [];
+        const idx1 = c * 2;
+        const idx2 = c * 2 + 1;
+        if (idx1 < finalFiberCount) {
+          col.push({ sIndex: idx1, port: sfpPorts[idx1], label: `U${idx1 + 1}` });
+        }
+        if (idx2 < finalFiberCount) {
+          col.push({ sIndex: idx2, port: sfpPorts[idx2], label: `U${idx2 + 1}` });
+        }
+        cols.push(col);
+      }
+      return cols;
+    }, [finalFiberCount, sfpPorts]);
+
+    // RJ45 Uplink columns (grouped 2 per vertical column)
+    const uplinkColumns = useMemo(() => {
+      const cols: Array<Array<{ uIndex: number; port: SwitchPort | null; label: string }>> = [];
+      const numCols = Math.ceil(finalUplinkRj45Count / 2);
+      for (let c = 0; c < numCols; c++) {
+        const col: Array<{ uIndex: number; port: SwitchPort | null; label: string }> = [];
+        const idx1 = c * 2;
+        const idx2 = c * 2 + 1;
+        if (idx1 < finalUplinkRj45Count) {
+          col.push({ uIndex: idx1, port: rj45Uplinks[idx1], label: `UP${idx1 + 1}` });
+        }
+        if (idx2 < finalUplinkRj45Count) {
+          col.push({ uIndex: idx2, port: rj45Uplinks[idx2], label: `UP${idx2 + 1}` });
+        }
+        cols.push(col);
+      }
+      return cols;
+    }, [finalUplinkRj45Count, rj45Uplinks]);
 
     // Calculate live telemetry counts
     const telemetry = useMemo(() => {
@@ -184,14 +289,19 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
       }
 
       return {
-        total: ports.length || rj45Count + 4,
+        total: ports.length || rj45Count + finalUplinkRj45Count + finalFiberCount,
         active,
         down,
         noSignal,
         reserved,
         poe,
       };
-    }, [ports, rj45Count]);
+    }, [ports, rj45Count, finalUplinkRj45Count, finalFiberCount]);
+
+    const handlePortActivation = (p: SwitchPort) => {
+      if (onSelectPort) onSelectPort(p);
+      if (onPortClick) onPortClick(p);
+    };
 
     const renderPortTooltipContent = (port: SwitchPort | null, fallbackPortNum: number) => {
       if (!port) {
@@ -254,9 +364,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 <span style={{ color: '#69b1ff', fontFamily: 'monospace' }}>
                   {port.ipAddress.address}
                 </span>
-                {port.ipAddress.hostname && (
-                  <span style={{ color: '#aaa', fontSize: 10 }}> ({port.ipAddress.hostname})</span>
-                )}
               </div>
             )}
             {port.connectedAsset && (
@@ -270,7 +377,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             {port.poeEnabled && (
               <div style={{ color: '#fadb14' }}>
                 <ThunderboltFilled style={{ marginRight: 4 }} />
-                PoE: Active (802.3at PoE+)
+                PoE: Active (802.3at PoE+ · 30.0W)
               </div>
             )}
             {port.description && (
@@ -283,6 +390,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
       );
     };
 
+    // Render modular dual-row access port jack with odd on top, even on bottom silkscreen numbers
     const renderRJ45Jack = (portNum: number, port: SwitchPort | null, isUpperRow: boolean) => {
       const statusInfo = getPortStatusInfo(port);
       const isSelected = selectedPortId ? port?.id === selectedPortId : false;
@@ -300,11 +408,10 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             data-port-number={portNum}
             data-port-status={statusInfo.status}
             onClick={() => {
-              if (port && onSelectPort) {
-                onSelectPort(port);
-              } else if (onSelectPort) {
-                // If unconfigured slot clicked, synthesize minimal port structure
-                onSelectPort({
+              if (port) {
+                handlePortActivation(port);
+              } else {
+                handlePortActivation({
                   id: `virtual-port-${portNum}`,
                   switchId: switchEntity?.id || 'unknown',
                   portNumber: portNum,
@@ -321,7 +428,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             }}
             style={{
               width: 32,
-              height: 38,
+              height: 40,
               position: 'relative',
               cursor: 'pointer',
               display: 'flex',
@@ -336,10 +443,38 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 : 'inset 0 1px 2px rgba(0,0,0,0.6)',
               transition: 'all 0.15s ease-in-out',
               margin: '1px',
-              padding: '2px 1px',
+              padding: '1px 1px',
             }}
           >
-            {/* LED Status Indicator */}
+            {/* Silkscreen Label on TOP for odd upper row sockets */}
+            {isUpperRow && (
+              <Flex
+                data-testid={`port-label-${portNum}`}
+                align="center"
+                justify="center"
+                gap={1}
+                style={{
+                  fontSize: 8.5,
+                  fontFamily: 'monospace',
+                  color: isSelected ? '#69b1ff' : '#8c8c8c',
+                  lineHeight: 1,
+                  marginBottom: 1,
+                  order: 1,
+                }}
+              >
+                {isPoe && (
+                  <span
+                    data-testid={`poe-badge-${portNum}`}
+                    style={{ color: '#fadb14', fontSize: 8, fontWeight: 'bold' }}
+                  >
+                    ⚡
+                  </span>
+                )}
+                <span>{portNum}</span>
+              </Flex>
+            )}
+
+            {/* Individual Link State LED Indicator */}
             <div
               data-testid={`port-led-${portNum}`}
               style={{
@@ -350,26 +485,49 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 boxShadow: statusInfo.glow,
                 marginBottom: isUpperRow ? 2 : 0,
                 marginTop: isUpperRow ? 0 : 2,
-                order: isUpperRow ? 1 : 4,
+                order: 2,
                 flexShrink: 0,
               }}
             />
 
-            {/* RJ45 Receptacle Cutout */}
+            {/* RJ45 Modular Receptacle with Metallic Spring Shielding Contacts */}
             <div
               style={{
                 width: 20,
                 height: 16,
                 backgroundColor: '#0a0a0a',
-                border: '1px solid #303030',
+                border: '1px solid #383838',
+                boxShadow: 'inset 0 0 0 1px #4a4a4a, inset 0 1px 2px rgba(0,0,0,0.8)',
                 borderRadius: 2,
                 position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                order: 2,
+                order: isUpperRow ? 3 : 1,
               }}
             >
+              {/* Metallic Grounding Side Spring Tabs */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 3,
+                  bottom: 3,
+                  width: 1,
+                  backgroundColor: '#777',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 3,
+                  bottom: 3,
+                  width: 1,
+                  backgroundColor: '#777',
+                }}
+              />
+
               {/* Gold Pin Contacts */}
               <div
                 style={{
@@ -387,7 +545,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                       width: 1,
                       height: 3,
                       backgroundColor: '#cca043',
-                      opacity: 0.8,
+                      opacity: 0.85,
                     }}
                   />
                 ))}
@@ -408,37 +566,162 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               />
             </div>
 
-            {/* Port Number & PoE Badge */}
-            <Flex
-              align="center"
-              justify="center"
-              gap={1}
-              style={{
-                fontSize: 8.5,
-                fontFamily: 'monospace',
-                color: isSelected ? '#69b1ff' : '#8c8c8c',
-                lineHeight: 1,
-                marginTop: 2,
-                order: 3,
-              }}
-            >
-              {isPoe && (
-                <span
-                  data-testid={`poe-badge-${portNum}`}
-                  style={{ color: '#fadb14', fontSize: 8, fontWeight: 'bold' }}
-                >
-                  ⚡
-                </span>
-              )}
-              <span>{portNum}</span>
-            </Flex>
+            {/* Silkscreen Label on BOTTOM for even lower row sockets */}
+            {!isUpperRow && (
+              <Flex
+                data-testid={`port-label-${portNum}`}
+                align="center"
+                justify="center"
+                gap={1}
+                style={{
+                  fontSize: 8.5,
+                  fontFamily: 'monospace',
+                  color: isSelected ? '#69b1ff' : '#8c8c8c',
+                  lineHeight: 1,
+                  marginTop: 1,
+                  order: 3,
+                }}
+              >
+                {isPoe && (
+                  <span
+                    data-testid={`poe-badge-${portNum}`}
+                    style={{ color: '#fadb14', fontSize: 8, fontWeight: 'bold' }}
+                  >
+                    ⚡
+                  </span>
+                )}
+                <span>{portNum}</span>
+              </Flex>
+            )}
           </div>
         </Tooltip>
       );
     };
 
+    // Render dedicated RJ45 Uplink socket with speed indicator LED
+    const renderRj45UplinkJack = (
+      uIndex: number,
+      port: SwitchPort | null,
+      labelFallback: string,
+    ) => {
+      const portNum = port?.portNumber ?? rj45Count + uIndex + 1;
+      const statusInfo = getPortStatusInfo(port);
+      const isSelected = selectedPortId ? port?.id === selectedPortId : false;
+
+      return (
+        <Tooltip
+          key={`rj45-uplink-${uIndex}`}
+          title={renderPortTooltipContent(port, portNum)}
+          placement="top"
+          mouseEnterDelay={0.15}
+        >
+          <div
+            data-testid={`switch-uplink-${uIndex + 1}`}
+            data-port-number={portNum}
+            data-port-status={statusInfo.status}
+            onClick={() => {
+              if (port) {
+                handlePortActivation(port);
+              } else {
+                handlePortActivation({
+                  id: `virtual-uplink-${portNum}`,
+                  switchId: switchEntity?.id || 'unknown',
+                  portNumber: portNum,
+                  name: `Uplink${uIndex + 1}`,
+                  formFactor: 'RJ45_1G',
+                  poeEnabled: false,
+                  adminStatus: 'UP',
+                  operStatus: 'DOWN',
+                  mode: 'TRUNK',
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                } as SwitchPort);
+              }
+            }}
+            style={{
+              width: 32,
+              height: 38,
+              boxSizing: 'border-box',
+              backgroundColor: '#1b1b1b',
+              border: isSelected ? '1.5px solid #1677ff' : '1px solid #3a3a3a',
+              borderRadius: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '2px 1px',
+              cursor: 'pointer',
+              boxShadow: isSelected
+                ? '0 0 8px rgba(22, 119, 255, 0.8)'
+                : 'inset 0 1px 2px rgba(0,0,0,0.6)',
+            }}
+          >
+            {/* Speed Indicator LED */}
+            <div
+              data-testid={`uplink-led-${uIndex + 1}`}
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: statusInfo.color,
+                boxShadow: statusInfo.glow,
+              }}
+            />
+
+            {/* RJ45 Receptacle */}
+            <div
+              style={{
+                width: 20,
+                height: 15,
+                backgroundColor: '#0a0a0a',
+                border: '1px solid #404040',
+                borderRadius: 2,
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 1,
+                  display: 'flex',
+                  gap: 1.5,
+                }}
+              >
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 1,
+                      height: 3,
+                      backgroundColor: '#cca043',
+                      opacity: 0.85,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Text
+              style={{
+                fontSize: 8,
+                fontFamily: 'monospace',
+                color: isSelected ? '#69b1ff' : '#aaa',
+                lineHeight: 1,
+              }}
+            >
+              {port?.name ? port.name.replace(/^[A-Za-z]+1\/0\//, 'U') : labelFallback}
+            </Text>
+          </div>
+        </Tooltip>
+      );
+    };
+
+    // Render authentic SFP / SFP+ optical cage with metallic frame, latch release clip, and duplex fiber icons
     const renderSfpCage = (index: number, port: SwitchPort | null, labelFallback: string) => {
-      const portNum = port?.portNumber ?? rj45Count + index + 1;
+      const portNum = port?.portNumber ?? rj45Count + finalUplinkRj45Count + index + 1;
       const statusInfo = getPortStatusInfo(port);
       const isSelected = selectedPortId ? port?.id === selectedPortId : false;
 
@@ -454,15 +737,15 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             data-port-number={portNum}
             data-port-status={statusInfo.status}
             onClick={() => {
-              if (port && onSelectPort) {
-                onSelectPort(port);
-              } else if (onSelectPort) {
-                onSelectPort({
+              if (port) {
+                handlePortActivation(port);
+              } else {
+                handlePortActivation({
                   id: `virtual-sfp-${portNum}`,
                   switchId: switchEntity?.id || 'unknown',
                   portNumber: portNum,
                   name: `Te1/0/${portNum}`,
-                  formFactor: 'SFP_PLUS_10G',
+                  formFactor: finalFiberCount === 2 ? 'SFP_1G' : 'SFP_PLUS_10G',
                   poeEnabled: false,
                   adminStatus: 'UP',
                   operStatus: 'DOWN',
@@ -475,18 +758,19 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             style={{
               width: 38,
               height: 38,
+              boxSizing: 'border-box',
               backgroundColor: '#181818',
-              border: isSelected ? '1.5px solid #1677ff' : '1px solid #3a3a3a',
+              border: isSelected ? '1.5px solid #1677ff' : '1px solid #5a5a5a',
               borderRadius: 3,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '3px 2px',
+              padding: '2px 2px',
               cursor: 'pointer',
               boxShadow: isSelected
                 ? '0 0 8px rgba(22, 119, 255, 0.8)'
-                : 'inset 0 1px 3px rgba(0,0,0,0.7)',
+                : 'inset 0 1px 3px rgba(0,0,0,0.7), 0 0 2px rgba(255,255,255,0.05)',
             }}
           >
             {/* LED Status */}
@@ -501,32 +785,65 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               }}
             />
 
-            {/* SFP Transceiver Cage Socket */}
+            {/* SFP Optical Transceiver Cage Frame with Latch Release Clip & Duplex Fiber Icons */}
             <div
+              data-testid={`sfp-cage-frame-${index + 1}`}
               style={{
                 width: 26,
                 height: 16,
                 backgroundColor: '#050505',
-                border: '1px solid #444',
+                border: '1px solid #555',
+                boxShadow: 'inset 0 0 0 1px #333',
                 borderRadius: 2,
                 position: 'relative',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
+              {/* Metallic Latch Release Clip Styling */}
               <div
+                data-testid={`sfp-latch-${index + 1}`}
                 style={{
-                  width: 14,
-                  height: 6,
+                  width: 12,
+                  height: 3,
                   backgroundColor: '#262626',
-                  border: '1px solid #555',
+                  border: '1px solid #666',
                   borderRadius: 1,
+                  marginBottom: 1,
                 }}
               />
+
+              {/* Optical Duplex LC Receptacle Bores */}
+              <Flex gap={3} align="center" justify="center">
+                <div
+                  data-testid={`sfp-fiber-left-${index + 1}`}
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    backgroundColor: '#000',
+                    border: '1px solid #00b4d8',
+                    boxShadow: 'inset 0 0 2px #00b4d8',
+                  }}
+                />
+                <div
+                  data-testid={`sfp-fiber-right-${index + 1}`}
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    backgroundColor: '#000',
+                    border: '1px solid #00b4d8',
+                    boxShadow: 'inset 0 0 2px #00b4d8',
+                  }}
+                />
+              </Flex>
             </div>
 
             <Text
+              data-testid={`sfp-label-${index + 1}`}
               style={{
                 fontSize: 8.5,
                 fontFamily: 'monospace',
@@ -541,22 +858,60 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
       );
     };
 
+    // Resolve dynamic label for the Uplink / Fiber bay
+    const bayTitle = useMemo(() => {
+      if (finalUplinkRj45Count > 0 && finalFiberCount > 0) return 'Uplink / SFP+';
+      if (finalFiberCount > 0) return 'SFP / SFP+';
+      if (finalUplinkRj45Count > 0) return 'RJ45 Uplinks';
+      return 'Uplink / SFP+';
+    }, [finalUplinkRj45Count, finalFiberCount]);
+
+    // Calculate Right Bay Width dynamically
+    const rightBayWidth = useMemo(() => {
+      const sfpCols = Math.ceil(finalFiberCount / 2);
+      const uplinkCols = Math.ceil(finalUplinkRj45Count / 2);
+      if (uplinkCols === 0 && sfpCols === 0) {
+        return 76;
+      }
+      if (uplinkCols === 0) {
+        return sfpCols <= 1 ? 76 : 108;
+      }
+      if (sfpCols === 0) {
+        return uplinkCols <= 1 ? 76 : 108;
+      }
+      return 50 + uplinkCols * 38 + sfpCols * 44;
+    }, [finalFiberCount, finalUplinkRj45Count]);
+
+    // Calculate responsive minWidth for the main horizontal chassis flex
+    const flexInnerMinWidth = useMemo(() => {
+      if (finalUplinkRj45Count === 0) {
+        return rj45Count <= 16 ? 560 : 840;
+      }
+      const base = rj45Count <= 16 ? 560 : 840;
+      const extra = Math.ceil(finalUplinkRj45Count / 2) * 44;
+      return base + extra;
+    }, [rj45Count, finalUplinkRj45Count]);
+
     return (
       <Flex vertical gap={12} style={{ width: '100%' }}>
-        {/* Chassis Front Panel Enclosure */}
+        {/* Chassis Front Panel Enclosure (Dark Brushed Metal 1U Texture) */}
         <div
           data-testid="switch-faceplate-chassis"
           style={{
             position: 'relative',
             width: '100%',
             overflowX: 'auto',
-            background: 'linear-gradient(180deg, #2b2b2b 0%, #1c1c1c 45%, #141414 100%)',
+            background:
+              'linear-gradient(180deg, #2f2f2f 0%, #1e1e1e 40%, #161616 70%, #111111 100%)',
             border: '1px solid #383838',
             borderRadius: 6,
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
+            boxShadow:
+              '0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 rgba(0, 0, 0, 0.6)',
             padding: '12px 14px',
             opacity: loading ? 0.6 : 1,
             transition: 'opacity 0.2s',
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#444 #1c1c1c',
           }}
         >
           {/* Top Chassis Bezel Trim */}
@@ -573,13 +928,16 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             }}
           />
 
-          <Flex align="center" gap={12} style={{ minWidth: 840 }}>
-            {/* Left Rack Ear Bracket */}
+          <Flex align="center" gap={12} style={{ minWidth: flexInnerMinWidth }}>
+            {/* Left 19" Rack Ear Bracket with Mount Screw Cutouts */}
             <div
+              data-testid="rack-ear-left"
               style={{
                 width: 24,
-                height: 84,
+                height: 104,
+                boxSizing: 'border-box',
                 backgroundColor: '#282828',
+                background: 'linear-gradient(180deg, #323232 0%, #242424 50%, #1c1c1c 100%)',
                 border: '1px solid #404040',
                 borderRadius: '3px 0 0 3px',
                 display: 'flex',
@@ -591,36 +949,42 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               }}
             >
               <div
+                data-testid="rack-screw-left-1"
                 style={{
                   width: 10,
                   height: 10,
                   borderRadius: '50%',
                   backgroundColor: '#141414',
                   border: '1px solid #555',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.8)',
                 }}
               />
               <div
+                data-testid="rack-screw-left-2"
                 style={{
                   width: 10,
                   height: 10,
                   borderRadius: '50%',
                   backgroundColor: '#141414',
                   border: '1px solid #555',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.8)',
                 }}
               />
             </div>
 
-            {/* Left Branding & System Telemetry Block */}
+            {/* Left Branding, System Status Bezel (PWR, SYS, PoE LEDs + CONSOLE Port) */}
             <Flex
               vertical
               justify="space-between"
+              data-testid="switch-system-bezel"
               style={{
-                width: 170,
-                height: 84,
+                width: 180,
+                height: 104,
+                boxSizing: 'border-box',
                 backgroundColor: '#181818',
                 border: '1px solid #303030',
                 borderRadius: 4,
-                padding: '6px 10px',
+                padding: '6px 8px',
                 flexShrink: 0,
               }}
             >
@@ -655,7 +1019,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   strong
                   style={{
                     color: '#e5e5e5',
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontFamily: 'monospace',
                     marginTop: 2,
                   }}
@@ -665,14 +1029,15 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 </Text>
               </Flex>
 
-              {/* System LEDs */}
+              {/* System Status Indicators: PWR, SYS, PoE LEDs */}
               <Flex
                 justify="space-between"
                 align="center"
-                style={{ paddingTop: 4, borderTop: '1px solid #282828' }}
+                style={{ paddingTop: 3, borderTop: '1px solid #282828' }}
               >
                 <Flex align="center" gap={3}>
                   <div
+                    data-testid="led-pwr"
                     style={{
                       width: 5,
                       height: 5,
@@ -681,12 +1046,13 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                       boxShadow: '0 0 5px #52c41a',
                     }}
                   />
-                  <span style={{ fontSize: 8.5, color: '#8c8c8c', fontFamily: 'monospace' }}>
-                    STAT
+                  <span style={{ fontSize: 8, color: '#8c8c8c', fontFamily: 'monospace' }}>
+                    PWR
                   </span>
                 </Flex>
                 <Flex align="center" gap={3}>
                   <div
+                    data-testid="led-sys"
                     style={{
                       width: 5,
                       height: 5,
@@ -695,26 +1061,13 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                       boxShadow: '0 0 5px #52c41a',
                     }}
                   />
-                  <span style={{ fontSize: 8.5, color: '#8c8c8c', fontFamily: 'monospace' }}>
-                    SYST
+                  <span style={{ fontSize: 8, color: '#8c8c8c', fontFamily: 'monospace' }}>
+                    SYS
                   </span>
                 </Flex>
                 <Flex align="center" gap={3}>
                   <div
-                    style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: '50%',
-                      backgroundColor: '#52c41a',
-                      boxShadow: '0 0 5px #52c41a',
-                    }}
-                  />
-                  <span style={{ fontSize: 8.5, color: '#8c8c8c', fontFamily: 'monospace' }}>
-                    RPS
-                  </span>
-                </Flex>
-                <Flex align="center" gap={3}>
-                  <div
+                    data-testid="led-poe"
                     style={{
                       width: 5,
                       height: 5,
@@ -723,18 +1076,71 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                       boxShadow: '0 0 5px #faad14',
                     }}
                   />
-                  <span style={{ fontSize: 8.5, color: '#faad14', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: 8, color: '#faad14', fontFamily: 'monospace' }}>
                     PoE
                   </span>
                 </Flex>
               </Flex>
+
+              {/* Console Management Port Indicator */}
+              <Flex
+                align="center"
+                gap={5}
+                data-testid="console-port"
+                style={{
+                  paddingTop: 2,
+                  borderTop: '1px solid #242424',
+                }}
+              >
+                <div
+                  data-testid="console-socket"
+                  style={{
+                    width: 14,
+                    height: 10,
+                    backgroundColor: '#0a0a0a',
+                    border: '1.5px solid #096dd9',
+                    borderRadius: 2,
+                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.8)',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 8,
+                      height: 4,
+                      backgroundColor: '#1e1e1e',
+                      border: '1px solid #333',
+                      borderRadius: 1,
+                    }}
+                  />
+                </div>
+                <span
+                  data-testid="console-label"
+                  style={{
+                    fontSize: 7.5,
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                    color: '#096dd9',
+                    letterSpacing: 0.5,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  CONSOLE
+                </span>
+              </Flex>
             </Flex>
 
-            {/* Center: Staggered RJ45 Grid in Modular 12-Port Blocks */}
+            {/* Center: Access Port Bay (Modular Clusters via calculatePortClusters) */}
             <Flex
+              data-testid="access-port-bay"
               align="center"
               gap={8}
               style={{
+                height: 104,
+                boxSizing: 'border-box',
                 backgroundColor: '#121212',
                 border: '1px solid #2b2b2b',
                 borderRadius: 4,
@@ -745,6 +1151,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               {modularBlocks.map((block) => (
                 <Flex
                   key={`block-${block.blockIndex}`}
+                  data-testid={`cluster-block-${block.blockIndex}`}
                   vertical
                   gap={2}
                   style={{
@@ -752,14 +1159,15 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                     padding: '3px 4px',
                     borderRadius: 3,
                     border: '1px solid #282828',
+                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.6)',
                   }}
                 >
-                  {/* Upper Row: Odd-numbered ports */}
+                  {/* Upper Row: Odd-numbered ports (1, 3, 5...) with Silkscreen Number on TOP */}
                   <Flex gap={2}>
                     {block.upperOdd.map((item) => renderRJ45Jack(item.portNum, item.port, true))}
                   </Flex>
 
-                  {/* Lower Row: Even-numbered ports */}
+                  {/* Lower Row: Even-numbered ports (2, 4, 6...) with Silkscreen Number on BOTTOM */}
                   <Flex gap={2}>
                     {block.lowerEven.map((item) => renderRJ45Jack(item.portNum, item.port, false))}
                   </Flex>
@@ -767,21 +1175,50 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               ))}
             </Flex>
 
-            {/* Right: SFP+ 10G Uplink Bay */}
+            {/* Metallic Dividing Bezel separating Access Bay from Uplink/Fiber Bay */}
+            <div
+              data-testid="metallic-dividing-bezel"
+              style={{
+                width: 3,
+                height: 104,
+                boxSizing: 'border-box',
+                background: 'linear-gradient(180deg, #555 0%, #222 50%, #555 100%)',
+                borderLeft: '1px solid #666',
+                borderRight: '1px solid #111',
+                borderRadius: 1,
+                flexShrink: 0,
+              }}
+            />
+
+            {/* Right: Dedicated Uplink & Fiber Bay (RJ45 Uplinks + SFP/SFP+ Optical Cages) */}
             <Flex
               vertical
-              justify="space-between"
+              justify="flex-start"
+              data-testid="right-uplink-fiber-bay"
               style={{
-                width: 100,
-                height: 84,
+                width: rightBayWidth,
+                height: 104,
+                boxSizing: 'border-box',
                 backgroundColor: '#1a1a1a',
                 border: '1px solid #383838',
                 borderRadius: 4,
                 padding: '4px 6px',
                 flexShrink: 0,
+                overflow: 'hidden',
               }}
             >
-              <Flex justify="space-between" align="center">
+              <Flex
+                justify="space-between"
+                align="center"
+                style={{
+                  width: '100%',
+                  height: 14,
+                  lineHeight: 1,
+                  padding: '0 2px',
+                  marginBottom: 2,
+                  flexShrink: 0,
+                }}
+              >
                 <Text
                   style={{
                     fontSize: 8.5,
@@ -789,32 +1226,71 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                     fontWeight: 700,
                     color: '#1677ff',
                     letterSpacing: 0.5,
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  10G UPLINK
+                  {bayTitle}
                 </Text>
-                <ApiOutlined style={{ fontSize: 10, color: '#1677ff' }} />
+                <ApiOutlined style={{ fontSize: 9, color: '#1677ff', flexShrink: 0 }} />
               </Flex>
 
-              {/* 2x2 or 4x1 SFP Transceiver Grid */}
-              <Flex gap={4} justify="center">
-                <Flex vertical gap={3}>
-                  {renderSfpCage(0, sfpPorts[0], 'U1')}
-                  {renderSfpCage(1, sfpPorts[1], 'U2')}
-                </Flex>
-                <Flex vertical gap={3}>
-                  {renderSfpCage(2, sfpPorts[2], 'U3')}
-                  {renderSfpCage(3, sfpPorts[3], 'U4')}
-                </Flex>
+              <Flex
+                gap={6}
+                align="center"
+                justify="center"
+                style={{
+                  width: '100%',
+                  flexGrow: 1,
+                }}
+              >
+                {/* Dedicated RJ45 Uplinks (if configured) */}
+                {finalUplinkRj45Count > 0 && (
+                  <Flex gap={3} data-testid="rj45-uplink-bay">
+                    {uplinkColumns.map((col, colIdx) => (
+                      <Flex key={`uplink-col-${colIdx}`} vertical gap={2}>
+                        {col.map((item) =>
+                          renderRj45UplinkJack(item.uIndex, item.port, item.label),
+                        )}
+                      </Flex>
+                    ))}
+                  </Flex>
+                )}
+
+                {/* Vertical separator between RJ45 uplinks and SFP cages */}
+                {finalUplinkRj45Count > 0 && finalFiberCount > 0 && (
+                  <div
+                    style={{
+                      width: 1,
+                      height: 68,
+                      backgroundColor: '#383838',
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+
+                {/* SFP / SFP+ Optical Fiber Cages */}
+                {finalFiberCount > 0 && (
+                  <Flex gap={4} justify="center" data-testid="sfp-fiber-bay">
+                    {sfpColumns.map((col, colIdx) => (
+                      <Flex key={`sfp-col-${colIdx}`} vertical gap={2}>
+                        {col.map((item) => renderSfpCage(item.sIndex, item.port, item.label))}
+                      </Flex>
+                    ))}
+                  </Flex>
+                )}
               </Flex>
             </Flex>
 
-            {/* Right Rack Ear Bracket */}
+            {/* Right 19" Rack Ear Bracket with Mount Screw Cutouts */}
             <div
+              data-testid="rack-ear-right"
               style={{
                 width: 24,
-                height: 84,
+                height: 104,
+                boxSizing: 'border-box',
                 backgroundColor: '#282828',
+                background: 'linear-gradient(180deg, #323232 0%, #242424 50%, #1c1c1c 100%)',
                 border: '1px solid #404040',
                 borderRadius: '0 3px 3px 0',
                 display: 'flex',
@@ -826,21 +1302,25 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               }}
             >
               <div
+                data-testid="rack-screw-right-1"
                 style={{
                   width: 10,
                   height: 10,
                   borderRadius: '50%',
                   backgroundColor: '#141414',
                   border: '1px solid #555',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.8)',
                 }}
               />
               <div
+                data-testid="rack-screw-right-2"
                 style={{
                   width: 10,
                   height: 10,
                   borderRadius: '50%',
                   backgroundColor: '#141414',
                   border: '1px solid #555',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.8)',
                 }}
               />
             </div>

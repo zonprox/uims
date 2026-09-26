@@ -31,7 +31,6 @@ export interface AssetFormValues {
   location?: string;
   locationId?: string;
   purchaseDate?: dayjs.Dayjs;
-  purchasePrice?: number;
   warrantyExpiry?: dayjs.Dayjs;
   notes?: string;
   [key: string]: unknown;
@@ -65,7 +64,6 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
     location: values.location,
     locationId: values.locationId || undefined,
     purchaseDate,
-    purchasePrice: values.purchasePrice ?? 0,
     warrantyExpiry,
     notes: values.notes,
   };
@@ -232,7 +230,6 @@ export function useAssetManagement(form: FormInstance) {
         category: 'Laptops / Notebooks',
         purchaseDate: dayjs(),
         warrantyExpiry: dayjs().add(3, 'year'),
-        purchasePrice: 1500,
         location: 'NY Office - Floor 4',
       });
       setModalOpen(true);
@@ -315,7 +312,6 @@ export function useAssetManagement(form: FormInstance) {
       category: 'Laptops / Notebooks',
       purchaseDate: dayjs(),
       warrantyExpiry: dayjs().add(3, 'year'),
-      purchasePrice: 1500,
       location: 'NY Office - Floor 4',
     });
     setModalOpen(true);

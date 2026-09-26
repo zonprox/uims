@@ -61,6 +61,21 @@ export enum PortMode {
   LACP = 'LACP',
 }
 
+export enum PortSpeed {
+  SPEED_100M = '100 Mbps',
+  SPEED_1G = '1 Gbps',
+  SPEED_2_5G = '2.5 Gbps',
+  SPEED_10G = '10 Gbps',
+  SPEED_25G = '25 Gbps',
+  SPEED_40G = '40 Gbps',
+  SPEED_100G = '100 Gbps',
+  AUTO = 'Auto',
+}
+
+export const SPEED_1G = PortSpeed.SPEED_1G;
+export const SPEED_2_5G = PortSpeed.SPEED_2_5G;
+export const SPEED_10G = PortSpeed.SPEED_10G;
+
 export interface VLAN {
   id: string;
   vlanNumber: number;
@@ -124,6 +139,9 @@ export interface NetworkRack {
   updatedAt: string | Date;
 }
 
+export const STANDARD_SWITCH_PORT_COUNTS = [8, 16, 24, 48] as const;
+export type StandardSwitchPortCount = (typeof STANDARD_SWITCH_PORT_COUNTS)[number];
+
 export interface NetworkSwitch {
   id: string;
   name: string;
@@ -137,6 +155,10 @@ export interface NetworkSwitch {
   role: SwitchRole | `${SwitchRole}`;
   status: SwitchStatus | `${SwitchStatus}`;
   totalPorts: number;
+  uplinkPorts?: number | null;
+  fiberPorts?: number | null;
+  uplinkSpeed?: string | null;
+  fiberSpeed?: string | null;
   rackId?: string | null;
   rack?: NetworkRack | null;
   rackPosition?: number | null; // 1-48 RU starting slot
@@ -212,7 +234,6 @@ export interface RackElevationData {
 export interface IPAddress {
   id: string;
   address: string;
-  hostname?: string | null;
   macAddress?: string | null;
   vendor?: string | null;
   deviceType?: string | null;

@@ -137,25 +137,18 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
           },
           render: (_: unknown, record: NetworkSwitch) =>
             record.ipAddress ? (
-              <Flex vertical gap={1}>
-                <Tag
-                  icon={<ApiOutlined />}
-                  color="geekblue"
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: 11.5,
-                    width: 'fit-content',
-                    margin: 0,
-                  }}
-                >
-                  {record.ipAddress.address}
-                </Tag>
-                {record.ipAddress.hostname && (
-                  <Text type="secondary" ellipsis style={{ fontSize: 10, maxWidth: 130 }}>
-                    {record.ipAddress.hostname}
-                  </Text>
-                )}
-              </Flex>
+              <Tag
+                icon={<ApiOutlined />}
+                color="geekblue"
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: 11.5,
+                  width: 'fit-content',
+                  margin: 0,
+                }}
+              >
+                {record.ipAddress.address}
+              </Tag>
             ) : (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 —

@@ -26,7 +26,7 @@ export class IPAddressQueryDto {
   @Max(100)
   limit?: number;
 
-  @ApiPropertyOptional({ description: 'Search term for IP, hostname, MAC, or vendor' })
+  @ApiPropertyOptional({ description: 'Search term for IP, MAC, or vendor' })
   @IsOptional()
   @IsString()
   search?: string;

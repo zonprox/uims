@@ -39,7 +39,6 @@ interface DbAsset {
   locationId: string | null;
   departmentId: string | null;
   assignedToId: string | null;
-  purchaseCost: number | null;
   purchaseDate: Date | null;
   warrantyExpiry: Date | null;
   notes: string | null;
@@ -131,7 +130,6 @@ class InMemorySpatialDb {
       locationId: data.locationId ?? null,
       departmentId: data.departmentId ?? null,
       assignedToId: data.assignedToId ?? null,
-      purchaseCost: data.purchaseCost ?? 1000,
       purchaseDate: data.purchaseDate ?? new Date('2026-01-01'),
       warrantyExpiry: data.warrantyExpiry ?? new Date('2028-01-01'),
       notes: data.notes ?? null,

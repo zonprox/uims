@@ -1,5 +1,6 @@
 import { ApartmentOutlined, CloudServerOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import {
+  Button,
   Checkbox,
   Col,
   Form,
@@ -9,6 +10,7 @@ import {
   Modal,
   Row,
   Select,
+  Space,
   theme,
 } from 'antd';
 import React from 'react';
@@ -152,31 +154,149 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
             </Col>
           </Row>
 
-          {/* Row 3: Total Ports, Serial Number, MAC */}
-          <Row gutter={16}>
-            <Col span={8}>
+          {/* Row 3: Access Ports & Quick Presets */}
+          <Row gutter={16} align="bottom">
+            <Col span={10}>
               <Form.Item
                 name="totalPorts"
-                label="Total RJ45 Ports"
-                rules={[{ required: true, message: 'Select total ports' }]}
+                label="Access Ports (RJ45)"
+                extra="Even number from 2 to 48"
+                rules={[
+                  { required: true, message: 'Please enter total access ports' },
+                  { type: 'number', min: 2, message: 'Total ports must be between 2 and 48' },
+                  { type: 'number', max: 48, message: 'Total ports must be between 2 and 48' },
+                  {
+                    validator(_, value) {
+                      if (value !== undefined && value !== null && value !== '') {
+                        const num = Number(value);
+                        if (!Number.isInteger(num)) {
+                          return Promise.reject(new Error('Total ports must be an integer'));
+                        }
+                        if (num < 2 || num > 48) {
+                          return Promise.reject(new Error('Total ports must be between 2 and 48'));
+                        }
+                        if (num % 2 !== 0) {
+                          return Promise.reject(new Error('Total ports must be an even number'));
+                        }
+                      }
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
                 initialValue={24}
               >
+                <InputNumber
+                  min={2}
+                  max={48}
+                  step={2}
+                  precision={0}
+                  style={{ width: '100%' }}
+                  placeholder="e.g. 24"
+                  data-testid="input-total-ports"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={14} style={{ marginBottom: 24 }}>
+              <div style={{ marginBottom: 8, fontSize: 12, color: token.colorTextSecondary }}>
+                Quick Presets
+              </div>
+              <Space wrap size={6}>
+                {[8, 16, 24, 48].map((size) => (
+                  <Button
+                    key={size}
+                    size="small"
+                    data-testid={`preset-ports-${size}`}
+                    onClick={() => {
+                      form.setFieldsValue({
+                        totalPorts: size,
+                      });
+                    }}
+                  >
+                    {size} Ports
+                  </Button>
+                ))}
+              </Space>
+            </Col>
+          </Row>
+
+          {/* Row 4: Dedicated RJ45 Uplinks and Optical Fiber SFP/SFP+ Ports */}
+          <Row gutter={16}>
+            <Col span={6}>
+              <Form.Item
+                name="uplinkPorts"
+                label="Uplink Ports (RJ45)"
+                initialValue={2}
+                rules={[
+                  { type: 'number', min: 0, message: 'Must be between 0 and 8' },
+                  { type: 'number', max: 8, message: 'Must not exceed 8' },
+                ]}
+              >
+                <InputNumber
+                  min={0}
+                  max={8}
+                  precision={0}
+                  style={{ width: '100%' }}
+                  data-testid="input-uplink-ports"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={6}>
+              <Form.Item name="uplinkSpeed" label="Uplink Speed" initialValue="1 Gbps">
                 <Select
+                  data-testid="select-uplink-speed"
                   options={[
-                    { label: '24 Ports (2x12 RJ45 + 4 SFP)', value: 24 },
-                    { label: '48 Ports (4x12 RJ45 + 4 SFP)', value: 48 },
+                    { label: '1 Gbps', value: '1 Gbps' },
+                    { label: '2.5 Gbps', value: '2.5 Gbps' },
+                    { label: '10 Gbps', value: '10 Gbps' },
                   ]}
                 />
               </Form.Item>
             </Col>
 
-            <Col span={8}>
+            <Col span={6}>
+              <Form.Item
+                name="fiberPorts"
+                label="Fiber Ports (SFP/SFP+)"
+                initialValue={2}
+                rules={[
+                  { type: 'number', min: 0, message: 'Must be between 0 and 8' },
+                  { type: 'number', max: 8, message: 'Must not exceed 8' },
+                ]}
+              >
+                <InputNumber
+                  min={0}
+                  max={8}
+                  precision={0}
+                  style={{ width: '100%' }}
+                  data-testid="input-fiber-ports"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={6}>
+              <Form.Item name="fiberSpeed" label="Fiber Speed" initialValue="10 Gbps">
+                <Select
+                  data-testid="select-fiber-speed"
+                  options={[
+                    { label: '1 Gbps SFP', value: '1 Gbps' },
+                    { label: '10 Gbps SFP+', value: '10 Gbps' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Row 5: Serial Number & Base MAC Address */}
+          <Row gutter={16}>
+            <Col span={12}>
               <Form.Item name="serialNumber" label="Serial Number">
                 <Input placeholder="e.g. FOC2488102" style={{ fontFamily: 'monospace' }} />
               </Form.Item>
             </Col>
 
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 name="macAddress"
                 label="Base MAC Address"
@@ -321,7 +441,8 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
               <Col span={24}>
                 <Form.Item name="autoGeneratePorts" valuePropName="checked" initialValue={true}>
                   <Checkbox>
-                    Auto-generate standard port matrix (RJ45 ports + 4 SFP+ 10G uplinks)
+                    Auto-generate standard port matrix (Access RJ45 + Uplink RJ45 + SFP/SFP+ Fiber
+                    cages)
                   </Checkbox>
                 </Form.Item>
               </Col>

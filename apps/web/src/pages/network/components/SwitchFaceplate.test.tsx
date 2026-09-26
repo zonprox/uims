@@ -89,7 +89,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       ipAddress: {
         id: 'ip-1',
         address: '10.232.10.10',
-        hostname: 'bsl-srv-app01.uims.lan',
         status: 'ASSIGNED',
         createdAt: '2026-09-01T00:00:00Z',
         updatedAt: '2026-09-01T00:00:00Z',
@@ -220,7 +219,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
     ipAddress: {
       id: 'mgmt-ip-2',
       address: '10.232.129.11',
-      hostname: 'sw-mgmt-2.youngonevn.com',
       status: 'ASSIGNED',
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
@@ -252,7 +250,68 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
     ipAddress: {
       id: 'mgmt-ip-1',
       address: '10.232.129.10',
-      hostname: 'sw-mgmt-1.youngonevn.com',
+      status: 'ASSIGNED',
+      createdAt: '2026-09-01T00:00:00Z',
+      updatedAt: '2026-09-01T00:00:00Z',
+    },
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z',
+  };
+
+  const mock8PortSwitch: NetworkSwitch = {
+    id: 'sw-8-1',
+    name: 'BSL-EDGE-SW01',
+    model: 'C1000-8T-2G-L',
+    vendor: 'Cisco Systems',
+    serialNumber: 'FOC2600108',
+    macAddress: '70:69:79:2A:41:08',
+    firmwareVersion: '15.2.7',
+    role: 'ACCESS',
+    status: 'ONLINE',
+    totalPorts: 8,
+    rackId: 'rack-dc-01',
+    rackPosition: 20,
+    rackHeight: 1,
+    rack: mockRack,
+    locationId: 'loc-dc1',
+    location: mockSwitchLocation,
+    notes: 'BSL Edge Compact Switch',
+    ports: [],
+    activePortsCount: 6,
+    ipAddress: {
+      id: 'mgmt-ip-8',
+      address: '10.232.129.8',
+      status: 'ASSIGNED',
+      createdAt: '2026-09-01T00:00:00Z',
+      updatedAt: '2026-09-01T00:00:00Z',
+    },
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z',
+  };
+
+  const mock16PortSwitch: NetworkSwitch = {
+    id: 'sw-16-1',
+    name: 'BSL-BRANCH-SW01',
+    model: 'C1000-16FP-2G-L',
+    vendor: 'Cisco Systems',
+    serialNumber: 'FOC2600116',
+    macAddress: '70:69:79:2A:41:16',
+    firmwareVersion: '15.2.7',
+    role: 'ACCESS',
+    status: 'ONLINE',
+    totalPorts: 16,
+    rackId: 'rack-dc-01',
+    rackPosition: 22,
+    rackHeight: 1,
+    rack: mockRack,
+    locationId: 'loc-dc1',
+    location: mockSwitchLocation,
+    notes: 'BSL Branch Office Switch',
+    ports: [],
+    activePortsCount: 12,
+    ipAddress: {
+      id: 'mgmt-ip-16',
+      address: '10.232.129.16',
       status: 'ASSIGNED',
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
@@ -356,6 +415,64 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       expect(sfp2).not.toBeNull();
       expect(sfp3).not.toBeNull();
       expect(sfp4).not.toBeNull();
+    });
+
+    it('Case 1.3: renders 8-port compact switch with 1 modular block and 2 right-side SFP uplink cages', async () => {
+      await renderWithContext(
+        <SwitchPortFaceplate switchEntity={mock8PortSwitch} ports={[]} totalPorts={8} />,
+      );
+
+      // Verify port 1 and port 8 exist
+      const port1 = container.querySelector('[data-testid="switch-port-1"]');
+      const port8 = container.querySelector('[data-testid="switch-port-8"]');
+      expect(port1).not.toBeNull();
+      expect(port8).not.toBeNull();
+
+      // Port 9 must NOT be in the RJ45 grid
+      const port9 = container.querySelector('[data-testid="switch-port-9"]');
+      expect(port9).toBeNull();
+
+      // Verify exactly 2 SFP cages rendered in the uplink module
+      const sfp1 = container.querySelector('[data-testid="switch-sfp-1"]');
+      const sfp2 = container.querySelector('[data-testid="switch-sfp-2"]');
+      const sfp3 = container.querySelector('[data-testid="switch-sfp-3"]');
+      const sfp4 = container.querySelector('[data-testid="switch-sfp-4"]');
+
+      expect(sfp1).not.toBeNull();
+      expect(sfp2).not.toBeNull();
+      expect(sfp3).toBeNull();
+      expect(sfp4).toBeNull();
+    });
+
+    it('Case 1.4: renders 16-port branch switch with 2 modular 8-port blocks and 2 right-side SFP uplink cages', async () => {
+      await renderWithContext(
+        <SwitchPortFaceplate switchEntity={mock16PortSwitch} ports={[]} totalPorts={16} />,
+      );
+
+      // Verify port 1, port 8, port 9, and port 16 exist
+      const port1 = container.querySelector('[data-testid="switch-port-1"]');
+      const port8 = container.querySelector('[data-testid="switch-port-8"]');
+      const port9 = container.querySelector('[data-testid="switch-port-9"]');
+      const port16 = container.querySelector('[data-testid="switch-port-16"]');
+      expect(port1).not.toBeNull();
+      expect(port8).not.toBeNull();
+      expect(port9).not.toBeNull();
+      expect(port16).not.toBeNull();
+
+      // Port 17 must NOT be in the RJ45 grid
+      const port17 = container.querySelector('[data-testid="switch-port-17"]');
+      expect(port17).toBeNull();
+
+      // Verify exactly 2 SFP cages rendered in the uplink module
+      const sfp1 = container.querySelector('[data-testid="switch-sfp-1"]');
+      const sfp2 = container.querySelector('[data-testid="switch-sfp-2"]');
+      const sfp3 = container.querySelector('[data-testid="switch-sfp-3"]');
+      const sfp4 = container.querySelector('[data-testid="switch-sfp-4"]');
+
+      expect(sfp1).not.toBeNull();
+      expect(sfp2).not.toBeNull();
+      expect(sfp3).toBeNull();
+      expect(sfp4).toBeNull();
     });
   });
 
@@ -679,6 +796,269 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
         '.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-tooltip',
       );
       expect(remainingPortals.length).toBe(0);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Suite 6: Milestone 3 Custom Even Sizes & Authentic Physical Chassis Visualization
+  // ──────────────────────────────────────────────────────────────────────────
+  describe('Suite 6: Milestone 3 Custom Even Sizes & Authentic Physical Chassis Visualization', () => {
+    it('Case 6.1: renders 2-port ultra-compact switch in 1 cluster block of 2 ports with odd upper row (1) and even lower row (2)', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={2} ports={[]} />);
+
+      const p1 = container.querySelector('[data-testid="switch-port-1"]');
+      const p2 = container.querySelector('[data-testid="switch-port-2"]');
+      const p3 = container.querySelector('[data-testid="switch-port-3"]');
+
+      expect(p1).not.toBeNull();
+      expect(p2).not.toBeNull();
+      expect(p3).toBeNull();
+
+      // Cluster block count: exactly 1 cluster block
+      const cluster0 = container.querySelector('[data-testid="cluster-block-0"]');
+      const cluster1 = container.querySelector('[data-testid="cluster-block-1"]');
+      expect(cluster0).not.toBeNull();
+      expect(cluster1).toBeNull();
+
+      // Zigzag rows
+      expect(p1?.parentElement).not.toBe(p2?.parentElement);
+    });
+
+    it('Case 6.2: renders 6-port edge switch in 1 cluster block of 6 ports', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={6} ports={[]} />);
+
+      for (let p = 1; p <= 6; p++) {
+        expect(container.querySelector(`[data-testid="switch-port-${p}"]`)).not.toBeNull();
+      }
+      expect(container.querySelector('[data-testid="switch-port-7"]')).toBeNull();
+
+      expect(container.querySelector('[data-testid="cluster-block-0"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cluster-block-1"]')).toBeNull();
+    });
+
+    it('Case 6.3: renders 12-port branch switch into 2 balanced cluster blocks of 6 ports', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={12} ports={[]} />);
+
+      for (let p = 1; p <= 12; p++) {
+        expect(container.querySelector(`[data-testid="switch-port-${p}"]`)).not.toBeNull();
+      }
+      expect(container.querySelector('[data-testid="switch-port-13"]')).toBeNull();
+
+      // Block 0: ports 1..6, Block 1: ports 7..12
+      const block0 = container.querySelector('[data-testid="cluster-block-0"]');
+      const block1 = container.querySelector('[data-testid="cluster-block-1"]');
+      const block2 = container.querySelector('[data-testid="cluster-block-2"]');
+      expect(block0).not.toBeNull();
+      expect(block1).not.toBeNull();
+      expect(block2).toBeNull();
+
+      const p6 = container.querySelector('[data-testid="switch-port-6"]');
+      const p7 = container.querySelector('[data-testid="switch-port-7"]');
+      expect(p6?.closest('[data-testid="cluster-block-0"]')).not.toBeNull();
+      expect(p7?.closest('[data-testid="cluster-block-1"]')).not.toBeNull();
+    });
+
+    it('Case 6.4: renders 20-port enterprise switch into 2 balanced cluster blocks of 10 ports', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={20} ports={[]} />);
+
+      for (let p = 1; p <= 20; p++) {
+        expect(container.querySelector(`[data-testid="switch-port-${p}"]`)).not.toBeNull();
+      }
+      expect(container.querySelector('[data-testid="switch-port-21"]')).toBeNull();
+
+      const block0 = container.querySelector('[data-testid="cluster-block-0"]');
+      const block1 = container.querySelector('[data-testid="cluster-block-1"]');
+      const block2 = container.querySelector('[data-testid="cluster-block-2"]');
+      expect(block0).not.toBeNull();
+      expect(block1).not.toBeNull();
+      expect(block2).toBeNull();
+
+      const p10 = container.querySelector('[data-testid="switch-port-10"]');
+      const p11 = container.querySelector('[data-testid="switch-port-11"]');
+      expect(p10?.closest('[data-testid="cluster-block-0"]')).not.toBeNull();
+      expect(p11?.closest('[data-testid="cluster-block-1"]')).not.toBeNull();
+    });
+
+    it('Case 6.5: renders 32-port switch into 4 balanced cluster blocks of 8 ports', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={32} ports={[]} />);
+
+      for (let p = 1; p <= 32; p++) {
+        expect(container.querySelector(`[data-testid="switch-port-${p}"]`)).not.toBeNull();
+      }
+      expect(container.querySelector('[data-testid="switch-port-33"]')).toBeNull();
+
+      expect(container.querySelector('[data-testid="cluster-block-0"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cluster-block-1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cluster-block-2"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cluster-block-3"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="cluster-block-4"]')).toBeNull();
+    });
+
+    it('Case 6.6: renders authentic 1U physical chassis elements: 19" rack ears with screw cutouts and metallic dividing bezel', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={24} ports={[]} />);
+
+      const earLeft = container.querySelector('[data-testid="rack-ear-left"]');
+      const earRight = container.querySelector('[data-testid="rack-ear-right"]');
+      const screwLeft1 = container.querySelector('[data-testid="rack-screw-left-1"]');
+      const screwLeft2 = container.querySelector('[data-testid="rack-screw-left-2"]');
+      const screwRight1 = container.querySelector('[data-testid="rack-screw-right-1"]');
+      const screwRight2 = container.querySelector('[data-testid="rack-screw-right-2"]');
+      const dividingBezel = container.querySelector('[data-testid="metallic-dividing-bezel"]');
+
+      expect(earLeft).not.toBeNull();
+      expect(earRight).not.toBeNull();
+      expect(screwLeft1).not.toBeNull();
+      expect(screwLeft2).not.toBeNull();
+      expect(screwRight1).not.toBeNull();
+      expect(screwRight2).not.toBeNull();
+      expect(dividingBezel).not.toBeNull();
+    });
+
+    it('Case 6.7: renders left system status bezel with PWR, SYS, PoE LEDs and recessed CONSOLE management port', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={24} ports={[]} />);
+
+      const bezel = container.querySelector('[data-testid="switch-system-bezel"]');
+      expect(bezel).not.toBeNull();
+
+      const pwr = container.querySelector('[data-testid="led-pwr"]');
+      const sys = container.querySelector('[data-testid="led-sys"]');
+      const poe = container.querySelector('[data-testid="led-poe"]');
+      expect(pwr).not.toBeNull();
+      expect(sys).not.toBeNull();
+      expect(poe).not.toBeNull();
+
+      expect(bezel?.textContent).toContain('PWR');
+      expect(bezel?.textContent).toContain('SYS');
+      expect(bezel?.textContent).toContain('PoE');
+
+      const consolePort = container.querySelector('[data-testid="console-port"]');
+      const consoleSocket = container.querySelector('[data-testid="console-socket"]');
+      const consoleLabel = container.querySelector('[data-testid="console-label"]');
+      expect(consolePort).not.toBeNull();
+      expect(consoleSocket).not.toBeNull();
+      expect(consoleLabel?.textContent).toContain('CONSOLE');
+    });
+
+    it('Case 6.8: renders silkscreen numbers on top for odd upper sockets and on bottom for even lower sockets', async () => {
+      await renderWithContext(<SwitchPortFaceplate totalPorts={8} ports={[]} />);
+
+      // Port 1 (odd, upper row): silkscreen label is first child (order: 1)
+      const p1 = container.querySelector('[data-testid="switch-port-1"]');
+      const p1Label = container.querySelector('[data-testid="port-label-1"]');
+      expect(p1Label).not.toBeNull();
+      expect(p1Label?.textContent).toContain('1');
+      expect(p1?.firstElementChild).toBe(p1Label);
+
+      // Port 2 (even, lower row): silkscreen label is last child (order: 3)
+      const p2 = container.querySelector('[data-testid="switch-port-2"]');
+      const p2Label = container.querySelector('[data-testid="port-label-2"]');
+      expect(p2Label).not.toBeNull();
+      expect(p2Label?.textContent).toContain('2');
+      expect(p2?.lastElementChild).toBe(p2Label);
+    });
+
+    it('Case 6.9: renders dedicated RJ45 Uplinks alongside SFP/SFP+ optical cages with metallic frame, latch, and duplex fiber icons', async () => {
+      await renderWithContext(
+        <SwitchPortFaceplate totalPorts={8} uplinkPorts={2} fiberPorts={2} ports={[]} />,
+      );
+
+      // RJ45 Uplinks
+      const up1 = container.querySelector('[data-testid="switch-uplink-1"]');
+      const up2 = container.querySelector('[data-testid="switch-uplink-2"]');
+      const upLed1 = container.querySelector('[data-testid="uplink-led-1"]');
+      expect(up1).not.toBeNull();
+      expect(up2).not.toBeNull();
+      expect(upLed1).not.toBeNull();
+
+      // SFP Cages with authentic frame, latch release, and duplex fiber bores
+      const sfp1 = container.querySelector('[data-testid="switch-sfp-1"]');
+      const sfp2 = container.querySelector('[data-testid="switch-sfp-2"]');
+      const sfpLatch1 = container.querySelector('[data-testid="sfp-latch-1"]');
+      const sfpFiberLeft1 = container.querySelector('[data-testid="sfp-fiber-left-1"]');
+      const sfpFiberRight1 = container.querySelector('[data-testid="sfp-fiber-right-1"]');
+
+      expect(sfp1).not.toBeNull();
+      expect(sfp2).not.toBeNull();
+      expect(sfpLatch1).not.toBeNull();
+      expect(sfpFiberLeft1).not.toBeNull();
+      expect(sfpFiberRight1).not.toBeNull();
+    });
+
+    it('Case 6.10: supports onPortClick callback and synthesizes virtual port structure for unconfigured slots', async () => {
+      const handlePortClick = vi.fn();
+      await renderWithContext(
+        <SwitchPortFaceplate totalPorts={8} ports={[]} onPortClick={handlePortClick} />,
+      );
+
+      const p3 = container.querySelector('[data-testid="switch-port-3"]') as HTMLElement;
+      expect(p3).not.toBeNull();
+
+      await act(async () => {
+        p3.click();
+      });
+
+      expect(handlePortClick).toHaveBeenCalledTimes(1);
+      expect(handlePortClick).toHaveBeenCalledWith(
+        expect.objectContaining({
+          portNumber: 3,
+          name: 'Gi1/0/3',
+          formFactor: 'RJ45_1G',
+        }),
+      );
+    });
+
+    it('Case 6.11: clicking dedicated RJ45 uplink triggers onPortClick callback', async () => {
+      const handlePortClick = vi.fn();
+      await renderWithContext(
+        <SwitchPortFaceplate
+          totalPorts={8}
+          uplinkPorts={2}
+          ports={[]}
+          onPortClick={handlePortClick}
+        />,
+      );
+
+      const up1 = container.querySelector('[data-testid="switch-uplink-1"]') as HTMLElement;
+      expect(up1).not.toBeNull();
+
+      await act(async () => {
+        up1.click();
+      });
+
+      expect(handlePortClick).toHaveBeenCalledTimes(1);
+      expect(handlePortClick).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Uplink1',
+          mode: 'TRUNK',
+        }),
+      );
+    });
+
+    it('Case 6.12: clicking SFP cage triggers onPortClick callback', async () => {
+      const handlePortClick = vi.fn();
+      await renderWithContext(
+        <SwitchPortFaceplate
+          totalPorts={8}
+          fiberPorts={2}
+          ports={[]}
+          onPortClick={handlePortClick}
+        />,
+      );
+
+      const sfp1 = container.querySelector('[data-testid="switch-sfp-1"]') as HTMLElement;
+      expect(sfp1).not.toBeNull();
+
+      await act(async () => {
+        sfp1.click();
+      });
+
+      expect(handlePortClick).toHaveBeenCalledTimes(1);
+      expect(handlePortClick).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: expect.stringMatching(/Te1\/0\//),
+          mode: 'TRUNK',
+        }),
+      );
     });
   });
 });

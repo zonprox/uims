@@ -202,14 +202,52 @@ describe('Milestone 1 Challenger — Empirical Zod Schema Adversarial Suite', ()
         );
       });
 
-      it('rejects totalPorts <= 0 or > 128', () => {
+      it('rejects totalPorts <= 0, odd numbers, or > 48', () => {
         expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: 0 }).success).toBe(
           false,
         );
         expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: -1 }).success).toBe(
           false,
         );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: 1 }).success).toBe(
+          false,
+        );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: 7 }).success).toBe(
+          false,
+        );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: 49 }).success).toBe(
+          false,
+        );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: 50 }).success).toBe(
+          false,
+        );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: 128 }).success).toBe(
+          false,
+        );
         expect(createSwitchSchema.safeParse({ ...baseValidSwitch, totalPorts: 129 }).success).toBe(
+          false,
+        );
+      });
+
+      it('validates uplinkPorts and fiberPorts bounds (0..8)', () => {
+        expect(
+          createSwitchSchema.safeParse({ ...baseValidSwitch, uplinkPorts: 0, fiberPorts: 0 })
+            .success,
+        ).toBe(true);
+        expect(
+          createSwitchSchema.safeParse({ ...baseValidSwitch, uplinkPorts: 8, fiberPorts: 8 })
+            .success,
+        ).toBe(true);
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, uplinkPorts: -1 }).success).toBe(
+          false,
+        );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, uplinkPorts: 9 }).success).toBe(
+          false,
+        );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, fiberPorts: -1 }).success).toBe(
+          false,
+        );
+        expect(createSwitchSchema.safeParse({ ...baseValidSwitch, fiberPorts: 9 }).success).toBe(
           false,
         );
       });

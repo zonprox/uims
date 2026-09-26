@@ -10,10 +10,26 @@ import {
   IsString,
   Max,
   Min,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 
+@ValidatorConstraint({ name: 'isEvenNumber', async: false })
+export class IsEvenNumberConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (value === undefined || value === null) return true;
+    return typeof value === 'number' && Number.isInteger(value) && value % 2 === 0;
+  }
+
+  defaultMessage(_args: ValidationArguments): string {
+    return 'Total ports must be an even number';
+  }
+}
+
 export class CreateSwitchDto {
-  @ApiProperty({ description: 'Switch device name / hostname', example: 'BSL-CORE-SW01' })
+  @ApiProperty({ description: 'Switch device name', example: 'BSL-CORE-SW01' })
   @IsString()
   @IsNotEmpty()
   name!: string;
@@ -58,12 +74,55 @@ export class CreateSwitchDto {
   @IsEnum(SwitchStatus)
   status?: SwitchStatus;
 
-  @ApiPropertyOptional({ description: 'Total base ports (e.g. 24 or 48)', default: 24 })
+  @ApiPropertyOptional({
+    description: 'Total base RJ45 access ports (strictly even, 2 to 48)',
+    default: 24,
+    example: 24,
+  })
   @IsOptional()
   @IsInt()
-  @Min(0)
-  @Max(52)
+  @Min(2, { message: 'Total ports must be at least 2' })
+  @Max(48, { message: 'Total ports cannot exceed 48' })
+  @Validate(IsEvenNumberConstraint, { message: 'Total ports must be an even number' })
   totalPorts?: number;
+
+  @ApiPropertyOptional({
+    description: 'Dedicated RJ45 uplink ports (0 to 8)',
+    default: 2,
+    example: 2,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0, { message: 'Uplink ports cannot be negative' })
+  @Max(8, { message: 'Uplink ports cannot exceed 8' })
+  uplinkPorts?: number;
+
+  @ApiPropertyOptional({
+    description: 'Dedicated optical SFP/SFP+ fiber ports (0 to 8)',
+    default: 2,
+    example: 2,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0, { message: 'Fiber ports cannot be negative' })
+  @Max(8, { message: 'Fiber ports cannot exceed 8' })
+  fiberPorts?: number;
+
+  @ApiPropertyOptional({
+    description: 'Configured speed for RJ45 uplinks (1 Gbps, 2.5 Gbps, 10 Gbps)',
+    example: '1 Gbps',
+  })
+  @IsOptional()
+  @IsString()
+  uplinkSpeed?: string;
+
+  @ApiPropertyOptional({
+    description: 'Configured speed for optical fiber ports (1 Gbps, 10 Gbps)',
+    example: '10 Gbps',
+  })
+  @IsOptional()
+  @IsString()
+  fiberSpeed?: string;
 
   @ApiPropertyOptional({ description: 'Mounted NetworkRack UUID' })
   @IsOptional()

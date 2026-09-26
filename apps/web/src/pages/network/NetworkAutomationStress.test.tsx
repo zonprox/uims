@@ -103,7 +103,6 @@ const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
       assignedEmail: 'alex.chen@uims.internal',
       location: 'BSL Factory 1',
       purchaseDate: '2025-01-01',
-      purchasePrice: 4500,
       warrantyExpiry: '2028-01-01',
     },
   ];

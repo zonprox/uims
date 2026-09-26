@@ -378,7 +378,13 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                   >
                     <Descriptions.Item label="Asset Tag">{selectedAsset.tag}</Descriptions.Item>
                     <Descriptions.Item label="Serial Number">
-                      {selectedAsset.serialNumber}
+                      {selectedAsset.serialNumber ? (
+                        <Text code copyable={{ text: selectedAsset.serialNumber }}>
+                          {selectedAsset.serialNumber}
+                        </Text>
+                      ) : (
+                        <Text type="secondary">—</Text>
+                      )}
                     </Descriptions.Item>
                     <Descriptions.Item label="Manufacturer">
                       {selectedAsset.manufacturer}
@@ -439,12 +445,9 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
 
                   {renderNetworkConnectivity()}
 
-                  <Descriptions title="Financial & Warranty" bordered size="small" column={1}>
+                  <Descriptions title="Lifecycle & Warranty" bordered size="small" column={1}>
                     <Descriptions.Item label="Purchase Date">
                       <FormattedDate date={selectedAsset.purchaseDate} />
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Purchase Price">
-                      ${(selectedAsset.purchasePrice || 0).toLocaleString()}
                     </Descriptions.Item>
                     <Descriptions.Item label="Warranty Expiration">
                       <FormattedDate date={selectedAsset.warrantyExpiry} />

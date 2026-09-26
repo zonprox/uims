@@ -276,16 +276,9 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
           width: 130,
           render: (_: unknown, record: SwitchPort) =>
             record.ipAddress ? (
-              <Flex vertical gap={1}>
-                <Text code style={{ fontSize: 11.5, color: token.colorPrimary }}>
-                  {record.ipAddress.address}
-                </Text>
-                {record.ipAddress.hostname && (
-                  <Text type="secondary" ellipsis style={{ fontSize: 10, maxWidth: 110 }}>
-                    {record.ipAddress.hostname}
-                  </Text>
-                )}
-              </Flex>
+              <Text code style={{ fontSize: 11.5, color: token.colorPrimary }}>
+                {record.ipAddress.address}
+              </Text>
             ) : (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 —

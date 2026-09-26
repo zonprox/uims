@@ -64,16 +64,6 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           ),
         },
         {
-          title: 'Serial Number',
-          dataIndex: 'serialNumber',
-          key: 'serialNumber',
-          render: (serial: string) => (
-            <Text code copyable={Boolean(serial && serial !== 'N/A')} style={{ fontSize: 12 }}>
-              {serial || 'N/A'}
-            </Text>
-          ),
-        },
-        {
           title: 'Status',
           dataIndex: 'status',
           key: 'status',

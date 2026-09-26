@@ -72,7 +72,6 @@ export async function seedNetwork(prisma: PrismaClient) {
         ipRecord = await prisma.iPAddress.create({
           data: {
             address: addr,
-            hostname: `sw-mgmt-${idx + 1}.youngonevn.com`,
             status: 'ASSIGNED',
             deviceType: 'Switch',
             subnetId: mgmtSubnet.id,

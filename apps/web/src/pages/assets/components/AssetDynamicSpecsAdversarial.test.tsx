@@ -48,7 +48,6 @@ function createTestAsset(overrides: Partial<Asset>): Asset {
     assignedEmail: 'custodian@youngonevn.com',
     location: 'Main Office',
     purchaseDate: '2026-01-01',
-    purchasePrice: 1500,
     warrantyExpiry: '2029-01-01',
     notes: 'Configured with corporate VPN and MDM profile',
     ...overrides,
@@ -232,7 +231,6 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
           serialNumber: 'SN-SEQ-9999',
           categoryId: 'cat-laptop',
           status: 'Active',
-          purchasePrice: 2500,
           notes: 'Test note across category switches',
         });
       });
@@ -268,7 +266,6 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
       expect(formInstance.getFieldValue('model')).toBe('UE-2026');
       expect(formInstance.getFieldValue('serialNumber')).toBe('SN-SEQ-9999');
       expect(formInstance.getFieldValue('status')).toBe('Active');
-      expect(formInstance.getFieldValue('purchasePrice')).toBe(2500);
       expect(formInstance.getFieldValue('notes')).toBe('Test note across category switches');
 
       // Verify inputs in DOM
@@ -299,7 +296,6 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
         category: 'Network Switches',
         categoryId: 'cat-switch',
         status: 'Active',
-        purchasePrice: 3200,
         purchaseDate: '2026-01-20',
         warrantyExpiry: '2029-01-20',
         notes: '48 port PoE switch in DC rack',

@@ -317,7 +317,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
         mockPrisma.iPAddress.findFirst.mockResolvedValue({
           id: 'ip-1',
           address: '10.232.130.15',
-          hostname: 'reader-01',
           status: 'ASSIGNED',
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -325,7 +324,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
 
         const found = await service.findIp('10.232.130.15');
         expect(found.address).toBe('10.232.130.15');
-        expect(found.hostname).toBe('reader-01');
       });
 
       it('deleteIp removes IP and updates subnet usage counter', async () => {
@@ -608,7 +606,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
       // Create IP WITHOUT passing subnetId or vlanId
       const created = await service.createIp({
         address: '10.232.130.42',
-        hostname: 'door-controller-42',
         status: IPStatus.ASSIGNED,
       });
 
@@ -667,7 +664,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
 
       await service.createIp({
         address: '10.0.5.77',
-        hostname: 'dmz-web-01',
       });
 
       // Must bind to /24 (sub-specific), NOT /16 (sub-supernet)
@@ -711,7 +707,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
       // Target IP not in any known subnet
       const res = await service.createIp({
         address: '172.31.50.10',
-        hostname: 'external-box',
       });
 
       expect(mockPrisma.iPAddress.create).toHaveBeenCalledWith(
@@ -753,7 +748,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
       // Address is undefined/empty
       await service.createIp({
         subnetId: 'sub-ac-130',
-        hostname: 'auto-allocated-host',
       });
 
       // Should automatically select 10.232.130.3
@@ -818,7 +812,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
         {
           id: 'ip-1',
           address: '10.232.130.15',
-          hostname: 'reader-01',
         },
       ];
 

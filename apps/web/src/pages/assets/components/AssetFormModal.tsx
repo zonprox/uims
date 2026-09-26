@@ -5,7 +5,6 @@ import {
   Form,
   type FormInstance,
   Input,
-  InputNumber,
   Modal,
   Row,
   Select,
@@ -217,7 +216,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
           model: editingAsset.model,
           categoryId: resolvedCatId,
           status: editingAsset.status,
-          purchasePrice: editingAsset.purchasePrice,
           locationId: editingAsset.locationId,
           departmentId: editingAsset.departmentId,
           assignedToId: editingAsset.assignedToId,
@@ -254,11 +252,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item
-                label="Serial Number"
-                name="serialNumber"
-                rules={[{ required: true, message: 'Serial number is required' }]}
-              >
+              <Form.Item label="Serial Number" name="serialNumber">
                 <Input placeholder="e.g. C02G8392MD6R" />
               </Form.Item>
             </Col>
@@ -291,7 +285,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
           </Row>
 
           <Row gutter={14}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 label="Category"
                 name="categoryId"
@@ -309,14 +303,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item label="Status" name="status" rules={[{ required: true }]}>
                 <Select options={STATUS_OPTIONS} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Purchase Price ($)" name="purchasePrice">
-                <InputNumber style={{ width: '100%' }} prefix="$" />
               </Form.Item>
             </Col>
           </Row>

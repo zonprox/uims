@@ -643,7 +643,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       const partialIp: IPAddress = {
         id: 'ip-partial-1',
         address: '10.10.10.50',
-        hostname: 'edge-dev.uims.lan',
         status: 'ASSIGNED',
         switchPort: {
           id: 'port-unracked',
@@ -722,7 +721,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
         assignedEmail: 'admin@youngonevn.com',
         location: 'Datacenter',
         purchaseDate: '2025-01-01',
-        purchasePrice: 10000,
         warrantyExpiry: '2028-01-01',
         networkConnectivity: {
           upstreamSwitch: 'CORE-SW01',

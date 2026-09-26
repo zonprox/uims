@@ -64,7 +64,6 @@ export interface SubnetQueryDto {
 
 export interface CreateIPAddressDto {
   address?: string;
-  hostname?: string | null;
   macAddress?: string | null;
   vendor?: string | null;
   deviceType?: string | null;
@@ -139,7 +138,11 @@ export interface CreateSwitchDto {
   firmwareVersion?: string | null;
   role?: SwitchRole | `${SwitchRole}`;
   status?: SwitchStatus | `${SwitchStatus}`;
-  totalPorts?: number;
+  totalPorts?: number; // Strictly even integer [2, 48], default 24
+  uplinkPorts?: number | null; // Dedicated RJ45 uplink count [0, 8], default 2
+  fiberPorts?: number | null; // Dedicated SFP/SFP+ fiber count [0, 8], default 2
+  uplinkSpeed?: string | null; // '1 Gbps' | '2.5 Gbps' | '10 Gbps'
+  fiberSpeed?: string | null; // '1 Gbps' | '10 Gbps'
   rackId?: string | null;
   rackPosition?: number | null;
   rackHeight?: number;

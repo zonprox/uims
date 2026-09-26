@@ -129,7 +129,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       id: 'ip-1',
       address: '10.232.10.10',
       ip: '10.232.10.10',
-      hostname: 'bsl-srv-app01.uims.lan',
       macAddress: '00:1B:44:11:3A:B7',
       mac: '00:1B:44:11:3A:B7',
       vendor: 'Cisco Systems',
@@ -152,7 +151,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
         serialNumber: 'FCH2144V0AB',
         location: vlans[0].location,
         purchaseDate: '2025-01-01',
-        purchaseCost: 4500,
         warrantyExpiry: '2028-01-01',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
@@ -164,7 +162,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       id: 'ip-2',
       address: '10.232.130.15',
       ip: '10.232.130.15',
-      hostname: 'bsl-fp-gate02.uims.lan',
       macAddress: 'BC:5E:CD:99:88:77',
       mac: 'BC:5E:CD:99:88:77',
       vendor: 'Hikvision',
@@ -211,7 +208,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       assignedEmail: 'alex.chen@uims.internal',
       location: 'BSL Factory 1',
       purchaseDate: '2025-01-01',
-      purchasePrice: 4500,
       warrantyExpiry: '2028-01-01',
     },
   ];
@@ -450,7 +446,6 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
 
     // Verify IP table columns
     expect(container.textContent).toContain('10.232.10.10');
-    expect(container.textContent).toContain('bsl-srv-app01.uims.lan');
     expect(container.textContent).toContain('Cisco Systems');
     expect(container.textContent).toContain('UCS C240 M5');
     expect(container.textContent).toContain('AST-SRV-001');
@@ -461,7 +456,7 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
     expect(container.textContent).toContain('DS-K1T671MF');
   });
 
-  it('filters IP allocations when searching by hostname or vendor', async () => {
+  it('filters IP allocations when searching by vendor', async () => {
     await renderComponent();
 
     const searchInput = container.querySelector(

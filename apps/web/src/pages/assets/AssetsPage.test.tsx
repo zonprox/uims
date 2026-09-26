@@ -27,7 +27,6 @@ const { mockAssets, mockStats } = vi.hoisted(() => {
       locationPath: 'Global HQ > NY Office > Floor 4',
       department: 'Engineering',
       purchaseDate: '2026-01-15',
-      purchasePrice: 3499,
       warrantyExpiry: '2029-01-15',
     },
     {
@@ -43,7 +42,6 @@ const { mockAssets, mockStats } = vi.hoisted(() => {
       assignedEmail: '',
       location: 'Warehouse B',
       purchaseDate: '2025-11-20',
-      purchasePrice: 2899,
       warrantyExpiry: '2028-11-20',
     },
   ];
@@ -68,7 +66,7 @@ vi.mock('../../services/assets.service', () => ({
           (a) =>
             a.tag.toLowerCase().includes(query) ||
             a.name.toLowerCase().includes(query) ||
-            a.serialNumber.toLowerCase().includes(query),
+            a.serialNumber?.toLowerCase().includes(query),
         );
         return Promise.resolve(filtered);
       }

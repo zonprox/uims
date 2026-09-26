@@ -75,7 +75,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     ipAddress: {
       id: 'ip-1',
       address: '10.232.10.10',
-      hostname: 'bsl-srv-app01.uims.lan',
       status: 'ASSIGNED',
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
@@ -145,7 +144,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     {
       id: 'ip-1',
       address: '10.232.10.10',
-      hostname: 'bsl-srv-app01.uims.lan',
       macAddress: '00:1B:44:11:3A:B7',
       vendor: 'Dell Inc.',
       deviceType: 'Server',
@@ -159,7 +157,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     {
       id: 'ip-2',
       address: '10.232.10.20',
-      hostname: 'bsl-unassigned-host',
       status: 'AVAILABLE',
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
@@ -188,7 +185,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     location: 'BSL Datacenter > Room 101',
     department: 'Infrastructure & Ops',
     purchaseDate: '2025-03-15',
-    purchasePrice: 12500,
     warrantyExpiry: '2028-03-15',
     networkConnectivity: {
       upstreamSwitch: 'BSL-CORE-SW01',
@@ -215,7 +211,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     assignedEmail: 'alice.smith@youngonevn.com',
     location: 'Office Floor 2',
     purchaseDate: '2025-01-01',
-    purchasePrice: 1500,
     warrantyExpiry: '2027-01-01',
   };
 

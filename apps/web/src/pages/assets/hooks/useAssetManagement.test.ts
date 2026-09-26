@@ -20,7 +20,6 @@ describe('useAssetManagement helpers', () => {
       assignedTo: 'Marcus Vance',
       location: 'NY Office - Floor 4',
       purchaseDate: now,
-      purchasePrice: 2499,
       warrantyExpiry: future,
       notes: 'Dock included. Assigned to senior developer.',
     });
@@ -41,7 +40,6 @@ describe('useAssetManagement helpers', () => {
       location: 'NY Office - Floor 4',
       locationId: undefined,
       purchaseDate: '2026-01-15',
-      purchasePrice: 2499,
       warrantyExpiry: '2029-01-15',
       notes: 'Dock included. Assigned to senior developer.',
     });
@@ -106,7 +104,6 @@ describe('useAssetManagement helpers', () => {
       department: 'IT Infrastructure',
       departmentId: 'dept-infra-01',
       purchaseDate: '2026-02-10',
-      purchasePrice: 2200,
       warrantyExpiry: '2029-02-10',
       notes: 'Primary core switch in Rack 04',
     };

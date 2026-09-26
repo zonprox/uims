@@ -98,7 +98,6 @@ describe('Asset Specifications Removal & Simplified Notes View', () => {
         assignedEmail: 'netops@youngonevn.com',
         location: 'Data Center Rack 02',
         purchaseDate: '2026-01-10',
-        purchasePrice: 4200,
         warrantyExpiry: '2029-01-10',
         notes: 'Primary core switch with 48x 1GbE PoE+ ports.',
       };
@@ -139,7 +138,6 @@ describe('Asset Specifications Removal & Simplified Notes View', () => {
         assignedEmail: '',
         location: 'Storage Room',
         purchaseDate: '2026-01-01',
-        purchasePrice: 50,
         warrantyExpiry: '2027-01-01',
       };
 
@@ -170,7 +168,6 @@ describe('Asset Specifications Removal & Simplified Notes View', () => {
         assignedEmail: 'marcus@youngonevn.com',
         location: 'NY Office',
         purchaseDate: '2026-01-15',
-        purchasePrice: 3499,
         warrantyExpiry: '2029-01-15',
         notes: '64GB RAM, 1TB SSD, macOS Sequoia',
       };
@@ -246,7 +243,6 @@ describe('Asset Specifications Removal & Simplified Notes View', () => {
         assignedEmail: 'net@youngonevn.com',
         location: 'DC-01',
         purchaseDate: '2026-03-01',
-        purchasePrice: 5100,
         warrantyExpiry: '2029-03-01',
         notes: 'Mist AI Cloud Managed switch with 1440W PoE++',
       };

@@ -297,7 +297,6 @@ export function useNetworkManagement(
       setEditingIp(ip);
       form.setFieldsValue({
         address: ip.address,
-        hostname: ip.hostname,
         macAddress: ip.macAddress,
         vendor: ip.vendor,
         deviceType: ip.deviceType || 'Workstation',

@@ -139,7 +139,6 @@ export interface DbIpAddress {
   locationId: string | null;
   assetId: string | null;
   status: IPStatus;
-  hostname: string | null;
   macAddress: string | null;
   description: string | null;
   createdAt: Date;
@@ -575,20 +574,25 @@ export class InMemoryNetworkEngine {
       };
       this.ports.push(port);
     }
-    // Generate 4 standard SFP+ 10G uplink cages
-    for (let j = 1; j <= 4; j++) {
+    // Generate optical uplink cages (2 SFP for <=16 ports, 4 SFP+ for >16 ports or portCount === 0)
+    const isSmallSwitch = portCount > 0 && portCount <= 16;
+    const uplinkCount = isSmallSwitch ? 2 : 4;
+    const formFactor = isSmallSwitch ? 'SFP_1G' : 'SFP_PLUS_10G';
+    const speed = isSmallSwitch ? '1 Gbps' : '10 Gbps';
+
+    for (let j = 1; j <= uplinkCount; j++) {
       const portNum = portCount + j;
       const port: DbSwitchPort = {
         id: `port-${switchId}-${portNum}`,
         switchId,
         portNumber: portNum,
         name: `Te1/0/${portNum}`,
-        formFactor: 'SFP_PLUS_10G',
+        formFactor,
         poeEnabled: false,
         poeWatts: null,
         adminStatus: 'UP',
         operStatus: 'DOWN',
-        speed: '10 Gbps',
+        speed,
         duplex: 'Full',
         vlanId: null,
         mode: 'TRUNK',
@@ -1341,7 +1345,6 @@ describe('Network Modernization E2E Specification Suite', () => {
           locationId: null,
           assetId: null,
           status: 'ASSIGNED',
-          hostname: 'sw-core-01.uims.lan',
           macAddress: '00:1B:44:11:3A:01',
           description: 'Switch Management Interface',
           createdAt: now,
@@ -1559,7 +1562,6 @@ describe('Network Modernization E2E Specification Suite', () => {
           locationId: null,
           assetId: null,
           status: 'ASSIGNED',
-          hostname: 'app-srv-01',
           macAddress: '00:1B:44:11:3A:55',
           description: null,
           createdAt: now,
@@ -1653,7 +1655,6 @@ describe('Network Modernization E2E Specification Suite', () => {
           locationId: null,
           assetId: asset.id,
           status: 'ASSIGNED',
-          hostname: 'web01.uims.lan',
           macAddress: '00:1B:44:11:AA:BB',
           description: null,
           createdAt: now,
@@ -1696,7 +1697,6 @@ describe('Network Modernization E2E Specification Suite', () => {
           locationId: null,
           assetId: null,
           status: 'ASSIGNED',
-          hostname: null,
           macAddress: null,
           description: null,
           createdAt: now,
@@ -1950,6 +1950,30 @@ describe('Network Modernization E2E Specification Suite', () => {
         });
         expect(engine.getSwitchPorts(zeroPort.id)).toHaveLength(4); // 4 uplinks only
 
+        const eightPortSw = engine.createSwitch({
+          name: '8P + 2 Uplinks',
+          model: 'C1000-8P',
+          vendor: 'Cisco',
+          totalPorts: 8,
+        });
+        expect(engine.getSwitchPorts(eightPortSw.id)).toHaveLength(10); // 8 RJ45 + 2 SFP uplinks
+        const eightPortUplinks = engine
+          .getSwitchPorts(eightPortSw.id)
+          .filter((p) => p.formFactor === 'SFP_1G');
+        expect(eightPortUplinks).toHaveLength(2);
+
+        const sixteenPortSw = engine.createSwitch({
+          name: '16P + 2 Uplinks',
+          model: 'C1000-16P',
+          vendor: 'Cisco',
+          totalPorts: 16,
+        });
+        expect(engine.getSwitchPorts(sixteenPortSw.id)).toHaveLength(18); // 16 RJ45 + 2 SFP uplinks
+        const sixteenPortUplinks = engine
+          .getSwitchPorts(sixteenPortSw.id)
+          .filter((p) => p.formFactor === 'SFP_1G');
+        expect(sixteenPortUplinks).toHaveLength(2);
+
         const largeSw = engine.createSwitch({
           name: '48P + 4 Uplinks',
           model: 'C9300-48UXM',
@@ -2132,7 +2156,6 @@ describe('Network Modernization E2E Specification Suite', () => {
           locationId: null,
           assetId: null,
           status: 'AVAILABLE',
-          hostname: null,
           macAddress: null,
           description: null,
           createdAt: now,
@@ -2242,7 +2265,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         locationId: null,
         assetId: null,
         status: 'ASSIGNED',
-        hostname: 'app-srv-01',
         macAddress: '00:1B:44:11:3A:50',
         description: null,
         createdAt: now,
@@ -2314,7 +2336,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         locationId: null,
         assetId: null,
         status: 'ASSIGNED',
-        hostname: null,
         macAddress: null,
         description: null,
         createdAt: now,
@@ -2351,7 +2372,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         locationId: null,
         assetId: null,
         status: 'ASSIGNED',
-        hostname: null,
         macAddress: null,
         description: null,
         createdAt: now,
@@ -2568,7 +2588,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         locationId: null,
         assetId: null,
         status: 'ASSIGNED',
-        hostname: null,
         macAddress: null,
         description: null,
         createdAt: now,
@@ -2582,7 +2601,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         locationId: null,
         assetId: null,
         status: 'AVAILABLE',
-        hostname: null,
         macAddress: null,
         description: null,
         createdAt: now,
@@ -2667,7 +2685,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         locationId: null,
         assetId: null,
         status: 'ASSIGNED',
-        hostname: null,
         macAddress: null,
         description: null,
         createdAt: now,
@@ -2719,7 +2736,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         locationId: null,
         assetId: null,
         status: 'AVAILABLE',
-        hostname: null,
         macAddress: null,
         description: null,
         createdAt: now,
@@ -2856,7 +2872,6 @@ describe('Network Modernization E2E Specification Suite', () => {
           locationId: 'loc-f1',
           assetId: null,
           status: 'ASSIGNED',
-          hostname: `f1-ws-${i}.uims.lan`,
           macAddress: `00:1B:44:F1:00:${i.toString(16).padStart(2, '0')}`,
           description: `Sewing Line ${Math.ceil(i / 5)} Station`,
           createdAt: now,

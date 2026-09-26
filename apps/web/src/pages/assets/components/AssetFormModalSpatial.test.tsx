@@ -324,7 +324,6 @@ describe('AssetFormModal Spatial TreeSelect & Orthogonal Department Integration'
         department: 'Quality Assurance',
         departmentId: 'dept-qa-uuid',
         purchaseDate: '2026-03-01',
-        purchasePrice: 650,
         warrantyExpiry: '2029-03-01',
       };
 

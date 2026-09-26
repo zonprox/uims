@@ -321,7 +321,6 @@ describe('NetworkService', () => {
 
       const ip = await service.createIp({
         address: '10.232.130.15',
-        hostname: 'BSL-AC-Reader-01',
         macAddress: '44:19:B6:11:22:33', // Hikvision OUI
         status: IPStatus.ASSIGNED,
       });
@@ -338,7 +337,6 @@ describe('NetworkService', () => {
     it('createIp throws BadRequestException when address is omitted and cannot be allocated', async () => {
       await expect(
         service.createIp({
-          hostname: 'Orphan-Host',
           macAddress: '44:19:B6:11:22:33',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -348,7 +346,6 @@ describe('NetworkService', () => {
       mockPrisma.iPAddress.findUnique.mockResolvedValue({
         id: 'ip-1',
         address: '10.232.130.15',
-        hostname: 'BSL-AC-Reader-01',
         status: 'USED',
         subnetId: 'sub-130',
       });
@@ -356,7 +353,6 @@ describe('NetworkService', () => {
       mockPrisma.iPAddress.update.mockResolvedValue({
         id: 'ip-1',
         address: '10.232.130.15',
-        hostname: 'BSL-AC-Reader-01',
         status: 'RESERVED',
         subnetId: 'sub-130',
         createdAt: new Date(),
@@ -902,10 +898,162 @@ describe('NetworkService', () => {
       expect(created.name).toBe('SW-ACC-01');
       expect(mockPrisma.switchPort.createMany).toHaveBeenCalled();
       const callArgs = mockPrisma.switchPort.createMany.mock.calls[0][0];
-      // 48 RJ45 + 4 SFP = 52 ports generated
+      // 48 RJ45 access + 2 RJ45 uplink + 2 SFP fiber = 52 ports generated
       expect(callArgs.data).toHaveLength(52);
       expect(callArgs.data[0].name).toBe('Gi1/0/1');
-      expect(callArgs.data[48].name).toBe('Te1/0/49');
+      expect(callArgs.data[0].mode).toBe('ACCESS');
+      expect(callArgs.data[48].name).toBe('Uplink 1');
+      expect(callArgs.data[48].mode).toBe('TRUNK');
+      expect(callArgs.data[50].name).toBe('SFP 1');
+      expect(callArgs.data[50].mode).toBe('TRUNK');
+    });
+
+    it('createSwitch auto-generates 8 RJ45 access, 2 RJ45 uplinks, and 2 SFP optical ports for 8-port switch', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
+      mockPrisma.networkSwitch.create.mockResolvedValue({ id: 'sw-8p' });
+      mockPrisma.switchPort.createMany.mockResolvedValue({ count: 12 });
+      mockPrisma.networkSwitch.findFirst.mockResolvedValue({
+        id: 'sw-8p',
+        name: 'SW-EDGE-08',
+        model: 'C1000-8P',
+        vendor: 'Cisco',
+        role: 'ACCESS',
+        status: 'ONLINE',
+        totalPorts: 8,
+        rackPosition: null,
+        rackHeight: 1,
+        rackId: null,
+        rack: null,
+        ipAddress: null,
+        asset: null,
+        location: null,
+        ports: [],
+        _count: { ports: 12 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const created = await service.createSwitch({
+        name: 'SW-EDGE-08',
+        model: 'C1000-8P',
+        vendor: 'Cisco',
+        totalPorts: 8,
+        autoGeneratePorts: true,
+      });
+
+      expect(created.name).toBe('SW-EDGE-08');
+      expect(mockPrisma.switchPort.createMany).toHaveBeenCalled();
+      const callArgs = mockPrisma.switchPort.createMany.mock.calls[0][0];
+      // 8 RJ45 access + 2 RJ45 uplinks + 2 SFP fiber = 12 ports generated
+      expect(callArgs.data).toHaveLength(12);
+      expect(callArgs.data[0].name).toBe('Gi1/0/1');
+      expect(callArgs.data[0].formFactor).toBe('RJ45_1G');
+      expect(callArgs.data[8].name).toBe('Uplink 1');
+      expect(callArgs.data[8].formFactor).toBe('RJ45_1G');
+      expect(callArgs.data[8].mode).toBe('TRUNK');
+      expect(callArgs.data[10].name).toBe('SFP 1');
+      expect(callArgs.data[10].formFactor).toBe('SFP_PLUS_10G');
+      expect(callArgs.data[10].speed).toBe('10 Gbps');
+      expect(callArgs.data[10].mode).toBe('TRUNK');
+    });
+
+    it('createSwitch auto-generates 16 RJ45 access, 2 RJ45 uplinks, and 2 SFP optical ports for 16-port switch', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
+      mockPrisma.networkSwitch.create.mockResolvedValue({ id: 'sw-16p' });
+      mockPrisma.switchPort.createMany.mockResolvedValue({ count: 20 });
+      mockPrisma.networkSwitch.findFirst.mockResolvedValue({
+        id: 'sw-16p',
+        name: 'SW-BRANCH-16',
+        model: 'C1000-16P',
+        vendor: 'Cisco',
+        role: 'ACCESS',
+        status: 'ONLINE',
+        totalPorts: 16,
+        rackPosition: null,
+        rackHeight: 1,
+        rackId: null,
+        rack: null,
+        ipAddress: null,
+        asset: null,
+        location: null,
+        ports: [],
+        _count: { ports: 20 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const created = await service.createSwitch({
+        name: 'SW-BRANCH-16',
+        model: 'C1000-16P',
+        vendor: 'Cisco',
+        totalPorts: 16,
+        autoGeneratePorts: true,
+      });
+
+      expect(created.name).toBe('SW-BRANCH-16');
+      expect(mockPrisma.switchPort.createMany).toHaveBeenCalled();
+      const callArgs = mockPrisma.switchPort.createMany.mock.calls[0][0];
+      // 16 RJ45 access + 2 RJ45 uplinks + 2 SFP fiber = 20 ports generated
+      expect(callArgs.data).toHaveLength(20);
+      expect(callArgs.data[0].name).toBe('Gi1/0/1');
+      expect(callArgs.data[0].formFactor).toBe('RJ45_1G');
+      expect(callArgs.data[16].name).toBe('Uplink 1');
+      expect(callArgs.data[16].formFactor).toBe('RJ45_1G');
+      expect(callArgs.data[16].mode).toBe('TRUNK');
+      expect(callArgs.data[18].name).toBe('SFP 1');
+      expect(callArgs.data[18].formFactor).toBe('SFP_PLUS_10G');
+      expect(callArgs.data[18].speed).toBe('10 Gbps');
+    });
+
+    it('createSwitch supports custom port configuration with custom speeds', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
+      mockPrisma.networkSwitch.create.mockResolvedValue({ id: 'sw-custom' });
+      mockPrisma.switchPort.createMany.mockResolvedValue({ count: 6 });
+      mockPrisma.networkSwitch.findFirst.mockResolvedValue({
+        id: 'sw-custom',
+        name: 'SW-CUSTOM',
+        model: 'Custom-6P',
+        vendor: 'Aruba',
+        role: 'ACCESS',
+        status: 'ONLINE',
+        totalPorts: 4,
+        uplinkPorts: 1,
+        fiberPorts: 1,
+        rackPosition: null,
+        rackHeight: 1,
+        rackId: null,
+        rack: null,
+        ipAddress: null,
+        asset: null,
+        location: null,
+        ports: [],
+        _count: { ports: 6 },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const created = await service.createSwitch({
+        name: 'SW-CUSTOM',
+        model: 'Custom-6P',
+        vendor: 'Aruba',
+        totalPorts: 4,
+        uplinkPorts: 1,
+        fiberPorts: 1,
+        uplinkSpeed: '2.5 Gbps',
+        fiberSpeed: '1 Gbps',
+        autoGeneratePorts: true,
+      });
+
+      expect(created.name).toBe('SW-CUSTOM');
+      expect(mockPrisma.switchPort.createMany).toHaveBeenCalled();
+      const callArgs = mockPrisma.switchPort.createMany.mock.calls[0][0];
+      // 4 access + 1 uplink + 1 fiber = 6 ports
+      expect(callArgs.data).toHaveLength(6);
+      expect(callArgs.data[4].name).toBe('Uplink 1');
+      expect(callArgs.data[4].speed).toBe('2.5 Gbps');
+      expect(callArgs.data[5].name).toBe('SFP 1');
+      expect(callArgs.data[5].formFactor).toBe('SFP_1G');
+      expect(callArgs.data[5].speed).toBe('1 Gbps');
     });
 
     it('createSwitch rejects duplicate serial number', async () => {

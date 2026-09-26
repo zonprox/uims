@@ -33,7 +33,6 @@ export interface Asset {
   model?: string | null;
   manufacturer?: string | null;
   purchaseDate?: string | null;
-  purchaseCost?: number | null;
   warrantyExpiry?: string | null;
   assignedToId?: string | null;
   assignedTo?: DirectoryUser | null;
@@ -59,7 +58,6 @@ export interface Asset {
   notes?: string | null;
   // UI legacy aliases
   tag?: string;
-  purchasePrice?: number | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -20,7 +20,7 @@ interface ParsedRawRecord {
   sheetName: string;
   rowNumber: number;
   ip: string;
-  hostname: string;
+  deviceName?: string;
   macAddress?: string;
   vendor?: string;
   model?: string;
@@ -233,13 +233,13 @@ function normalizeMac(rawMac?: string | null): { mac?: string; serial?: string }
 
 // Determine enterprise device type
 function classifyDeviceType(
-  hostname?: string,
+  deviceName?: string,
   model?: string,
   sheetName?: string,
   remark?: string,
 ): string {
   const combined =
-    `${hostname || ''} ${model || ''} ${sheetName || ''} ${remark || ''}`.toLowerCase();
+    `${deviceName || ''} ${model || ''} ${sheetName || ''} ${remark || ''}`.toLowerCase();
 
   if (/core|switch|c9300|c1300|c1200|omniswitch|planet/i.test(combined)) return 'Switch';
   if (/nvr|server|poweredge|synology|nas|pbx|tda-600/i.test(combined)) return 'Server';
@@ -314,7 +314,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
   });
   const oobIds: string[] = [];
   for (const ipRec of existingIps) {
-    if (!ipRec.subnet) continue;
+    if (!ipRec.subnet?.networkAddress || !ipRec.subnet?.netmask) continue;
     const ipL = ipToLong(ipRec.address);
     const netL = ipToLong(ipRec.subnet.networkAddress);
     const maskL = ipToLong(ipRec.subnet.netmask);
@@ -657,7 +657,8 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       else if (h === 'gateway' || h === 'default gateway' || h === 'default gateway (new)')
         colMap['gateway'] = colNum;
       else if (h.includes('mac')) colMap['mac'] = colNum;
-      else if (h === 'hostname' || h === 'camera name' || h === 'name') colMap['hostname'] = colNum;
+      else if (h.includes('host') || h === 'device name' || h === 'camera name' || h === 'name')
+        colMap['deviceName'] = colNum;
       else if (h === 'model' || h === 'camera model') colMap['model'] = colNum;
       else if (h.includes('brand') || h.includes('manufacturer')) colMap['manufacturer'] = colNum;
       else if (h === 'location' || h === 'area') colMap['location'] = colNum;
@@ -698,7 +699,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
     for (let r = headerRow + 1; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
       let ip = colMap['ip'] ? getCellValue(row.getCell(colMap['ip'])) : '';
-      let hostname = colMap['hostname'] ? getCellValue(row.getCell(colMap['hostname'])) : '';
+      let deviceName = colMap['deviceName'] ? getCellValue(row.getCell(colMap['deviceName'])) : '';
       let rawMac = colMap['mac'] ? getCellValue(row.getCell(colMap['mac'])) : '';
       let model = colMap['model'] ? getCellValue(row.getCell(colMap['model'])) : '';
       let manufacturer = colMap['manufacturer']
@@ -712,7 +713,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       let statusStr = colMap['status'] ? getCellValue(row.getCell(colMap['status'])) : '';
 
       // Skip non-IP SaaS account rows in VLAN 100 without IP
-      if (!ip && ws.name === 'VLAN 100' && (account || password || hostname)) {
+      if (!ip && ws.name === 'VLAN 100' && (account || password || deviceName)) {
         continue;
       }
 
@@ -765,12 +766,12 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
       if (!serial && parsedSerial) serial = parsedSerial;
 
       // Classify device type
-      const deviceType = classifyDeviceType(hostname, model, ws.name, remark);
+      const deviceType = classifyDeviceType(deviceName, model, ws.name, remark);
 
       // Determine status
       let status: IPStatus = 'ASSIGNED';
       if (/repair|hỏng|bảo trì/i.test(statusStr)) status = 'RESERVED';
-      else if (!hostname && !model && (ws.name === 'VLAN 98' || ws.name === 'VLAN 99')) {
+      else if (!deviceName && !model && (ws.name === 'VLAN 98' || ws.name === 'VLAN 99')) {
         status = 'AVAILABLE';
       }
 
@@ -784,7 +785,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
         sheetName: ws.name,
         rowNumber: r,
         ip,
-        hostname: hostname || `${deviceType}-${ip.split('.').pop()}`,
+        deviceName: deviceName || `${deviceType}-${ip.split('.').pop()}`,
         macAddress: mac,
         vendor: manufacturer || undefined,
         model: model || undefined,
@@ -813,10 +814,10 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
   for (const rec of rawRecords) {
     // Special Anomaly Precedence 1: Core Switch 9300-01 vs 9300-02 at .254
     if (rec.vlanNumber === 129 && rec.ip === '10.232.129.254') {
-      if (rec.hostname.includes('01')) {
+      if (rec.deviceName?.includes('01')) {
         rec.ip = '10.232.129.252';
         rec.description = 'Primary Core Switch 9300-01 (Active) / Shared VIP .254';
-      } else if (rec.hostname.includes('02')) {
+      } else if (rec.deviceName?.includes('02')) {
         rec.ip = '10.232.129.253';
         rec.description = 'Secondary Core Switch 9300-02 (Standby) / Shared VIP .254';
       }
@@ -826,14 +827,14 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
     if (
       rec.vlanNumber === 135 &&
       rec.ip === '10.232.135.79' &&
-      (rec.hostname?.includes('M211dw') || rec.model?.includes('M211dw'))
+      (rec.deviceName?.includes('M211dw') || rec.model?.includes('M211dw'))
     ) {
       rec.ip = '10.232.135.80';
       rec.description = `${rec.description || ''} [Reassigned from duplicate .79 in source]`.trim();
     }
 
     // Special Anomaly Precedence 3: PBX vs IVMS4200 at 10.232.100.5 (VLAN 100)
-    if (rec.vlanNumber === 100 && rec.ip === '10.232.100.5' && rec.hostname.includes('IVMS')) {
+    if (rec.vlanNumber === 100 && rec.ip === '10.232.100.5' && rec.deviceName?.includes('IVMS')) {
       rec.ip = '10.232.100.50';
       rec.description = `${rec.description || ''} [IVMS-4200 Access Control Server (Client Soft)]`;
     }
@@ -849,6 +850,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
         deduplicatedRecords.set(key, rec);
       } else {
         // Merge attributes
+        if (!existing.deviceName && rec.deviceName) existing.deviceName = rec.deviceName;
         if (!existing.macAddress && rec.macAddress) existing.macAddress = rec.macAddress;
         if (!existing.serialNumber && rec.serialNumber) existing.serialNumber = rec.serialNumber;
         if (!existing.model && rec.model) existing.model = rec.model;
@@ -892,7 +894,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
           const asset = await tx.asset.upsert({
             where: { assetTag },
             update: {
-              name: rec.hostname,
+              name: rec.deviceName || `${rec.deviceType}-${rec.ip.split('.').pop()}`,
               model: rec.model,
               manufacturer: rec.vendor,
               serialNumber: rec.serialNumber,
@@ -901,7 +903,7 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
             },
             create: {
               assetTag,
-              name: rec.hostname,
+              name: rec.deviceName || `${rec.deviceType}-${rec.ip.split('.').pop()}`,
               model: rec.model,
               manufacturer: rec.vendor,
               serialNumber: rec.serialNumber,
@@ -923,7 +925,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
             },
           },
           update: {
-            hostname: rec.hostname,
             macAddress: rec.macAddress,
             vendor: rec.vendor,
             deviceType: rec.deviceType,
@@ -940,7 +941,6 @@ export async function importNetworkExcel(prismaClient?: PrismaClient) {
           },
           create: {
             address: rec.ip,
-            hostname: rec.hostname,
             macAddress: rec.macAddress,
             vendor: rec.vendor,
             deviceType: rec.deviceType,

@@ -75,7 +75,6 @@ export const subnetQuerySchema = z.object({
 
 export const createIpAddressSchema = z.object({
   address: z.string().regex(ipv4Regex, 'Invalid IPv4 address').optional(),
-  hostname: z.string().max(255).nullable().optional(),
   macAddress: z.string().max(50).nullable().optional(),
   vendor: z.string().max(100).nullable().optional(),
   deviceType: z.string().max(100).nullable().optional(),
@@ -150,13 +149,37 @@ export const createSwitchSchema = z.object({
   firmwareVersion: z.string().max(100).nullable().optional(),
   role: z.nativeEnum(SwitchRole).optional(),
   status: z.nativeEnum(SwitchStatus).optional(),
-  totalPorts: z.number().int().min(1).max(128).default(24).optional(),
+  totalPorts: z
+    .number()
+    .int('Total ports must be an integer')
+    .min(2, 'Total ports must be at least 2')
+    .max(48, 'Total ports cannot exceed 48')
+    .refine((v) => v % 2 === 0, { message: 'Total ports must be an even number' })
+    .default(24)
+    .optional(),
+  uplinkPorts: z
+    .number()
+    .int('Uplink ports must be an integer')
+    .min(0, 'Uplink ports cannot be negative')
+    .max(8, 'Uplink ports cannot exceed 8')
+    .default(2)
+    .optional(),
+  fiberPorts: z
+    .number()
+    .int('Fiber ports must be an integer')
+    .min(0, 'Fiber ports cannot be negative')
+    .max(8, 'Fiber ports cannot exceed 8')
+    .default(2)
+    .optional(),
+  uplinkSpeed: z.string().nullable().optional(),
+  fiberSpeed: z.string().nullable().optional(),
   rackId: uuidSchema.nullable().optional(),
   rackPosition: z.number().int().min(1).max(100).nullable().optional(),
   rackHeight: z.number().int().min(1).max(10).default(1).optional(),
   assetId: uuidSchema.nullable().optional(),
   locationId: uuidSchema.nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  autoGeneratePorts: z.boolean().optional(),
 });
 
 export const updateSwitchSchema = createSwitchSchema.partial();

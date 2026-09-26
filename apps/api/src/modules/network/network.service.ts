@@ -330,7 +330,6 @@ export class NetworkService {
     if (query?.search) {
       where.OR = [
         { address: { contains: query.search, mode: 'insensitive' } },
-        { hostname: { contains: query.search, mode: 'insensitive' } },
         { macAddress: { contains: query.search, mode: 'insensitive' } },
         { vendor: { contains: query.search, mode: 'insensitive' } },
       ];
@@ -470,7 +469,6 @@ export class NetworkService {
     const created = await this.prisma.iPAddress.create({
       data: {
         address: targetIp,
-        hostname: data.hostname,
         macAddress: normalizedMac,
         vendor: vendor || 'Generic Device',
         deviceType: data.deviceType || 'Workstation',
@@ -532,7 +530,6 @@ export class NetworkService {
 
     const updatePayload: Prisma.IPAddressUpdateInput = {
       address: data.address,
-      hostname: data.hostname,
       macAddress: normalizedMac,
       vendor,
       deviceType: data.deviceType,
@@ -1074,6 +1071,33 @@ export class NetworkService {
       throw new BadRequestException('Switch name, model, and vendor are required.');
     }
 
+    const totalPorts = data.totalPorts ?? 24;
+    if (totalPorts < 2 || totalPorts > 48 || totalPorts % 2 !== 0) {
+      throw new BadRequestException(
+        totalPorts % 2 !== 0
+          ? 'Total ports must be an even number'
+          : totalPorts < 2
+            ? 'Total ports must be at least 2'
+            : 'Total ports cannot exceed 48',
+      );
+    }
+
+    const uplinkPorts =
+      data.uplinkPorts !== undefined && data.uplinkPorts !== null ? data.uplinkPorts : 2;
+    if (uplinkPorts < 0 || uplinkPorts > 8) {
+      throw new BadRequestException(
+        uplinkPorts < 0 ? 'Uplink ports cannot be negative' : 'Uplink ports cannot exceed 8',
+      );
+    }
+
+    const fiberPorts =
+      data.fiberPorts !== undefined && data.fiberPorts !== null ? data.fiberPorts : 2;
+    if (fiberPorts < 0 || fiberPorts > 8) {
+      throw new BadRequestException(
+        fiberPorts < 0 ? 'Fiber ports cannot be negative' : 'Fiber ports cannot exceed 8',
+      );
+    }
+
     if (data.serialNumber) {
       const existing = await this.prisma.networkSwitch.findUnique({
         where: { serialNumber: data.serialNumber },
@@ -1090,8 +1114,6 @@ export class NetworkService {
       await this.validateRackMount(data.rackId, data.rackPosition, rackHeight);
     }
 
-    const totalPorts = data.totalPorts ?? 24;
-
     const created = await this.prisma.networkSwitch.create({
       data: {
         name: data.name,
@@ -1104,6 +1126,8 @@ export class NetworkService {
         role: (data.role as SwitchRole) || 'ACCESS',
         status: (data.status as SwitchStatus) || 'ONLINE',
         totalPorts,
+        uplinkPorts,
+        fiberPorts,
         rackId: data.rackId || null,
         rackPosition: data.rackPosition ?? null,
         rackHeight,
@@ -1113,18 +1137,32 @@ export class NetworkService {
       },
     });
 
-    if (data.autoGeneratePorts !== false && totalPorts > 0) {
-      await this.generateDefaultPorts(created.id, totalPorts);
+    if (data.autoGeneratePorts !== false && (totalPorts > 0 || uplinkPorts > 0 || fiberPorts > 0)) {
+      await this.generateDefaultPorts(
+        created.id,
+        totalPorts,
+        uplinkPorts,
+        fiberPorts,
+        data.uplinkSpeed,
+        data.fiberSpeed,
+      );
     }
 
     return this.findSwitch(created.id);
   }
 
-  async generateDefaultPorts(switchId: string, portCount: number): Promise<void> {
+  async generateDefaultPorts(
+    switchId: string,
+    totalPorts: number,
+    uplinkPorts: number = 2,
+    fiberPorts: number = 2,
+    uplinkSpeed?: string | null,
+    fiberSpeed?: string | null,
+  ): Promise<void> {
     const portsData: Prisma.SwitchPortCreateManyInput[] = [];
 
-    // Generate standard RJ45 ports (e.g. 24 or 48)
-    for (let i = 1; i <= portCount; i++) {
+    // Bay 1: Standard RJ45 Access Ports (1..totalPorts)
+    for (let i = 1; i <= totalPorts; i++) {
       portsData.push({
         switchId,
         portNumber: i,
@@ -1136,30 +1174,55 @@ export class NetworkService {
         speed: '1 Gbps',
         duplex: 'Full',
         mode: 'ACCESS',
+        description: `Access Port ${i}`,
       });
     }
 
-    // Generate 4 standard SFP+ 10G uplink cages
-    for (let j = 1; j <= 4; j++) {
-      const portNum = portCount + j;
+    // Bay 2: Dedicated RJ45 Uplink Ports (totalPorts + 1 .. totalPorts + uplinkPorts)
+    const resolvedUplinkSpeed = uplinkSpeed || '1 Gbps';
+    for (let u = 1; u <= uplinkPorts; u++) {
+      const portNum = totalPorts + u;
       portsData.push({
         switchId,
         portNumber: portNum,
-        name: `Te1/0/${portNum}`,
-        formFactor: 'SFP_PLUS_10G',
+        name: `Uplink ${u}`,
+        formFactor: 'RJ45_1G',
         poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
-        speed: '10 Gbps',
+        speed: resolvedUplinkSpeed,
         duplex: 'Full',
         mode: 'TRUNK',
-        description: `Uplink ${j}`,
+        description: `RJ45 Uplink ${u}`,
       });
     }
 
-    await this.prisma.switchPort.createMany({
-      data: portsData,
-    });
+    // Bay 3: Dedicated Optical Fiber SFP/SFP+ Cages (totalPorts + uplinkPorts + 1 .. totalPorts + uplinkPorts + fiberPorts)
+    const resolvedFiberSpeed = fiberSpeed || '10 Gbps';
+    const fiberFormFactor = /10\s*G/i.test(resolvedFiberSpeed) ? 'SFP_PLUS_10G' : 'SFP_1G';
+
+    for (let f = 1; f <= fiberPorts; f++) {
+      const portNum = totalPorts + uplinkPorts + f;
+      portsData.push({
+        switchId,
+        portNumber: portNum,
+        name: `SFP ${f}`,
+        formFactor: fiberFormFactor,
+        poeEnabled: false,
+        adminStatus: 'UP',
+        operStatus: 'DOWN',
+        speed: resolvedFiberSpeed,
+        duplex: 'Full',
+        mode: 'TRUNK',
+        description: `Optical Fiber ${fiberFormFactor === 'SFP_PLUS_10G' ? 'SFP+' : 'SFP'} ${f}`,
+      });
+    }
+
+    if (portsData.length > 0) {
+      await this.prisma.switchPort.createMany({
+        data: portsData,
+      });
+    }
   }
 
   async updateSwitch(id: string, data: UpdateSwitchDto) {
@@ -1198,6 +1261,34 @@ export class NetworkService {
       await this.validateRackMount(newRackId, newPos, newHeight, sw.id);
     }
 
+    if (data.totalPorts !== undefined) {
+      if (data.totalPorts < 2 || data.totalPorts > 48 || data.totalPorts % 2 !== 0) {
+        throw new BadRequestException(
+          data.totalPorts % 2 !== 0
+            ? 'Total ports must be an even number'
+            : data.totalPorts < 2
+              ? 'Total ports must be at least 2'
+              : 'Total ports cannot exceed 48',
+        );
+      }
+    }
+
+    if (data.uplinkPorts !== undefined && data.uplinkPorts !== null) {
+      if (data.uplinkPorts < 0 || data.uplinkPorts > 8) {
+        throw new BadRequestException(
+          data.uplinkPorts < 0 ? 'Uplink ports cannot be negative' : 'Uplink ports cannot exceed 8',
+        );
+      }
+    }
+
+    if (data.fiberPorts !== undefined && data.fiberPorts !== null) {
+      if (data.fiberPorts < 0 || data.fiberPorts > 8) {
+        throw new BadRequestException(
+          data.fiberPorts < 0 ? 'Fiber ports cannot be negative' : 'Fiber ports cannot exceed 8',
+        );
+      }
+    }
+
     await this.prisma.networkSwitch.update({
       where: { id },
       data: {
@@ -1211,6 +1302,8 @@ export class NetworkService {
         ...(data.role !== undefined ? { role: data.role as SwitchRole } : {}),
         ...(data.status !== undefined ? { status: data.status as SwitchStatus } : {}),
         ...(data.totalPorts !== undefined ? { totalPorts: data.totalPorts } : {}),
+        ...(data.uplinkPorts !== undefined ? { uplinkPorts: data.uplinkPorts } : {}),
+        ...(data.fiberPorts !== undefined ? { fiberPorts: data.fiberPorts } : {}),
         ...(data.rackId !== undefined ? { rackId: data.rackId } : {}),
         ...(data.rackPosition !== undefined ? { rackPosition: data.rackPosition } : {}),
         ...(data.rackHeight !== undefined ? { rackHeight: data.rackHeight } : {}),
@@ -1700,6 +1793,8 @@ export class NetworkService {
       role: sw.role,
       status: sw.status,
       totalPorts: sw.totalPorts,
+      uplinkPorts: sw.uplinkPorts ?? null,
+      fiberPorts: sw.fiberPorts ?? null,
       rackId: sw.rackId,
       rack: sw.rack ? (sw.rack as unknown as import('@uims/shared-types').NetworkRack) : null,
       rackPosition: sw.rackPosition,
@@ -1808,7 +1903,6 @@ export class NetworkService {
     return {
       id: ip.id,
       address: ip.address,
-      hostname: ip.hostname || 'unnamed-host',
       macAddress: ip.macAddress,
       vendor: ip.vendor || 'Generic',
       subnet: ip.subnet?.cidr || ip.subnet?.name || null,

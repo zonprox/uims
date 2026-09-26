@@ -110,24 +110,16 @@ export class AssetsService {
         }
       }
 
-      const purchaseCost =
-        data.purchasePrice !== undefined
-          ? Number(data.purchasePrice)
-          : data.purchaseCost !== undefined
-            ? Number(data.purchaseCost)
-            : 0;
-
       const created = await tx.asset.create({
         data: {
           assetTag: data.assetTag || data.tag || generateAssetTag(),
           name: data.name,
           manufacturer: data.manufacturer,
           model: data.model,
-          serialNumber: data.serialNumber,
+          serialNumber: data.serialNumber ? data.serialNumber.trim() : null,
           description: data.description || null,
           status,
           purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
-          purchaseCost,
           warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
           categoryId,
           locationId,
@@ -287,10 +279,10 @@ export class AssetsService {
     if (data.description !== undefined) updateData.description = data.description;
     if (data.manufacturer !== undefined) updateData.manufacturer = data.manufacturer;
     if (data.model !== undefined) updateData.model = data.model;
-    if (data.serialNumber !== undefined) updateData.serialNumber = data.serialNumber;
+    if (data.serialNumber !== undefined) {
+      updateData.serialNumber = data.serialNumber ? data.serialNumber.trim() : null;
+    }
     if (data.notes !== undefined) updateData.notes = data.notes;
-    if (data.purchasePrice !== undefined) updateData.purchaseCost = Number(data.purchasePrice);
-    if (data.purchaseCost !== undefined) updateData.purchaseCost = Number(data.purchaseCost);
     if (data.purchaseDate) updateData.purchaseDate = new Date(data.purchaseDate);
     if (data.warrantyExpiry) updateData.warrantyExpiry = new Date(data.warrantyExpiry);
 
@@ -428,7 +420,7 @@ export class AssetsService {
       description: asset.description || '',
       manufacturer: asset.manufacturer || 'Generic',
       model: asset.model || 'Standard',
-      serialNumber: asset.serialNumber || 'N/A',
+      serialNumber: asset.serialNumber || null,
       categoryId: asset.categoryId,
       category: asset.category?.name || 'Laptop',
       status: statusLabel,
@@ -453,8 +445,6 @@ export class AssetsService {
         asset.assignedTo?.organization?.name ||
         null,
       purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
-      purchaseCost: asset.purchaseCost || 0,
-      purchasePrice: asset.purchaseCost || 0,
       warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.toISOString().split('T')[0] : '',
       notes: asset.notes || '',
       createdAt: asset.createdAt ? asset.createdAt.toISOString() : new Date().toISOString(),
