@@ -31,23 +31,37 @@ The monorepo contains a comprehensive suite of unit, integration, and boundary/a
 ### API Configuration ([`apps/api/vitest.config.mts`](file:///home/user/projects/uims/apps/api/vitest.config.mts))
 
 ```typescript
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@uims/shared-types': path.resolve(import.meta.dirname, '../../packages/shared-types/src'),
+      '@uims/shared-validators': path.resolve(
+        import.meta.dirname,
+        '../../packages/shared-validators/src',
+      ),
+      '@uims/shared-utils': path.resolve(import.meta.dirname, '../../packages/shared-utils/src'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.{test,spec}.ts'],
+    include: ['src/**/*.{test,spec}.ts', 'test/**/*.{test,spec,e2e-spec}.ts'],
     exclude: ['dist/**', 'node_modules/**'],
     passWithNoTests: true,
+    testTimeout: 20000,
+    hookTimeout: 20000,
   },
 });
 ```
 
 Key features:
 - **Node Environment**: Lightweight Node runtime execution without DOM overhead.
-- **Pattern Matching**: Automatically discovers `.spec.ts` and `.test.ts` files inside `apps/api/src/`.
+- **Pattern Matching**: Automatically discovers `.spec.ts`, `.test.ts` files inside `apps/api/src/` and `apps/api/test/` (including e2e tests).
 - **Global APIs**: `globals: true` enables Vitest test functions (`describe`, `it`, `expect`) in all spec files.
+- **Path Resolution**: Directly resolves monorepo shared packages directly to source TypeScript files for instant testing without prior build steps.
 
 ### Web Configuration ([`apps/web/vitest.config.ts`](file:///home/user/projects/uims/apps/web/vitest.config.ts))
 
@@ -73,8 +87,8 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     passWithNoTests: true,
-    testTimeout: 20000,
-    hookTimeout: 20000,
+    testTimeout: 30000,
+    hookTimeout: 30000,
   },
 });
 ```
@@ -82,7 +96,7 @@ export default defineConfig({
 Key features:
 - **`happy-dom`**: Simulates DOM and browser global objects with low memory footprint and high execution speed.
 - **Path Resolution**: Directly resolves `@/` to `apps/web/src` and monorepo shared packages directly to source TypeScript files for instant testing without prior build steps.
-- **Extended Timeouts**: 20-second timeout configuration accommodates complex React UI render trees and Ant Design component mounts.
+- **Extended Timeouts**: 30-second timeout configuration accommodates complex React UI render trees and Ant Design component mounts.
 
 ### Shared Packages
 
@@ -147,7 +161,7 @@ pnpm --filter @uims/web vitest run auth.store.test.ts
   - API: Use `.spec.ts` (e.g., [`apps/api/src/common/guards/permissions.guard.spec.ts`](file:///home/user/projects/uims/apps/api/src/common/guards/permissions.guard.spec.ts) or [`apps/api/src/modules/auth/auth.service.spec.ts`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth.service.spec.ts)).
   - Web: Use `.test.ts` for stores/services/hooks (e.g., [`apps/web/src/stores/auth.store.test.ts`](file:///home/user/projects/uims/apps/web/src/stores/auth.store.test.ts)) and `.test.tsx` for React components/pages (e.g., [`apps/web/src/components/ErrorBoundary.test.tsx`](file:///home/user/projects/uims/apps/web/src/components/ErrorBoundary.test.tsx)).
   - Shared Packages: Use `.validator.test.ts` or `.test.ts` (e.g., [`packages/shared-validators/src/common.validator.test.ts`](file:///home/user/projects/uims/packages/shared-validators/src/common.validator.test.ts)).
-- **File Placement**: Place test files directly adjacent to the source code file under test (co-located tests).
+- **File Placement**: Place test files directly adjacent to the source code file under test (co-located tests). E2E tests for the API can be placed in `apps/api/test/`.
 
 ### API Testing Patterns
 
@@ -245,6 +259,12 @@ Turborepo configures `"outputs": ["coverage/**"]` for the `test` task in [`turbo
 
 ## CI Integration
 
-There are currently no Continuous Integration (CI) pipelines (such as GitHub Actions workflows or GitLab CI configurations) established in the repository.
+A Continuous Integration (CI) pipeline is configured in [`\.github/workflows/ci.yml`](file:///home/user/projects/uims/.github/workflows/ci.yml) and runs on pushes and pull requests to `main`.
 
-<!-- VERIFY: When CI is configured, ensure that `pnpm test` and `pnpm test:e2e` are added as required build steps. -->
+It executes the following tasks to verify the monorepo:
+1. Installs dependencies using `pnpm install --frozen-lockfile`.
+2. Generates the Prisma Client.
+3. Checks formatting and lints via Biome and ESLint (`pnpm run format:check`, `pnpm run lint`).
+4. Typechecks via TypeScript (`pnpm run typecheck`).
+5. Runs the unit and integration tests via Vitest (`pnpm run test`).
+6. Executes the build process via Turborepo (`pnpm run build`).

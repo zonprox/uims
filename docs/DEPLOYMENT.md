@@ -5,7 +5,7 @@ This document outlines the deployment architecture, container topology, build pi
 
 ---
 
-## Deployment Architecture & Services
+## Deployment Targets
 
 UIMS is containerized using Docker and orchestrated via Docker Compose. The production environment is defined in [`docker-compose.yml`](file:///home/user/projects/uims/docker-compose.yml) and separates services across data and application layers.
 
@@ -42,117 +42,49 @@ The stack consists of 8 interconnected services:
 
 | Service | Image / Build Context | Container Name | Exposed Port(s) | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **`postgres`** | `postgres:17-alpine` | `uims-postgres` | `${DATABASE_PORT:-5433}:5432` | Relational database configured with performance flags (`max_connections=200`, `shared_buffers=256MB`, `wal_buffers=16MB`). Initialized with extensions via [`init.sql`](file:///home/user/projects/uims/docker/postgres/init.sql). |
-| **`redis`** | `redis:8-alpine` | `uims-redis` | `${REDIS_PORT:-6381}:6379` | In-memory store for session caching and BullMQ background task queues. Configured with password protection, AOF persistence (`--appendonly yes`), and LRU eviction (`--maxmemory 512mb --maxmemory-policy allkeys-lru`). |
-| **`meilisearch`** | `getmeili/meilisearch:latest` | `uims-meilisearch` | `7700:7700` | Search engine handling full-text search indexing across inventory items, tickets, and user directories. |
-| **`seaweedfs-master`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-master` | `9333:9333` | Master node managing volume assignments and metadata topology for SeaweedFS cluster. |
-| **`seaweedfs-volume`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-volume` | `8080:8080` | Volume storage node storing raw file blobs. Communicates directly with `seaweedfs-master`. |
-| **`seaweedfs-filer`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-filer` | `8888:8888`<br>`8333:8333` | S3-compatible object gateway and file system abstraction layer. Exposes S3 API on port 8333 for document and ticket attachments. |
-| **`api`** | Multi-stage build from [`apps/api/Dockerfile`](file:///home/user/projects/uims/apps/api/Dockerfile) | `uims-api` | `${APP_PORT:-3002}:3000` | NestJS backend service. Runs under non-root Alpine `node` user. Connects to PostgreSQL, Redis, Meilisearch, and SeaweedFS S3 gateway. |
-| **`web`** | Multi-stage build from [`apps/web/Dockerfile`](file:///home/user/projects/uims/apps/web/Dockerfile) | `uims-web` | `${WEB_PORT:-5679}:443` | Nginx Alpine web server hosting compiled React SPA bundle and acting as TLS-terminating reverse proxy for API and WebSocket traffic. |
+| **`postgres`** | `postgres:17-alpine` | `uims-postgres` | `${DATABASE_PORT:-5433}:5432` | Relational database. Initialized with extensions via [`init.sql`](file:///home/user/projects/uims/docker/postgres/init.sql). |
+| **`redis`** | `redis:8-alpine` | `uims-redis` | `${REDIS_PORT:-6381}:6379` | In-memory store for session caching and BullMQ background task queues. |
+| **`meilisearch`** | `getmeili/meilisearch:latest` | `uims-meilisearch` | `7700:7700` | Search engine handling full-text search indexing. |
+| **`seaweedfs-master`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-master` | `9333:9333` | Master node managing volume assignments for SeaweedFS cluster. |
+| **`seaweedfs-volume`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-volume` | `8080:8080` | Volume storage node storing raw file blobs. |
+| **`seaweedfs-filer`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-filer` | `8888:8888`<br>`8333:8333` | S3-compatible object gateway and file system abstraction layer. |
+| **`api`** | Multi-stage build from [`apps/api/Dockerfile`](file:///home/user/projects/uims/apps/api/Dockerfile) | `uims-api` | `${APP_PORT:-3002}:3000` | NestJS backend service. Connects to PostgreSQL, Redis, Meilisearch, and SeaweedFS S3 gateway. |
+| **`web`** | Multi-stage build from [`apps/web/Dockerfile`](file:///home/user/projects/uims/apps/web/Dockerfile) | `uims-web` | `${WEB_PORT:-5679}:443` | Nginx Alpine web server hosting compiled React SPA bundle and acting as TLS-terminating reverse proxy. |
+
+<!-- VERIFY: Hosting environment or exact compute server specifications are not defined in the repository. -->
 
 ---
 
-## Deployment Modes
+## Build Pipeline
 
-The repository provides pre-configured PNPM scripts in [`package.json`](file:///home/user/projects/uims/package.json) to manage Docker deployment modes:
+The repository utilizes GitHub Actions and multi-stage Docker builds to automate the verification and containerization of the system.
 
-### Production Mode
-Production deploys immutable multi-stage production images with TLS enforcement and non-root execution:
+### CI/CD Automation
 
-```bash
-# Start all production containers in detached mode
-pnpm docker:up
+A continuous integration workflow is defined in [`.github/workflows/ci.yml`](file:///home/user/projects/uims/.github/workflows/ci.yml). It triggers on pushes and pull requests to `main` and performs the following verifications:
+- Checks out code and provisions Node.js 22 with PNPM 11.21.0.
+- Generates Prisma client.
+- Validates formatting using Biome (`pnpm run format:check`).
+- Runs static analysis using ESLint and Biome (`pnpm run lint`).
+- Enforces strict TypeScript checks (`pnpm run typecheck`).
+- Executes the test suite with Vitest (`pnpm run test`).
+- Builds monorepo workspace packages via Turborepo (`pnpm run build`).
 
-# View streaming logs across all containers
-pnpm docker:logs
-
-# Stop and remove production containers
-pnpm docker:down
-```
-
-### Development Overlay Mode
-Development mode merges the base configuration with [`docker-compose.dev.yml`](file:///home/user/projects/uims/docker-compose.dev.yml). It mounts the host filesystem into containers, isolates `node_modules` inside named volumes, and enables file-polling watchers (`CHOKIDAR_USEPOLLING=true`, `WATCHPACK_POLLING=true`) with hot reloading:
-
-```bash
-# Start containers with development overlay and live code mounting
-pnpm docker:dev
-
-# View development container logs
-pnpm docker:dev:logs
-
-# Stop development containers
-pnpm docker:dev:down
-```
-
----
-
-## Multi-Stage Container Builds
+### Multi-Stage Container Builds
 
 Both application containers employ multi-stage Docker builds based on `node:22-alpine` to maintain small image footprints and isolate development tooling from runtime environments.
 
-### API Image (`apps/api/Dockerfile`)
-The backend image defined in [`apps/api/Dockerfile`](file:///home/user/projects/uims/apps/api/Dockerfile) executes across two stages:
+#### API Image (`apps/api/Dockerfile`)
+1. **Stage 1 (`builder`)**: Uses `node:22-alpine` and `pnpm@11.21.0`. Copies monorepo, runs `pnpm install`, generates Prisma client, and builds TypeScript.
+2. **Stage 2 (`runner`)**: Uses clean `node:22-alpine` with `NODE_ENV=production`. Copies built `dist/`, `node_modules`, and switches to non-root `node` user, exposing port `3000`.
 
-1. **Stage 1 (`builder`)**:
-   - Uses `node:22-alpine` and installs `pnpm@11.21.0`.
-   - Copies workspace configurations ([`package.json`](file:///home/user/projects/uims/package.json), `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `turbo.json`, `biome.json`).
-   - Copies internal shared packages ([`packages/`](file:///home/user/projects/uims/packages/)) and backend source code ([`apps/api/`](file:///home/user/projects/uims/apps/api/)).
-   - Executes `pnpm install` across workspace dependencies.
-   - Runs `pnpm run prisma:generate` to generate the Prisma ORM client.
-   - Compiles TypeScript into JavaScript via `pnpm run build` (`tsc`).
-
-2. **Stage 2 (`runner`)**:
-   - Uses a clean `node:22-alpine` image with `NODE_ENV=production`.
-   - Copies production `node_modules`, built packages, compiled `dist/`, Prisma schemas, and migrations from the `builder` stage.
-   - Sets secure permissions and switches from `root` to non-root user `node` (`USER node`).
-   - Exposes port `3000` and launches the application via `CMD ["node", "dist/main"]`.
-
-### Web Image (`apps/web/Dockerfile`)
-The frontend image defined in [`apps/web/Dockerfile`](file:///home/user/projects/uims/apps/web/Dockerfile) produces an optimized static build served by Nginx:
-
-1. **Stage 1 (`builder`)**:
-   - Uses `node:22-alpine` with `pnpm@11.21.0`.
-   - Copies workspace configuration, shared libraries, and frontend code ([`apps/web/`](file:///home/user/projects/uims/apps/web/)).
-   - Installs dependencies and runs `pnpm run build` (`tsc && vite build`) to bundle the single-page application into `dist/`.
-
-2. **Stage 2 (`runner`)**:
-   - Uses lightweight `nginx:alpine`.
-   - Copies the compiled HTML/JS/CSS assets from `/app/apps/web/dist` to `/usr/share/nginx/html`.
-   - Injects custom Nginx configuration from [`docker/nginx/nginx.conf`](file:///home/user/projects/uims/docker/nginx/nginx.conf).
-   - Injects TLS certificates and private keys from `docker/nginx/ssl`.
-   - Exposes ports `80` (HTTP redirect) and `443` (HTTPS), launching Nginx as a foreground daemon.
-
-### Local Image Build Commands
-
-```bash
-# Build all container images specified in docker-compose.yml
-pnpm docker:build
-
-# Alternatively, compile monorepo packages directly on the host
-pnpm build
-pnpm build:api
-pnpm build:web
-```
-
-<!-- VERIFY: CI/CD automation not configured in repository (.github/workflows/ does not exist). -->
+#### Web Image (`apps/web/Dockerfile`)
+1. **Stage 1 (`builder`)**: Uses `node:22-alpine` and `pnpm@11.21.0`. Runs `vite build` to bundle the SPA.
+2. **Stage 2 (`runner`)**: Uses `nginx:alpine`. Copies built assets, injects custom TLS-terminating Nginx configuration, and exposes ports `80` (HTTP redirect) and `443` (HTTPS).
 
 ---
 
-## Nginx Reverse Proxy Configuration
-
-The web container acts as the ingress controller and reverse proxy via [`docker/nginx/nginx.conf`](file:///home/user/projects/uims/docker/nginx/nginx.conf):
-
-- **TLS Termination & HTTP Redirect**: Listens on port 80 and returns an immediate `301` redirect to HTTPS (`https://$host$request_uri`). Port 443 enforces TLSv1.2 and TLSv1.3 with HTTP/2 enabled.
-- **API Proxy**: Upstream routes matching `/api/` are proxied to `http://api:3000` with original Host, `X-Real-IP`, and `X-Forwarded-For` headers preserved.
-- **WebSocket & Socket.IO**: Both `/api/` and `/socket.io/` locations configure connection upgrades (`Upgrade: $http_upgrade`, `Connection: "upgrade"`) with streaming buffer optimizations (`proxy_buffering off`) to support real-time telemetry and dashboard updates.
-- **Health Forwarding**: Proxies `/health` requests directly to `http://api:3000/api/v1/health`.
-- **SPA Fallback**: Implements client-side history routing fallback via `try_files $uri $uri/ /index.html`.
-- **Security Headers & Compression**: Applies `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection: 1; mode=block`, strict `Content-Security-Policy`, and Gzip compression for static assets.
-
----
-
-## Environment Configuration
+## Environment Setup
 
 A production deployment requires environment variables configured either via a root `.env` file or injected through your container orchestration secret manager. For comprehensive descriptions and defaults, consult [CONFIGURATION.md](file:///home/user/projects/uims/docs/CONFIGURATION.md).
 
@@ -176,67 +108,8 @@ A production deployment requires environment variables configured either via a r
 
 ---
 
-## Database Initialization & Migrations
+## Rollback Procedure
 
-The database layer runs PostgreSQL 17 with automated extension initialization and Prisma schema migration tooling.
-
-### Initial Database Bootstrap
-On first startup of the `postgres` container, Docker executes [`docker/postgres/init.sql`](file:///home/user/projects/uims/docker/postgres/init.sql) to enable required database extensions:
-```sql
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-CREATE EXTENSION IF NOT EXISTS "citext";
-```
-
-### Production Migrations
-In production environments, schema migrations must be applied using Prisma deploy mode rather than interactive development migrations. The root workspace provides a dedicated script:
-
-```bash
-# Applies all pending migrations in apps/api/prisma/migrations to the database
-pnpm db:migrate:prod
-```
-
-> [!NOTE]
-> The command `pnpm db:migrate:prod` maps to `pnpm --filter @uims/api prisma:deploy`, which executes `prisma migrate deploy` under the hood. It safely validates applied migration history against the database and executes new migrations in sequence without generating migration files or resetting schema state.
-
-### Optional Seeding and Introspection
-```bash
-# Seed default administrative users, roles, and master taxonomy (optional)
-pnpm db:seed
-
-# Launch Prisma Studio web GUI for emergency data inspection
-pnpm db:studio
-```
-
----
-
-## Health Checks & Orchestration Lifecycle
-
-[`docker-compose.yml`](file:///home/user/projects/uims/docker-compose.yml) configures native container health checks to enforce sequential boot dependencies:
-
-1. **PostgreSQL**:
-   - Check: `pg_isready -U ${DATABASE_USER:-uims} -d ${DATABASE_NAME:-uims_db}`
-   - Parameters: Interval `5s`, Timeout `3s`, Retries `5`.
-2. **Redis**:
-   - Check: `redis-cli -a ${REDIS_PASSWORD} ping`
-   - Parameters: Interval `5s`, Timeout `3s`, Retries `5`.
-3. **Meilisearch**:
-   - Check: `curl -f http://localhost:7700/health`
-   - Parameters: Interval `10s`, Timeout `5s`, Retries `3`.
-4. **API (`api`)**:
-   - Check: `wget -q --spider http://localhost:3000/api/v1/health || exit 1`
-   - Parameters: Interval `10s`, Timeout `5s`, Retries `5`, Start Period `15s`.
-   - Dependency Condition: Waits for `postgres`, `redis`, and `meilisearch` to reach `service_healthy`.
-5. **Web (`web`)**:
-   - Check: `wget -q --spider --no-check-certificate https://localhost/ || exit 1`
-   - Parameters: Interval `10s`, Timeout `5s`, Retries `3`, Start Period `10s`.
-   - Dependency Condition: Waits for `api` to reach `service_healthy`.
-
----
-
-## Operational Procedures & Rollbacks
-
-### Application Rollback
 Because deployment is governed by Docker Compose, service updates are rolled back by pointing Compose to prior stable images:
 
 1. Identify the prior stable Docker image tag or git revision.
@@ -262,10 +135,10 @@ If a failure requires database restoration:
 
 ---
 
-## Monitoring, Observability & Logging
+## Monitoring
 
 ### Structured Logging
-The backend application utilizes [`pino`](file:///home/user/projects/uims/apps/api/package.json#L49) and [`pino-http`](file:///home/user/projects/uims/apps/api/package.json#L50) to output high-throughput, structured JSON logs to `stdout`.
+The backend application utilizes [`pino`](file:///home/user/projects/uims/apps/api/package.json) and [`pino-http`](file:///home/user/projects/uims/apps/api/package.json) to output high-throughput, structured JSON logs to `stdout`.
 - Every incoming HTTP request logs duration, client IP, method, status code, and correlation identifiers.
 - Unhandled exceptions format standard error stacks into JSON payload fields.
 
@@ -282,5 +155,13 @@ docker compose logs -f api
 # Follow Nginx access and error logs
 docker compose logs -f web
 ```
+
+### Health Checks
+Docker Compose natively monitors health conditions via healthcheck tests defined per service:
+- PostgreSQL (`pg_isready`)
+- Redis (`redis-cli ping`)
+- Meilisearch (`/health`)
+- API backend (`/api/v1/health`)
+- Web frontend (`https://localhost/`)
 
 <!-- VERIFY: No external APM tools (e.g., Sentry, Datadog, New Relic) or Prometheus metrics endpoints configured in dependencies or codebase. -->

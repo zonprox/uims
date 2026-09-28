@@ -9,7 +9,7 @@ This document outlines the local setup, monorepo architecture, development workf
 Before setting up the project locally, ensure you have the following software installed:
 
 - **Node.js**: `>=22.0.0` (Node.js 22 LTS or higher recommended)
-- **pnpm**: `>=11.0.0` (Project configured with `pnpm@11.21.0` via [`package.json`](file:///home/user/projects/uims/package.json))
+- **pnpm**: `>=11.0.0` (Project configured with `pnpm@11.21.0` via `package.json`)
 - **Docker & Docker Compose**: Required for running backing services (PostgreSQL, Redis, Meilisearch, SeaweedFS)
 - **TypeScript**: TypeScript 7 (`^7.0.2` compiler standard across monorepo packages)
 
@@ -34,7 +34,7 @@ Follow these steps to set up and run UIMS in your local development environment:
    ```bash
    cp .env.example .env
    ```
-   The [`.env.example`](file:///home/user/projects/uims/.env.example) file contains default values for local development, including connection strings for PostgreSQL, Redis, Meilisearch, and SeaweedFS (S3-compatible object store).
+   The `.env.example` file contains default values for local development, including connection strings for PostgreSQL, Redis, Meilisearch, and SeaweedFS (S3-compatible object store).
 
 4. **Start local backing services:**
    Use Docker Compose to spin up the required backing infrastructure services (PostgreSQL 17, Redis 8, Meilisearch, SeaweedFS) along with development container overlays:
@@ -58,11 +58,11 @@ Follow these steps to set up and run UIMS in your local development environment:
    pnpm run dev
    ```
    - API server runs at: `http://localhost:3000` (API routes under `/api/v1`, Swagger documentation at `/api/v1/docs`)
-   - Web frontend runs at: `http://localhost:5679`
+   - Web frontend runs at: `https://localhost:5679`
 
 ## Monorepo Architecture & Task Orchestration
 
-UIMS uses **Turborepo 2.10** (`turbo ^2.10.12`) to manage monorepo task execution, caching, and build pipelines configured in [`turbo.json`](file:///home/user/projects/uims/turbo.json).
+UIMS uses **Turborepo 2.10** (`turbo ^2.10.12`) to manage monorepo task execution, caching, and build pipelines configured in `turbo.json`.
 
 ### Turborepo Task Pipeline
 
@@ -94,7 +94,7 @@ The monorepo uses **TypeScript 7** (`^7.0.2` across `apps/api`, `apps/web`, and 
 
 ## Build Commands
 
-The following scripts are defined in the root [`package.json`](file:///home/user/projects/uims/package.json):
+The following scripts are defined in the root `package.json`:
 
 | Command | Exact Command Line | Description |
 |---|---|---|
@@ -110,11 +110,12 @@ The following scripts are defined in the root [`package.json`](file:///home/user
 | `pnpm run format:check` | `biome format .` | Verifies code formatting across the repository without modifying files. |
 | `pnpm run test` | `turbo run test` | Executes unit and integration test suites across all workspaces. |
 | `pnpm run test:e2e` | `turbo run test:e2e` | Executes end-to-end test suites. |
+| `pnpm run test:e2e:network` | `node scripts/run-e2e-network.mjs` | Executes end-to-end network test suites. |
 | `pnpm run typecheck` | `turbo run typecheck` | Runs TypeScript type checking (`tsc --noEmit`) across all workspaces. |
 | `pnpm run db:generate` | `pnpm --filter @uims/api prisma:generate` | Generates the Prisma 7 client from the database schema. |
 | `pnpm run db:migrate` | `pnpm --filter @uims/api prisma:migrate` | Runs Prisma development migrations against the database. |
 | `pnpm run db:migrate:prod` | `pnpm --filter @uims/api prisma:deploy` | Deploys pending Prisma migrations to a production database. |
-| `pnpm run db:seed` | `pnpm --filter @uims/api prisma:seed` | Seeds the database with initial seed fixtures using `tsx prisma/seed.ts`. |
+| `pnpm run db:seed` | `pnpm --filter @uims/api prisma:seed` | Seeds the database with initial seed fixtures. |
 | `pnpm run db:studio` | `pnpm --filter @uims/api prisma:studio` | Opens Prisma Studio in the browser for database inspection and editing. |
 | `pnpm run docker:up` | `docker compose up -d` | Starts production Docker services in the background. |
 | `pnpm run docker:down` | `docker compose down` | Stops and tears down production Docker containers. |
@@ -123,6 +124,12 @@ The following scripts are defined in the root [`package.json`](file:///home/user
 | `pnpm run docker:dev` | `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d` | Starts development Docker services with volume mounting and hot reload. |
 | `pnpm run docker:dev:down` | `docker compose -f docker-compose.yml -f docker-compose.dev.yml down` | Stops development Docker containers. |
 | `pnpm run docker:dev:logs` | `docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f` | Follows live logs from development Docker containers. |
+| `pnpm run stack:start` | `./scripts/dev.sh start` | Starts backing containers and dev servers in the background. |
+| `pnpm run stack:stop` | `./scripts/dev.sh stop` | Gracefully terminates dev stack processes. |
+| `pnpm run stack:restart` | `./scripts/dev.sh restart` | Restarts the dev stack processes. |
+| `pnpm run stack:status` | `./scripts/dev.sh status` | Displays live status of the dev stack. |
+| `pnpm run stack:logs` | `./scripts/dev.sh logs` | Displays logs of the dev stack services. |
+| `pnpm run stack:url` | `./scripts/dev.sh url` | Displays the current public tunnel URL and local endpoints. |
 | `pnpm run clean` | `turbo run clean && rm -rf node_modules` | Cleans build artifacts and removes root and workspace `node_modules`. |
 | `pnpm run prepare` | `echo 'Ready'` | Workspace prepare script hook. |
 
@@ -130,7 +137,7 @@ The following scripts are defined in the root [`package.json`](file:///home/user
 
 ### API (`apps/api` - `@uims/api`)
 
-Defined in [`apps/api/package.json`](file:///home/user/projects/uims/apps/api/package.json):
+Defined in `apps/api/package.json`:
 
 - **`dev`**: `tsc && (tsc --watch --preserveWatchOutput & nodemon --watch dist --delay 1s dist/main.js)`
   Executes an initial TypeScript compile, starts background watch compilation, and restarts the Node runtime via `nodemon` when compiled outputs change with a 1-second delay.
@@ -155,13 +162,17 @@ Defined in [`apps/api/package.json`](file:///home/user/projects/uims/apps/api/pa
 - **`prisma:studio`**: `prisma studio`
   Opens the Prisma Studio database explorer.
 - **`prisma:seed`**: `prisma db seed`
-  Executes database seeding using `tsx prisma/seed.ts`.
+  Executes database seeding.
+- **`db:seed`**: `prisma db seed`
+  Alias for database seeding.
+- **`network:import`**: `tsx -r dotenv/config prisma/scripts/import-network-excel.ts`
+  Imports network excel data.
 - **`clean`**: `rm -rf dist`
   Removes compiled distribution files.
 
 ### Web (`apps/web` - `@uims/web`)
 
-Defined in [`apps/web/package.json`](file:///home/user/projects/uims/apps/web/package.json):
+Defined in `apps/web/package.json`:
 
 - **`dev`**: `vite`
   Starts the Vite development server with Hot Module Replacement (HMR).
@@ -191,7 +202,7 @@ Code style and formatting are managed using **Biome**, with supplementary lintin
 
 ### Biome Configuration (`biome.json`)
 
-The project uses Biome (`^2.5.12`, schema `2.5.8`) as the authoritative code formatter and base linter configured in [`biome.json`](file:///home/user/projects/uims/biome.json):
+The project uses Biome (`^2.5.13`, schema `2.5.8`) as the authoritative code formatter and base linter configured in `biome.json`:
 
 - **Formatting Standards**:
   - `indentStyle`: `"space"`
@@ -223,7 +234,7 @@ The project uses Biome (`^2.5.12`, schema `2.5.8`) as the authoritative code for
 
 ### ESLint Configuration
 
-Application workspaces (`apps/api` and `apps/web`) use ESLint via [`packages/eslint-config/index.js`](file:///home/user/projects/uims/packages/eslint-config/index.js):
+Application workspaces (`apps/api` and `apps/web`) use ESLint via `packages/eslint-config/index.js`:
 
 - Integrates `typescript-eslint` recommended presets.
 - Integrates `eslint-config-prettier` to ensure ESLint formatting rules never conflict with Biome formatting.

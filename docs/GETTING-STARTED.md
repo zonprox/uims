@@ -7,9 +7,9 @@ This guide walks you through setting up the Unified IT Management System (UIMS) 
 
 Ensure you have the following software installed before proceeding:
 
-- **Node.js**: `>=22.0.0` (validated against [`package.json`](file:///home/user/projects/uims/package.json) engines)
+- **Node.js**: `>=22.0.0` (validated against `package.json` engines)
 - **pnpm**: `>=11.0.0` (workspace configured with `pnpm@11.21.0`)
-- **Docker & Docker Compose**: Required for running the containerized backing services (PostgreSQL 17, Redis 8, MeiliSearch, SeaweedFS) or the full containerized development environment.
+- **Docker & Docker Compose**: Required for running the containerized backing services (PostgreSQL 17, Redis 8, MeiliSearch, SeaweedFS).
 
 ## Installation Steps
 
@@ -38,16 +38,16 @@ cp .env.example .env
 
 #### Key Environment Variables
 
-The [`.env.example`](file:///home/user/projects/uims/.env.example) template contains pre-configured defaults. Note the following essential configurations:
+The `.env.example` template contains pre-configured defaults. Note the following essential configurations:
 
-- **`AUDIT_SIGNING_KEY`** (**Required**): Cryptographic secret key used to generate tamper-evident HMAC SHA-256 signatures for audit log entries. Must be at least **32 characters long**. The API validates this at boot ([`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts)); missing or short keys will halt startup.
+- **`AUDIT_SIGNING_KEY`** (**Required**): Cryptographic secret key used to generate tamper-evident HMAC SHA-256 signatures for audit log entries. Must be at least **32 characters long**.
 - **`JWT_SECRET` & `JWT_REFRESH_SECRET`** (**Required**): Cryptographic keys used for signing and verifying JWT tokens. Must each be at least **32 characters long**.
 - **`DATABASE_PORT` vs. Docker Host Port**:
-  - In [`.env.example`](file:///home/user/projects/uims/.env.example), `DATABASE_PORT=5432`.
-  - In [`docker-compose.yml`](file:///home/user/projects/uims/docker-compose.yml), the PostgreSQL service maps the container port `5432` to host port `${DATABASE_PORT:-5433}`. This defaults the external host port to `5433` to prevent port collisions with any local PostgreSQL instance already running on host port `5432`.
-  - **Important**: If you run the Node.js backend directly on your host machine against the Docker-hosted PostgreSQL container, update `DATABASE_PORT=5433` (or adjust `DATABASE_URL` to connect to `localhost:5433`) in your `.env`.
-- **`REDIS_PORT`**: In [`docker-compose.yml`](file:///home/user/projects/uims/docker-compose.yml), Redis maps internal port `6379` to host port `${REDIS_PORT:-6381}` by default.
-- **`APP_PORT`**: Port for the NestJS API server (defaults to `3000` in `.env.example`; Docker fallback `${APP_PORT:-3002}`).
+  - In `.env.example`, `DATABASE_PORT=5432`.
+  - In `docker-compose.yml`, the PostgreSQL service maps the container port `5432` to host port `${DATABASE_PORT:-5433}`. If `DATABASE_PORT` is not set, it defaults to `5433`.
+  - **Important**: If you already have PostgreSQL running locally on port 5432, you should change `DATABASE_PORT=5433` in your `.env` so Docker uses 5433.
+- **`REDIS_PORT`**: In `docker-compose.yml`, Redis maps internal port `6379` to host port `${REDIS_PORT:-6381}`.
+- **`APP_PORT`**: Port for the NestJS API server (defaults to `3000` in `.env.example`).
 - **`WEB_PORT`**: Port for the Vite web frontend dev server (defaults to `5679`).
 - **`MEILISEARCH_*` & `S3_*`**: Configuration for full-text search (MeiliSearch) and object storage (SeaweedFS S3 gateway).
 
@@ -55,33 +55,22 @@ For comprehensive details on all configuration parameters, consult [CONFIGURATIO
 
 ---
 
-## Running the Application
+## First Run
 
-You can run UIMS in one of two modes:
-1. **Fully Containerized Development**: Run infrastructure, backend API, and web frontend in Docker with hot-reloading.
-2. **Hybrid Host Development**: Run backing infrastructure in Docker, while executing the API and Web apps directly on your host.
+### 1. Initialize Database Schema & Seed Data
 
-### Option A: Fully Containerized Development (Recommended)
+Ensure Docker is running, then initialize the database schema and populate initial administrative users and taxonomy.
 
-Start the entire application stack in Docker dev mode:
-
+Start the backing infrastructure via Docker Compose:
 ```bash
-pnpm run docker:dev
+pnpm run docker:up
 ```
 
-This command executes `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d` and spins up:
-- **`uims-postgres`**: PostgreSQL 17 Alpine database
-- **`uims-redis`**: Redis 8 Alpine cache and message broker
-- **`uims-meilisearch`**: MeiliSearch engine
-- **`uims-seaweedfs-master` / `uims-seaweedfs-volume` / `uims-seaweedfs-filer`**: SeaweedFS S3-compatible storage cluster
-- **`uims-api-dev`**: NestJS backend running in watch mode with live reloading (auto-runs `prisma:generate`)
-- **`uims-web-dev`**: Vite React frontend with Hot Module Replacement (HMR)
-
-#### Initialize Database Schema & Seed Data
-
-On first run, initialize the database schema and populate initial administrative users and taxonomy:
-
+Run database migrations and seed:
 ```bash
+# Generate the Prisma Client
+pnpm run db:generate
+
 # Run database migrations
 pnpm run db:migrate
 
@@ -89,89 +78,37 @@ pnpm run db:migrate
 pnpm run db:seed
 ```
 
-> [!TIP]
-> If executing migration and seed commands against Docker from your host, ensure `DATABASE_PORT=5433` (or the port specified in `DATABASE_URL`) matches the host port exposed by Docker Compose. Alternatively, you can execute them directly inside the running API container:
-> ```bash
-> docker exec -it uims-api-dev pnpm --filter @uims/api prisma:migrate
-> docker exec -it uims-api-dev pnpm --filter @uims/api prisma:seed
-> ```
+### 2. Start the Development Stack
 
-#### View Container Logs
-
-To stream logs from all running development containers:
+UIMS provides a Universal Dev Stack CLI that orchestrates the entire application environment (infrastructure containers, backend API, Vite frontend, and Cloudflare tunnel).
 
 ```bash
-pnpm run docker:dev:logs
+pnpm run stack:start
 ```
 
-To shut down the containerized development environment:
+This command runs `./scripts/dev.sh start` in the background and sets up:
+- Infrastructure: Postgres 17, Redis 8, Meilisearch, SeaweedFS (via Docker)
+- Backend API: NestJS API on port `3002` (or `$APP_PORT`)
+- Frontend: Vite React SPA on port `5679` (HTTPS + HMR)
+- Public Tunnel: A Cloudflare quick tunnel for remote access.
 
-```bash
-pnpm run docker:dev:down
-```
-
----
-
-### Option B: Hybrid Host Development
-
-If you prefer to run the Node.js applications natively on your host machine for faster debugging:
-
-#### 1. Start Backing Infrastructure Services
-
-Spin up only the database, cache, search, and storage containers:
-
-```bash
-docker compose up -d postgres redis meilisearch seaweedfs-master seaweedfs-volume seaweedfs-filer
-# or use the workspace shortcut:
-# pnpm run docker:up
-```
-
-#### 2. Configure Host Ports in `.env`
-
-Ensure your `.env` connects to the Docker host port mappings:
-```env
-DATABASE_PORT=5433
-REDIS_PORT=6381
-DATABASE_URL=postgresql://uims:your_secure_db_password@localhost:5433/uims_db?schema=public
-REDIS_URL=redis://:your_secure_redis_password@localhost:6381
-```
-
-#### 3. Generate Prisma Client & Migrate Database
-
-```bash
-# Generate the Prisma Client
-pnpm run db:generate
-
-# Apply database migrations
-pnpm run db:migrate
-
-# (Recommended on first run) Seed default enterprise data
-pnpm run db:seed
-```
-
-#### 4. Start Development Servers
-
-Start all monorepo applications concurrently via Turborepo:
-
-```bash
-pnpm run dev
-```
-
-To run individual applications independently:
-- **API Server only**: `pnpm run dev:api`
-- **Web Frontend only**: `pnpm run dev:web`
+**Other helpful stack commands:**
+- `pnpm run stack:status`: Displays live PID, port listening status, API health, and active Cloudflare tunnel URL.
+- `pnpm run stack:logs`: Streams logs from API, Web, and Tunnel.
+- `pnpm run stack:url`: Displays the current public Cloudflare tunnel URL.
+- `pnpm run stack:stop`: Gracefully terminates the dev stack. Use `./scripts/dev.sh stop --all` to also stop Docker containers.
 
 ---
 
 ## Application Access Endpoints
 
-Once the services are active, access the respective components:
+Once the stack is started, you can access the application components:
 
 | Component | URL | Notes |
 |---|---|---|
-| **Web Interface** | [`http://localhost:5679`](http://localhost:5679) | React + Ant Design frontend application |
-| **API Server** | [`http://localhost:3000`](http://localhost:3000) | NestJS REST backend (Global prefix: `/api/v1`) |
-| **API Documentation (Swagger UI)** | [`http://localhost:3000/api/v1/docs`](http://localhost:3000/api/v1/docs) | Interactive OpenAPI / Swagger UI |
+| **Web Interface** | [`https://localhost:5679`](https://localhost:5679) | React + Ant Design frontend (HTTPS) |
+| **API Server** | [`http://localhost:3000`](http://localhost:3000) | NestJS REST backend (Prefix: `/api/v1`) |
+| **API Documentation (Swagger)**| [`http://localhost:3000/api/v1/docs`](http://localhost:3000/api/v1/docs) | Interactive OpenAPI / Swagger UI |
 | **MeiliSearch** | [`http://localhost:7700`](http://localhost:7700) | Search engine dashboard / API |
 | **SeaweedFS S3 Gateway** | [`http://localhost:8333`](http://localhost:8333) | S3-compatible object storage endpoint |
 | **SeaweedFS Filer UI** | [`http://localhost:8888`](http://localhost:8888) | Web-based file browser for SeaweedFS |
@@ -193,7 +130,7 @@ When you execute `pnpm run db:seed`, the database is populated with initial ente
 
 ### 1. Missing or Invalid Environment Variables
 - **Symptom**: API container crashes immediately or terminal displays `❌ Invalid environment variables`.
-- **Cause**: [`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts) enforces Zod validation. The variables `AUDIT_SIGNING_KEY`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` must each be strings of **at least 32 characters**.
+- **Cause**: The variables `AUDIT_SIGNING_KEY`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` must each be strings of **at least 32 characters**.
 - **Fix**: Verify your `.env` exists and contains 32+ character strings for all cryptographic keys.
 
 ### 2. Port Conflicts & Connection Errors
@@ -202,13 +139,13 @@ When you execute `pnpm run db:seed`, the database is populated with initial ente
 - **Fix**: Check `docker-compose.yml` port mappings. Ensure host-to-Docker PostgreSQL connections use port `5433` (e.g., `DATABASE_PORT=5433` in `.env`).
 
 ### 3. Database Not Seeded / Missing Initial Data
-- **Symptom**: Login fails with invalid credentials on a fresh database, or dropdown options (locations, categories) are empty.
-- **Cause**: Docker container startup initializes the database schema extensions via [`init.sql`](file:///home/user/projects/uims/docker/postgres/init.sql), but does not automatically execute Prisma seeders.
+- **Symptom**: Login fails with invalid credentials on a fresh database, or dropdown options are empty.
+- **Cause**: Prisma seeders were not executed.
 - **Fix**: Run `pnpm run db:seed` to seed default roles, permissions, taxonomy, and administrator accounts.
 
 ### 4. Prisma Client Out of Sync
 - **Symptom**: TypeScript compilation errors or runtime errors referencing missing Prisma model properties.
-- **Cause**: Database schema was modified or `@prisma/client` was not generated in the current environment.
+- **Cause**: Database schema was modified or `@prisma/client` was not generated.
 - **Fix**: Run `pnpm run db:generate` to regenerate the Prisma client artifacts.
 
 ### 5. Docker Permission Denied
@@ -220,7 +157,6 @@ When you execute `pnpm run db:seed`, the database is populated with initial ente
 
 ## Next Steps
 
-- Consult [DEVELOPMENT.md](file:///home/user/projects/uims/docs/DEVELOPMENT.md) for code structure, architectural standards, and workflow commands.
-- Review [TESTING.md](file:///home/user/projects/uims/docs/TESTING.md) for running unit and Playwright end-to-end (E2E) tests.
+- Consult [ARCHITECTURE.md](file:///home/user/projects/uims/docs/ARCHITECTURE.md) for system design, service boundaries, and data flow.
 - Check [CONFIGURATION.md](file:///home/user/projects/uims/docs/CONFIGURATION.md) for a comprehensive reference of all environment variables and configuration files.
-- Inspect [ARCHITECTURE.md](file:///home/user/projects/uims/docs/ARCHITECTURE.md) for system design, service boundaries, and data flow.
+- Review README.md for high-level project goals and features.

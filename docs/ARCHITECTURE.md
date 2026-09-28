@@ -14,50 +14,34 @@ Unified IT Management System (UIMS) is an enterprise IT management platform desi
 graph TD
     Client[Web Browser Client]
 
-    subgraph Frontend ["React SPA - apps/web (React 19 + Ant Design 6)"]
-        React[React Components & Pages]
-        Zustand[Zustand Stores (Client State)]
-        TanStack[TanStack Query (Server State Cache)]
-        WSClient[Socket.io Client]
-        React --> Zustand
-        React --> TanStack
-        React --> WSClient
+    subgraph Frontend [React SPA - apps/web]
+        UI[React Components & State]
+        StateSync[Data & WebSocket Sync]
     end
 
-    subgraph Backend ["NestJS API - apps/api (NestJS 11 + Express)"]
-        Swagger["OpenAPI / Swagger (/api/v1/docs)"]
-        WSGateway[WebSocket Gateway (/notifications)]
-        Controller[Controllers / Route Handlers (/api/v1/*)]
-        Guards["Guards (JWT, Roles, Permissions, Throttler)"]
-        Service[Business Logic Services]
-        Workers[BullMQ Workers / Queues]
-        Prisma[Prisma ORM 7]
-
-        Controller --> Guards
-        Guards --> Service
-        Service --> Prisma
-        Service --> Workers
-        WSGateway <--> Service
+    subgraph Backend [NestJS API - apps/api]
+        API[REST & WS Gateway]
+        Logic[Services & Workers]
+        ORM[Prisma ORM]
     end
 
-    subgraph Infrastructure [Data & Infrastructure Layer - Docker Compose]
-        Postgres[(PostgreSQL 17)]
-        Redis[(Redis 8 / Cache & Queues)]
-        Meili[Meilisearch Engine]
-        Seaweed[SeaweedFS S3 Storage]
+    subgraph Infrastructure [Data Layer]
+        DB[(Postgres 17)]
+        Cache[(Redis & BullMQ)]
+        Search[(Meilisearch)]
+        Storage[(SeaweedFS)]
     end
 
-    Client -->|HTTP / REST| Backend
-    Client -->|WebSocket Events| WSGateway
-    Client -->|Static Web Assets| Frontend
-    Frontend -->|HTTP / REST (Axios / TanStack Query)| Controller
-    WSClient <-->|Bidirectional Real-time Push| WSGateway
-
-    Prisma --> Postgres
-    Service --> Redis
-    Workers --> Redis
-    Service --> Meili
-    Service --> Seaweed
+    Client -->|HTTP / WS| Frontend
+    Client -->|HTTP / WS| API
+    UI --> StateSync
+    StateSync --> API
+    API --> Logic
+    Logic --> ORM
+    Logic --> Cache
+    Logic --> Search
+    Logic --> Storage
+    ORM --> DB
 ```
 
 ## Data Flow

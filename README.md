@@ -8,19 +8,16 @@ UIMS is a monorepo containing the Unified IT Management System. It consists of a
 - **Runtime:** Node.js 22+ (`engines: >=22.0.0`)
 - **Package Manager:** pnpm 11+ (`pnpm@11.21.0`)
 - **Monorepo Tooling:** Turborepo (`^2.10.12`)
-- **Backend:** NestJS 11, Prisma 7, PostgreSQL 17, Redis 8, BullMQ 6, Pino 10, Helmet 8, Swagger / OpenAPI
-- **Frontend:** React 19, Ant Design 6.6, Vite 8, Zustand 5, TanStack Query 5, React Router 8, Socket.io Client 4
-- **Shared Libraries & Tooling:** Biome 2.5 (formatting), Vitest 5, Playwright 1.63, TypeScript 7, Zod 4
-- **Infrastructure & Storage:** MeiliSearch (Search), SeaweedFS (S3-compatible object storage)
+- **Backend:** NestJS 11, Prisma 7, PostgreSQL (pg 8), Redis (ioredis 6), Pino 10, Helmet 8, Swagger / OpenAPI
+- **Frontend:** React 19, Ant Design 6, Vite 8, Zustand 5, TanStack Query 5, React Router 8, Socket.io Client 4
+- **Shared Libraries & Tooling:** Biome 2, Vitest 5, Playwright 1.63, TypeScript 7, Zod 4
+- **Infrastructure & Storage:** PostgreSQL, Redis, and potentially MeiliSearch / SeaweedFS (via Docker)
 
 ## Modules Overview
 
 ### Apps
 - **`apps/api`**: NestJS backend application providing the REST API (under `/api/v1`), Swagger documentation (`/api/v1/docs`), and WebSockets.
-  - **Modules**: `assets`, `audit`, `auth`, `dashboard`, `directory`, `health`, `inventory`, `licenses`, `network`, `notifications`, `organization`, `reports`, `roles`, `search`, `settings`, `users`.
 - **`apps/web`**: React-based frontend web application using Ant Design and Vite.
-  - **Pages**: `access`, `assets`, `audit`, `auth`, `dashboard`, `directory`, `inventory`, `licenses`, `network`, `notifications`, `organization`, `reports`, `settings`, `users`.
-  - **State Stores**: `auth.store.ts`, `notification-settings.store.ts`, `theme.store.ts`, `timezone.store.ts`.
 
 ### Packages (Shared)
 - **`packages/shared-types`**: Shared TypeScript definitions and interfaces.
@@ -69,7 +66,7 @@ pnpm run docker:dev
 #### Option B: Run Backing Infrastructure in Docker, Applications Locally
 
 ```bash
-# 1. Start backing services (PostgreSQL, Redis, MeiliSearch, SeaweedFS)
+# 1. Start backing services (PostgreSQL, Redis, etc.)
 pnpm run docker:up
 
 # 2. Generate Prisma client and run database migrations
@@ -89,8 +86,6 @@ Once running, the services are available at:
 - **Web App**: `http://localhost:5679`
 - **API**: `http://localhost:3000` (or configured `APP_PORT`)
 - **API Documentation (Swagger)**: `http://localhost:3000/api/v1/docs`
-- **MeiliSearch**: `http://localhost:7700`
-- **SeaweedFS S3 Gateway**: `http://localhost:8333`
 
 ### Common Commands
 
@@ -124,6 +119,9 @@ From the root directory, you can run the following Turborepo and workspace comma
 | `pnpm run docker:dev:down` | Stops the Docker development environment |
 | `pnpm run docker:dev:logs` | Follows Docker development environment logs |
 | `pnpm run clean` | Cleans build artifacts and removes root `node_modules` |
+| `pnpm run stack:start` | Starts the unified dev stack daemon |
+| `pnpm run stack:stop` | Stops the unified dev stack daemon |
+| `pnpm run stack:status` | Shows the status of the unified dev stack daemon |
 
 ## Usage Examples
 

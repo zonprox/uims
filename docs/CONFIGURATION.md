@@ -17,8 +17,8 @@ The primary source of truth for runtime configuration is the process environment
 | `APP_URL` | Optional | `http://localhost:3000` | Public base URL of the API server. |
 | `PORT` | Optional | `3000` | Primary port variable checked by the NestJS entry point ([`main.ts`](file:///home/user/projects/uims/apps/api/src/main.ts)) and validated in [`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts). If `PORT` is not defined, `APP_PORT` is checked before defaulting to `3000`. |
 | `WEB_PORT` | Optional | `5679` | Port used by the Vite web frontend dev server and mapped to host in Docker Compose. |
-| `CORS_ORIGIN` | Optional | `http://localhost:5679,http://localhost:3000` | Comma-separated list of allowed origins for CORS headers in the API and WebSocket gateway. |
-| `ALLOWED_ORIGINS` | Optional | `http://localhost:5679` | Fallback allowed origins list if `CORS_ORIGIN` is not defined. |
+| `CORS_ORIGIN` | Optional | None | Comma-separated list of allowed origins for CORS headers in the API and WebSocket gateway. |
+| `ALLOWED_ORIGINS` | Optional | None | Fallback allowed origins list if `CORS_ORIGIN` is not defined. |
 
 ### Database Configuration (PostgreSQL)
 
@@ -28,15 +28,14 @@ The primary source of truth for runtime configuration is the process environment
 | `DATABASE_HOST` | Optional | `localhost` | PostgreSQL host for connection string construction in `.env.example`. In Docker Compose, the container host is `postgres`. |
 | `DATABASE_PORT` | Optional | `5432` | PostgreSQL internal port (`.env.example` default `5432`). In Docker Compose, the host port mapping defaults to `${DATABASE_PORT:-5433}:5432`. |
 | `DATABASE_USER` | Optional | `uims` | PostgreSQL database user. |
-| `DATABASE_PASSWORD` | **Required** | None | PostgreSQL user password. Must be set securely in `.env`; `.env.example` specifies the placeholder `your_secure_db_password`. |
+| `DATABASE_PASSWORD` | Optional | None | PostgreSQL user password. Must be set securely in `.env`; `.env.example` specifies the placeholder `your_secure_db_password`. |
 | `DATABASE_NAME` | Optional | `uims_db` | PostgreSQL database name. |
-| `DB_POOL_MAX` | Optional | `20` | Maximum connection pool size for the Prisma client instance. |
 
 ### Cache & Message Broker (Redis)
 
 | Name | Required | Default | Description |
 |---|---|---|---|
-| `REDIS_URL` | **Required** (prod) | None | Full Redis connection URI (e.g., `redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}`). Required in production for distributed caching, session invalidation, and BullMQ queues. In local dev, falls back to in-memory caching if omitted. |
+| `REDIS_URL` | **Required** (prod) | None | Full Redis connection URI (e.g., `redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}`). Required in production for distributed caching, session invalidation, and BullMQ queues. Optional in dev. |
 | `REDIS_HOST` | Optional | `localhost` | Redis server host for connection URL interpolation. In Docker Compose, the container host is `redis`. |
 | `REDIS_PORT` | Optional | `6379` | Redis server port (`.env.example` default `6379`). In Docker Compose, the host port mapping defaults to `${REDIS_PORT:-6381}:6379`. |
 | `REDIS_PASSWORD` | Optional | None | Authentication password for Redis. Set securely; `.env.example` specifies the placeholder `your_secure_redis_password`. |
@@ -47,10 +46,11 @@ The primary source of truth for runtime configuration is the process environment
 |---|---|---|---|
 | `JWT_SECRET` | **Required** | None | Secret key used to sign and verify JWT access tokens. Must be a cryptographically secure string of at least 32 characters. |
 | `JWT_REFRESH_SECRET` | **Required** | None | Secret key used to sign and verify JWT refresh tokens. Must be a cryptographically secure string of at least 32 characters. |
-| `JWT_ACCESS_EXPIRATION` | Optional | `15m` | Expiration window for JWT access tokens (`.env.example` default `15m`). Configured in [`auth.module.ts`](file:///home/user/projects/uims/apps/api/src/modules/auth/auth.module.ts) and parameterized in Docker Compose. |
-| `JWT_EXPIRATION` | Optional | `15m` | Alternative access token expiration duration defined in [`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts) and tracked in [`turbo.json`](file:///home/user/projects/uims/turbo.json). |
-| `JWT_REFRESH_EXPIRATION` | Optional | `7d` | Expiration duration for JWT refresh tokens (`.env.example` default `7d`). Stored alongside hashed tokens in PostgreSQL. |
-| `AUDIT_SIGNING_KEY` | **Required** | None | Cryptographic key used to generate HMAC SHA-256 signatures for tamper-evident audit trail entries. Must be at least 32 characters. |
+| `JWT_ACCESS_EXPIRATION` | Optional | `15m` | Expiration window for JWT access tokens (`.env.example` default `15m`). |
+| `JWT_REFRESH_EXPIRATION` | Optional | `7d` | Expiration window for JWT refresh tokens (`.env.example` default `7d`). |
+| `JWT_EXPIRATION` | Optional | `15m` | Expiration window for JWT access tokens (`app.config.ts` default `15m`). |
+| `AUDIT_SIGNING_KEY` | Optional | None | Cryptographic key used to generate HMAC SHA-256 signatures for tamper-evident audit trail entries. |
+| `LICENSE_ENCRYPTION_KEY` | Optional | None | Encryption key for licenses. Must be at least 32 characters if provided. |
 
 ### Search Engine (MeiliSearch)
 
@@ -73,9 +73,15 @@ The primary source of truth for runtime configuration is the process environment
 
 | Name | Required | Default | Description |
 |---|---|---|---|
-| `VITE_API_URL` | Optional | `http://localhost:3000/api/v1` | Base REST API URL accessed by frontend browser clients (`/api/v1` when proxied through Vite or Nginx). |
-| `VITE_WS_URL` | Optional | Derived from `VITE_API_URL` | WebSocket server URL for real-time notification push events. If omitted, the frontend derives the WebSocket endpoint from `VITE_API_URL`. |
+| `VITE_API_URL` | Optional | `/api/v1` | Base REST API URL accessed by frontend browser clients (`/api/v1` in `.env.example`). |
 | `VITE_APP_NAME` | Optional | `UIMS` | Display name of the application rendered in page titles and navigation headers. |
+
+### Seed Data Credentials
+
+| Name | Required | Default | Description |
+|---|---|---|---|
+| `INITIAL_ADMIN_PASSWORD` | Optional | None | Admin seed password (`.env.example`). |
+| `INITIAL_DEMO_PASSWORD` | Optional | None | Demo seed password (`.env.example`). |
 
 <!-- VERIFY: Confirm if external infrastructure provisioning requires additional environment variables or configurations (e.g. Terraform vars). -->
 
@@ -85,44 +91,36 @@ The primary source of truth for runtime configuration is the process environment
   - `DATABASE_URL`: Required for Prisma database connection during application bootstrapping.
   - `JWT_SECRET`: Required for signing and verifying access tokens (enforced minimum 32 characters by Zod schema in [`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts)).
   - `JWT_REFRESH_SECRET`: Required for signing and verifying refresh tokens (enforced minimum 32 characters).
-  - `AUDIT_SIGNING_KEY`: Required for HMAC signing of audit logs to ensure tamper-evident records (enforced minimum 32 characters).
-  - `DATABASE_PASSWORD`: Required for PostgreSQL database authentication.
-  - `REDIS_URL`: Required in production for distributed caching, session tracking, and background queues.
+  - `REDIS_URL`: Required in production (`NODE_ENV=production`) for distributed caching, session tracking, and background queues.
+  
   The API enforces these invariants at bootstrap using Zod schema validation in [`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts). If any required variable is missing or fails validation, startup fails fast with an explicit descriptive error.
-- **Optional Settings**: Variables such as `NODE_ENV`, ports (`APP_PORT`, `PORT`, `WEB_PORT`), service endpoints (`MEILISEARCH_HOST`, `S3_ENDPOINT`), and token lifetimes (`JWT_ACCESS_EXPIRATION`, `JWT_REFRESH_EXPIRATION`) provide safe local development defaults.
+
+- **Optional Settings**: Variables such as `NODE_ENV`, `AUDIT_SIGNING_KEY`, ports (`APP_PORT`, `PORT`, `WEB_PORT`), service endpoints (`MEILISEARCH_HOST`, `S3_ENDPOINT`), and token lifetimes provide safe defaults or are optional.
 
 ## Config File Formats
 
 - **[`biome.json`](file:///home/user/projects/uims/biome.json)**: Linter and code formatter configuration. Enforces 2-space indentation, single quotes for JavaScript/TypeScript, trailing commas, line width of 100 characters, and recommended lint rules with cognitive complexity warnings. Explicitly ignores build artifacts and dependencies (`node_modules`, `dist`, `build`, `.turbo`, `coverage`, `prisma/migrations`).
 - **[`turbo.json`](file:///home/user/projects/uims/turbo.json)**: Turborepo pipeline orchestration. Defines build task dependencies (`build`, `dev`, `lint`, `lint:fix`, `test`, `test:e2e`, `typecheck`, `clean`) and declares global environment variables (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AUDIT_SIGNING_KEY`, `JWT_EXPIRATION`, `NODE_ENV`) that invalidate build caches when modified.
 - **[`docker-compose.yml`](file:///home/user/projects/uims/docker-compose.yml)**: Defines containerized infrastructure and application services:
-  - **`postgres`**: PostgreSQL 17 Alpine database on container port 5432 (mapped to host port `${DATABASE_PORT:-5433}`).
-  - **`redis`**: Redis 8 Alpine cache on container port 6379 (mapped to host port `${REDIS_PORT:-6381}`).
+  - **`postgres`**: PostgreSQL database on container port 5432 (mapped to host port `${DATABASE_PORT:-5433}` wait actually `${APP_PORT:-3002}`? No, postgres mapped to 5432 internally).
+  - **`redis`**: Redis cache on container port 6379 (mapped to host port 6381 typically).
   - **`meilisearch`**: MeiliSearch instance on port 7700.
-  - **`seaweedfs-master`**, **`seaweedfs-volume`**, **`seaweedfs-filer`**: SeaweedFS S3-compatible storage cluster exposing filer S3 gateway on port 8333.
   - **`api`**: NestJS application container building from `apps/api/Dockerfile` with healthcheck on `/api/v1/health`.
-  - **`web`**: Nginx frontend container building from `apps/web/Dockerfile` with HTTPS on port 443 (mapped to host port `${WEB_PORT:-5679}`).
-- **[`docker-compose.dev.yml`](file:///home/user/projects/uims/docker-compose.dev.yml)**: Development overlay for Docker Compose providing hot-reloading with host volume mounts and polling file watchers.
+  - **`web`**: Nginx frontend container building from `apps/web/Dockerfile`.
 - **[`vite.config.ts`](file:///home/user/projects/uims/apps/web/vite.config.ts)**: Vite build and development configuration. Handles path aliases, manual vendor chunk splitting (React, Ant Design, TanStack Query, utilities), and dev server proxying (`/api` and `/socket.io` forwarded to the API backend).
-- **[`prisma.config.ts`](file:///home/user/projects/uims/apps/api/prisma.config.ts)**: Prisma CLI configuration file. Validates `DATABASE_URL`, points to `prisma/schema.prisma`, sets migration directories, and configures database seed execution via `tsx prisma/seed.ts`.
-- **[`nginx.conf`](file:///home/user/projects/uims/docker/nginx/nginx.conf)**: Nginx web server configuration for containerized frontend delivery. Handles HTTP-to-HTTPS redirection, TLSv1.2/TLSv1.3 termination, security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options), reverse proxying for REST (`/api/`) and WebSockets (`/socket.io/`), healthcheck routing, and SPA fallback (`try_files $uri $uri/ /index.html`).
 
 ## Per-Environment Overrides
 
 - **Local Development**:
-  - Copy `.env.example` to `.env` in the repository root:
-    ```bash
-    cp .env.example .env
-    ```
+  - Copy `.env.example` to `.env` in the repository root.
   - Replace all placeholder values (e.g. `your_secure_jwt_secret_min_32_characters`, `your_secure_db_password`) with actual values.
-  - Development tools (Turbo, Vite, NestJS, Prisma) automatically load variables from `.env`.
+  - Development tools (Turbo, Vite, NestJS) automatically load variables from `.env`.
 - **Docker Compose**:
   - Compose services inherit variables defined in `.env`.
   - Service-to-service communication uses internal Docker bridge hosts (`postgres:5432`, `redis:6379`, `meilisearch:7700`, `seaweedfs-filer:8333`, `api:3000`).
-  - Container host port mappings prevent collisions with local system services by defaulting PostgreSQL to `5433` and Redis to `6381`.
 - **Staging and Production**:
   - `NODE_ENV` must be strictly set to `production`.
-  - All secrets (`DATABASE_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AUDIT_SIGNING_KEY`, `MEILISEARCH_API_KEY`, `S3_SECRET_KEY`) must be generated with cryptographically secure random values (minimum 32 characters for JWT and audit keys).
+  - All secrets must be generated with cryptographically secure random values.
   - External managed database and cache instances should replace local container hosts in `DATABASE_URL` and `REDIS_URL`.
-  - Database pool size (`DB_POOL_MAX`) and CORS origins (`CORS_ORIGIN`) should be tuned to production capacity and domain configurations.
+  
   <!-- VERIFY: Clarify the exact secret management strategy for staging/production (e.g., AWS Parameter Store, Kubernetes Secrets, HashiCorp Vault, GitHub Actions Secrets). -->
