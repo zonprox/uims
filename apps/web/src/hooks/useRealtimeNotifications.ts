@@ -3,6 +3,7 @@ import { createElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { io, type Socket } from 'socket.io-client';
 import { type NotificationItem, notificationsService } from '../services/notifications.service';
+import { refreshAuthToken } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import {
   playNotificationChime,
@@ -65,9 +66,34 @@ export function useRealtimeNotifications() {
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
 
-  // Establish real-time WebSocket connection
+  const user = useAuthStore((state) => state.user);
+  const userId = user?.id;
+  const hasToken = Boolean(token);
+  const tokenRef = useRef<string | null>(token);
+  tokenRef.current = token;
+  const prevTokenRef = useRef<string | null>(token);
+
+  // Synchronize token updates with active WebSocket connection without tearing it down
   useEffect(() => {
     if (!token) {
+      prevTokenRef.current = null;
+      return;
+    }
+
+    if (prevTokenRef.current && prevTokenRef.current !== token && socketRef.current) {
+      socketRef.current.auth = { token };
+      if (socketRef.current.connected) {
+        socketRef.current.emit?.('auth:refresh', { token });
+      } else {
+        socketRef.current.connect?.();
+      }
+    }
+    prevTokenRef.current = token;
+  }, [token]);
+
+  // Establish real-time WebSocket connection
+  useEffect(() => {
+    if (!hasToken) {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -76,10 +102,15 @@ export function useRealtimeNotifications() {
       return;
     }
 
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
     const socketUrl = getSocketUrl();
     const socketEndpoint = socketUrl ? `${socketUrl}/notifications` : '/notifications';
     const socket: Socket = io(socketEndpoint, {
-      auth: { token },
+      auth: { token: tokenRef.current },
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
@@ -98,14 +129,26 @@ export function useRealtimeNotifications() {
       setIsConnected(false);
     });
 
+    socket.on('auth:refreshed', () => {
+      setIsConnected(true);
+    });
+
     socket.on('connect_error', (err: Error) => {
       setIsConnected(false);
-      // Abort reconnection on authentication failure to prevent console flooding
-      if (
+      const isAuthErr =
         err.message?.toLowerCase().includes('auth') ||
-        err.message?.toLowerCase().includes('token')
-      ) {
+        err.message?.toLowerCase().includes('token') ||
+        err.message?.toLowerCase().includes('jwt');
+
+      if (isAuthErr) {
         socket.disconnect();
+        // Proactively renew token using stored refresh token if available
+        const hasRefreshToken = Boolean(useAuthStore.getState().refreshToken);
+        if (hasRefreshToken) {
+          refreshAuthToken().catch((_err: unknown) => {
+            // Refresh failure will cleanly trigger handleAuthRedirect to /login
+          });
+        }
       }
     });
 
@@ -197,7 +240,7 @@ export function useRealtimeNotifications() {
       socketRef.current = null;
       setIsConnected(false);
     };
-  }, [token]);
+  }, [hasToken, userId]);
 
   const markAsRead = async (id: string, link?: string) => {
     try {

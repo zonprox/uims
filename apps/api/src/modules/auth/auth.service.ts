@@ -3,6 +3,7 @@ import { Injectable, Logger, Optional, UnauthorizedException } from '@nestjs/com
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -20,6 +21,7 @@ export class AuthService {
     private jwtService: JwtService,
     @Optional() private prisma?: PrismaService,
     @Optional() private configService?: ConfigService,
+    @Optional() private redis?: RedisService,
   ) {}
 
   async validateUser(
@@ -203,14 +205,16 @@ export class AuthService {
     };
 
     const refreshSecret =
-      this.configService?.get<string>('JWT_REFRESH_SECRET') || process.env.JWT_REFRESH_SECRET;
+      typeof this.configService?.getOrThrow === 'function'
+        ? this.configService.getOrThrow<string>('JWT_REFRESH_SECRET')
+        : this.configService?.get<string>('JWT_REFRESH_SECRET') || process.env.JWT_REFRESH_SECRET;
     if (!refreshSecret) {
       throw new Error('JWT_REFRESH_SECRET is required');
     }
 
     const token = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(
-      { sub: user.id, type: 'refresh' },
+      { sub: user.id, email: user.email, type: 'refresh' },
       {
         secret: refreshSecret,
         expiresIn: '7d',
@@ -231,7 +235,10 @@ export class AuthService {
           },
         });
       } catch (error: unknown) {
-        this.logger.error(`Failed to persist refresh token for user ${user.id}: ${error}`);
+        this.logger.error(
+          `Failed to persist refresh token for user ${user.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
       }
 
       // Record successful login audit
@@ -251,7 +258,32 @@ export class AuthService {
           },
         });
       } catch (error: unknown) {
-        this.logger.error(`Failed to record login audit log for user ${user.id}: ${error}`);
+        this.logger.error(
+          `Failed to record login audit log for user ${user.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+
+      // Track active session in Redis
+      if (this.redis) {
+        try {
+          const sessionKey = `uims:session:${user.id}`;
+          await this.redis.set(
+            sessionKey,
+            {
+              userId: user.id,
+              tokenHash,
+              device: userAgent,
+              ipAddress,
+              createdAt: new Date().toISOString(),
+            },
+            7 * 24 * 60 * 60,
+          );
+        } catch (error: unknown) {
+          this.logger.warn(
+            `Failed to record Redis session on login for user ${user.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
     }
 
@@ -271,16 +303,61 @@ export class AuthService {
     };
   }
 
-  async refresh(user: {
-    id?: string;
-    sub?: string;
-    email: string;
-    username?: string;
-    role?: string;
-    name?: string;
-    permissions?: string[];
-  }) {
-    const userId = user.id || user.sub;
+  async refresh(
+    userOrToken:
+      | string
+      | {
+          id?: string;
+          sub?: string;
+          email?: string;
+          username?: string;
+          role?: string;
+          name?: string;
+          permissions?: string[];
+          refreshToken?: string;
+        },
+    refreshTokenParam?: string,
+    ipAddress = '127.0.0.1',
+    userAgent = 'UIMS Client',
+  ) {
+    const refreshToken =
+      typeof userOrToken === 'string'
+        ? userOrToken
+        : refreshTokenParam || userOrToken?.refreshToken;
+
+    let userId =
+      typeof userOrToken === 'object' && userOrToken !== null
+        ? userOrToken.id || userOrToken.sub
+        : undefined;
+
+    const refreshSecret =
+      typeof this.configService?.getOrThrow === 'function'
+        ? this.configService.getOrThrow<string>('JWT_REFRESH_SECRET')
+        : this.configService?.get<string>('JWT_REFRESH_SECRET') || process.env.JWT_REFRESH_SECRET;
+    if (!refreshSecret) {
+      throw new Error('JWT_REFRESH_SECRET is required');
+    }
+
+    if (!userId && refreshToken) {
+      try {
+        const payload = this.jwtService.verify<{ sub?: string; id?: string; type?: string }>(
+          refreshToken,
+          { secret: refreshSecret },
+        );
+        if (payload.type && payload.type !== 'refresh') {
+          throw new UnauthorizedException('Invalid token type for refresh');
+        }
+        userId = payload.sub || payload.id;
+      } catch (error: unknown) {
+        if (error instanceof UnauthorizedException) {
+          throw error;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to verify refresh token in refresh: ${message}`);
+        throw new UnauthorizedException('Invalid or expired refresh token');
+      }
+    }
+
     if (!userId) {
       throw new UnauthorizedException('Invalid authentication token');
     }
@@ -295,6 +372,149 @@ export class AuthService {
         throw new UnauthorizedException(
           'Account is inactive, suspended, or revoked. Contact your system administrator.',
         );
+      }
+
+      if (freshUser.isLocked) {
+        throw new UnauthorizedException('Account is locked. Contact your system administrator.');
+      }
+
+      let newRefreshToken: string | undefined;
+
+      if (refreshToken) {
+        const tokenHash = hashToken(refreshToken);
+
+        if (typeof this.prisma.refreshToken?.findUnique === 'function') {
+          const existingToken = await this.prisma.refreshToken.findUnique({
+            where: { tokenHash },
+          });
+
+          if (!existingToken) {
+            throw new UnauthorizedException('Invalid or expired refresh token');
+          }
+
+          if (existingToken.isRevoked) {
+            try {
+              await this.prisma.refreshToken.updateMany({
+                where: { userId: freshUser.id, isRevoked: false },
+                data: { isRevoked: true },
+              });
+            } catch (error: unknown) {
+              this.logger.error(
+                `Failed to revoke refresh tokens on reuse detection for user ${freshUser.id}`,
+                error instanceof Error ? error.stack : String(error),
+              );
+            }
+            if (this.redis) {
+              try {
+                await this.redis.del(`uims:session:${freshUser.id}`);
+              } catch (error: unknown) {
+                this.logger.warn(
+                  `Failed to clear Redis session for user ${freshUser.id}: ${error instanceof Error ? error.message : String(error)}`,
+                );
+              }
+            }
+            this.logger.warn(
+              `Refresh token reuse detected for user ${freshUser.id}. All active sessions invalidated.`,
+            );
+            throw new UnauthorizedException('Session has been revoked due to security violation');
+          }
+
+          if (existingToken.expiresAt.getTime() < Date.now()) {
+            throw new UnauthorizedException('Refresh token has expired');
+          }
+
+          if (existingToken.userId !== freshUser.id) {
+            throw new UnauthorizedException('Refresh token does not belong to user');
+          }
+
+          // Atomic check-and-update to prevent race condition reuse
+          if (typeof this.prisma.refreshToken?.updateMany === 'function') {
+            const updateResult = await this.prisma.refreshToken.updateMany({
+              where: { id: existingToken.id, isRevoked: false },
+              data: { isRevoked: true },
+            });
+
+            if (updateResult.count === 0) {
+              // Concurrent race condition detected: another request already consumed this token
+              try {
+                await this.prisma.refreshToken.updateMany({
+                  where: { userId: freshUser.id, isRevoked: false },
+                  data: { isRevoked: true },
+                });
+              } catch (error: unknown) {
+                this.logger.error(
+                  `Failed to revoke refresh tokens on concurrent reuse detection for user ${freshUser.id}`,
+                  error instanceof Error ? error.stack : String(error),
+                );
+              }
+              if (this.redis) {
+                try {
+                  await this.redis.del(`uims:session:${freshUser.id}`);
+                } catch (error: unknown) {
+                  this.logger.warn(
+                    `Failed to clear Redis session on concurrent reuse for user ${freshUser.id}: ${error instanceof Error ? error.message : String(error)}`,
+                  );
+                }
+              }
+              this.logger.warn(
+                `Concurrent refresh token reuse detected for user ${freshUser.id}. All active sessions invalidated.`,
+              );
+              throw new UnauthorizedException('Session has been revoked due to security violation');
+            }
+          }
+        }
+
+        // Issue new rotated refresh token
+        newRefreshToken = this.jwtService.sign(
+          { sub: freshUser.id, email: freshUser.email, type: 'refresh' },
+          {
+            secret: refreshSecret,
+            expiresIn: '7d',
+          },
+        );
+
+        const newTokenHash = hashToken(newRefreshToken);
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        if (typeof this.prisma.refreshToken?.create === 'function') {
+          try {
+            await this.prisma.refreshToken.create({
+              data: {
+                userId: freshUser.id,
+                tokenHash: newTokenHash,
+                device: userAgent,
+                ipAddress,
+                expiresAt,
+              },
+            });
+          } catch (error: unknown) {
+            this.logger.error(
+              `Failed to persist rotated refresh token for user ${freshUser.id}`,
+              error instanceof Error ? error.stack : String(error),
+            );
+          }
+        }
+
+        if (this.redis) {
+          try {
+            const sessionKey = `uims:session:${freshUser.id}`;
+            await this.redis.set(
+              sessionKey,
+              {
+                userId: freshUser.id,
+                tokenHash: newTokenHash,
+                device: userAgent,
+                ipAddress,
+                rotatedAt: new Date().toISOString(),
+              },
+              7 * 24 * 60 * 60,
+            );
+          } catch (error: unknown) {
+            this.logger.warn(
+              `Failed to update Redis session on refresh for user ${freshUser.id}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
       }
 
       const rawFreshRole = (freshUser as { role?: { name?: string } | string; roleName?: string })
@@ -325,6 +545,9 @@ export class AuthService {
       return {
         token,
         accessToken: token,
+        ...(newRefreshToken || refreshToken
+          ? { refreshToken: newRefreshToken || refreshToken }
+          : {}),
         permissions,
         user: {
           id: freshUser.id,
@@ -337,21 +560,32 @@ export class AuthService {
       };
     }
 
-    const role = user.role;
+    const role =
+      typeof userOrToken === 'object' && userOrToken !== null ? userOrToken.role : undefined;
     if (!role) {
       throw new UnauthorizedException(
         'User account has no assigned role. Contact your system administrator.',
       );
     }
-    const permissions = user.permissions || [];
-    const payload = { email: user.email, sub: userId, role, permissions, username: user.username };
+    const permissions =
+      (typeof userOrToken === 'object' && userOrToken !== null
+        ? userOrToken.permissions
+        : undefined) || [];
+    const email =
+      (typeof userOrToken === 'object' && userOrToken !== null ? userOrToken.email : undefined) ||
+      '';
+    const username =
+      typeof userOrToken === 'object' && userOrToken !== null ? userOrToken.username : undefined;
+    const payload = { email, sub: userId, role, permissions, username, type: 'access' };
     const token = this.jwtService.sign(payload);
     return {
       token,
       accessToken: token,
+      ...(refreshToken ? { refreshToken } : {}),
       permissions,
       user: {
-        ...user,
+        ...(typeof userOrToken === 'object' && userOrToken !== null ? userOrToken : {}),
+        id: userId,
         role,
         permissions,
       },
@@ -366,7 +600,19 @@ export class AuthService {
           data: { isRevoked: true },
         });
       } catch (error: unknown) {
-        this.logger.error(`Failed to revoke refresh tokens on logout for user ${userId}: ${error}`);
+        this.logger.error(
+          `Failed to revoke refresh tokens on logout for user ${userId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+    if (this.redis && userId) {
+      try {
+        await this.redis.del(`uims:session:${userId}`);
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Failed to clear Redis session on logout for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
     return { success: true, message: 'Successfully logged out' };

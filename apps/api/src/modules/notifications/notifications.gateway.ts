@@ -36,6 +36,53 @@ export class NotificationsGateway
   ) {}
 
   /**
+   * Authoritative token validation helper.
+   * Enforces fail-closed token verification, validates signature and payload,
+   * and mandates a non-empty string role claim (zero default fallback).
+   */
+  verifyTokenString(token: string): AuthenticatedSocketData {
+    const cleanToken = token?.trim();
+    if (!cleanToken) {
+      throw new Error('No token provided');
+    }
+
+    const secret =
+      typeof this.configService?.getOrThrow === 'function'
+        ? this.configService.getOrThrow<string>('JWT_SECRET')
+        : this.configService?.get<string>('JWT_SECRET');
+    if (!secret) {
+      this.logger.error(
+        'JWT_SECRET is not configured for WebSocket gateway',
+        new Error('Missing JWT_SECRET configuration').stack,
+      );
+      throw new Error('Server misconfiguration');
+    }
+
+    const payload = this.jwtService.verify<{
+      sub?: string;
+      id?: string;
+      role?: string;
+      email?: string;
+    }>(cleanToken, { secret });
+
+    const userId = payload.sub || payload.id;
+    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+      throw new Error('Invalid token payload');
+    }
+
+    const role = payload.role;
+    if (!role || typeof role !== 'string' || role.trim().length === 0) {
+      throw new Error('Missing role in token payload');
+    }
+
+    return {
+      userId: userId.trim(),
+      role: role.trim(),
+      email: typeof payload.email === 'string' ? payload.email.trim() : undefined,
+    };
+  }
+
+  /**
    * Authoritative socket authentication helper.
    * Enforces fail-closed token verification, explicitly forbids URL query tokens,
    * and mandates a non-empty string role claim (zero default fallback).
@@ -67,41 +114,7 @@ export class NotificationsGateway
       throw new Error('No token provided');
     }
 
-    // 3. Verify server secret configuration
-    const secret =
-      typeof this.configService?.getOrThrow === 'function'
-        ? this.configService.getOrThrow<string>('JWT_SECRET')
-        : this.configService?.get<string>('JWT_SECRET');
-    if (!secret) {
-      this.logger.error('JWT_SECRET is not configured for WebSocket gateway');
-      throw new Error('Server misconfiguration');
-    }
-
-    // 4. Verify token signature, expiration, and payload
-    const payload = this.jwtService.verify<{
-      sub?: string;
-      id?: string;
-      role?: string;
-      email?: string;
-    }>(token, { secret });
-
-    // 5. Validate user identity from payload (sub or id fallback)
-    const userId = payload.sub || payload.id;
-    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
-      throw new Error('Invalid token payload');
-    }
-
-    // 6. Enforce strict role claim (ZERO default role fallback)
-    const role = payload.role;
-    if (!role || typeof role !== 'string' || role.trim().length === 0) {
-      throw new Error('Missing role in token payload');
-    }
-
-    return {
-      userId: userId.trim(),
-      role: role.trim(),
-      email: typeof payload.email === 'string' ? payload.email.trim() : undefined,
-    };
+    return this.verifyTokenString(token);
   }
 
   afterInit(server: Server) {
@@ -273,6 +286,53 @@ export class NotificationsGateway
       } else {
         this.server.emit('notification:cleared', { success: true });
       }
+    }
+  }
+
+  @SubscribeMessage('auth:refresh')
+  async handleTokenRefresh(
+    client: Socket,
+    data: { token?: string },
+  ): Promise<{ status: string; message?: string }> {
+    try {
+      const token = data?.token;
+      if (!token || typeof token !== 'string') {
+        throw new Error('Missing token in refresh message');
+      }
+
+      const socketData = this.verifyTokenString(token);
+      const oldData = client.data as AuthenticatedSocketData | undefined;
+
+      // Validate identity continuity (prevent session hijacking)
+      if (oldData?.userId && oldData.userId !== socketData.userId) {
+        throw new Error('User identity mismatch during token re-synchronization');
+      }
+
+      // If user role changed during the session, update room subscriptions cleanly
+      if (oldData?.role && oldData.role !== socketData.role) {
+        await client.leave(`role:${oldData.role}`);
+      }
+      await client.join(`role:${socketData.role}`);
+      await client.join(`user:${socketData.userId}`);
+
+      client.data = socketData;
+      this.logger.log(
+        `Socket client ${client.id} re-authenticated successfully: user=${socketData.userId}, role=${socketData.role}`,
+      );
+
+      client.emit('auth:refreshed', {
+        status: 'ready',
+        userId: socketData.userId,
+        role: socketData.role,
+        timestamp: new Date().toISOString(),
+      });
+
+      return { status: 'ok' };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Socket client ${client.id} re-authentication rejected: ${message}`);
+      client.disconnect(true);
+      return { status: 'error', message };
     }
   }
 

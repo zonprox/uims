@@ -6,6 +6,8 @@ import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { JwtRefreshGuard } from './jwt-refresh.guard';
 
 interface AuthRequest {
   user: {
@@ -15,6 +17,7 @@ interface AuthRequest {
     role?: string;
     name?: string;
   };
+  refreshToken?: string;
 }
 
 @ApiTags('auth')
@@ -42,13 +45,20 @@ export class AuthController {
     return req.user;
   }
 
+  @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtRefreshGuard)
   @ApiOperation({ summary: 'Refresh access token' })
   @Post('refresh')
-  refresh(@Request() req: AuthRequest) {
-    return this.authService.refresh(req.user);
+  refresh(
+    @Body() refreshTokenDto: RefreshTokenDto,
+    @Request() req: AuthRequest,
+    @ClientIP() ip: string,
+    @Headers('user-agent') userAgent = 'UIMS Browser Client',
+  ) {
+    const refreshToken = refreshTokenDto?.refreshToken || req.refreshToken;
+    return this.authService.refresh(req.user, refreshToken, ip, userAgent);
   }
 
   @ApiBearerAuth()

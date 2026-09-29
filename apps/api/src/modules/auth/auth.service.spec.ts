@@ -27,6 +27,7 @@ describe('AuthService', () => {
 
     mockJwtService = {
       sign: vi.fn(() => 'mock-jwt-token'),
+      verify: vi.fn(),
     };
 
     mockConfigService = {
@@ -47,6 +48,9 @@ describe('AuthService', () => {
       },
       refreshToken: {
         create: vi.fn().mockResolvedValue({ id: 'rt-1' }),
+        findUnique: vi.fn().mockResolvedValue(null),
+        update: vi.fn().mockResolvedValue({ id: 'rt-1', isRevoked: true }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       role: {
         findFirst: vi.fn().mockResolvedValue({ id: 'role-1', name: 'Staff', permissions: [] }),
@@ -60,11 +64,18 @@ describe('AuthService', () => {
       },
     };
 
+    const mockRedisService = {
+      set: vi.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(null),
+      del: vi.fn().mockResolvedValue(undefined),
+    };
+
     service = new AuthService(
       mockUsersService as unknown as import('../users/users.service').UsersService,
       mockJwtService as unknown as import('@nestjs/jwt').JwtService,
       mockPrismaService as unknown as import('../../database/prisma.service').PrismaService,
       mockConfigService as unknown as import('@nestjs/config').ConfigService,
+      mockRedisService as unknown as import('../../common/redis/redis.service').RedisService,
     );
   });
 
@@ -284,6 +295,211 @@ describe('AuthService', () => {
         permissions: [],
         username: 'user3',
         type: 'access',
+      });
+    });
+
+    it('should successfully rotate tokens and update Redis session when valid refresh token is provided', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-3',
+        username: 'user3',
+        email: 'user3@uims.internal',
+        displayName: 'User Three',
+        status: 'ACTIVE',
+        role: { id: 'role-emp', name: 'Employee' },
+        roleName: 'Employee',
+        roleId: 'role-emp',
+      });
+
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 'token-db-1',
+        userId: 'user-3',
+        isRevoked: false,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      const result = await service.refresh(
+        { id: 'user-3', email: 'user3@uims.internal' },
+        'valid-refresh-token-xyz',
+      );
+
+      expect(result.token).toBe('mock-jwt-token');
+      expect(result.accessToken).toBe('mock-jwt-token');
+      expect(result.refreshToken).toBeDefined();
+
+      // Verify old token was atomically revoked
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { id: 'token-db-1', isRevoked: false },
+        data: { isRevoked: true },
+      });
+
+      // Verify new token was created
+      expect(mockPrismaService.refreshToken.create).toHaveBeenCalled();
+    });
+
+    it('should preserve resolved permissions on refresh for authorized roles', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-it-1',
+        username: 'sarah.it',
+        email: 'sarah@uims.internal',
+        displayName: 'Sarah Chen',
+        status: 'ACTIVE',
+        role: { id: 'role-it', name: 'IT Specialist' },
+        roleName: 'IT Specialist',
+        roleId: 'role-it',
+      });
+
+      mockPrismaService.role.findFirst.mockResolvedValue({
+        id: 'role-it',
+        name: 'IT Specialist',
+        permissions: [
+          { permission: { subject: 'Asset', action: 'read' } },
+          { permission: { subject: 'Asset', action: 'write' } },
+        ],
+      });
+
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 'token-db-it',
+        userId: 'user-it-1',
+        isRevoked: false,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      const result = await service.refresh(
+        { id: 'user-it-1', email: 'sarah@uims.internal' },
+        'it-refresh-token',
+      );
+
+      expect(result.permissions).toEqual(['Asset:read', 'Asset:write']);
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: 'IT Specialist',
+          permissions: ['Asset:read', 'Asset:write'],
+        }),
+      );
+    });
+
+    it('should strictly throw UnauthorizedException when refresh token is not found in database (fail-closed)', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-3',
+        username: 'user3',
+        email: 'user3@uims.internal',
+        status: 'ACTIVE',
+        role: { id: 'role-emp', name: 'Employee' },
+        roleName: 'Employee',
+      });
+
+      // Token not found in database
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.refresh({ id: 'user-3', email: 'user3@uims.internal' }, 'unrecorded-token'),
+      ).rejects.toThrow('Invalid or expired refresh token');
+    });
+
+    it('should detect concurrent race condition on token rotation, revoke all user sessions, and throw UnauthorizedException', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-3',
+        username: 'user3',
+        email: 'user3@uims.internal',
+        status: 'ACTIVE',
+        role: { id: 'role-emp', name: 'Employee' },
+        roleName: 'Employee',
+      });
+
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 'race-token-id',
+        userId: 'user-3',
+        isRevoked: false,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      // Atomic update returns count: 0 because another concurrent request revoked it first
+      mockPrismaService.refreshToken.updateMany
+        .mockResolvedValueOnce({ count: 0 }) // First updateMany (atomic check)
+        .mockResolvedValueOnce({ count: 3 }); // Second updateMany (revoke all sessions)
+
+      await expect(
+        service.refresh({ id: 'user-3', email: 'user3@uims.internal' }, 'concurrent-race-token'),
+      ).rejects.toThrow('Session has been revoked due to security violation');
+
+      // Verify all sessions were revoked due to concurrent reuse violation
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-3', isRevoked: false },
+        data: { isRevoked: true },
+      });
+    });
+
+    it('should detect refresh token reuse, revoke all user sessions in DB, and throw UnauthorizedException', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-3',
+        username: 'user3',
+        email: 'user3@uims.internal',
+        status: 'ACTIVE',
+        role: { id: 'role-emp', name: 'Employee' },
+        roleName: 'Employee',
+      });
+
+      // Simulated stolen/reused token that is already marked revoked
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 'compromised-token-id',
+        userId: 'user-3',
+        isRevoked: true,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      await expect(
+        service.refresh({ id: 'user-3', email: 'user3@uims.internal' }, 'compromised-reused-token'),
+      ).rejects.toThrow('Session has been revoked due to security violation');
+
+      // Verify fail-closed security: all active sessions for this user were revoked
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-3', isRevoked: false },
+        data: { isRevoked: true },
+      });
+    });
+
+    it('should throw UnauthorizedException when refresh token in DB is expired', async () => {
+      mockPrismaService.appUser.findUnique.mockResolvedValue({
+        id: 'user-3',
+        username: 'user3',
+        email: 'user3@uims.internal',
+        status: 'ACTIVE',
+        role: { id: 'role-emp', name: 'Employee' },
+        roleName: 'Employee',
+      });
+
+      mockPrismaService.refreshToken.findUnique.mockResolvedValue({
+        id: 'expired-token-id',
+        userId: 'user-3',
+        isRevoked: false,
+        expiresAt: new Date(Date.now() - 10000), // Expired
+      });
+
+      await expect(
+        service.refresh({ id: 'user-3', email: 'user3@uims.internal' }, 'expired-db-token'),
+      ).rejects.toThrow('Refresh token has expired');
+    });
+
+    it('should strictly reject direct refresh invocation when token is of access type instead of refresh', async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-3',
+        type: 'access', // Maliciously sending access token
+      });
+
+      await expect(service.refresh('access-token-as-refresh')).rejects.toThrow(
+        'Invalid token type for refresh',
+      );
+    });
+  });
+
+  describe('logout', () => {
+    it('should revoke all active refresh tokens in DB and clear session', async () => {
+      const result = await service.logout('user-3');
+
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-3', isRevoked: false },
+        data: { isRevoked: true },
       });
     });
   });

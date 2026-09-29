@@ -1,176 +1,122 @@
----
-last_mapped_commit: d6702648267dbb1627c0df43c5a7322fec3983db
-last_mapped_at: 2026-09-17
----
 # Testing Patterns
 
-**Analysis Date:** 2026-09-17
+**Analysis Date:** 2026-09-28
 
 ## Test Framework
-
 **Runner:**
-
-- Vitest 5.x
-- Config: `vitest.config.ts` (Web) and `vitest.config.mts` (API)
-
+- Vitest v5.0.0
+- Config: `apps/web/vitest.config.ts`, `vitest.config.ts` (in packages/node-modules)
 **Assertion Library:**
-
-- Vitest's built-in `expect` (Chai-based)
-
+- `expect` from `vitest`
 **Run Commands:**
-
 ```bash
-turbo run test              # Run all unit tests
-turbo run test:e2e          # Run end-to-end tests via Playwright
-vitest                      # Watch mode (in specific app dirs)
+pnpm run test              # Run all tests via turbo
+pnpm run test:watch        # Watch mode (via underlying vitest)
+pnpm run test:e2e          # E2E tests via turbo
+pnpm run test:e2e:network  # Specific E2E script
 ```
 
 ## Test File Organization
-
 **Location:**
-
-- Co-located next to the implementation files they test (e.g., `assets.service.ts` and `assets.service.spec.ts` in the same directory).
-
+- Co-located with implementation for unit tests (e.g., `apps/api/src/modules/health/health.controller.spec.ts` next to `health.controller.ts`).
+- Dedicated `test/e2e/` folder for E2E and integration tests in the backend.
 **Naming:**
-
-- API (NestJS): `*.spec.ts`
-- Web (React/Hooks/Utils): `*.test.ts`
-- UI Components: `*.test.tsx`
-
+- Backend: `*.spec.ts`, `*.e2e-spec.ts`, `*.adversarial.spec.ts`
+- Frontend: `*.test.tsx`, `*.test.ts`, `*.stress.test.tsx`
 **Structure:**
-
 ```
-src/
+apps/api/src/
   modules/
-    assets/
-      assets.service.ts
-      assets.service.spec.ts
+    health/
+      health.controller.ts
+      health.controller.spec.ts
+apps/api/test/
+  e2e/
+    spatial-locations.e2e-spec.ts
 ```
 
 ## Test Structure
-
 **Suite Organization:**
-
 ```typescript
-import { describe, expect, it, beforeEach } from 'vitest';
-
 describe('AssetsService', () => {
-  describe('create', () => {
-    it('should create an asset and assign a generated tag', async () => {
-      // test body
-    });
+  let service: AssetsService;
+  let mockPrisma: Record<string, unknown>;
+
+  beforeEach(() => {
+    // Setup
+  });
+
+  it('should return health status ok', async () => {
+    // Assert
   });
 });
 ```
-
 **Patterns:**
-
-- **Setup:** Use `beforeEach` to reinitialize the service and mock dependencies before each test, ensuring a clean state.
-- **Teardown:** Let Vitest handle garbage collection. Explicit teardowns are rare unless dealing with external resources.
-- **Assertion:** Act on the subject under test and use `expect(...)` for structural and value assertions.
+- **Setup:** Uses `beforeEach` to initialize services, mock dependencies, and reset DOM/React states.
+- **Teardown:** Uses `afterEach` to unmount components, clean up DOM (`container.remove()`), and call `vi.restoreAllMocks()`.
+- **Assertion:** Arranges state, performs action, and asserts outcomes using Vitest's `expect`.
 
 ## Mocking
-
-**Framework:** Vitest (`vi.fn`, `vi.mock`)
-
+**Framework:** `vi` from `vitest`
 **Patterns:**
-
 ```typescript
-// Manual Mocking using Dependency Injection (API)
-let mockPrisma: Record<string, unknown>;
+const mockRedis = {
+  ping: vi.fn().mockResolvedValue('PONG'),
+} as unknown as RedisService;
 
-beforeEach(() => {
-  mockPrisma = {
-    $transaction: vi.fn(async (cb) => cb(mockPrisma)),
-    asset: { create: vi.fn(), findUnique: vi.fn() },
-  };
-  service = new AssetsService(mockPrisma as any);
-});
-
-// Setting mock returns
-mockPrisma.asset.findUnique.mockResolvedValue({ id: 'ast-1', status: 'IN_USE' });
+vi.mock('../../hooks/useSystemHealth', () => ({
+  useSystemHealth: () => ({
+    health: { status: 'ok', uptimePercent: '100%', clientLatencyMs: 12 },
+  }),
+}));
 ```
-
 **What to Mock:**
-
-- Database calls (Prisma).
-- External service calls (e.g., HTTP clients, notifications service).
-- Global window APIs in Web when needed.
-
+- External services, databases (`PrismaService`), network requests, and external React hooks/stores.
 **What NOT to Mock:**
-
-- Pure utilities, domain formatting functions, or simple state management logic. Use real implementations where possible for integration confidence.
+- Pure utility functions, internal logic of the component under test.
 
 ## Fixtures and Factories
-
 **Test Data:**
-
 ```typescript
-// Inline literal objects are often used for test data
-const mockAsset = {
-  id: 'ast-1',
-  name: 'MacBook Pro 16',
-  status: AssetStatus.IN_USE,
-  specs: { cpu: 'M3 Max', ram: '64GB' }
-};
+interface DbLocation {
+  id: string;
+  name: string;
+  type: LocationType;
+  // ...
+}
 ```
-
 **Location:**
-
-- Fixtures are usually defined inline within the `describe` or `it` blocks for visibility. Shared mocks may be stored in setup files, but prefer explicit localized test data.
+- Often defined in-file for E2E tests (e.g., `DbLocation`, `DbAsset` inside `apps/api/test/e2e/spatial-locations.e2e-spec.ts`) or setup blocks.
 
 ## Coverage
-
-**Requirements:** None explicitly enforced in CI/CD via configuration at the moment.
-
+**Requirements:** None enforced explicitly in primary vitest config, but supported via vitest coverage.
 **View Coverage:**
-
 ```bash
-turbo run test -- --coverage
+vitest run --coverage
 ```
 
 ## Test Types
-
 **Unit Tests:**
-
-- Scoped to individual services, utilities, hooks, or components. 
-- API: Heavily tests business logic in services (e.g., status transitions in `AssetsService`).
-- Web: Tests hook logic (`useAssetManagement.test.ts`), utility parsing, and formatting functions.
-
+- Backend: Mocks Prisma and external dependencies to test service/controller logic in isolation.
+- Frontend: Uses `react-dom/client` and `act` (or `happy-dom` env) to render components and verify UI state.
 **Integration Tests:**
-
-- Often blended with unit tests. Boundary specifications exist (e.g., `notifications.boundary.spec.ts`).
-
+- Connects modules without mocking DB interactions (e.g., in-memory relational fixture DB tests in E2E specs).
 **E2E Tests:**
-
-- Framework: Playwright (`@playwright/test`).
-- Tests end-to-end user flows and API integrations.
+- Custom scripts (e.g., `node scripts/run-e2e-network.mjs`) running vitest suites (`network-modernization.e2e-spec.ts`) that test end-to-end flows.
 
 ## Common Patterns
-
 **Async Testing:**
-
 ```typescript
-it('should perform async operations correctly', async () => {
-  mockPrisma.asset.create.mockResolvedValue(mockAsset);
-  const result = await service.create(mockDto);
-  expect(result.id).toBe('ast-1');
-  expect(mockPrisma.asset.create).toHaveBeenCalled();
+it('should throw ServiceUnavailableException', async () => {
+  await expect(controller.check()).rejects.toThrow(ServiceUnavailableException);
 });
 ```
-
 **Error Testing:**
-
 ```typescript
-it('should throw NotFoundException if category is invalid', async () => {
-  mockPrisma.assetCategory.findUnique.mockResolvedValue(null);
-  
-  await expect(service.create({ categoryId: 'invalid' }))
-    .rejects
-    .toThrow(NotFoundException);
-});
+const mockPrisma = {
+  $queryRaw: vi.fn().mockRejectedValue(new Error('Connection refused')),
+} as unknown as PrismaService;
 ```
 
 ---
-
-*Testing analysis: 2026-09-17*
+*Testing analysis: 2026-09-28*

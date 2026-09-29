@@ -1,102 +1,71 @@
----
-last_mapped_commit: d6702648267dbb1627c0df43c5a7322fec3983db
-last_mapped_at: 2026-09-17
----
 # Codebase Concerns
 
-**Analysis Date:** 2026-09-17
+**Analysis Date:** 2026-09-28
 
 ## Tech Debt
-
-**Test Suite Typing (`any` Usage):**
-
-- Issue: Numerous instances of `any` used for mocking `PrismaClient` and other services in E2E tests, violating the monorepo's strict typing invariants.
-- Files: `apps/api/test/e2e/m1-db-perf-adversarial.spec.ts`, `apps/api/test/e2e/m2-challenger2-adversarial.spec.ts`
-- Impact: Weakens type safety during test refactoring; Prisma API schema changes won't be caught by TypeScript in the test suites.
-- Fix approach: Replace `any` with `mockDeep<PrismaClient>()` from `vitest-mock-extended` or define proper minimal interface types.
+**God Classes and Massive Files:**
+- Issue: Core business logic and UI components are severely tangled in massive files (>1500 lines), violating the Single Responsibility Principle.
+- Files: `apps/api/src/modules/network/network.service.ts` (1948 lines), `apps/web/src/pages/organization/OrganizationCanvas.tsx` (1886 lines), `apps/web/src/pages/organization/OrganizationPage.tsx` (1842 lines)
+- Impact: Hard to maintain, slow to type-check, high likelihood of merge conflicts, and difficult to test isolation.
+- Fix approach: Split services into domain-specific sub-services (e.g., `VlanService`, `SwitchService`) and decompose massive React pages into smaller, reusable UI components.
 
 ## Known Bugs
-
-**Silent Truncation in Analytics/Aggregations:**
-
-- Symptoms: `getStats` calculates incorrect total spend when >100 licenses exist, if the raw SQL query fails (it silently falls back to a bounded `take: 100` query).
-- Files: `apps/api/src/modules/licenses/licenses.service.ts`
-- Trigger: Database raw query fails and more than 100 licenses exist.
-- Workaround: Ensure DB user has permissions for `$queryRaw`.
-
-**Silent Truncation in Spatial Resolution:**
-
-- Symptoms: `resolveDescendantLocationIds` fails to resolve descendant locations deeper/beyond 100 nodes if the raw SQL recursive CTE fails, silently returning an incomplete list.
-- Files: `apps/api/src/modules/organization/location-tree.util.ts`
-- Trigger: Exceed 100 locations in the DB while `$queryRaw` CTE is unavailable or fails.
-- Workaround: Remove the arbitrary `take: 100` in the fallback or rely solely on the CTE.
+**Silent Error Swallowing:**
+- Symptoms: Asynchronous errors or database failures in specific test suites are actively suppressed.
+- Files: `apps/api/test/e2e/tier5-network-adversarial-hardening.spec.ts` (e.g., `catch (_ignore: unknown) {}`)
+- Trigger: Network timeouts, database constraints, or logic errors during execution.
+- Workaround: None without removing the empty catch blocks and handling errors properly.
 
 ## Security Considerations
-
-**Cryptographic Key Reuse:**
-
-- Risk: `getLicenseEncryptionKey` falls back to using `AUDIT_SIGNING_KEY` or `JWT_SECRET` if `LICENSE_ENCRYPTION_KEY` is not set. This violates cryptographic hygiene by reusing token-signing keys for AES-256-GCM data encryption.
+**Weak Cryptography Defaults:**
+- Risk: Reusing the JWT secret for symmetric license encryption (key reuse). The system falls back to `JWT_SECRET` if `LICENSE_ENCRYPTION_KEY` is not provided.
 - Files: `apps/api/src/common/crypto/license-crypto.ts`
-- Current mitigation: A fallback exists to prevent crashes, but it weakens overall security.
-- Recommendations: Enforce `LICENSE_ENCRYPTION_KEY` as a strictly required environment variable in `apps/api/src/config/app.config.ts` (especially in production) and remove the fallback.
-
-**Decrypted License Keys Exposed in Standard API Responses:**
-
-- Risk: `findAll` and `findOne` return `licenseKey: decryptedKey` in plaintext in the JSON response payload. Anyone with read access to the dashboard can exfiltrate all plaintext software license keys.
-- Files: `apps/api/src/modules/licenses/licenses.service.ts`
-- Current mitigation: A `maskedKey` is provided, but the plaintext key is still sent alongside it.
-- Recommendations: Omit `licenseKey` from standard API responses and only provide `maskedKey`. Create a privileged endpoint for revealing the plaintext key that logs an audit event.
+- Current mitigation: The code requires *some* valid secret string but allows dangerous key reuse.
+- Recommendations: Enforce strict separation of cryptographic keys. The application should throw a fatal startup error if `LICENSE_ENCRYPTION_KEY` is missing, rather than falling back to an unrelated secret.
 
 ## Performance Bottlenecks
+**Unbounded Database Queries (OOM Risk):**
+- Problem: Critical queries retrieve entire tables into memory without pagination limits.
+- Files: `apps/api/src/modules/network/network.service.ts`, `apps/api/src/modules/organization/organization.service.ts`, `apps/api/src/modules/licenses/licenses.service.ts`
+- Cause: Prisma `findMany` is routinely called without `take` or `skip` properties.
+- Improvement path: Enforce a strict `take` limit (e.g., maximum 100 or 500) or implement cursor-based pagination for all collection endpoints.
 
-**In-Memory Tree BFS Fallback:**
-
-- Problem: The fallback mechanism in `resolveDescendantLocationIds` loads records into Node.js memory and performs a Breadth-First Search.
-- Files: `apps/api/src/modules/organization/location-tree.util.ts`
-- Cause: If the Postgres `$queryRaw` CTE fails, it reverts to application-side logic.
-- Improvement path: Ensure the recursive CTE is robust and remove the fallback from production code, or use a proper closure table/materialized path in Prisma.
+**N+1 Query Patterns:**
+- Problem: Executing sequential database queries inside iterative loops.
+- Files: `apps/api/src/modules/notifications/notifications.service.ts`
+- Cause: Iterating over `usersExceeding` to execute `findMany` queries for pruning notifications individually per user.
+- Improvement path: Group constraints and run a single bulk query (e.g., `deleteMany` using `IN` clauses) or batch operations.
 
 ## Fragile Areas
-
-**Raw SQL queries with silent catch blocks:**
-
-- Files: `apps/api/src/modules/organization/location-tree.util.ts`, `apps/api/src/modules/licenses/licenses.service.ts`
-- Why fragile: Catching `_error: unknown` and silently proceeding to a bounded fallback masks critical database errors (such as schema changes, syntax errors in SQL, or permission issues).
-- Safe modification: Log the error robustly and fail the request, or utilize Prisma's native `aggregate` where possible to avoid raw SQL.
-- Test coverage: Missing integration tests verifying the failure states of `$queryRaw`.
+**Network 2D Elevation Grid Computation:**
+- Files: `apps/api/src/modules/network/network.service.ts`
+- Why fragile: Edge cases in complex 2D slotting invariants on multi-U devices are deeply embedded in the massive `network.service.ts` file, making them prone to regressions if side-effects alter data structures.
+- Safe modification: Isolate the elevation grid algorithm into a pure, heavily unit-tested utility function decoupled from Prisma.
+- Test coverage: Covered primarily by e2e tests (`network.adversarial.spec.ts`), lacking localized algorithmic unit tests.
 
 ## Scaling Limits
-
-**Hard-Coded `take: 100` Limits on Reference Data APIs:**
-
-- Current capacity: 100 items per API.
-- Limit: API lists for vendors and categories are hard-capped at 100 in `getCategories()` and `findAllVendors()`. If a company has 101 vendors, the 101st will never appear in UI dropdowns.
-- Scaling path: Implement proper cursor-based or offset pagination, or use an async search/autocomplete endpoint in the UI rather than fetching all categories/vendors.
+**Database & Memory Capacity:**
+- Current capacity: Operates fine on small/seeded datasets.
+- Limit: Node.js memory exhaustion and DB CPU thrashing when the total number of switches, ports, or logs scales into the 100k+ range, triggered by unbounded `findMany` queries.
+- Scaling path: Introduce hard API pagination bounds and ensure database indexes cover high-cardinality multi-tenant relations.
 
 ## Dependencies at Risk
-
-**Missing Frontend Module Resolution Sync:**
-
-- Risk: `PROJECT.md` notes the backend was updated to `NodeNext` module resolution, but there's no mention of matching updates for shared packages.
-- Impact: Potential inconsistencies in how imports are resolved between Vite/React and NestJS.
-- Migration plan: Audit and align `tsconfig.json` across all workspaces.
+**Test Coverage Enforcement:**
+- Risk: The repository lacks automated `coverage` reports or explicit minimum thresholds in its pipeline.
+- Impact: Code quality and test thoroughness may degrade silently over time.
+- Migration plan: Integrate `jest --coverage` directly into the CI build steps and enforce a minimum coverage threshold to block regressions.
 
 ## Missing Critical Features
-
-**Hard-Coded Default Status in License Assignment:**
-
-- Problem: When an asset is assigned, the state machine defaults to specific statuses, but there's no UI/API way to override it safely without a separate update call.
-- Blocks: Prevents atomic assignment + status setting (e.g. assigning a broken machine for maintenance).
+**API Payload Limits and Broad Queries:**
+- Problem: Missing pagination (`take/skip`) on endpoints fetching organizations, locations, and network fabrics.
+- Blocks: Prevents safe rendering of large-scale infrastructure environments in the UI without browser lockups or server-side memory spikes.
 
 ## Test Coverage Gaps
-
-**Raw SQL Fallback Logic:**
-
-- What's not tested: The fallback logic when `$queryRaw` throws in production environments.
-- Files: `apps/api/src/modules/organization/location-tree.util.ts`
-- Risk: Since the fallback truncates to 100 items, unexpected failure of the CTE in a large environment will lead to silent data corruption in spatial queries.
+**Massive God Services:**
+- What's not tested: Deeply nested logical branches and obscure edge cases in the 1900+ line `network.service.ts`.
+- Files: `apps/api/src/modules/network/network.service.ts`
+- Risk: High risk of silent regressions during feature updates since isolation is impossible without pure unit tests.
 - Priority: High
 
 ---
-
-*Concerns audit: 2026-09-17*
+*Concerns audit: 2026-09-28*

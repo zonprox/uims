@@ -21,7 +21,7 @@ import {
   Typography,
 } from 'antd';
 import { SYSTEM_INFO } from '@uims/shared-utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../stores/auth.store';
@@ -49,6 +49,18 @@ export default function LoginPage() {
         ? `${location.state.from.pathname}${location.state.from.search || ''}${location.state.from.hash || ''}`
         : '/';
 
+  useEffect(() => {
+    try {
+      const authErr = sessionStorage.getItem('uims_auth_error');
+      if (authErr) {
+        sessionStorage.removeItem('uims_auth_error');
+        message.info(authErr);
+      }
+    } catch (_err: unknown) {
+      // Safe fallback if storage restricted
+    }
+  }, [message]);
+
   const onFinish = async (values: { email?: string; password?: string; remember?: boolean }) => {
     setLoading(true);
     try {
@@ -60,8 +72,36 @@ export default function LoginPage() {
         email: values.email.trim(),
         password: values.password,
       });
-      const data = response.data;
-      login(data.accessToken || data.token || '', data.user);
+      const raw = response as Record<string, unknown> | undefined;
+      const payloadData =
+        raw && typeof raw === 'object' && 'data' in raw && raw.data && typeof raw.data === 'object'
+          ? (raw.data as Record<string, unknown>)
+          : raw;
+      const data = (
+        payloadData &&
+        typeof payloadData === 'object' &&
+        'data' in payloadData &&
+        payloadData.data &&
+        typeof payloadData.data === 'object'
+          ? payloadData.data
+          : payloadData
+      ) as
+        | {
+            accessToken?: string;
+            token?: string;
+            refreshToken?: string;
+            permissions?: string[];
+            user?: { id: string; email: string; name: string; role: string };
+          }
+        | undefined;
+
+      const token = data?.accessToken || data?.token;
+      if (!data?.user || !token) {
+        message.error('Invalid server response during authentication.');
+        return;
+      }
+
+      login(token, data.user, data.permissions, data.refreshToken);
       message.success(`Welcome back, ${data.user.name || 'Administrator'}!`);
       navigate(from, { replace: true });
     } catch (error: unknown) {

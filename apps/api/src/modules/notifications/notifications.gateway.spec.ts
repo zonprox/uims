@@ -481,6 +481,101 @@ describe('NotificationsGateway', () => {
     });
   });
 
+  describe('handleTokenRefresh', () => {
+    it('should re-authenticate active client with fresh token and update rooms if role changed', async () => {
+      const mockClient = {
+        id: 'client-active-1',
+        data: { userId: 'user-123', role: 'Staff' },
+        join: vi.fn().mockResolvedValue(undefined),
+        leave: vi.fn().mockResolvedValue(undefined),
+        emit: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-123',
+        role: 'Admin', // Promoted to Admin
+        email: 'user123@company.com',
+      });
+
+      const res = await gateway.handleTokenRefresh(mockClient, { token: 'fresh-valid-token' });
+
+      expect(res.status).toBe('ok');
+      expect(mockClient.leave).toHaveBeenCalledWith('role:Staff');
+      expect(mockClient.join).toHaveBeenCalledWith('role:Admin');
+      expect(mockClient.join).toHaveBeenCalledWith('user:user-123');
+      expect(mockClient.emit).toHaveBeenCalledWith(
+        'auth:refreshed',
+        expect.objectContaining({ userId: 'user-123', role: 'Admin' }),
+      );
+      expect(mockClient.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('should retain existing role room without leaving when role remains unchanged', async () => {
+      const mockClient = {
+        id: 'client-active-same-role',
+        data: { userId: 'user-123', role: 'Staff' },
+        join: vi.fn().mockResolvedValue(undefined),
+        leave: vi.fn().mockResolvedValue(undefined),
+        emit: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-123',
+        role: 'Staff', // Role unchanged
+        email: 'user123@company.com',
+      });
+
+      const res = await gateway.handleTokenRefresh(mockClient, { token: 'same-role-token' });
+
+      expect(res.status).toBe('ok');
+      expect(mockClient.leave).not.toHaveBeenCalled();
+      expect(mockClient.join).toHaveBeenCalledWith('role:Staff');
+      expect(mockClient.join).toHaveBeenCalledWith('user:user-123');
+      expect(mockClient.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('should disconnect client if refreshed token belongs to a different user identity (hijacking prevention)', async () => {
+      const mockClient = {
+        id: 'client-active-2',
+        data: { userId: 'user-123', role: 'Staff' },
+        join: vi.fn(),
+        leave: vi.fn(),
+        emit: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      mockJwtService.verify.mockReturnValue({
+        sub: 'attacker-456', // Identity mismatch
+        role: 'Admin',
+      });
+
+      const res = await gateway.handleTokenRefresh(mockClient, { token: 'attacker-token' });
+
+      expect(res.status).toBe('error');
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+    });
+
+    it('should disconnect client when refresh token is invalid or signature fails', async () => {
+      const mockClient = {
+        id: 'client-active-3',
+        data: { userId: 'user-123', role: 'Staff' },
+        disconnect: vi.fn(),
+        emit: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      mockJwtService.verify.mockImplementation(() => {
+        throw new Error('jwt expired');
+      });
+
+      const res = await gateway.handleTokenRefresh(mockClient, { token: 'expired-token' });
+
+      expect(res.status).toBe('error');
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+    });
+  });
+
   describe('handlePing', () => {
     it('should respond with pong and timestamp', () => {
       const res = gateway.handlePing();

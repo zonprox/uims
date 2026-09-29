@@ -12,8 +12,15 @@ export interface AuthUser {
 export interface AuthState {
   user: AuthUser | null;
   token: string | null;
+  refreshToken: string | null;
   permissions: string[];
-  login: (token: string, user: AuthUser, permissions?: string[]) => void;
+  login: (
+    token: string,
+    user: AuthUser,
+    permissions?: string[],
+    refreshToken?: string | null,
+  ) => void;
+  setTokens: (accessToken: string, refreshToken?: string | null) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
   isSuperAdmin: () => boolean;
@@ -28,19 +35,28 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
       permissions: [],
 
-      login: (token: string, user: AuthUser, perms?: string[]) => {
+      login: (token: string, user: AuthUser, perms?: string[], refreshToken?: string | null) => {
         const userPerms = perms || user.permissions || [];
         set({
           token,
+          refreshToken: refreshToken !== undefined ? refreshToken : get().refreshToken,
           user: { ...user, permissions: userPerms },
           permissions: userPerms,
         });
       },
 
+      setTokens: (accessToken: string, refreshToken?: string | null) => {
+        set((state) => ({
+          token: accessToken,
+          refreshToken: refreshToken !== undefined ? refreshToken : state.refreshToken,
+        }));
+      },
+
       logout: () => {
-        set({ token: null, user: null, permissions: [] });
+        set({ token: null, refreshToken: null, user: null, permissions: [] });
       },
 
       isAuthenticated: () => !!get().token,

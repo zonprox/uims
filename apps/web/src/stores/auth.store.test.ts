@@ -51,15 +51,32 @@ describe('useAuthStore', () => {
     expect(state.hasRole('Auditor')).toBe(true);
   });
 
-  it('should logout and clear state and permissions', () => {
+  it('should logout and clear state, tokens, and permissions', () => {
     const mockUser = { id: '1', email: 'admin@uims.io', name: 'Admin', role: 'ADMIN' };
-    useAuthStore.getState().login('jwt-token-123', mockUser);
+    useAuthStore.getState().login('jwt-token-123', mockUser, ['*:*'], 'refresh-token-xyz');
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-token-xyz');
+
     useAuthStore.getState().logout();
 
     const state = useAuthStore.getState();
     expect(state.user).toBeNull();
     expect(state.token).toBeNull();
+    expect(state.refreshToken).toBeNull();
     expect(state.permissions).toEqual([]);
     expect(state.isAuthenticated()).toBe(false);
+  });
+
+  it('should persist refreshToken on login and update tokens with setTokens', () => {
+    const mockUser = { id: '2', email: 'user@uims.io', name: 'User', role: 'User' };
+    useAuthStore.getState().login('access-token-1', mockUser, ['Asset:read'], 'refresh-token-1');
+
+    expect(useAuthStore.getState().token).toBe('access-token-1');
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-token-1');
+
+    // Simulate token refresh rotation
+    useAuthStore.getState().setTokens('access-token-2', 'refresh-token-2');
+
+    expect(useAuthStore.getState().token).toBe('access-token-2');
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-token-2');
   });
 });

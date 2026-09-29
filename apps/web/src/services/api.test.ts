@@ -7,7 +7,7 @@ import {
 } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '../stores/auth.store';
-import { api } from './api';
+import { __resetApiStateForTesting, api, refreshAuthToken } from './api';
 
 const create401AxiosError = (
   url: string,
@@ -42,11 +42,13 @@ const create401AxiosError = (
 
 describe('API Client & Interceptor', () => {
   beforeEach(() => {
-    useAuthStore.setState({ user: null, token: null });
+    useAuthStore.setState({ user: null, token: null, refreshToken: null });
+    __resetApiStateForTesting();
     vi.restoreAllMocks();
   });
 
   afterEach(() => {
+    __resetApiStateForTesting();
     vi.restoreAllMocks();
   });
 
@@ -523,6 +525,339 @@ describe('API Client & Interceptor', () => {
           expect(err.response?.data?.message).toBe('Access denied: Insufficient permissions.');
         }
       }
+    });
+
+    it('should seamlessly refresh expired access token using stored refresh token and replay original request', async () => {
+      useAuthStore.setState({
+        token: 'expired-access-token',
+        refreshToken: 'valid-refresh-token-xyz',
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      const refreshSpy = vi.spyOn(api, 'post').mockResolvedValueOnce({
+        data: {
+          accessToken: 'fresh-new-access-token',
+          refreshToken: 'rotated-new-refresh-token',
+          token: 'fresh-new-access-token',
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: { headers: new AxiosHeaders() } as InternalAxiosRequestConfig,
+      });
+
+      let callCount = 0;
+      const mockAdapter = vi.fn().mockImplementation((config: InternalAxiosRequestConfig) => {
+        callCount++;
+        if (callCount === 1) {
+          // First attempt fails with 401 expired token
+          return Promise.reject(create401AxiosError(config.url || '/assets', false, config));
+        }
+        // Second attempt with new token succeeds
+        return Promise.resolve({
+          data: [{ id: 'asset-1', name: 'Server Rack' }],
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        });
+      });
+
+      const response = await api.get('/assets', { adapter: mockAdapter });
+
+      expect(response.status).toBe(200);
+      expect(response.data).toEqual([{ id: 'asset-1', name: 'Server Rack' }]);
+      expect(refreshSpy).toHaveBeenCalledWith('/auth/refresh', {
+        refreshToken: 'valid-refresh-token-xyz',
+      });
+      expect(useAuthStore.getState().token).toBe('fresh-new-access-token');
+      expect(useAuthStore.getState().refreshToken).toBe('rotated-new-refresh-token');
+      expect(mockAdapter).toHaveBeenCalledTimes(2);
+    });
+
+    it('should pause concurrent requests during refresh and replay all queued requests with the new access token', async () => {
+      useAuthStore.setState({
+        token: 'stale-access-token',
+        refreshToken: 'valid-refresh-token-multi',
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      let resolveRefresh: (val: unknown) => void = () => {};
+      const refreshPromise = new Promise((resolve) => {
+        resolveRefresh = resolve;
+      });
+
+      vi.spyOn(api, 'post').mockImplementationOnce(() => refreshPromise as never);
+
+      const requestAttempts: Record<string, number> = {
+        '/assets': 0,
+        '/inventory': 0,
+        '/licenses': 0,
+      };
+
+      const mockAdapter = vi.fn().mockImplementation((config: InternalAxiosRequestConfig) => {
+        const url = config.url || '';
+        requestAttempts[url] = (requestAttempts[url] || 0) + 1;
+
+        if (requestAttempts[url] === 1) {
+          return Promise.reject(create401AxiosError(url, false, config));
+        }
+
+        return Promise.resolve({
+          data: { url, success: true },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        });
+      });
+
+      const req1Promise = api.get('/assets', { adapter: mockAdapter });
+      const req2Promise = api.get('/inventory', { adapter: mockAdapter });
+      const req3Promise = api.get('/licenses', { adapter: mockAdapter });
+
+      // Yield event loop so req1 triggers refresh and req2/req3 get queued
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      // Fulfill the in-flight refresh
+      resolveRefresh({
+        data: {
+          accessToken: 'fresh-multi-token',
+          refreshToken: 'rotated-multi-refresh',
+        },
+        status: 200,
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+      });
+
+      const [res1, res2, res3] = await Promise.all([req1Promise, req2Promise, req3Promise]);
+
+      expect(res1.status).toBe(200);
+      expect(res2.status).toBe(200);
+      expect(res3.status).toBe(200);
+      expect(useAuthStore.getState().token).toBe('fresh-multi-token');
+      expect(useAuthStore.getState().refreshToken).toBe('rotated-multi-refresh');
+    });
+
+    it('should reject and redirect to /login when token refresh returns 401 with missing credentials', async () => {
+      useAuthStore.setState({
+        token: 'expired-access-token',
+        refreshToken: null,
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      const refreshSpy = vi.spyOn(api, 'post').mockRejectedValueOnce(
+        new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', undefined, null, {
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: {},
+          config: { headers: new AxiosHeaders() } as InternalAxiosRequestConfig,
+          data: { message: 'Refresh token is required' },
+        }),
+      );
+
+      const mockAdapter = vi.fn().mockImplementation((config: InternalAxiosRequestConfig) => {
+        return Promise.reject(create401AxiosError(config.url || '/assets', false, config));
+      });
+
+      await expect(api.get('/assets', { adapter: mockAdapter })).rejects.toThrow();
+      expect(refreshSpy).toHaveBeenCalledWith('/auth/refresh');
+      expect(useAuthStore.getState().user).toBeNull();
+      expect(useAuthStore.getState().token).toBeNull();
+    });
+
+    it('should reject all queued concurrent requests and redirect to /login when /auth/refresh fails', async () => {
+      useAuthStore.setState({
+        token: 'expired-access-token',
+        refreshToken: 'revoked-refresh-token',
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      let rejectRefresh: (err: unknown) => void = () => {};
+      const refreshPromise = new Promise((_, reject) => {
+        rejectRefresh = reject;
+      });
+
+      vi.spyOn(api, 'post').mockImplementationOnce(() => refreshPromise as never);
+
+      const mockAdapter = vi.fn().mockImplementation((config: InternalAxiosRequestConfig) => {
+        return Promise.reject(create401AxiosError(config.url || '/test', false, config));
+      });
+
+      const req1Promise = api.get('/assets', { adapter: mockAdapter });
+      const req2Promise = api.get('/inventory', { adapter: mockAdapter });
+
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      const refreshError = new AxiosError('Session revoked', 'ERR_BAD_REQUEST', undefined, null, {
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: {},
+        config: { headers: new AxiosHeaders() } as InternalAxiosRequestConfig,
+        data: { message: 'Session has been revoked due to security violation' },
+      });
+
+      rejectRefresh(refreshError);
+
+      await expect(req1Promise).rejects.toThrow();
+      await expect(req2Promise).rejects.toThrow();
+
+      expect(useAuthStore.getState().user).toBeNull();
+      expect(useAuthStore.getState().token).toBeNull();
+      expect(useAuthStore.getState().refreshToken).toBeNull();
+    });
+
+    it('should reject request immediately if AbortSignal is aborted during refresh queuing', async () => {
+      useAuthStore.setState({
+        token: 'expired-access-token',
+        refreshToken: 'valid-refresh-token',
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      // Keep refresh pending
+      let pendingResolve: (val: unknown) => void = () => {};
+      vi.spyOn(api, 'post').mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            pendingResolve = resolve;
+          }) as never,
+      );
+
+      const mockAdapter = vi.fn().mockImplementation((config: InternalAxiosRequestConfig) => {
+        return Promise.reject(create401AxiosError(config.url || '/test', false, config));
+      });
+
+      // First request initiates refresh
+      const req1Promise = api.get('/assets', { adapter: mockAdapter });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      // Second request is aborted before queuing
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(
+        api.get('/aborted-resource', {
+          adapter: mockAdapter,
+          signal: controller.signal,
+        }),
+      ).rejects.toThrow();
+
+      pendingResolve({
+        data: { accessToken: 'cleanup-token' },
+        status: 200,
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+      });
+      await req1Promise.catch(() => {});
+    });
+
+    it('should reject immediately when in-flight queued request is aborted while waiting in failedQueue', async () => {
+      useAuthStore.setState({
+        token: 'expired-access-token',
+        refreshToken: 'valid-refresh-token',
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      // Keep refresh pending indefinitely
+      let resolveRefresh: (val: unknown) => void = () => {};
+      vi.spyOn(api, 'post').mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRefresh = resolve;
+          }) as never,
+      );
+
+      const mockAdapter = vi.fn().mockImplementation((config: InternalAxiosRequestConfig) => {
+        return Promise.reject(create401AxiosError(config.url || '/test', false, config));
+      });
+
+      // Request 1 starts the refresh
+      const req1Promise = api.get('/assets', { adapter: mockAdapter });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      // Request 2 enters the queue with an active controller
+      const controller = new AbortController();
+      const req2Promise = api.get('/inventory', {
+        adapter: mockAdapter,
+        signal: controller.signal,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      // Abort Request 2 while sitting in failedQueue
+      controller.abort();
+
+      await expect(req2Promise).rejects.toThrow(/abort/i);
+
+      // Finish refresh to verify Request 2 was removed and doesn't get re-executed
+      resolveRefresh({
+        data: { accessToken: 'new-token', refreshToken: 'new-rt' },
+        status: 200,
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+      });
+
+      await req1Promise.catch(() => {});
+    });
+
+    it('should deduplicate concurrent calls to refreshAuthToken and return the identical in-flight promise', async () => {
+      useAuthStore.setState({
+        token: 'stale-token',
+        refreshToken: 'rt-single-test',
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      let resolveRefresh: (val: unknown) => void = () => {};
+      const refreshPromise = new Promise((resolve) => {
+        resolveRefresh = resolve;
+      });
+
+      const postSpy = vi.spyOn(api, 'post').mockImplementationOnce(() => refreshPromise as never);
+
+      const call1 = refreshAuthToken();
+      const call2 = refreshAuthToken();
+      const call3 = refreshAuthToken();
+
+      expect(call1).toBe(call2);
+      expect(call2).toBe(call3);
+      expect(postSpy).toHaveBeenCalledTimes(1);
+
+      resolveRefresh({
+        data: {
+          accessToken: 'fresh-deduped-token',
+          refreshToken: 'fresh-deduped-rt',
+          user: { id: 'user-1', email: 'test@uims.io', name: 'Updated User Name', role: 'ADMIN' },
+        },
+        status: 200,
+        headers: {},
+        config: { headers: new AxiosHeaders() },
+      });
+
+      const [token1, token2, token3] = await Promise.all([call1, call2, call3]);
+      expect(token1).toBe('fresh-deduped-token');
+      expect(token2).toBe('fresh-deduped-token');
+      expect(token3).toBe('fresh-deduped-token');
+      expect(useAuthStore.getState().user?.name).toBe('Updated User Name');
+    });
+
+    it('should trigger handleAuthRedirect and clear store when direct POST /auth/refresh returns 401', async () => {
+      useAuthStore.setState({
+        token: 'any-token',
+        refreshToken: 'invalid-rt',
+        user: { id: 'user-1', email: 'test@uims.io', name: 'Test User', role: 'ADMIN' },
+      });
+
+      const mockAdapter = vi.fn().mockImplementation((config: InternalAxiosRequestConfig) => {
+        return Promise.reject(create401AxiosError(config.url || '/auth/refresh', false, config));
+      });
+
+      await expect(
+        api.post('/auth/refresh', { refreshToken: 'invalid-rt' }, { adapter: mockAdapter }),
+      ).rejects.toThrow();
+
+      expect(useAuthStore.getState().user).toBeNull();
+      expect(useAuthStore.getState().token).toBeNull();
+      expect(useAuthStore.getState().refreshToken).toBeNull();
     });
   });
 });

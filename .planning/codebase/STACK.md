@@ -1,98 +1,57 @@
----
-last_mapped_commit: d6702648267dbb1627c0df43c5a7322fec3983db
-last_mapped_at: 2026-09-17
----
 # Technology Stack
 
-**Analysis Date:** 2026-09-17
+**Analysis Date:** 2026-09-28
 
 ## Languages
-
 **Primary:**
-
-- TypeScript 7.0.2 - Full stack application logic (API, Web, Shared Packages)
-
+- TypeScript 7.0.2 — API (`@uims/api`), Web (`@uims/web`), Shared Packages
 **Secondary:**
-
-- JavaScript - Configuration files (Node.js ecosystem)
-- SQL - Prisma initial migrations, Postgres initialization scripts
-- HTML/CSS - Web frontend scaffolding and styling
+- JavaScript / Node.js — Build scripts, tooling
 
 ## Runtime
-
 **Environment:**
-
 - Node.js >=22.0.0
-
 **Package Manager:**
-
 - pnpm 11.21.0
 - Lockfile: present (`pnpm-lock.yaml`)
 
 ## Frameworks
-
 **Core:**
-
-- NestJS 11.2.3 - Backend REST API, WebSockets, Dependency Injection (`apps/api`)
-- React 19.3.0 - Frontend web framework (`apps/web`)
-
+- NestJS 11.2.3 — Backend API framework (`apps/api`)
+- React 19.3.0 — Frontend UI library (`apps/web`)
+- Vite 8.3.0 — Frontend build tool/bundler
 **Testing:**
-
-- Vitest 5.0.0 - Unit and integration testing across workspaces
-- Playwright 1.63.0 - End-to-end (e2e) testing
-
+- Vitest 5.0.0 — Unit testing
+- Playwright 1.63.0 — End-to-end testing
 **Build/Dev:**
-
-- Turborepo 2.10.12 - Monorepo build system and task orchestration
-- Vite 8.3.0 - Web frontend bundler
-- Biome 2.5.13 - Extremely fast formatter and linter
+- Turbo 2.10.12 — Monorepo task orchestration
+- Biome 2.5.13 — Formatting and linting
+- ESLint 10.10.0 — Linting
 
 ## Key Dependencies
-
 **Critical:**
-
-- Prisma 7.10.0 - Database ORM (schema modeling, migrations, type-safe queries)
-- Zod 4.6.4 - Schema validation for environment variables, API inputs, and shared boundaries
-- Zustand 5.0.15 - Lightweight frontend state management
-- TanStack React Query 5 - Frontend data fetching, caching, and synchronization
-- Socket.io 4.8.3 - Real-time bidirectional event-based communication (Notifications)
-- Ant Design 6.6.3 - Comprehensive React UI component library
-
+- Prisma 7.10.0 — Database ORM (`@prisma/client`)
+- Socket.io 4.8.3 — Real-time WebSockets
+- Zustand 5.0.15 — Frontend state management
+- TanStack React Query 5.102.8 — Data fetching and caching
+- Ant Design 6.6.3 — Frontend UI component library
 **Infrastructure:**
-
-- ioredis 6.0.0 - Robust Redis client for NestJS caching and possible background queues
-- pg 8.23.0 - PostgreSQL client (used with Prisma's `@prisma/adapter-pg`)
+- pg 8.23.0 — PostgreSQL client
+- ioredis 6.0.0 — Redis client
 
 ## Configuration
-
 **Environment:**
-
-- Configured via `.env` files.
-- Validated at runtime in the backend using Zod (`apps/api/src/config/app.config.ts`), ensuring fail-fast behavior on missing configs.
-- Key configs required: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AUDIT_SIGNING_KEY`, `MEILISEARCH_HOST`, `MEILI_API_KEY` (or `MEILISEARCH_API_KEY`).
-
+- Configured via `.env` files (e.g., `.env.example`), loaded via `dotenv` and NestJS ConfigModule.
+- Key configs required: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `MEILISEARCH_HOST`, `S3_ENDPOINT`
 **Build:**
-
-- `turbo.json` (Monorepo pipeline configuration)
-- `pnpm-workspace.yaml` (Workspace package definitions)
-- `tsconfig.json` (TypeScript compilation rules across packages)
-- `biome.json` (Linting and formatting rules)
+- Monorepo: `turbo.json`, `pnpm-workspace.yaml`
+- Apps: `vite.config.ts`, `tsconfig.json`
 
 ## Platform Requirements
-
 **Development:**
-
-- Docker and Docker Compose (to run backing services: PostgreSQL, Redis, Meilisearch, SeaweedFS)
-- Node.js 22+ & pnpm 11+ (for local application execution)
-
+- Node.js >=22.0.0, pnpm >=11.0.0, Docker Desktop (for `docker-compose.dev.yml`)
 **Production:**
-
-- Linux container environment capable of running Docker Compose (images built via provided Dockerfiles)
-- PostgreSQL 17
-- Redis 8
-- Meilisearch (Search Engine)
-- SeaweedFS (S3-compatible object storage)
+- Node.js environment, PostgreSQL DB, Redis instance, MeiliSearch, S3-compatible storage.
 
 ---
-
-*Stack analysis: 2026-09-17*
+*Stack analysis: 2026-09-28*

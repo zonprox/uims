@@ -1,100 +1,56 @@
----
-last_mapped_commit: d6702648267dbb1627c0df43c5a7322fec3983db
-last_mapped_at: 2026-09-17
----
 # External Integrations
 
-**Analysis Date:** 2026-09-17
+**Analysis Date:** 2026-09-28
 
 ## APIs & External Services
-
 **Search:**
-
-- Meilisearch - Powers the global full-text search across IT assets, software licenses, and directory users.
-  - SDK/Client: Built-in `fetch` API (`apps/api/src/modules/search/search.service.ts`)
-  - Auth: `MEILISEARCH_API_KEY` (or `MEILI_API_KEY`) environment variable passed as a Bearer token.
+- MeiliSearch — Full-text search engine
+  - SDK/Client: HTTP API / MeiliSearch Client
+  - Auth: `MEILISEARCH_API_KEY`
 
 ## Data Storage
-
 **Databases:**
-
-- PostgreSQL 17
-  - Connection: `DATABASE_URL` environment variable
-  - Client: Prisma ORM (`@prisma/client` backed by `@prisma/adapter-pg` and `pg`)
-
-**File Storage:**
-
-- SeaweedFS (S3-Compatible Storage)
-  - Status: Infrastructure is deployed via `docker-compose.yml` (`seaweedfs-master`, `seaweedfs-volume`, `seaweedfs-filer`).
-  - Configuration: Environment variables (`S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`) are passed to the API container.
-  - Note: Code-level integration (e.g. AWS SDK) does not yet appear to be fully implemented in the API source logic.
-
-**Caching:**
-
-- Redis 8
+- PostgreSQL
+  - Connection: `DATABASE_URL`
+  - Client: Prisma (`@prisma/client`), `pg`
+- Redis
   - Connection: `REDIS_URL`
-  - Client: `ioredis` (configured in backend, likely used for caching, throttling, or session states)
+  - Client: `ioredis`
+**File Storage:**
+- SeaweedFS (S3-compatible)
+  - Connection: `S3_ENDPOINT` (with `S3_ACCESS_KEY`, `S3_SECRET_KEY`)
+**Caching:**
+- Redis
+  - Connection: `REDIS_URL`
 
 ## Authentication & Identity
-
 **Auth Provider:**
-
-- Custom (Local Database Authentication)
-  - Implementation: NestJS Passport (`@nestjs/passport`) using a JWT Strategy (`passport-jwt`).
-  - Security: Passwords are hashed using `bcrypt` (`apps/api/package.json`).
-  - Tokens: Issues both Access and Refresh JWTs using `JWT_SECRET` and `JWT_REFRESH_SECRET`.
+- Custom
+  - Implementation: JWT (JSON Web Tokens) with `@nestjs/jwt`, `passport-jwt` and bcrypt for password hashing.
 
 ## Monitoring & Observability
-
 **Error Tracking:**
-
-- None explicitly configured (e.g., no Sentry, Datadog, or NewRelic integrations found).
-
+- None
 **Logs:**
-
-- Pino (`pino`, `pino-http`)
-  - Approach: Structured JSON logging output to standard out, captured by the container runtime.
+- Pino (`pino`, `pino-http`) for structured logging
 
 ## CI/CD & Deployment
-
 **Hosting:**
-
-- Docker Compose
-  - Infrastructure is orchestrated using `docker-compose.yml` and `docker-compose.dev.yml`.
-  - Frontend is served via Nginx (configuration in `docker/nginx/nginx.conf`).
-
+- Docker based (with `docker-compose.yml` and `scripts/dev.sh`)
 **CI Pipeline:**
-
-- GitHub Actions
-  - Defined in `.github/workflows/ci.yml`.
-  - Runs on push and pull requests to `main`.
-  - Executes dependency installation, Prisma client generation, Biome formatting checks, linting, TypeScript type-checking, Vitest tests, and Turborepo builds.
+- GitHub Actions (`.github/workflows/ci.yml`)
 
 ## Environment Configuration
-
 **Required env vars:**
-
-- `DATABASE_URL` (PostgreSQL connection string)
-- `JWT_SECRET` (Minimum 32 characters for access token signing)
-- `JWT_REFRESH_SECRET` (Minimum 32 characters for refresh token signing)
-- `AUDIT_SIGNING_KEY` (Minimum 32 characters for secure audit logs)
-- `MEILI_API_KEY` / `MEILISEARCH_API_KEY` (Meilisearch authentication)
-
+- `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AUDIT_SIGNING_KEY`, `MEILISEARCH_HOST`, `MEILISEARCH_API_KEY`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 **Secrets location:**
-
-- Local Development: `.env` file at the repository root (ignored in Git).
-- Production: Passed as environment variables to the Docker containers.
+- Stored locally in `.env` (not committed).
 
 ## Webhooks & Callbacks
-
 **Incoming:**
-
-- None detected.
-
+- None
 **Outgoing:**
-
-- None detected. (Real-time events are pushed internally to frontend clients via WebSockets / Socket.io, rather than external webhooks).
+- None
 
 ---
-
-*Integration audit: 2026-09-17*
+*Integration audit: 2026-09-28*

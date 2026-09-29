@@ -2,6 +2,8 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App as AntApp, ConfigProvider } from 'antd';
+import { authService } from '../../services/auth.service';
+import { useAuthStore } from '../../stores/auth.store';
 import LoginPage from './LoginPage';
 
 const mockNavigate = vi.fn();
@@ -223,5 +225,75 @@ describe('LoginPage Quick Access Demo Accounts', () => {
     expect(passwordInput?.value).toBe('Youngone@2026');
     const errorExplains = container.querySelectorAll('.ant-form-item-explain-error');
     expect(errorExplains.length).toBe(0);
+  });
+
+  it('submits form, logs user into auth store, and navigates on successful login', async () => {
+    useAuthStore.setState({ user: null, token: null, refreshToken: null });
+    vi.mocked(authService.login).mockResolvedValueOnce({
+      data: {
+        accessToken: 'valid-submit-token-123',
+        refreshToken: 'valid-submit-refresh-456',
+        token: 'valid-submit-token-123',
+        user: { id: 'u-1', email: 'admin@youngonevn.com', name: 'Alex Johnson', role: 'Admin' },
+        permissions: ['*:*'],
+      },
+    });
+
+    await renderWithApp();
+
+    const submitBtn = container.querySelector<HTMLButtonElement>('button[type="submit"]');
+    await act(async () => {
+      submitBtn?.click();
+    });
+
+    expect(authService.login).toHaveBeenCalledWith({
+      email: 'admin@youngonevn.com',
+      password: 'Youngone@2026',
+    });
+    expect(useAuthStore.getState().token).toBe('valid-submit-token-123');
+    expect(useAuthStore.getState().refreshToken).toBe('valid-submit-refresh-456');
+    expect(useAuthStore.getState().user?.email).toBe('admin@youngonevn.com');
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+  });
+
+  it('handles direct unwrapped response payload and logs in successfully', async () => {
+    useAuthStore.setState({ user: null, token: null, refreshToken: null });
+    vi.mocked(authService.login).mockResolvedValueOnce({
+      accessToken: 'unwrapped-token-777',
+      refreshToken: 'unwrapped-refresh-888',
+      token: 'unwrapped-token-777',
+      user: { id: 'u-2', email: 'manager@youngonevn.com', name: 'Sarah Manager', role: 'Manager' },
+      permissions: ['read', 'write'],
+    } as unknown as { data: import('../../services/auth.service').LoginResponse });
+
+    await renderWithApp();
+
+    const submitBtn = container.querySelector<HTMLButtonElement>('button[type="submit"]');
+    await act(async () => {
+      submitBtn?.click();
+    });
+
+    expect(useAuthStore.getState().token).toBe('unwrapped-token-777');
+    expect(useAuthStore.getState().refreshToken).toBe('unwrapped-refresh-888');
+    expect(useAuthStore.getState().user?.name).toBe('Sarah Manager');
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+  });
+
+  it('halts execution and does not navigate when server response is missing user or token', async () => {
+    useAuthStore.setState({ user: null, token: null, refreshToken: null });
+    vi.mocked(authService.login).mockResolvedValueOnce({
+      data: {} as import('../../services/auth.service').LoginResponse,
+    });
+
+    await renderWithApp();
+
+    const submitBtn = container.querySelector<HTMLButtonElement>('button[type="submit"]');
+    await act(async () => {
+      submitBtn?.click();
+    });
+
+    // Should NOT have logged in and should NOT navigate
+    expect(useAuthStore.getState().token).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
