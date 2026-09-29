@@ -1,248 +1,152 @@
-import { Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import { encryptLicenseKey } from '../../src/common/crypto/license-crypto';
-
-const logger = new Logger('LicensesSeeder');
+import { runDomainSeeder, type SeederContext } from './seeder.utils';
 
 interface SeedUsersResult {
-  roles?: Record<string, { id: string }>;
-  users: Record<string, { id: string }>;
+  users?: Record<string, { id: string }>;
 }
+
+export const licenseRows: string[] = [
+  'lic-m365|Microsoft 365 E5 Enterprise Suite|Microsoft Corporation|ven-msft|SUBSCRIPTION|250|456|2024-01-01|2026-12-31|MS-E5-YON-9921-8834-KKL9|Enterprise productivity, Purview DLP, Defender XDR and Entra ID P2 across BSL & BSH.|binh.tran@youngonevn.com,nam.pham@youngonevn.com,thu.le@youngonevn.com,huy.nguyen@youngonevn.com,kim.vo@youngonevn.com,tri.doan@youngonevn.com,phong.dang@youngonevn.com,lan.nguyen@youngonevn.com,ngoc.vu@youngonevn.com,phuong.bui@youngonevn.com,kien.le@youngonevn.com,son.huynh@youngonevn.com',
+  'lic-sap|SAP S/4HANA ERP Enterprise User|SAP SE|ven-sap|PERPETUAL|60|1200|2023-05-10|2028-05-10|SAP-S4H-YON-8849-0192-PROD|Youngone Group global ERP client license for manufacturing, costing & supply chain.|binh.tran@youngonevn.com,tri.doan@youngonevn.com,ngoc.vu@youngonevn.com,lan.nguyen@youngonevn.com,thu.le@youngonevn.com,kim.vo@youngonevn.com',
+  'lic-lectra|Lectra Modaris Expert CAD|Lectra|ven-lectra|SUBSCRIPTION|30|850|2024-02-01|2027-01-31|LEC-MOD-BSL-2024-9981-CAD|Garment pattern engineering, 3D prototyping & marker making at BSL & BSH.|thu.le@youngonevn.com,lan.nguyen@youngonevn.com,huy.nguyen@youngonevn.com',
+  'lic-gerber|Gerber AccuMark Enterprise|Gerber Technology|ven-gerber|SUBSCRIPTION|20|780|2024-03-15|2027-03-15|GBR-ACCU-2024-8849-MRK|Pattern design, grading and automatic marker optimization.|thu.le@youngonevn.com,lan.nguyen@youngonevn.com',
+  'lic-fastreact|FastReact Plan Production Scheduler|Coats Digital|ven-coats|SUBSCRIPTION|25|650|2024-01-15|2026-12-31|COAT-FRP-BSL-8849-SCHED|Apparel capacity planning, sewing line balancing and critical path management.|binh.tran@youngonevn.com,thu.le@youngonevn.com,lan.nguyen@youngonevn.com',
+  'lic-adobe|Adobe Creative Cloud All Apps Enterprise|Adobe Systems Inc|ven-adobe|SUBSCRIPTION|35|780|2023-09-15|2026-09-15|ADB-CC-YON-8392-1102-ENT|Apparel design, technical drawings and merchandising catalog creation.|lan.nguyen@youngonevn.com,phuong.bui@youngonevn.com,tri.doan@youngonevn.com',
+  'lic-cisco|Cisco Umbrella & AnyConnect Secure Client|Cisco Systems|ven-cisco|SUBSCRIPTION|200|65|2024-01-01|2027-01-01|CSCO-UMB-YON-9921-SEC|DNS security filtering and SSL-VPN access for remote merchandisers and managers.|tri.doan@youngonevn.com,phong.dang@youngonevn.com,nam.pham@youngonevn.com,kien.le@youngonevn.com,lan.nguyen@youngonevn.com',
+];
 
 export async function seedLicenses(
   prisma: PrismaClient,
-  users: SeedUsersResult,
+  users?: SeedUsersResult,
   vendorMap?: Map<string, string>,
+  ctx?: SeederContext,
 ) {
-  logger.log('📄 Seeding Software Licenses and User Assignments for Broadpeak (Youngone Group)...');
-  const { users: u } = users;
+  return runDomainSeeder(
+    'LicensesSeeder',
+    '📜',
+    'Enterprise Software Licenses & Assignments',
+    async (logger) => {
+      const userLookupCache = new Map<string, string>();
+      const getUserId = async (email: string): Promise<string | null> => {
+        if (ctx?.directoryUsers.has(email)) return ctx.directoryUsers.get(email)!;
+        if (users?.users?.[email]?.id) return users.users[email].id;
+        if (userLookupCache.has(email)) return userLookupCache.get(email)!;
+        const dbUser = await prisma.directoryUser.findUnique({
+          where: { email },
+          select: { id: true },
+        });
+        if (dbUser) {
+          userLookupCache.set(email, dbUser.id);
+          return dbUser.id;
+        }
+        return null;
+      };
 
-  const licenseDefinitions = [
-    {
-      id: 'lic-m365',
-      name: 'Microsoft 365 E5 Enterprise Suite',
-      vendor: 'Microsoft Corporation',
-      vendorId: vendorMap?.get('microsoft corporation') || 'ven-msft',
-      type: 'SUBSCRIPTION' as const,
-      totalSeats: 250,
-      costPerSeat: 456,
-      purchaseDate: new Date('2024-01-01'),
-      expiryDate: new Date('2026-12-31'),
-      licenseKey: encryptLicenseKey('MS-E5-YON-9921-8834-KKL9'),
-      status: 'ACTIVE' as const,
-      autoRenew: true,
-      notes: 'Enterprise productivity, Purview DLP, Defender XDR and Entra ID P2 across BSL & BSH.',
+      for (const row of licenseRows) {
+        const [
+          id,
+          name,
+          vendor,
+          vendorKey,
+          type,
+          totalSeatsStr,
+          costStr,
+          pDate,
+          eDate,
+          rawKey,
+          notes,
+          emailsStr,
+        ] = row.split('|');
+
+        const totalSeats = parseInt(totalSeatsStr, 10);
+        const costPerSeat = parseFloat(costStr);
+        const vendorId =
+          ctx?.vendors.get(vendorKey) ||
+          ctx?.vendors.get(vendor.toLowerCase()) ||
+          vendorMap?.get(vendor.toLowerCase()) ||
+          vendorMap?.get(vendorKey) ||
+          vendorKey;
+
+        // Encrypt key ONCE
+        const encryptedKey = encryptLicenseKey(rawKey);
+        const licenseType = type as 'SUBSCRIPTION' | 'PERPETUAL';
+
+        await prisma.$transaction(async (tx) => {
+          await tx.license.upsert({
+            where: { id },
+            update: {
+              name,
+              vendor,
+              vendorId,
+              type: licenseType,
+              totalSeats,
+              costPerSeat,
+              purchaseDate: new Date(pDate),
+              expiryDate: new Date(eDate),
+              licenseKey: encryptedKey,
+              status: 'ACTIVE',
+              autoRenew: true,
+              notes,
+            },
+            create: {
+              id,
+              name,
+              vendor,
+              vendorId,
+              type: licenseType,
+              totalSeats,
+              costPerSeat,
+              purchaseDate: new Date(pDate),
+              expiryDate: new Date(eDate),
+              licenseKey: encryptedKey,
+              status: 'ACTIVE',
+              autoRenew: true,
+              notes,
+              usedSeats: 0,
+            },
+          });
+
+          // Deterministic idempotent upsert of assignments
+          const userEmails = emailsStr.split(',').filter(Boolean);
+          for (const email of userEmails) {
+            const userId = await getUserId(email);
+            if (userId) {
+              const assignmentId = `asgn-${id}-${userId}`;
+              await tx.licenseAssignment.upsert({
+                where: { id: assignmentId },
+                update: {
+                  licenseId: id,
+                  userId,
+                  assignedEmail: email,
+                },
+                create: {
+                  id: assignmentId,
+                  licenseId: id,
+                  userId,
+                  assignedEmail: email,
+                  assignedAt: new Date(),
+                },
+              });
+            }
+          }
+
+          const activeCount = await tx.licenseAssignment.count({
+            where: { licenseId: id, unassignedAt: null },
+          });
+          await tx.license.update({
+            where: { id },
+            data: { usedSeats: activeCount },
+          });
+        });
+
+        if (ctx) {
+          ctx.licenses.set(id, id);
+          ctx.licenses.set(name, id);
+        }
+      }
+
+      logger.log(`Seeded ${licenseRows.length} enterprise licenses and synchronized seat counts.`);
     },
-    {
-      id: 'lic-sap',
-      name: 'SAP S/4HANA ERP Enterprise User',
-      vendor: 'SAP SE',
-      vendorId: vendorMap?.get('sap se') || 'ven-sap',
-      type: 'PERPETUAL' as const,
-      totalSeats: 60,
-      costPerSeat: 1200,
-      purchaseDate: new Date('2023-05-10'),
-      expiryDate: new Date('2028-05-10'),
-      licenseKey: encryptLicenseKey('SAP-S4H-YON-8849-0192-PROD'),
-      status: 'ACTIVE' as const,
-      autoRenew: true,
-      notes: 'Youngone Group global ERP client license for manufacturing, costing & supply chain.',
-    },
-    {
-      id: 'lic-lectra',
-      name: 'Lectra Modaris Expert CAD',
-      vendor: 'Lectra',
-      vendorId: vendorMap?.get('lectra') || 'ven-lectra',
-      type: 'SUBSCRIPTION' as const,
-      totalSeats: 30,
-      costPerSeat: 850,
-      purchaseDate: new Date('2024-02-01'),
-      expiryDate: new Date('2027-01-31'),
-      licenseKey: encryptLicenseKey('LEC-MOD-BSL-2024-9981-CAD'),
-      status: 'ACTIVE' as const,
-      autoRenew: true,
-      notes: 'Garment pattern engineering, 3D prototyping & marker making at BSL & BSH.',
-    },
-    {
-      id: 'lic-gerber',
-      name: 'Gerber AccuMark Enterprise',
-      vendor: 'Gerber Technology',
-      vendorId: vendorMap?.get('gerber technology') || 'ven-gerber',
-      type: 'SUBSCRIPTION' as const,
-      totalSeats: 20,
-      costPerSeat: 780,
-      purchaseDate: new Date('2024-03-15'),
-      expiryDate: new Date('2027-03-15'),
-      licenseKey: encryptLicenseKey('GBR-ACCU-2024-8849-MRK'),
-      status: 'ACTIVE' as const,
-      autoRenew: true,
-      notes: 'Pattern design, grading and automatic marker optimization.',
-    },
-    {
-      id: 'lic-fastreact',
-      name: 'FastReact Plan Production Scheduler',
-      vendor: 'Coats Digital',
-      vendorId: vendorMap?.get('coats digital') || 'ven-coats',
-      type: 'SUBSCRIPTION' as const,
-      totalSeats: 25,
-      costPerSeat: 650,
-      purchaseDate: new Date('2024-01-15'),
-      expiryDate: new Date('2026-12-31'),
-      licenseKey: encryptLicenseKey('COAT-FRP-BSL-8849-SCHED'),
-      status: 'ACTIVE' as const,
-      autoRenew: true,
-      notes: 'Apparel capacity planning, sewing line balancing and critical path management.',
-    },
-    {
-      id: 'lic-adobe',
-      name: 'Adobe Creative Cloud All Apps Enterprise',
-      vendor: 'Adobe Systems Inc',
-      vendorId: vendorMap?.get('adobe systems inc') || 'ven-adobe',
-      type: 'SUBSCRIPTION' as const,
-      totalSeats: 35,
-      costPerSeat: 780,
-      purchaseDate: new Date('2023-09-15'),
-      expiryDate: new Date('2026-09-15'),
-      licenseKey: encryptLicenseKey('ADB-CC-YON-8392-1102-ENT'),
-      status: 'ACTIVE' as const,
-      autoRenew: true,
-      notes: 'Apparel design, technical drawings and merchandising catalog creation.',
-    },
-    {
-      id: 'lic-cisco',
-      name: 'Cisco Umbrella & AnyConnect Secure Client',
-      vendor: 'Cisco Systems',
-      vendorId: vendorMap?.get('cisco systems') || 'ven-cisco',
-      type: 'SUBSCRIPTION' as const,
-      totalSeats: 200,
-      costPerSeat: 65,
-      purchaseDate: new Date('2024-01-01'),
-      expiryDate: new Date('2027-01-01'),
-      licenseKey: encryptLicenseKey('CSCO-UMB-YON-9921-SEC'),
-      status: 'ACTIVE' as const,
-      autoRenew: true,
-      notes: 'DNS security filtering and SSL-VPN access for remote merchandisers and managers.',
-    },
-  ];
-
-  for (const lic of licenseDefinitions) {
-    await prisma.license.upsert({
-      where: { id: lic.id },
-      update: {
-        name: lic.name,
-        vendor: lic.vendor,
-        vendorId: lic.vendorId,
-        type: lic.type,
-        totalSeats: lic.totalSeats,
-        costPerSeat: lic.costPerSeat,
-        purchaseDate: lic.purchaseDate,
-        expiryDate: lic.expiryDate,
-        licenseKey: encryptLicenseKey(lic.licenseKey),
-        status: lic.status,
-        autoRenew: lic.autoRenew,
-        notes: lic.notes,
-      },
-      create: {
-        ...lic,
-        licenseKey: encryptLicenseKey(lic.licenseKey),
-        usedSeats: 0,
-      },
-    });
-  }
-
-  // 2. Normalized License Assignments
-  const defaultUser = Object.values(u)[0];
-  const userBinh = u['binh.tran@youngonevn.com'] || u.userAlex || defaultUser;
-  const userNam = u['nam.pham@youngonevn.com'] || u.userSarah || defaultUser;
-  const userThu = u['thu.le@youngonevn.com'] || u.userCarlosMendez || defaultUser;
-  const userHuy = u['huy.nguyen@youngonevn.com'] || u.userElena || defaultUser;
-  const userKim = u['kim.vo@youngonevn.com'] || u.userRobertTorres || defaultUser;
-  const userTri = u['tri.doan@youngonevn.com'] || u.userMarcusVance || defaultUser;
-  const userPhong = u['phong.dang@youngonevn.com'] || u.userMichael || defaultUser;
-  const userLan = u['lan.nguyen@youngonevn.com'] || u.userSophiaPatel || defaultUser;
-  const userNgoc = u['ngoc.vu@youngonevn.com'] || u.userMarcusBell || defaultUser;
-  const userPhuong = u['phuong.bui@youngonevn.com'] || u.userChloeMartin || defaultUser;
-  const userKien = u['kien.le@youngonevn.com'] || u.userDavidKim || defaultUser;
-  const userSon = u['son.huynh@youngonevn.com'] || u.userLiamNguyen || defaultUser;
-
-  const candidateAssignments: Array<{ licenseId: string; userObj: { id: string } | undefined }> = [
-    // Microsoft 365 E5
-    { licenseId: 'lic-m365', userObj: userBinh },
-    { licenseId: 'lic-m365', userObj: userNam },
-    { licenseId: 'lic-m365', userObj: userThu },
-    { licenseId: 'lic-m365', userObj: userHuy },
-    { licenseId: 'lic-m365', userObj: userKim },
-    { licenseId: 'lic-m365', userObj: userTri },
-    { licenseId: 'lic-m365', userObj: userPhong },
-    { licenseId: 'lic-m365', userObj: userLan },
-    { licenseId: 'lic-m365', userObj: userNgoc },
-    { licenseId: 'lic-m365', userObj: userPhuong },
-    { licenseId: 'lic-m365', userObj: userKien },
-    { licenseId: 'lic-m365', userObj: userSon },
-
-    // SAP S/4HANA ERP
-    { licenseId: 'lic-sap', userObj: userBinh },
-    { licenseId: 'lic-sap', userObj: userTri },
-    { licenseId: 'lic-sap', userObj: userNgoc },
-    { licenseId: 'lic-sap', userObj: userLan },
-    { licenseId: 'lic-sap', userObj: userThu },
-    { licenseId: 'lic-sap', userObj: userKim },
-
-    // Lectra Modaris CAD
-    { licenseId: 'lic-lectra', userObj: userThu },
-    { licenseId: 'lic-lectra', userObj: userLan },
-    { licenseId: 'lic-lectra', userObj: userHuy },
-
-    // Gerber AccuMark
-    { licenseId: 'lic-gerber', userObj: userThu },
-    { licenseId: 'lic-gerber', userObj: userLan },
-
-    // FastReact Plan
-    { licenseId: 'lic-fastreact', userObj: userBinh },
-    { licenseId: 'lic-fastreact', userObj: userThu },
-    { licenseId: 'lic-fastreact', userObj: userLan },
-
-    // Adobe Creative Cloud
-    { licenseId: 'lic-adobe', userObj: userLan },
-    { licenseId: 'lic-adobe', userObj: userPhuong },
-    { licenseId: 'lic-adobe', userObj: userTri },
-
-    // Cisco Umbrella & AnyConnect
-    { licenseId: 'lic-cisco', userObj: userTri },
-    { licenseId: 'lic-cisco', userObj: userPhong },
-    { licenseId: 'lic-cisco', userObj: userNam },
-    { licenseId: 'lic-cisco', userObj: userKien },
-    { licenseId: 'lic-cisco', userObj: userLan },
-  ];
-
-  for (const item of candidateAssignments) {
-    if (item.userObj?.id) {
-      await prisma.licenseAssignment.create({
-        data: {
-          licenseId: item.licenseId,
-          userId: item.userObj.id,
-          assignedAt: new Date(),
-        },
-      });
-    }
-  }
-
-  // 3. Synchronize `usedSeats` with actual active assignments
-  for (const lic of licenseDefinitions) {
-    const activeCount = await prisma.licenseAssignment.count({
-      where: {
-        licenseId: lic.id,
-        unassignedAt: null,
-      },
-    });
-
-    await prisma.license.update({
-      where: { id: lic.id },
-      data: { usedSeats: activeCount },
-    });
-  }
-
-  logger.log(
-    `✅ Seeded ${licenseDefinitions.length} enterprise software licenses and synchronized seat counts.`,
   );
 }

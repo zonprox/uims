@@ -1,163 +1,114 @@
-import { Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
+import {
+  inTransactionChunks,
+  runDomainSeeder,
+  type SeederContext,
+  upsertById,
+} from './seeder.utils';
 
-const logger = new Logger('AuditSeeder');
+export const auditRows: string[] = [
+  'aud-001|admin@youngonevn.com|Enterprise Admin|USER_PROVISION|Info|Success|Pham Hoang Nam|User|nam.pham@youngonevn.com|10.232.100.15|UIMS-AdminConsole/2.4.0 (macOS; arm64)|201|42.5|432000000|Provisioned Active Directory user account for Pham Hoang Nam (BSL Factory IT Manager).',
+  'aud-002|nam.pham@youngonevn.com|Pham Hoang Nam|USER_PASSWORD_RESET|Warning|Success|Le Thi Thu|User|thu.le@youngonevn.com|10.232.100.22|Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0|200|78.1|345600000|Self-service password reset token generated for Le Thi Thu via secure corporate SMS/email channel.',
+  'aud-003|phong.dang@youngonevn.com|Dang Thanh Phong|ASSET_ASSIGN|Info|Success|AST-1001 (MacBook Pro 16" M3)|Asset|AST-1001|10.233.100.18|UIMS-Web/2.4.0 (Edge/128.0; Windows 11)|200|112.4|259200000|Assigned primary executive laptop AST-1001 to Managing Director Doan Minh Tri at BSH Ho Chi Minh.',
+  'aud-004|nam.pham@youngonevn.com|Pham Hoang Nam|LICENSE_GRANT|Info|Success|Lectra Modaris Expert CAD|License|lic-lectra|10.232.100.22|UIMS-Web/2.4.0 (Edge/128.0)|200|95.0|172800000|Allocated 1 dedicated CAD license seat for BSL Garment Cutting Bay workstation.',
+  'aud-005|admin@youngonevn.com|Enterprise Admin|INVENTORY_RESTOCK|Info|Success|LBL-ZBR-100X150|Inventory|LBL-ZBR-100X150|10.233.100.10|UIMS-AdminConsole/2.4.0 (macOS)|200|64.0|86400000|Received batch restock of 120 rolls of Zebra thermal transfer barcode labels at BSL Soc Trang Warehouse.',
+  'aud-006|nam.pham@youngonevn.com|Pham Hoang Nam|INVENTORY_RESTOCK|Info|Success|CBL-CAT6-UTP-3M|Inventory|CBL-CAT6-UTP-3M|10.232.100.22|UIMS-AdminConsole/2.4.0 (Windows)|200|55.0|43200000|Restocked 75 units of Cat6 UTP 3m blue patch cables for BSL shop floor network switches.',
+];
 
-export async function seedAudit(prisma: PrismaClient) {
-  // Fetch related records to establish relational integrity
-  const [users, assets, licenses, inventory] = await Promise.all([
-    prisma.appUser.findMany(),
-    prisma.asset.findMany(),
-    prisma.license.findMany(),
-    prisma.inventoryItem.findMany(),
-  ]);
+export async function seedAudit(prisma: PrismaClient, ctx?: SeederContext) {
+  return runDomainSeeder(
+    'AuditSeeder',
+    '🔒',
+    'Enterprise Governance & Audit Logs',
+    async (logger) => {
+      const baseDate = new Date('2026-08-20T10:00:00Z');
 
-  const userMap = new Map<string, string>();
-  for (const u of users) {
-    userMap.set(u.email, u.id);
-  }
+      const resolveEntityId = async (type: string, key: string): Promise<string> => {
+        if (type === 'User') {
+          return (
+            ctx?.directoryUsers.get(key) ||
+            ctx?.appUsers.get(key) ||
+            (await prisma.appUser.findUnique({ where: { email: key }, select: { id: true } }))
+              ?.id ||
+            key
+          );
+        }
+        if (type === 'Asset') {
+          return (
+            ctx?.assets.get(key) ||
+            (await prisma.asset.findUnique({ where: { assetTag: key }, select: { id: true } }))
+              ?.id ||
+            key
+          );
+        }
+        if (type === 'License') {
+          return (
+            ctx?.licenses.get(key) ||
+            (await prisma.license.findUnique({ where: { id: key }, select: { id: true } }))?.id ||
+            key
+          );
+        }
+        if (type === 'Inventory') {
+          return (
+            ctx?.inventory.get(key) ||
+            (await prisma.inventoryItem.findUnique({ where: { sku: key }, select: { id: true } }))
+              ?.id ||
+            key
+          );
+        }
+        return key;
+      };
 
-  const assetMap = new Map<string, string>();
-  for (const a of assets) {
-    assetMap.set(a.assetTag, a.id);
-  }
+      await inTransactionChunks(prisma, auditRows, 50, async (tx, row) => {
+        const [
+          id,
+          userEmail,
+          userName,
+          action,
+          severity,
+          status,
+          entity,
+          entityType,
+          entityKey,
+          ipAddress,
+          userAgent,
+          codeStr,
+          durStr,
+          msAgoStr,
+          details,
+        ] = row.split('|');
 
-  const licenseMap = new Map<string, string>();
-  for (const l of licenses) {
-    licenseMap.set(l.name, l.id);
-    licenseMap.set(l.id, l.id);
-  }
+        const userId =
+          ctx?.appUsers.get(userEmail) ||
+          (await prisma.appUser.findUnique({ where: { email: userEmail }, select: { id: true } }))
+            ?.id ||
+          null;
 
-  const invMap = new Map<string, string>();
-  for (const i of inventory) {
-    invMap.set(i.sku, i.id);
-  }
+        const entityId = await resolveEntityId(entityType, entityKey);
 
-  const baseDate = new Date('2026-08-20T10:00:00Z');
+        const auditData = {
+          id,
+          userId,
+          userEmail,
+          userName,
+          action,
+          severity,
+          status,
+          entity,
+          entityType,
+          entityId,
+          ipAddress,
+          userAgent,
+          statusCode: parseInt(codeStr, 10),
+          durationMs: parseFloat(durStr),
+          timestamp: new Date(baseDate.getTime() - parseInt(msAgoStr, 10)),
+          details,
+        };
 
-  const auditEvents = [
-    {
-      id: 'aud-001',
-      userId: userMap.get('admin@youngonevn.com'),
-      userEmail: 'admin@youngonevn.com',
-      userName: 'Enterprise Admin',
-      action: 'USER_PROVISION',
-      severity: 'Info',
-      status: 'Success',
-      entity: 'Pham Hoang Nam',
-      entityType: 'User',
-      entityId: userMap.get('nam.pham@youngonevn.com') || 'usr-nam-pham',
-      ipAddress: '10.232.100.15',
-      userAgent: 'UIMS-AdminConsole/2.4.0 (macOS; arm64)',
-      statusCode: 201,
-      durationMs: 42.5,
-      timestamp: new Date(baseDate.getTime() - 86400000 * 5),
-      details:
-        'Provisioned Active Directory user account for Pham Hoang Nam (BSL Factory IT Manager).',
+        return upsertById(tx.auditLog, auditData);
+      });
+
+      logger.log(`Seeded ${auditRows.length} structured governance audit log records.`);
     },
-    {
-      id: 'aud-002',
-      userId: userMap.get('nam.pham@youngonevn.com'),
-      userEmail: 'nam.pham@youngonevn.com',
-      userName: 'Pham Hoang Nam',
-      action: 'USER_PASSWORD_RESET',
-      severity: 'Warning',
-      status: 'Success',
-      entity: 'Le Thi Thu',
-      entityType: 'User',
-      entityId: userMap.get('thu.le@youngonevn.com') || 'usr-thu-le',
-      ipAddress: '10.232.100.22',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0',
-      statusCode: 200,
-      durationMs: 78.1,
-      timestamp: new Date(baseDate.getTime() - 86400000 * 4),
-      details:
-        'Self-service password reset token generated for Le Thi Thu via secure corporate SMS/email channel.',
-    },
-    {
-      id: 'aud-003',
-      userId: userMap.get('phong.dang@youngonevn.com'),
-      userEmail: 'phong.dang@youngonevn.com',
-      userName: 'Dang Thanh Phong',
-      action: 'ASSET_ASSIGN',
-      severity: 'Info',
-      status: 'Success',
-      entity: 'AST-1001 (MacBook Pro 16" M3)',
-      entityType: 'Asset',
-      entityId: assetMap.get('AST-1001') || 'ast-1001',
-      ipAddress: '10.233.100.18',
-      userAgent: 'UIMS-Web/2.4.0 (Edge/128.0; Windows 11)',
-      statusCode: 200,
-      durationMs: 112.4,
-      timestamp: new Date(baseDate.getTime() - 86400000 * 3),
-      details:
-        'Assigned primary executive laptop AST-1001 to Managing Director Doan Minh Tri at BSH Ho Chi Minh.',
-    },
-    {
-      id: 'aud-004',
-      userId: userMap.get('nam.pham@youngonevn.com'),
-      userEmail: 'nam.pham@youngonevn.com',
-      userName: 'Pham Hoang Nam',
-      action: 'LICENSE_GRANT',
-      severity: 'Info',
-      status: 'Success',
-      entity: 'Lectra Modaris Expert CAD',
-      entityType: 'License',
-      entityId: licenseMap.get('lic-lectra') || 'lic-lectra',
-      ipAddress: '10.232.100.22',
-      userAgent: 'UIMS-Web/2.4.0 (Edge/128.0)',
-      statusCode: 200,
-      durationMs: 95.0,
-      timestamp: new Date(baseDate.getTime() - 86400000 * 2),
-      details: 'Allocated 1 dedicated CAD license seat for BSL Garment Cutting Bay workstation.',
-    },
-    {
-      id: 'aud-005',
-      userId: userMap.get('admin@youngonevn.com'),
-      userEmail: 'admin@youngonevn.com',
-      userName: 'Enterprise Admin',
-      action: 'INVENTORY_RESTOCK',
-      severity: 'Info',
-      status: 'Success',
-      entity: 'LBL-ZBR-100X150',
-      entityType: 'Inventory',
-      entityId: invMap.get('LBL-ZBR-100X150') || 'inv-lbl',
-      ipAddress: '10.233.100.10',
-      userAgent: 'UIMS-AdminConsole/2.4.0 (macOS)',
-      statusCode: 200,
-      durationMs: 64.0,
-      timestamp: new Date(baseDate.getTime() - 86400000 * 1),
-      details:
-        'Received batch restock of 120 rolls of Zebra thermal transfer barcode labels at BSL Soc Trang Warehouse.',
-    },
-    {
-      id: 'aud-006',
-      userId: userMap.get('nam.pham@youngonevn.com'),
-      userEmail: 'nam.pham@youngonevn.com',
-      userName: 'Pham Hoang Nam',
-      action: 'INVENTORY_RESTOCK',
-      severity: 'Info',
-      status: 'Success',
-      entity: 'CBL-CAT6-UTP-3M',
-      entityType: 'Inventory',
-      entityId: invMap.get('CBL-CAT6-UTP-3M') || 'inv-cbl-cat6',
-      ipAddress: '10.232.100.22',
-      userAgent: 'UIMS-AdminConsole/2.4.0 (Windows)',
-      statusCode: 200,
-      durationMs: 55.0,
-      timestamp: new Date(baseDate.getTime() - 43200000),
-      details:
-        'Restocked 75 units of Cat6 UTP 3m blue patch cables for BSL shop floor network switches.',
-    },
-  ];
-
-  for (const ev of auditEvents) {
-    await prisma.auditLog.upsert({
-      where: { id: ev.id },
-      update: {},
-      create: ev,
-    });
-  }
-
-  logger.log(`✅ Seeded ${auditEvents.length} structured audit log entries.`);
+  );
 }

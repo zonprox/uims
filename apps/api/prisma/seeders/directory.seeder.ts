@@ -1,388 +1,273 @@
-import { Logger } from '@nestjs/common';
 import { AccountStatus, DirectorySource, type PrismaClient } from '@prisma/client';
 import { enterpriseAdMasterData } from './ad-directory-data';
 import type { StaffProfile } from './roles-users.seeder';
+import {
+  type SeederContext,
+  buildLookupMap,
+  inTransactionChunks,
+  runDomainSeeder,
+} from './seeder.utils';
 
-const logger = new Logger('DirectorySeeder');
+export async function seedDirectory(
+  prisma: PrismaClient,
+  staffProfiles?: Array<StaffProfile>,
+  ctx?: SeederContext,
+) {
+  return runDomainSeeder(
+    'DirectorySeeder',
+    '👥',
+    'Normalized Corporate Directory for Broadpeak (BSL & BSH)',
+    async (logger) => {
+      let orgMap = ctx?.organizations;
+      let deptMap = ctx?.departments;
+      let posMap = ctx?.positions;
+      let locMap = ctx?.locations;
 
-export async function seedDirectory(prisma: PrismaClient, staffProfiles?: Array<StaffProfile>) {
-  logger.log('👥 Seeding Normalized Corporate Directory for Broadpeak (BSL & BSH)...');
-
-  // 1. Fetch relational master data to resolve foreign keys
-  const [organizations, departments, positions, locations] = await Promise.all([
-    prisma.organization.findMany(),
-    prisma.department.findMany(),
-    prisma.position.findMany(),
-    prisma.location.findMany(),
-  ]);
-
-  const orgMap = new Map<string, string>();
-  for (const org of organizations) {
-    orgMap.set(org.code, org.id);
-    orgMap.set(org.id, org.id);
-    orgMap.set(org.name.toLowerCase(), org.id);
-  }
-
-  const deptMap = new Map<string, string>();
-  for (const dept of departments) {
-    deptMap.set(dept.code, dept.id);
-    deptMap.set(dept.id, dept.id);
-    deptMap.set(dept.name.toLowerCase(), dept.id);
-  }
-
-  const posMap = new Map<string, string>();
-  for (const pos of positions) {
-    posMap.set(pos.code, pos.id);
-    posMap.set(pos.id, pos.id);
-    posMap.set(pos.title.toLowerCase(), pos.id);
-  }
-
-  const locMap = new Map<string, string>();
-  for (const loc of locations) {
-    if (loc.code) {
-      locMap.set(loc.code, loc.id);
-      locMap.set(loc.code.toUpperCase(), loc.id);
-      locMap.set(loc.code.toLowerCase(), loc.id);
-    }
-    locMap.set(loc.id, loc.id);
-    locMap.set(loc.name.toLowerCase(), loc.id);
-  }
-
-  const defaultBslOrgId = orgMap.get('BSL') || organizations[0]?.id;
-  const defaultBshOrgId = orgMap.get('BSH') || organizations[1]?.id || defaultBslOrgId;
-  const defaultBshLocId = locMap.get('loc-bsh-d7') || locMap.get('HCM-D7') || locations[0]?.id;
-  const defaultBslLocId =
-    locMap.get('loc-bsl-bc') ||
-    locMap.get('BSL-BC') ||
-    locMap.get('loc-bsl-st') ||
-    locations[0]?.id;
-
-  // 2. Directory Groups Catalog
-  const directoryGroups = [
-    {
-      id: 'grp-all-broadpeak',
-      name: 'All Broadpeak Workforce',
-      email: 'all-workforce@youngonevn.com',
-      type: 'Distribution',
-      scope: 'Universal',
-      ouPath: 'OU=Distribution,OU=Groups,OU=Broadpeak,DC=youngone,DC=internal',
-      managedBy: 'Doan Minh Tri',
-      description:
-        'Enterprise-wide distribution list across BSL (Soc Trang) and BSH (Ho Chi Minh).',
-    },
-    {
-      id: 'grp-youngone-exec',
-      name: 'GR_Youngone_Executive',
-      email: 'gr-executive@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=Executive,OU=Broadpeak,DC=youngone,DC=internal',
-      managedBy: 'Doan Minh Tri',
-      description: 'Executive Leadership Security Group.',
-    },
-    {
-      id: 'grp-bsl-factory',
-      name: 'GR_BSL_FactoryOperations',
-      email: 'gr-bsl-factory@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=BSL,OU=Broadpeak,DC=youngone,DC=internal',
-      managedBy: 'Tran Van Binh',
-      description: 'BSL Soc Trang Factory Operations Security Group.',
-    },
-    {
-      id: 'grp-bsl-it',
-      name: 'GR_BSL_IT_Support',
-      email: 'gr-bsl-it@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=BSL,OU=Broadpeak,DC=youngone,DC=internal',
-      managedBy: 'Pham Hoang Nam',
-      description: 'BSL Factory IT & Industrial Automation Security Group.',
-    },
-    {
-      id: 'grp-bsh-corp',
-      name: 'GR_BSH_CorporateOffice',
-      email: 'gr-bsh-corp@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=BSH,OU=Broadpeak,DC=youngone,DC=internal',
-      managedBy: 'Dang Thanh Phong',
-      description: 'BSH Ho Chi Minh Corporate Office Security Group.',
-    },
-    {
-      id: 'grp-bsh-merch',
-      name: 'GR_BSH_Merchandising',
-      email: 'gr-bsh-merch@youngonevn.com',
-      type: 'AD Security Group',
-      scope: 'Global Security',
-      ouPath: 'OU=SecurityGroups,OU=BSH,OU=Broadpeak,DC=youngone,DC=internal',
-      managedBy: 'Nguyen Thi Lan',
-      description: 'BSH Merchandising & Apparel Sourcing Security Group.',
-    },
-  ];
-
-  for (const dg of directoryGroups) {
-    await prisma.directoryGroup.upsert({
-      where: { id: dg.id },
-      update: {
-        name: dg.name,
-        email: dg.email,
-        description: dg.description,
-        type: dg.type,
-        scope: dg.scope,
-        ouPath: dg.ouPath,
-        managedBy: dg.managedBy,
-      },
-      create: { ...dg, memberCount: 0 },
-    });
-  }
-
-  const seededUsersMap = new Map<string, import('@prisma/client').DirectoryUser>();
-  const userGroupLinks: Array<{ userEmail: string; groupName: string }> = [];
-
-  // 3. Seed Corporate Staff Profiles (from roles-users.seeder)
-  if (staffProfiles && staffProfiles.length > 0) {
-    for (const s of staffProfiles) {
-      const status = s.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED;
-      const isBSL = s.organizationCode === 'BSL' || (s.locationId && s.locationId.includes('bsl'));
-      const organizationId =
-        (s.organizationCode ? orgMap.get(s.organizationCode) : null) ||
-        (isBSL ? defaultBslOrgId : defaultBshOrgId);
-      const departmentId =
-        (s.departmentCode ? deptMap.get(s.departmentCode) : null) ||
-        (s.departmentName ? deptMap.get(s.departmentName.toLowerCase()) : null) ||
-        (isBSL ? deptMap.get('DEPT-BSL-MGMT') : deptMap.get('DEPT-BSH-EXEC')) ||
-        departments[0]?.id;
-      const positionId =
-        (s.positionCode ? posMap.get(s.positionCode) : null) ||
-        (s.jobTitle ? posMap.get(s.jobTitle.toLowerCase()) : null) ||
-        (isBSL ? posMap.get('POS-BSL-GM') : posMap.get('POS-BSH-MD')) ||
-        positions[0]?.id;
-      let locationId =
-        (s.locationId ? locMap.get(s.locationId) : null) ||
-        (s.locationName ? locMap.get(s.locationName.toLowerCase()) : null) ||
-        (isBSL ? defaultBslLocId : defaultBshLocId);
-
-      // Re-map campus root BSL staff to their specific functional locations
       if (
-        isBSL &&
-        (locationId === locMap.get('loc-bsl-st') || locationId === locMap.get('BSL-ST'))
+        !orgMap ||
+        orgMap.size === 0 ||
+        !deptMap ||
+        deptMap.size === 0 ||
+        !posMap ||
+        posMap.size === 0 ||
+        !locMap ||
+        locMap.size === 0
       ) {
-        if (s.departmentCode === 'DEPT-BSL-MGMT') {
-          locationId = locMap.get('loc-bsl-bc-exec') || locMap.get('loc-bsl-bc') || locationId;
-        } else if (s.departmentCode === 'DEPT-BSL-IT') {
-          locationId =
-            locMap.get('loc-bsl-bc-datacenter') || locMap.get('loc-bsl-bc') || locationId;
-        } else if (s.departmentCode === 'DEPT-BSL-LOG') {
-          locationId = locMap.get('loc-bsl-wh') || locationId;
-        } else if (s.departmentCode === 'DEPT-BSL-HR') {
-          locationId = locMap.get('loc-bsl-bc-admin') || locMap.get('loc-bsl-bc') || locationId;
-        } else if (s.departmentCode === 'DEPT-BSL-PROD') {
-          locationId = locMap.get('loc-bsl-f1') || locationId;
-        } else if (s.departmentCode === 'DEPT-BSL-QA') {
-          locationId = locMap.get('loc-bsl-f1-qa') || locMap.get('loc-bsl-f1') || locationId;
-        } else {
-          locationId = locMap.get('loc-bsl-bc') || locationId;
+        const [organizations, departments, positions, locations] = await Promise.all([
+          prisma.organization.findMany({ take: 50 }),
+          prisma.department.findMany({ take: 200 }),
+          prisma.position.findMany({ take: 100 }),
+          prisma.location.findMany({ take: 500 }),
+        ]);
+
+        orgMap = buildLookupMap(organizations, [(o) => o.code, (o) => o.name]);
+        deptMap = buildLookupMap(departments, [(d) => d.code, (d) => d.name]);
+        posMap = buildLookupMap(positions, [(p) => p.code, (p) => p.title]);
+        locMap = buildLookupMap(locations, [(l) => l.code || undefined, (l) => l.name]);
+      }
+
+      const defaultBslOrgId = orgMap.get('BSL') || 'org-bsl';
+      const defaultBshOrgId = orgMap.get('BSH') || 'org-bsh';
+      const defaultBshLocId = locMap.get('loc-bsh-d7') || locMap.get('HCM-D7') || 'loc-bsh-d7';
+      const defaultBslLocId =
+        locMap.get('loc-bsl-bc') ||
+        locMap.get('BSL-BC') ||
+        locMap.get('loc-bsl-st') ||
+        'loc-bsl-st';
+
+      // 1. Directory Groups Catalog
+      const groupRows = [
+        'grp-all-broadpeak|All Broadpeak Workforce|all-workforce@youngonevn.com|Distribution|Universal|OU=Distribution,OU=Groups,OU=Broadpeak,DC=youngone,DC=internal|Doan Minh Tri|Enterprise-wide distribution list across BSL (Soc Trang) and BSH (Ho Chi Minh).',
+        'grp-youngone-exec|GR_Youngone_Executive|gr-executive@youngonevn.com|AD Security Group|Global Security|OU=SecurityGroups,OU=Executive,OU=Broadpeak,DC=youngone,DC=internal|Doan Minh Tri|Executive Leadership Security Group.',
+        'grp-bsl-factory|GR_BSL_FactoryOperations|gr-bsl-factory@youngonevn.com|AD Security Group|Global Security|OU=SecurityGroups,OU=BSL,OU=Broadpeak,DC=youngone,DC=internal|Tran Van Binh|BSL Soc Trang Factory Operations Security Group.',
+        'grp-bsl-it|GR_BSL_IT_Support|gr-bsl-it@youngonevn.com|AD Security Group|Global Security|OU=SecurityGroups,OU=BSL,OU=Broadpeak,DC=youngone,DC=internal|Pham Hoang Nam|BSL Factory IT & Industrial Automation Security Group.',
+        'grp-bsh-corp|GR_BSH_CorporateOffice|gr-bsh-corp@youngonevn.com|AD Security Group|Global Security|OU=SecurityGroups,OU=BSH,OU=Broadpeak,DC=youngone,DC=internal|Dang Thanh Phong|BSH Ho Chi Minh Corporate Office Security Group.',
+        'grp-bsh-merch|GR_BSH_Merchandising|gr-bsh-merch@youngonevn.com|AD Security Group|Global Security|OU=SecurityGroups,OU=BSH,OU=Broadpeak,DC=youngone,DC=internal|Nguyen Thi Lan|BSH Merchandising & Apparel Sourcing Security Group.',
+      ];
+
+      for (const row of groupRows) {
+        const [id, name, email, type, scope, ouPath, managedBy, description] = row.split('|');
+        await prisma.directoryGroup.upsert({
+          where: { id },
+          update: { name, email, description, type, scope, ouPath, managedBy },
+          create: { id, name, email, description, type, scope, ouPath, managedBy, memberCount: 0 },
+        });
+      }
+
+      // 2. Unify Candidates
+      interface Candidate {
+        email: string;
+        employeeCode?: string;
+        firstName: string;
+        lastName: string;
+        displayName: string;
+        phone?: string;
+        ouPath?: string;
+        status: AccountStatus;
+        source: DirectorySource;
+        isBSL: boolean;
+        orgKey?: string;
+        deptKey?: string;
+        posKey?: string;
+        locKey?: string;
+        adGroup?: string;
+      }
+      const candidates: Candidate[] = [];
+
+      if (staffProfiles) {
+        for (const s of staffProfiles) {
+          const isBSL =
+            s.organizationCode === 'BSL' || (s.locationId ? s.locationId.includes('bsl') : false);
+          candidates.push({
+            email: s.email,
+            employeeCode: s.employeeCode,
+            firstName: s.firstName,
+            lastName: s.lastName,
+            displayName: s.displayName,
+            phone: s.phone,
+            ouPath: s.ouPath,
+            status: s.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
+            source: s.source === 'LOCAL' ? DirectorySource.LOCAL : DirectorySource.AZURE_AD,
+            isBSL,
+            orgKey: s.organizationCode,
+            deptKey: s.departmentCode || s.departmentName,
+            posKey: s.positionCode || s.jobTitle,
+            locKey: s.locationId || s.locationName,
+            adGroup: s.adGroup,
+          });
         }
       }
 
-      const user = await prisma.directoryUser.upsert({
-        where: { email: s.email },
-        update: {
-          employeeCode: s.employeeCode || null,
-          firstName: s.firstName,
-          lastName: s.lastName,
-          displayName: s.displayName,
-          status,
-          source: s.source === 'LOCAL' ? DirectorySource.LOCAL : DirectorySource.AZURE_AD,
-          phone: s.phone || null,
-          ouPath: s.ouPath || null,
-          organizationId,
-          departmentId,
-          positionId,
-          locationId,
-        },
-        create: {
-          employeeCode: s.employeeCode || null,
-          firstName: s.firstName,
-          lastName: s.lastName,
-          displayName: s.displayName,
-          email: s.email,
-          status,
-          source: s.source === 'LOCAL' ? DirectorySource.LOCAL : DirectorySource.AZURE_AD,
-          phone: s.phone || null,
-          ouPath: s.ouPath || null,
-          organizationId,
-          departmentId,
-          positionId,
-          locationId,
-        },
-      });
-
-      seededUsersMap.set(s.email, user);
-      if (s.adGroup) {
-        userGroupLinks.push({ userEmail: s.email, groupName: s.adGroup });
+      for (const r of enterpriseAdMasterData) {
+        const isBSL = r.company.includes('BSL') || r.employeeCode.startsWith('BSL');
+        const parts = r.displayName.split(' ');
+        candidates.push({
+          email: r.email,
+          employeeCode: r.employeeCode,
+          firstName: parts[parts.length - 1] || r.displayName,
+          lastName: parts.slice(0, -1).join(' ') || 'Broadpeak',
+          displayName: r.displayName,
+          phone: r.telephone,
+          status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
+          source: DirectorySource.AZURE_AD,
+          isBSL,
+          orgKey: isBSL ? 'BSL' : 'BSH',
+          deptKey: r.departmentCode || r.department,
+          posKey: r.positionCode || r.jobTitle,
+          locKey: r.locationCode,
+          adGroup: r.adGroup,
+        });
       }
-      userGroupLinks.push({ userEmail: s.email, groupName: 'All Broadpeak Workforce' });
-    }
-  }
 
-  // 4. Seed Directory Records from Active Directory Data
-  for (const r of enterpriseAdMasterData) {
-    const isBSL = r.company.includes('BSL') || r.employeeCode.startsWith('BSL');
-    const organizationId = isBSL ? defaultBslOrgId : defaultBshOrgId;
+      // 3. Upsert Users in deterministic transaction chunks of 50
+      const seededUsersMap = new Map<string, import('@prisma/client').DirectoryUser>();
+      const userGroupLinks: Array<{ userEmail: string; groupName: string }> = [];
 
-    // Resolve location: BSH users -> loc-bsh-d7, BSL users -> specific BC / WH / Factory 1-7 location
-    let locationId = isBSL ? defaultBslLocId : defaultBshLocId;
-    if (
-      r.locationCode &&
-      (locMap.has(r.locationCode) ||
-        locMap.has(r.locationCode.toLowerCase()) ||
-        locMap.has(r.locationCode.toUpperCase()))
-    ) {
-      locationId = (locMap.get(r.locationCode) ||
-        locMap.get(r.locationCode.toLowerCase()) ||
-        locMap.get(r.locationCode.toUpperCase()))!;
-    }
+      const userResults = await inTransactionChunks(prisma, candidates, 50, async (tx, c) => {
+        const organizationId =
+          (c.orgKey ? orgMap.get(c.orgKey) : null) || (c.isBSL ? defaultBslOrgId : defaultBshOrgId);
+        const departmentId =
+          (c.deptKey ? deptMap.get(c.deptKey) : null) ||
+          (c.isBSL
+            ? deptMap.get('DEPT-BSL-MGMT') || deptMap.get('DEPT-BSL-OPS')
+            : deptMap.get('DEPT-BSH-EXEC') || deptMap.get('DEPT-BSH-CORP'));
+        const positionId =
+          (c.posKey ? posMap.get(c.posKey) : null) ||
+          (c.isBSL
+            ? posMap.get('POS-BSL-GM') || posMap.get('POS-BSL-ADMIN-LEAD')
+            : posMap.get('POS-BSH-MD') || posMap.get('POS-BSH-IT-ENG'));
 
-    // Resolve department: check departmentCode, department, or fallback
-    const departmentId =
-      (r.departmentCode ? deptMap.get(r.departmentCode) : null) ||
-      deptMap.get(r.department) ||
-      deptMap.get(r.department.toLowerCase()) ||
-      (isBSL ? deptMap.get('DEPT-BSL-OPS') : deptMap.get('DEPT-BSH-CORP')) ||
-      departments[0]?.id;
+        let locationId =
+          (c.locKey ? locMap.get(c.locKey) : null) || (c.isBSL ? defaultBslLocId : defaultBshLocId);
+        if (
+          c.isBSL &&
+          (locationId === locMap.get('loc-bsl-st') || locationId === locMap.get('BSL-ST'))
+        ) {
+          const locOverrides: Record<string, string | undefined> = {
+            'DEPT-BSL-MGMT': locMap.get('loc-bsl-bc-exec'),
+            'DEPT-BSL-IT': locMap.get('loc-bsl-bc-datacenter'),
+            'DEPT-BSL-LOG': locMap.get('loc-bsl-wh'),
+            'DEPT-BSL-LOG-MAT': locMap.get('loc-bsl-wh'),
+            'DEPT-BSL-HR': locMap.get('loc-bsl-bc-admin'),
+            'DEPT-BSL-PROD': locMap.get('loc-bsl-f1'),
+            'DEPT-BSL-QA': locMap.get('loc-bsl-f1-qa'),
+          };
+          locationId =
+            (c.deptKey ? locOverrides[c.deptKey] : undefined) ||
+            locMap.get('loc-bsl-bc') ||
+            locationId;
+        }
 
-    // Resolve position: check positionCode, jobTitle, or fallback
-    const positionId =
-      (r.positionCode ? posMap.get(r.positionCode) : null) ||
-      posMap.get(r.jobTitle) ||
-      posMap.get(r.jobTitle.toLowerCase()) ||
-      (isBSL ? posMap.get('POS-BSL-ADMIN-LEAD') : posMap.get('POS-BSH-IT-ENG')) ||
-      positions[0]?.id;
-
-    const parts = r.displayName.split(' ');
-    const firstName = parts[parts.length - 1] || r.displayName;
-    const lastName = parts.slice(0, -1).join(' ') || 'Broadpeak';
-
-    const user = await prisma.directoryUser.upsert({
-      where: { email: r.email },
-      update: {
-        employeeCode: r.employeeCode,
-        firstName,
-        lastName,
-        displayName: r.displayName,
-        status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
-        source: DirectorySource.ACTIVE_DIRECTORY,
-        phone: r.telephone,
-        organizationId,
-        departmentId,
-        positionId,
-        locationId,
-      },
-      create: {
-        employeeCode: r.employeeCode,
-        firstName,
-        lastName,
-        displayName: r.displayName,
-        email: r.email,
-        status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
-        source: DirectorySource.ACTIVE_DIRECTORY,
-        phone: r.telephone,
-        organizationId,
-        departmentId,
-        positionId,
-        locationId,
-      },
-    });
-
-    seededUsersMap.set(r.email, user);
-    if (r.adGroup) {
-      userGroupLinks.push({ userEmail: r.email, groupName: r.adGroup });
-    }
-    userGroupLinks.push({ userEmail: r.email, groupName: 'All Broadpeak Workforce' });
-  }
-
-  // 5. Link Users to Groups and update member counts
-  const allGroups = await prisma.directoryGroup.findMany();
-  const groupByName = new Map<string, string>();
-  for (const g of allGroups) {
-    groupByName.set(g.name, g.id);
-  }
-
-  for (const link of userGroupLinks) {
-    const groupId = groupByName.get(link.groupName);
-    const user = seededUsersMap.get(link.userEmail);
-    if (!groupId || !user) continue;
-
-    try {
-      await prisma.directoryMembership.upsert({
-        where: {
-          userId_groupId: {
-            userId: user.id,
-            groupId,
+        return tx.directoryUser.upsert({
+          where: { email: c.email },
+          update: {
+            employeeCode: c.employeeCode || null,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            displayName: c.displayName,
+            status: c.status,
+            source: c.source,
+            phone: c.phone || null,
+            ouPath: c.ouPath || null,
+            organizationId: organizationId || null,
+            departmentId: departmentId || null,
+            positionId: positionId || null,
+            locationId: locationId || null,
           },
-        },
-        update: {},
-        create: {
-          userId: user.id,
-          groupId,
-        },
+          create: {
+            employeeCode: c.employeeCode || null,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            displayName: c.displayName,
+            email: c.email,
+            status: c.status,
+            source: c.source,
+            phone: c.phone || null,
+            ouPath: c.ouPath || null,
+            organizationId: organizationId || null,
+            departmentId: departmentId || null,
+            positionId: positionId || null,
+            locationId: locationId || null,
+          },
+        });
       });
-    } catch (err: unknown) {
-      logger.debug(`Skipped duplicate membership: ${String(err)}`);
-    }
-  }
 
-  // Update member count on each group
-  for (const g of allGroups) {
-    const count = await prisma.directoryMembership.count({
-      where: { groupId: g.id },
-    });
-    await prisma.directoryGroup.update({
-      where: { id: g.id },
-      data: { memberCount: count },
-    });
-  }
+      for (let i = 0; i < candidates.length; i++) {
+        const c = candidates[i];
+        const user = userResults[i];
+        seededUsersMap.set(c.email, user);
+        if (ctx) {
+          ctx.directoryUsers.set(c.email, user.id);
+          ctx.directoryUsers.set(user.id, user.id);
+        }
+        if (c.adGroup) userGroupLinks.push({ userEmail: c.email, groupName: c.adGroup });
+        userGroupLinks.push({ userEmail: c.email, groupName: 'All Broadpeak Workforce' });
+      }
 
-  logger.log(
-    `✅ Seeded ${seededUsersMap.size} Directory Users and ${allGroups.length} Groups across BSL & BSH.`,
-  );
+      // 4. Link Memberships and Update Counts
+      const allGroups = await prisma.directoryGroup.findMany({ take: 50 });
+      const groupByName = new Map(allGroups.map((g) => [g.name, g.id]));
 
-  const firstUser = Array.from(seededUsersMap.values())[0]!;
-  const bslUser =
-    Array.from(seededUsersMap.values()).find((u) => u.employeeCode?.startsWith('BSL')) || firstUser;
-  const bshUser =
-    Array.from(seededUsersMap.values()).find((u) => u.employeeCode?.startsWith('BSH')) || firstUser;
+      const membershipData = userGroupLinks
+        .map(({ userEmail, groupName }) => {
+          const groupId = groupByName.get(groupName);
+          const user = seededUsersMap.get(userEmail);
+          return groupId && user ? { userId: user.id, groupId } : null;
+        })
+        .filter((m): m is { userId: string; groupId: string } => m !== null);
 
-  return {
-    users: {
-      userAdminLocal: seededUsersMap.get('admin@youngonevn.com') || firstUser,
-      userAdmin: seededUsersMap.get('admin@youngonevn.com') || firstUser,
-      userManager: seededUsersMap.get('manager@youngonevn.com'),
-      userUser: seededUsersMap.get('user@youngonevn.com'),
-      userViewer: seededUsersMap.get('viewer@youngonevn.com'),
-      userAlex: seededUsersMap.get('admin@youngonevn.com') || firstUser,
-      userSarah: seededUsersMap.get('nam.pham@youngonevn.com') || bslUser,
-      userMichael: seededUsersMap.get('phong.dang@youngonevn.com') || bshUser,
-      userMarcusBell: seededUsersMap.get('ngoc.vu@youngonevn.com') || bshUser,
-      userDavidKim: seededUsersMap.get('kien.le@youngonevn.com') || bshUser,
-      userSophiaPatel: seededUsersMap.get('lan.nguyen@youngonevn.com') || bshUser,
-      userLiamNguyen: seededUsersMap.get('son.huynh@youngonevn.com') || bslUser,
-      userCarlosMendez: seededUsersMap.get('thu.le@youngonevn.com') || bslUser,
-      userMarcusVance: seededUsersMap.get('tuan.hoang@youngonevn.com') || bshUser,
-      userChloeMartin: seededUsersMap.get('phuong.bui@youngonevn.com') || bshUser,
-      userElena: seededUsersMap.get('huy.nguyen@youngonevn.com') || bslUser,
-      userRobertTorres: seededUsersMap.get('kim.vo@youngonevn.com') || bslUser,
-      userLisaWang: seededUsersMap.get('chau.dang@youngonevn.com') || bslUser,
-      userRachelAdams: seededUsersMap.get('binh.tran@youngonevn.com') || bslUser,
-      userJamesWilson: bslUser,
-      userHannahScott: bshUser,
-      userThomas: bslUser,
-      userJessica: bshUser,
-      ...Object.fromEntries(seededUsersMap.entries()),
+      await prisma.directoryMembership.createMany({
+        data: membershipData,
+        skipDuplicates: true,
+      });
+
+      await prisma.$transaction(async (tx) => {
+        for (const g of allGroups) {
+          const count = await tx.directoryMembership.count({ where: { groupId: g.id } });
+          await tx.directoryGroup.update({ where: { id: g.id }, data: { memberCount: count } });
+        }
+      });
+
+      logger.log(
+        `✅ Seeded ${seededUsersMap.size} Directory Users and ${allGroups.length} Groups across BSL & BSH.`,
+      );
+
+      const firstUser = Array.from(seededUsersMap.values())[0]!;
+
+      return {
+        users: {
+          userAdminLocal: seededUsersMap.get('admin@youngonevn.com') || firstUser,
+          userAdmin: seededUsersMap.get('admin@youngonevn.com') || firstUser,
+          userManager: seededUsersMap.get('manager@youngonevn.com') || firstUser,
+          userUser: seededUsersMap.get('user@youngonevn.com') || firstUser,
+          userViewer: seededUsersMap.get('viewer@youngonevn.com') || firstUser,
+          ...Object.fromEntries(seededUsersMap.entries()),
+        },
+        groups: groupRows.map((row) => {
+          const [id, name, email, type, scope, ouPath, managedBy, description] = row.split('|');
+          return { id, name, email, type, scope, ouPath, managedBy, description };
+        }),
+      };
     },
-    groups: directoryGroups,
-  };
+  );
 }
