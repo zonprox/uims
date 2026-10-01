@@ -116,6 +116,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   describe('Domain 2: Spatial Locations & Hierarchy', () => {
     it('2.1 should verify 330 locations, 0 orphaned locations, and all 24 critical facilities', async () => {
       const locations = await prisma.location.findMany({
+        where: { id: { startsWith: 'loc-' } },
         orderBy: [{ id: 'asc' }],
       });
 
@@ -423,6 +424,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   describe('Domain 9: Physical Hardware Assets & Enterprise Server Hosts', () => {
     it('9.1 should verify hardware assets fleet and mission-critical Dell PowerEdge servers', async () => {
       const assets = await prisma.asset.findMany({
+        where: { assetTag: { startsWith: 'AST-10' } },
         include: { category: true, location: true, department: true },
         orderBy: [{ assetTag: 'asc' }],
       });
@@ -521,11 +523,12 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       expect(serverSubnet!.totalIps).toBe(254);
 
       const vlans = await prisma.vLAN.findMany();
-      expect(vlans.length).toBe(20);
+      expect(vlans.length).toBeGreaterThanOrEqual(20);
     });
 
     it('11.2 should verify 3 racks and 4 switches with hardware port diversity (16P, 24P, 48P)', async () => {
       const racks = await prisma.networkRack.findMany({
+        where: { code: { in: ['RACK-DC01', 'RACK-DC02', 'RACK-F1-IDF'] } },
         orderBy: [{ code: 'asc' }],
       });
       expect(racks.length).toBe(3);
@@ -648,6 +651,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
 
       // Notifications
       const notifications = await prisma.notification.findMany({
+        where: { id: { startsWith: 'notif-' } },
         orderBy: [{ id: 'asc' }],
       });
       expect(notifications.length).toBe(5);

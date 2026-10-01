@@ -1,3 +1,4 @@
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { IT_ASSET_CATEGORY_IDS } from '@uims/shared-types';
 import { App, Button } from 'antd';
 import type { FormInstance } from 'antd';
@@ -70,7 +71,7 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
 }
 
 export function useAssetManagement(form: FormInstance) {
-  const { message, notification } = App.useApp();
+  const { message, notification, modal } = App.useApp();
   const [assets, setAssets] = useState<Array<Asset>>([]);
   const [stats, setStats] = useState<AssetStats>({
     total: 0,
@@ -86,6 +87,65 @@ export function useAssetManagement(form: FormInstance) {
   const [orgFilter, setOrgFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<string | undefined>(undefined);
   const [organizations, setOrganizations] = useState<Array<Organization>>([]);
+
+  // Selection & Batch Action State
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<Asset[]>([]);
+  const [batchDeleting, setBatchDeleting] = useState(false);
+  const [batchPrintModalOpen, setBatchPrintModalOpen] = useState(false);
+
+  const handleSelectionChange = useCallback(
+    (keys: React.Key[], rows?: Asset[]) => {
+      setSelectedRowKeys(keys);
+      setSelectedAssets((prev) => {
+        const keySet = new Set(keys.map(String));
+        const retained = prev.filter((a) => keySet.has(String(a.id)));
+        const existingIds = new Set(retained.map((a) => String(a.id)));
+
+        const candidateRows = rows && rows.length > 0 ? rows : assets;
+        const candidateMap = new Map<string, Asset>();
+        for (const item of candidateRows) {
+          candidateMap.set(String(item.id), item);
+        }
+
+        const updatedRetained = retained.map((a) => candidateMap.get(String(a.id)) || a);
+        const newItems = Array.from(candidateMap.values()).filter(
+          (r) => keySet.has(String(r.id)) && !existingIds.has(String(r.id)),
+        );
+
+        return [...updatedRetained, ...newItems];
+      });
+    },
+    [assets],
+  );
+
+  useEffect(() => {
+    setSelectedAssets((prev) => {
+      const keySet = new Set(selectedRowKeys.map(String));
+      const retained = prev.filter((a) => keySet.has(String(a.id)));
+      const existingIds = new Set(retained.map((a) => String(a.id)));
+      const missingFromAssets = assets.filter(
+        (a) => keySet.has(String(a.id)) && !existingIds.has(String(a.id)),
+      );
+      if (retained.length === prev.length && missingFromAssets.length === 0) {
+        return prev;
+      }
+      return [...retained, ...missingFromAssets];
+    });
+  }, [assets, selectedRowKeys]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedRowKeys([]);
+    setSelectedAssets([]);
+  }, []);
+
+  const handleOpenBatchPrint = useCallback(() => {
+    setBatchPrintModalOpen(true);
+  }, []);
+
+  const handleCloseBatchPrint = useCallback(() => {
+    setBatchPrintModalOpen(false);
+  }, []);
 
   // Load organizations
   useEffect(() => {
@@ -366,6 +426,8 @@ export function useAssetManagement(form: FormInstance) {
       try {
         await assetsService.deleteAsset(id);
         message.success('Asset deleted successfully.');
+        setSelectedRowKeys((prev) => prev.filter((k) => String(k) !== String(id)));
+        setSelectedAssets((prev) => prev.filter((a) => String(a.id) !== String(id)));
         loadData();
       } catch (err: unknown) {
         message.error(formatErrorMessage(err, 'delete asset'));
@@ -403,6 +465,80 @@ export function useAssetManagement(form: FormInstance) {
       setExporting(false);
     }
   }, [message]);
+
+  const handleExportXlsx = useCallback(async () => {
+    setExporting(true);
+    try {
+      const isCategoryId =
+        categoryFilter !== 'all' &&
+        (categoryFilter.startsWith('cat-') || categoryFilter.includes('-'));
+
+      await assetsService.exportXlsx({
+        search: searchQuery || undefined,
+        categoryId: isCategoryId ? categoryFilter : undefined,
+        category: categoryFilter !== 'all' && !isCategoryId ? categoryFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        organizationId: orgFilter !== 'all' ? orgFilter : undefined,
+        locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
+      });
+      message.success('Hardware assets exported to Excel successfully.');
+    } catch (err: unknown) {
+      message.error(formatErrorMessage(err, 'export assets to Excel'));
+    } finally {
+      setExporting(false);
+    }
+  }, [categoryFilter, locationFilter, message, orgFilter, searchQuery, statusFilter]);
+
+  const handleBatchDelete = useCallback(() => {
+    const count = selectedRowKeys.length;
+    if (count === 0) return;
+
+    const tagsToDisplay = selectedAssets.map((a) => a.tag).filter(Boolean);
+    const displayedTagsText =
+      tagsToDisplay.slice(0, 10).join(', ') +
+      (tagsToDisplay.length > 10 ? ` and ${tagsToDisplay.length - 10} more` : '');
+
+    modal.confirm({
+      title: `Delete ${count} Selected Asset${count > 1 ? 's' : ''}?`,
+      icon: createElement(ExclamationCircleOutlined, { style: { color: '#ff4d4f' } }),
+      content: createElement(
+        'div',
+        { style: { marginTop: 8 } },
+        createElement(
+          'p',
+          { style: { marginBottom: 8 } },
+          `This action cannot be undone. Are you sure you want to permanently delete ${count} asset${count > 1 ? 's' : ''}?`,
+        ),
+        tagsToDisplay.length > 0
+          ? createElement(
+              'p',
+              { style: { fontSize: 12, color: '#64748b' } },
+              `Asset tags: ${displayedTagsText}`,
+            )
+          : null,
+      ),
+      okText: `Delete ${count} Asset${count > 1 ? 's' : ''}`,
+      okButtonProps: { danger: true },
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          setBatchDeleting(true);
+          const ids = selectedRowKeys.map(String);
+          const result = await assetsService.batchDeleteAssets(ids);
+          message.success(
+            `Successfully deleted ${result.count ?? count} asset${count > 1 ? 's' : ''}.`,
+          );
+          setSelectedRowKeys([]);
+          setSelectedAssets([]);
+          await loadData();
+        } catch (err: unknown) {
+          message.error(formatErrorMessage(err, 'delete selected assets'));
+        } finally {
+          setBatchDeleting(false);
+        }
+      },
+    });
+  }, [loadData, message, modal, selectedAssets, selectedRowKeys]);
 
   const handleResetFilters = useCallback(() => {
     setSearchQuery('');
@@ -452,6 +588,18 @@ export function useAssetManagement(form: FormInstance) {
     handleShowDetails,
     handleShowQr,
     handleExportCSV,
+    handleExportXlsx,
     handleResetFilters,
+    selectedRowKeys,
+    setSelectedRowKeys,
+    selectedAssets,
+    handleSelectionChange,
+    handleClearSelection,
+    batchDeleting,
+    batchPrintModalOpen,
+    setBatchPrintModalOpen,
+    handleOpenBatchPrint,
+    handleCloseBatchPrint,
+    handleBatchDelete,
   };
 }

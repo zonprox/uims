@@ -143,6 +143,8 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
+          width: 160,
+          fixed: 'right' as const,
           render: (_: unknown, record: License) => (
             <Space size="small">
               <Button

@@ -319,6 +319,7 @@ export default function NotificationsPage() {
       key: 'actions',
       width: 120,
       align: 'right',
+      fixed: 'right' as const,
       render: (_, record) => (
         <Space size={4}>
           <Tooltip title={record.read ? 'Mark as unread' : 'Mark as read'}>
@@ -507,6 +508,7 @@ export default function NotificationsPage() {
           loading={loading}
           columns={columns}
           dataSource={filteredNotifications}
+          scroll={{ x: 'max-content' }}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,

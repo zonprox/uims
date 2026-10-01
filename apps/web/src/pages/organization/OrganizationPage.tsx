@@ -685,6 +685,8 @@ export default function OrganizationPage() {
     {
       title: 'Actions',
       key: 'actions',
+      width: 150,
+      fixed: 'right' as const,
       render: (_: unknown, record: Department) => (
         <Space size="small">
           <Tooltip title="Create Sub-Department">
@@ -805,6 +807,8 @@ export default function OrganizationPage() {
     {
       title: 'Actions',
       key: 'actions',
+      width: 100,
+      fixed: 'right' as const,
       render: (_: unknown, record: Position) => (
         <Space size="small">
           <Tooltip title="Edit Job Position">

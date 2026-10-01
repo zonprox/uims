@@ -557,6 +557,8 @@ export default function InventoryPage() {
     {
       title: 'Actions',
       key: 'actions',
+      width: 170,
+      fixed: 'right' as const,
       render: (_: unknown, record: InventoryItem) => (
         <Space size="small">
           <Button

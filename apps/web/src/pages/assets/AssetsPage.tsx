@@ -1,14 +1,16 @@
 import {
   AppstoreOutlined,
   CheckCircleOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   LaptopOutlined,
   PlusOutlined,
+  PrinterOutlined,
   QrcodeOutlined,
   ReloadOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Flex, Form, Tooltip } from 'antd';
+import { Badge, Button, Card, Flex, Form, Space, theme, Tooltip, Typography } from 'antd';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import PageContainer from '../../components/PageContainer';
@@ -18,9 +20,13 @@ import { AssetFormModal } from './components/AssetFormModal';
 import { AssetQrModal } from './components/AssetQrModal';
 import { AssetScannerModal } from './components/AssetScannerModal';
 import { AssetTable } from './components/AssetTable';
+import { BatchPrintModal } from './components/BatchPrintModal';
 import { useAssetManagement } from './hooks/useAssetManagement';
 
+const { Text } = Typography;
+
 export default function AssetsPage() {
+  const { token } = theme.useToken();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const {
@@ -62,8 +68,17 @@ export default function AssetsPage() {
     handleDeleteAsset,
     handleShowDetails,
     handleShowQr,
-    handleExportCSV,
+    handleExportXlsx,
     handleResetFilters,
+    selectedRowKeys,
+    selectedAssets,
+    handleSelectionChange,
+    handleClearSelection,
+    batchDeleting,
+    batchPrintModalOpen,
+    handleOpenBatchPrint,
+    handleCloseBatchPrint,
+    handleBatchDelete,
   } = useAssetManagement(form);
 
   const statsItems = useMemo(
@@ -107,8 +122,8 @@ export default function AssetsPage() {
           <Button icon={<QrcodeOutlined />} onClick={() => setScannerModalOpen(true)}>
             Scan QR
           </Button>
-          <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExportCSV}>
-            Export CSV
+          <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExportXlsx}>
+            Export Excel
           </Button>
           <Tooltip title="Refresh assets">
             <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
@@ -138,9 +153,54 @@ export default function AssetsPage() {
           onScanQr={() => setScannerModalOpen(true)}
         />
 
+        {selectedRowKeys.length > 0 && (
+          <Flex
+            justify="space-between"
+            align="center"
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              padding: '10px 16px',
+              background: token.colorBgElevated,
+              border: `1px solid ${token.colorPrimaryBorder}`,
+              borderRadius: token.borderRadiusLG,
+              boxShadow: token.boxShadowSecondary,
+              marginBottom: 16,
+            }}
+          >
+            <Flex align="center" gap={8}>
+              <Badge
+                count={selectedRowKeys.length}
+                overflowCount={9999}
+                style={{ backgroundColor: token.colorPrimary }}
+              />
+              <Text strong style={{ color: token.colorPrimary, fontSize: 13 }}>
+                Selected {selectedRowKeys.length} asset{selectedRowKeys.length > 1 ? 's' : ''}
+              </Text>
+            </Flex>
+            <Space size={8}>
+              <Button icon={<PrinterOutlined />} onClick={handleOpenBatchPrint}>
+                Batch Print QR
+              </Button>
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={batchDeleting}
+                onClick={handleBatchDelete}
+              >
+                Batch Delete
+              </Button>
+              <Button onClick={handleClearSelection}>Clear Selection</Button>
+            </Space>
+          </Flex>
+        )}
+
         <AssetTable
           assets={assets}
           loading={loading}
+          selectedRowKeys={selectedRowKeys}
+          onSelectionChange={handleSelectionChange}
           onShowDetails={handleShowDetails}
           onShowQr={handleShowQr}
           onOpenEditModal={handleOpenEditModal}
@@ -181,6 +241,12 @@ export default function AssetsPage() {
         onClose={() => setScannerModalOpen(false)}
         onScanSuccess={handleScanQr}
         onRegisterAsset={handleOpenCreateWithTag}
+      />
+
+      <BatchPrintModal
+        open={batchPrintModalOpen}
+        assets={selectedAssets}
+        onClose={handleCloseBatchPrint}
       />
     </PageContainer>
   );

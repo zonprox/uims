@@ -25,6 +25,8 @@ declare module '../../../services/assets.service' {
 export interface AssetTableProps {
   assets: Array<Asset>;
   loading: boolean;
+  selectedRowKeys?: React.Key[];
+  onSelectionChange?: (selectedRowKeys: React.Key[], selectedRows: Asset[]) => void;
   onShowDetails: (asset: Asset) => void;
   onShowQr: (asset: Asset) => void;
   onOpenEditModal: (asset: Asset) => void;
@@ -32,7 +34,16 @@ export interface AssetTableProps {
 }
 
 export const AssetTable: React.FC<AssetTableProps> = React.memo(
-  ({ assets, loading, onShowDetails, onShowQr, onOpenEditModal, onDeleteAsset }) => {
+  ({
+    assets,
+    loading,
+    selectedRowKeys,
+    onSelectionChange,
+    onShowDetails,
+    onShowQr,
+    onOpenEditModal,
+    onDeleteAsset,
+  }) => {
     const columns = useMemo(
       () => [
         {
@@ -158,6 +169,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
+          width: 150,
+          fixed: 'end' as const,
           render: (_: unknown, record: Asset) => (
             <Space size="small">
               <Tooltip title="View Details">
@@ -211,6 +224,15 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
       [onShowDetails, onShowQr, onOpenEditModal, onDeleteAsset],
     );
 
+    const rowSelection = useMemo(() => {
+      if (!onSelectionChange) return undefined;
+      return {
+        selectedRowKeys,
+        onChange: onSelectionChange,
+        preserveSelectedRowKeys: true,
+      };
+    }, [selectedRowKeys, onSelectionChange]);
+
     return (
       <Table
         size="middle"
@@ -218,6 +240,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         dataSource={assets}
         rowKey="id"
         loading={loading}
+        rowSelection={rowSelection}
         scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,

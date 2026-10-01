@@ -289,6 +289,7 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
           title: 'Action',
           key: 'action',
           width: 80,
+          fixed: 'right' as const,
           render: (_: unknown, record: SwitchPort) => (
             <Button
               size="small"
@@ -497,6 +498,7 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
               columns={portColumns}
               rowKey="id"
               size="small"
+              scroll={{ x: 'max-content' }}
               pagination={{
                 pageSize: 12,
                 showSizeChanger: true,

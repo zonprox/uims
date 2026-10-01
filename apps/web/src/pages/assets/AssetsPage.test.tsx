@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset, AssetStats } from '../../services/assets.service';
+import { assetsService } from '../../services/assets.service';
 import AssetsPage from './AssetsPage';
 
 const mockMessageSuccess = vi.fn();
@@ -77,6 +78,8 @@ vi.mock('../../services/assets.service', () => ({
     updateAsset: vi.fn().mockResolvedValue(mockAssets[0]),
     deleteAsset: vi.fn().mockResolvedValue(undefined),
     exportCsv: vi.fn().mockResolvedValue('Tag,Name\nAST-1001,MacBook Pro 16'),
+    exportXlsx: vi.fn().mockResolvedValue(new Blob(['dummy-xlsx'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })),
+    batchDeleteAssets: vi.fn().mockResolvedValue({ count: 2, deletedIds: ['ast-1', 'ast-2'] }),
   },
 }));
 
@@ -472,6 +475,138 @@ describe('AssetsPage QR Scanner Integration', () => {
     expect(document.body.textContent).toContain('Location & Facility');
     expect(document.body.textContent).toContain('Floor 4');
     expect(document.body.textContent).toContain('Engineering');
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('triggers Excel workbook export via exportXlsx when Export Excel button is clicked', async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(MemoryRouter, null, createElement(AssetsPage)));
+    });
+
+    const exportBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Export Excel'),
+    );
+    expect(exportBtn).toBeDefined();
+
+    await act(async () => {
+      exportBtn?.click();
+    });
+
+    expect(assetsService.exportXlsx).toHaveBeenCalled();
+    expect(mockMessageSuccess).toHaveBeenCalledWith(
+      'Hardware assets exported to Excel successfully.',
+    );
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('renders sticky batch toolbar upon row selection, supports batch print QR modal and clearing selection', async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(MemoryRouter, null, createElement(AssetsPage)));
+    });
+
+    // Select first row checkbox
+    const checkboxes = container.querySelectorAll('tbody .ant-checkbox-input');
+    expect(checkboxes.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      (checkboxes[0] as HTMLInputElement).click();
+    });
+
+    // Sticky toolbar should appear
+    expect(container.textContent).toMatch(/Selected \d+ assets?/);
+    expect(container.textContent).toContain('Batch Print QR');
+    expect(container.textContent).toContain('Batch Delete');
+    expect(container.textContent).toContain('Clear Selection');
+
+    // Click Batch Print QR
+    const batchPrintBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Batch Print QR'),
+    );
+    expect(batchPrintBtn).toBeDefined();
+
+    await act(async () => {
+      batchPrintBtn?.click();
+    });
+
+    // Modal should be open
+    expect(document.body.textContent).toContain('Batch Print QR Labels');
+
+    // Close Batch Print Modal
+    const closeBtn = Array.from(document.body.querySelectorAll('.ant-modal button')).find((b) =>
+      b.textContent?.trim() === 'Close',
+    );
+    await act(async () => {
+      (closeBtn as HTMLButtonElement | undefined)?.click();
+    });
+
+    // Click Clear Selection
+    const clearBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Clear Selection'),
+    );
+    expect(clearBtn).toBeDefined();
+
+    await act(async () => {
+      clearBtn?.click();
+    });
+
+    // Toolbar should disappear
+    expect(container.textContent).not.toMatch(/Selected \d+ assets?/);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('executes batch delete with confirmation dialog and reloads data', async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(MemoryRouter, null, createElement(AssetsPage)));
+    });
+
+    // Select row
+    const checkboxes = container.querySelectorAll('tbody .ant-checkbox-input');
+    await act(async () => {
+      (checkboxes[0] as HTMLInputElement).click();
+    });
+
+    expect(container.textContent).toMatch(/Selected \d+ assets?/);
+
+    // Click Batch Delete
+    const batchDeleteBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Batch Delete'),
+    );
+    expect(batchDeleteBtn).toBeDefined();
+
+    await act(async () => {
+      batchDeleteBtn?.click();
+    });
+
+    // modal.confirm called
+    expect(mockAppInstance.modal.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringMatching(/Delete \d+ Selected Asset/),
+        okButtonProps: { danger: true },
+      }),
+    );
+
+    // Trigger onOk callback
+    const confirmCall = mockAppInstance.modal.confirm.mock.calls[0][0];
+    await act(async () => {
+      await confirmCall.onOk();
+    });
+
+    expect(assetsService.batchDeleteAssets).toHaveBeenCalled();
+    expect(mockMessageSuccess).toHaveBeenCalledWith(
+      expect.stringContaining('Successfully deleted'),
+    );
 
     act(() => {
       root.unmount();

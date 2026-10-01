@@ -227,6 +227,8 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
         {
           title: 'Action',
           key: 'actions',
+          width: 110,
+          fixed: 'right' as const,
           render: (_: unknown, record: SwitchPort) => {
             const switchId = record.switchId || record.switch?.id || '';
             const portId = record.id;
@@ -451,6 +453,7 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
             dataSource={associatedPorts}
             rowKey="id"
             size="small"
+            scroll={{ x: 'max-content' }}
             pagination={false}
           />
         )}

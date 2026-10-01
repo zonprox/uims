@@ -46,3 +46,13 @@ export interface AssetStatsDto {
   inStorage: number;
   retired: number;
 }
+
+export interface BatchDeleteAssetDto {
+  ids: string[];
+}
+
+export interface BatchDeleteResultDto {
+  count: number;
+  deletedIds: string[];
+}
+

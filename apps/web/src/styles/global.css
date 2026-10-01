@@ -166,15 +166,87 @@ code,
     display: none !important;
   }
 
-  /* Force pure white background and pure black text on paper */
+  /* Force pure white background and pure black text on paper, eliminate trailing blank pages */
   html,
   body {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Neutralize Ant Design modal wrappers during print for batch sheet */
+  .ant-modal-root,
+  .ant-modal-wrap,
+  .ant-modal,
+  .ant-modal-content,
+  .ant-modal-body {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  /* Neutralize inner preview scroll container during print for batch sheet */
+  .printable-viewport {
+    max-height: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Multi-asset A4 print sheet grid layout */
+  .printable-asset-sheet {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    height: auto !important;
+    visibility: visible !important;
+  }
+
+  .printable-asset-sheet.cols-4 {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
+  }
+
+  /* Multi-asset individual label card with cut guides */
+  .printable-sheet-card {
+    position: static !important;
+    transform: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    border: 1.5px dashed #777777 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-sizing: border-box !important;
+    padding: 8px 10px !important;
+    margin: 0 !important;
+    height: auto !important;
+    visibility: visible !important;
+  }
+
+  .printable-sheet-card * {
+    color: #000000 !important;
+    background: transparent !important;
+    visibility: visible !important;
   }
 
   /* When printed from active screen, isolate printable-asset-label */

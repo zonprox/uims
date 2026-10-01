@@ -335,6 +335,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           loading={loading}
           pagination={false}
           size="middle"
+          scroll={{ x: 'max-content' }}
           columns={[
             {
               title: 'Role Name & Type',
@@ -424,6 +425,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               key: 'actions',
               width: 220,
               align: 'right',
+              fixed: 'right' as const,
               render: (_: unknown, record: Role) => {
                 const isSystem = record.isSystem;
                 return (

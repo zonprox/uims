@@ -306,6 +306,7 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
           title: 'Actions',
           key: 'actions',
           width: 150,
+          fixed: 'right' as const,
           render: (_: unknown, record: NetworkSwitch) => (
             <Space size="small">
               <Tooltip title="View Interactive Port Faceplate">
@@ -368,6 +369,7 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
         rowKey="id"
         loading={loading}
         size="middle"
+        scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,
           showSizeChanger: true,

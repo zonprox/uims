@@ -136,6 +136,7 @@ export const SubnetTable: React.FC<SubnetTableProps> = React.memo(
           title: 'Actions',
           key: 'actions',
           width: 120,
+          fixed: 'right' as const,
           render: (_: unknown, record: Subnet) => (
             <Space size="small">
               <Tooltip title="View Details">

@@ -411,6 +411,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           title: 'Actions',
           key: 'actions',
           width: 100,
+          fixed: 'right' as const,
           render: (_: unknown, record: IPAddress) => {
             const ipVal = record.address || '';
             return (

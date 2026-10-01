@@ -364,6 +364,8 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
     {
       title: 'Actions',
       key: 'actions',
+      width: 150,
+      fixed: 'right' as const,
       render: (_: unknown, record: AppUser) => (
         <Space orientation="horizontal" size={2}>
           <Tooltip title="Edit User">
@@ -481,6 +483,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         columns={columns}
         rowKey="id"
         loading={loading}
+        scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,
           showSizeChanger: true,

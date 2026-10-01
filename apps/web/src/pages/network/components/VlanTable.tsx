@@ -220,6 +220,7 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
           title: 'Actions',
           key: 'actions',
           width: 120,
+          fixed: 'right' as const,
           render: (_: unknown, record: VLAN) => (
             <Space size="small">
               <Tooltip title="View Details">

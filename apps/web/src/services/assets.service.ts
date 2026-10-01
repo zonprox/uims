@@ -1,3 +1,5 @@
+import type { AssetQueryDto, BatchDeleteResultDto } from '@uims/shared-types';
+import dayjs from 'dayjs';
 import { api } from './api';
 
 export interface AssetCategory {
@@ -133,5 +135,43 @@ export const assetsService = {
       a.location || '',
     ]);
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  },
+
+  exportXlsx: async (params?: AssetQueryDto): Promise<Blob> => {
+    const res = await api.get('/assets/export.xlsx', {
+      params,
+      responseType: 'blob',
+    });
+    const blob: Blob = res.data;
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      try {
+        const createObjectURL = window.URL?.createObjectURL || URL?.createObjectURL;
+        if (typeof createObjectURL === 'function') {
+          const blobUrl = createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          const timestamp = dayjs().format('YYYY-MM-DD');
+          link.setAttribute('download', `assets_export_${timestamp}.xlsx`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          if (typeof window.URL?.revokeObjectURL === 'function') {
+            window.URL.revokeObjectURL(blobUrl);
+          }
+        }
+      } catch (_err: unknown) {
+        // Safe fallback in test environments without full URL.createObjectURL support
+      }
+    }
+    return blob;
+  },
+
+  batchDeleteAssets: async (ids: string[]): Promise<BatchDeleteResultDto> => {
+    const res = await api.post('/assets/batch-delete', { ids });
+    return res.data?.data ?? res.data;
+  },
+
+  batchDelete: async (ids: string[]): Promise<BatchDeleteResultDto> => {
+    return assetsService.batchDeleteAssets(ids);
   },
 };

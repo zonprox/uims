@@ -175,6 +175,8 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
       {
         title: 'Actions',
         key: 'actions',
+        width: 120,
+        fixed: 'right' as const,
         render: (_: unknown, record: DirectoryUser) => (
           <Space size={2}>
             <Tooltip title="View Profile & Custody">
