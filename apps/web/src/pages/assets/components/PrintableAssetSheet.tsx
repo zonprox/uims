@@ -1,4 +1,4 @@
-import { Empty, QRCode, Typography } from 'antd';
+import { ConfigProvider, Empty, QRCode, theme, Typography } from 'antd';
 import React from 'react';
 import type { Asset } from '../../../services/assets.service';
 
@@ -23,72 +23,81 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
     const qrSize = is4Cols ? 76 : 90;
 
     return (
-      <div
-        className={`printable-asset-sheet ${is4Cols ? 'cols-4' : 'cols-3'}`}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${columns}, 1fr)`,
-          gap: is4Cols ? '6px' : '8px',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
-        {assets.map((asset) => {
-          const modelInfo = [asset.manufacturer, asset.model].filter(Boolean).join(' ');
-          const displayName = asset.name || modelInfo || 'Hardware Asset';
+      <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }}>
+        <div
+          className={`printable-asset-sheet ${is4Cols ? 'cols-4' : 'cols-3'}`}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            gap: is4Cols ? '6px' : '8px',
+            width: '100%',
+            boxSizing: 'border-box',
+            background: '#ffffff',
+            padding: 8,
+            borderRadius: 4,
+          }}
+        >
+          {assets.map((asset) => {
+            const modelInfo = [asset.manufacturer, asset.model].filter(Boolean).join(' ');
+            const displayName = asset.name || modelInfo || 'Hardware Asset';
 
-          return (
-            <div
-              key={asset.id}
-              className="printable-sheet-card"
-              style={{
-                border: '1.5px dashed #777777',
-                borderRadius: 4,
-                padding: '8px 10px',
-                background: '#ffffff',
-                color: '#000000',
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                breakInside: 'avoid',
-                pageBreakInside: 'avoid',
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 9,
-                  letterSpacing: '0.5px',
-                  color: '#64748b',
-                  textTransform: 'uppercase',
-                  fontWeight: 600,
-                  marginBottom: 2,
-                  display: 'block',
-                }}
-              >
-                UIMS ASSET
-              </Text>
-
+            return (
               <div
+                key={asset.id}
+                className="printable-sheet-card"
                 style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  padding: 2,
+                  border: '1.5px dashed #777777',
+                  borderRadius: 4,
+                  padding: '8px 10px',
                   background: '#ffffff',
+                  color: '#000000',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  breakInside: 'avoid',
+                  pageBreakInside: 'avoid',
                 }}
               >
-                <QRCode
-                  type="svg"
-                  value={asset.tag}
-                  size={qrSize}
-                  bordered={false}
-                  color="#000000"
-                  bgColor="#ffffff"
-                />
-              </div>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: '0.5px',
+                    color: '#64748b',
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    marginBottom: 2,
+                    display: 'block',
+                  }}
+                >
+                  UIMS ASSET
+                </Text>
+
+                <div
+                  className="printable-sheet-qr"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 2,
+                    background: '#ffffff',
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <QRCode
+                    type="svg"
+                    value={asset.tag}
+                    size={qrSize}
+                    bordered={false}
+                    color="#000000"
+                    bgColor="#ffffff"
+                    style={{
+                      backgroundColor: '#ffffff',
+                    }}
+                  />
+                </div>
 
               <Text
                 strong
@@ -135,7 +144,8 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
             </div>
           );
         })}
-      </div>
+        </div>
+      </ConfigProvider>
     );
   },
 );

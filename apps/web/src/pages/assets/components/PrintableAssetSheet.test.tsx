@@ -1,4 +1,4 @@
-import { App, ConfigProvider } from 'antd';
+import { App, ConfigProvider, theme } from 'antd';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -153,5 +153,40 @@ describe('PrintableAssetSheet Component', () => {
     expect(firstCard).not.toBeNull();
     expect(firstCard.style.border).toContain('dashed');
     expect(firstCard.style.breakInside).toBe('avoid');
+  });
+
+  it('renders clean white QR code background even when parent application is in dark mode', async () => {
+    currentRoot = createRoot(container);
+    await act(async () => {
+      currentRoot?.render(
+        createElement(
+          ConfigProvider,
+          {
+            theme: {
+              algorithm: theme.darkAlgorithm,
+            },
+          },
+          createElement(App, null, createElement(PrintableAssetSheet, { assets: [mockAssets[0]] })),
+        ),
+      );
+    });
+
+    const card = container.querySelector('.printable-sheet-card') as HTMLElement;
+    expect(card).not.toBeNull();
+    expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(card.style.background.toLowerCase());
+
+    const qrWrap = card.querySelector('.printable-sheet-qr') as HTMLElement;
+    expect(qrWrap).not.toBeNull();
+    expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(qrWrap.style.background.toLowerCase());
+
+    const antQr = card.querySelector('.ant-qrcode') as HTMLElement;
+    expect(antQr).not.toBeNull();
+    expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(antQr.style.backgroundColor.toLowerCase());
+
+    const paths = Array.from(card.querySelectorAll('svg path'));
+    expect(paths.length).toBeGreaterThanOrEqual(2);
+    // Background path is pure white, modules path is black
+    expect(paths[0].getAttribute('fill')).toBe('#ffffff');
+    expect(paths[1].getAttribute('fill')).toBe('#000000');
   });
 });

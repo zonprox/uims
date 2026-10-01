@@ -243,10 +243,37 @@ code,
     visibility: visible !important;
   }
 
-  .printable-sheet-card * {
+  .printable-sheet-card span,
+  .printable-sheet-card strong,
+  .printable-sheet-card p {
     color: #000000 !important;
     background: transparent !important;
     visibility: visible !important;
+  }
+
+  .printable-sheet-card .printable-sheet-qr,
+  .printable-sheet-card .ant-qrcode {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    visibility: visible !important;
+  }
+
+  .printable-sheet-card svg {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    visibility: visible !important;
+  }
+
+  .printable-sheet-card svg path[fill="#ffffff"],
+  .printable-sheet-card svg path[fill="#fff"],
+  .printable-sheet-card svg path:first-child {
+    fill: #ffffff !important;
+  }
+
+  .printable-sheet-card svg path[fill="#000000"],
+  .printable-sheet-card svg path[fill="#000"],
+  .printable-sheet-card svg path:last-child {
+    fill: #000000 !important;
   }
 
   /* When printed from active screen, isolate printable-asset-label */
@@ -268,9 +295,24 @@ code,
     z-index: 99999 !important;
   }
 
-  .printable-asset-label * {
+  .printable-asset-label span,
+  .printable-asset-label strong,
+  .printable-asset-label p {
     color: #000000 !important;
     background: transparent !important;
     visibility: visible !important;
+  }
+
+  .printable-asset-label .ant-qrcode {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+  }
+
+  .printable-asset-label svg path:first-child {
+    fill: #ffffff !important;
+  }
+
+  .printable-asset-label svg path:last-child {
+    fill: #000000 !important;
   }
 }
