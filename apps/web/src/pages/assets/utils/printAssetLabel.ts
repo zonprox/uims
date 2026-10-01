@@ -468,3 +468,152 @@ export function printAssetLabel(
     setTimeout(handlePrint, 150);
   }
 }
+
+/**
+ * Builds self-contained HTML for batch printing multiple asset QR label sheets.
+ */
+export function generateBatchPrintSheetHtml(
+  sheetContentHtml: string,
+  columns: 3 | 4 = 3,
+): string {
+  const is4Cols = columns === 4;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Batch Asset Labels - UIMS</title>
+  <style>
+    @page {
+      size: auto;
+      margin: 8mm;
+    }
+    :root {
+      color-scheme: light !important;
+    }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      color-scheme: light !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .printable-asset-sheet {
+      display: grid !important;
+      grid-template-columns: repeat(${columns}, 1fr) !important;
+      gap: ${is4Cols ? '6px' : '8px'} !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+    }
+    .printable-sheet-card {
+      position: static !important;
+      border: 1.5px dashed #777777 !important;
+      border-radius: 4px !important;
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      box-sizing: border-box !important;
+      padding: 8px 10px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .printable-sheet-card span,
+    .printable-sheet-card strong,
+    .printable-sheet-card p {
+      color: #000000 !important;
+      background: transparent !important;
+    }
+    .printable-sheet-qr {
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      padding: 2px !important;
+      background: #ffffff !important;
+      background-color: #ffffff !important;
+    }
+    .printable-sheet-qr svg {
+      display: block !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="printable-asset-sheet ${is4Cols ? 'cols-4' : 'cols-3'}">
+    ${sheetContentHtml}
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Executes isolated batch asset label printing via a hidden iframe.
+ * Ensures the print dialog renders in pure white with black text without
+ * modifying or overriding any styles on the main application design page.
+ */
+export function printBatchAssetSheet(
+  sheetContainer?: HTMLElement | null,
+  columns: 3 | 4 = 3,
+): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return;
+  }
+
+  const target = sheetContainer || document.querySelector('.printable-asset-sheet');
+  const sheetContentHtml = target ? target.innerHTML : '';
+  const html = generateBatchPrintSheetHtml(sheetContentHtml, columns);
+
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('id', 'uims-batch-print-frame');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '-9999px';
+  iframe.style.left = '-9999px';
+  iframe.style.width = '210mm';
+  iframe.style.height = '297mm';
+  iframe.style.border = '0';
+  iframe.style.opacity = '0';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    if (typeof window.print === 'function') {
+      window.print();
+    }
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const handlePrint = () => {
+    try {
+      if (typeof iframe.contentWindow?.print === 'function') {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } else if (typeof window.print === 'function') {
+        window.print();
+      }
+    } catch (_printErr: unknown) {
+      if (typeof window.print === 'function') {
+        window.print();
+      }
+    } finally {
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 1500);
+    }
+  };
+
+  handlePrint();
+}

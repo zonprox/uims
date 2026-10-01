@@ -1,7 +1,8 @@
 import { PrinterOutlined } from '@ant-design/icons';
 import { Button, Flex, Modal, Segmented, Space, theme, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
+import { printBatchAssetSheet } from '../utils/printAssetLabel';
 import { PrintableAssetSheet } from './PrintableAssetSheet';
 
 const { Text } = Typography;
@@ -16,15 +17,15 @@ export const BatchPrintModal: React.FC<BatchPrintModalProps> = React.memo(
   ({ open, assets, onClose }) => {
     const { token } = theme.useToken();
     const [columns, setColumns] = useState<3 | 4>(3);
+    const sheetRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = () => {
-      if (typeof window !== 'undefined' && typeof window.print === 'function') {
-        window.print();
-      }
+      printBatchAssetSheet(sheetRef.current, columns);
     };
 
     return (
       <Modal
+        className="batch-print-modal"
         title={
           <Flex align="center" justify="space-between" style={{ paddingRight: 24 }}>
             <span>
@@ -81,7 +82,9 @@ export const BatchPrintModal: React.FC<BatchPrintModalProps> = React.memo(
             border: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          <PrintableAssetSheet assets={assets} columns={columns} />
+          <div ref={sheetRef}>
+            <PrintableAssetSheet assets={assets} columns={columns} />
+          </div>
         </div>
       </Modal>
     );

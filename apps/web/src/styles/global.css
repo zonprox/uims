@@ -166,11 +166,22 @@ code,
     display: none !important;
   }
 
+  @page {
+    size: auto;
+    margin: 8mm;
+  }
+
+  :root {
+    color-scheme: light !important;
+  }
+
   /* Force pure white background and pure black text on paper, eliminate trailing blank pages */
   html,
   body {
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #000000 !important;
+    color-scheme: light !important;
     margin: 0 !important;
     padding: 0 !important;
     height: auto !important;
@@ -183,8 +194,14 @@ code,
   .ant-modal-root,
   .ant-modal-wrap,
   .ant-modal,
+  .ant-modal-container,
   .ant-modal-content,
-  .ant-modal-body {
+  .ant-modal-body,
+  .batch-print-modal,
+  .batch-print-modal .ant-modal,
+  .batch-print-modal .ant-modal-container,
+  .batch-print-modal .ant-modal-content,
+  .batch-print-modal .ant-modal-body {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -193,6 +210,7 @@ code,
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
+    background-color: transparent !important;
     overflow: visible !important;
     height: auto !important;
     min-height: auto !important;
@@ -204,6 +222,7 @@ code,
     overflow: visible !important;
     height: auto !important;
     background: transparent !important;
+    background-color: transparent !important;
     border: none !important;
     padding: 0 !important;
     box-shadow: none !important;
@@ -218,6 +237,7 @@ code,
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     height: auto !important;
     visibility: visible !important;
   }
@@ -235,6 +255,7 @@ code,
     page-break-inside: avoid !important;
     border: 1.5px dashed #777777 !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #000000 !important;
     box-sizing: border-box !important;
     padding: 8px 10px !important;

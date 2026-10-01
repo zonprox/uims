@@ -3,8 +3,10 @@ import {
   type PrintableAssetData,
   convertToBlackAndWhiteQr,
   escapeHtml,
+  generateBatchPrintSheetHtml,
   generatePrintLabelHtml,
   printAssetLabel,
+  printBatchAssetSheet,
   printableAssetSchema,
   sanitizePrintableAsset,
 } from './printAssetLabel';
@@ -198,4 +200,75 @@ describe('printAssetLabel utility', () => {
       appendChildSpy.mockRestore();
     });
   });
+
+  describe('generateBatchPrintSheetHtml', () => {
+    it('generates HTML document with isolated light color-scheme and white background', () => {
+      const html = generateBatchPrintSheetHtml('<div class="printable-sheet-card">Card 1</div>', 3);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('color-scheme: light !important');
+      expect(html).toContain('background: #ffffff !important');
+      expect(html).toContain('grid-template-columns: repeat(3, 1fr)');
+      expect(html).toContain('Card 1');
+    });
+
+    it('generates 4-column layout when columns is 4', () => {
+      const html = generateBatchPrintSheetHtml('<div>Cards</div>', 4);
+      expect(html).toContain('grid-template-columns: repeat(4, 1fr)');
+      expect(html).toContain('cols-4');
+    });
+  });
+
+  describe('printBatchAssetSheet execution', () => {
+    let originalPrint: typeof window.print;
+
+    beforeEach(() => {
+      originalPrint = window.print;
+      window.print = vi.fn();
+    });
+
+    afterEach(() => {
+      window.print = originalPrint;
+      const iframe = document.getElementById('uims-batch-print-frame');
+      if (iframe) {
+        iframe.remove();
+      }
+    });
+
+    it('creates an isolated hidden iframe and prints batch sheet without full-page leakage', () => {
+      const mockIframePrint = vi.fn();
+      const mockIframeFocus = vi.fn();
+
+      const originalAppendChild = document.body.appendChild.bind(document.body);
+      const appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation((node) => {
+        if (node instanceof HTMLIFrameElement && node.id === 'uims-batch-print-frame') {
+          Object.defineProperty(node, 'contentWindow', {
+            value: {
+              document: {
+                open: vi.fn(),
+                write: vi.fn(),
+                close: vi.fn(),
+              },
+              focus: mockIframeFocus,
+              print: mockIframePrint,
+            },
+            configurable: true,
+          });
+        }
+        return originalAppendChild(node);
+      });
+
+      const container = document.createElement('div');
+      container.innerHTML = '<div class="printable-asset-sheet"><span>Test Card</span></div>';
+      document.body.appendChild(container);
+
+      printBatchAssetSheet(container, 3);
+
+      expect(appendChildSpy).toHaveBeenCalled();
+      expect(mockIframePrint).toHaveBeenCalled();
+
+      container.remove();
+      appendChildSpy.mockRestore();
+    });
+  });
 });
+

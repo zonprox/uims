@@ -1,4 +1,4 @@
-import { ConfigProvider, Empty, QRCode, theme, Typography } from 'antd';
+import { Empty, QRCode, Typography } from 'antd';
 import React from 'react';
 import type { Asset } from '../../../services/assets.service';
 
@@ -23,20 +23,16 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
     const qrSize = is4Cols ? 76 : 90;
 
     return (
-      <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }}>
-        <div
-          className={`printable-asset-sheet ${is4Cols ? 'cols-4' : 'cols-3'}`}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${columns}, 1fr)`,
-            gap: is4Cols ? '6px' : '8px',
-            width: '100%',
-            boxSizing: 'border-box',
-            background: '#ffffff',
-            padding: 8,
-            borderRadius: 4,
-          }}
-        >
+      <div
+        className={`printable-asset-sheet ${is4Cols ? 'cols-4' : 'cols-3'}`}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${columns}, 1fr)`,
+          gap: is4Cols ? '6px' : '8px',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
           {assets.map((asset) => {
             const modelInfo = [asset.manufacturer, asset.model].filter(Boolean).join(' ');
             const displayName = asset.name || modelInfo || 'Hardware Asset';
@@ -144,8 +140,7 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
             </div>
           );
         })}
-        </div>
-      </ConfigProvider>
+      </div>
     );
   },
 );
