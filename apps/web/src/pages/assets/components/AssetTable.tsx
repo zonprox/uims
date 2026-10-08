@@ -40,24 +40,35 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'SUB Code',
           key: 'subcode',
-          width: 160,
+          width: 170,
           sorter: (a: Asset, b: Asset) =>
             (a.subcode || a.tag || '').localeCompare(b.subcode || b.tag || '') ||
+            (a.assetCode || a.parent?.assetCode || '').localeCompare(
+              b.assetCode || b.parent?.assetCode || '',
+            ) ||
             a.name.localeCompare(b.name) ||
             a.id.localeCompare(b.id),
           render: (_: unknown, record: Asset) => {
             const code = record.subcode || record.tag || 'N/A';
+            const sapCode = record.assetCode || record.parent?.assetCode || null;
             return (
               <div>
                 <Text
                   copyable
                   code
                   strong
-                  style={{ fontSize: 13, color: '#1677ff', cursor: 'pointer' }}
+                  style={{ fontSize: 13, color: '#1677ff', cursor: 'pointer', display: 'inline-block' }}
                   onClick={() => onShowDetails(record)}
                 >
                   {code}
                 </Text>
+                {sapCode && (
+                  <div style={{ marginTop: 2 }}>
+                    <Tag color="cyan" style={{ fontSize: 10.5, margin: 0, padding: '0 4px', lineHeight: '18px' }}>
+                      SAP: {sapCode}
+                    </Tag>
+                  </div>
+                )}
               </div>
             );
           },
@@ -68,7 +79,6 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           sorter: (a: Asset, b: Asset) =>
             a.name.localeCompare(b.name) || (a.model || '').localeCompare(b.model || ''),
           render: (_: unknown, record: Asset) => {
-            const sapCode = record.parent?.assetCode || (record.parentId ? record.assetCode : null);
             return (
               <div>
                 <Text
@@ -78,48 +88,11 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 >
                   {record.name}
                 </Text>
-                {sapCode && (
-                  <Tag color="cyan" style={{ fontSize: 10.5, marginLeft: 6 }}>
-                    [{sapCode}]
-                  </Tag>
-                )}
-                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
                   {record.manufacturer ? `${record.manufacturer} ` : ''}
                   {record.model || ''}
                 </Text>
               </div>
-            );
-          },
-        },
-        {
-          title: 'Serial Number',
-          dataIndex: 'serialNumber',
-          key: 'serialNumber',
-          width: 140,
-          sorter: (a: Asset, b: Asset) =>
-            (a.serialNumber || '').localeCompare(b.serialNumber || ''),
-          render: (sn: string | null | undefined) => {
-            if (!sn) return <Text type="secondary">—</Text>;
-            return (
-              <Text copyable code style={{ fontSize: 11 }}>
-                {sn}
-              </Text>
-            );
-          },
-        },
-        {
-          title: 'Cost Center',
-          key: 'costCenter',
-          width: 110,
-          render: (_: unknown, record: Asset) => {
-            const cc = record.costCenter;
-            const code =
-              typeof cc === 'object' && cc !== null ? cc.code : typeof cc === 'string' ? cc : null;
-            if (!code) return <Text type="secondary">—</Text>;
-            return (
-              <Tag color="geekblue" style={{ fontSize: 11, margin: 0 }}>
-                {code}
-              </Tag>
             );
           },
         },
