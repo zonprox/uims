@@ -21,7 +21,7 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
     }
 
     const is4Cols = columns === 4;
-    const qrSize = is4Cols ? 58 : 72;
+    const qrSize = is4Cols ? 68 : 88;
 
     return (
       <div
@@ -65,7 +65,7 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 8,
+                gap: is4Cols ? 8 : 12,
                 textAlign: 'left',
                 breakInside: 'avoid',
                 pageBreakInside: 'avoid',
@@ -81,7 +81,8 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                   background: '#ffffff',
                   backgroundColor: '#ffffff',
                   flexShrink: 0,
-                  padding: 2,
+                  padding: 4,
+                  borderRadius: 4,
                 }}
               >
                 <QRCode
@@ -101,15 +102,15 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
               <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
                 <div
                   style={{
-                    fontSize: is4Cols ? 8.5 : 9.5,
+                    fontSize: is4Cols ? 11.5 : 13,
                     letterSpacing: '0.6px',
                     color: '#000000',
                     textTransform: 'uppercase',
                     fontWeight: 800,
                     borderBottom: '1.5px solid #000000',
-                    paddingBottom: 1,
-                    marginBottom: 3,
-                    lineHeight: 1.1,
+                    paddingBottom: is4Cols ? 2 : 3,
+                    marginBottom: is4Cols ? 4 : 6,
+                    lineHeight: 1.2,
                   }}
                 >
                   IT ASSET TAGGING
@@ -117,8 +118,8 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
 
                 <div
                   style={{
-                    fontSize: is4Cols ? 7.5 : 8.5,
-                    lineHeight: 1.3,
+                    fontSize: is4Cols ? 10 : 11,
+                    lineHeight: 1.35,
                     color: '#000000',
                     display: 'flex',
                     flexDirection: 'column',
@@ -138,7 +139,6 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                       style={{
                         fontFamily:
                           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                        fontSize: is4Cols ? '8px' : '9px',
                         fontWeight: 600,
                         color: '#000000',
                       }}
@@ -179,7 +179,6 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                     <span style={{ fontWeight: 700 }}>Model: </span>
                     <span
                       style={{
-                        fontSize: is4Cols ? 8 : 9,
                         color: '#000000',
                       }}
                     >
@@ -199,7 +198,6 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                       style={{
                         fontFamily:
                           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                        fontSize: is4Cols ? 8 : 9,
                         color: '#000000',
                       }}
                     >
@@ -215,7 +213,7 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                     }}
                   >
                     <span style={{ fontWeight: 700 }}>Cost Center: </span>
-                    <span style={{ fontWeight: 600 }}>{costCenterDisplay}</span>
+                    <span style={{ fontWeight: 600, color: '#000000' }}>{costCenterDisplay}</span>
                   </div>
                 </div>
               </div>

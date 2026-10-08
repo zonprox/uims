@@ -578,12 +578,12 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: 3
       background-color: #ffffff !important;
       color: #000000 !important;
       box-sizing: border-box !important;
-      padding: 6px 8px !important;
+      padding: ${is4Cols ? '8px 10px' : '12px 14px'} !important;
       display: flex !important;
       flex-direction: row !important;
       align-items: center !important;
       text-align: left !important;
-      gap: 8px !important;
+      gap: ${is4Cols ? '8px' : '14px'} !important;
       break-inside: avoid !important;
       page-break-inside: avoid !important;
     }
