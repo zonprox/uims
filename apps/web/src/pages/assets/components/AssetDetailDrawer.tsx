@@ -8,11 +8,9 @@ import {
 } from '@ant-design/icons';
 import {
   Badge,
-  Breadcrumb,
   Button,
   Card,
   Descriptions,
-  Drawer,
   Empty,
   Flex,
   Tabs,
@@ -20,19 +18,14 @@ import {
   Typography,
   theme,
 } from 'antd';
-import React, { useMemo, useRef } from 'react';
+import React, { useRef } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 import { printAssetLabel } from '../utils/printAssetLabel';
 import { PrintableAssetLabel } from './PrintableAssetLabel';
 
 const { Text } = Typography;
-
-declare module '../../../services/assets.service' {
-  interface Asset {
-    locationPath?: string | null;
-  }
-}
 
 export interface AssetDetailDrawerProps {
   open: boolean;
@@ -55,28 +48,6 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
     if (!selectedAsset) return null;
     const { token } = theme.useToken();
     const qrContainerRef = useRef<HTMLDivElement>(null);
-
-    const locationSegments = useMemo(() => {
-      const fullPath = selectedAsset.locationPath || selectedAsset.location || '';
-      if (!fullPath) return [];
-      return fullPath
-        .split(' > ')
-        .map((segment) => segment.trim())
-        .filter(Boolean);
-    }, [selectedAsset.location, selectedAsset.locationPath]);
-
-    const renderLocationBreadcrumb = () => {
-      if (locationSegments.length === 0) {
-        return <Text type="secondary">Unassigned</Text>;
-      }
-      return (
-        <Breadcrumb
-          items={locationSegments.map((segment) => ({
-            title: segment,
-          }))}
-        />
-      );
-    };
 
     const renderDepartment = () => {
       if (!selectedAsset.department) {
@@ -364,19 +335,18 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
     };
 
     return (
-      <Drawer
-        title={
-          <Flex align="center" gap={8}>
-            <LaptopOutlined style={{ color: token.colorPrimary }} />
-            <span>{selectedAsset.name}</span>
-            <Tag color="blue">{selectedAsset.tag}</Tag>
-          </Flex>
+      <AppDrawer
+        title={selectedAsset.name}
+        subtitle={
+          selectedAsset.model
+            ? `${selectedAsset.manufacturer} ${selectedAsset.model}`.trim()
+            : selectedAsset.category
         }
+        icon={<LaptopOutlined style={{ color: token.colorPrimary }} />}
+        tag={<Tag color="blue">{selectedAsset.tag}</Tag>}
         open={open}
         onClose={onClose}
-        destroyOnHidden
         size={540}
-        styles={{ wrapper: { width: 540 } }}
         extra={
           <Button
             type="primary"
@@ -387,9 +357,10 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
               onOpenEditModal(selectedAsset);
             }}
           >
-            Edit Asset
+            Edit
           </Button>
         }
+        cancelText="Close"
       >
         <Tabs
           defaultActiveKey="details"
@@ -439,7 +410,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                   </Descriptions>
 
                   <Descriptions
-                    title="Allocation & Location"
+                    title="Allocation"
                     bordered
                     size="small"
                     column={1}
@@ -456,6 +427,21 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     <Descriptions.Item label="Owner Department">
                       {renderDepartment()}
                     </Descriptions.Item>
+                    <Descriptions.Item label="Cost Center">
+                      {selectedAsset.costCenter ? (
+                        typeof selectedAsset.costCenter === 'object' ? (
+                          <Tag color="geekblue">
+                            {selectedAsset.costCenter.code
+                              ? `${selectedAsset.costCenter.code} - ${selectedAsset.costCenter.name}`
+                              : selectedAsset.costCenter.name}
+                          </Tag>
+                        ) : (
+                          <Tag color="geekblue">{selectedAsset.costCenter}</Tag>
+                        )
+                      ) : (
+                        <Tag color="default">Unassigned</Tag>
+                      )}
+                    </Descriptions.Item>
                     <Descriptions.Item label="Assigned User">
                       {selectedAsset.assignedTo ? (
                         <>
@@ -469,9 +455,6 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                       ) : (
                         <Tag color="default">Unassigned</Tag>
                       )}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Physical Location">
-                      {renderLocationBreadcrumb()}
                     </Descriptions.Item>
                   </Descriptions>
 
@@ -518,7 +501,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
             },
           ]}
         />
-      </Drawer>
+      </AppDrawer>
     );
   },
 );

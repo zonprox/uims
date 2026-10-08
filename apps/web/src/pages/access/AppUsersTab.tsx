@@ -36,6 +36,7 @@ import React, { useMemo, useState } from 'react';
 import { FormattedDateTime } from '../../components/FormattedDate';
 import { usersService } from '../../services/users.service';
 import { formatErrorMessage } from '../../utils/feedback';
+import { formRules, isValidationError } from '../../utils/formValidators';
 
 const { Text } = Typography;
 
@@ -142,6 +143,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       createForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'create user account'));
     } finally {
       setModalSubmitting(false);
@@ -180,6 +182,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       editForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'update user account'));
     } finally {
       setModalSubmitting(false);
@@ -218,6 +221,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       resetForm.resetFields();
       onRefresh();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'reset password'));
     } finally {
       setModalSubmitting(false);
@@ -511,6 +515,8 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         <Form
           form={createForm}
           layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
           onFinish={handleCreateUser}
           initialValues={{
             status: UserStatus.ACTIVE,
@@ -520,8 +526,9 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
             name="username"
             label="Username"
             rules={[
-              { required: true, message: 'Username is required.' },
-              { min: 3, message: 'Username must be at least 3 characters.' },
+              formRules.required('Username'),
+              formRules.stringRange('Username', 3, 50),
+              formRules.sku('Username'),
             ]}
           >
             <Input placeholder="e.g. jsmith" autoFocus />
@@ -531,14 +538,18 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
             name="email"
             label="Email Address"
             rules={[
-              { required: true, message: 'Email address is required.' },
-              { type: 'email', message: 'Enter a valid email address.' },
+              formRules.required('Email address'),
+              formRules.email('Email address'),
             ]}
           >
             <Input placeholder="e.g. jsmith@youngonevn.com" />
           </Form.Item>
 
-          <Form.Item name="displayName" label="Display Name">
+          <Form.Item
+            name="displayName"
+            label="Display Name"
+            rules={[formRules.maxString('Display name', 100)]}
+          >
             <Input placeholder="e.g. John Smith" />
           </Form.Item>
 
@@ -546,6 +557,19 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
             name="password"
             label="Initial Password"
             extra="Leave blank to automatically generate a secure random password."
+            rules={[
+              {
+                validator: (_, val) => {
+                  if (!val) return Promise.resolve();
+                  if (val.length < 8 || val.length > 128) {
+                    return Promise.reject(
+                      new Error('Password must be between 8 and 128 characters long.'),
+                    );
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
           >
             <Input.Password placeholder="Enter password (optional)" />
           </Form.Item>
@@ -600,8 +624,18 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         destroyOnHidden
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={editForm} layout="vertical" onFinish={handleUpdateUser}>
-          <Form.Item name="displayName" label="Display Name">
+        <Form
+          form={editForm}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+          onFinish={handleUpdateUser}
+        >
+          <Form.Item
+            name="displayName"
+            label="Display Name"
+            rules={[formRules.maxString('Display name', 100)]}
+          >
             <Input placeholder="Display Name" />
           </Form.Item>
 
@@ -609,8 +643,8 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
             name="email"
             label="Email Address"
             rules={[
-              { required: true, message: 'Email is required.' },
-              { type: 'email', message: 'Enter a valid email address.' },
+              formRules.required('Email address'),
+              formRules.email('Email address'),
             ]}
           >
             <Input placeholder="user@youngonevn.com" />
@@ -663,13 +697,19 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         destroyOnHidden
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={resetForm} layout="vertical" onFinish={handleResetPassword}>
+        <Form
+          form={resetForm}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+          onFinish={handleResetPassword}
+        >
           <Form.Item
             name="newPassword"
             label="New Password"
             rules={[
-              { required: true, message: 'New password is required.' },
-              { min: 8, message: 'Password must be at least 8 characters long.' },
+              formRules.required('New password'),
+              formRules.stringRange('Password', 8, 128),
             ]}
           >
             <Input.Password placeholder="Enter new password" />

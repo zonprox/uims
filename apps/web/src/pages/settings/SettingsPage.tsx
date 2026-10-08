@@ -56,6 +56,7 @@ import { useNotificationSettingsStore } from '../../stores/notification-settings
 import { COLOR_PRESETS, type ThemeMode, useThemeStore } from '../../stores/theme.store';
 import { useTimezoneStore } from '../../stores/timezone.store';
 import { formatErrorMessage } from '../../utils/feedback';
+import { formRules, isValidationError } from '../../utils/formValidators';
 
 const { Text, Paragraph } = Typography;
 
@@ -287,9 +288,8 @@ export default function SettingsPage() {
         await executeSaveGeneral(values);
       }
     } catch (err: unknown) {
-      if (!(err && typeof err === 'object' && 'errorFields' in err)) {
-        message.error('An unexpected error occurred during form validation.');
-      }
+      if (isValidationError(err)) return;
+      message.error('An unexpected error occurred during form validation.');
     }
   };
 
@@ -922,6 +922,8 @@ export default function SettingsPage() {
                   <Form
                     form={generalForm}
                     layout="vertical"
+                    validateTrigger={['onChange', 'onBlur']}
+                    scrollToFirstError={true}
                     onValuesChange={() => setIsGeneralDirty(true)}
                     initialValues={{
                       companyName: 'Acme Enterprise Inc.',
@@ -937,7 +939,10 @@ export default function SettingsPage() {
                         <Form.Item
                           label="Organization Name"
                           name="companyName"
-                          rules={[{ required: true, message: 'Organization name is mandatory' }]}
+                          rules={[
+                            formRules.required('Organization name'),
+                            formRules.maxString('Organization name', 100),
+                          ]}
                           tooltip="Primary legal identity displayed across invoices, exports, and UI headers."
                         >
                           <Input placeholder="e.g. Acme Enterprise Inc." />
@@ -947,7 +952,10 @@ export default function SettingsPage() {
                         <Form.Item
                           label="Support Email"
                           name="supportEmail"
-                          rules={[{ required: true, type: 'email' }]}
+                          rules={[
+                            formRules.required('Support email'),
+                            formRules.email('Support email'),
+                          ]}
                           tooltip="Internal support destination for alert tickets and user access requests."
                         >
                           <Input prefix={<MailOutlined />} placeholder="it-support@company.com" />

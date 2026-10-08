@@ -12,6 +12,7 @@ import {
 } from 'antd';
 import React from 'react';
 import type { License } from '../../../services/licenses.service';
+import { formRules } from '../../../utils/formValidators';
 
 export interface LicenseFormModalProps {
   open: boolean;
@@ -48,13 +49,21 @@ export const LicenseFormModal: React.FC<LicenseFormModalProps> = React.memo(
       okText={editingLicense ? 'Save Changes' : 'Create License'}
       styles={{ body: { paddingTop: 16 } }}
     >
-      <Form form={form} layout="vertical">
+      <Form
+        form={form}
+        layout="vertical"
+        validateTrigger={['onChange', 'onBlur']}
+        scrollToFirstError={true}
+      >
         <Row gutter={14}>
           <Col span={14}>
             <Form.Item
               label="Software Name"
               name="name"
-              rules={[{ required: true, message: 'Software name is required' }]}
+              rules={[
+                formRules.required('Software name'),
+                formRules.maxString('Software name', 100),
+              ]}
             >
               <Input placeholder="e.g. Adobe Creative Cloud Enterprise" />
             </Form.Item>
@@ -63,7 +72,7 @@ export const LicenseFormModal: React.FC<LicenseFormModalProps> = React.memo(
             <Form.Item
               label="Vendor"
               name="vendor"
-              rules={[{ required: true, message: 'Vendor is required' }]}
+              rules={[formRules.required('Vendor'), formRules.maxString('Vendor', 100)]}
             >
               <Input placeholder="e.g. Adobe / Microsoft" />
             </Form.Item>
@@ -72,17 +81,32 @@ export const LicenseFormModal: React.FC<LicenseFormModalProps> = React.memo(
 
         <Row gutter={14}>
           <Col span={8}>
-            <Form.Item label="License Type" name="type" rules={[{ required: true }]}>
+            <Form.Item
+              label="License Type"
+              name="type"
+              rules={[{ required: true, message: 'License type is required' }]}
+            >
               <Select options={LICENSE_TYPE_OPTIONS} />
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item label="Total Seats" name="totalSeats" rules={[{ required: true }]}>
+            <Form.Item
+              label="Total Seats"
+              name="totalSeats"
+              rules={[
+                formRules.required('Total seats'),
+                formRules.integerRange('Total seats', 1, 1_000_000),
+              ]}
+            >
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item label="Cost per Seat ($)" name="costPerSeat">
+            <Form.Item
+              label="Cost per Seat ($)"
+              name="costPerSeat"
+              rules={[formRules.currency('Cost per seat')]}
+            >
               <InputNumber prefix="$" min={0} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
@@ -90,7 +114,11 @@ export const LicenseFormModal: React.FC<LicenseFormModalProps> = React.memo(
 
         <Row gutter={14}>
           <Col span={12}>
-            <Form.Item label="License Key" name="licenseKey">
+            <Form.Item
+              label="License Key"
+              name="licenseKey"
+              rules={[formRules.maxString('License key', 255)]}
+            >
               <Input.Password placeholder="e.g. MS-E5-9921-8834-KKL9" />
             </Form.Item>
           </Col>
@@ -114,7 +142,7 @@ export const LicenseFormModal: React.FC<LicenseFormModalProps> = React.memo(
           </Col>
         </Row>
 
-        <Form.Item label="Notes" name="notes">
+        <Form.Item label="Notes" name="notes" rules={[formRules.maxString('Notes', 1000)]}>
           <Input.TextArea
             rows={2}
             placeholder="Add contract details, reseller agreement notes..."

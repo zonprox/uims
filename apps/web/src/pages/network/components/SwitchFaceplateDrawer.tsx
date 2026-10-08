@@ -3,7 +3,6 @@ import {
   ApiOutlined,
   CloudServerOutlined,
   EditOutlined,
-  EnvironmentOutlined,
   ReloadOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
@@ -12,7 +11,6 @@ import {
   Button,
   Card,
   Descriptions,
-  Drawer,
   Flex,
   Input,
   Radio,
@@ -25,8 +23,8 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import type { Asset } from '../../../services/assets.service';
-import type { LocationBranch } from '../../../services/organization.service';
 import type {
   IPAddress,
   NetworkSwitch,
@@ -49,7 +47,6 @@ export interface SwitchFaceplateDrawerProps {
   onClose: () => void;
   onEditSwitch?: (switchEntity: NetworkSwitch) => void;
   onSelectRack?: (rackId: string) => void;
-  locations?: Array<LocationBranch>;
   vlans?: Array<VLAN>;
   subnets?: Array<Subnet>;
   ips?: Array<IPAddress>;
@@ -63,7 +60,6 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
     onClose,
     onEditSwitch,
     onSelectRack,
-    locations: _locations = [],
     vlans = [],
     subnets = [],
     ips = [],
@@ -304,33 +300,42 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
     );
 
     return (
-      <Drawer
-        title={
-          <Flex align="center" justify="space-between" style={{ width: '100%', paddingRight: 24 }}>
-            <Flex align="center" gap={10}>
-              <CloudServerOutlined style={{ fontSize: 20, color: token.colorPrimary }} />
-              <Title level={4} style={{ margin: 0 }}>
-                {switchEntity?.name || 'Network Switch'}
-              </Title>
-              {switchEntity && getStatusTag(switchEntity.status)}
-              {switchEntity && getRoleTag(switchEntity.role)}
-            </Flex>
-            <Space>
-              <Button icon={<ReloadOutlined />} onClick={loadPorts} loading={loading}>
-                Refresh
-              </Button>
-              {onEditSwitch && switchEntity && (
-                <Button icon={<EditOutlined />} onClick={() => onEditSwitch(switchEntity)}>
-                  Edit Switch
-                </Button>
-              )}
+      <AppDrawer
+        title={switchEntity?.name || 'Network Switch'}
+        subtitle={
+          switchEntity
+            ? `${switchEntity.vendor || ''} ${switchEntity.model || ''}`.trim()
+            : undefined
+        }
+        icon={<CloudServerOutlined style={{ fontSize: 18, color: token.colorPrimary }} />}
+        tag={
+          switchEntity ? (
+            <Space size={4}>
+              {getStatusTag(switchEntity.status)}
+              {getRoleTag(switchEntity.role)}
             </Space>
-          </Flex>
+          ) : undefined
         }
         open={open}
         onClose={onClose}
         size={980}
-        destroyOnHidden
+        cancelText="Close"
+        extra={
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={loadPorts} loading={loading}>
+              Refresh
+            </Button>
+            {onEditSwitch && switchEntity && (
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => onEditSwitch(switchEntity)}
+              >
+                Edit
+              </Button>
+            )}
+          </Space>
+        }
         styles={{ body: { padding: '20px 24px', backgroundColor: token.colorBgLayout } }}
       >
         <Flex vertical gap={16}>
@@ -412,21 +417,6 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
                     </Flex>
                   ) : (
                     <Text type="secondary">Unmounted</Text>
-                  )}
-                </Descriptions.Item>
-                <Descriptions.Item label="Location">
-                  {switchEntity.location?.name ? (
-                    <Flex align="center" gap={6} wrap="wrap">
-                      <EnvironmentOutlined style={{ color: token.colorTextQuaternary }} />
-                      <Text
-                        ellipsis={{ tooltip: switchEntity.location.name }}
-                        style={{ maxWidth: 220, display: 'inline-block' }}
-                      >
-                        {switchEntity.location.name}
-                      </Text>
-                    </Flex>
-                  ) : (
-                    <Text type="secondary">—</Text>
                   )}
                 </Descriptions.Item>
               </Descriptions>
@@ -520,7 +510,7 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
           onClose={() => setPortDrawerOpen(false)}
           onPortUpdated={handlePortUpdated}
         />
-      </Drawer>
+      </AppDrawer>
     );
   },
 );

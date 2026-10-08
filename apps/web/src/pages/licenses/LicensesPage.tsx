@@ -5,20 +5,40 @@ import {
   ReloadOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
+  UserSwitchOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { App, Button, Card, Col, Flex, Form, Input, Row, Select, Tooltip } from 'antd';
+import {
+  App,
+  Badge,
+  Button,
+  Card,
+  Col,
+  Flex,
+  Form,
+  Input,
+  Row,
+  Select,
+  Space,
+  theme,
+  Tooltip,
+  Typography,
+} from 'antd';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import type { DirectoryUser } from '../../services/directory.service';
 import { type License, type LicenseStats, licensesService } from '../../services/licenses.service';
+import { BatchAssignLicensesModal } from './components/BatchAssignLicensesModal';
 import { LicenseAssignmentModal } from './components/LicenseAssignmentModal';
 import { LicenseFormModal } from './components/LicenseFormModal';
 import { LicenseSeatsDrawer } from './components/LicenseSeatsDrawer';
 import { LicenseTable } from './components/LicenseTable';
 import { formatErrorMessage } from '../../utils/feedback';
+import { isValidationError } from '../../utils/formValidators';
+
+const { Text } = Typography;
 
 const VENDOR_OPTIONS = [
   { label: 'All Vendors', value: 'all' },
@@ -52,6 +72,12 @@ export default function LicensesPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   // Modals & Drawers state
+  const { token } = theme.useToken();
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [selectedLicenses, setSelectedLicenses] = useState<License[]>([]);
+  const [batchAssignModalOpen, setBatchAssignModalOpen] = useState(false);
+  const [batchAssigning, setBatchAssigning] = useState(false);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
@@ -159,6 +185,7 @@ export default function LicensesPage() {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'save software license'));
     } finally {
       setModalSubmitting(false);
@@ -216,6 +243,99 @@ export default function LicensesPage() {
       }
     },
     [loadData, message, selectedLicense],
+  );
+
+  const handleBatchAssignUsersToLicense = useCallback(
+    async (users: DirectoryUser[]) => {
+      if (!selectedLicense || users.length === 0) return;
+
+      const remainingSeats = Math.max(0, selectedLicense.totalSeats - selectedLicense.usedSeats);
+      if (remainingSeats <= 0) {
+        message.error(
+          'All seats are currently allocated. Upgrade seat count to assign more users.',
+        );
+        return;
+      }
+
+      setAssigningSeat(true);
+      try {
+        const userIds = users.map((u) => u.id);
+        const res = await licensesService.batchAssignUsers(selectedLicense.id, { userIds });
+        message.success(`Assigned ${res.count} seat${res.count > 1 ? 's' : ''} successfully.`);
+        setAssignModalOpen(false);
+
+        const freshLicense = await licensesService.getLicense(selectedLicense.id);
+        setSelectedLicense(freshLicense);
+        loadData();
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'allocate license seats'));
+      } finally {
+        setAssigningSeat(false);
+      }
+    },
+    [loadData, message, selectedLicense],
+  );
+
+  const handleSelectionChange = useCallback(
+    (keys: React.Key[], rows?: License[]) => {
+      setSelectedRowKeys(keys);
+      setSelectedLicenses((prev) => {
+        const keySet = new Set(keys.map(String));
+        const retained = prev.filter((l) => keySet.has(String(l.id)));
+        const existingIds = new Set(retained.map((l) => String(l.id)));
+
+        const candidateRows = rows && rows.length > 0 ? rows : licenses;
+        const candidateMap = new Map<string, License>();
+        for (const item of candidateRows) {
+          candidateMap.set(String(item.id), item);
+        }
+
+        const updatedRetained = retained.map((l) => candidateMap.get(String(l.id)) || l);
+        const newItems = Array.from(candidateMap.values()).filter(
+          (r) => keySet.has(String(r.id)) && !existingIds.has(String(r.id)),
+        );
+
+        return [...updatedRetained, ...newItems];
+      });
+    },
+    [licenses],
+  );
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedRowKeys([]);
+    setSelectedLicenses([]);
+  }, []);
+
+  const handleOpenBatchAssignLicenses = useCallback(() => {
+    setBatchAssignModalOpen(true);
+  }, []);
+
+  const handleBatchAssignLicensesToUser = useCallback(
+    async (userId: string) => {
+      if (selectedRowKeys.length === 0) return;
+      try {
+        setBatchAssigning(true);
+        const licenseIds = selectedRowKeys.map(String);
+        const result = await licensesService.batchAssignLicensesToUser({
+          licenseIds,
+          userId,
+        });
+
+        message.success(
+          `Successfully assigned ${result.count} software license${result.count > 1 ? 's' : ''}.`,
+        );
+
+        setBatchAssignModalOpen(false);
+        setSelectedRowKeys([]);
+        setSelectedLicenses([]);
+        await loadData();
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'batch assign software licenses'));
+      } finally {
+        setBatchAssigning(false);
+      }
+    },
+    [loadData, message, selectedRowKeys],
   );
 
   const handleRevokeSeat = useCallback(
@@ -326,9 +446,50 @@ export default function LicensesPage() {
           </Col>
         </Row>
 
+        {selectedRowKeys.length > 0 && (
+          <Flex
+            justify="space-between"
+            align="center"
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              padding: '10px 16px',
+              background: token.colorBgElevated,
+              border: `1px solid ${token.colorPrimaryBorder}`,
+              borderRadius: token.borderRadiusLG,
+              boxShadow: token.boxShadowSecondary,
+              marginBottom: 16,
+            }}
+          >
+            <Flex align="center" gap={8}>
+              <Badge
+                count={selectedRowKeys.length}
+                overflowCount={9999}
+                style={{ backgroundColor: token.colorPrimary }}
+              />
+              <Text strong style={{ color: token.colorPrimary, fontSize: 13 }}>
+                Selected {selectedRowKeys.length} license{selectedRowKeys.length > 1 ? 's' : ''}
+              </Text>
+            </Flex>
+            <Space size={8}>
+              <Button
+                type="primary"
+                icon={<UserSwitchOutlined />}
+                onClick={handleOpenBatchAssignLicenses}
+              >
+                Batch Assign
+              </Button>
+              <Button onClick={handleClearSelection}>Clear Selection</Button>
+            </Space>
+          </Flex>
+        )}
+
         <LicenseTable
           licenses={licenses}
           loading={loading}
+          selectedRowKeys={selectedRowKeys}
+          onSelectionChange={handleSelectionChange}
           onOpenSeatsDrawer={handleOpenSeatsDrawer}
           onOpenEditModal={handleOpenEditModal}
           onDeleteLicense={handleDeleteLicense}
@@ -357,7 +518,16 @@ export default function LicensesPage() {
         license={selectedLicense}
         submitting={assigningSeat}
         onAssign={handleAssignUser}
+        onBatchAssign={handleBatchAssignUsersToLicense}
         onCancel={() => setAssignModalOpen(false)}
+      />
+
+      <BatchAssignLicensesModal
+        open={batchAssignModalOpen}
+        licenses={selectedLicenses}
+        submitting={batchAssigning}
+        onAssign={handleBatchAssignLicensesToUser}
+        onCancel={() => setBatchAssignModalOpen(false)}
       />
     </PageContainer>
   );

@@ -4,6 +4,7 @@ import { App, Form, Input, Modal, Radio, Select } from 'antd';
 import React, { useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
 import { formatErrorMessage } from '../../../utils/feedback';
+import { formRules, isValidationError } from '../../../utils/formValidators';
 
 interface CreateRoleModalProps {
   open: boolean;
@@ -64,8 +65,7 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const errorObj = err as { errorFields?: unknown };
-      if (errorObj?.errorFields) return;
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'create role'));
     } finally {
       setLoading(false);
@@ -87,14 +87,19 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
       okText="Create Role"
       destroyOnHidden
     >
-      <Form form={form} layout="vertical" initialValues={{ preset: 'empty' }}>
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={{ preset: 'empty' }}
+        validateTrigger={['onChange', 'onBlur']}
+        scrollToFirstError={true}
+      >
         <Form.Item
           name="name"
           label="Role Name"
           rules={[
-            { required: true, message: 'Please enter a role name.' },
-            { min: 2, message: 'Role name must be at least 2 characters.' },
-            { max: 50, message: 'Role name cannot exceed 50 characters.' },
+            formRules.required('Role name'),
+            formRules.stringRange('Role name', 2, 50),
           ]}
         >
           <Input placeholder="e.g. Junior Network Administrator" autoFocus />
@@ -103,7 +108,7 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
         <Form.Item
           name="description"
           label="Description"
-          rules={[{ max: 255, message: 'Description cannot exceed 255 characters.' }]}
+          rules={[formRules.maxString('Description', 255)]}
         >
           <Input.TextArea
             rows={3}

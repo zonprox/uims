@@ -16,13 +16,16 @@ describe('DirectoryService', () => {
     };
     directoryGroup: {
       findFirst: ReturnType<typeof vi.fn>;
+      findUnique: ReturnType<typeof vi.fn>;
       findMany: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
     };
     directoryMembership: {
       upsert: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
     };
     $transaction: ReturnType<typeof vi.fn>;
@@ -40,13 +43,16 @@ describe('DirectoryService', () => {
       },
       directoryGroup: {
         findFirst: vi.fn(),
+        findUnique: vi.fn(),
         findMany: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        delete: vi.fn(),
         count: vi.fn(),
       },
       directoryMembership: {
         upsert: vi.fn().mockResolvedValue({}),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
         count: vi.fn().mockResolvedValue(1),
       },
       $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockPrisma)),
@@ -282,45 +288,7 @@ describe('DirectoryService', () => {
       expect(stats.activeEmployees).toBe(110);
       expect(stats.assignedWorkstations).toBe(95);
       expect(stats.totalGroups).toBe(8);
-      expect(stats.totalOUs).toBe(6);
       expect(stats.closedAccounts).toBe(10);
-    });
-  });
-
-  describe('getOrganizationalUnits', () => {
-    it('should aggregate OU user, group, and workstation statistics via database counts', async () => {
-      mockPrisma.directoryUser.count.mockImplementation(
-        (args?: { where?: Record<string, unknown> }) => {
-          const where = args?.where;
-          const orConditions = (where?.OR as Array<{ ouPath?: { contains: string } }>) || [];
-          const isCorporate = orConditions.some((c) => c.ouPath?.contains === 'Corporate');
-          if (isCorporate) {
-            if (where?.assignedAssets) return Promise.resolve(1); // workstationCount
-            return Promise.resolve(2); // userCount
-          }
-          return Promise.resolve(0);
-        },
-      );
-
-      mockPrisma.directoryGroup.count.mockImplementation(
-        (args?: { where?: Record<string, unknown> }) => {
-          const where = args?.where;
-          const orConditions = (where?.OR as Array<{ ouPath?: { contains: string } }>) || [];
-          const isCorporate = orConditions.some((c) => c.ouPath?.contains === 'Corporate');
-          return Promise.resolve(isCorporate ? 1 : 0);
-        },
-      );
-
-      const ous = await service.getOrganizationalUnits();
-
-      expect(ous).toHaveLength(6);
-      const corporate = ous.find((ou) => ou.id === 'ou-corporate');
-      expect(corporate).toBeDefined();
-      expect(corporate?.userCount).toBe(2);
-      expect(corporate?.workstationCount).toBe(1);
-      expect(corporate?.groupCount).toBe(1);
-      expect(mockPrisma.directoryUser.count).toHaveBeenCalled();
-      expect(mockPrisma.directoryGroup.count).toHaveBeenCalled();
     });
   });
 
@@ -559,6 +527,126 @@ describe('DirectoryService', () => {
           description: 'Updated description',
         }),
       });
+    });
+  });
+
+  describe('findOneGroup', () => {
+    it('should return group with membership count when found', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Admins',
+        _count: { memberships: 4 },
+      });
+
+      const result = await service.findOneGroup('grp-1');
+      expect(result.id).toBe('grp-1');
+      expect(result.name).toBe('SEC-Admins');
+      expect(mockPrisma.directoryGroup.findUnique).toHaveBeenCalledWith({
+        where: { id: 'grp-1' },
+        include: {
+          _count: {
+            select: { memberships: true },
+          },
+        },
+      });
+    });
+
+    it('should throw NotFoundException when group does not exist', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOneGroup('grp-nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updateGroup', () => {
+    it('should update group fields successfully', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Admins',
+      });
+      mockPrisma.directoryGroup.findFirst.mockResolvedValue(null);
+      mockPrisma.directoryGroup.update.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-SuperAdmins',
+        description: 'Updated description',
+        _count: { memberships: 4 },
+      });
+
+      const result = await service.updateGroup('grp-1', {
+        name: '  SEC-SuperAdmins  ',
+        description: 'Updated description',
+      });
+
+      expect(result.name).toBe('SEC-SuperAdmins');
+      expect(mockPrisma.directoryGroup.findFirst).toHaveBeenCalledWith({
+        where: {
+          name: 'SEC-SuperAdmins',
+          NOT: { id: 'grp-1' },
+        },
+      });
+      expect(mockPrisma.directoryGroup.update).toHaveBeenCalledWith({
+        where: { id: 'grp-1' },
+        data: expect.objectContaining({
+          name: 'SEC-SuperAdmins',
+          description: 'Updated description',
+        }),
+        include: {
+          _count: {
+            select: { memberships: true },
+          },
+        },
+      });
+    });
+
+    it('should throw NotFoundException if group does not exist', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateGroup('grp-nonexistent', { name: 'SEC-New' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException if updated name collides with another group', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Admins',
+      });
+      mockPrisma.directoryGroup.findFirst.mockResolvedValue({
+        id: 'grp-2',
+        name: 'SEC-Existing',
+      });
+
+      await expect(
+        service.updateGroup('grp-1', { name: 'SEC-Existing' }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('removeGroup', () => {
+    it('should transactionally cascade delete memberships and delete group', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Admins',
+      });
+      mockPrisma.directoryGroup.delete.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Admins',
+      });
+
+      const result = await service.removeGroup('grp-1');
+      expect(result.id).toBe('grp-1');
+      expect(mockPrisma.directoryMembership.deleteMany).toHaveBeenCalledWith({
+        where: { groupId: 'grp-1' },
+      });
+      expect(mockPrisma.directoryGroup.delete).toHaveBeenCalledWith({
+        where: { id: 'grp-1' },
+      });
+    });
+
+    it('should throw NotFoundException if group does not exist', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue(null);
+
+      await expect(service.removeGroup('grp-nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 });

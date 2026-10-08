@@ -1,6 +1,22 @@
-import type { AssetQueryDto, BatchDeleteResultDto } from '@uims/shared-types';
+import type {
+  AssetQueryDto,
+  BatchAssignAssetDto,
+  BatchAssignAssetResultDto,
+  BatchDeleteResultDto,
+} from '@uims/shared-types';
 import dayjs from 'dayjs';
 import { api } from './api';
+
+export interface CostCenter {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  assets?: Asset[];
+  linkedAssetCount?: number;
+}
 
 export interface AssetCategory {
   id: string;
@@ -13,18 +29,33 @@ export interface AssetCategory {
 export interface Asset {
   id: string;
   tag: string;
+  assetCode?: string | null;
+  subcode?: string | null;
+  parentId?: string | null;
+  parent?: (Asset & { manufacturer?: string; model?: string; assetCode?: string }) | null;
+  children?: Asset[];
+  costCenterId?: string | null;
+  costCenter?: CostCenter | { id?: string; code?: string; name?: string } | string | null;
   name: string;
   manufacturer: string;
   model: string;
   serialNumber?: string | null;
   category: string;
   categoryId?: string | null;
-  status: 'Active' | 'In Repair' | 'In Storage' | 'Retired';
+  specifications?: string | null;
+  unitCost?: number | null;
+  totalUnits?: number;
+  availableUnits?: number;
+  inUseUnits?: number;
+  unitCounts?: {
+    total: number;
+    available: number;
+    inUse: number;
+  };
+  status: 'Active' | 'In Repair' | 'In Storage' | 'Retired' | string;
   assignedTo: string;
   assignedToId?: string | null;
   assignedEmail: string;
-  location: string;
-  locationId?: string | null;
   department?: string | null;
   departmentId?: string | null;
   organization?: string | null;
@@ -53,12 +84,16 @@ export interface AssetStats {
 }
 
 export const assetsService = {
+  getCostCenters: async (): Promise<CostCenter[]> => {
+    const res = await api.get('/assets/cost-centers');
+    return res.data.data;
+  },
+
   getAssets: async (params?: {
     search?: string;
     category?: string;
     categoryId?: string;
     status?: string;
-    locationId?: string;
     assignedToId?: string;
     organizationId?: string;
     organization?: string;
@@ -122,7 +157,6 @@ export const assetsService = {
       'Category',
       'Status',
       'Assigned To',
-      'Location',
     ];
     const rows = assets.map((a) => [
       a.tag,
@@ -132,7 +166,6 @@ export const assetsService = {
       a.category,
       a.status,
       a.assignedTo || '',
-      a.location || '',
     ]);
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   },
@@ -173,5 +206,10 @@ export const assetsService = {
 
   batchDelete: async (ids: string[]): Promise<BatchDeleteResultDto> => {
     return assetsService.batchDeleteAssets(ids);
+  },
+
+  batchAssignAssets: async (payload: BatchAssignAssetDto): Promise<BatchAssignAssetResultDto> => {
+    const res = await api.post('/assets/batch-assign', payload);
+    return res.data?.data ?? res.data;
   },
 };

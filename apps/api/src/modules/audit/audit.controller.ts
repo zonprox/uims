@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { AuditQueryDto, LogEventDto } from '@uims/shared-types';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
+import { AuditQueryDto } from './dto/audit-query.dto';
+import { LogEventDto } from './dto/log-event.dto';
 
 @ApiTags('audit')
 @ApiBearerAuth()

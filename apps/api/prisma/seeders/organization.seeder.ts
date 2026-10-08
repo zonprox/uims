@@ -1,8 +1,6 @@
-import { LocationType, type PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import {
-  type LocationDef,
   type SeederContext,
-  generateFactoryLocations,
   generateFactorySections,
   inTransactionChunks,
   runDomainSeeder,
@@ -12,7 +10,7 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
   return runDomainSeeder(
     'OrganizationSeeder',
     '🏢',
-    'Youngone / Broadpeak Group (Holding, BSL & BSH) Organizations, Spatial Locations, Departments & Positions',
+    'Youngone / Broadpeak Group (Holding, BSL & BSH) Organizations, Departments & Positions',
     async (logger) => {
       // 1. Corporate Hierarchy: Holding Company and 2 Operating Subsidiaries (BSL & BSH)
       const orgRows = [
@@ -50,311 +48,8 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
       const orgBSL = orgMap.BSL;
       const orgBSH = orgMap.BSH;
 
-      // 2. Spatial Locations Hierarchy Definition
-      const locationDefs: LocationDef[] = [];
 
-      // BSH (Corporate HQ & Branch Offices)
-      const bshOffices = [
-        'loc-bsh-d7|BSH - Ho Chi Minh Office (D7)|HCM-D7|Broadpeak Tower (BSH1 + BSH2)|Floor 6|Corporate Operations Center|District 7, Ho Chi Minh City, Vietnam',
-        'loc-bsh-d3|BSH - Ho Chi Minh Office (D3)|HCM-D3|District 3 Commercial Office|Floor 3|Merchandising & Sourcing Studio|District 3, Ho Chi Minh City, Vietnam',
-      ];
-      for (const row of bshOffices) {
-        const [id, name, code, building, floor, room, address] = row.split('|');
-        locationDefs.push({
-          id,
-          name,
-          code,
-          type: LocationType.BRANCH,
-          status: 'ACTIVE',
-          building,
-          floor,
-          room,
-          address,
-          parentId: null,
-          fullPath: name,
-          organizationId: orgBSH.id,
-        });
-      }
-
-      // BSL Campus Root
-      const bslCampusPath = 'BSL - Soc Trang Campus';
-      locationDefs.push({
-        id: 'loc-bsl-st',
-        name: bslCampusPath,
-        code: 'BSL-ST',
-        type: LocationType.CAMPUS,
-        status: 'ACTIVE',
-        building: 'Main Manufacturing Complex (F1-F7)',
-        address: 'An Nghiep Industrial Zone, Soc Trang Province, Vietnam',
-        parentId: null,
-        fullPath: bslCampusPath,
-        organizationId: orgBSL.id,
-      });
-
-      // Business Center Building
-      const bcPath = `${bslCampusPath} > Business Center Building`;
-      locationDefs.push({
-        id: 'loc-bsl-bc',
-        name: 'Business Center Building',
-        code: 'BSL-BC',
-        type: LocationType.BUILDING,
-        status: 'ACTIVE',
-        building: 'Business Center Building',
-        address: 'An Nghiep Industrial Zone, Soc Trang Province, Vietnam',
-        parentId: 'loc-bsl-st',
-        fullPath: bcPath,
-        organizationId: orgBSL.id,
-      });
-
-      const bcRooms = [
-        'loc-bsl-bc-exec|Executive Office (Floor 3)|BC-F3-EXEC|FLOOR|Floor 3|Executive Boardroom 301',
-        'loc-bsl-bc-imex|Import-Export (Floor 2)|BC-F2-IMEX|FLOOR|Floor 2|Import-Export Operations Office 201',
-        'loc-bsl-bc-acc|Accounting (Floor 2)|BC-F2-ACC|FLOOR|Floor 2|Accounting & Finance Office 202',
-        'loc-bsl-bc-admin|Administration (Floor 1)|BC-F1-ADMIN|FLOOR|Floor 1|General Administration Hall 101',
-        'loc-bsl-bc-hr|Human Resources & Compliance (Floor 1)|BC-F1-HR|FLOOR|Floor 1|HR & Compliance Office 103',
-        'loc-bsl-bc-datacenter|IT Server Room / Datacenter (Floor 1, Room 102)|BC-F1-DC102|ROOM|Floor 1|Room 102',
-      ];
-      for (const row of bcRooms) {
-        const [id, name, code, type, floor, room] = row.split('|');
-        locationDefs.push({
-          id,
-          name,
-          code,
-          type: type as LocationType,
-          status: 'ACTIVE',
-          building: 'Business Center Building',
-          floor,
-          room,
-          parentId: 'loc-bsl-bc',
-          fullPath: `${bcPath} > ${name}`,
-          organizationId: orgBSL.id,
-        });
-      }
-
-      // Business Center Sub-Rooms (Technical CAD & QA Lab)
-      const bcSubRooms = [
-        'loc-bsl-bc-tech|Technical CAD/CAM & Pattern Office (Floor 2)|BC-F2-TECH|loc-bsl-bc-imex|Floor 2|Room 203',
-        'loc-bsl-lab-qa|Central QA Testing Laboratory (Floor 1)|BSL-LAB-QA|loc-bsl-bc-admin|Floor 1|Room 104',
-      ];
-      for (const row of bcSubRooms) {
-        const [id, name, code, parentId, floor, room] = row.split('|');
-        locationDefs.push({
-          id,
-          name,
-          code,
-          type: LocationType.ROOM,
-          status: 'ACTIVE',
-          building: 'Business Center Building',
-          floor,
-          room,
-          parentId,
-          fullPath: `${bcPath} > ${name}`,
-          organizationId: orgBSL.id,
-        });
-      }
-
-      // Central Warehouse Building (Kho tong)
-      const whPath = `${bslCampusPath} > Central Warehouse Building (Kho tổng)`;
-      locationDefs.push({
-        id: 'loc-bsl-wh',
-        name: 'Central Warehouse Building (Kho tổng)',
-        code: 'BSL-WH',
-        type: LocationType.WAREHOUSE,
-        status: 'ACTIVE',
-        building: 'Central Warehouse Building',
-        address: 'An Nghiep Industrial Zone, Soc Trang Province, Vietnam',
-        parentId: 'loc-bsl-st',
-        fullPath: whPath,
-        organizationId: orgBSL.id,
-      });
-
-      // Central Warehouse — Raw Materials Storage (Kho vai / NPL chinh)
-      const rawPath = `${whPath} > Raw Materials Storage (Kho vải / NPL chính)`;
-      locationDefs.push({
-        id: 'loc-bsl-wh-raw',
-        name: 'Raw Materials Storage (Kho vải / NPL chính)',
-        code: 'WH-RAW',
-        type: LocationType.ZONE,
-        status: 'ACTIVE',
-        building: 'Central Warehouse Building',
-        floor: 'Ground Floor',
-        parentId: 'loc-bsl-wh',
-        fullPath: rawPath,
-        organizationId: orgBSL.id,
-      });
-
-      // Helper for leaf storage locations
-      const storageLoc = (
-        id: string,
-        name: string,
-        code: string,
-        type: LocationType,
-        parentId: string,
-        fullPath: string,
-      ): LocationDef => ({
-        id,
-        name,
-        code,
-        type,
-        status: 'ACTIVE',
-        parentId,
-        fullPath,
-        organizationId: orgBSL.id,
-      });
-
-      // Fabric Bay 01 to 04 with Racks, Shelves, and Bins
-      const fabricBayDefs = [
-        {
-          id: '1',
-          name: 'Fabric Bay 01',
-          bins: [
-            ['1', 'Cotton Twill'],
-            ['2', 'Polyester Fleece'],
-          ],
-        },
-        { id: '2', name: 'Fabric Bay 02', bins: [['3', 'Nylon Taffeta']] },
-        { id: '3', name: 'Fabric Bay 03', bins: [['4', 'Elastane Spandex']] },
-        { id: '4', name: 'Fabric Bay 04', bins: [] as Array<[string, string]> },
-      ];
-      for (const b of fabricBayDefs) {
-        const bayId = `loc-bsl-wh-bay${b.id}`;
-        const bayPath = `${rawPath} > ${b.name}`;
-        const rackId = `loc-bsl-wh-rack${b.id}`;
-        const rackName = `Fabric Rack R-0${b.id}`;
-        const rackPath = `${bayPath} > ${rackName}`;
-        const shelfId = `loc-bsl-wh-shelf${b.id}`;
-        const shelfName = `Shelf Level ${b.id}`;
-        const shelfPath = `${rackPath} > ${shelfName}`;
-
-        locationDefs.push(
-          storageLoc(
-            bayId,
-            b.name,
-            `WH-BAY-0${b.id}`,
-            LocationType.AREA,
-            'loc-bsl-wh-raw',
-            bayPath,
-          ),
-          storageLoc(rackId, rackName, `WH-RCK-0${b.id}`, LocationType.RACK, bayId, rackPath),
-          storageLoc(shelfId, shelfName, `WH-SH-0${b.id}`, LocationType.SHELF, rackId, shelfPath),
-        );
-
-        for (const [binNum, fabricType] of b.bins) {
-          const binName = `Bin B-0${binNum} (${fabricType})`;
-          locationDefs.push(
-            storageLoc(
-              `loc-bsl-wh-bin${binNum}`,
-              binName,
-              `WH-BIN-0${binNum}`,
-              LocationType.BIN,
-              shelfId,
-              `${shelfPath} > ${binName}`,
-            ),
-          );
-        }
-      }
-
-      // Central Warehouse — Finished Goods Storage (Kho thanh pham)
-      const fgPath = `${whPath} > Finished Goods Storage (Kho thành phẩm)`;
-      locationDefs.push({
-        id: 'loc-bsl-wh-fg',
-        name: 'Finished Goods Storage (Kho thành phẩm)',
-        code: 'WH-FG',
-        type: LocationType.ZONE,
-        status: 'ACTIVE',
-        building: 'Central Warehouse Building',
-        parentId: 'loc-bsl-wh',
-        fullPath: fgPath,
-        organizationId: orgBSL.id,
-      });
-
-      const fgBays: Array<[string, string, string]> = [
-        ['loc-bsl-wh-fg-bay1', 'Bay FG-01 (Export North America)', 'WH-FG-01'],
-        ['loc-bsl-wh-fg-bay2', 'Bay FG-02 (Export Europe & Asia)', 'WH-FG-02'],
-      ];
-      for (const [id, name, code] of fgBays) {
-        locationDefs.push(
-          storageLoc(id, name, code, LocationType.AREA, 'loc-bsl-wh-fg', `${fgPath} > ${name}`),
-        );
-      }
-
-      // Central Warehouse — Spare Parts & Peripherals Storage (Phong phu tung)
-      const spPath = `${whPath} > Spare Parts & Peripherals Storage (Phòng phụ tùng)`;
-      locationDefs.push({
-        id: 'loc-bsl-wh-sp',
-        name: 'Spare Parts & Peripherals Storage (Phòng phụ tùng)',
-        code: 'WH-SP',
-        type: LocationType.ROOM,
-        status: 'ACTIVE',
-        building: 'Central Warehouse Building',
-        room: 'Spare Parts Room 105',
-        parentId: 'loc-bsl-wh',
-        fullPath: spPath,
-        organizationId: orgBSL.id,
-      });
-
-      const spareBins = [
-        '01|Bin SP-01 (Sewing Needles DBx1 & DPx5)',
-        '02|Bin SP-02 (Servo Motors & Drivers)',
-        '03|Bin SP-03 (Rotary Hooks & Bobbin Cases)',
-        '04|Bin SP-04 (Presser Feet & Feed Dogs)',
-        '05|Bin SP-05 (Cutter Blades & Sharpeners)',
-        '06|Bin SP-06 (Pneumatic Valves & Cylinders)',
-        '07|Bin SP-07 (Heat Press Teflon Sheets)',
-        '08|Bin SP-08 (Zebra Printheads & Rollers)',
-        '09|Bin SP-09 (Cat6 Patch Cables & Transceivers)',
-        '10|Bin SP-10 (Honeywell PDA Batteries & Docks)',
-      ];
-      for (const row of spareBins) {
-        const [num, name] = row.split('|');
-        locationDefs.push(
-          storageLoc(
-            `loc-bsl-wh-sp-bin${num}`,
-            name,
-            `WH-SP-${num}`,
-            LocationType.BIN,
-            'loc-bsl-wh-sp',
-            `${spPath} > ${name}`,
-          ),
-        );
-      }
-
-      // ── Factories 1 through 7 ───────────────────────────────────────
-      for (let f = 1; f <= 7; f++) {
-        locationDefs.push(...generateFactoryLocations(f, orgBSL.id, bslCampusPath));
-      }
-
-      // Upsert Locations in deterministic transaction chunks of 50
-      const seededLocations: Record<string, import('@prisma/client').Location> = {};
-      const chunkResults = await inTransactionChunks(prisma, locationDefs, 50, async (tx, loc) => {
-        const { id, ...data } = loc;
-        return tx.location.upsert({
-          where: { id },
-          update: {
-            ...data,
-            building: data.building || null,
-            floor: data.floor || null,
-            room: data.room || null,
-            address: data.address || null,
-            parentId: data.parentId || null,
-          },
-          create: loc,
-        });
-      });
-
-      for (const record of chunkResults) {
-        seededLocations[record.id] = record;
-        if (ctx) {
-          ctx.locations.set(record.id, record.id);
-          if (record.code) ctx.locations.set(record.code, record.id);
-        }
-      }
-
-      // Support canonical test fixtures expecting 'loc-bsl-campus' alias
-      if (ctx) {
-        ctx.locations.set('loc-bsl-campus', 'loc-bsl-st');
-        ctx.locations.set('BSL-CAMPUS', 'loc-bsl-st');
-      }
+      // 2. Physical Location system purged in Milestone 2
 
       // 3. Standardized Departments Catalog
       const factorySections = Array.from({ length: 7 }, (_, i) =>
@@ -499,12 +194,11 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
       }
 
       logger.log(
-        `✅ Seeded 3 Group entities, ${locationDefs.length} spatial locations, ${Object.keys(seededDepartments).length} departments, and ${Object.keys(seededPositions).length} positions.`,
+        `✅ Seeded 3 Group entities, ${Object.keys(seededDepartments).length} departments, and ${Object.keys(seededPositions).length} positions.`,
       );
 
       return {
         organizations: { orgHolding, orgBSL, orgBSH },
-        locations: seededLocations,
         departments: seededDepartments,
         positions: seededPositions,
       };

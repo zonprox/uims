@@ -122,7 +122,13 @@ describe('Challenger M1: Adversarial Stress & Route Precedence Suite for Batch D
       const stringResult = await service.batchDelete('ast-1' as unknown as string[]);
       expect(stringResult).toEqual({ count: 0, deletedIds: [] });
 
-      const dirtyTypesResult = await service.batchDelete([null, undefined, 123, true, {}] as unknown as string[]);
+      const dirtyTypesResult = await service.batchDelete([
+        null,
+        undefined,
+        123,
+        true,
+        {},
+      ] as unknown as string[]);
       expect(dirtyTypesResult).toEqual({ count: 0, deletedIds: [] });
     });
 
@@ -168,7 +174,7 @@ describe('Challenger M1: Adversarial Stress & Route Precedence Suite for Batch D
 
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0].property).toBe('ids');
-        expect(errors[0].constraints?.isString).toBe('Each asset ID must be a string');
+        expect(errors[0].constraints?.isUuid).toBe('Each asset ID must be a valid UUID v4');
       });
 
       it('should reject missing or non-array ids property', async () => {
@@ -181,7 +187,9 @@ describe('Challenger M1: Adversarial Stress & Route Precedence Suite for Batch D
       });
 
       it('should accept valid array of non-empty string IDs', async () => {
-        const dto = plainToInstance(BatchDeleteAssetDto, { ids: ['ast-1', 'ast-2', 'uuid-1234'] });
+        const dto = plainToInstance(BatchDeleteAssetDto, {
+          ids: ['a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'b8c3445e-653a-43d9-a75d-59508d5e08b1'],
+        });
         const errors = await validate(dto);
 
         expect(errors).toHaveLength(0);
@@ -383,7 +391,9 @@ describe('Challenger M1: Adversarial Stress & Route Precedence Suite for Batch D
     it('should propagate database transaction failure immediately without silently swallowing', async () => {
       const ids = Array.from({ length: 150 }, (_, i) => `ast-${i + 1}`);
 
-      mockPrisma.asset.findMany.mockRejectedValueOnce(new Error('PostgreSQL connection terminated'));
+      mockPrisma.asset.findMany.mockRejectedValueOnce(
+        new Error('PostgreSQL connection terminated'),
+      );
 
       await expect(service.batchDelete(ids)).rejects.toThrow('PostgreSQL connection terminated');
     });
@@ -420,13 +430,22 @@ describe('Challenger M1: Adversarial Stress & Route Precedence Suite for Batch D
     it('should register exact HTTP methods and paths for batch deletion and aliases', () => {
       // POST batch-delete
       const batchPath = Reflect.getMetadata(PATH_METADATA, AssetsController.prototype.batchDelete);
-      const batchMethod = Reflect.getMetadata(METHOD_METADATA, AssetsController.prototype.batchDelete);
+      const batchMethod = Reflect.getMetadata(
+        METHOD_METADATA,
+        AssetsController.prototype.batchDelete,
+      );
       expect(batchPath).toBe('batch-delete');
       expect(batchMethod).toBe(RequestMethod.POST);
 
       // DELETE batch
-      const aliasPath = Reflect.getMetadata(PATH_METADATA, AssetsController.prototype.batchDeleteAlias);
-      const aliasMethod = Reflect.getMetadata(METHOD_METADATA, AssetsController.prototype.batchDeleteAlias);
+      const aliasPath = Reflect.getMetadata(
+        PATH_METADATA,
+        AssetsController.prototype.batchDeleteAlias,
+      );
+      const aliasMethod = Reflect.getMetadata(
+        METHOD_METADATA,
+        AssetsController.prototype.batchDeleteAlias,
+      );
       expect(aliasPath).toBe('batch');
       expect(aliasMethod).toBe(RequestMethod.DELETE);
 
@@ -462,7 +481,10 @@ describe('Challenger M1: Adversarial Stress & Route Precedence Suite for Batch D
     });
 
     it('should enforce JwtAuthGuard, RolesGuard and Admin roles on both batch delete endpoints', () => {
-      for (const handler of [AssetsController.prototype.batchDelete, AssetsController.prototype.batchDeleteAlias]) {
+      for (const handler of [
+        AssetsController.prototype.batchDelete,
+        AssetsController.prototype.batchDeleteAlias,
+      ]) {
         const guards = Reflect.getMetadata('__guards__', handler);
         expect(guards).toBeDefined();
         expect(guards).toContain(JwtAuthGuard);

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayNotEmpty, IsArray, IsNotEmpty, IsString } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsNotEmpty, IsUUID } from 'class-validator';
 import type { BatchDeleteAssetDto as IBatchDeleteAssetDto } from '@uims/shared-types';
 
 export class BatchDeleteAssetDto implements IBatchDeleteAssetDto {
@@ -10,7 +10,7 @@ export class BatchDeleteAssetDto implements IBatchDeleteAssetDto {
   })
   @IsArray({ message: 'ids must be an array' })
   @ArrayNotEmpty({ message: 'ids array must not be empty' })
-  @IsString({ each: true, message: 'Each asset ID must be a string' })
+  @IsUUID('4', { each: true, message: 'Each asset ID must be a valid UUID v4' })
   @IsNotEmpty({ each: true, message: 'Asset IDs must not be empty strings' })
   ids!: string[];
 }

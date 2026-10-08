@@ -3,24 +3,15 @@ import {
   BankOutlined,
   DeleteOutlined,
   EditOutlined,
-  EnvironmentOutlined,
   EyeOutlined,
-  QrcodeOutlined,
+  PrinterOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
-import dayjs from 'dayjs';
 import React, { useMemo } from 'react';
-import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 
 const { Text } = Typography;
-
-declare module '../../../services/assets.service' {
-  interface Asset {
-    locationPath?: string | null;
-  }
-}
 
 export interface AssetTableProps {
   assets: Array<Asset>;
@@ -28,7 +19,7 @@ export interface AssetTableProps {
   selectedRowKeys?: React.Key[];
   onSelectionChange?: (selectedRowKeys: React.Key[], selectedRows: Asset[]) => void;
   onShowDetails: (asset: Asset) => void;
-  onShowQr: (asset: Asset) => void;
+  onShowQr?: (asset: Asset) => void;
   onOpenEditModal: (asset: Asset) => void;
   onDeleteAsset: (id: string) => void;
 }
@@ -47,52 +38,131 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
     const columns = useMemo(
       () => [
         {
-          title: 'Asset Tag & Name',
-          key: 'tag',
+          title: 'SUB Code',
+          key: 'subcode',
+          width: 160,
           sorter: (a: Asset, b: Asset) =>
-            a.tag.localeCompare(b.tag) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
-          render: (_: unknown, record: Asset) => (
-            <div>
-              <Flex align="center" gap={6} wrap="wrap">
-                <Text code strong style={{ fontSize: 13, color: '#1677ff' }}>
-                  {record.tag}
+            (a.subcode || a.tag || '').localeCompare(b.subcode || b.tag || '') ||
+            a.name.localeCompare(b.name) ||
+            a.id.localeCompare(b.id),
+          render: (_: unknown, record: Asset) => {
+            const code = record.subcode || record.tag || 'N/A';
+            return (
+              <div>
+                <Text
+                  copyable
+                  code
+                  strong
+                  style={{ fontSize: 13, color: '#1677ff', cursor: 'pointer' }}
+                  onClick={() => onShowDetails(record)}
+                >
+                  {code}
                 </Text>
-                <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
-                  {record.category}
-                </Tag>
-              </Flex>
-              <Text
-                strong
-                style={{ fontSize: 13, display: 'block', marginTop: 2, cursor: 'pointer' }}
-                onClick={() => onShowDetails(record)}
-              >
-                {record.name}
+              </div>
+            );
+          },
+        },
+        {
+          title: 'Device Model',
+          key: 'deviceModel',
+          sorter: (a: Asset, b: Asset) =>
+            a.name.localeCompare(b.name) || (a.model || '').localeCompare(b.model || ''),
+          render: (_: unknown, record: Asset) => {
+            const sapCode = record.parent?.assetCode || (record.parentId ? record.assetCode : null);
+            return (
+              <div>
+                <Text
+                  strong
+                  style={{ fontSize: 13, cursor: 'pointer' }}
+                  onClick={() => onShowDetails(record)}
+                >
+                  {record.name}
+                </Text>
+                {sapCode && (
+                  <Tag color="cyan" style={{ fontSize: 10.5, marginLeft: 6 }}>
+                    [{sapCode}]
+                  </Tag>
+                )}
+                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+                  {record.manufacturer ? `${record.manufacturer} ` : ''}
+                  {record.model || ''}
+                </Text>
+              </div>
+            );
+          },
+        },
+        {
+          title: 'Serial Number',
+          dataIndex: 'serialNumber',
+          key: 'serialNumber',
+          width: 140,
+          sorter: (a: Asset, b: Asset) =>
+            (a.serialNumber || '').localeCompare(b.serialNumber || ''),
+          render: (sn: string | null | undefined) => {
+            if (!sn) return <Text type="secondary">—</Text>;
+            return (
+              <Text copyable code style={{ fontSize: 11 }}>
+                {sn}
               </Text>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {record.manufacturer} {record.model}
-              </Text>
-            </div>
-          ),
+            );
+          },
+        },
+        {
+          title: 'Cost Center',
+          key: 'costCenter',
+          width: 110,
+          render: (_: unknown, record: Asset) => {
+            const cc = record.costCenter;
+            const code =
+              typeof cc === 'object' && cc !== null ? cc.code : typeof cc === 'string' ? cc : null;
+            if (!code) return <Text type="secondary">—</Text>;
+            return (
+              <Tag color="geekblue" style={{ fontSize: 11, margin: 0 }}>
+                {code}
+              </Tag>
+            );
+          },
+        },
+        {
+          title: 'Category',
+          dataIndex: 'category',
+          key: 'category',
+          width: 140,
+          sorter: (a: Asset, b: Asset) =>
+            (a.category || '').localeCompare(b.category || '') || a.tag.localeCompare(b.tag),
+          render: (category: string) => {
+            if (!category) return <Text type="secondary">—</Text>;
+            return (
+              <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
+                {category}
+              </Tag>
+            );
+          },
         },
         {
           title: 'Status',
           dataIndex: 'status',
           key: 'status',
+          width: 120,
           sorter: (a: Asset, b: Asset) =>
             a.status.localeCompare(b.status) || a.tag.localeCompare(b.tag),
-          render: (status: Asset['status']) => {
+          render: (status: string) => {
             let color = 'default';
-            if (status === 'Active') color = 'success';
-            if (status === 'In Repair') color = 'warning';
-            if (status === 'In Storage') color = 'processing';
-            if (status === 'Retired') color = 'error';
+            const s = (status || '').toUpperCase();
+            if (s === 'AVAILABLE' || s === 'ACTIVE') color = 'success';
+            else if (s === 'IN_USE') color = 'processing';
+            else if (s === 'MAINTENANCE' || s === 'IN REPAIR') color = 'warning';
+            else if (s === 'IN STORAGE') color = 'cyan';
+            else if (s === 'RETIRED') color = 'error';
+            else if (s === 'LOST') color = 'default';
             return <Tag color={color}>{status}</Tag>;
           },
         },
         {
-          title: 'Assigned User',
+          title: 'Assignee',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
+          width: 150,
           sorter: (a: Asset, b: Asset) =>
             (a.assignedTo || '').localeCompare(b.assignedTo || '') || a.tag.localeCompare(b.tag),
           render: (user: string) => {
@@ -107,26 +177,14 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           },
         },
         {
-          title: 'Location & Facility',
-          dataIndex: 'location',
-          key: 'location',
+          title: 'Organization',
+          dataIndex: 'organization',
+          key: 'organization',
           sorter: (a: Asset, b: Asset) =>
-            (a.location || '').localeCompare(b.location || '') || a.tag.localeCompare(b.tag),
-          render: (loc: string, record: Asset) => {
-            const fullPath = record.locationPath || record.location || 'Storage Vault';
-            const leafName = loc ? loc.split(' > ').pop() || loc : 'Storage Vault';
-
+            (a.organization || '').localeCompare(b.organization || '') || a.tag.localeCompare(b.tag),
+          render: (_: unknown, record: Asset) => {
             return (
               <Flex vertical gap={4}>
-                <Tooltip title={fullPath}>
-                  <Tag
-                    icon={<EnvironmentOutlined />}
-                    color="geekblue"
-                    style={{ margin: 0, cursor: 'pointer' }}
-                  >
-                    {leafName}
-                  </Tag>
-                </Tooltip>
                 {record.department && (
                   <Tag color="cyan" style={{ margin: 0, fontSize: 10.5 }}>
                     {record.department}
@@ -137,39 +195,17 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                     {record.organization}
                   </Tag>
                 )}
-              </Flex>
-            );
-          },
-        },
-        {
-          title: 'Warranty Expiration',
-          dataIndex: 'warrantyExpiry',
-          key: 'warrantyExpiry',
-          sorter: (a: Asset, b: Asset) =>
-            (a.warrantyExpiry || '').localeCompare(b.warrantyExpiry || '') ||
-            a.tag.localeCompare(b.tag),
-          render: (date: string) => {
-            if (!date) return <Text type="secondary">N/A</Text>;
-            const isExpiringSoon = dayjs(date).diff(dayjs(), 'day') < 90;
-            return (
-              <div>
-                <FormattedDate date={date} style={{ fontSize: 12 }} />
-                {isExpiringSoon && (
-                  <Tag
-                    color="warning"
-                    style={{ display: 'inline-block', marginTop: 2, fontSize: 10 }}
-                  >
-                    Expiring
-                  </Tag>
+                {!record.department && !record.organization && (
+                  <Text type="secondary">—</Text>
                 )}
-              </div>
+              </Flex>
             );
           },
         },
         {
           title: 'Actions',
           key: 'actions',
-          width: 150,
+          width: 160,
           fixed: 'end' as const,
           render: (_: unknown, record: Asset) => (
             <Space size="small">
@@ -182,16 +218,18 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                   onClick={() => onShowDetails(record)}
                 />
               </Tooltip>
-              <Tooltip title="QR Code">
-                <Button
-                  type="text"
-                  shape="circle"
-                  size="small"
-                  icon={<QrcodeOutlined />}
-                  onClick={() => onShowQr(record)}
-                />
-              </Tooltip>
-              <Tooltip title="Edit Asset">
+              {onShowQr && (
+                <Tooltip title="Print QR Label">
+                  <Button
+                    type="text"
+                    shape="circle"
+                    size="small"
+                    icon={<PrinterOutlined />}
+                    onClick={() => onShowQr(record)}
+                  />
+                </Tooltip>
+              )}
+              <Tooltip title="Edit Unit">
                 <Button
                   type="text"
                   shape="circle"
@@ -201,7 +239,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 />
               </Tooltip>
               <Popconfirm
-                title="Delete asset?"
+                title="Delete physical unit?"
                 description="This action cannot be undone."
                 onConfirm={() => onDeleteAsset(record.id)}
                 okText="Delete"
@@ -221,7 +259,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           ),
         },
       ],
-      [onShowDetails, onShowQr, onOpenEditModal, onDeleteAsset],
+      [onDeleteAsset, onOpenEditModal, onShowDetails, onShowQr],
     );
 
     const rowSelection = useMemo(() => {
@@ -246,7 +284,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           pageSize: 10,
           showSizeChanger: true,
           pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total) => `Total ${total} items`,
+          showTotal: (total) => `Total ${total} units`,
         }}
       />
     );

@@ -26,8 +26,6 @@ import {
 } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { type Asset, assetsService } from '../../../services/assets.service';
-import type { LocationBranch } from '../../../services/organization.service';
-import { organizationService } from '../../../services/organization.service';
 import type {
   CreateSwitchDto,
   IPAddress,
@@ -39,6 +37,7 @@ import type {
 } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
 import { formatErrorMessage } from '../../../utils/feedback';
+import { isValidationError } from '../../../utils/formValidators';
 import { SwitchFaceplateDrawer } from './SwitchFaceplateDrawer';
 import { SwitchFormModal } from './SwitchFormModal';
 import { SwitchTable } from './SwitchTable';
@@ -48,12 +47,9 @@ const { Text, Title } = Typography;
 export interface SwitchManagementTabProps {
   switches?: Array<NetworkSwitch>;
   racks?: Array<NetworkRack>;
-  locations?: Array<LocationBranch>;
   loading?: boolean;
   searchQuery?: string;
   onSearchChange?: (val: string) => void;
-  siteFilter?: string;
-  onSiteChange?: (val: string) => void;
   onResetFilters?: () => void;
   onOpenCreateModal?: () => void;
   onSelectRack?: (rackId: string) => void;
@@ -63,12 +59,9 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
   ({
     switches: propSwitches,
     racks: propRacks,
-    locations: propLocations,
     loading: propLoading = false,
     searchQuery: propSearchQuery,
     onSearchChange: propOnSearchChange,
-    siteFilter: propSiteFilter,
-    onSiteChange: propOnSiteChange,
     onResetFilters: propOnResetFilters,
     onOpenCreateModal: propOnOpenCreateModal,
     onSelectRack,
@@ -79,14 +72,12 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
 
     // Internal state if not controlled by parent
     const [internalSearch, setInternalSearch] = useState('');
-    const [internalSite, setInternalSite] = useState<string>('all');
     const [vendorFilter, setVendorFilter] = useState<string>('all');
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<string>('all');
 
     const [internalSwitches, setInternalSwitches] = useState<Array<NetworkSwitch>>([]);
     const [internalRacks, setInternalRacks] = useState<Array<NetworkRack>>([]);
-    const [internalLocations, setInternalLocations] = useState<Array<LocationBranch>>([]);
     const [internalAssets, setInternalAssets] = useState<Array<Asset>>([]);
     const [internalVlans, setInternalVlans] = useState<Array<VLAN>>([]);
     const [internalSubnets, setInternalSubnets] = useState<Array<Subnet>>([]);
@@ -101,7 +92,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
     const [faceplateDrawerOpen, setFaceplateDrawerOpen] = useState(false);
 
     const activeSearch = propSearchQuery !== undefined ? propSearchQuery : internalSearch;
-    const activeSite = propSiteFilter !== undefined ? propSiteFilter : internalSite;
 
     const handleSearchChange = (val: string) => {
       if (propOnSearchChange) {
@@ -111,41 +101,30 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
       }
     };
 
-    const handleSiteChange = (val: string) => {
-      if (propOnSiteChange) {
-        propOnSiteChange(val);
-      } else {
-        setInternalSite(val);
-      }
-    };
-
     const handleReset = () => {
       if (propOnResetFilters) {
         propOnResetFilters();
       } else {
         setInternalSearch('');
-        setInternalSite('all');
       }
       setVendorFilter('all');
       setRoleFilter('all');
       setStatusFilter('all');
     };
 
-    // Fetch switches, racks, locations, assets if not supplied
+    // Fetch switches, racks, assets if not supplied
     const loadSwitches = useCallback(async () => {
       setInternalLoading(true);
       try {
-        const [switchList, rackList, locList, assetList, vlanList, subnetList, ipList] =
+        const [switchList, rackList, assetList, vlanList, subnetList, ipList] =
           await Promise.all([
             networkService.getSwitches({
               search: activeSearch || undefined,
-              locationId: activeSite !== 'all' ? activeSite : undefined,
               vendor: vendorFilter !== 'all' ? vendorFilter : undefined,
               role: roleFilter !== 'all' ? roleFilter : undefined,
               status: statusFilter !== 'all' ? statusFilter : undefined,
             }),
             propRacks ? Promise.resolve(propRacks) : networkService.getRacks(),
-            propLocations ? Promise.resolve(propLocations) : organizationService.getLocations(),
             assetsService.getAssets().catch((_err: unknown) => []),
             networkService.getVlans().catch((_err: unknown) => []),
             networkService.getSubnets().catch((_err: unknown) => []),
@@ -154,7 +133,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
 
         setInternalSwitches(switchList || []);
         if (!propRacks) setInternalRacks(rackList || []);
-        if (!propLocations) setInternalLocations(locList || []);
         setInternalAssets(assetList || []);
         setInternalVlans(vlanList || []);
         setInternalSubnets(subnetList || []);
@@ -166,12 +144,10 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
       }
     }, [
       activeSearch,
-      activeSite,
       vendorFilter,
       roleFilter,
       statusFilter,
       propRacks,
-      propLocations,
       message,
     ]);
 
@@ -184,7 +160,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
     // Active dataset
     const rawSwitches = propSwitches || internalSwitches;
     const effectiveRacks = propRacks || internalRacks;
-    const effectiveLocations = propLocations || internalLocations;
     const effectiveLoading = propLoading || internalLoading;
 
     // In-memory filter on rawSwitches
@@ -200,13 +175,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
           const matchMac = (sw.macAddress || '').toLowerCase().includes(q);
           const matchIp = (sw.ipAddress?.address || '').toLowerCase().includes(q);
           if (!matchName && !matchModel && !matchVendor && !matchSerial && !matchMac && !matchIp) {
-            return false;
-          }
-        }
-
-        // Location / Site
-        if (activeSite !== 'all') {
-          if (sw.locationId !== activeSite && sw.location?.id !== activeSite) {
             return false;
           }
         }
@@ -234,7 +202,7 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
 
         return true;
       });
-    }, [rawSwitches, activeSearch, activeSite, vendorFilter, roleFilter, statusFilter]);
+    }, [rawSwitches, activeSearch, vendorFilter, roleFilter, statusFilter]);
 
     // Summary Telemetry Metrics
     const metrics = useMemo(() => {
@@ -290,7 +258,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
         serialNumber: sw.serialNumber || '',
         macAddress: sw.macAddress || '',
         firmwareVersion: sw.firmwareVersion || '',
-        locationId: sw.locationId || undefined,
         rackId: sw.rackId || undefined,
         rackPosition: sw.rackPosition || undefined,
         rackHeight: sw.rackHeight || 1,
@@ -320,7 +287,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
             serialNumber: values.serialNumber || null,
             macAddress: values.macAddress || null,
             firmwareVersion: editingSwitch.firmwareVersion ?? null,
-            locationId: values.locationId || null,
             rackId: values.rackId || null,
             rackPosition:
               values.rackId && values.rackId === editingSwitch.rackId
@@ -347,7 +313,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
             serialNumber: values.serialNumber || null,
             macAddress: values.macAddress || null,
             firmwareVersion: null,
-            locationId: values.locationId || null,
             rackId: values.rackId || null,
             rackPosition: values.rackPosition || null,
             rackHeight: 1,
@@ -364,6 +329,7 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
         form.resetFields();
         await loadSwitches();
       } catch (err: unknown) {
+        if (isValidationError(err)) return;
         message.error(formatErrorMessage(err, 'save network switch'));
       } finally {
         setSubmitting(false);
@@ -590,22 +556,7 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
                 ]}
               />
 
-              <Select
-                value={activeSite}
-                onChange={handleSiteChange}
-                style={{ width: 160 }}
-                placeholder="All Locations"
-                options={[
-                  { label: 'All Locations', value: 'all' },
-                  ...effectiveLocations.map((loc) => ({
-                    label: loc.name,
-                    value: loc.id,
-                  })),
-                ]}
-              />
-
               {(activeSearch ||
-                activeSite !== 'all' ||
                 vendorFilter !== 'all' ||
                 roleFilter !== 'all' ||
                 statusFilter !== 'all') && (
@@ -655,7 +606,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
           editingSwitch={editingSwitch}
           form={form}
           submitting={submitting}
-          locations={effectiveLocations}
           racks={effectiveRacks}
           assets={internalAssets}
           onSave={handleSaveSwitch}
@@ -679,7 +629,6 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
             handleOpenEdit(sw);
           }}
           onSelectRack={onSelectRack}
-          locations={effectiveLocations}
           vlans={internalVlans}
           subnets={internalSubnets}
           ips={internalIps}

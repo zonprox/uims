@@ -11,6 +11,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { seedAssets } from './seeders/assets.seeder';
 import { seedAudit } from './seeders/audit.seeder';
+import { seedCostCenters } from './seeders/cost-centers.seeder';
 import { seedDirectory } from './seeders/directory.seeder';
 import { seedInventory } from './seeders/inventory.seeder';
 import { seedLicenses } from './seeders/licenses.seeder';
@@ -36,6 +37,9 @@ async function clearDatabase(client: PrismaClient) {
   logger.log('🧹 Clearing legacy records for clean enterprise seeding...');
   await client.$transaction(
     async (tx) => {
+      // Clear self-referential relations first
+      await tx.asset.updateMany({ data: { parentId: null } });
+
       await tx.reportSchedule.deleteMany();
       await tx.licenseAssignment.deleteMany();
       await tx.notification.deleteMany();
@@ -52,6 +56,7 @@ async function clearDatabase(client: PrismaClient) {
       await tx.inventoryItem.deleteMany();
       await tx.inventoryCategory.deleteMany();
       await tx.asset.deleteMany();
+      await tx.costCenter.deleteMany();
       await tx.assetCategory.deleteMany();
       await tx.license.deleteMany();
       await tx.rolePermission.deleteMany();
@@ -65,10 +70,6 @@ async function clearDatabase(client: PrismaClient) {
       // Clear self-referential parentId on Department before table deletion
       await tx.department.updateMany({ data: { parentId: null } });
       await tx.department.deleteMany();
-
-      // Clear self-referential parentId on Location before table deletion
-      await tx.location.updateMany({ data: { parentId: null } });
-      await tx.location.deleteMany();
 
       // Clear self-referential parentId on Organization before table deletion
       await tx.organization.updateMany({ data: { parentId: null } });
@@ -108,6 +109,10 @@ async function main() {
   logger.log('🏢 Seeding Canonical Enterprise Vendors...');
   const vendorMap = await seedVendors(prisma, ctx);
 
+  // 6.5 Enterprise Cost Centers
+  logger.log('💳 Seeding Enterprise Cost Centers...');
+  const costCenterMap = await seedCostCenters(prisma, ctx);
+
   // 7. Hardware Assets (Assigned to DirectoryUser)
   logger.log('💻 Seeding Hardware Assets Fleet...');
   const createdAssets = await seedAssets(
@@ -117,6 +122,7 @@ async function main() {
     orgResult,
     vendorMap,
     ctx,
+    costCenterMap,
   );
   if (createdAssets) {
     for (const [tag, record] of Object.entries(createdAssets)) {

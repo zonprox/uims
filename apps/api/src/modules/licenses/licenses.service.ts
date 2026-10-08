@@ -8,6 +8,10 @@ import {
 import type { Prisma } from '@prisma/client';
 import type {
   AssignUserLicenseDto,
+  BatchAssignLicensesToUserDto,
+  BatchAssignLicensesToUserResultDto,
+  BatchAssignUserLicenseDto,
+  BatchAssignUserLicenseResultDto,
   CreateLicenseDto,
   LicenseQueryDto,
   LicenseStatsDto,
@@ -377,6 +381,299 @@ export class LicensesService {
         usedSeats: dynamicUsedSeats,
       };
     });
+  }
+
+  async batchAssignUsers(
+    licenseId: string,
+    dto: BatchAssignUserLicenseDto,
+  ): Promise<BatchAssignUserLicenseResultDto> {
+    if (!dto.userIds || !Array.isArray(dto.userIds) || dto.userIds.length === 0) {
+      return { count: 0, assignedUserIds: [], skippedUserIds: [] };
+    }
+
+    const uniqueUserIds = Array.from(
+      new Set(
+        dto.userIds
+          .filter((id): id is string => typeof id === 'string')
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+
+    if (uniqueUserIds.length === 0) {
+      return { count: 0, assignedUserIds: [], skippedUserIds: [] };
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const license = await tx.license.findUnique({
+        where: { id: licenseId },
+        include: { assignments: true },
+      });
+      if (!license) {
+        throw new NotFoundException(`License with ID "${licenseId}" not found`);
+      }
+
+      const existingAssignments = await tx.licenseAssignment.findMany({
+        where: {
+          licenseId,
+          userId: { in: uniqueUserIds },
+          unassignedAt: null,
+        },
+        select: { userId: true },
+        take: uniqueUserIds.length,
+      });
+      const alreadyAssignedUserIds = new Set(
+        existingAssignments.map((a) => a.userId).filter((id): id is string => Boolean(id)),
+      );
+
+      const candidateUserIds = uniqueUserIds.filter((uid) => !alreadyAssignedUserIds.has(uid));
+      const skippedUserIds = uniqueUserIds.filter((uid) => alreadyAssignedUserIds.has(uid));
+
+      if (candidateUserIds.length === 0) {
+        return {
+          count: 0,
+          assignedUserIds: [],
+          skippedUserIds,
+          license,
+        };
+      }
+
+      const users = await tx.directoryUser.findMany({
+        where: { id: { in: candidateUserIds } },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          displayName: true,
+          department: { select: { name: true } },
+        },
+        take: candidateUserIds.length,
+      });
+
+      const userMap = new Map(users.map((u) => [u.id, u]));
+
+      const isUnlimited = license.type === 'OPEN_SOURCE' || license.type === 'OEM';
+      const currentActiveSeats = await tx.licenseAssignment.count({
+        where: {
+          licenseId,
+          unassignedAt: null,
+        },
+      });
+      const availableSeats = isUnlimited
+        ? Infinity
+        : Math.max(0, license.totalSeats - currentActiveSeats);
+
+      if (!isUnlimited && availableSeats <= 0) {
+        throw new BadRequestException(
+          `License seat capacity exceeded: ${currentActiveSeats}/${license.totalSeats} seats currently in use for "${license.name}"`,
+        );
+      }
+
+      const usersToAssign = isUnlimited
+        ? candidateUserIds
+        : candidateUserIds.slice(0, availableSeats);
+      const capacitySkipped = candidateUserIds.slice(usersToAssign.length);
+      skippedUserIds.push(...capacitySkipped);
+
+      const now = new Date();
+      const assignedUserIds: string[] = [];
+
+      for (const uid of usersToAssign) {
+        const u = userMap.get(uid);
+        if (!u) {
+          skippedUserIds.push(uid);
+          continue;
+        }
+
+        const assignedName = u.displayName || `${u.firstName} ${u.lastName}`.trim();
+        const assignedEmail = u.email;
+        const department = u.department?.name || 'General';
+
+        await tx.licenseAssignment.create({
+          data: {
+            licenseId,
+            userId: u.id,
+            assignedName,
+            assignedEmail,
+            department,
+            assignedAt: now,
+            unassignedAt: null,
+          },
+        });
+        assignedUserIds.push(u.id);
+      }
+
+      const dynamicUsedSeats = await tx.licenseAssignment.count({
+        where: {
+          licenseId,
+          unassignedAt: null,
+        },
+      });
+
+      const updatedLicense = await tx.license.update({
+        where: { id: licenseId },
+        data: { usedSeats: dynamicUsedSeats },
+        include: { assignments: true },
+      });
+
+      return {
+        count: assignedUserIds.length,
+        assignedUserIds,
+        skippedUserIds,
+        license: updatedLicense,
+      };
+    });
+
+    if (this.notificationsService && result.assignedUserIds.length > 0) {
+      for (const uid of result.assignedUserIds) {
+        try {
+          await this.notificationsService.notifyUser(uid, {
+            title: 'License Assigned',
+            message: `You have been assigned a seat for "${result.license.name}".`,
+            type: 'INFO',
+            link: '/licenses',
+          });
+        } catch (error: unknown) {
+          this.logger.error(
+            `Failed to dispatch license notification to user "${uid}" for "${result.license.name}"`,
+            error instanceof Error ? error.stack : undefined,
+          );
+        }
+      }
+    }
+
+    return {
+      count: result.count,
+      assignedUserIds: result.assignedUserIds,
+      skippedUserIds: result.skippedUserIds,
+      license: this.formatLicense(result.license),
+    };
+  }
+
+  async batchAssignLicensesToUser(
+    dto: BatchAssignLicensesToUserDto,
+  ): Promise<BatchAssignLicensesToUserResultDto> {
+    if (!dto.licenseIds || !Array.isArray(dto.licenseIds) || dto.licenseIds.length === 0) {
+      return { count: 0, assignedLicenseIds: [], skippedLicenseIds: [] };
+    }
+
+    const uniqueLicenseIds = Array.from(
+      new Set(
+        dto.licenseIds
+          .filter((id): id is string => typeof id === 'string')
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+
+    if (uniqueLicenseIds.length === 0) {
+      return { count: 0, assignedLicenseIds: [], skippedLicenseIds: [] };
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.directoryUser.findUnique({
+        where: { id: dto.userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          displayName: true,
+          department: { select: { name: true } },
+        },
+      });
+      if (!user) {
+        throw new NotFoundException(`Directory user with ID "${dto.userId}" not found`);
+      }
+
+      const assignedName = user.displayName || `${user.firstName} ${user.lastName}`.trim();
+      const assignedEmail = user.email;
+      const department = user.department?.name || 'General';
+
+      const assignedLicenseIds: string[] = [];
+      const skippedLicenseIds: string[] = [];
+      const now = new Date();
+
+      for (const licId of uniqueLicenseIds) {
+        const license = await tx.license.findUnique({ where: { id: licId } });
+        if (!license) {
+          skippedLicenseIds.push(licId);
+          continue;
+        }
+
+        const existing = await tx.licenseAssignment.findFirst({
+          where: {
+            licenseId: licId,
+            userId: user.id,
+            unassignedAt: null,
+          },
+        });
+        if (existing) {
+          skippedLicenseIds.push(licId);
+          continue;
+        }
+
+        const isUnlimited = license.type === 'OPEN_SOURCE' || license.type === 'OEM';
+        const currentActive = await tx.licenseAssignment.count({
+          where: { licenseId: licId, unassignedAt: null },
+        });
+
+        if (!isUnlimited && currentActive >= license.totalSeats) {
+          skippedLicenseIds.push(licId);
+          continue;
+        }
+
+        await tx.licenseAssignment.create({
+          data: {
+            licenseId: licId,
+            userId: user.id,
+            assignedName,
+            assignedEmail,
+            department,
+            assignedAt: now,
+            unassignedAt: null,
+          },
+        });
+
+        const newUsed = currentActive + 1;
+        await tx.license.update({
+          where: { id: licId },
+          data: { usedSeats: newUsed },
+        });
+
+        assignedLicenseIds.push(licId);
+      }
+
+      return {
+        count: assignedLicenseIds.length,
+        assignedLicenseIds,
+        skippedLicenseIds,
+        user,
+      };
+    });
+
+    if (this.notificationsService && result.assignedLicenseIds.length > 0) {
+      try {
+        await this.notificationsService.notifyUser(dto.userId, {
+          title: 'Software Licenses Assigned',
+          message: `You have been assigned ${result.count} software license${result.count > 1 ? 's' : ''}.`,
+          type: 'INFO',
+          link: '/licenses',
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to dispatch batch license notification to user "${dto.userId}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return {
+      count: result.count,
+      assignedLicenseIds: result.assignedLicenseIds,
+      skippedLicenseIds: result.skippedLicenseIds,
+    };
   }
 
   async getStats(): Promise<LicenseStatsDto> {

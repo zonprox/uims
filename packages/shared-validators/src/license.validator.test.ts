@@ -2,6 +2,7 @@ import { LicenseStatus, LicenseType } from '@uims/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   assignUserLicenseSchema,
+  batchAssignLicensesToUserSchema,
   batchAssignUserLicenseSchema,
   createLicenseSchema,
   licenseQuerySchema,
@@ -9,6 +10,9 @@ import {
 } from './license.validator';
 
 describe('license.validator', () => {
+  const validUuid = '123e4567-e89b-12d3-a456-426614174000';
+  const validUuid2 = '223e4567-e89b-12d3-a456-426614174000';
+
   describe('createLicenseSchema', () => {
     it('validates a license with enum type, status, and numeric values', () => {
       const input = {
@@ -19,12 +23,13 @@ describe('license.validator', () => {
         totalSeats: 50,
         costPerSeat: 150,
         cost: 7500,
+        vendorId: validUuid,
       };
       const result = createLicenseSchema.safeParse(input);
       expect(result.success).toBe(true);
     });
 
-    it('accepts string type, string status, and string totalSeats/cost', () => {
+    it('accepts string type, string status, and string totalSeats/cost and normalizes enums', () => {
       const input = {
         name: 'GitHub Enterprise',
         type: 'Perpetual',
@@ -35,6 +40,50 @@ describe('license.validator', () => {
       };
       const result = createLicenseSchema.safeParse(input);
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.type).toBe(LicenseType.PERPETUAL);
+        expect(result.data.status).toBe(LicenseStatus.ACTIVE);
+        expect(result.data.totalSeats).toBe(100);
+        expect(result.data.costPerSeat).toBe(21);
+        expect(result.data.cost).toBe(2100);
+      }
+    });
+
+    it('rejects invalid or unauthorized type and status strings', () => {
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, type: 'INVALID' }).success).toBe(
+        false,
+      );
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, status: 'UNKNOWN' }).success).toBe(
+        false,
+      );
+    });
+
+    it('rejects totalSeats with float, negative, non-numeric, or exceeding 1,000,000', () => {
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10.5 }).success).toBe(false);
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: -5 }).success).toBe(false);
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 'abc' }).success).toBe(false);
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 1_000_001 }).success).toBe(
+        false,
+      );
+    });
+
+    it('rejects invalid currency amounts in cost and costPerSeat', () => {
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, costPerSeat: -1 }).success).toBe(
+        false,
+      );
+      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, cost: 99.999 }).success).toBe(
+        false,
+      );
+    });
+
+    it('validates vendorId UUID format', () => {
+      expect(
+        createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, vendorId: validUuid }).success,
+      ).toBe(true);
+      expect(
+        createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, vendorId: 'invalid-uuid' })
+          .success,
+      ).toBe(false);
     });
 
     it('applies default type and status when omitted', () => {
@@ -69,16 +118,31 @@ describe('license.validator', () => {
         status: 'Expiring',
       });
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.status).toBe(LicenseStatus.EXPIRING_SOON);
+      }
     });
   });
 
   describe('assignUserLicenseSchema & batchAssignUserLicenseSchema', () => {
-    it('validates single user assignment', () => {
+    it('validates single user assignment with email', () => {
       const valid = assignUserLicenseSchema.safeParse({
         email: 'dev@company.com',
         name: 'Jane Doe',
       });
       expect(valid.success).toBe(true);
+    });
+
+    it('validates single user assignment with userId', () => {
+      const valid = assignUserLicenseSchema.safeParse({
+        userId: validUuid,
+      });
+      expect(valid.success).toBe(true);
+    });
+
+    it('rejects assignment when BOTH userId and email are omitted', () => {
+      expect(assignUserLicenseSchema.safeParse({ name: 'Jane Doe' }).success).toBe(false);
+      expect(assignUserLicenseSchema.safeParse({}).success).toBe(false);
     });
 
     it('rejects invalid email in assignment', () => {
@@ -90,9 +154,17 @@ describe('license.validator', () => {
 
     it('validates batch user assignment with uuids', () => {
       const valid = batchAssignUserLicenseSchema.safeParse({
-        userIds: ['123e4567-e89b-12d3-a456-426614174000'],
+        userIds: [validUuid, validUuid2],
       });
       expect(valid.success).toBe(true);
+    });
+
+    it('rejects duplicate user IDs in batch assignment', () => {
+      expect(
+        batchAssignUserLicenseSchema.safeParse({
+          userIds: [validUuid, validUuid],
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects empty batch userIds array', () => {
@@ -100,6 +172,30 @@ describe('license.validator', () => {
         userIds: [],
       });
       expect(empty.success).toBe(false);
+    });
+
+    it('validates batchAssignLicensesToUserSchema', () => {
+      expect(
+        batchAssignLicensesToUserSchema.safeParse({
+          licenseIds: [validUuid, validUuid2],
+          userId: validUuid,
+        }).success,
+      ).toBe(true);
+
+      // Rejects duplicate license IDs
+      expect(
+        batchAssignLicensesToUserSchema.safeParse({
+          licenseIds: [validUuid, validUuid],
+          userId: validUuid,
+        }).success,
+      ).toBe(false);
+
+      // Rejects missing userId
+      expect(
+        batchAssignLicensesToUserSchema.safeParse({
+          licenseIds: [validUuid],
+        }).success,
+      ).toBe(false);
     });
   });
 

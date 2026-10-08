@@ -3,10 +3,10 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DirectoryGroup, DirectoryUser, OrganizationalUnit } from '@uims/shared-types';
+import type { DirectoryGroup, DirectoryUser } from '@uims/shared-types';
 import DirectoryPage from './DirectoryPage';
 
-const { mockEmployees, mockGroups, mockOus } = vi.hoisted(() => {
+const { mockEmployees, mockGroups } = vi.hoisted(() => {
   const employees: DirectoryUser[] = [
     {
       id: 'dir-usr-1',
@@ -44,7 +44,6 @@ const { mockEmployees, mockGroups, mockOus } = vi.hoisted(() => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      ouPath: 'OU=Production,DC=uims,DC=internal',
       status: 'ACTIVE' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 2,
@@ -88,7 +87,6 @@ const { mockEmployees, mockGroups, mockOus } = vi.hoisted(() => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      ouPath: 'OU=Production,DC=uims,DC=internal',
       status: 'ACTIVE' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 1,
@@ -102,7 +100,6 @@ const { mockEmployees, mockGroups, mockOus } = vi.hoisted(() => {
     {
       id: 'grp-1',
       name: 'GR_BSLOTHPrinting',
-      email: 'printing@uims.internal',
       type: 'Security',
       scope: 'Global',
       memberCount: 12,
@@ -112,19 +109,7 @@ const { mockEmployees, mockGroups, mockOus } = vi.hoisted(() => {
     },
   ];
 
-  const ous: OrganizationalUnit[] = [
-    {
-      id: 'ou-1',
-      name: 'Production',
-      dn: 'OU=Production,DC=uims,DC=internal',
-      description: 'Manufacturing operations plant floor',
-      userCount: 42,
-      workstationCount: 38,
-      groupCount: 4,
-    },
-  ];
-
-  return { mockEmployees: employees, mockGroups: groups, mockOus: ous };
+  return { mockEmployees: employees, mockGroups: groups };
 });
 
 vi.mock('../../services/directory.service', () => ({
@@ -137,13 +122,11 @@ vi.mock('../../services/directory.service', () => ({
       totalPages: 1,
     }),
     getGroups: vi.fn().mockResolvedValue(mockGroups),
-    getOrganizationalUnits: vi.fn().mockResolvedValue(mockOus),
     getStats: vi.fn().mockResolvedValue({
       totalEmployees: 2,
       activeEmployees: 2,
       assignedWorkstations: 2,
       totalGroups: 1,
-      totalOUs: 1,
       closedAccounts: 0,
     }),
     getEmployee: vi.fn().mockImplementation((id: string) => {
@@ -182,22 +165,50 @@ vi.mock('../../services/directory.service', () => ({
   },
 }));
 
+vi.mock('../../services/organization.service', () => ({
+  organizationService: {
+    getOrganizations: vi.fn().mockResolvedValue([]),
+    getDepartments: vi.fn().mockResolvedValue([]),
+    getPositions: vi.fn().mockResolvedValue([]),
+    getLocations: vi.fn().mockResolvedValue([]),
+  },
+}));
+
+(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
 describe('DirectoryPage Component Tests', () => {
   let container: HTMLDivElement;
+  let currentRoot: ReturnType<typeof createRoot> | null = null;
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
-  afterEach(() => {
-    document.body.removeChild(container);
-    document.querySelectorAll('.ant-modal-root, .ant-modal-wrap').forEach((el) => el.remove());
+  afterEach(async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (currentRoot) {
+      await act(async () => {
+        currentRoot?.unmount();
+      });
+      currentRoot = null;
+    }
+    if (container.parentNode) {
+      document.body.removeChild(container);
+    }
+    document
+      .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover')
+      .forEach((el) => el.remove());
     vi.clearAllMocks();
   });
 
   const renderComponent = async () => {
     const root = createRoot(container);
+    currentRoot = root;
     await act(async () => {
       root.render(
         createElement(
@@ -227,15 +238,14 @@ describe('DirectoryPage Component Tests', () => {
     expect(container.textContent).toContain('Active Records');
     expect(container.textContent).toContain('Assigned Workstations');
     expect(container.textContent).toContain('Directory Groups');
-    expect(container.textContent).toContain('Organizational Units');
+    expect(container.textContent).not.toContain('Organizational Units');
   });
 
-  it('renders Active Directory Domain Federation alert banner', async () => {
+  it('confirms complete removal of Active Directory Domain Federation alert banner', async () => {
     await renderComponent();
 
-    expect(container.textContent).toContain('Active Directory Domain Federation');
-    expect(container.textContent).toContain('uims.internal');
-    expect(container.textContent).toContain('DC01-PRIMARY');
+    expect(container.textContent).not.toContain('Active Directory Domain Federation');
+    expect(container.textContent).not.toContain('DC01-PRIMARY');
   });
 
   it('renders all primary directory action buttons', async () => {
@@ -287,13 +297,14 @@ describe('DirectoryPage Component Tests', () => {
     expect(labels.some((l) => l?.toLowerCase().includes('password'))).toBe(false);
   });
 
-  it('renders tabs for Employees, Groups, and Organizational Units', async () => {
+  it('renders exactly 2 tabs for Employees and Groups with zero Organizational Units tab', async () => {
     await renderComponent();
 
     const tabElements = Array.from(container.querySelectorAll('.ant-tabs-tab'));
     const tabTexts = tabElements.map((el) => el.textContent);
     expect(tabTexts.some((t) => t?.includes('Employees'))).toBe(true);
     expect(tabTexts.some((t) => t?.includes('Groups'))).toBe(true);
-    expect(tabTexts.some((t) => t?.includes('Organizational Units'))).toBe(true);
+    expect(tabTexts.some((t) => t?.includes('Organizational Units'))).toBe(false);
+    expect(tabElements.length).toBe(2);
   });
 });

@@ -22,11 +22,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
       findFirst: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
     };
-    location: {
-      findFirst: ReturnType<typeof vi.fn>;
-      findUnique: ReturnType<typeof vi.fn>;
-      findMany: ReturnType<typeof vi.fn>;
-    };
     directoryUser: {
       findUnique: ReturnType<typeof vi.fn>;
     };
@@ -70,11 +65,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
         findFirst: vi.fn(),
         findUnique: vi.fn(),
       },
-      location: {
-        findFirst: vi.fn(),
-        findUnique: vi.fn(),
-        findMany: vi.fn(),
-      },
       directoryUser: {
         findUnique: vi.fn(),
       },
@@ -99,7 +89,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
           purchaseDate: new Date('2025-06-15T00:00:00.000Z'),
           warrantyExpiry: new Date('2028-06-15T00:00:00.000Z'),
           category: { name: 'Workstations' },
-          location: { name: 'Engineering Lab 4', fullPath: 'HQ / Building B / Lab 4' },
           department: { name: 'R&D' },
           assignedTo: { firstName: 'Sarah', lastName: 'Connor' },
         },
@@ -135,7 +124,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
         'Category',
         'Status',
         'Department',
-        'Location',
         'Serial Number',
         'Purchase Cost',
         'Purchase Date',
@@ -178,23 +166,22 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
       expect(statusCell?.font?.bold).toBe(true);
 
       expect(dataRow?.getCell(5).value).toBe('R&D');
-      expect(dataRow?.getCell(6).value).toBe('Engineering Lab 4');
-      expect(dataRow?.getCell(7).value).toBe('SN-DELL-9988');
+      expect(dataRow?.getCell(6).value).toBe('SN-DELL-9988');
 
       // Purchase Cost format
-      const costCell = dataRow?.getCell(8);
+      const costCell = dataRow?.getCell(7);
       expect(costCell?.numFmt).toBe('$#,##0.00');
 
       // Date formats
-      const purchaseDateCell = dataRow?.getCell(9);
+      const purchaseDateCell = dataRow?.getCell(8);
       expect(purchaseDateCell?.numFmt).toBe('yyyy-mm-dd');
       expect(purchaseDateCell?.value).toBeInstanceOf(Date);
 
-      const warrantyCell = dataRow?.getCell(10);
+      const warrantyCell = dataRow?.getCell(9);
       expect(warrantyCell?.numFmt).toBe('yyyy-mm-dd');
       expect(warrantyCell?.value).toBeInstanceOf(Date);
 
-      expect(dataRow?.getCell(11).value).toBe('Sarah Connor');
+      expect(dataRow?.getCell(10).value).toBe('Sarah Connor');
     });
 
     it('should correctly format status badge styles across all known and unknown status codes', async () => {
@@ -210,7 +197,12 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
         { status: 'RETIRED', expectedLabel: 'Retired', fill: 'FFF5F5F5', font: 'FF595959' },
         { status: 'LOST', expectedLabel: 'Lost', fill: 'FFFFF1F0', font: 'FFCF1322' },
         { status: 'DISPOSED', expectedLabel: 'Lost', fill: 'FFFFF1F0', font: 'FFCF1322' },
-        { status: 'CUSTOM_STAGED', expectedLabel: 'CUSTOM_STAGED', fill: 'FFF5F5F5', font: 'FF595959' },
+        {
+          status: 'CUSTOM_STAGED',
+          expectedLabel: 'CUSTOM_STAGED',
+          fill: 'FFF5F5F5',
+          font: 'FF595959',
+        },
         { status: null, expectedLabel: 'Unknown', fill: 'FFF5F5F5', font: 'FF595959' },
       ];
 
@@ -221,7 +213,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
         status: item.status,
         serialNumber: `SN-${idx}`,
         category: null,
-        location: null,
         department: null,
         assignedTo: null,
       }));
@@ -437,7 +428,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
           purchaseDate: null,
           warrantyExpiry: null,
           category: null,
-          location: null,
           department: null,
           assignedTo: null,
         },
@@ -454,49 +444,11 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
       expect(row?.getCell(3).value).toBe('Uncategorized');
       expect(row?.getCell(4).value).toBe('Unknown');
       expect(row?.getCell(5).value).toBe('Unassigned');
-      expect(row?.getCell(6).value).toBe('Storage Vault');
-      expect(row?.getCell(7).value).toBe('N/A');
+      expect(row?.getCell(6).value).toBe('N/A');
+      expect(row?.getCell(7).value).toBeNull();
       expect(row?.getCell(8).value).toBeNull();
       expect(row?.getCell(9).value).toBeNull();
-      expect(row?.getCell(10).value).toBeNull();
-      expect(row?.getCell(11).value).toBe('Unassigned');
-    });
-
-    it('should preserve location fallback hierarchy (name -> fullPath -> Storage Vault)', async () => {
-      const mockRes = createMockResponse();
-
-      mockPrisma.asset.findMany.mockResolvedValueOnce([
-        {
-          id: 'ast-loc-1',
-          assetTag: 'AST-L1',
-          name: 'Asset With Name',
-          status: AssetStatus.AVAILABLE,
-          location: { name: 'Rack 12', fullPath: 'HQ / DC / Rack 12' },
-        },
-        {
-          id: 'ast-loc-2',
-          assetTag: 'AST-L2',
-          name: 'Asset With Only FullPath',
-          status: AssetStatus.AVAILABLE,
-          location: { name: null, fullPath: 'HQ / DC / Rack 99' },
-        },
-        {
-          id: 'ast-loc-3',
-          assetTag: 'AST-L3',
-          name: 'Asset With Null Location',
-          status: AssetStatus.AVAILABLE,
-          location: null,
-        },
-      ]);
-
-      await service.exportXlsx({}, mockRes);
-
-      const wb = await readWorkbookFromStream(mockRes);
-      const ws = wb.getWorksheet('Hardware Assets');
-
-      expect(ws?.getRow(2).getCell(6).value).toBe('Rack 12');
-      expect(ws?.getRow(3).getCell(6).value).toBe('HQ / DC / Rack 99');
-      expect(ws?.getRow(4).getCell(6).value).toBe('Storage Vault');
+      expect(row?.getCell(10).value).toBe('Unassigned');
     });
 
     it('should safely handle quotes, commas, XML tags, and special symbols in string fields', async () => {
@@ -513,7 +465,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
           status: AssetStatus.AVAILABLE,
           serialNumber: complexSerial,
           category: { name: 'Servers & Racks' },
-          location: { name: 'Datacenter A -> Row 1 <Cold Aisle>' },
           department: { name: 'Operations, Infrastructure & Cloud' },
           assignedTo: { firstName: `Patrick "Pat"`, lastName: `O'Reilly & Sons` },
         },
@@ -526,23 +477,16 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
       const row = ws?.getRow(2);
 
       expect(row?.getCell(2).value).toBe(complexName);
-      expect(row?.getCell(7).value).toBe(complexSerial);
+      expect(row?.getCell(6).value).toBe(complexSerial);
       expect(row?.getCell(3).value).toBe('Servers & Racks');
       expect(row?.getCell(5).value).toBe('Operations, Infrastructure & Cloud');
-      expect(row?.getCell(6).value).toBe('Datacenter A -> Row 1 <Cold Aisle>');
-      expect(row?.getCell(11).value).toBe(`Patrick "Pat" O'Reilly & Sons`);
+      expect(row?.getCell(10).value).toBe(`Patrick "Pat" O'Reilly & Sons`);
     });
 
     it('should safely preserve potential spreadsheet formula injection strings as text without evaluation', async () => {
       const mockRes = createMockResponse();
 
-      const formulaInjections = [
-        '=SUM(1, 2)',
-        '-2+3',
-        '+cmd| /C calc!A0',
-        '@SUM(A1:A10)',
-        '=1+1',
-      ];
+      const formulaInjections = ['=SUM(1, 2)', '-2+3', '+cmd| /C calc!A0', '@SUM(A1:A10)', '=1+1'];
 
       mockPrisma.asset.findMany.mockResolvedValueOnce(
         formulaInjections.map((inj, idx) => ({
@@ -578,7 +522,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
           name: 'Máy trạm đồ họa chuyên dụng Kỹ thuật số 🚀',
           status: AssetStatus.IN_USE,
           department: { name: 'Phòng Nghiên Cứu & Phát Triển' },
-          location: { name: 'Tòa nhà A - Tầng 7' },
           assignedTo: { firstName: 'Nguyễn', lastName: 'Văn Bình' },
         },
         {
@@ -587,7 +530,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
           name: '東京データセンター 高性能サーバー 💻',
           status: AssetStatus.AVAILABLE,
           department: { name: '情報システム部' },
-          location: { name: '第3ラック' },
           assignedTo: { firstName: '佐藤', lastName: '健一' },
         },
       ];
@@ -602,13 +544,12 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
       const vnRow = ws?.getRow(2);
       expect(vnRow?.getCell(2).value).toBe('Máy trạm đồ họa chuyên dụng Kỹ thuật số 🚀');
       expect(vnRow?.getCell(5).value).toBe('Phòng Nghiên Cứu & Phát Triển');
-      expect(vnRow?.getCell(6).value).toBe('Tòa nhà A - Tầng 7');
-      expect(vnRow?.getCell(11).value).toBe('Nguyễn Văn Bình');
+      expect(vnRow?.getCell(10).value).toBe('Nguyễn Văn Bình');
 
       const cjkRow = ws?.getRow(3);
       expect(cjkRow?.getCell(2).value).toBe('東京データセンター 高性能サーバー 💻');
       expect(cjkRow?.getCell(5).value).toBe('情報システム部');
-      expect(cjkRow?.getCell(11).value).toBe('佐藤 健一');
+      expect(cjkRow?.getCell(10).value).toBe('佐藤 健一');
     });
 
     it('should enforce column width boundaries between 13 and 45 characters', async () => {
@@ -675,7 +616,6 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
     it('should forward search, status, and relation filters to Prisma query in exportXlsx', async () => {
       const mockRes = createMockResponse();
 
-      mockPrisma.location.findMany.mockResolvedValueOnce([{ id: 'loc-child-1' }]);
       mockPrisma.asset.findMany.mockResolvedValueOnce([]);
 
       await service.exportXlsx(

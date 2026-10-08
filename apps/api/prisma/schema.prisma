@@ -48,6 +48,12 @@ enum DirectorySource {
   AZURE_AD
 }
 
+enum DomainJoinStatus {
+  JOINED
+  NOT_JOINED
+  PENDING
+}
+
 enum NotificationType {
   INFO
   WARNING
@@ -98,22 +104,30 @@ model DirectoryUser {
   displayName      String?
   phone            String?
   avatar           String?
-  ouPath           String?
   managerName      String?
   status           AccountStatus   @default(ACTIVE)
   source           DirectorySource @default(LOCAL)
   accountExpiresAt DateTime?
+
+  // Active Directory Domain Join Metadata
+  adDomain         String?
+  computerName     String?
+  domainJoined     Boolean          @default(false)
+  domainJoinStatus DomainJoinStatus @default(NOT_JOINED)
+
+  // Enterprise Email Credentials (Encrypted at rest via AES-256-GCM)
+  emailPassword          String?
+  emailPasswordUpdatedAt DateTime?
+
   departmentId     String?
   positionId       String?
   organizationId   String?
-  locationId       String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
   organization       Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   department         Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   position           Position?             @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  location           Location?             @relation(fields: [locationId], references: [id], onDelete: SetNull)
   assignedAssets     Asset[]               @relation("DirectoryAssignedAssets")
   licenseAssignments LicenseAssignment[]
   groupMemberships   DirectoryMembership[]
@@ -122,13 +136,15 @@ model DirectoryUser {
   @@index([organizationId])
   @@index([departmentId])
   @@index([positionId])
-  @@index([locationId])
   @@index([status])
   @@index([employeeCode])
   @@index([email])
   @@index([firstName, lastName])
-  @@index([ouPath])
   @@index([managerName])
+  @@index([adDomain])
+  @@index([computerName])
+  @@index([domainJoined])
+  @@index([domainJoinStatus])
 }
 
 model Role {
@@ -159,9 +175,29 @@ model RolePermission {
   @@index([permissionId])
 }
 
+model CostCenter {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assets      Asset[]
+
+  @@index([code])
+}
+
 model Asset {
   id             String      @id @default(uuid())
-  assetTag       String      @unique
+  assetCode      String?     @unique
+  subcode        String?     @unique
+  assetTag       String?     @unique
+  parentId       String?
+  parent         Asset?      @relation("AssetHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children       Asset[]     @relation("AssetHierarchy")
+  costCenterId   String?
+  costCenter     CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
   name           String
   description    String?
   categoryId     String?
@@ -169,34 +205,37 @@ model Asset {
   serialNumber   String?
   model          String?
   manufacturer   String?
+  specifications String?
+  unitCost       Float?
   vendorId       String?
   purchaseDate   DateTime?
   warrantyExpiry DateTime?
   assignedToId   String?
   departmentId   String?
-  locationId     String?
   notes          String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  category    AssetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  assignedTo  DirectoryUser?     @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  department  Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  location    Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  vendorRef   Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  ipAddresses IPAddress[]
-  networkSwitch  NetworkSwitch? @relation("SwitchAsset")
-  connectedPorts SwitchPort[]   @relation("ConnectedAssetPorts")
+  category       AssetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  assignedTo     DirectoryUser?     @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  department     Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  vendorRef      Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  ipAddresses    IPAddress[]
+  networkSwitch  NetworkSwitch?     @relation("SwitchAsset")
+  connectedPorts SwitchPort[]       @relation("ConnectedAssetPorts")
 
+  @@index([parentId])
+  @@index([costCenterId])
+  @@index([assetCode])
+  @@index([subcode])
+  @@index([assetTag])
   @@index([assignedToId])
   @@index([categoryId])
   @@index([departmentId])
-  @@index([locationId])
   @@index([vendorId])
   @@index([status])
   @@index([status, updatedAt])
   @@index([warrantyExpiry])
-  @@index([assetTag])
   @@index([name])
   @@index([model])
   @@index([serialNumber])
@@ -232,7 +271,6 @@ model InventoryItem {
   quantity     Int      @default(0)
   minThreshold Int      @default(5)
   unitCost     Float    @default(0)
-  locationId   String?
   binNumber    String?
   supplier     String?
   notes        String?
@@ -240,11 +278,9 @@ model InventoryItem {
   updatedAt    DateTime @updatedAt
 
   category InventoryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  location Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
   @@index([sku])
   @@index([categoryId])
-  @@index([locationId])
   @@index([quantity])
   @@index([name])
   @@index([supplier])
@@ -338,16 +374,13 @@ model VLAN {
   name        String
   description String?
   status      VlanStatus @default(ACTIVE)
-  locationId  String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  location    Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
   subnets     Subnet[]
   ipAddresses IPAddress[]
   switchPorts SwitchPort[]
 
-  @@index([locationId])
   @@index([vlanNumber])
   @@index([name])
 }
@@ -357,7 +390,6 @@ model Subnet {
   cidr             String   @unique
   name             String
   vlanId           String?
-  locationId       String?
   gateway          String?
   networkAddress   String?
   netmask          String?
@@ -372,11 +404,9 @@ model Subnet {
   updatedAt        DateTime @updatedAt
 
   vlan        VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
-  location    Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
   ipAddresses IPAddress[]
 
   @@index([vlanId])
-  @@index([locationId])
   @@index([cidr])
   @@index([name])
 }
@@ -393,7 +423,6 @@ model IPAddress {
   floor          String?
   subnetId       String?
   vlanId         String?
-  locationId     String?
   assetId        String?
   assignedUserId String?
   status         IPStatus  @default(AVAILABLE)
@@ -406,7 +435,6 @@ model IPAddress {
 
   subnet       Subnet?            @relation(fields: [subnetId], references: [id], onDelete: SetNull)
   vlan         VLAN?              @relation(fields: [vlanId], references: [id], onDelete: SetNull)
-  location     Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
   asset        Asset?             @relation(fields: [assetId], references: [id], onDelete: SetNull)
   assignedUser DirectoryUser?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
   managementSwitches NetworkSwitch[] @relation("SwitchManagementIP")
@@ -415,7 +443,6 @@ model IPAddress {
   @@unique([address, subnetId])
   @@index([subnetId])
   @@index([vlanId])
-  @@index([locationId])
   @@index([assetId])
   @@index([assignedUserId])
   @@index([status])
@@ -483,7 +510,6 @@ model NetworkRack {
   id          String     @id @default(uuid())
   name        String
   code        String     @unique
-  locationId  String?
   totalHeight Int        @default(42) // 12, 24, 42, 48 RU
   depth       Float?     // mm (e.g. 1000, 1070)
   width       Float?     // mm (e.g. 600, 800)
@@ -494,10 +520,8 @@ model NetworkRack {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  location Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   switches NetworkSwitch[]
 
-  @@index([locationId])
   @@index([code])
   @@index([name])
   @@index([status])
@@ -521,7 +545,6 @@ model NetworkSwitch {
   rackPosition    Int?         // 1-48 RU starting slot
   rackHeight      Int          @default(1)  // RU occupied (1, 2, 4)
   assetId         String?      @unique
-  locationId      String?
   notes           String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -529,12 +552,10 @@ model NetworkSwitch {
   rack      NetworkRack? @relation(fields: [rackId], references: [id], onDelete: SetNull)
   asset     Asset?       @relation("SwitchAsset", fields: [assetId], references: [id], onDelete: SetNull)
   ipAddress IPAddress?   @relation("SwitchManagementIP", fields: [ipAddressId], references: [id], onDelete: SetNull)
-  location  Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
   ports     SwitchPort[]
 
   @@index([rackId])
   @@index([assetId])
-  @@index([locationId])
   @@index([ipAddressId])
   @@index([role])
   @@index([status])
@@ -671,62 +692,6 @@ model ReportSchedule {
   @@index([category])
 }
 
-enum LocationType {
-  CAMPUS
-  SITE
-  BRANCH
-  BUILDING
-  WORKSHOP
-  WAREHOUSE
-  FLOOR
-  ZONE
-  LINE
-  AREA
-  ROOM
-  RACK
-  SHELF
-  STATION
-  BIN
-}
-
-model Location {
-  id             String        @id @default(uuid())
-  name           String
-  code           String?
-  description    String?
-  type           LocationType  @default(CAMPUS)
-  status         String        @default("ACTIVE")
-  building       String?
-  floor          String?
-  room           String?
-  address        String?
-  parentId       String?
-  parent         Location?     @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children       Location[]    @relation("LocationHierarchy")
-  fullPath       String?
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  assets         Asset[]
-  users          DirectoryUser[]
-  vlans          VLAN[]
-  subnets        Subnet[]
-  ipAddresses    IPAddress[]
-  inventoryItems InventoryItem[]
-  racks          NetworkRack[]
-  switches       NetworkSwitch[]
-
-  @@index([organizationId])
-  @@index([parentId])
-  @@index([type])
-  @@index([status])
-  @@index([name])
-  @@index([code])
-}
-
-
 model Organization {
   id        String   @id @default(uuid())
   name      String
@@ -744,7 +709,6 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   departments Department[]
-  locations   Location[]
   users       DirectoryUser[]
 
   @@index([parentId])

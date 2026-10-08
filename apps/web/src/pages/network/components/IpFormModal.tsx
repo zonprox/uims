@@ -15,7 +15,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
 import type { DirectoryUser } from '../../../services/directory.service';
-import type { LocationBranch } from '../../../services/organization.service';
+import { formRules } from '../../../utils/formValidators';
 import {
   type AutoDetectResult,
   type IPAddress,
@@ -32,7 +32,6 @@ export interface IpFormModalProps {
   submitting: boolean;
   subnets: Subnet[];
   vlans: VLAN[];
-  locations: LocationBranch[];
   assets?: Asset[];
   directoryUsers?: DirectoryUser[];
   onSave: () => void;
@@ -67,7 +66,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
     submitting,
     subnets,
     vlans,
-    locations,
     assets = [],
     directoryUsers = [],
     onSave,
@@ -101,16 +99,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
       [vlans],
     );
 
-    // Location Options
-    const locationOptions = useMemo(
-      () =>
-        locations.map((loc) => ({
-          label: `${loc.name} ${loc.building ? `(${loc.building})` : ''}`,
-          value: loc.id,
-        })),
-      [locations],
-    );
-
     // Asset Options
     const assetOptions = useMemo(
       () =>
@@ -142,10 +130,6 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
               setDetectedNetwork(result);
               if (result.matchedSubnet) {
                 form.setFieldValue('subnetId', result.matchedSubnet.id);
-                // Subnet cascading defaults: auto-fill location and VLAN from matched subnet
-                if (result.matchedSubnet.locationId && !form.getFieldValue('locationId')) {
-                  form.setFieldValue('locationId', result.matchedSubnet.locationId);
-                }
               }
               if (result.matchedVlan) {
                 form.setFieldValue('vlanId', result.matchedVlan.id);
@@ -186,15 +170,12 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
       [form],
     );
 
-    // Subnet Selection Cascading Defaults: auto-fills VLAN and Location
+    // Subnet Selection Cascading Defaults: auto-fills VLAN
     const handleSubnetSelect = (subnetId: string) => {
       const selected = subnets.find((s) => s.id === subnetId);
       if (selected) {
         if (selected.vlanId && !form.getFieldValue('vlanId')) {
           form.setFieldValue('vlanId', selected.vlanId);
-        }
-        if (selected.locationId && !form.getFieldValue('locationId')) {
-          form.setFieldValue('locationId', selected.locationId);
         }
       }
     };
@@ -260,7 +241,12 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
         okText={editingIp ? 'Save Changes' : 'Allocate IP'}
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={form} layout="vertical">
+        <Form
+          form={form}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={16}>
             <Col span={24}>
               <Form.Item
@@ -282,11 +268,8 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                 }
                 name="address"
                 rules={[
-                  { required: true, message: 'IP address is required' },
-                  {
-                    pattern: /^(\d{1,3}\.){3}\d{1,3}$/,
-                    message: 'Enter a valid IPv4 address (e.g. 10.232.130.15)',
-                  },
+                  formRules.required('IP address is required'),
+                  formRules.ipv4('Enter a valid IPv4 address (e.g. 10.232.130.15)'),
                 ]}
               >
                 <Input
@@ -313,11 +296,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
                 label="MAC Address"
                 name="macAddress"
                 rules={[
-                  {
-                    pattern:
-                      /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$/,
-                    message: 'Enter valid MAC address (e.g. 00:1B:44:11:3A:B7)',
-                  },
+                  formRules.mac('Enter valid MAC address (e.g. 00:1B:44:11:3A:B7)'),
                 ]}
               >
                 <Input
@@ -443,20 +422,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Physical Site / Location" name="locationId">
-                <Select
-                  placeholder="Select Location"
-                  showSearch
-                  allowClear
-                  options={locationOptions}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
+            <Col span={24}>
               <Form.Item label="Section / Floor" name="section">
                 <Input placeholder="e.g. Floor 2 - Production Line 3" />
               </Form.Item>

@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { LocationType, type OrgNode } from '@uims/shared-types';
+import type { OrgNode } from '@uims/shared-types';
 import * as dotenv from 'dotenv';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PrismaService } from '../../src/database/prisma.service';
@@ -97,7 +97,7 @@ describe('Milestone 2 Challenger 2 — Empirical Adversarial Hierarchy & Seeder 
   // 2. BSH (HO CHI MINH) OFFICE-ONLY STANDARDIZATION & PRODUCTION PURITY
   // =========================================================================
   describe('Mission 2: BSH Office-Only Purity & Zero Production Locations', () => {
-    it('2.1 BSH should show exactly 2 branch office locations and 0 production facilities', async () => {
+    it.skip('2.1 BSH should show exactly 2 branch office locations and 0 production facilities [SKIPPED - Location Purge]', async () => {
       const tree = await service.getHierarchyTree();
       const holding = tree[0];
       const bsh = holding.children?.find((c) => c.code === 'BSH');
@@ -184,7 +184,7 @@ describe('Milestone 2 Challenger 2 — Empirical Adversarial Hierarchy & Seeder 
   // 3. BSL (SOC TRANG) COMPLEX: BC, WAREHOUSE & 7 FACTORIES (9x9 MODELING)
   // =========================================================================
   describe('Mission 3: BSL Facilities & 7 Factories with 9 Functional Departments', () => {
-    it('3.1 BSL should show BC Building, Central Warehouse, and 7 Factories under campus root', async () => {
+    it.skip('3.1 BSL should show BC Building, Central Warehouse, and 7 Factories under campus root [SKIPPED - Location Purge]', async () => {
       const tree = await service.getHierarchyTree();
       const holding = tree[0];
       const bsl = holding.children?.find((c) => c.code === 'BSL');
@@ -211,7 +211,7 @@ describe('Milestone 2 Challenger 2 — Empirical Adversarial Hierarchy & Seeder 
       }
     });
 
-    it('3.2 BC Building should contain 6 sub-locations including HR & Compliance (loc-bsl-bc-hr)', async () => {
+    it.skip('3.2 BC Building should contain 6 sub-locations including HR & Compliance (loc-bsl-bc-hr) [SKIPPED - Location Purge]', async () => {
       const tree = await service.getHierarchyTree();
       const holding = tree[0];
       const bsl = holding.children?.find((c) => c.code === 'BSL');
@@ -231,7 +231,7 @@ describe('Milestone 2 Challenger 2 — Empirical Adversarial Hierarchy & Seeder 
       expect(bcCodes).toContain('BC-F1-DC102');
     });
 
-    it('3.3 Central Warehouse should contain 3 specialized zones (Raw, Finished Goods, Spare Parts)', async () => {
+    it.skip('3.3 Central Warehouse should contain 3 specialized zones (Raw, Finished Goods, Spare Parts) [SKIPPED - Location Purge]', async () => {
       const tree = await service.getHierarchyTree();
       const holding = tree[0];
       const bsl = holding.children?.find((c) => c.code === 'BSL');
@@ -294,7 +294,7 @@ describe('Milestone 2 Challenger 2 — Empirical Adversarial Hierarchy & Seeder 
       }
     });
 
-    it('3.5 All 7 Factories must each contain 9 physical functional sections in Location tree', async () => {
+    it.skip('3.5 All 7 Factories must each contain 9 physical functional sections in Location tree [SKIPPED - Location Purge]', async () => {
       const tree = await service.getHierarchyTree();
       const holding = tree[0];
       const bsl = holding.children?.find((c) => c.code === 'BSL');
@@ -324,7 +324,7 @@ describe('Milestone 2 Challenger 2 — Empirical Adversarial Hierarchy & Seeder 
   // =========================================================================
   // 4. SPATIAL LOCATION LOOKUPS & DESCENDANT RESOLUTION (BACKWARD COMPATIBILITY)
   // =========================================================================
-  describe('Mission 4: Backward Compatibility of Spatial Location Lookups', () => {
+  describe.skip('Mission 4: Backward Compatibility of Spatial Location Lookups [SKIPPED - Location Purge]', () => {
     it('4.1 should resolve loc-bsl-f1-sew-st1 with intact fullPath breadcrumbs and metadata', async () => {
       const loc = await service.findLocation('loc-bsl-f1-sew-st1');
       expect(loc).toBeDefined();

@@ -477,7 +477,6 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
       // Verify batch pre-fetch calls: EXACTLY 1 batch call each, NOT 5 sequential calls
       expect(mockPrisma.department.findMany).toHaveBeenCalledTimes(1);
       expect(mockPrisma.organization.findMany).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.location.findMany).toHaveBeenCalledTimes(1);
       expect(mockPrisma.position.findMany).toHaveBeenCalledTimes(1);
       expect(mockPrisma.directoryGroup.findMany).toHaveBeenCalledTimes(1);
       expect(mockPrisma.directoryUser.findMany).toHaveBeenCalledTimes(1);
@@ -485,7 +484,6 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
       // Verify ZERO sequential findFirst calls were made since all were resolved from pre-fetch cache
       expect(mockPrisma.department.findFirst).not.toHaveBeenCalled();
       expect(mockPrisma.organization.findFirst).not.toHaveBeenCalled();
-      expect(mockPrisma.location.findFirst).not.toHaveBeenCalled();
       expect(mockPrisma.position.findFirst).not.toHaveBeenCalled();
       expect(mockPrisma.directoryGroup.findFirst).not.toHaveBeenCalled();
       expect(mockPrisma.directoryUser.findFirst).not.toHaveBeenCalled();
@@ -494,7 +492,6 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
       const firstCreateData = mockPrisma.directoryUser.create.mock.calls[0][0].data;
       expect(firstCreateData.departmentId).toBe('dept-eng');
       expect(firstCreateData.organizationId).toBe('org-bsl');
-      expect(firstCreateData.locationId).toBe('loc-p1');
       expect(firstCreateData.positionId).toBe('pos-tech');
     });
 
@@ -537,7 +534,6 @@ describe('M1 Empirical Challenger — Database Aggregations (TD-003) & Batch Imp
         firstName: 'OldFirst',
         lastName: 'OldLast',
         phone: '123',
-        ouPath: 'OU=Old',
         managerName: 'OldMgr',
       };
 

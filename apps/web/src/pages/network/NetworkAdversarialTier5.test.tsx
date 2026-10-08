@@ -154,9 +154,9 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(container.querySelector('[data-testid="left-rail-u-1"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="left-rail-u-2"]')).toBeNull();
 
-      // Space Telemetry: 1 / 1 U (100%), 0 U Available
-      expect(container.textContent).toContain('1 / 1 U (100%)');
-      expect(container.textContent).toContain('0 U Available');
+      // Space Telemetry card is omitted per streamlined R3 UI
+      expect(container.textContent).not.toContain('Space Utilization');
+      expect(container.querySelector('.ant-progress')).toBeNull();
 
       // Device rendered at slot 1
       const devEl = container.querySelector('[data-testid="mounted-device-sw-micro-1"]');
@@ -198,9 +198,9 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(container.querySelector('[data-testid="left-rail-u-53"]')).toBeNull();
       expect(container.querySelector('[data-testid="left-rail-u-1"]')).toBeNull();
 
-      // Space Telemetry: 3 / 52 U (5.8%), 49 U Available
-      expect(container.textContent).toContain('3 / 52 U (5.8%)');
-      expect(container.textContent).toContain('49 U Available');
+      // Space Telemetry card is omitted per streamlined R3 UI
+      expect(container.textContent).not.toContain('Space Utilization');
+      expect(container.querySelector('.ant-progress')).toBeNull();
 
       // Mounted device pixel height: 3 * 28 = 84px
       const devEl = container.querySelector(
@@ -224,7 +224,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(container.textContent).toContain('42U Standard');
       expect(container.textContent).toContain('42U CABINET');
       expect(container.textContent).not.toContain('NaN');
-      expect(container.textContent).toContain('0 / 42 U (0%)');
     });
 
     it('Case 1.4: stress-tests 100% full saturation with 42 contiguous 1U devices with zero collisions', async () => {
@@ -267,9 +266,12 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
 
       await renderWithContext(<RackElevationView rack={saturatedRack} />);
 
-      // Telemetry: 42 / 42 U (100%), 0 U Available
-      expect(container.textContent).toContain('42 / 42 U (100%)');
-      expect(container.textContent).toContain('0 U Available');
+      // Mount button is disabled when cabinet is 100% full
+      const mountBtn = container.querySelector(
+        '[data-testid="mount-equipment-btn"]',
+      ) as HTMLButtonElement | null;
+      expect(mountBtn).not.toBeNull();
+      expect(mountBtn?.disabled).toBe(true);
 
       // No collision banner
       expect(container.textContent).not.toContain('Rack Collision Detected');
@@ -321,9 +323,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(container.querySelector('[data-testid="mounted-device-dev-1"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="mounted-device-dev-2"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="mounted-device-dev-3"]')).not.toBeNull();
-
-      // Occupancy metrics: 2 + 1 + 4 = 7U
-      expect(container.textContent).toContain('7 / 42 U (16.7%)');
     });
   });
 
@@ -683,12 +682,9 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
           ips={[partialIp]}
           subnets={[]}
           vlans={[]}
-          locations={[]}
           loading={false}
           searchQuery=""
           onSearchChange={vi.fn()}
-          siteFilter="all"
-          onSiteChange={vi.fn()}
           vlanFilter="all"
           onVlanChange={vi.fn()}
           subnetFilter="all"
@@ -722,7 +718,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
         status: 'Active',
         assignedTo: 'Admin',
         assignedEmail: 'admin@youngonevn.com',
-        location: 'Datacenter',
         purchaseDate: '2025-01-01',
         warrantyExpiry: '2028-01-01',
         networkConnectivity: {

@@ -3,10 +3,8 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Location } from '@uims/shared-types';
 import type { NetworkRack, NetworkSwitch, SwitchPort } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
-import type { LocationBranch } from '../../../services/organization.service';
 import { PortConfigDrawer } from './PortConfigDrawer';
 import { SwitchFaceplateDrawer } from './SwitchFaceplateDrawer';
 import { SwitchManagementTab } from './SwitchManagementTab';
@@ -36,21 +34,6 @@ vi.mock('../../../services/network.service', async () => {
 describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
   let container: HTMLDivElement;
   let currentRoot: Root | null = null;
-
-  const mockLocationBranch: LocationBranch = {
-    id: 'loc-dc1',
-    name: 'Core Datacenter',
-    code: 'DC1',
-    type: 'DATACENTER',
-  };
-
-  const mockSwitchLocation: Location = {
-    id: 'loc-dc1',
-    name: 'Core Datacenter',
-    code: 'DC1',
-    createdAt: '2026-09-01T00:00:00Z',
-    updatedAt: '2026-09-01T00:00:00Z',
-  };
 
   const mockRack: NetworkRack = {
     id: 'rack-dc-01',
@@ -211,8 +194,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
     rackPosition: 37,
     rackHeight: 1,
     rack: mockRack,
-    locationId: 'loc-dc1',
-    location: mockSwitchLocation,
     notes: 'Datacenter Distribution Switch',
     ports: mock24Ports,
     activePortsCount: 16,
@@ -242,8 +223,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
     rackPosition: 39,
     rackHeight: 1,
     rack: mockRack,
-    locationId: 'loc-dc1',
-    location: mockSwitchLocation,
     notes: 'BSL Datacenter Core Switch (Stack Master)',
     ports: [],
     activePortsCount: 38,
@@ -273,8 +252,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
     rackPosition: 20,
     rackHeight: 1,
     rack: mockRack,
-    locationId: 'loc-dc1',
-    location: mockSwitchLocation,
     notes: 'BSL Edge Compact Switch',
     ports: [],
     activePortsCount: 6,
@@ -304,8 +281,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
     rackPosition: 22,
     rackHeight: 1,
     rack: mockRack,
-    locationId: 'loc-dc1',
-    location: mockSwitchLocation,
     notes: 'BSL Branch Office Switch',
     ports: [],
     activePortsCount: 12,
@@ -544,19 +519,33 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       expect(nullInfo.status).toBe('DOWN');
     });
 
-    it('Case 2.3: renders PoE delivery active badge (⚡) on PoE-enabled ports', async () => {
+    it('Case 2.3: renders PoE delivery active orange LED on PoE-enabled ports with horizontal dual-LED layout', async () => {
       await renderWithContext(
         <SwitchPortFaceplate switchEntity={mock24PortSwitch} ports={mock24Ports} totalPorts={24} />,
       );
 
-      // Port 1 has poeEnabled: true
-      const poe1 = container.querySelector('[data-testid="poe-badge-1"]');
+      // Port 1 has poeEnabled: true -> orange LED rendered instead of lightning bolt
+      const poe1 = container.querySelector('[data-testid="poe-badge-1"]') as HTMLElement | null;
       expect(poe1).not.toBeNull();
-      expect(poe1?.textContent).toContain('⚡');
+      expect(poe1?.textContent).not.toContain('⚡');
+      expect(poe1?.style.backgroundColor).toBe('#fa8c16');
 
-      // Port 2 has poeEnabled: false
+      // Verify dual-LED horizontal group exists with both signal LED and power LED
+      const ledGroup1 = container.querySelector('[data-testid="port-led-group-1"]');
+      expect(ledGroup1).not.toBeNull();
+      const signalLed1 = container.querySelector(
+        '[data-testid="port-led-1"]',
+      ) as HTMLElement | null;
+      expect(signalLed1).not.toBeNull();
+
+      // Port 2 has poeEnabled: false -> unlit power LED, no poe-badge
       const poe2 = container.querySelector('[data-testid="poe-badge-2"]');
       expect(poe2).toBeNull();
+      const powerLed2 = container.querySelector(
+        '[data-testid="power-led-2"]',
+      ) as HTMLElement | null;
+      expect(powerLed2).not.toBeNull();
+      expect(powerLed2?.style.backgroundColor).toBe('#262626');
     });
 
     it('Case 2.4: renders simplified boolean PoE active status without wattage detail in port tooltip', async () => {
@@ -749,18 +738,12 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       expect(body.textContent).toContain('Port Matrix & Endpoint Directory');
     });
 
-    it('Case 4.4: SwitchFaceplateDrawer renders very long switch names, models, and locations cleanly with responsive ellipsis without overflowing', async () => {
+    it('Case 4.4: SwitchFaceplateDrawer renders very long switch names and models cleanly with responsive ellipsis without overflowing', async () => {
       const longSwitch = {
         ...mock24PortSwitch,
         name: 'Enterprise Ultra Core Spine Distribution Chassis Switch Stack Unit 01',
         model:
           'Catalyst 9600 Series Supervisor 2 High-Density Multi-Rate Modular Enterprise Core Switch',
-        location: {
-          ...mockSwitchLocation,
-          id: 'loc-long',
-          name: 'Global Enterprise Hyperscale Multi-Tenant Datacenter Facility Building 404 Floor 3 Server Room Alpha',
-          code: 'DC-LONG',
-        },
       };
 
       vi.mocked(networkService.getSwitchPorts).mockResolvedValueOnce([]);
@@ -772,7 +755,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       const body = document.body;
       expect(body.textContent).toContain('Enterprise Ultra');
       expect(body.textContent).toContain('Catalyst 9600');
-      expect(body.textContent).toContain('Global Enterprise Hyperscale');
     });
 
     it('Case 4.5: SwitchFaceplateDrawer renders empty and undefined metadata gracefully with fallback dashes', async () => {
@@ -786,7 +768,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
         firmwareVersion: undefined,
         rack: null,
         rackPosition: null,
-        location: null,
       };
 
       vi.mocked(networkService.getSwitchPorts).mockResolvedValueOnce([]);
@@ -808,7 +789,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
         <SwitchManagementTab
           switches={[mock24PortSwitch, mock48PortSwitch]}
           racks={[mockRack]}
-          locations={[mockLocationBranch]}
         />,
       );
 
@@ -840,7 +820,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
         <SwitchManagementTab
           switches={[mock24PortSwitch]}
           racks={[mockRack]}
-          locations={[mockLocationBranch]}
         />,
       );
 

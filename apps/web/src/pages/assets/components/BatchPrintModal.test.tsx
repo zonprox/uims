@@ -25,7 +25,6 @@ describe('BatchPrintModal Component', () => {
       status: 'Active',
       assignedTo: 'Marcus Vance',
       assignedEmail: 'marcus@uims.internal',
-      location: 'Floor 4',
       purchaseDate: '2026-01-15',
       warrantyExpiry: '2029-01-15',
     },
@@ -40,7 +39,6 @@ describe('BatchPrintModal Component', () => {
       status: 'In Storage',
       assignedTo: '',
       assignedEmail: '',
-      location: 'Warehouse B',
       purchaseDate: '2025-11-20',
       warrantyExpiry: '2028-11-20',
     },
@@ -131,8 +129,8 @@ describe('BatchPrintModal Component', () => {
     const onClose = vi.fn();
     await renderComponent({ open: true, assets: mockAssets, onClose });
 
-    const closeButton = Array.from(document.body.querySelectorAll('button')).find((btn) =>
-      btn.textContent?.trim() === 'Close',
+    const closeButton = Array.from(document.body.querySelectorAll('button')).find(
+      (btn) => btn.textContent?.trim() === 'Close',
     );
     expect(closeButton).toBeDefined();
 

@@ -1,5 +1,4 @@
 import type { Asset } from './asset';
-import type { Location } from './common';
 import type { DirectoryUser } from './directory';
 
 export enum IPStatus {
@@ -82,8 +81,6 @@ export interface VLAN {
   name: string;
   description?: string | null;
   status: VlanStatus | `${VlanStatus}`;
-  locationId?: string | null;
-  location?: Location | null;
   subnets?: Subnet[];
   ipAddresses?: IPAddress[];
   switchPorts?: SwitchPort[];
@@ -96,7 +93,6 @@ export interface Subnet {
   cidr: string;
   name: string;
   vlanId?: string | null;
-  locationId?: string | null;
   gateway?: string | null;
   networkAddress?: string | null;
   netmask?: string | null;
@@ -108,10 +104,8 @@ export interface Subnet {
   reservedIps?: number;
   description?: string | null;
   vlan?: VLAN | null;
-  location?: Location | null;
   ipAddresses?: IPAddress[];
   vlanName?: string | null;
-  locationName?: string | null;
   utilization?: number;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -121,8 +115,6 @@ export interface NetworkRack {
   id: string;
   name: string;
   code: string;
-  locationId?: string | null;
-  location?: Location | null;
   totalHeight: number; // 12, 24, 42, 48 RU
   depth?: number | null; // mm
   width?: number | null; // mm
@@ -165,8 +157,6 @@ export interface NetworkSwitch {
   rackHeight: number; // default 1
   assetId?: string | null;
   asset?: Asset | null;
-  locationId?: string | null;
-  location?: Location | null;
   notes?: string | null;
   ports?: SwitchPort[];
   activePortsCount?: number;
@@ -243,7 +233,6 @@ export interface IPAddress {
   floor?: string | null;
   subnetId?: string | null;
   vlanId?: string | null;
-  locationId?: string | null;
   assetId?: string | null;
   assignedUserId?: string | null;
   status: IPStatus | `${IPStatus}`;
@@ -253,7 +242,6 @@ export interface IPAddress {
   description?: string | null;
   subnet?: Subnet | null;
   vlan?: VLAN | null;
-  location?: Location | null;
   asset?: Asset | null;
   assignedUser?: DirectoryUser | null;
   // Upstream Switch & Port linkage

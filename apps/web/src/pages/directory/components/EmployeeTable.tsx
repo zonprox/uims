@@ -4,12 +4,12 @@ import {
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
-  EnvironmentOutlined,
   EyeOutlined,
   LaptopOutlined,
   PhoneOutlined,
   SafetyCertificateOutlined,
   UserOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import type { DirectoryUser } from '@uims/shared-types';
 import {
@@ -65,9 +65,19 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
               {(record.firstName || record.fullName || 'E')[0]?.toUpperCase()}
             </Avatar>
             <Flex vertical style={{ minWidth: 0 }}>
-              <Text strong style={{ fontSize: 13, lineHeight: '18px' }}>
-                {record.fullName || `${record.firstName} ${record.lastName}`.trim()}
-              </Text>
+              <Flex align="center" gap={6}>
+                <Text strong style={{ fontSize: 13, lineHeight: '18px' }}>
+                  {record.fullName || `${record.firstName} ${record.lastName}`.trim()}
+                </Text>
+                {record.domainJoined && (
+                  <Tag
+                    color="geekblue"
+                    style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
+                  >
+                    AD
+                  </Tag>
+                )}
+              </Flex>
               {record.employeeCode && (
                 <Text type="secondary" style={{ fontSize: 11.5 }}>
                   #{record.employeeCode}
@@ -84,6 +94,11 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
           <Flex vertical gap={2}>
             <Flex align="center" gap={6}>
               <Text style={{ fontSize: 12 }}>{record.email}</Text>
+              {record.hasEmailPassword && (
+                <Tooltip title="Enterprise Email Password Configured">
+                  <KeyOutlined style={{ fontSize: 11, color: token.colorPrimary }} />
+                </Tooltip>
+              )}
               <Tooltip title="Copy email address">
                 <Button
                   type="text"
@@ -118,15 +133,6 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
               {record.organization ? (
                 <Tag color="purple" icon={<BankOutlined />} style={{ margin: 0, fontSize: 10.5 }}>
                   {record.organization.name}
-                </Tag>
-              ) : null}
-              {record.location ? (
-                <Tag
-                  color="green"
-                  icon={<EnvironmentOutlined />}
-                  style={{ margin: 0, fontSize: 10.5 }}
-                >
-                  {record.location.name}
                 </Tag>
               ) : null}
             </Flex>

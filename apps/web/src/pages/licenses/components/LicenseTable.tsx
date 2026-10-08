@@ -13,10 +13,20 @@ export interface LicenseTableProps {
   onOpenSeatsDrawer: (license: License) => void;
   onOpenEditModal: (license: License) => void;
   onDeleteLicense: (id: string) => void;
+  selectedRowKeys?: React.Key[];
+  onSelectionChange?: (keys: React.Key[], rows?: License[]) => void;
 }
 
 export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
-  ({ licenses, loading, onOpenSeatsDrawer, onOpenEditModal, onDeleteLicense }) => {
+  ({
+    licenses,
+    loading,
+    onOpenSeatsDrawer,
+    onOpenEditModal,
+    onDeleteLicense,
+    selectedRowKeys,
+    onSelectionChange,
+  }) => {
     const columns = useMemo(
       () => [
         {
@@ -196,6 +206,14 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
         dataSource={licenses}
         rowKey="id"
         loading={loading}
+        rowSelection={
+          onSelectionChange
+            ? {
+                selectedRowKeys,
+                onChange: onSelectionChange,
+              }
+            : undefined
+        }
         scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,

@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { LocationController } from './location.controller';
 import {
   DepartmentController,
   OrganizationController,
@@ -12,7 +11,6 @@ import { OrganizationService } from './organization.service';
     OrganizationController,
     DepartmentController,
     PositionController,
-    LocationController,
   ],
   providers: [OrganizationService],
   exports: [OrganizationService],

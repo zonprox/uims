@@ -22,7 +22,6 @@ function createAdversarialAsset(overrides: Partial<Asset> = {}): Asset {
     status: 'Active',
     assignedTo: 'Engineer Doe',
     assignedEmail: 'engineer@uims.internal',
-    location: 'Floor 4, Pod B',
     purchaseDate: '2026-01-01',
     warrantyExpiry: '2029-01-01',
     ...overrides,
@@ -147,7 +146,11 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       currentRoot = createRoot(container);
       await act(async () => {
         currentRoot?.render(
-          createElement(ConfigProvider, null, createElement(App, null, createElement(DynamicWrapper))),
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(App, null, createElement(DynamicWrapper)),
+          ),
         );
       });
 
@@ -187,8 +190,8 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       expect(svg).not.toBeNull();
       expect(svg?.tagName.toLowerCase()).toBe('svg');
 
-      // Card must render UIMS ASSET brand header
-      expect(card.textContent).toContain('UIMS ASSET');
+      // Card must render IT ASSET TAGGING brand header
+      expect(card.textContent).toContain('IT ASSET TAGGING');
     });
 
     it('renders prominent bold monospace asset tag on each card', async () => {
@@ -256,7 +259,7 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       expect(cards[2].textContent).toContain('Hardware Asset');
     });
 
-    it('renders serial number with monospace font when present, and omits when empty or null', async () => {
+    it('omits serial number from label cards in compliance with asset tagging specification', async () => {
       const assetWithSn = createAdversarialAsset({
         id: 'ast-sn-1',
         tag: 'AST-SN-1',
@@ -278,15 +281,9 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       });
 
       const cards = container.querySelectorAll('.printable-sheet-card');
-      expect(cards[0].textContent).toContain('S/N: SN-REAL-999');
+      expect(cards[0].textContent).not.toContain('S/N:');
       expect(cards[1].textContent).not.toContain('S/N:');
       expect(cards[2].textContent).not.toContain('S/N:');
-
-      // Verify monospace styling on serial number
-      const snSpan = Array.from(cards[0].querySelectorAll('span')).find(
-        (span) => span.textContent === 'S/N: SN-REAL-999',
-      );
-      expect(snSpan?.style.fontFamily).toContain('ui-monospace');
     });
   });
 
@@ -343,15 +340,27 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
 
       // 5. Multi-column A4 grid rules
       expect(cssContent).toMatch(/\.printable-asset-sheet[\s\S]*?display:\s*grid\s*!important/);
-      expect(cssContent).toMatch(/\.printable-asset-sheet[\s\S]*?grid-template-columns:\s*repeat\(3,\s*1fr\)\s*!important/);
-      expect(cssContent).toMatch(/\.printable-asset-sheet\.cols-4[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)\s*!important/);
+      expect(cssContent).toMatch(
+        /\.printable-asset-sheet[\s\S]*?grid-template-columns:\s*repeat\(3,\s*1fr\)\s*!important/,
+      );
+      expect(cssContent).toMatch(
+        /\.printable-asset-sheet\.cols-4[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)\s*!important/,
+      );
 
       // 6. Label card cut guides & page-break avoidance in print media
       expect(cssContent).toMatch(/\.printable-sheet-card[\s\S]*?position:\s*static\s*!important/);
-      expect(cssContent).toMatch(/\.printable-sheet-card[\s\S]*?break-inside:\s*avoid\s*!important/);
-      expect(cssContent).toMatch(/\.printable-sheet-card[\s\S]*?page-break-inside:\s*avoid\s*!important/);
-      expect(cssContent).toMatch(/\.printable-sheet-card[\s\S]*?border:\s*1\.5px\s*dashed\s*#777777\s*!important/);
-      expect(cssContent).toMatch(/\.printable-sheet-card[\s\S]*?padding:\s*8px\s*10px\s*!important/);
+      expect(cssContent).toMatch(
+        /\.printable-sheet-card[\s\S]*?break-inside:\s*avoid\s*!important/,
+      );
+      expect(cssContent).toMatch(
+        /\.printable-sheet-card[\s\S]*?page-break-inside:\s*avoid\s*!important/,
+      );
+      expect(cssContent).toMatch(
+        /\.printable-sheet-card[\s\S]*?border:\s*1\.5px\s*dashed\s*#777777\s*!important/,
+      );
+      expect(cssContent).toMatch(
+        /\.printable-sheet-card[\s\S]*?padding:\s*8px\s*10px\s*!important/,
+      );
     });
   });
 
@@ -489,8 +498,8 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
         onClose,
       });
 
-      const closeBtn = Array.from(document.body.querySelectorAll('button')).find((btn) =>
-        btn.textContent?.trim() === 'Close',
+      const closeBtn = Array.from(document.body.querySelectorAll('button')).find(
+        (btn) => btn.textContent?.trim() === 'Close',
       );
       expect(closeBtn).toBeDefined();
 
@@ -554,7 +563,7 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       const card = container.querySelector('.printable-sheet-card') as HTMLElement;
       expect(card).not.toBeNull();
       expect(card.textContent).toContain(megaTag);
-      expect(card.textContent).toContain(`S/N: ${megaSerial}`);
+      expect(card.textContent).not.toContain('S/N:');
 
       // QR Code must still render SVG without throwing
       const svg = card.querySelector('svg');
@@ -565,7 +574,7 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       const xssAsset = createAdversarialAsset({
         tag: '<script>alert("xss")</script>',
         name: '<img src=x onerror="window.xssBreached=true"><b>Bold</b>',
-        serialNumber: '\'); DROP TABLE "Asset";-- <style>body{display:none}</style>',
+        costCenter: '\'); DROP TABLE "Asset";--',
       });
 
       await renderSheet({ assets: [xssAsset], columns: 3 });
@@ -578,14 +587,18 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       expect(card).not.toBeNull();
       // Rendered as plain text
       expect(card.textContent).toContain('<script>alert("xss")</script>');
-      expect(card.textContent).toContain('<img src=x onerror="window.xssBreached=true"><b>Bold</b>');
+      expect(card.textContent).toContain(
+        '<img src=x onerror="window.xssBreached=true"><b>Bold</b>',
+      );
       expect(card.textContent).toContain('\'); DROP TABLE "Asset";--');
+      expect(card.textContent).not.toContain('S/N:');
     });
 
     it('handles unicode, emojis, and international characters cleanly in QR code and labels', async () => {
       const unicodeAsset = createAdversarialAsset({
         tag: 'AST-VN-2026-TÀI-SẢN-01',
         name: 'Máy trạm đồ họa 🖥️ & Thiết bị mạng 🌐',
+        costCenter: 'CC-日本語-한국어-12345',
         serialNumber: 'SN-日本語-한국어-12345',
       });
 
@@ -594,7 +607,8 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       const card = container.querySelector('.printable-sheet-card') as HTMLElement;
       expect(card.textContent).toContain('AST-VN-2026-TÀI-SẢN-01');
       expect(card.textContent).toContain('Máy trạm đồ họa 🖥️ & Thiết bị mạng 🌐');
-      expect(card.textContent).toContain('S/N: SN-日本語-한국어-12345');
+      expect(card.textContent).toContain('CC-日本語-한국어-12345');
+      expect(card.textContent).not.toContain('S/N:');
 
       const svg = card.querySelector('svg');
       expect(svg).not.toBeNull();

@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class IPAddressQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -29,30 +29,28 @@ export class IPAddressQueryDto {
   @ApiPropertyOptional({ description: 'Search term for IP, MAC, or vendor' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @ApiPropertyOptional({ description: 'Filter by VLAN UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   vlanId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by Subnet UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   subnetId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by IP status' })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   status?: string;
 
   @ApiPropertyOptional({ description: 'Filter by device type' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   deviceType?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by Location UUID' })
-  @IsOptional()
-  @IsString()
-  locationId?: string;
 }

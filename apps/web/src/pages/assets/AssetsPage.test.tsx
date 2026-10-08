@@ -24,8 +24,6 @@ const { mockAssets, mockStats } = vi.hoisted(() => {
       status: 'Active',
       assignedTo: 'Marcus Vance',
       assignedEmail: 'marcus@uims.internal',
-      location: 'Floor 4',
-      locationPath: 'Global HQ > NY Office > Floor 4',
       department: 'Engineering',
       purchaseDate: '2026-01-15',
       warrantyExpiry: '2029-01-15',
@@ -41,7 +39,6 @@ const { mockAssets, mockStats } = vi.hoisted(() => {
       status: 'In Storage',
       assignedTo: '',
       assignedEmail: '',
-      location: 'Warehouse B',
       purchaseDate: '2025-11-20',
       warrantyExpiry: '2028-11-20',
     },
@@ -78,7 +75,11 @@ vi.mock('../../services/assets.service', () => ({
     updateAsset: vi.fn().mockResolvedValue(mockAssets[0]),
     deleteAsset: vi.fn().mockResolvedValue(undefined),
     exportCsv: vi.fn().mockResolvedValue('Tag,Name\nAST-1001,MacBook Pro 16'),
-    exportXlsx: vi.fn().mockResolvedValue(new Blob(['dummy-xlsx'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })),
+    exportXlsx: vi.fn().mockResolvedValue(
+      new Blob(['dummy-xlsx'], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+    ),
     batchDeleteAssets: vi.fn().mockResolvedValue({ count: 2, deletedIds: ['ast-1', 'ast-2'] }),
   },
 }));
@@ -462,19 +463,18 @@ describe('AssetsPage QR Scanner Integration', () => {
     });
   });
 
-  it('renders spatial location filter in filter bar and displays location and department in table', async () => {
+  it('confirms spatial location filter is purged and displays cost center and department in table', async () => {
     const root = createRoot(container);
     await act(async () => {
       root.render(createElement(MemoryRouter, null, createElement(AssetsPage)));
     });
 
-    // Check location filter in filter bar
-    expect(document.body.textContent).toContain('Location / Facility');
+    // Check location filter in filter bar is purged
+    expect(document.body.textContent).not.toContain('Location / Facility');
 
     // Check table content
-    expect(document.body.textContent).toContain('Location & Facility');
-    expect(document.body.textContent).toContain('Floor 4');
     expect(document.body.textContent).toContain('Engineering');
+    expect(document.body.textContent).toContain('Cost Center');
 
     act(() => {
       root.unmount();
@@ -540,8 +540,8 @@ describe('AssetsPage QR Scanner Integration', () => {
     expect(document.body.textContent).toContain('Batch Print QR Labels');
 
     // Close Batch Print Modal
-    const closeBtn = Array.from(document.body.querySelectorAll('.ant-modal button')).find((b) =>
-      b.textContent?.trim() === 'Close',
+    const closeBtn = Array.from(document.body.querySelectorAll('.ant-modal button')).find(
+      (b) => b.textContent?.trim() === 'Close',
     );
     await act(async () => {
       (closeBtn as HTMLButtonElement | undefined)?.click();

@@ -54,7 +54,6 @@ describe('InventoryService', () => {
         quantity: 20,
         minThreshold: 5,
         unitCost: 45,
-        location: 'Storage Room B',
       });
 
       const item = await service.create({
@@ -63,7 +62,6 @@ describe('InventoryService', () => {
         quantity: 20,
         minThreshold: 5,
         unitCost: 45,
-        location: 'Storage Room B',
       });
 
       expect(item.id).toBe('itm-1');
@@ -103,7 +101,7 @@ describe('InventoryService', () => {
       expect(mockPrisma.inventoryItem.update).toHaveBeenCalledWith({
         where: { id: 'itm-1' },
         data: { quantity: { increment: 2 } },
-        include: { category: true, location: true },
+        include: { category: true },
       });
       expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
         expect.objectContaining({

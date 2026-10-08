@@ -4,6 +4,7 @@ import { App, Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { rolesService } from '../../../services/roles.service';
 import { formatErrorMessage } from '../../../utils/feedback';
+import { formRules, isValidationError } from '../../../utils/formValidators';
 
 const { Text } = Typography;
 
@@ -46,8 +47,7 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const errorObj = err as { errorFields?: unknown };
-      if (errorObj?.errorFields) return;
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'clone role'));
     } finally {
       setLoading(false);
@@ -79,14 +79,18 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
         </Text>
       </div>
 
-      <Form form={form} layout="vertical">
+      <Form
+        form={form}
+        layout="vertical"
+        validateTrigger={['onChange', 'onBlur']}
+        scrollToFirstError={true}
+      >
         <Form.Item
           name="targetRoleName"
           label="New Role Name"
           rules={[
-            { required: true, message: 'Please enter a role name.' },
-            { min: 2, message: 'Role name must be at least 2 characters.' },
-            { max: 50, message: 'Role name cannot exceed 50 characters.' },
+            formRules.required('Role name'),
+            formRules.stringRange('Role name', 2, 50),
           ]}
         >
           <Input placeholder="e.g. Senior IT Field Technician" autoFocus />
@@ -95,7 +99,7 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
         <Form.Item
           name="description"
           label="Description"
-          rules={[{ max: 255, message: 'Description cannot exceed 255 characters' }]}
+          rules={[formRules.maxString('Description', 255)]}
         >
           <Input.TextArea
             rows={3}

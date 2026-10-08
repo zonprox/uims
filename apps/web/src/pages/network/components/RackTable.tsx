@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import {
   Button,
   Card,
@@ -26,24 +26,24 @@ export interface RackTableProps {
   onDelete?: (id: string) => void;
 }
 
+const getStatusTag = (status: RackStatus | `${RackStatus}` | undefined) => {
+  switch (status) {
+    case 'ACTIVE':
+      return <Tag color="success">Active</Tag>;
+    case 'PLANNED':
+      return <Tag color="processing">Planned</Tag>;
+    case 'MAINTENANCE':
+      return <Tag color="warning">Maintenance</Tag>;
+    case 'RETIRED':
+      return <Tag color="default">Retired</Tag>;
+    default:
+      return <Tag color="default">{status || 'Active'}</Tag>;
+  }
+};
+
 export const RackTable: React.FC<RackTableProps> = React.memo(
   ({ racks, loading = false, onViewElevation, onEdit, onDelete }) => {
     const { token } = theme.useToken();
-
-    const getStatusTag = (status: RackStatus | `${RackStatus}` | undefined) => {
-      switch (status) {
-        case 'ACTIVE':
-          return <Tag color="success">Active</Tag>;
-        case 'PLANNED':
-          return <Tag color="processing">Planned</Tag>;
-        case 'MAINTENANCE':
-          return <Tag color="warning">Maintenance</Tag>;
-        case 'RETIRED':
-          return <Tag color="default">Retired</Tag>;
-        default:
-          return <Tag color="default">{status || 'Active'}</Tag>;
-      }
-    };
 
     const columns: ColumnsType<NetworkRack> = useMemo(
       () => [
@@ -85,20 +85,6 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
                 </Text>
               )}
             </Flex>
-          ),
-        },
-        {
-          title: 'Location',
-          key: 'location',
-          sorter: (a, b) => {
-            const locA = a.location?.name || '';
-            const locB = b.location?.name || '';
-            return locA.localeCompare(locB) || a.id.localeCompare(b.id);
-          },
-          render: (_: unknown, record: NetworkRack) => (
-            <Text type={record.location ? undefined : 'secondary'} style={{ fontSize: 13 }}>
-              {record.location?.name || 'Unassigned'}
-            </Text>
           ),
         },
         {
@@ -184,19 +170,23 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 120,
+          width: 170,
           fixed: 'right',
           render: (_: unknown, record: NetworkRack) => (
             <Space size={4}>
               {onViewElevation && (
                 <Tooltip title="View 2D Elevation">
                   <Button
-                    type="text"
                     size="small"
-                    icon={<EyeOutlined />}
-                    aria-label="View 2D Elevation"
+                    type="primary"
+                    ghost
+                    icon={<AppstoreOutlined />}
                     onClick={() => onViewElevation(record)}
-                  />
+                    data-testid={`view-elevation-${record.name}`}
+                    aria-label={`View Elevation for ${record.name}`}
+                  >
+                    Elevation
+                  </Button>
                 </Tooltip>
               )}
               {onEdit && (

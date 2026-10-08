@@ -61,15 +61,6 @@ const { mockEmployees } = vi.hoisted(() => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      locationId: 'loc-1',
-      location: {
-        id: 'loc-1',
-        name: 'Plant 1',
-        organizationId: 'org-1',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      },
-      ouPath: 'OU=Production,DC=uims,DC=internal',
       status: 'ACTIVE' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 2,
@@ -113,15 +104,6 @@ const { mockEmployees } = vi.hoisted(() => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      locationId: 'loc-2',
-      location: {
-        id: 'loc-2',
-        name: 'Plant 2',
-        organizationId: 'org-2',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      },
-      ouPath: 'OU=Quality,DC=uims,DC=internal',
       status: 'DISABLED' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 1,
@@ -165,15 +147,6 @@ const { mockEmployees } = vi.hoisted(() => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      locationId: 'loc-1',
-      location: {
-        id: 'loc-1',
-        name: 'Plant 1',
-        organizationId: 'org-1',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      },
-      ouPath: 'OU=Engineering,DC=uims,DC=internal',
       status: 'SUSPENDED' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 0,
@@ -196,6 +169,35 @@ const mockImportEmployees = vi.fn().mockResolvedValue({
   skipped: 0,
   errors: [],
 });
+const mockGetUserAssets = vi.fn().mockResolvedValue([
+  {
+    id: 'asset-1',
+    assetTag: 'AST-NB-001',
+    name: 'ThinkPad T14 Gen 4',
+    model: 'T14 Gen 4',
+    serialNumber: 'SN-TP-12345',
+    status: 'IN_USE',
+  },
+]);
+const mockGetUserLicenses = vi.fn().mockResolvedValue([
+  {
+    id: 'la-1',
+    licenseId: 'lic-1',
+    assignedAt: '2026-01-01T00:00:00Z',
+    license: {
+      id: 'lic-1',
+      name: 'Microsoft 365 E5',
+      publisher: 'Microsoft',
+      type: 'SUBSCRIPTION',
+    },
+  },
+]);
+const mockGetAvailableAssets = vi.fn().mockResolvedValue([]);
+const mockGetAvailableLicenses = vi.fn().mockResolvedValue([]);
+const mockAssignAsset = vi.fn().mockResolvedValue({});
+const mockUnassignAsset = vi.fn().mockResolvedValue({});
+const mockAssignLicense = vi.fn().mockResolvedValue({});
+const mockUnassignLicense = vi.fn().mockResolvedValue({});
 
 vi.mock('../../services/directory.service', () => ({
   directoryService: {
@@ -203,6 +205,14 @@ vi.mock('../../services/directory.service', () => ({
     updateEmployee: (...args: unknown[]) => mockUpdateEmployee(...args),
     deleteEmployee: (...args: unknown[]) => mockDeleteEmployee(...args),
     importEmployees: (...args: unknown[]) => mockImportEmployees(...args),
+    getUserAssets: (...args: unknown[]) => mockGetUserAssets(...args),
+    getUserLicenses: (...args: unknown[]) => mockGetUserLicenses(...args),
+    getAvailableAssets: (...args: unknown[]) => mockGetAvailableAssets(...args),
+    getAvailableLicenses: (...args: unknown[]) => mockGetAvailableLicenses(...args),
+    assignAsset: (...args: unknown[]) => mockAssignAsset(...args),
+    unassignAsset: (...args: unknown[]) => mockUnassignAsset(...args),
+    assignLicense: (...args: unknown[]) => mockAssignLicense(...args),
+    unassignLicense: (...args: unknown[]) => mockUnassignLicense(...args),
   },
 }));
 
@@ -259,7 +269,6 @@ describe('EmployeesTab Adversarial Component Tests', () => {
   const onRefreshMock = vi.fn<() => void>();
   const setCreateModalOpenMock = vi.fn<(open: boolean) => void>();
   const setImportModalOpenMock = vi.fn<(open: boolean) => void>();
-  const onClearOuFilterMock = vi.fn<() => void>();
 
   beforeAll(() => {
     (
@@ -273,11 +282,18 @@ describe('EmployeesTab Adversarial Component Tests', () => {
     onRefreshMock.mockClear();
     setCreateModalOpenMock.mockClear();
     setImportModalOpenMock.mockClear();
-    onClearOuFilterMock.mockClear();
     mockCreateEmployee.mockClear();
     mockUpdateEmployee.mockClear();
     mockDeleteEmployee.mockClear();
     mockImportEmployees.mockClear();
+    mockGetUserAssets.mockClear();
+    mockGetUserLicenses.mockClear();
+    mockGetAvailableAssets.mockClear();
+    mockGetAvailableLicenses.mockClear();
+    mockAssignAsset.mockClear();
+    mockUnassignAsset.mockClear();
+    mockAssignLicense.mockClear();
+    mockUnassignLicense.mockClear();
   });
 
   afterEach(async () => {
@@ -305,7 +321,6 @@ describe('EmployeesTab Adversarial Component Tests', () => {
     props: {
       createModalOpen?: boolean;
       importModalOpen?: boolean;
-      ouFilter?: string;
       employees?: DirectoryUser[];
     } = {},
   ) => {
@@ -335,10 +350,6 @@ describe('EmployeesTab Adversarial Component Tests', () => {
                 importModalOpen: props.importModalOpen ?? false,
                 setImportModalOpen: (open: boolean) => {
                   setImportModalOpenMock(open);
-                },
-                ouFilter: props.ouFilter ?? 'all',
-                onClearOuFilter: () => {
-                  onClearOuFilterMock();
                 },
               }),
             ),
@@ -436,7 +447,7 @@ describe('EmployeesTab Adversarial Component Tests', () => {
       expect(passedPayload).not.toHaveProperty('adInitialPassword');
     });
 
-    it('verifies editing employee details does not display or submit credentials', async () => {
+    it('verifies editing employee details opens enterprise AppDrawer without credentials and saves changes', async () => {
       await renderComponent();
 
       // Find Edit button for the first employee
@@ -451,22 +462,33 @@ describe('EmployeesTab Adversarial Component Tests', () => {
         await new Promise((resolve) => setTimeout(resolve, 60));
       });
 
-      // Edit modal should now be open
-      const editModalTitle = document.querySelector('.ant-modal-title');
-      expect(editModalTitle?.textContent).toContain('Edit Employee: Phung Thi Nhu Y');
+      // Edit AppDrawer should now be open (NOT a modal)
+      const modal = document.querySelector('.ant-modal');
+      expect(modal).toBeNull();
 
-      // Verify no password fields exist in Edit modal
-      const editPasswordInputs = document.querySelectorAll('input[type="password"]');
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.textContent).toContain('Phung Thi Nhu Y');
+      expect(drawer?.textContent).toContain('#63020037');
+
+      // Verify the 4-tab structure matching Viewer drawer
+      expect(drawer?.textContent).toContain('General Info');
+      expect(drawer?.textContent).toContain('AD & Email');
+      expect(drawer?.textContent).toContain('Devices');
+      expect(drawer?.textContent).toContain('Licenses');
+
+      // Verify no password fields exist in Edit drawer
+      const editPasswordInputs = document.querySelectorAll('.ant-drawer input[type="password"]');
       expect(editPasswordInputs.length).toBe(0);
 
       // Verify form fields are pre-populated with employee data
       const editEmailInput = document.querySelector(
-        '.ant-modal input#email',
+        '.ant-drawer input#email',
       ) as HTMLInputElement | null;
       expect(editEmailInput?.value).toBe('yptn.st@youngonevn.com');
 
-      // Click Save Changes
-      const saveBtn = Array.from(document.querySelectorAll('.ant-modal button')).find((b) =>
+      // Click Save Changes in drawer footer
+      const saveBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find((b) =>
         b.textContent?.includes('Save Changes'),
       ) as HTMLButtonElement | undefined;
 
@@ -484,6 +506,520 @@ describe('EmployeesTab Adversarial Component Tests', () => {
       expect(updatePayload).not.toHaveProperty('password');
       expect(updatePayload).not.toHaveProperty('passwordHash');
       expect(updatePayload).not.toHaveProperty('adInitialPassword');
+    });
+
+    it('verifies opening Edit from Viewer drawer switches to Edit AppDrawer with full parity and tab navigation', async () => {
+      await renderComponent();
+
+      // Click view details (eye icon)
+      const eyeBtn = Array.from(container.querySelectorAll('button .anticon-eye')).map((icon) =>
+        icon.closest('button'),
+      )[0];
+      expect(eyeBtn).toBeDefined();
+
+      await act(async () => {
+        eyeBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      let drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.textContent).toContain('Phung Thi Nhu Y');
+
+      // Click Edit button inside Viewer drawer header
+      const drawerEditBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find((b) =>
+        b.textContent?.includes('Edit'),
+      ) as HTMLButtonElement | undefined;
+      expect(drawerEditBtn).toBeDefined();
+
+      await act(async () => {
+        drawerEditBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      });
+
+      // Edit drawer should now be active with Save Changes button
+      drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.textContent).toContain('Phung Thi Nhu Y');
+      expect(drawer?.textContent).toContain('#63020037');
+
+      const saveChangesBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find((b) =>
+        b.textContent?.includes('Save Changes'),
+      );
+      expect(saveChangesBtn).toBeDefined();
+
+      // Navigate to AD & Email tab
+      const adTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('AD & Email'),
+      );
+      expect(adTab).toBeDefined();
+
+      await act(async () => {
+        (adTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      expect(drawer?.textContent).toContain('Active Directory Configuration');
+      expect(drawer?.textContent).toContain('Enterprise Email Account');
+      expect(drawer?.textContent).toContain('yptn.st@youngonevn.com');
+
+      // Navigate to Devices tab
+      const devicesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Devices'),
+      );
+      expect(devicesTab).toBeDefined();
+
+      await act(async () => {
+        (devicesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      expect(drawer?.textContent).toContain('Assigned Equipment');
+      const assignDeviceBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.includes('Assign Device'),
+      );
+      expect(assignDeviceBtn).toBeDefined();
+
+      // Navigate to Licenses tab
+      const licensesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Licenses'),
+      );
+      expect(licensesTab).toBeDefined();
+
+      await act(async () => {
+        (licensesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      expect(drawer?.textContent).toContain('Assigned Licenses');
+      const assignLicenseBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.includes('Assign License'),
+      );
+      expect(assignLicenseBtn).toBeDefined();
+
+      // Click Cancel in footer
+      const cancelBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.trim() === 'Cancel',
+      ) as HTMLButtonElement | undefined;
+      expect(cancelBtn).toBeDefined();
+
+      await act(async () => {
+        cancelBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+    });
+
+    it('verifies responsive vertical layout eliminating cramped multi-column horizontal rows', async () => {
+      await renderComponent();
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+
+      // Ensure edit form specifies layout="vertical"
+      const form = drawer?.querySelector('form');
+      expect(form).not.toBeNull();
+      expect(form?.className).toContain('ant-form-vertical');
+
+      // Verify absence of multi-column grid classes (Col span={12}) inside the edit form
+      const halfCols = form?.querySelectorAll('.ant-col-12');
+      expect(halfCols?.length).toBe(0);
+
+      // Verify key vertical form fields exist
+      expect(form?.querySelector('input#firstName')).not.toBeNull();
+      expect(form?.querySelector('input#lastName')).not.toBeNull();
+      expect(form?.querySelector('input#email')).not.toBeNull();
+      expect(form?.querySelector('input#employeeCode')).not.toBeNull();
+      expect(form?.querySelector('input#phone')).not.toBeNull();
+      expect(form?.querySelector('#organizationId')).not.toBeNull();
+      expect(form?.querySelector('#departmentId')).not.toBeNull();
+    });
+
+    it('verifies opening an employee with empty department/organization in Edit drawer, navigating tabs, and saving changes succeeds without validation blockage', async () => {
+      const bareEmployee: DirectoryUser = {
+        id: 'emp-bare',
+        employeeCode: '99887766',
+        email: 'bare.user@uims.internal',
+        firstName: 'Bare',
+        lastName: 'User',
+        fullName: 'Bare User',
+        status: 'ACTIVE' as DirectoryUser['status'],
+        source: 'LOCAL' as DirectoryUser['source'],
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      };
+
+      await renderComponent({ employees: [bareEmployee] });
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.textContent).toContain('Bare User');
+
+      // Navigate to AD & Email tab
+      const adTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('AD & Email'),
+      );
+      expect(adTab).toBeDefined();
+
+      await act(async () => {
+        (adTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      // Update computerName input
+      const computerNameInput = document.querySelector(
+        '.ant-drawer input#computerName',
+      ) as HTMLInputElement | null;
+      expect(computerNameInput).not.toBeNull();
+      if (computerNameInput) {
+        await act(async () => {
+          setInputValue(computerNameInput, 'PC-BARE-01');
+        });
+      }
+
+      // Save changes
+      const saveBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find((b) =>
+        b.textContent?.includes('Save Changes'),
+      ) as HTMLButtonElement | undefined;
+      expect(saveBtn).toBeDefined();
+
+      await act(async () => {
+        saveBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      // Expect successful update invocation without validation rejection on missing department/organization
+      expect(mockUpdateEmployee).toHaveBeenCalledTimes(1);
+      expect(mockUpdateEmployee.mock.calls[0][0]).toBe('emp-bare');
+    });
+
+    it('guards against custody query race conditions when rapidly toggling between employees', async () => {
+      let resolveFirstCustody: (val: unknown) => void = () => {};
+      const slowPromise = new Promise((resolve) => {
+        resolveFirstCustody = resolve;
+      });
+
+      mockGetUserAssets.mockImplementationOnce(() => slowPromise);
+
+      await renderComponent();
+
+      // Open first employee detail
+      const eyeBtns = Array.from(container.querySelectorAll('button .anticon-eye')).map((icon) =>
+        icon.closest('button'),
+      );
+      expect(eyeBtns.length).toBeGreaterThanOrEqual(2);
+
+      await act(async () => {
+        eyeBtns[0]?.click();
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      });
+
+      // Quickly open second employee detail before first query resolves
+      await act(async () => {
+        eyeBtns[1]?.click();
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      });
+
+      // Now first slow promise resolves with stale assets for emp-1
+      await act(async () => {
+        resolveFirstCustody([{ id: 'stale-asset', assetTag: 'STALE-001', name: 'Stale Laptop' }]);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      });
+
+      // The active drawer should belong to emp-2 and not have emp-1's stale asset
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.textContent).toContain('Lam Ngo Ha Vy');
+      expect(drawer?.textContent).not.toContain('STALE-001');
+    });
+
+    it('verifies header action parity allowing direct switching from Edit AppDrawer to Detail Viewer Drawer via View Profile button', async () => {
+      await renderComponent();
+
+      // Open Edit drawer
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      expect(editBtn).toBeDefined();
+
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      let drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      expect(drawer?.textContent).toContain('Save Changes');
+
+      // Header should contain symmetrical 'View Profile' extra action
+      const viewProfileBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find((b) =>
+        b.textContent?.includes('View Profile'),
+      ) as HTMLButtonElement | undefined;
+      expect(viewProfileBtn).toBeDefined();
+
+      // Click View Profile to switch to Detail Viewer drawer
+      await act(async () => {
+        viewProfileBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      // Detail Viewer drawer should now be open with 'Edit' in header and 'Close' in footer
+      const drawerEditBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.trim() === 'Edit',
+      );
+      expect(drawerEditBtn).toBeDefined();
+
+      const closeBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.trim() === 'Close',
+      );
+      expect(closeBtn).toBeDefined();
+    });
+
+    it('verifies immediate clearing of custody state to prevent stale equipment/license display when switching employees', async () => {
+      let resolveSlowCustody: (val: unknown) => void = () => {};
+      const slowCustodyPromise = new Promise((resolve) => {
+        resolveSlowCustody = resolve;
+      });
+
+      await renderComponent();
+
+      // 1. Open emp-1 detail drawer
+      const eyeBtns = Array.from(container.querySelectorAll('button .anticon-eye')).map((icon) =>
+        icon.closest('button'),
+      );
+      expect(eyeBtns.length).toBeGreaterThanOrEqual(2);
+
+      await act(async () => {
+        eyeBtns[0]?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      let drawer = document.querySelector('.ant-drawer');
+      expect(drawer?.textContent).toContain('Phung Thi Nhu Y');
+      expect(drawer?.textContent).toContain('Devices (1)');
+
+      const emp1DevicesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Devices'),
+      );
+      await act(async () => {
+        (emp1DevicesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      });
+
+      // Verify emp-1 has loaded equipment rendered in table
+      expect(drawer?.textContent).toContain('AST-NB-001');
+
+      // Configure next custody fetch for emp-2 to hang
+      mockGetUserAssets.mockImplementationOnce(() => slowCustodyPromise);
+
+      // 2. Open emp-2 edit drawer
+      const editBtns = Array.from(container.querySelectorAll('button .anticon-edit')).map((icon) =>
+        icon.closest('button'),
+      );
+      await act(async () => {
+        editBtns[1]?.click();
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      });
+
+      drawer =
+        document.querySelector('.ant-drawer.ant-drawer-open') ||
+        document.querySelector('.ant-drawer');
+      expect(drawer?.textContent).toContain('Lam Ngo Ha Vy');
+      expect(drawer?.textContent).toContain('Devices (0)');
+
+      // Navigate to Devices tab while query is pending
+      const devicesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Devices'),
+      );
+      await act(async () => {
+        (devicesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+
+      drawer =
+        document.querySelector('.ant-drawer.ant-drawer-open') ||
+        document.querySelector('.ant-drawer');
+      // Crucial assertion: AST-NB-001 from emp-1 MUST NOT be displayed in emp-2's drawer
+      expect(drawer?.textContent).not.toContain('AST-NB-001');
+
+      // Clean up hanging promise
+      await act(async () => {
+        resolveSlowCustody([]);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      });
+    });
+
+    it('verifies reactive corporate email synchronization across tabs in Edit AppDrawer', async () => {
+      await renderComponent();
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+
+      // Update email input on General Info tab
+      const emailInput = document.querySelector(
+        '.ant-drawer input#email',
+      ) as HTMLInputElement | null;
+      expect(emailInput).not.toBeNull();
+      if (emailInput) {
+        await act(async () => {
+          setInputValue(emailInput, 'reactive.email@youngonevn.com');
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        });
+      }
+
+      // Switch to AD & Email tab
+      const adTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('AD & Email'),
+      );
+      expect(adTab).toBeDefined();
+
+      await act(async () => {
+        (adTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      // Verify Descriptions reflects reactive form input
+      expect(drawer?.textContent).toContain('reactive.email@youngonevn.com');
+    });
+
+    it('verifies optimistic state preservation when unassigning custody and secondary refresh fails', async () => {
+      await renderComponent();
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+
+      // Navigate to Devices tab
+      const devicesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Devices'),
+      );
+      await act(async () => {
+        (devicesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      expect(drawer?.textContent).toContain('AST-NB-001');
+
+      // Unassign succeeds, but follow-up getUserAssets query fails
+      mockUnassignAsset.mockResolvedValueOnce({ success: true });
+      mockGetUserAssets.mockRejectedValueOnce(new Error('Network glitch on refresh'));
+
+      const unassignBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.trim() === 'Unassign',
+      ) as HTMLButtonElement | undefined;
+      expect(unassignBtn).toBeDefined();
+
+      await act(async () => {
+        unassignBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      });
+
+      // Confirm in popconfirm
+      const popconfirmOk = Array.from(document.querySelectorAll('.ant-popover button')).find(
+        (b) => b.textContent?.trim() === 'Unassign',
+      ) as HTMLButtonElement | undefined;
+      expect(popconfirmOk).toBeDefined();
+
+      await act(async () => {
+        popconfirmOk?.click();
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      });
+
+      expect(mockUnassignAsset).toHaveBeenCalledWith('emp-1', 'asset-1');
+      // Optimistic filtering ensures the unassigned asset is removed despite re-fetch failure
+      expect(drawer?.textContent).not.toContain('AST-NB-001');
+    });
+
+    it('verifies transitive 3-tier cascade resolution when employee has positionId without departmentId or organizationId', async () => {
+      const barePositionEmployee: DirectoryUser = {
+        id: 'emp-bare-pos',
+        email: 'bare.pos@uims.internal',
+        firstName: 'Bare',
+        lastName: 'Position',
+        fullName: 'Bare Position',
+        positionId: 'pos-1', // pos-1 belongs to dept-1 (Production), dept-1 belongs to org-1 (BSL Others)
+        status: 'ACTIVE' as DirectoryUser['status'],
+        source: 'LOCAL' as DirectoryUser['source'],
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      };
+
+      await renderComponent({ employees: [barePositionEmployee] });
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+
+      // Organization should be populated via deptId -> departments master list lookup
+      expect(drawer?.textContent).toContain('BSL Others (BSL)');
+    });
+
+    it('verifies reactive drawer header synchronization during form field changes in Edit AppDrawer', async () => {
+      await renderComponent();
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer).not.toBeNull();
+      const header = drawer?.querySelector('.ant-drawer-header');
+      expect(header).not.toBeNull();
+
+      // Initial header
+      expect(header?.textContent).toContain('Phung Thi Nhu Y');
+      expect(header?.textContent).toContain('#63020037');
+
+      // Update first name, last name, and badge code
+      const firstNameInput = document.querySelector(
+        '.ant-drawer input#firstName',
+      ) as HTMLInputElement;
+      const lastNameInput = document.querySelector(
+        '.ant-drawer input#lastName',
+      ) as HTMLInputElement;
+      const badgeInput = document.querySelector(
+        '.ant-drawer input#employeeCode',
+      ) as HTMLInputElement;
+
+      await act(async () => {
+        setInputValue(firstNameInput, 'Jonathan');
+        setInputValue(lastNameInput, 'Vance');
+        setInputValue(badgeInput, '88990011');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+
+      // Header should reactively reflect the updated name and badge code
+      expect(header?.textContent).toContain('Jonathan Vance');
+      expect(header?.textContent).toContain('#88990011');
     });
   });
 
@@ -529,26 +1065,6 @@ describe('EmployeesTab Adversarial Component Tests', () => {
 
       expect(container.textContent).toContain('Lam Ngo Ha Vy');
       expect(container.textContent).not.toContain('Phung Thi Nhu Y');
-    });
-
-    it('renders OU filter banner when ouFilter is active and triggers onClearOuFilter', async () => {
-      await renderComponent({ ouFilter: 'Production' });
-
-      expect(container.textContent).toContain(
-        'Filtering directory employees by Organizational Unit',
-      );
-      expect(container.textContent).toContain('Production');
-
-      const clearFilterBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Clear Filter'),
-      );
-      expect(clearFilterBtn).toBeDefined();
-
-      await act(async () => {
-        clearFilterBtn?.click();
-      });
-
-      expect(onClearOuFilterMock).toHaveBeenCalledTimes(1);
     });
 
     it('handles edge cases: employee record with missing/null optional fields does not throw', async () => {

@@ -13,8 +13,6 @@ export interface CreateInventoryItemDto {
   quantity?: number | string;
   minThreshold?: number | string;
   unitCost?: number | string;
-  locationId?: string;
-  location?: string;
   binNumber?: string;
   supplier?: string;
   notes?: string;
@@ -33,8 +31,6 @@ export interface InventoryQueryDto {
   search?: string;
   categoryId?: string;
   category?: string;
-  locationId?: string;
-  location?: string;
   organizationId?: string;
   organization?: string;
   stockStatus?: 'all' | 'in_stock' | 'low_stock' | 'out_of_stock' | string;

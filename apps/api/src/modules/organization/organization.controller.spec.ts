@@ -31,7 +31,6 @@ describe('OrganizationController and Sub-controllers', () => {
       createPosition: vi.fn().mockResolvedValue({ id: 'pos-1' }),
       updatePosition: vi.fn().mockResolvedValue({ id: 'pos-1' }),
       deletePosition: vi.fn().mockResolvedValue({ id: 'pos-1' }),
-      findAllLocations: vi.fn().mockResolvedValue([]),
     };
 
     orgController = new OrganizationController(mockService as OrganizationService);

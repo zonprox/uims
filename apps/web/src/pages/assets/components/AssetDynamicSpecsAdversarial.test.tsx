@@ -46,7 +46,6 @@ function createTestAsset(overrides: Partial<Asset>): Asset {
     status: 'Active',
     assignedTo: 'Test Custodian',
     assignedEmail: 'custodian@youngonevn.com',
-    location: 'Main Office',
     purchaseDate: '2026-01-01',
     warrantyExpiry: '2029-01-01',
     notes: 'Configured with corporate VPN and MDM profile',

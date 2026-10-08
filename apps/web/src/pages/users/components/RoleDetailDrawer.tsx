@@ -12,7 +12,6 @@ import {
   Card,
   Col,
   Descriptions,
-  Drawer,
   Empty,
   Flex,
   Input,
@@ -23,8 +22,9 @@ import {
   theme,
 } from 'antd';
 import React, { useMemo, useState } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface RoleDetailDrawerProps {
   open: boolean;
@@ -59,41 +59,28 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
   }, [roleDetail, userSearch]);
 
   return (
-    <Drawer
-      title={
-        <Flex align="center" justify="space-between" style={{ width: '100%', paddingRight: 12 }}>
-          <Flex align="center" gap={8}>
-            <SafetyCertificateOutlined style={{ color: '#1677ff', fontSize: 18 }} />
-            <Title level={5} style={{ margin: 0, fontSize: 16 }}>
-              Role Overview: {roleDetail?.name || 'Role'}
-            </Title>
-            {roleDetail?.isSystem ? (
-              <Tag color="purple" style={{ margin: 0 }}>
-                System
-              </Tag>
-            ) : (
-              <Tag color="cyan" style={{ margin: 0 }}>
-                Custom
-              </Tag>
-            )}
-          </Flex>
-          <Button
-            type="primary"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              onClose();
-              onOpenMatrix();
-            }}
-          >
-            Edit Permissions
-          </Button>
-        </Flex>
-      }
+    <AppDrawer
+      title={roleDetail?.name || 'Role Overview'}
+      subtitle="Role permissions & assignment profile"
+      icon={<SafetyCertificateOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
+      tag={roleDetail?.isSystem ? <Tag color="purple">System</Tag> : <Tag color="cyan">Custom</Tag>}
       open={open}
-      destroyOnHidden
-      width={720}
+      size={720}
       onClose={onClose}
+      extra={
+        <Button
+          type="primary"
+          size="small"
+          icon={<EditOutlined />}
+          onClick={() => {
+            onClose();
+            onOpenMatrix();
+          }}
+        >
+          Edit
+        </Button>
+      }
+      cancelText="Close"
       styles={{
         body: { padding: '16px 20px', background: token.colorBgLayout },
       }}
@@ -262,6 +249,6 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
           }}
         />
       </Card>
-    </Drawer>
+    </AppDrawer>
   );
 };

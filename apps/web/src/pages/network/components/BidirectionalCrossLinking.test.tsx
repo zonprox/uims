@@ -12,7 +12,6 @@ import type {
   SwitchPort,
   VLAN,
 } from '../../../services/network.service';
-import type { LocationBranch } from '../../../services/organization.service';
 import { AssetDetailDrawer } from '../../assets/components/AssetDetailDrawer';
 import { IpAddressTable } from './IpAddressTable';
 import { VlanDetailDrawer } from './VlanDetailDrawer';
@@ -163,13 +162,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     },
   ];
 
-  const mockLocation: LocationBranch = {
-    id: 'loc-1',
-    name: 'BSL Central Datacenter',
-    code: 'DC-BSL',
-    type: 'DATACENTER',
-  };
-
   const mockAssetWithNetwork: Asset = {
     id: 'ast-srv-01',
     tag: 'AST-SRV-001',
@@ -182,7 +174,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     status: 'Active',
     assignedTo: 'John Doe',
     assignedEmail: 'john.doe@youngonevn.com',
-    location: 'BSL Datacenter > Room 101',
     department: 'Infrastructure & Ops',
     purchaseDate: '2025-03-15',
     warrantyExpiry: '2028-03-15',
@@ -209,7 +200,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     status: 'Active',
     assignedTo: 'Alice Smith',
     assignedEmail: 'alice.smith@youngonevn.com',
-    location: 'Office Floor 2',
     purchaseDate: '2025-01-01',
     warrantyExpiry: '2027-01-01',
   };
@@ -271,12 +261,9 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
           ips={mockIps}
           subnets={[mockSubnet]}
           vlans={[mockVlan10]}
-          locations={[mockLocation]}
           loading={false}
           searchQuery=""
           onSearchChange={vi.fn()}
-          siteFilter="all"
-          onSiteChange={vi.fn()}
           vlanFilter="all"
           onVlanChange={vi.fn()}
           subnetFilter="all"
@@ -312,12 +299,9 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
           ips={mockIps}
           subnets={[mockSubnet]}
           vlans={[mockVlan10]}
-          locations={[mockLocation]}
           loading={false}
           searchQuery=""
           onSearchChange={vi.fn()}
-          siteFilter="all"
-          onSiteChange={vi.fn()}
           vlanFilter="all"
           onVlanChange={vi.fn()}
           subnetFilter="all"
@@ -537,12 +521,9 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
           ips={mockIps}
           subnets={[mockSubnet]}
           vlans={[mockVlan10]}
-          locations={[mockLocation]}
           loading={false}
           searchQuery=""
           onSearchChange={vi.fn()}
-          siteFilter="all"
-          onSiteChange={vi.fn()}
           vlanFilter="all"
           onVlanChange={vi.fn()}
           subnetFilter="all"

@@ -1,6 +1,5 @@
 import {
   CloudServerOutlined,
-  EnvironmentOutlined,
   GlobalOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
@@ -11,7 +10,6 @@ import {
   Col,
   Descriptions,
   Divider,
-  Drawer,
   Empty,
   Flex,
   Progress,
@@ -22,6 +20,7 @@ import {
   theme,
 } from 'antd';
 import React, { useMemo } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import type { IPAddress, Subnet } from '../../../services/network.service';
 
 const { Text, Title } = Typography;
@@ -102,25 +101,14 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
     ];
 
     return (
-      <Drawer
-        title={
-          <Flex align="center" gap={10}>
-            <CloudServerOutlined style={{ fontSize: 20, color: '#1677ff' }} />
-            <div>
-              <Title level={5} style={{ margin: 0 }}>
-                {subnet.cidr} — {subnet.name}
-              </Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                CIDR Specifications & IP Pool Capacity
-              </Text>
-            </div>
-          </Flex>
-        }
+      <AppDrawer
+        title={`${subnet.cidr} — ${subnet.name}`}
+        subtitle="IP Pool & Allocation Profile"
+        icon={<CloudServerOutlined style={{ fontSize: 18, color: '#1677ff' }} />}
         open={open}
         onClose={onClose}
-        destroyOnHidden
         size="large"
-        styles={{ body: { padding: '20px 24px' } }}
+        cancelText="Close"
         extra={
           onFilterIpsBySubnet && (
             <Button
@@ -132,7 +120,7 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
                 onClose();
               }}
             >
-              Filter in IP Allocations
+              View IPs
             </Button>
           )
         }
@@ -199,18 +187,6 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
               ) : (
                 <Text type="secondary">—</Text>
               )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Location / Site" span={2}>
-              <Flex align="center" gap={6} wrap="wrap">
-                <EnvironmentOutlined style={{ color: '#1677ff' }} />
-                <Text
-                  strong
-                  ellipsis={{ tooltip: subnet.location?.name || subnet.locationName || 'HQ' }}
-                  style={{ maxWidth: 220, display: 'inline-block' }}
-                >
-                  {subnet.location?.name || subnet.locationName || 'HQ'}
-                </Text>
-              </Flex>
             </Descriptions.Item>
           </Descriptions>
         </Card>
@@ -312,7 +288,7 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
             pagination={{ pageSize: 5, size: 'small' }}
           />
         )}
-      </Drawer>
+      </AppDrawer>
     );
   },
 );

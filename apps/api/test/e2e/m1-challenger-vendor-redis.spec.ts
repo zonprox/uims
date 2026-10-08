@@ -295,14 +295,12 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         if (!isDbAvailable) return;
 
         const sampleDept = await prisma.department.findFirst();
-        const sampleLoc = await prisma.location.findFirst();
 
         const testAsset = await prisma.asset.create({
           data: {
             assetTag: `TAG-UPDATE-ASSET-${Date.now()}`,
             name: 'Asset For FK Update Test',
             departmentId: sampleDept?.id,
-            locationId: sampleLoc?.id,
           },
         });
 
@@ -365,7 +363,6 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         if (!isDbAvailable) return;
 
         const sampleDept = await prisma.department.findFirst();
-        const sampleLoc = await prisma.location.findFirst();
 
         // 1. Create a dedicated vendor
         const testVendor = await prisma.vendor.create({
@@ -386,7 +383,6 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
               name: 'Asset Associated With Vendor',
               vendorId: testVendor.id,
               departmentId: sampleDept?.id,
-              locationId: sampleLoc?.id,
             },
           });
           testAssetId = testAsset.id;
@@ -443,7 +439,6 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         if (!isDbAvailable) return;
 
         const sampleDept = await prisma.department.findFirst();
-        const sampleLoc = await prisma.location.findFirst();
 
         const vendor = await prisma.vendor.create({
           data: {
@@ -463,7 +458,6 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
                 name: `Multi-Child Asset ${i}`,
                 vendorId: vendor.id,
                 departmentId: sampleDept?.id,
-                locationId: sampleLoc?.id,
               },
             });
             assetIds.push(a.id);

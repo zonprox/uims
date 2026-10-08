@@ -4,11 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type InventoryItem, inventoryService } from '../../services/inventory.service';
-import {
-  type LocationBranch,
-  type LocationTreeNode,
-  organizationService,
-} from '../../services/organization.service';
+import { organizationService } from '../../services/organization.service';
 import { type Vendor, vendorService } from '../../services/vendor.service';
 import InventoryPage from './InventoryPage';
 
@@ -64,8 +60,6 @@ vi.mock('../../services/inventory.service', () => ({
 
 vi.mock('../../services/organization.service', () => ({
   organizationService: {
-    getLocations: vi.fn(),
-    getLocationTree: vi.fn(),
     getOrganizations: vi.fn(),
   },
 }));
@@ -87,19 +81,9 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     { id: 'cat-periph', name: 'Peripherals', description: 'Mice and keyboards' },
   ];
 
-  const mockLocations: LocationBranch[] = [
-    {
-      id: 'loc-wh-main',
-      name: 'Main IT Depot',
-      building: 'Depot 1',
-      floor: 'Floor 1',
-      organizationId: 'org-1',
-    },
-  ];
-
   const mockVendors: Vendor[] = [
     {
-      id: 'ven-an购买',
+      id: 'ven-1',
       name: 'Prime Components Ltd',
       contactName: 'Support',
       contactEmail: 'support@prime.com',
@@ -132,8 +116,6 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
       quantity: 40,
       minThreshold: 15,
       unitCost: 8.5,
-      locationId: 'loc-wh-main',
-      location: mockLocations[0],
       binNumber: 'Rack-4-Bin-A',
       supplier: 'Prime Components Ltd',
     },
@@ -155,10 +137,6 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
       outOfStockCount: 0,
     });
     vi.mocked(inventoryService.getCategories).mockResolvedValue(mockCategories);
-    vi.mocked(organizationService.getLocations).mockResolvedValue(mockLocations);
-    vi.mocked(organizationService.getLocationTree).mockResolvedValue(
-      mockLocations as unknown as LocationTreeNode[],
-    );
     vi.mocked(organizationService.getOrganizations).mockResolvedValue(mockOrganizations);
     vi.mocked(vendorService.getVendors).mockResolvedValue(mockVendors);
   });
@@ -182,9 +160,9 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     document.body.innerHTML = '';
   });
 
-  function renderPage() {
+  async function renderPage() {
     root = createRoot(host);
-    return act(async () => {
+    await act(async () => {
       root?.render(
         createElement(
           ConfigProvider,
@@ -195,9 +173,9 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     });
   }
 
-  it('Challenge 1: Vendor service fails -> inventory items still render and operator warned', async () => {
+  it('Challenge 1: Vendors service fails -> items render and operator warned', async () => {
     vi.mocked(vendorService.getVendors).mockRejectedValueOnce(
-      new Error('503 Service Unavailable: Vendor microservice offline'),
+      new Error('Vendor procurement microservice down'),
     );
 
     await renderPage();
@@ -205,7 +183,7 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
-    // 1. Core items render in table
+    // 1. Table still renders items cleanly
     expect(host.textContent).toContain('CAB-CAT6-5M');
     expect(host.textContent).toContain('Cat6 Shielded Patch Cable 5m');
 
@@ -227,24 +205,7 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory categories.');
   });
 
-  it('Challenge 3: Storage locations service fails -> items render and operator warned', async () => {
-    vi.mocked(organizationService.getLocationTree).mockRejectedValueOnce(
-      new Error('Spatial tree indexing unavailable'),
-    );
-    vi.mocked(organizationService.getLocations).mockRejectedValueOnce(
-      new Error('Flat locations DB down'),
-    );
-
-    await renderPage();
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
-
-    expect(host.textContent).toContain('CAB-CAT6-5M');
-    expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory storage locations.');
-  });
-
-  it('Challenge 4: Organizations service fails -> items render and operator warned', async () => {
+  it('Challenge 3: Organizations service fails -> items render and operator warned', async () => {
     vi.mocked(organizationService.getOrganizations).mockRejectedValueOnce(
       new Error('Organization service 500'),
     );
@@ -258,7 +219,7 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load organizations.');
   });
 
-  it('Challenge 5: Stats service fails -> computes client-side fallback metrics without crash', async () => {
+  it('Challenge 4: Stats service fails -> renders page without crash and warns user', async () => {
     vi.mocked(inventoryService.getStats).mockRejectedValueOnce(
       new Error('Dashboard aggregation timeout'),
     );
@@ -271,21 +232,13 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     // Table renders
     expect(host.textContent).toContain('CAB-CAT6-5M');
 
-    // Stats calculated client-side: 40 units, $340 valuation (40 * 8.5 = 340)
-    expect(host.textContent).toContain('40');
-    expect(host.textContent).toContain('$340.00');
-
-    // Zero error message
-    expect(mockMessageError).not.toHaveBeenCalled();
+    // Warns user
+    expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory aggregate statistics.');
   });
 
-  it('Challenge 6: Multi-auxiliary rejection (Vendors + Categories + Locations + Orgs + Stats reject)', async () => {
+  it('Challenge 5: Multi-auxiliary rejection (Vendors + Categories + Orgs + Stats reject)', async () => {
     vi.mocked(vendorService.getVendors).mockRejectedValueOnce(new Error('Vendors down'));
     vi.mocked(inventoryService.getCategories).mockRejectedValueOnce(new Error('Cats down'));
-    vi.mocked(organizationService.getLocationTree).mockRejectedValueOnce(new Error('Locs down'));
-    vi.mocked(organizationService.getLocations).mockRejectedValueOnce(
-      new Error('Locs fallback down'),
-    );
     vi.mocked(organizationService.getOrganizations).mockRejectedValueOnce(new Error('Orgs down'));
     vi.mocked(inventoryService.getStats).mockRejectedValueOnce(new Error('Stats down'));
 
@@ -301,15 +254,11 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     // All warnings emitted
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load approved vendors.');
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory categories.');
-    expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory storage locations.');
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load organizations.');
-
-    // Fallback stats computed
-    expect(host.textContent).toContain('40');
-    expect(host.textContent).toContain('$340.00');
+    expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory aggregate statistics.');
   });
 
-  it('Challenge 7: Core items service failure -> notifies via message.error and renders gracefully', async () => {
+  it('Challenge 6: Core items service failure -> notifies via message.error and renders gracefully', async () => {
     vi.mocked(inventoryService.getItems).mockRejectedValueOnce(
       new Error('500 Database connection dropped'),
     );
@@ -326,7 +275,7 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     expect(host.querySelector('.ant-table')).not.toBeNull();
   });
 
-  it('Challenge 8: Restock failure error extraction and user feedback', async () => {
+  it('Challenge 7: Restock failure error extraction and user feedback', async () => {
     await renderPage();
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 50));

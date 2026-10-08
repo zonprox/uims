@@ -55,9 +55,6 @@ interface MockPrismaClient {
   assetCategory: {
     findFirst: ReturnType<typeof vi.fn>;
   };
-  location: {
-    findFirst: ReturnType<typeof vi.fn>;
-  };
   inventoryItem: {
     findMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
@@ -193,9 +190,6 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
       },
       assetCategory: {
         findFirst: vi.fn().mockResolvedValue({ id: 'cat-1', name: 'Laptop' }),
-      },
-      location: {
-        findFirst: vi.fn().mockResolvedValue({ id: 'loc-1', name: 'HQ' }),
       },
       inventoryItem: {
         findMany: vi.fn().mockResolvedValue([]),
@@ -656,7 +650,6 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
         assetTag: 'AST-M3-01',
         status: 'AVAILABLE',
         category: { name: 'Laptop' },
-        location: { name: 'HQ' },
       });
 
       mockPrisma.asset.update.mockResolvedValue({
@@ -665,7 +658,6 @@ describe('Adversarial E2E Integration & Stress Testing', () => {
         assetTag: 'AST-M3-01',
         status: 'MAINTENANCE',
         category: { name: 'Laptop' },
-        location: { name: 'HQ' },
       });
 
       await assetsService.update('ast-mac-101', { status: 'MAINTENANCE' });

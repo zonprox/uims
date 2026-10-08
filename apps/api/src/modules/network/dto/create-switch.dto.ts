@@ -8,7 +8,10 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
+  Matches,
   Max,
+  MaxLength,
   Min,
   Validate,
   ValidationArguments,
@@ -32,36 +35,43 @@ export class CreateSwitchDto {
   @ApiProperty({ description: 'Switch device name', example: 'BSL-CORE-SW01' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   name!: string;
 
   @ApiProperty({ description: 'Hardware model string', example: 'C9300-48P-A' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   model!: string;
 
   @ApiProperty({ description: 'Hardware vendor/make', example: 'Cisco Systems' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   vendor!: string;
 
   @ApiPropertyOptional({ description: 'Unique hardware serial number', example: 'FOC2488102' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   serialNumber?: string | null;
 
   @ApiPropertyOptional({ description: 'Base MAC address', example: '70:69:79:2A:41:01' })
   @IsOptional()
-  @IsString()
+  @Matches(/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/, {
+    message: 'macAddress must be a valid MAC address',
+  })
   macAddress?: string | null;
 
   @ApiPropertyOptional({ description: 'Linked management IPAddress UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   ipAddressId?: string | null;
 
   @ApiPropertyOptional({ description: 'Operating firmware/OS version', example: '17.3.3' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   firmwareVersion?: string | null;
 
   @ApiPropertyOptional({ enum: SwitchRole, default: SwitchRole.ACCESS })
@@ -114,6 +124,7 @@ export class CreateSwitchDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   uplinkSpeed?: string;
 
   @ApiPropertyOptional({
@@ -122,11 +133,12 @@ export class CreateSwitchDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   fiberSpeed?: string;
 
   @ApiPropertyOptional({ description: 'Mounted NetworkRack UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   rackId?: string | null;
 
   @ApiPropertyOptional({ description: 'Mounted RU slot starting position (1..100)', example: 39 })
@@ -145,13 +157,8 @@ export class CreateSwitchDto {
 
   @ApiPropertyOptional({ description: 'Linked hardware Asset UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   assetId?: string | null;
-
-  @ApiPropertyOptional({ description: 'Physical Location UUID' })
-  @IsOptional()
-  @IsString()
-  locationId?: string | null;
 
   @ApiPropertyOptional({ description: 'Estimated power draw in Watts', example: 350 })
   @IsOptional()
@@ -166,6 +173,7 @@ export class CreateSwitchDto {
   @ApiPropertyOptional({ description: 'Operational notes' })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   notes?: string | null;
 
   @ApiPropertyOptional({ description: 'Auto-generate 24/48 ports + 4 SFP uplinks', default: true })

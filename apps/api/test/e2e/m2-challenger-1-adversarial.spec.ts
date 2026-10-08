@@ -5,7 +5,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import type { PrismaService } from '../../src/database/prisma.service';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { DirectoryService } from '../../src/modules/directory/directory.service';
-import { resolveDescendantLocationIds } from '../../src/modules/organization/location-tree.util';
 import { OrganizationService } from '../../src/modules/organization/organization.service';
 import { RolesService } from '../../src/modules/roles/roles.service';
 import { UsersService } from '../../src/modules/users/users.service';
@@ -113,11 +112,6 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
         position: {
           findMany: vi.fn().mockResolvedValue([]),
           count: vi.fn().mockResolvedValue(0),
-        },
-        location: {
-          findMany: vi.fn().mockResolvedValue([]),
-          count: vi.fn().mockResolvedValue(0),
-          update: vi.fn().mockResolvedValue({}),
         },
       };
 
@@ -227,53 +221,12 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
       expect(callArgs.take).toBe(100);
     });
 
-    it('1.14 OrganizationService.getLocationTree: enforces ceiling take: 100', async () => {
-      await mockOrgService.getLocationTree();
-      expect(mockPrisma.location.findMany).toHaveBeenCalledTimes(1);
-      const callArgs = mockPrisma.location.findMany.mock.calls[0][0];
-      expect(callArgs.take).toBe(100);
-    });
-
-    it('1.15 OrganizationService.computeFullPath: enforces ceiling take: 100', async () => {
-      mockPrisma.location.findMany.mockResolvedValueOnce([
-        { id: 'loc-1', name: 'Root Campus', parentId: null },
-      ]);
-      const path = await mockOrgService.computeFullPath('loc-1');
-      expect(path).toBe('Root Campus');
-      expect(mockPrisma.location.findMany).toHaveBeenCalledTimes(1);
-      const callArgs = mockPrisma.location.findMany.mock.calls[0][0];
-      expect(callArgs.take).toBe(100);
-    });
-
-    it('1.16 OrganizationService.findAllLocations: enforces ceiling take: 100', async () => {
-      await mockOrgService.findAllLocations();
-      expect(mockPrisma.location.findMany).toHaveBeenCalledTimes(1);
-      const callArgs = mockPrisma.location.findMany.mock.calls[0][0];
-      expect(callArgs.take).toBe(100);
-    });
-
-    it('1.17 OrganizationService.getHierarchyTree: enforces ceiling take: 50 (<= 100)', async () => {
+    it('1.14 OrganizationService.getHierarchyTree: enforces ceiling take: 50 (<= 100)', async () => {
       await mockOrgService.getHierarchyTree();
       expect(mockPrisma.organization.findMany).toHaveBeenCalledTimes(1);
       const callArgs = mockPrisma.organization.findMany.mock.calls[0][0];
       expect(callArgs.take).toBe(50);
       expect(callArgs.take).toBeLessThanOrEqual(100);
-    });
-
-    it('1.18 location-tree.util fallback: enforces ceiling take: 100', async () => {
-      const mockFallbackPrisma = {
-        location: {
-          findMany: vi.fn().mockResolvedValue([{ id: 'loc-test', parentId: null }]),
-        },
-      } as unknown as PrismaService;
-
-      const result = await resolveDescendantLocationIds(mockFallbackPrisma, 'loc-test');
-      expect(result).toEqual(['loc-test']);
-      expect(mockFallbackPrisma.location.findMany).toHaveBeenCalledWith({
-        select: { id: true, parentId: true },
-        take: 100,
-        orderBy: { id: 'asc' },
-      });
     });
   });
 
@@ -324,11 +277,6 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
         position: {
           findMany: vi.fn().mockResolvedValue([]),
           count: vi.fn().mockResolvedValue(0),
-        },
-        location: {
-          findMany: vi.fn().mockResolvedValue([]),
-          count: vi.fn().mockResolvedValue(0),
-          update: vi.fn().mockResolvedValue({}),
         },
       };
 
@@ -390,32 +338,10 @@ describe('Milestone 2 Challenger 1 — Deterministic Ordering & Query Ceilings A
       expect(callArgs.orderBy).toEqual([{ title: 'asc' }, { id: 'asc' }]);
     });
 
-    it('2.9 OrganizationService.getLocationTree specifies composite orderBy: [{ name: "asc" }, { id: "asc" }]', async () => {
-      await mockOrgService.getLocationTree();
-      const callArgs = mockPrisma.location.findMany.mock.calls[0][0];
-      expect(callArgs.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
-    });
-
-    it('2.10 OrganizationService.computeFullPath specifies unique orderBy: { id: "asc" }', async () => {
-      mockPrisma.location.findMany.mockResolvedValueOnce([
-        { id: 'loc-1', name: 'Campus', parentId: null },
-      ]);
-      await mockOrgService.computeFullPath('loc-1');
-      const callArgs = mockPrisma.location.findMany.mock.calls[0][0];
-      expect(callArgs.orderBy).toEqual({ id: 'asc' });
-    });
-
-    it('2.11 OrganizationService.findAllLocations specifies composite orderBy: [{ name: "asc" }, { id: "asc" }]', async () => {
-      await mockOrgService.findAllLocations();
-      const callArgs = mockPrisma.location.findMany.mock.calls[0][0];
-      expect(callArgs.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
-    });
-
-    it('2.12 OrganizationService.getHierarchyTree specifies composite ordering on roots and sub-relations', async () => {
+    it('2.9 OrganizationService.getHierarchyTree specifies composite ordering on roots and sub-relations', async () => {
       await mockOrgService.getHierarchyTree();
       const callArgs = mockPrisma.organization.findMany.mock.calls[0][0];
       expect(callArgs.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
-      expect(callArgs.include.locations.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
       expect(callArgs.include.departments.orderBy).toEqual([{ name: 'asc' }, { id: 'asc' }]);
       expect(callArgs.include.departments.include.positions.orderBy).toEqual([
         { title: 'asc' },

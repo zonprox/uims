@@ -5,7 +5,6 @@ import {
   ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
-  EnvironmentOutlined,
   IdcardOutlined,
   MinusSquareOutlined,
   PlusOutlined,
@@ -49,8 +48,9 @@ import {
 import type { DataNode } from 'antd/es/tree';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
-import { type LocationBranch, organizationService } from '../../services/organization.service';
+import { organizationService } from '../../services/organization.service';
 import { formatErrorMessage } from '../../utils/feedback';
+import { formRules, isValidationError } from '../../utils/formValidators';
 import OrganizationCanvas from './OrganizationCanvas';
 
 const { Text, Title, Paragraph } = Typography;
@@ -174,7 +174,6 @@ export default function OrganizationPage() {
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
-  const [locations, setLocations] = useState<LocationBranch[]>([]);
 
   const [deptTableView, setDeptTableView] = useState<'tree' | 'flat'>('tree');
   const [expandedDeptKeys, setExpandedDeptKeys] = useState<React.Key[]>([]);
@@ -206,13 +205,12 @@ export default function OrganizationPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsData, tree, orgList, deptList, posList, locList] = await Promise.all([
+      const [statsData, tree, orgList, deptList, posList] = await Promise.all([
         organizationService.getStats().catch((_error: unknown) => null),
         organizationService.getTree().catch((_error: unknown) => []),
         organizationService.getOrganizations().catch((_error: unknown) => []),
         organizationService.getDepartments().catch((_error: unknown) => []),
         organizationService.getPositions().catch((_error: unknown) => []),
-        organizationService.getLocations().catch((_error: unknown) => []),
       ]);
 
       if (statsData) setStats(statsData);
@@ -220,7 +218,6 @@ export default function OrganizationPage() {
       setOrgs(orgList);
       setDepartments(deptList);
       setPositions(posList);
-      setLocations(locList);
 
       if (tree.length > 0 && !selectedNodeKey) {
         setSelectedNodeKey(tree[0].key);
@@ -270,10 +267,6 @@ export default function OrganizationPage() {
           icon = <BankOutlined key="bank-icon" style={{ color: '#722ed1' }} />;
           tierBadge = 'Enterprise HQ';
           tagColor = 'purple';
-        } else if (node.type === 'branch') {
-          icon = <EnvironmentOutlined key="env-icon" style={{ color: '#10b981' }} />;
-          tierBadge = 'Facility';
-          tagColor = 'green';
         } else if (node.type === 'position') {
           icon = <IdcardOutlined key="pos-icon" style={{ color: '#f59e0b' }} />;
           tierBadge = 'Job Title';
@@ -430,6 +423,7 @@ export default function OrganizationPage() {
       setOrgModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'save organization'));
     } finally {
       setModalSubmitting(false);
@@ -477,6 +471,7 @@ export default function OrganizationPage() {
       setDeptModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'save department'));
     } finally {
       setModalSubmitting(false);
@@ -524,6 +519,7 @@ export default function OrganizationPage() {
       setPosModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'save position'));
     } finally {
       setModalSubmitting(false);
@@ -858,7 +854,7 @@ export default function OrganizationPage() {
   return (
     <PageContainer
       title="Organization Structure"
-      subtitle="Manage organizational units, departments, locations, and job positions."
+      subtitle="Manage organizational units, departments, and job positions."
       breadcrumbs={[{ title: 'Organization Structure' }]}
       stats={[
         {
@@ -878,12 +874,6 @@ export default function OrganizationPage() {
           value: stats.totalPositions,
           prefix: <IdcardOutlined />,
           color: '#f59e0b',
-        },
-        {
-          title: 'Locations',
-          value: stats.totalBranches,
-          prefix: <EnvironmentOutlined />,
-          color: '#10b981',
         },
       ]}
       extra={
@@ -1450,7 +1440,7 @@ export default function OrganizationPage() {
           {
             key: 'entities',
             icon: <BankOutlined />,
-            label: `Organizations & Locations (${orgs.length} Organizations, ${locations.length} Locations)`,
+            label: `Organizations (${orgs.length})`,
             children: (
               <Flex vertical gap={16}>
                 <Card
@@ -1521,44 +1511,7 @@ export default function OrganizationPage() {
                             </Flex>
                             <Flex justify="space-between" style={{ marginTop: 6 }}>
                               <Tag color="blue">{org.departmentsCount || 0} Departments</Tag>
-                              <Tag color="green">{org.locationsCount || 0} Locations</Tag>
                               <Tag color="processing">{org.usersCount || 0} Staff</Tag>
-                            </Flex>
-                          </Flex>
-                        </Card>
-                      </Col>
-                    ))}
-                  </Row>
-                </Card>
-
-                <Card
-                  size="small"
-                  title="Locations & Facilities"
-                  styles={{ body: { padding: '16px' } }}
-                >
-                  <Row gutter={[14, 14]}>
-                    {locations.map((loc) => (
-                      <Col xs={24} sm={12} lg={8} key={loc.id}>
-                        <Card
-                          size="small"
-                          title={
-                            <Flex justify="space-between" align="center">
-                              <Text strong style={{ fontSize: 13 }}>
-                                {loc.name}
-                              </Text>
-                              <Tag color="green">{loc.type || 'Branch'}</Tag>
-                            </Flex>
-                          }
-                        >
-                          <Flex vertical gap={4} style={{ fontSize: 12 }}>
-                            <Text type="secondary">{loc.address || 'Address'}</Text>
-                            <Text type="secondary">
-                              {loc.building || ''} • {loc.floor || ''}{' '}
-                              {loc.room ? `(${loc.room})` : ''}
-                            </Text>
-                            <Flex justify="space-between" style={{ marginTop: 8 }}>
-                              <Tag color="blue">{loc._count?.assets || 0} Assets Deployed</Tag>
-                              <Tag color="default">{loc._count?.users || 0} Assigned Users</Tag>
                             </Flex>
                           </Flex>
                         </Card>
@@ -1634,15 +1587,35 @@ export default function OrganizationPage() {
         okText={editingOrg ? 'Save Changes' : 'Create Organization'}
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={orgForm} layout="vertical">
+        <Form
+          form={orgForm}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={14}>
             <Col span={14}>
-              <Form.Item label="Organization Name" name="name" rules={[{ required: true }]}>
+              <Form.Item
+                label="Organization Name"
+                name="name"
+                rules={[
+                  formRules.required('Organization name'),
+                  formRules.maxString('Organization name', 100),
+                ]}
+              >
                 <Input placeholder="e.g. Acme Enterprise Global HQ" />
               </Form.Item>
             </Col>
             <Col span={10}>
-              <Form.Item label="Organization Code" name="code" rules={[{ required: true }]}>
+              <Form.Item
+                label="Organization Code"
+                name="code"
+                rules={[
+                  formRules.required('Organization code'),
+                  formRules.sku('Organization code'),
+                  formRules.maxString('Organization code', 50),
+                ]}
+              >
                 <Input placeholder="e.g. ACME-HQ" />
               </Form.Item>
             </Col>
@@ -1665,29 +1638,49 @@ export default function OrganizationPage() {
           </Form.Item>
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Tax ID" name="taxId">
+              <Form.Item
+                label="Tax ID"
+                name="taxId"
+                rules={[formRules.maxString('Tax ID', 50)]}
+              >
                 <Input placeholder="e.g. US-TAX-99881234" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Corporate Email" name="email">
+              <Form.Item
+                label="Corporate Email"
+                name="email"
+                rules={[formRules.email('Corporate email')]}
+              >
                 <Input placeholder="e.g. corp@acme.enterprise" />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Phone Number" name="phone">
+              <Form.Item
+                label="Phone Number"
+                name="phone"
+                rules={[formRules.phone()]}
+              >
                 <Input placeholder="e.g. +1 (555) 100-0000" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Website" name="website">
+              <Form.Item
+                label="Website"
+                name="website"
+                rules={[formRules.url('Website URL')]}
+              >
                 <Input placeholder="e.g. https://acme.enterprise" />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Address" name="address">
+          <Form.Item
+            label="Address"
+            name="address"
+            rules={[formRules.maxString('Address', 255)]}
+          >
             <Input placeholder="e.g. 350 5th Ave, New York, NY 10118" />
           </Form.Item>
         </Form>
@@ -1705,15 +1698,35 @@ export default function OrganizationPage() {
         okText={editingDept ? 'Save Changes' : 'Create Department'}
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={deptForm} layout="vertical">
+        <Form
+          form={deptForm}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={14}>
             <Col span={14}>
-              <Form.Item label="Department Name" name="name" rules={[{ required: true }]}>
+              <Form.Item
+                label="Department Name"
+                name="name"
+                rules={[
+                  formRules.required('Department name'),
+                  formRules.maxString('Department name', 100),
+                ]}
+              >
                 <Input placeholder="e.g. Cloud Infrastructure & DevOps" />
               </Form.Item>
             </Col>
             <Col span={10}>
-              <Form.Item label="Department Code" name="code" rules={[{ required: true }]}>
+              <Form.Item
+                label="Department Code"
+                name="code"
+                rules={[
+                  formRules.required('Department code'),
+                  formRules.sku('Department code'),
+                  formRules.maxString('Department code', 50),
+                ]}
+              >
                 <Input placeholder="e.g. DEPT-CLOUD" />
               </Form.Item>
             </Col>
@@ -1739,7 +1752,11 @@ export default function OrganizationPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Organization" name="organizationId">
+              <Form.Item
+                label="Organization"
+                name="organizationId"
+                rules={[{ required: true, message: 'Organization is required.' }]}
+              >
                 <Select
                   placeholder="Select Organization"
                   showSearch
@@ -1757,18 +1774,30 @@ export default function OrganizationPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Manager Name" name="managerName">
+              <Form.Item
+                label="Manager Name"
+                name="managerName"
+                rules={[formRules.maxString('Manager name', 100)]}
+              >
                 <Input placeholder="e.g. Sarah Chen" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Manager Email" name="managerEmail">
+              <Form.Item
+                label="Manager Email"
+                name="managerEmail"
+                rules={[formRules.email('Manager email')]}
+              >
                 <Input placeholder="e.g. sarah.chen@company.com" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item label="Description" name="description">
+          <Form.Item
+            label="Description"
+            name="description"
+            rules={[formRules.maxString('Description', 1000)]}
+          >
             <Input.TextArea
               rows={2}
               placeholder="Describe scope, responsibilities, and team remit..."
@@ -1789,15 +1818,35 @@ export default function OrganizationPage() {
         okText={editingPos ? 'Save Changes' : 'Create Position'}
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={posForm} layout="vertical">
+        <Form
+          form={posForm}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={14}>
             <Col span={14}>
-              <Form.Item label="Position Title" name="title" rules={[{ required: true }]}>
+              <Form.Item
+                label="Position Title"
+                name="title"
+                rules={[
+                  formRules.required('Position title'),
+                  formRules.maxString('Position title', 100),
+                ]}
+              >
                 <Input placeholder="e.g. Principal Cloud Infrastructure Architect" />
               </Form.Item>
             </Col>
             <Col span={10}>
-              <Form.Item label="Position Code" name="code" rules={[{ required: true }]}>
+              <Form.Item
+                label="Position Code"
+                name="code"
+                rules={[
+                  formRules.required('Position code'),
+                  formRules.sku('Position code'),
+                  formRules.maxString('Position code', 50),
+                ]}
+              >
                 <Input placeholder="e.g. POS-CLOUD-ARCH" />
               </Form.Item>
             </Col>
@@ -1805,7 +1854,11 @@ export default function OrganizationPage() {
 
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item label="Department" name="departmentId" rules={[{ required: true }]}>
+              <Form.Item
+                label="Department"
+                name="departmentId"
+                rules={[{ required: true, message: 'Department is required.' }]}
+              >
                 <Select
                   placeholder="Select Department"
                   showSearch
@@ -1836,7 +1889,11 @@ export default function OrganizationPage() {
             </Col>
           </Row>
 
-          <Form.Item label="Description" name="description">
+          <Form.Item
+            label="Description"
+            name="description"
+            rules={[formRules.maxString('Description', 1000)]}
+          >
             <Input.TextArea rows={2} placeholder="Describe duties and skill requirements..." />
           </Form.Item>
         </Form>

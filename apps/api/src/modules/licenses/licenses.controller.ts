@@ -1,7 +1,12 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { AssignUserLicenseDto, LicenseQueryDto } from '@uims/shared-types';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AssignUserLicenseDto } from './dto/assign-user-license.dto';
+import { LicenseQueryDto } from './dto/license-query.dto';
+import {
+  BatchAssignLicensesToUserDto,
+  BatchAssignUserLicenseDto,
+} from './dto/batch-assign-license.dto';
 import { CreateLicenseDto } from './dto/create-license.dto';
 import { UpdateLicenseDto } from './dto/update-license.dto';
 import { LicensesService } from './licenses.service';
@@ -56,6 +61,20 @@ export class LicensesController {
   @ApiOperation({ summary: 'Assign license seat' })
   assignSeat(@Param('id') id: string, @Body() body: AssignUserLicenseDto) {
     return this.licensesService.assignUser(id, body);
+  }
+
+  @Post(':id/batch-assign')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Batch assign multiple users to a license' })
+  batchAssignSeats(@Param('id') id: string, @Body() body: BatchAssignUserLicenseDto) {
+    return this.licensesService.batchAssignUsers(id, body);
+  }
+
+  @Post('batch-assign')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Batch assign multiple licenses to a user' })
+  batchAssignLicensesToUser(@Body() body: BatchAssignLicensesToUserDto) {
+    return this.licensesService.batchAssignLicensesToUser(body);
   }
 
   @Delete(':id/assign/:assignmentId')

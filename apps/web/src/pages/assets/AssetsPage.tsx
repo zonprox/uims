@@ -8,9 +8,10 @@ import {
   PrinterOutlined,
   QrcodeOutlined,
   ReloadOutlined,
+  UserSwitchOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { Badge, Button, Card, Flex, Form, Space, theme, Tooltip, Typography } from 'antd';
+import { Badge, Button, Card, Flex, Form, Space, Tabs, theme, Tooltip, Typography } from 'antd';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import PageContainer from '../../components/PageContainer';
@@ -20,7 +21,10 @@ import { AssetFormModal } from './components/AssetFormModal';
 import { AssetQrModal } from './components/AssetQrModal';
 import { AssetScannerModal } from './components/AssetScannerModal';
 import { AssetTable } from './components/AssetTable';
+import { BatchAssignModal } from './components/BatchAssignModal';
 import { BatchPrintModal } from './components/BatchPrintModal';
+import { DeviceModelDrawer } from './components/DeviceModelDrawer';
+import { DeviceModelTable } from './components/DeviceModelTable';
 import { useAssetManagement } from './hooks/useAssetManagement';
 
 const { Text } = Typography;
@@ -42,8 +46,6 @@ export default function AssetsPage() {
     setCategoryFilter,
     statusFilter,
     setStatusFilter,
-    locationFilter,
-    setLocationFilter,
     filterState,
     handleFilterChange,
     modalOpen,
@@ -79,6 +81,24 @@ export default function AssetsPage() {
     handleOpenBatchPrint,
     handleCloseBatchPrint,
     handleBatchDelete,
+    batchAssignModalOpen,
+    batchAssigning,
+    handleOpenBatchAssign,
+    handleCloseBatchAssign,
+    handleBatchAssign,
+    // Device Models & Tabs
+    activeTab,
+    setActiveTab,
+    models,
+    loadingModels,
+    loadModels,
+    deviceModelDrawerOpen,
+    setDeviceModelDrawerOpen,
+    editingModel,
+    handleOpenCreateModel,
+    handleOpenEditModel,
+    handleDeleteModel,
+    handleRegisterUnitUnderModel,
   } = useAssetManagement(form);
 
   const statsItems = useMemo(
@@ -126,87 +146,129 @@ export default function AssetsPage() {
             Export Excel
           </Button>
           <Tooltip title="Refresh assets">
-            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
+            <Button
+              icon={<ReloadOutlined spin={loading || loadingModels} />}
+              onClick={() => {
+                loadData();
+                loadModels();
+              }}
+            />
           </Tooltip>
+          <Button icon={<PlusOutlined />} onClick={handleOpenCreateModel}>
+            Create Device Model
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateModal}>
-            Create Asset
+            Register Physical Unit
           </Button>
         </Flex>
       }
     >
-      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
-        <AssetFilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          orgFilter={orgFilter}
-          onOrgChange={setOrgFilter}
-          orgOptions={orgOptions}
-          categoryFilter={categoryFilter}
-          onCategoryChange={setCategoryFilter}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-          locationFilter={locationFilter}
-          onLocationChange={setLocationFilter}
-          filterState={filterState}
-          onFilterChange={handleFilterChange}
-          onReset={handleResetFilters}
-          onScanQr={() => setScannerModalOpen(true)}
-        />
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'units',
+            label: 'Physical Units',
+            children: (
+              <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+                <AssetFilterBar
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  orgFilter={orgFilter}
+                  onOrgChange={setOrgFilter}
+                  orgOptions={orgOptions}
+                  categoryFilter={categoryFilter}
+                  onCategoryChange={setCategoryFilter}
+                  statusFilter={statusFilter}
+                  onStatusChange={setStatusFilter}
+                  filterState={filterState}
+                  onFilterChange={handleFilterChange}
+                  onReset={handleResetFilters}
+                  onScanQr={() => setScannerModalOpen(true)}
+                />
 
-        {selectedRowKeys.length > 0 && (
-          <Flex
-            justify="space-between"
-            align="center"
-            style={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
-              padding: '10px 16px',
-              background: token.colorBgElevated,
-              border: `1px solid ${token.colorPrimaryBorder}`,
-              borderRadius: token.borderRadiusLG,
-              boxShadow: token.boxShadowSecondary,
-              marginBottom: 16,
-            }}
-          >
-            <Flex align="center" gap={8}>
-              <Badge
-                count={selectedRowKeys.length}
-                overflowCount={9999}
-                style={{ backgroundColor: token.colorPrimary }}
-              />
-              <Text strong style={{ color: token.colorPrimary, fontSize: 13 }}>
-                Selected {selectedRowKeys.length} asset{selectedRowKeys.length > 1 ? 's' : ''}
-              </Text>
-            </Flex>
-            <Space size={8}>
-              <Button icon={<PrinterOutlined />} onClick={handleOpenBatchPrint}>
-                Batch Print QR
-              </Button>
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                loading={batchDeleting}
-                onClick={handleBatchDelete}
-              >
-                Batch Delete
-              </Button>
-              <Button onClick={handleClearSelection}>Clear Selection</Button>
-            </Space>
-          </Flex>
-        )}
+                {selectedRowKeys.length > 0 && (
+                  <Flex
+                    justify="space-between"
+                    align="center"
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10,
+                      padding: '10px 16px',
+                      background: token.colorBgElevated,
+                      border: `1px solid ${token.colorPrimaryBorder}`,
+                      borderRadius: token.borderRadiusLG,
+                      boxShadow: token.boxShadowSecondary,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <Flex align="center" gap={8}>
+                      <Badge
+                        count={selectedRowKeys.length}
+                        overflowCount={9999}
+                        style={{ backgroundColor: token.colorPrimary }}
+                      />
+                      <Text strong style={{ color: token.colorPrimary, fontSize: 13 }}>
+                        Selected {selectedRowKeys.length} asset
+                        {selectedRowKeys.length > 1 ? 's' : ''}
+                      </Text>
+                    </Flex>
+                    <Space size={8}>
+                      <Button
+                        type="primary"
+                        icon={<UserSwitchOutlined />}
+                        onClick={handleOpenBatchAssign}
+                      >
+                        Batch Assign
+                      </Button>
+                      <Button icon={<PrinterOutlined />} onClick={handleOpenBatchPrint}>
+                        Batch Print QR
+                      </Button>
+                      <Button
+                        danger
+                        icon={<DeleteOutlined />}
+                        loading={batchDeleting}
+                        onClick={handleBatchDelete}
+                      >
+                        Batch Delete
+                      </Button>
+                      <Button onClick={handleClearSelection}>Clear Selection</Button>
+                    </Space>
+                  </Flex>
+                )}
 
-        <AssetTable
-          assets={assets}
-          loading={loading}
-          selectedRowKeys={selectedRowKeys}
-          onSelectionChange={handleSelectionChange}
-          onShowDetails={handleShowDetails}
-          onShowQr={handleShowQr}
-          onOpenEditModal={handleOpenEditModal}
-          onDeleteAsset={handleDeleteAsset}
-        />
-      </Card>
+                <AssetTable
+                  assets={assets}
+                  loading={loading}
+                  selectedRowKeys={selectedRowKeys}
+                  onSelectionChange={handleSelectionChange}
+                  onShowDetails={handleShowDetails}
+                  onShowQr={handleShowQr}
+                  onOpenEditModal={handleOpenEditModal}
+                  onDeleteAsset={handleDeleteAsset}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: 'models',
+            label: 'Device Models',
+            children: (
+              <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+                <DeviceModelTable
+                  models={models}
+                  loading={loadingModels}
+                  onEditModel={handleOpenEditModel}
+                  onRegisterUnit={handleRegisterUnitUnderModel}
+                  onDeleteModel={handleDeleteModel}
+                />
+              </Card>
+            ),
+          },
+        ]}
+      />
 
       <AssetFormModal
         open={modalOpen}
@@ -215,6 +277,13 @@ export default function AssetsPage() {
         submitting={modalSubmitting}
         onSave={handleSaveAsset}
         onCancel={() => setModalOpen(false)}
+      />
+
+      <DeviceModelDrawer
+        open={deviceModelDrawerOpen}
+        editingModel={editingModel}
+        onClose={() => setDeviceModelDrawerOpen(false)}
+        onSuccess={loadModels}
       />
 
       <AssetDetailDrawer
@@ -247,6 +316,14 @@ export default function AssetsPage() {
         open={batchPrintModalOpen}
         assets={selectedAssets}
         onClose={handleCloseBatchPrint}
+      />
+
+      <BatchAssignModal
+        open={batchAssignModalOpen}
+        assets={selectedAssets}
+        submitting={batchAssigning}
+        onAssign={handleBatchAssign}
+        onCancel={handleCloseBatchAssign}
       />
     </PageContainer>
   );

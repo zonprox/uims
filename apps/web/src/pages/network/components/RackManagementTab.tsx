@@ -1,11 +1,7 @@
 import {
   ApartmentOutlined,
-  AppstoreOutlined,
-  BarsOutlined,
   ClearOutlined,
-  EnvironmentOutlined,
   PlusOutlined,
-  ReloadOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
 import {
@@ -16,22 +12,19 @@ import {
   Flex,
   Form,
   Input,
-  Segmented,
-  Select,
   Space,
   Spin,
   Tag,
   theme,
-  Tooltip,
   Typography,
 } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { queryClient } from '../../../app/query-client';
 import type { NetworkRack } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
-import type { LocationBranch } from '../../../services/organization.service';
 import { formatErrorMessage } from '../../../utils/feedback';
-import { RackElevationView } from './RackElevationView';
+import { isValidationError } from '../../../utils/formValidators';
+import { RackElevationDrawer } from './RackElevationDrawer';
 import { RackFormModal } from './RackFormModal';
 import { RackTable } from './RackTable';
 
@@ -39,12 +32,9 @@ const { Text, Title } = Typography;
 
 export interface RackManagementTabProps {
   racks?: Array<NetworkRack>;
-  locations?: Array<LocationBranch>;
   loading?: boolean;
   searchQuery?: string;
   onSearchChange?: (val: string) => void;
-  siteFilter?: string;
-  onSiteChange?: (val: string) => void;
   onResetFilters?: () => void;
   onOpenCreateModal?: () => void;
   onSelectSwitch?: (switchId: string) => void;
@@ -54,12 +44,9 @@ export interface RackManagementTabProps {
 export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
   ({
     racks: propRacks,
-    locations = [],
     loading: propLoading = false,
     searchQuery: propSearchQuery,
     onSearchChange: propOnSearchChange,
-    siteFilter: propSiteFilter,
-    onSiteChange: propOnSiteChange,
     onResetFilters: propOnResetFilters,
     onOpenCreateModal: propOnOpenCreateModal,
     onSelectSwitch,
@@ -71,12 +58,10 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
 
     // Internal state if not controlled from parent
     const [internalSearch, setInternalSearch] = useState('');
-    const [internalSite, setInternalSite] = useState<string>('all');
     const [internalRacks, setInternalRacks] = useState<Array<NetworkRack>>([]);
     const [internalLoading, setInternalLoading] = useState(false);
 
     const activeSearch = propSearchQuery !== undefined ? propSearchQuery : internalSearch;
-    const activeSite = propSiteFilter !== undefined ? propSiteFilter : internalSite;
 
     const handleSearchChange = (val: string) => {
       if (propOnSearchChange) {
@@ -86,20 +71,11 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       }
     };
 
-    const handleSiteChange = (val: string) => {
-      if (propOnSiteChange) {
-        propOnSiteChange(val);
-      } else {
-        setInternalSite(val);
-      }
-    };
-
     const handleReset = () => {
       if (propOnResetFilters) {
         propOnResetFilters();
       } else {
         setInternalSearch('');
-        setInternalSite('all');
       }
     };
 
@@ -109,7 +85,6 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       try {
         const list = await networkService.getRacks({
           search: activeSearch || undefined,
-          locationId: activeSite !== 'all' ? activeSite : undefined,
         });
         setInternalRacks(list || []);
       } catch (err: unknown) {
@@ -117,7 +92,7 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       } finally {
         setInternalLoading(false);
       }
-    }, [activeSearch, activeSite, message]);
+    }, [activeSearch, message]);
 
     useEffect(() => {
       if (!propRacks) {
@@ -125,32 +100,27 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       }
     }, [propRacks, loadRacks]);
 
-    const activeRacks = propRacks !== undefined ? propRacks : internalRacks;
+    // Drawer state for on-demand 2D visual elevation
+    const [elevationDrawerOpen, setElevationDrawerOpen] = useState(false);
+    const [selectedRackId, setSelectedRackId] = useState<string | null>(null);
+    const [fallbackRack, setFallbackRack] = useState<NetworkRack | null>(null);
+
+    const activeRacks = useMemo(() => {
+      const base = propRacks !== undefined ? propRacks : internalRacks;
+      if (!fallbackRack) return base;
+      return base.map((r) => (r.id === fallbackRack.id ? { ...r, ...fallbackRack } : r));
+    }, [propRacks, internalRacks, fallbackRack]);
     const isLoading = propLoading || internalLoading;
 
-    // View Mode: 'elevation' (2D Visual) vs 'table' (Tabular List)
-    const [viewMode, setViewMode] = useState<'elevation' | 'table'>('elevation');
-    const [selectedRackId, setSelectedRackId] = useState<string | null>(null);
+    const selectedRack = useMemo(() => {
+      if (!selectedRackId) return null;
+      return activeRacks.find((r) => r.id === selectedRackId) || fallbackRack || null;
+    }, [activeRacks, selectedRackId, fallbackRack]);
 
     // Modal state for Rack creation & editing
     const [modalOpen, setModalOpen] = useState(false);
     const [editingRack, setEditingRack] = useState<NetworkRack | null>(null);
     const [submitting, setSubmitting] = useState(false);
-
-    // Sync selected rack with activeRacks list
-    useEffect(() => {
-      if (activeRacks.length > 0) {
-        if (!selectedRackId || !activeRacks.some((r) => r.id === selectedRackId)) {
-          setSelectedRackId(activeRacks[0].id);
-        }
-      } else {
-        setSelectedRackId(null);
-      }
-    }, [activeRacks, selectedRackId]);
-
-    const currentRack = useMemo(() => {
-      return activeRacks.find((r) => r.id === selectedRackId) || activeRacks[0] || null;
-    }, [activeRacks, selectedRackId]);
 
     // Handlers for Rack CRUD
     const handleOpenCreate = () => {
@@ -172,7 +142,6 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       form.setFieldsValue({
         name: rack.name,
         code: rack.code,
-        locationId: rack.locationId || rack.location?.id,
         totalHeight: rack.totalHeight,
         status: rack.status,
         notes: rack.notes,
@@ -186,11 +155,18 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
         setSubmitting(true);
 
         if (editingRack) {
-          await networkService.updateRack(editingRack.id, values);
+          const updated = await networkService.updateRack(editingRack.id, values);
           message.success(`Rack "${values.name}" updated successfully.`);
+          setInternalRacks((prev) =>
+            prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)),
+          );
+          setFallbackRack((prev) => (prev?.id === updated.id ? { ...prev, ...updated } : prev));
+          onRackUpdated?.(updated);
         } else {
-          await networkService.createRack(values);
+          const created = await networkService.createRack(values);
           message.success(`Rack "${values.name}" created successfully.`);
+          setInternalRacks((prev) => [created, ...prev]);
+          onRackUpdated?.(created);
         }
 
         queryClient.invalidateQueries({ queryKey: ['racks'] });
@@ -199,6 +175,7 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
           loadRacks();
         }
       } catch (err: unknown) {
+        if (isValidationError(err)) return;
         message.error(formatErrorMessage(err, 'save equipment rack'));
       } finally {
         setSubmitting(false);
@@ -210,6 +187,12 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
         await networkService.deleteRack(id);
         queryClient.invalidateQueries({ queryKey: ['racks'] });
         message.success('Rack deleted successfully.');
+        setInternalRacks((prev) => prev.filter((r) => r.id !== id));
+        if (selectedRackId === id) {
+          setElevationDrawerOpen(false);
+          setSelectedRackId(null);
+          setFallbackRack(null);
+        }
         if (!propRacks) {
           loadRacks();
         }
@@ -220,7 +203,8 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
 
     const handleViewElevationFromTable = (rack: NetworkRack) => {
       setSelectedRackId(rack.id);
-      setViewMode('elevation');
+      setFallbackRack((prev) => (prev?.id === rack.id ? { ...rack, ...prev } : rack));
+      setElevationDrawerOpen(true);
     };
 
     const handleEmptySlotMount = (unitNumber: number) => {
@@ -228,7 +212,7 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       handleOpenCreate();
     };
 
-    // Filter racks by search query and site filter
+    // Filter racks by search query
     const filteredRacks = useMemo(() => {
       return activeRacks.filter((rack) => {
         if (activeSearch) {
@@ -236,19 +220,13 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
           const matchCode = rack.code?.toLowerCase().includes(query);
           const matchName = rack.name?.toLowerCase().includes(query);
           const matchNotes = rack.notes?.toLowerCase().includes(query);
-          const matchLoc = rack.location?.name?.toLowerCase().includes(query);
-          if (!matchCode && !matchName && !matchNotes && !matchLoc) {
-            return false;
-          }
-        }
-        if (activeSite && activeSite !== 'all') {
-          if (rack.locationId !== activeSite && rack.location?.id !== activeSite) {
+          if (!matchCode && !matchName && !matchNotes) {
             return false;
           }
         }
         return true;
       });
-    }, [activeRacks, activeSearch, activeSite]);
+    }, [activeRacks, activeSearch]);
 
     return (
       <Flex vertical gap={16} style={{ width: '100%' }}>
@@ -271,32 +249,15 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
               </Text>
             </Flex>
 
-            {/* View Mode Toggle and Primary Action */}
+            {/* Primary Action */}
             <Flex align="center" gap={8} wrap>
-              <Segmented
-                value={viewMode}
-                onChange={(val) => setViewMode(val as 'elevation' | 'table')}
-                options={[
-                  {
-                    label: '2D Visual Elevation',
-                    value: 'elevation',
-                    icon: <AppstoreOutlined />,
-                  },
-                  {
-                    label: 'Cabinet Table',
-                    value: 'table',
-                    icon: <BarsOutlined />,
-                  },
-                ]}
-              />
-
               <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
                 Create Rack
               </Button>
             </Flex>
           </Flex>
 
-          {/* Search and Filters Bar */}
+          {/* Search Bar */}
           <Flex align="center" justify="space-between" wrap gap={12} style={{ marginTop: 14 }}>
             <Flex align="center" gap={8} wrap style={{ flex: 1 }}>
               <Input
@@ -308,48 +269,16 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
                 style={{ width: 260 }}
               />
 
-              <Select
-                value={activeSite}
-                onChange={handleSiteChange}
-                style={{ width: 220 }}
-                suffixIcon={<EnvironmentOutlined style={{ color: token.colorTextQuaternary }} />}
-                options={[
-                  { label: 'All Datacenters / Sites', value: 'all' },
-                  ...locations.map((loc) => ({
-                    label: loc.name,
-                    value: loc.id,
-                  })),
-                ]}
-              />
-
-              {(activeSearch || activeSite !== 'all') && (
+              {activeSearch && (
                 <Button icon={<ClearOutlined />} onClick={handleReset}>
                   Reset
                 </Button>
               )}
             </Flex>
-
-            {/* Rack Selector (Shown in Elevation mode) */}
-            {viewMode === 'elevation' && filteredRacks.length > 0 && (
-              <Flex align="center" gap={8}>
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                  Active Cabinet:
-                </Text>
-                <Select
-                  value={selectedRackId || currentRack?.id}
-                  onChange={(val) => setSelectedRackId(val)}
-                  style={{ width: 240 }}
-                  options={filteredRacks.map((r) => ({
-                    label: `${r.name} (${r.code}) · ${r.totalHeight}U`,
-                    value: r.id,
-                  }))}
-                />
-              </Flex>
-            )}
           </Flex>
         </Card>
 
-        {/* Content Body: Empty State, 2D Elevation, or Table */}
+        {/* Content Body: Empty State or Table */}
         {isLoading ? (
           <Card styles={{ body: { padding: '60px 0', textAlign: 'center' } }}>
             <Spin description="Loading equipment racks..." />
@@ -374,7 +303,7 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
                     <Tag color="green">Space & RU Telemetry</Tag>
                   </Space>
                   <Text type="secondary" style={{ marginTop: 4 }}>
-                    {activeSearch || activeSite !== 'all'
+                    {activeSearch
                       ? 'No equipment racks match the applied filters.'
                       : 'No equipment racks configured yet. Click below to provision your first cabinet.'}
                   </Text>
@@ -385,34 +314,6 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
                 Create Rack
               </Button>
             </Empty>
-          </Card>
-        ) : viewMode === 'elevation' && currentRack ? (
-          <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
-            <RackElevationView
-              rack={currentRack}
-              onMountClick={handleEmptySlotMount}
-              onSelectSwitch={onSelectSwitch}
-              onRackUpdated={(updated) => {
-                setInternalRacks((prev) =>
-                  prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)),
-                );
-                onRackUpdated?.(updated);
-              }}
-              onRefresh={() => {
-                if (!propRacks) loadRacks();
-              }}
-              extraActions={
-                <Tooltip title="Refresh elevation telemetry">
-                  <Button
-                    size="small"
-                    icon={<ReloadOutlined />}
-                    onClick={() => {
-                      if (!propRacks) loadRacks();
-                    }}
-                  />
-                </Tooltip>
-              }
-            />
           </Card>
         ) : (
           <RackTable
@@ -430,9 +331,29 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
           editingRack={editingRack}
           form={form}
           submitting={submitting}
-          locations={locations}
           onSave={handleSaveRack}
           onCancel={() => setModalOpen(false)}
+        />
+
+        {/* On-Demand 2D Visual Rack Elevation Drawer */}
+        <RackElevationDrawer
+          open={elevationDrawerOpen}
+          rack={selectedRack}
+          onClose={() => {
+            setElevationDrawerOpen(false);
+          }}
+          onEditRack={(rack) => {
+            setElevationDrawerOpen(false);
+            handleOpenEdit(rack);
+          }}
+          onMountClick={handleEmptySlotMount}
+          onSelectSwitch={(switchId) => {
+            setElevationDrawerOpen(false);
+            onSelectSwitch?.(switchId);
+          }}
+          onRefresh={() => {
+            if (!propRacks) loadRacks();
+          }}
         />
       </Flex>
     );

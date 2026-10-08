@@ -1,6 +1,6 @@
 import { Col, Form, type FormInstance, Input, InputNumber, Modal, Row, Select } from 'antd';
 import React from 'react';
-import type { LocationBranch } from '../../../services/organization.service';
+import { formRules } from '../../../utils/formValidators';
 import type { VLAN } from '../../../services/network.service';
 
 const { TextArea } = Input;
@@ -10,13 +10,13 @@ export interface VlanFormModalProps {
   editingVlan: VLAN | null;
   form: FormInstance;
   submitting: boolean;
-  locations: LocationBranch[];
+  locations?: unknown[];
   onSave: () => void;
   onCancel: () => void;
 }
 
 export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
-  ({ open, editingVlan, form, submitting, locations, onSave, onCancel }) => (
+  ({ open, editingVlan, form, submitting, onSave, onCancel }) => (
     <Modal
       title={
         editingVlan
@@ -32,20 +32,20 @@ export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
       okText={editingVlan ? 'Save Changes' : 'Create VLAN'}
       styles={{ body: { paddingTop: 16 } }}
     >
-      <Form form={form} layout="vertical">
+      <Form
+        form={form}
+        layout="vertical"
+        validateTrigger={['onChange', 'onBlur']}
+        scrollToFirstError={true}
+      >
         <Row gutter={16}>
           <Col span={10}>
             <Form.Item
               label="VLAN Number (ID)"
               name="vlanNumber"
               rules={[
-                { required: true, message: 'VLAN number is required' },
-                {
-                  type: 'number',
-                  min: 1,
-                  max: 4094,
-                  message: 'Must be between 1 and 4094',
-                },
+                formRules.required('VLAN number is required'),
+                formRules.integer(1, 4094, 'Must be between 1 and 4094'),
               ]}
             >
               <InputNumber
@@ -61,7 +61,10 @@ export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
             <Form.Item
               label="VLAN Name"
               name="name"
-              rules={[{ required: true, message: 'VLAN name is required' }]}
+              rules={[
+                formRules.required('VLAN name'),
+                formRules.stringRange('VLAN name', 2, 100),
+              ]}
             >
               <Input placeholder="e.g. Core Network / CCTV Security" />
             </Form.Item>
@@ -69,27 +72,11 @@ export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
         </Row>
 
         <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item label="Location / Site" name="locationId">
-              <Select
-                placeholder="Select location"
-                allowClear
-                showSearch
-                options={locations.map((loc) => ({
-                  label: `${loc.name} ${loc.building ? `(${loc.building})` : ''}`,
-                  value: loc.id,
-                }))}
-                filterOption={(input, option) =>
-                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
+          <Col span={24}>
             <Form.Item
               label="Status"
               name="status"
-              rules={[{ required: true, message: 'Status is required' }]}
+              rules={[formRules.required('Status is required')]}
               initialValue="ACTIVE"
             >
               <Select

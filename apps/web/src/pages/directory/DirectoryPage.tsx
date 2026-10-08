@@ -1,7 +1,5 @@
 import {
-  BranchesOutlined,
   CheckCircleOutlined,
-  CloudSyncOutlined,
   DesktopOutlined,
   DownloadOutlined,
   PlusOutlined,
@@ -15,33 +13,25 @@ import type {
   DirectoryGroup,
   DirectorySummaryStats,
   DirectoryUser,
-  DomainSyncResult,
-  OrganizationalUnit,
 } from '@uims/shared-types';
-import { Alert, App, Button, Flex, Tabs, Typography } from 'antd';
+import { App, Button, Tabs } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
 import { directoryService } from '../../services/directory.service';
-import { OrganizationalUnitsTab } from '../users/components/OrganizationalUnitsTab';
 import { DirectoryGroupsTab } from './DirectoryGroupsTab';
 import { EmployeesTab } from './EmployeesTab';
 import { formatErrorMessage } from '../../utils/feedback';
-
-const { Text } = Typography;
 
 export default function DirectoryPage() {
   const { message } = App.useApp();
 
   const [employees, setEmployees] = useState<DirectoryUser[]>([]);
   const [groups, setGroups] = useState<DirectoryGroup[]>([]);
-  const [organizationalUnits, setOrganizationalUnits] = useState<OrganizationalUnit[]>([]);
   const [stats, setStats] = useState<DirectorySummaryStats | null>(null);
-  const [syncResult, setSyncResult] = useState<DomainSyncResult | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState('employees');
-  const [ouFilter, setOuFilter] = useState('all');
 
   // Modal triggers
   const [createEmployeeModalOpen, setCreateEmployeeModalOpen] = useState(false);
@@ -51,17 +41,15 @@ export default function DirectoryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empRes, groupsRes, ousRes, statsRes] = await Promise.all([
+      const [empRes, groupsRes, statsRes] = await Promise.all([
         directoryService.getEmployees({ limit: 100 }),
         directoryService.getGroups().catch((_error: unknown) => []),
-        directoryService.getOrganizationalUnits().catch((_error: unknown) => []),
         directoryService.getStats().catch((_error: unknown) => null),
       ]);
 
       const items = Array.isArray(empRes) ? empRes : empRes.items || [];
       setEmployees(items);
       setGroups(groupsRes || []);
-      setOrganizationalUnits(ousRes || []);
       setStats(statsRes);
     } catch (err: unknown) {
       message.error(formatErrorMessage(err, 'load corporate directory records'));
@@ -78,7 +66,6 @@ export default function DirectoryPage() {
     setSyncing(true);
     try {
       const result = await directoryService.syncDomain();
-      setSyncResult(result);
       message.success(
         `Active Directory synced: ${result.replicatedObjects} objects updated in ${result.latencyMs}ms.`,
       );
@@ -129,23 +116,17 @@ export default function DirectoryPage() {
     }
   };
 
-  const handleFilterByOU = (ouName: string) => {
-    setOuFilter(ouName);
-    setActiveTabKey('employees');
-  };
-
   const totalEmployeesCount = stats?.totalEmployees ?? employees.length;
   const activeEmployeesCount =
     stats?.activeEmployees ?? employees.filter((e) => e.status === 'ACTIVE').length;
   const assignedWorkstationsCount =
     stats?.assignedWorkstations ?? employees.filter((e) => (e.assignedAssetsCount ?? 0) > 0).length;
   const totalGroupsCount = stats?.totalGroups ?? groups.length;
-  const totalOUsCount = stats?.totalOUs ?? organizationalUnits.length;
 
   return (
     <PageContainer
       title="Employee Directory"
-      subtitle="Manage corporate employee records, Active Directory synchronization, security groups, and organizational units."
+      subtitle="Manage corporate employee records, Active Directory synchronization, and security groups."
       breadcrumbs={[{ title: 'Employee Directory' }]}
       stats={[
         {
@@ -171,12 +152,6 @@ export default function DirectoryPage() {
           value: totalGroupsCount,
           prefix: <ShareAltOutlined />,
           color: '#8b5cf6',
-        },
-        {
-          title: 'Organizational Units',
-          value: totalOUsCount,
-          prefix: <BranchesOutlined />,
-          color: '#6366f1',
         },
       ]}
       extra={
@@ -207,28 +182,6 @@ export default function DirectoryPage() {
         </>
       }
     >
-      {/* Active Directory Domain Federation Status Banner */}
-      <Alert
-        type="info"
-        showIcon
-        icon={<CloudSyncOutlined />}
-        style={{ marginBottom: 16 }}
-        title={
-          <Flex justify="space-between" align="center" wrap gap={8}>
-            <Text strong style={{ fontSize: 13 }}>
-              Active Directory Domain Federation • Domain: <Text code>uims.internal</Text>
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Controller: <Text code>{syncResult?.controller || 'DC01-PRIMARY'}</Text> • Status:{' '}
-              <Text strong style={{ color: '#10b981' }}>
-                {syncResult?.status || 'HEALTHY'}
-              </Text>{' '}
-              • Latency: {syncResult?.latencyMs ? `${syncResult.latencyMs}ms` : '18ms'}
-            </Text>
-          </Flex>
-        }
-      />
-
       <Tabs
         activeKey={activeTabKey}
         onChange={setActiveTabKey}
@@ -246,8 +199,6 @@ export default function DirectoryPage() {
                 setCreateModalOpen={setCreateEmployeeModalOpen}
                 importModalOpen={importModalOpen}
                 setImportModalOpen={setImportModalOpen}
-                ouFilter={ouFilter}
-                onClearOuFilter={() => setOuFilter('all')}
               />
             ),
           },
@@ -262,18 +213,6 @@ export default function DirectoryPage() {
                 onRefresh={loadData}
                 createModalOpen={createGroupModalOpen}
                 setCreateModalOpen={setCreateGroupModalOpen}
-              />
-            ),
-          },
-          {
-            key: 'ous',
-            icon: <BranchesOutlined />,
-            label: `Organizational Units (${organizationalUnits.length})`,
-            children: (
-              <OrganizationalUnitsTab
-                units={organizationalUnits}
-                totalUsers={totalEmployeesCount}
-                onFilterByOU={handleFilterByOU}
               />
             ),
           },

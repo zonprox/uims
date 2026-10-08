@@ -18,7 +18,6 @@ describe('useAssetManagement helpers', () => {
       categoryId: 'cat-laptop',
       status: 'Active',
       assignedTo: 'Marcus Vance',
-      location: 'NY Office - Floor 4',
       purchaseDate: now,
       warrantyExpiry: future,
       notes: 'Dock included. Assigned to senior developer.',
@@ -37,8 +36,6 @@ describe('useAssetManagement helpers', () => {
       assignedToId: undefined,
       department: undefined,
       departmentId: undefined,
-      location: 'NY Office - Floor 4',
-      locationId: undefined,
       purchaseDate: '2026-01-15',
       warrantyExpiry: '2029-01-15',
       notes: 'Dock included. Assigned to senior developer.',
@@ -70,14 +67,12 @@ describe('useAssetManagement helpers', () => {
       name: 'Dell XPS 16',
       categoryId: 'cat-uuid-1',
       assignedToId: 'user-uuid-1',
-      locationId: 'loc-uuid-1',
       departmentId: 'dept-uuid-1',
       status: 'Active',
     });
 
     expect(payload.categoryId).toBe('cat-uuid-1');
     expect(payload.assignedToId).toBe('user-uuid-1');
-    expect(payload.locationId).toBe('loc-uuid-1');
     expect(payload.departmentId).toBe('dept-uuid-1');
   });
 
@@ -99,8 +94,6 @@ describe('useAssetManagement helpers', () => {
       assignedTo: 'Network Operations',
       assignedToId: 'usr-net-01',
       assignedEmail: 'netops@youngonevn.com',
-      location: 'Primary DC - Rack 04',
-      locationId: 'loc-dc-rack4',
       department: 'IT Infrastructure',
       departmentId: 'dept-infra-01',
       purchaseDate: '2026-02-10',
@@ -116,7 +109,6 @@ describe('useAssetManagement helpers', () => {
       ...assetToEdit,
       categoryId: resolvedCategoryId,
       assignedToId: assetToEdit.assignedToId,
-      locationId: assetToEdit.locationId,
       departmentId: assetToEdit.departmentId,
       purchaseDate: assetToEdit.purchaseDate ? dayjs(assetToEdit.purchaseDate) : undefined,
       warrantyExpiry: assetToEdit.warrantyExpiry ? dayjs(assetToEdit.warrantyExpiry) : undefined,

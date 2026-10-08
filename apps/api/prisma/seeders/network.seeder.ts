@@ -57,29 +57,17 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
     async (logger) => {
       logger.log('Seeding canonical enterprise VLAN and Subnet topology...');
 
-      const locMap = new Map<string, string>();
-      if (ctx && ctx.locations.size > 0) {
-        for (const [k, v] of ctx.locations.entries()) locMap.set(k, v);
-      } else {
-        const allLocs = await prisma.location.findMany({ select: { id: true, code: true } });
-        for (const l of allLocs) {
-          locMap.set(l.id, l.id);
-          if (l.code) locMap.set(l.code, l.id);
-        }
-      }
-
       const vlanMap = new Map<number, string>();
 
       // 1. Seed VLANs & Subnets via bitwise calcSubnetDetails
       for (const row of standardSubnetRows) {
-        const [cidr, vlanNumStr, vlanName, locKey, gw, name, desc] = row.split('|');
+        const [cidr, vlanNumStr, vlanName, _locKey, gw, name, desc] = row.split('|');
         const vlanNumber = parseInt(vlanNumStr, 10);
-        const locationId = locMap.get(locKey) || locMap.get(locKey.toLowerCase()) || null;
 
         const vlan = await prisma.vLAN.upsert({
           where: { vlanNumber },
-          update: { name: vlanName, locationId },
-          create: { vlanNumber, name: vlanName, locationId, status: 'ACTIVE' },
+          update: { name: vlanName },
+          create: { vlanNumber, name: vlanName, status: 'ACTIVE' },
         });
         vlanMap.set(vlanNumber, vlan.id);
 
@@ -89,7 +77,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           update: {
             name,
             vlanId: vlan.id,
-            locationId,
             gateway: details.gateway,
             networkAddress: details.networkAddress,
             netmask: details.netmask,
@@ -103,7 +90,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
             cidr,
             name,
             vlanId: vlan.id,
-            locationId,
             gateway: details.gateway,
             networkAddress: details.networkAddress,
             netmask: details.netmask,
@@ -121,7 +107,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       const mgmtSubnet = await prisma.subnet.findUnique({ where: { cidr: '10.232.129.0/24' } });
       const mgmtIps: string[] = [];
       const mgmtIpAddresses = ['10.232.129.10', '10.232.129.11', '10.232.129.12', '10.232.129.13'];
-      const dcLocId = locMap.get('loc-bsl-bc-datacenter') || locMap.get('BC-F1-DC102') || null;
       const vlan129Id = vlanMap.get(129) || null;
 
       for (let idx = 0; idx < mgmtIpAddresses.length; idx++) {
@@ -138,7 +123,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               deviceType: 'Switch',
               subnetId,
               vlanId: vlan129Id,
-              locationId: dcLocId,
               description: `Management IP for Enterprise Switch 0${idx + 1}`,
             },
           });
@@ -149,13 +133,11 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       // 3. Seed 3 Network Racks
       const rackMap = new Map<string, string>();
       const rackResults = await inTransactionChunks(prisma, rackRows, 50, async (tx, row) => {
-        const [name, code, locKey, hStr, dStr, wStr, kwStr, kgStr, notes] = row.split('|');
-        const locationId = locMap.get(locKey) || null;
+        const [name, code, _locKey, hStr, dStr, wStr, kwStr, kgStr, notes] = row.split('|');
         return tx.networkRack.upsert({
           where: { code },
           update: {
             name,
-            locationId,
             totalHeight: parseInt(hStr, 10),
             depth: parseInt(dStr, 10),
             width: parseInt(wStr, 10),
@@ -167,7 +149,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           create: {
             name,
             code,
-            locationId,
             totalHeight: parseInt(hStr, 10),
             depth: parseInt(dStr, 10),
             width: parseInt(wStr, 10),
@@ -193,7 +174,9 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           where: { assetTag: { in: ['AST-1010', 'AST-1018', 'AST-1019', 'AST-1009', 'AST-1017'] } },
           select: { id: true, assetTag: true },
         });
-        for (const a of neededAssets) assetMap.set(a.assetTag, a.id);
+        for (const a of neededAssets) {
+          if (a.assetTag) assetMap.set(a.assetTag, a.id);
+        }
       }
 
       const swResults = await inTransactionChunks(prisma, switchRows, 50, async (tx, row) => {
@@ -211,7 +194,7 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           posStr,
           vlanNumStr,
           assetTag,
-          locKey,
+          _locKey,
           notes,
         ] = row.split('|');
         const mgmtIdx = parseInt(mgmtIdxStr, 10);
@@ -220,7 +203,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
         const rackPosition = parseInt(posStr, 10);
         const defaultVlanId = vlanNumStr ? vlanMap.get(parseInt(vlanNumStr, 10)) || null : null;
         const assetId = assetTag ? assetMap.get(assetTag) || null : null;
-        const locationId = locMap.get(locKey) || null;
 
         const swData = {
           name,
@@ -237,7 +219,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           rackPosition,
           rackHeight: 1,
           assetId,
-          locationId,
           notes,
         };
         const created = await tx.networkSwitch.upsert({

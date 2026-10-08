@@ -84,7 +84,7 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
       expect(totalOrgs, 'Total organizations in the database must be exactly 3').toBe(3);
     });
 
-    it('1.3 should verify BSH has exactly 8 corporate departments and exactly 2 office branch locations, 0 factories/workshops/warehouses', async () => {
+    it('1.3 should verify BSH has exactly 8 corporate departments', async () => {
       // 1. Departments count
       const bshDepts = await prisma.department.findMany({
         where: { organizationId: 'org-bsh' },
@@ -101,96 +101,13 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
       expect(bshDeptCodes).toContain('DEPT-BSH-IT');
       expect(bshDeptCodes).toContain('DEPT-BSH-MERCH');
       expect(bshDeptCodes).toContain('DEPT-BSH-SRC');
-
-      // 2. Physical locations count
-      const bshLocations = await prisma.location.findMany({
-        where: { organizationId: 'org-bsh' },
-      });
-      expect(bshLocations.length, 'BSH must have exactly 2 branch office locations').toBe(2);
-      const bshLocCodes = bshLocations.map((l) => l.code);
-      expect(bshLocCodes).toContain('HCM-D3');
-      expect(bshLocCodes).toContain('HCM-D7');
-
-      // 3. Zero factories/workshops/warehouses in BSH
-      const industrialLocations = await prisma.location.findMany({
-        where: {
-          organizationId: 'org-bsh',
-          OR: [
-            { type: { in: ['WORKSHOP', 'WAREHOUSE'] } },
-            { name: { contains: 'factory', mode: 'insensitive' } },
-            { name: { contains: 'xưởng', mode: 'insensitive' } },
-            { name: { contains: 'warehouse', mode: 'insensitive' } },
-            { name: { contains: 'kho', mode: 'insensitive' } },
-          ],
-        },
-      });
-      expect(
-        industrialLocations.length,
-        'BSH must contain 0 industrial facilities or workshops',
-      ).toBe(0);
     });
 
-    it('1.4 should verify BSL has 1 BC Building, 1 Central Warehouse with FG items in export bays, and exactly 7 Factories', async () => {
-      // 1. BC Building
-      const bcBuilding = await prisma.location.findUnique({
-        where: { id: 'loc-bsl-bc' },
-      });
-      expect(bcBuilding, 'BSL must have Business Center Building (loc-bsl-bc)').toBeDefined();
-      expect(bcBuilding?.type).toBe('BUILDING');
-      expect(bcBuilding?.code).toBe('BSL-BC');
-
-      // 2. Central Warehouse
-      const warehouse = await prisma.location.findUnique({
-        where: { id: 'loc-bsl-wh' },
-      });
-      expect(warehouse, 'BSL must have Central Warehouse Building (loc-bsl-wh)').toBeDefined();
-      expect(warehouse?.type).toBe('WAREHOUSE');
-      expect(warehouse?.code).toBe('BSL-WH');
-
-      // Finished Goods items in export bays
-      const exportBayInventory = await prisma.$queryRaw<
-        Array<{ sku: string; name: string; quantity: number; loc_code: string; loc_name: string }>
-      >`
-        SELECT i.sku, i.name, i.quantity, l.code as loc_code, l.name as loc_name
-        FROM "InventoryItem" i
-        JOIN "Location" l ON i."locationId" = l.id
-        WHERE l.code IN ('WH-FG-01', 'WH-FG-02') OR l.name ILIKE '%Export%'
-        ORDER BY i.sku;
-      `;
-      expect(
-        exportBayInventory.length,
-        'Central Warehouse must contain Finished Goods items in export bays',
-      ).toBeGreaterThanOrEqual(4);
-      const fgSkus = exportBayInventory.map((i) => i.sku);
-      expect(fgSkus).toContain('FG-ACT-HDY-03');
-      expect(fgSkus).toContain('FG-CRG-PNT-02');
-      expect(fgSkus).toContain('FG-DRS-SHT-04');
-      expect(fgSkus).toContain('FG-OUT-JKT-01');
-
-      // 3. Exactly 7 Factories (loc-bsl-f1 to loc-bsl-f7)
-      const expectedFactoryIds = [
-        'loc-bsl-f1',
-        'loc-bsl-f2',
-        'loc-bsl-f3',
-        'loc-bsl-f4',
-        'loc-bsl-f5',
-        'loc-bsl-f6',
-        'loc-bsl-f7',
-      ];
-      const factories = await prisma.location.findMany({
-        where: { id: { in: expectedFactoryIds } },
-        orderBy: { code: 'asc' },
-      });
-      expect(factories.length, 'BSL must have exactly 7 factories').toBe(7);
-      for (let i = 0; i < 7; i++) {
-        const factory = factories[i];
-        expect(factory.type).toBe('WORKSHOP');
-        expect(factory.code).toBe(`BSL-F${i + 1}`);
-        expect(factory.name).toBe(`Factory ${i + 1} (Phân xưởng ${i + 1})`);
-      }
+    it.skip('1.4 should verify BSL has 1 BC Building, 1 Central Warehouse with FG items in export bays, and exactly 7 Factories (Purged)', async () => {
+      // Skipped: Physical locations were purged per user directive
     });
 
-    it('1.5 should verify every factory F1 to F7 has exactly 9 functional departments and exactly 9 direct physical locations', async () => {
+    it('1.5 should verify every factory F1 to F7 has exactly 9 functional departments', async () => {
       const requiredDeptSuffixes = [
         'QA',
         'CUT',
@@ -202,20 +119,9 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
         'SMP',
         'SALE',
       ];
-      const requiredLocCodes = [
-        'qa',
-        'cut',
-        'prod',
-        'print',
-        'maint',
-        'mdc',
-        'pack',
-        'sample',
-        'sales',
-      ];
 
       for (let f = 1; f <= 7; f++) {
-        // 1. Functional Departments under Factory F{f}
+        // Functional Departments under Factory F{f}
         const factoryDept = await prisma.department.findUnique({
           where: { code: `DEPT-BSL-F${f}` },
         });
@@ -240,24 +146,6 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
             `Factory ${f} must include department ${expectedCode}`,
           ).toContain(expectedCode);
         }
-
-        // 2. Direct Physical Locations under Factory F{f}
-        const directLocations = await prisma.location.findMany({
-          where: { parentId: `loc-bsl-f${f}` },
-        });
-        expect(
-          directLocations.length,
-          `Factory ${f} must have exactly 9 direct physical locations`,
-        ).toBe(9);
-
-        const currentLocIds = directLocations.map((l) => l.id);
-        for (const code of requiredLocCodes) {
-          const expectedLocId = `loc-bsl-f${f}-${code}`;
-          expect(
-            currentLocIds,
-            `Factory ${f} must include direct location ${expectedLocId}`,
-          ).toContain(expectedLocId);
-        }
       }
     });
   });
@@ -266,34 +154,29 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
   // 2. REFERENTIAL INTEGRITY & ZERO NULL ASSERTIONS
   // =========================================================================
   describe('Mission 2: Referential Integrity & Zero Null Invariants', () => {
-    it('2.1 should assert 0 DirectoryUsers have NULL departmentId, positionId, or locationId', async () => {
+    it('2.1 should assert 0 DirectoryUsers have NULL departmentId or positionId', async () => {
       const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT count(*) as count 
         FROM "DirectoryUser" 
-        WHERE "departmentId" IS NULL OR "positionId" IS NULL OR "locationId" IS NULL;
+        WHERE "departmentId" IS NULL OR "positionId" IS NULL;
       `;
       expect(Number(count), 'DirectoryUser must have zero null foreign keys').toBe(0);
     });
 
-    it('2.2 should assert 0 Assets have NULL departmentId or locationId', async () => {
+    it('2.2 should assert 0 Assets have NULL departmentId', async () => {
       const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT count(*) as count 
         FROM "Asset" 
-        WHERE "departmentId" IS NULL OR "locationId" IS NULL;
+        WHERE "departmentId" IS NULL;
       `;
-      expect(Number(count), 'Asset must have zero null departmentId or locationId').toBe(0);
+      expect(Number(count), 'Asset must have zero null departmentId').toBe(0);
     });
 
-    it('2.3 should assert 0 InventoryItems have NULL locationId', async () => {
-      const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
-        SELECT count(*) as count 
-        FROM "InventoryItem" 
-        WHERE "locationId" IS NULL;
-      `;
-      expect(Number(count), 'InventoryItem must have zero null locationId').toBe(0);
+    it.skip('2.3 should assert 0 InventoryItems have NULL locationId (Purged)', async () => {
+      // Skipped: locationId was purged per user directive
     });
 
-    it('2.4 should assert at least 40 PostgreSQL foreign key constraints exist in the public schema', async () => {
+    it('2.4 should assert at least 35 PostgreSQL foreign key constraints exist in the public schema', async () => {
       const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT count(*) as count
         FROM information_schema.table_constraints tc
@@ -301,8 +184,8 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
       `;
       expect(
         Number(count),
-        'There must be at least 40 foreign key constraints',
-      ).toBeGreaterThanOrEqual(40);
+        'There must be at least 35 foreign key constraints',
+      ).toBeGreaterThanOrEqual(35);
     });
 
     it('2.5 should assert 0 foreign key constraint violations across all constraints', async () => {
@@ -330,7 +213,7 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
         ORDER BY tc.table_name, kcu.column_name;
       `;
 
-      expect(constraints.length).toBeGreaterThanOrEqual(40);
+      expect(constraints.length).toBeGreaterThanOrEqual(35);
 
       for (const c of constraints) {
         const query = `
@@ -347,35 +230,20 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
       }
     });
 
-    it('2.6 should assert 0 cross-organization mismatches across DirectoryUsers, Assets, and Inventory', async () => {
+    it('2.6 should assert 0 cross-organization mismatches across DirectoryUsers and Assets', async () => {
       // 1. DirectoryUser org alignment
       const mismatchedUsers = await prisma.$queryRaw<Array<{ id: string }>>`
         SELECT u.id
         FROM "DirectoryUser" u
-        LEFT JOIN "Location" l ON u."locationId" = l.id
         LEFT JOIN "Department" d ON u."departmentId" = d.id
-        WHERE (l."organizationId" IS NOT NULL AND u."organizationId" != l."organizationId")
-           OR (d."organizationId" IS NOT NULL AND u."organizationId" != d."organizationId");
+        WHERE d."organizationId" IS NOT NULL AND u."organizationId" != d."organizationId";
       `;
       expect(
         mismatchedUsers.length,
         'Zero DirectoryUsers should have mismatched organization IDs',
       ).toBe(0);
 
-      // 2. Asset org alignment (dept org vs location org)
-      const mismatchedAssets = await prisma.$queryRaw<Array<{ id: string }>>`
-        SELECT a.id
-        FROM "Asset" a
-        JOIN "Department" d ON a."departmentId" = d.id
-        JOIN "Location" l ON a."locationId" = l.id
-        WHERE d."organizationId" != l."organizationId";
-      `;
-      expect(
-        mismatchedAssets.length,
-        'Zero Assets should have department org != location org',
-      ).toBe(0);
-
-      // 3. User assigned asset org alignment
+      // 2. User assigned asset org alignment
       const mismatchedAssignments = await prisma.$queryRaw<Array<{ id: string }>>`
         SELECT a.id
         FROM "Asset" a
@@ -419,7 +287,7 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
       ).rejects.toThrow();
     });
 
-    it('3.3 should reject assigning DirectoryUser to non-existent department or location', async () => {
+    it('3.3 should reject assigning DirectoryUser to non-existent department', async () => {
       await expect(
         prisma.directoryUser.create({
           data: {
@@ -429,14 +297,13 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
             email: 'invalid.user@uims.internal',
             organizationId: 'org-bsl',
             departmentId: 'dept-invalid-404',
-            locationId: 'loc-bsl-st',
             positionId: 'pos-director',
           },
         }),
       ).rejects.toThrow();
     });
 
-    it('3.4 should reject creating an Asset without valid departmentId or locationId', async () => {
+    it('3.4 should reject creating an Asset without valid departmentId', async () => {
       await expect(
         prisma.asset.create({
           data: {
@@ -444,23 +311,13 @@ describe('Milestone 4 Challenger 1 — Empirical Database Integrity & Corporate 
             name: 'Orphan Machine',
             status: 'AVAILABLE',
             departmentId: 'dept-invalid-404',
-            locationId: 'loc-bsl-st',
           },
         }),
       ).rejects.toThrow();
     });
 
-    it('3.5 should reject creating InventoryItem with non-existent locationId', async () => {
-      await expect(
-        prisma.inventoryItem.create({
-          data: {
-            sku: 'SKU-ERR-9999',
-            name: 'Orphan Consumable',
-            quantity: 10,
-            locationId: 'loc-invalid-404',
-          },
-        }),
-      ).rejects.toThrow();
+    it.skip('3.5 should reject creating InventoryItem with non-existent locationId (Purged)', async () => {
+      // Skipped: locationId was purged per user directive
     });
   });
 });

@@ -32,10 +32,6 @@ describe('OrganizationService', () => {
         delete: vi.fn(),
         count: vi.fn(),
       },
-      location: {
-        findMany: vi.fn(),
-        count: vi.fn(),
-      },
       user: {
         count: vi.fn(),
       },
@@ -57,7 +53,6 @@ describe('OrganizationService', () => {
       );
       (mockPrisma.department as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(8);
       (mockPrisma.position as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(15);
-      (mockPrisma.location as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(6);
       (mockPrisma.user as { count: ReturnType<typeof vi.fn> }).count.mockResolvedValueOnce(42);
 
       const stats = await service.getStats();
@@ -66,7 +61,7 @@ describe('OrganizationService', () => {
         totalOrganizations: 3,
         totalDepartments: 8,
         totalPositions: 15,
-        totalBranches: 6,
+        totalBranches: 0,
         totalEmployees: 42,
       });
     });
@@ -81,7 +76,7 @@ describe('OrganizationService', () => {
           id: 'org-1',
           name: 'Acme HQ',
           code: 'ACME-US',
-          _count: { departments: 4, locations: 2, users: 20 },
+          _count: { departments: 4, users: 20 },
         },
       ]);
 
@@ -89,7 +84,6 @@ describe('OrganizationService', () => {
 
       expect(orgs).toHaveLength(1);
       expect(orgs[0].departmentsCount).toBe(4);
-      expect(orgs[0].locationsCount).toBe(2);
       expect(orgs[0].usersCount).toBe(20);
     });
   });
@@ -103,7 +97,6 @@ describe('OrganizationService', () => {
           id: 'org-1',
           name: 'Acme Corp',
           code: 'ACME',
-          locations: [{ id: 'loc-1', name: 'NY HQ', type: 'Headquarters' }],
           departments: [
             {
               id: 'dept-1',
@@ -125,7 +118,7 @@ describe('OrganizationService', () => {
       expect(tree).toHaveLength(1);
       expect(tree[0].key).toBe('org-org-1');
       expect(tree[0].title).toBe('Acme Corp');
-      expect(tree[0].children).toHaveLength(2); // 1 branch group + 1 dept
+      expect(tree[0].children).toHaveLength(1); // 1 dept
     });
 
     it('should correctly nest multi-tier departments across 4 levels (Executive -> Division -> Factory -> Section)', async () => {
@@ -136,15 +129,6 @@ describe('OrganizationService', () => {
           id: 'org-bsl',
           name: 'Broadpeak Soc Trang',
           code: 'BSL',
-          locations: [
-            { id: 'loc-campus', name: 'Soc Trang Campus', type: 'CAMPUS', parentId: null },
-            {
-              id: 'loc-bldg',
-              name: 'Factory 1 Building',
-              type: 'BUILDING',
-              parentId: 'loc-campus',
-            },
-          ],
           departments: [
             {
               id: 'dept-l1',
@@ -193,14 +177,6 @@ describe('OrganizationService', () => {
       const bsl = tree[0];
       expect(bsl.key).toBe('org-org-bsl');
 
-      // Facilities group should have hierarchical nesting
-      const branchGroup = bsl.children?.find((c) => c.code === 'BRANCHES');
-      expect(branchGroup).toBeDefined();
-      expect(branchGroup?.children).toHaveLength(1); // campus root
-      expect(branchGroup?.children?.[0].key).toBe('loc-loc-campus');
-      expect(branchGroup?.children?.[0].children).toHaveLength(1); // building inside campus
-      expect(branchGroup?.children?.[0].children?.[0].key).toBe('loc-loc-bldg');
-
       // Level 1: Executive Leadership
       const l1 = bsl.children?.find((c) => c.key === 'dept-dept-l1');
       expect(l1).toBeDefined();
@@ -228,7 +204,6 @@ describe('OrganizationService', () => {
           name: 'Youngone / Broadpeak Group',
           code: 'HOLDING',
           parentId: null,
-          locations: [],
           departments: [],
           _count: { users: 10 },
         },
@@ -237,7 +212,6 @@ describe('OrganizationService', () => {
           name: 'Broadpeak Ho Chi Minh',
           code: 'BSH',
           parentId: 'org-holding',
-          locations: [{ id: 'loc-bsh', name: 'HCM Office', type: 'Office', parentId: null }],
           departments: [],
           _count: { users: 50 },
         },
@@ -246,7 +220,6 @@ describe('OrganizationService', () => {
           name: 'Broadpeak Soc Trang',
           code: 'BSL',
           parentId: 'org-holding',
-          locations: [{ id: 'loc-bsl', name: 'Soc Trang Complex', type: 'Campus', parentId: null }],
           departments: [],
           _count: { users: 300 },
         },
@@ -263,10 +236,6 @@ describe('OrganizationService', () => {
       const childOrgs = tree[0].children?.filter((c) => c.type === 'organization');
       expect(childOrgs).toHaveLength(2);
       expect(childOrgs?.map((o) => o.code)).toEqual(['BSH', 'BSL']);
-
-      // Subordinate companies should have their own branches/departments
-      const bshNode = childOrgs?.find((o) => o.code === 'BSH');
-      expect(bshNode?.children?.some((c) => c.code === 'BRANCHES')).toBe(true);
     });
 
     it('should gracefully handle cyclic organization references without crashing', async () => {
@@ -278,7 +247,6 @@ describe('OrganizationService', () => {
           name: 'Org Alpha',
           code: 'ALPHA',
           parentId: 'org-b',
-          locations: [],
           departments: [],
           _count: { users: 1 },
         },
@@ -287,7 +255,6 @@ describe('OrganizationService', () => {
           name: 'Org Beta',
           code: 'BETA',
           parentId: 'org-a',
-          locations: [],
           departments: [],
           _count: { users: 1 },
         },
@@ -312,7 +279,7 @@ describe('OrganizationService', () => {
         id: 'org-child',
         name: 'Child Org',
         code: 'CHILD',
-        _count: { departments: 0, locations: 0, users: 0 },
+        _count: { departments: 0, users: 0 },
       });
       (
         mockPrisma.organization as { update: ReturnType<typeof vi.fn> }

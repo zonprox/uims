@@ -3,29 +3,9 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   DeleteOutlined,
-  EyeOutlined,
-  MinusOutlined,
   PlusOutlined,
-  SortAscendingOutlined,
-  SortDescendingOutlined,
-  SwapOutlined,
 } from '@ant-design/icons';
-import {
-  App,
-  Button,
-  Card,
-  Empty,
-  Flex,
-  InputNumber,
-  Progress,
-  Segmented,
-  Space,
-  Spin,
-  Tag,
-  theme,
-  Tooltip,
-  Typography,
-} from 'antd';
+import { App, Button, Empty, Flex, Spin, Tag, theme, Tooltip, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { queryClient } from '../../../app/query-client';
 import type {
@@ -62,7 +42,6 @@ export interface RackElevationViewProps {
   onSelectSwitch?: (switchId: string) => void;
   onDeviceClick?: (device: MountedDeviceSummary) => void;
   onRefresh?: () => void;
-  onRackUpdated?: (updatedRack: NetworkRack) => void;
   onDeviceUnmounted?: (deviceId: string) => void;
   extraActions?: React.ReactNode;
 }
@@ -78,26 +57,19 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
     onSelectSwitch,
     onDeviceClick,
     onRefresh,
-    onRackUpdated,
     onDeviceUnmounted,
     extraActions,
   }) => {
     const { message } = App.useApp();
     const { token } = theme.useToken();
 
-    const [viewMode, setViewMode] = useState<'front' | 'rear'>('front');
-    const [sttOrder, setSttOrder] = useState<'asc' | 'desc'>('asc');
     const [fetchedElevation, setFetchedElevation] = useState<RackElevationData | null>(null);
     const [fetching, setFetching] = useState(false);
     const [hoveredUnit, setHoveredUnit] = useState<number | null>(null);
     const [hoveredDeviceId, setHoveredDeviceId] = useState<string | null>(null);
-
-    // Dynamic slot capacity state
-    const [capacity, setCapacity] = useState<number>(rack.totalHeight || 42);
-    const [inputCapacity, setInputCapacity] = useState<number | null>(rack.totalHeight || 42);
-    const [updatingCapacity, setUpdatingCapacity] = useState(false);
-    const updatingRef = useRef(false);
     const isMountedRef = useRef(true);
+    const busyDeviceIdsRef = useRef<Set<string>>(new Set());
+    const [busyDeviceIds, setBusyDeviceIds] = useState<Set<string>>(() => new Set());
 
     useEffect(() => {
       isMountedRef.current = true;
@@ -105,12 +77,6 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
         isMountedRef.current = false;
       };
     }, []);
-
-    useEffect(() => {
-      const height = rack.totalHeight || 42;
-      setCapacity(height);
-      setInputCapacity(height);
-    }, [rack.id, rack.totalHeight]);
 
     // Fetch elevation data safely ignoring resolution if unmounted
     const fetchElevation = useCallback(async () => {
@@ -140,7 +106,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
     }, [propElevationData, fetchElevation]);
 
     const activeElevation = propElevationData || fetchedElevation;
-    const totalHeight = capacity || rack.totalHeight || activeElevation?.totalHeight || 42;
+    const totalHeight = rack.totalHeight || activeElevation?.totalHeight || 42;
 
     // Helper to extract mounted devices from active elevation or rack switches
     const extractMountedDevices = useCallback(
@@ -154,6 +120,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
           for (const slot of elevation.slots) {
             if (slot.isOccupied && slot.switch) {
               const sw = slot.switch;
+              if (busyDeviceIdsRef.current.has(sw.id)) continue;
               const pos = sw.rackPosition ?? slot.occupiedByUnit ?? slot.unitNumber ?? undefined;
               if (!found.has(sw.id)) {
                 found.set(sw.id, {
@@ -177,6 +144,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
 
         if (switches && switches.length > 0) {
           for (const s of switches) {
+            if (busyDeviceIdsRef.current.has(s.id)) continue;
             const isAssignedToRack = !s.rackId || s.rackId === rack.id || s.rackPosition !== null;
             if (isAssignedToRack && !found.has(s.id)) {
               found.set(s.id, {
@@ -205,8 +173,6 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
     const initialDevices = extractMountedDevices(activeElevation, rack.switches);
     const [devices, setDevices] = useState<MountedDeviceSummary[]>(initialDevices);
     const devicesRef = useRef<MountedDeviceSummary[]>(initialDevices);
-    const [busyDeviceIds, setBusyDeviceIds] = useState<Set<string>>(() => new Set());
-    const busyDeviceIdsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
       const extracted = extractMountedDevices(activeElevation, rack.switches);
@@ -235,62 +201,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
       return max;
     }, [devices]);
 
-    // Streamlined Telemetry calculations based on mounted devices
-    const occupiedUnitsCount = totalEquipmentHeight;
-    const availableUnits = Math.max(0, totalHeight - occupiedUnitsCount);
-    const spaceUtilPercent =
-      totalHeight > 0 ? Number(((occupiedUnitsCount / totalHeight) * 100).toFixed(1)) : 0;
-
-    const minCapacity = Math.max(1, maxPositionedUnit, totalEquipmentHeight);
-    const canDecrement = capacity > minCapacity;
-
-    // Handle capacity change via API
-    const handleUpdateCapacity = async (newHeight: number | null) => {
-      if (newHeight === null || newHeight === undefined || Number.isNaN(newHeight)) {
-        setInputCapacity(capacity);
-        return;
-      }
-      if (!Number.isInteger(newHeight)) {
-        newHeight = Math.round(newHeight);
-      }
-      if (newHeight < minCapacity) {
-        message.error(
-          `Cannot decrease rack capacity below U${minCapacity} (occupied by mounted devices).`,
-        );
-        setInputCapacity(capacity);
-        return;
-      }
-      if (newHeight > 100) {
-        message.error('Rack capacity cannot exceed 100 RU.');
-        setInputCapacity(capacity);
-        return;
-      }
-      if (newHeight === capacity) {
-        setInputCapacity(capacity);
-        return;
-      }
-      if (updatingRef.current) return;
-
-      updatingRef.current = true;
-      setUpdatingCapacity(true);
-      try {
-        const updated = await networkService.updateRack(rack.id, { totalHeight: newHeight });
-        setCapacity(newHeight);
-        setInputCapacity(newHeight);
-        message.success(`Rack capacity updated to ${newHeight}U.`);
-        onRackUpdated?.(updated);
-        onRefresh?.();
-        queryClient.invalidateQueries({ queryKey: ['racks'] });
-        queryClient.invalidateQueries({ queryKey: ['rack-elevation', rack.id] });
-        await fetchElevation();
-      } catch (err: unknown) {
-        setInputCapacity(capacity);
-        message.error(formatErrorMessage(err, 'update rack capacity'));
-      } finally {
-        updatingRef.current = false;
-        setUpdatingCapacity(false);
-      }
-    };
+    const availableUnits = Math.max(0, totalHeight - totalEquipmentHeight);
 
     // Devices sorted top-to-bottom sequentially (1..N)
     const sortedDevices = useMemo(() => {
@@ -370,7 +281,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
           spannedUnits.push(u);
         }
 
-        const sttNumber = sttOrder === 'asc' ? index + 1 : sortedDevices.length - index;
+        const sttNumber = index + 1;
         const sttLabel = `#${String(sttNumber).padStart(2, '0')}`;
 
         return {
@@ -385,7 +296,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
           pixelHeight: devHeightU * UNIT_HEIGHT_PX,
         };
       });
-    }, [sortedDevices, totalHeight, sttOrder, maxPositionedUnit, totalEquipmentHeight]);
+    }, [sortedDevices, totalHeight, maxPositionedUnit, totalEquipmentHeight]);
 
     // Unmount device handler with immediate UI state reflection and concurrency lock
     const handleUnmountDevice = useCallback(
@@ -398,6 +309,29 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
 
         devicesRef.current = devicesRef.current.filter((d) => d.id !== device.id);
         setDevices(devicesRef.current);
+
+        // Optimistically remove device from fetchedElevation slots to prevent stale resurrection
+        setFetchedElevation((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            slots: prev.slots.map((slot) => {
+              if (slot.switch?.id === device.id) {
+                return {
+                  ...slot,
+                  isOccupied: false,
+                  switch: null,
+                  isStartingUnit: false,
+                  occupiedByUnit: null,
+                };
+              }
+              return slot;
+            }),
+            usedUnits: Math.max(0, prev.usedUnits - (device.rackHeight || 1)),
+            availableUnits: prev.availableUnits + (device.rackHeight || 1),
+          };
+        });
+
         message.success(`Unmounted ${device.name} from rack.`);
         onDeviceUnmounted?.(device.id);
 
@@ -408,17 +342,32 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
           });
           queryClient.invalidateQueries({ queryKey: ['racks'] });
           queryClient.invalidateQueries({ queryKey: ['rack-elevation', rack.id] });
+
+          if (!propElevationData && rack.id) {
+            try {
+              const freshData = await networkService.getRackElevation(rack.id);
+              if (isMountedRef.current && freshData) {
+                setFetchedElevation(freshData);
+              }
+            } catch (syncErr: unknown) {
+              message.warning(formatErrorMessage(syncErr, 'synchronize rack elevation'));
+            }
+          }
+
           onRefresh?.();
         } catch (err: unknown) {
           devicesRef.current = [...devicesRef.current, device];
           setDevices(devicesRef.current);
+          if (!propElevationData && rack.id) {
+            fetchElevation();
+          }
           message.error(formatErrorMessage(err, 'unmount device'));
         } finally {
           busyDeviceIdsRef.current.delete(device.id);
           setBusyDeviceIds(new Set(busyDeviceIdsRef.current));
         }
       },
-      [message, onDeviceUnmounted, onRefresh, rack.id],
+      [fetchElevation, message, onDeviceUnmounted, onRefresh, propElevationData, rack.id],
     );
 
     // Find first unoccupied unit bottom-up for mounting new equipment
@@ -497,7 +446,6 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                   {rack.code}
                 </Tag>
                 <Tag color="blue">{totalHeight}U Standard</Tag>
-                {rack.location && <Tag>{rack.location.name}</Tag>}
               </Flex>
               <Text type="secondary" style={{ fontSize: 13 }}>
                 EIA-310 19-inch cabinet elevation · {totalHeight} rack units (U01–U
@@ -506,7 +454,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
             </Flex>
 
             <Flex align="center" gap={8} wrap>
-              {/* Prominent + Mount Equipment Button */}
+              {/* Mount Equipment Button */}
               <Tooltip
                 title={
                   availableUnits <= 0 ? 'Cabinet is fully occupied (0 U available)' : undefined
@@ -521,164 +469,14 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                     aria-label="Mount equipment into rack"
                     data-testid="mount-equipment-btn"
                   >
-                    + Mount Equipment
+                    Mount Equipment
                   </Button>
                 </span>
               </Tooltip>
 
-              {/* Inline Quick-Stepper (+ / - Slot Capacity Controls) */}
-              <Space.Compact size="middle">
-                <Tooltip
-                  title={
-                    canDecrement
-                      ? 'Decrease rack capacity ( -1U )'
-                      : `Cannot decrease below U${minCapacity} (occupied by mounted devices)`
-                  }
-                >
-                  <Button
-                    icon={<MinusOutlined />}
-                    disabled={!canDecrement || updatingCapacity}
-                    onClick={() => handleUpdateCapacity(capacity - 1)}
-                    aria-label="Decrease rack capacity"
-                    data-testid="rack-decrement-slot-btn"
-                  />
-                </Tooltip>
-                <InputNumber
-                  min={minCapacity}
-                  max={100}
-                  step={1}
-                  precision={0}
-                  value={inputCapacity}
-                  disabled={updatingCapacity}
-                  formatter={(val) => (val !== undefined && val !== null ? `${val} RU` : '')}
-                  parser={(val) => {
-                    const match = val?.match(/[0-9]+(?:\.[0-9]+)?/)?.[0];
-                    return match ? Math.round(Number(match)) : (0 as unknown as number);
-                  }}
-                  onChange={(val) => {
-                    setInputCapacity(val);
-                  }}
-                  onPressEnter={(e) => {
-                    const rawVal = (e.target as HTMLInputElement)?.value ?? '';
-                    const match = rawVal.match(/[0-9]+(?:\.[0-9]+)?/)?.[0];
-                    const parsed = match ? Math.round(Number(match)) : NaN;
-                    const valToCommit =
-                      !Number.isNaN(parsed) && parsed > 0 ? parsed : inputCapacity;
-                    if (valToCommit !== null && valToCommit !== capacity) {
-                      handleUpdateCapacity(valToCommit);
-                    } else {
-                      setInputCapacity(capacity);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const rawVal = (e.target as HTMLInputElement)?.value ?? '';
-                    const match = rawVal.match(/[0-9]+(?:\.[0-9]+)?/)?.[0];
-                    const parsed = match ? Math.round(Number(match)) : NaN;
-                    const valToCommit =
-                      !Number.isNaN(parsed) && parsed > 0 ? parsed : inputCapacity;
-                    if (valToCommit !== null && valToCommit !== capacity) {
-                      handleUpdateCapacity(valToCommit);
-                    } else {
-                      setInputCapacity(capacity);
-                    }
-                  }}
-                  onStep={(val) => {
-                    if (val !== null && val !== undefined) {
-                      handleUpdateCapacity(val);
-                    }
-                  }}
-                  style={{ width: 95 }}
-                  aria-label="Rack capacity in RU"
-                  data-testid="rack-capacity-input"
-                />
-                <Tooltip title="Increase rack capacity ( +1U )">
-                  <Button
-                    icon={<PlusOutlined />}
-                    disabled={capacity >= 100 || updatingCapacity}
-                    onClick={() => handleUpdateCapacity(capacity + 1)}
-                    aria-label="Increase rack capacity"
-                    data-testid="rack-increment-slot-btn"
-                  />
-                </Tooltip>
-              </Space.Compact>
-
-              <Segmented
-                value={viewMode}
-                onChange={(val) => setViewMode(val as 'front' | 'rear')}
-                options={[
-                  {
-                    label: 'Front View',
-                    value: 'front',
-                    icon: <EyeOutlined />,
-                  },
-                  {
-                    label: 'Rear View',
-                    value: 'rear',
-                    icon: <SwapOutlined />,
-                  },
-                ]}
-              />
-
-              <Segmented
-                value={sttOrder}
-                onChange={(val) => setSttOrder(val as 'asc' | 'desc')}
-                options={[
-                  {
-                    label: 'STT 1→N',
-                    value: 'asc',
-                    icon: <SortAscendingOutlined />,
-                  },
-                  {
-                    label: 'STT N→1',
-                    value: 'desc',
-                    icon: <SortDescendingOutlined />,
-                  },
-                ]}
-                data-testid="stt-order-segmented"
-              />
               {extraActions}
             </Flex>
           </Flex>
-
-          {/* Telemetry Space Utilization Row */}
-          <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
-            <Flex vertical gap={4} style={{ width: '100%' }}>
-              <Flex justify="space-between" align="center">
-                <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>
-                  Space Utilization
-                </Text>
-                <Text
-                  strong
-                  style={{
-                    fontSize: 13,
-                    color: occupiedUnitsCount > totalHeight ? token.colorError : undefined,
-                  }}
-                >
-                  {occupiedUnitsCount} / {totalHeight} U ({spaceUtilPercent}%)
-                </Text>
-              </Flex>
-              <Progress
-                percent={Math.min(100, Math.max(0, spaceUtilPercent))}
-                size="small"
-                strokeColor={
-                  spaceUtilPercent > 90
-                    ? token.colorError
-                    : spaceUtilPercent > 75
-                      ? token.colorWarning
-                      : token.colorSuccess
-                }
-                showInfo={false}
-              />
-              <Flex justify="space-between" align="center">
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {availableUnits} U Available
-                </Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {devices.length} mounted {devices.length === 1 ? 'device' : 'devices'}
-                </Text>
-              </Flex>
-            </Flex>
-          </Card>
 
           {/* 2D Visual Cabinet Frame (Compact Elevation: Only Mounted Equipment) */}
           <Flex justify="center" style={{ width: '100%', padding: '8px 0' }}>
@@ -686,6 +484,8 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
               data-testid="rack-cabinet-frame"
               style={{
                 width: 520,
+                maxWidth: '100%',
+                boxSizing: 'border-box',
                 backgroundColor: token.colorBgContainer,
                 borderRadius: token.borderRadiusLG,
                 boxShadow: token.boxShadowSecondary,
@@ -724,7 +524,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                       letterSpacing: 1,
                     }}
                   >
-                    {rack.code || 'EIA-310'} · {viewMode.toUpperCase()}
+                    {rack.code || 'EIA-310'} · 2D ELEVATION
                   </Text>
                 </Flex>
                 <Text
@@ -767,7 +567,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                       onClick={handleMountEquipment}
                       data-testid="mount-first-equipment-btn"
                     >
-                      + Mount Equipment
+                      Mount Equipment
                     </Button>
                   </Empty>
                 </div>
@@ -906,10 +706,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                               style={{
                                 flex: 1,
                                 height: pixelHeight,
-                                backgroundColor:
-                                  viewMode === 'front'
-                                    ? token.colorBgElevated
-                                    : token.colorFillSecondary,
+                                backgroundColor: token.colorBgElevated,
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -969,41 +766,26 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                                 </Text>
                               </Flex>
 
-                              {/* Device Middle Section: Front/Rear Details */}
-                              {viewMode === 'front' ? (
-                                <Flex align="center" gap={6}>
-                                  <Text
-                                    ellipsis
-                                    style={{
-                                      color: token.colorTextSecondary,
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                      maxWidth: 120,
-                                    }}
-                                  >
-                                    {device.model}
-                                  </Text>
-                                  <Tag
-                                    color={device.status === 'ONLINE' ? 'success' : 'default'}
-                                    style={{ fontSize: 9, margin: 0 }}
-                                  >
-                                    {devHeightU}U
-                                  </Tag>
-                                </Flex>
-                              ) : (
-                                /* Rear View Details: PSUs and Fans */
-                                <Flex align="center" gap={6}>
-                                  <Tag color="gold" style={{ fontSize: 9, margin: 0 }}>
-                                    PSU 1 [AC]
-                                  </Tag>
-                                  <Tag color="gold" style={{ fontSize: 9, margin: 0 }}>
-                                    PSU 2 [AC]
-                                  </Tag>
-                                  <Tag color="blue" style={{ fontSize: 9, margin: 0 }}>
-                                    FAN
-                                  </Tag>
-                                </Flex>
-                              )}
+                              {/* Device Middle Section: Hardware Specs */}
+                              <Flex align="center" gap={6}>
+                                <Text
+                                  ellipsis
+                                  style={{
+                                    color: token.colorTextSecondary,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    maxWidth: 120,
+                                  }}
+                                >
+                                  {device.model}
+                                </Text>
+                                <Tag
+                                  color={device.status === 'ONLINE' ? 'success' : 'default'}
+                                  style={{ fontSize: 9, margin: 0 }}
+                                >
+                                  {devHeightU}U
+                                </Tag>
+                              </Flex>
 
                               {/* Device Right Section: Unmount Control */}
                               <Flex

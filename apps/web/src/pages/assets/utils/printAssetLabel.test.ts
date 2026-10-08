@@ -85,7 +85,7 @@ describe('printAssetLabel utility', () => {
       expect(html).toContain('Asset Label - AST-2026-0099');
       expect(html).toContain('AST-2026-0099');
       expect(html).toContain('ThinkPad X1 Carbon Gen 12');
-      expect(html).toContain('SN-LENOVO-9900');
+      expect(html).not.toContain('SN-LENOVO-9900');
       expect(html).toContain('ThinkPad X1 Carbon');
       expect(html).toContain('Laptops');
       expect(html).toContain('data:image/png;base64,mockqr');
@@ -271,4 +271,3 @@ describe('printAssetLabel utility', () => {
     });
   });
 });
-

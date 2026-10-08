@@ -167,7 +167,7 @@ export interface RackElevationData {
   slots: RackElevationSlot[];
   occupiedUnits: number;
   availableUnits: number;
-  spaceUtilizationPercent: number;
+  occupancyRate: number;
   totalPowerDrawKw: number;
   powerUtilizationPercent: number;
   totalWeightKg: number;
@@ -465,7 +465,7 @@ export class InMemoryNetworkEngine {
     }
 
     const availableUnits = rack.totalHeight - occupiedUnits;
-    const spaceUtilizationPercent = Number(((occupiedUnits / rack.totalHeight) * 100).toFixed(1));
+    const occupancyRate = Number(((occupiedUnits / rack.totalHeight) * 100).toFixed(1));
     const totalPowerDrawKw = Number((totalPowerWatts / 1000).toFixed(2));
     const powerUtilizationPercent =
       rack.maxPowerKw && rack.maxPowerKw > 0
@@ -482,7 +482,7 @@ export class InMemoryNetworkEngine {
       slots,
       occupiedUnits,
       availableUnits,
-      spaceUtilizationPercent,
+      occupancyRate,
       totalPowerDrawKw,
       powerUtilizationPercent,
       totalWeightKg: Number(totalWeightKg.toFixed(1)),
@@ -1096,7 +1096,7 @@ describe('Network Modernization E2E Specification Suite', () => {
         expect(elevation.slots[41].unit).toBe(42);
         expect(elevation.occupiedUnits).toBe(0);
         expect(elevation.availableUnits).toBe(42);
-        expect(elevation.spaceUtilizationPercent).toBe(0);
+        expect(elevation.occupancyRate).toBe(0);
       });
 
       it('T1.2.3: should slot multi-U devices correctly without gaps (1U, 2U, 4U)', () => {
@@ -1132,7 +1132,7 @@ describe('Network Modernization E2E Specification Suite', () => {
         const elevation = engine.getRackElevation(rack.id);
         expect(elevation.occupiedUnits).toBe(7); // 1 + 2 + 4 = 7
         expect(elevation.availableUnits).toBe(35);
-        expect(elevation.spaceUtilizationPercent).toBe(16.7); // 7 / 42 * 100 = 16.66% -> 16.7%
+        expect(elevation.occupancyRate).toBe(16.7); // 7 / 42 * 100 = 16.66% -> 16.7%
 
         const u42 = elevation.slots.find((s) => s.unit === 42);
         expect(u42?.occupied).toBe(true);
@@ -1926,7 +1926,7 @@ describe('Network Modernization E2E Specification Suite', () => {
         const elevation = engine.getRackElevation(rack.id);
         expect(elevation.occupiedUnits).toBe(12);
         expect(elevation.availableUnits).toBe(0);
-        expect(elevation.spaceUtilizationPercent).toBe(100.0);
+        expect(elevation.occupancyRate).toBe(100.0);
       });
 
       it('T2.2.6: should reject duplicate rack code', () => {
@@ -2530,7 +2530,7 @@ describe('Network Modernization E2E Specification Suite', () => {
 
       const elevation = engine.getRackElevation(rack.id);
       expect(elevation.occupiedUnits).toBe(8); // 1 + 2 + 1 + 4 = 8
-      expect(elevation.spaceUtilizationPercent).toBe(19.0); // 8 / 42 * 100 = 19.04% -> 19.0%
+      expect(elevation.occupancyRate).toBe(19.0); // 8 / 42 * 100 = 19.04% -> 19.0%
       expect(elevation.totalPowerDrawKw).toBe(2.75); // (400 + 800 + 350 + 1200) / 1000 = 2.75 kW
       expect(elevation.powerUtilizationPercent).toBe(27.5); // 2.75 / 10 * 100 = 27.5%
     });

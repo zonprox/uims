@@ -3,7 +3,6 @@ import type {
   CreateOrganizationDto,
   CreatePositionDto,
   Department,
-  LocationTreeNode,
   Organization,
   OrganizationStats,
   OrgNode,
@@ -14,23 +13,7 @@ import type {
 } from '@uims/shared-types';
 import { api } from './api';
 
-export type { Department, Organization, Position, LocationTreeNode };
-
-export interface LocationBranch {
-  id: string;
-  name: string;
-  code?: string;
-  building?: string;
-  floor?: string;
-  room?: string;
-  address?: string;
-  type?: string;
-  organizationId?: string;
-  organization?: { id: string; name: string; code: string };
-  _count?: { assets: number; users: number };
-}
-
-const locationTreeCache = new Map<string, Promise<LocationTreeNode[]>>();
+export type { Department, Organization, Position };
 
 export const organizationService = {
   getStats: async (): Promise<OrganizationStats> => {
@@ -41,40 +24,6 @@ export const organizationService = {
   getTree: async (): Promise<OrgNode[]> => {
     const res = await api.get('/organizations/tree');
     return res.data.data;
-  },
-
-  getLocations: async (): Promise<LocationBranch[]> => {
-    const res = await api.get('/locations');
-    return res.data.data;
-  },
-
-  getLocationTree: (organizationId?: string): Promise<LocationTreeNode[]> => {
-    const cacheKey = organizationId || '__ALL__';
-    const cached = locationTreeCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const promise = api
-      .get('/locations/tree', {
-        params: organizationId ? { organizationId } : undefined,
-      })
-      .then((res) => (res.data.data as LocationTreeNode[]) || [])
-      .catch((err: unknown) => {
-        locationTreeCache.delete(cacheKey);
-        throw err;
-      });
-
-    locationTreeCache.set(cacheKey, promise);
-    return promise;
-  },
-
-  clearLocationTreeCache: (organizationId?: string): void => {
-    if (organizationId) {
-      locationTreeCache.delete(organizationId);
-    } else {
-      locationTreeCache.clear();
-    }
   },
 
   getOrganizations: async (): Promise<Organization[]> => {

@@ -31,7 +31,6 @@ export default function NetworkPage() {
     vlans,
     subnets,
     ips,
-    locations,
     assets,
     directoryUsers,
     stats,
@@ -42,8 +41,6 @@ export default function NetworkPage() {
     // Filters
     searchQuery,
     setSearchQuery,
-    siteFilter,
-    setSiteFilter,
     vlanFilter,
     setVlanFilter,
     subnetFilter,
@@ -135,12 +132,9 @@ export default function NetworkPage() {
         label: 'Racks & Elevation',
         children: (
           <RackManagementTab
-            locations={locations}
             loading={loading}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            siteFilter={siteFilter}
-            onSiteChange={setSiteFilter}
             onResetFilters={handleResetFilters}
             onSelectSwitch={() => setActiveTabKey('switches')}
           />
@@ -152,12 +146,9 @@ export default function NetworkPage() {
         label: 'Switches',
         children: (
           <SwitchManagementTab
-            locations={locations}
             loading={loading}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            siteFilter={siteFilter}
-            onSiteChange={setSiteFilter}
             onResetFilters={handleResetFilters}
             onSelectRack={() => setActiveTabKey('racks')}
           />
@@ -173,12 +164,9 @@ export default function NetworkPage() {
             ips={ips}
             subnets={subnets}
             vlans={vlans}
-            locations={locations}
             loading={loading}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            siteFilter={siteFilter}
-            onSiteChange={setSiteFilter}
             vlanFilter={vlanFilter}
             onVlanChange={setVlanFilter}
             subnetFilter={subnetFilter}
@@ -202,7 +190,6 @@ export default function NetworkPage() {
           <SubnetManagementTab
             subnets={subnets}
             vlans={vlans}
-            locations={locations}
             loading={loading}
             onOpenCreateModal={handleOpenCreateSubnetModal}
             onOpenEditModal={handleOpenEditSubnetModal}
@@ -219,12 +206,9 @@ export default function NetworkPage() {
           <VlanManagementTab
             vlans={vlans}
             subnets={subnets}
-            locations={locations}
             loading={loading}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            locationFilter={siteFilter}
-            onLocationChange={setSiteFilter}
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
             onResetFilters={handleResetFilters}
@@ -240,12 +224,9 @@ export default function NetworkPage() {
       ips,
       subnets,
       vlans,
-      locations,
       loading,
       searchQuery,
       setSearchQuery,
-      siteFilter,
-      setSiteFilter,
       vlanFilter,
       setVlanFilter,
       subnetFilter,
@@ -299,7 +280,6 @@ export default function NetworkPage() {
         editingVlan={editingVlan}
         form={vlanForm}
         submitting={modalSubmitting}
-        locations={locations}
         onSave={handleSaveVlan}
         onCancel={() => setVlanModalOpen(false)}
       />
@@ -321,7 +301,6 @@ export default function NetworkPage() {
         form={subnetForm}
         submitting={modalSubmitting}
         vlans={vlans}
-        locations={locations}
         onSave={handleSaveSubnet}
         onCancel={() => setSubnetModalOpen(false)}
       />
@@ -342,7 +321,6 @@ export default function NetworkPage() {
         submitting={modalSubmitting}
         subnets={subnets}
         vlans={vlans}
-        locations={locations}
         assets={assets}
         directoryUsers={directoryUsers}
         onSave={handleSaveIp}

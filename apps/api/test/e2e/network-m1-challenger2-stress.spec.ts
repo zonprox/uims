@@ -79,7 +79,7 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
         ORDER BY tablename, indexname;
       `;
 
-      expect(rows.length).toBeGreaterThanOrEqual(20);
+      expect(rows.length).toBeGreaterThanOrEqual(15);
 
       const indexesByTable: Record<string, Array<string>> = {};
       for (const row of rows) {
@@ -89,13 +89,12 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
         indexesByTable[row.tablename].push(row.indexname);
       }
 
-      // 1. NetworkRack foreign key: locationId
-      expect(indexesByTable.NetworkRack).toContain('NetworkRack_locationId_idx');
+      // 1. NetworkRack indexes
+      expect(indexesByTable.NetworkRack).toContain('NetworkRack_code_idx');
 
-      // 2. NetworkSwitch foreign keys: rackId, assetId, locationId, ipAddressId
+      // 2. NetworkSwitch foreign keys: rackId, assetId, ipAddressId
       expect(indexesByTable.NetworkSwitch).toContain('NetworkSwitch_rackId_idx');
       expect(indexesByTable.NetworkSwitch).toContain('NetworkSwitch_assetId_idx');
-      expect(indexesByTable.NetworkSwitch).toContain('NetworkSwitch_locationId_idx');
       expect(indexesByTable.NetworkSwitch).toContain('NetworkSwitch_ipAddressId_idx');
 
       // 3. SwitchPort foreign keys: switchId, vlanId, ipAddressId, connectedAssetId
@@ -272,7 +271,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
           id: 'b6f4e198-5c7a-4df1-8693-01053f3e1b10',
           name: 'Datacenter Rack A-01 🇻🇳',
           code: 'RACK-DC-A01',
-          locationId: '987e6543-e89b-12d3-a456-426614174000',
           totalHeight: 42,
           depth: 1070.5,
           width: 600,

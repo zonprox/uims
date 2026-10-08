@@ -7,7 +7,6 @@ import type {
   AppUser,
   DirectoryGroup,
   DirectoryUser,
-  OrganizationalUnit,
   Role,
 } from '@uims/shared-types';
 import CommandPalette from '../../components/CommandPalette';
@@ -25,7 +24,7 @@ import { useAuthStore } from '../../stores/auth.store';
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Mock hoisted data
-const { mockAppUsers, mockDirectoryUsers, mockRoles, mockGroups, mockOus } = vi.hoisted(() => {
+const { mockAppUsers, mockDirectoryUsers, mockRoles, mockGroups } = vi.hoisted(() => {
   const appUsers: AppUser[] = [
     {
       id: 'app-1',
@@ -96,7 +95,6 @@ const { mockAppUsers, mockDirectoryUsers, mockRoles, mockGroups, mockOus } = vi.
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      ouPath: 'OU=Production,DC=uims,DC=internal',
       status: 'ACTIVE' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 2,
@@ -140,7 +138,6 @@ const { mockAppUsers, mockDirectoryUsers, mockRoles, mockGroups, mockOus } = vi.
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      ouPath: 'OU=Finance,DC=uims,DC=internal',
       status: 'DISABLED' as DirectoryUser['status'],
       source: 'LOCAL' as DirectoryUser['source'],
       assignedAssetsCount: 0,
@@ -159,7 +156,6 @@ const { mockAppUsers, mockDirectoryUsers, mockRoles, mockGroups, mockOus } = vi.
     {
       id: 'grp-1',
       name: 'GR_BSLOTHPrinting',
-      email: 'printing@uims.internal',
       type: 'Security',
       scope: 'Global',
       memberCount: 12,
@@ -169,24 +165,11 @@ const { mockAppUsers, mockDirectoryUsers, mockRoles, mockGroups, mockOus } = vi.
     },
   ];
 
-  const ous: OrganizationalUnit[] = [
-    {
-      id: 'ou-1',
-      name: 'Production',
-      dn: 'OU=Production,DC=uims,DC=internal',
-      description: 'Manufacturing operations plant floor',
-      userCount: 42,
-      workstationCount: 38,
-      groupCount: 4,
-    },
-  ];
-
   return {
     mockAppUsers: appUsers,
     mockDirectoryUsers: dirUsers,
     mockRoles: roles,
     mockGroups: groups,
-    mockOus: ous,
   };
 });
 
@@ -232,13 +215,11 @@ vi.mock('../../services/directory.service', () => ({
       totalPages: 1,
     }),
     getGroups: vi.fn().mockResolvedValue(mockGroups),
-    getOrganizationalUnits: vi.fn().mockResolvedValue(mockOus),
     getStats: vi.fn().mockResolvedValue({
       totalEmployees: 2,
       activeEmployees: 1,
       assignedWorkstations: 2,
       totalGroups: 1,
-      totalOUs: 1,
       closedAccounts: 0,
     }),
     getEmployee: vi.fn().mockImplementation((id: string) => {
@@ -352,8 +333,8 @@ describe('Adversarial Navigation & Router State Suite', () => {
       expect(memRouter.state.location.pathname).toBe('/directory');
       expect(container.textContent).toContain('Directory');
       expect(container.textContent).toContain('Manage corporate employee records');
-      expect(container.textContent).toContain('Active Directory Domain Federation');
       expect(container.textContent).toContain('Employees (2)');
+      expect(container.textContent).not.toContain('Active Directory Domain Federation');
 
       act(() => root.unmount());
     });
@@ -756,45 +737,22 @@ describe('Adversarial Navigation & Router State Suite', () => {
       const activeTab2 = container.querySelector('.ant-tabs-tab-active');
       expect(activeTab2?.textContent).toContain('Groups');
 
-      // Verify Organizational Units Tab
+      // Verify complete absence of Organizational Units Tab
       const ousTab = Array.from(container.querySelectorAll('.ant-tabs-tab')).find((t) =>
         t.textContent?.includes('Organizational Units'),
       );
-      expect(ousTab).toBeDefined();
-      await act(async () => {
-        (ousTab as HTMLElement).click();
-      });
-      const activeTab3 = container.querySelector('.ant-tabs-tab-active');
-      expect(activeTab3?.textContent).toContain('Organizational Units');
+      expect(ousTab).toBeUndefined();
 
-      // Click "View Members →" on the Production OU card to test OU filtering propagation
-      const viewMembersBtn = Array.from(container.querySelectorAll('button, a')).find((el) =>
-        el.textContent?.includes('View Members'),
+      // Switch back to Employees tab
+      const employeesTab = Array.from(container.querySelectorAll('.ant-tabs-tab')).find((t) =>
+        t.textContent?.includes('Employees'),
       );
-      expect(viewMembersBtn).toBeDefined();
+      expect(employeesTab).toBeDefined();
       await act(async () => {
-        (viewMembersBtn as HTMLElement).click();
+        (employeesTab as HTMLElement).click();
       });
-
-      // Should switch back to Employees tab and display the OU filter banner
-      const activeTab4 = container.querySelector('.ant-tabs-tab-active');
-      expect(activeTab4?.textContent).toContain('Employees');
-      expect(container.textContent).toContain(
-        'Filtering directory employees by Organizational Unit',
-      );
-      expect(container.textContent).toContain('Production');
-
-      // Click "Clear Filter" to reset
-      const clearFilterBtn = Array.from(container.querySelectorAll('button, a')).find((el) =>
-        el.textContent?.includes('Clear Filter'),
-      );
-      expect(clearFilterBtn).toBeDefined();
-      await act(async () => {
-        (clearFilterBtn as HTMLElement).click();
-      });
-      expect(container.textContent).not.toContain(
-        'Filtering directory employees by Organizational Unit',
-      );
+      const activeTabBack = container.querySelector('.ant-tabs-tab-active');
+      expect(activeTabBack?.textContent).toContain('Employees');
 
       // Search with non-matching term
       const searchInput = container.querySelector(
@@ -812,7 +770,7 @@ describe('Adversarial Navigation & Router State Suite', () => {
       });
 
       expect(container.textContent).toContain('No data');
-      const tableRows = container.querySelectorAll('.ant-table-row');
+      const tableRows = container.querySelectorAll('.ant-tabs-tabpane-active .ant-table-row');
       expect(tableRows.length).toBe(0);
 
       act(() => root.unmount());

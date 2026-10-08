@@ -17,7 +17,6 @@ export interface CreateVlanDto {
   name: string;
   description?: string | null;
   status?: VlanStatus | `${VlanStatus}`;
-  locationId?: string | null;
 }
 
 export interface UpdateVlanDto extends Partial<CreateVlanDto> {}
@@ -28,7 +27,6 @@ export interface VlanQueryDto {
   limit?: number;
   search?: string;
   status?: string;
-  locationId?: string;
 }
 
 // --- Subnet DTOs ---
@@ -37,7 +35,6 @@ export interface CreateSubnetDto {
   cidr: string;
   name: string;
   vlanId?: string | null;
-  locationId?: string | null;
   gateway?: string | null;
   networkAddress?: string | null;
   netmask?: string | null;
@@ -57,7 +54,6 @@ export interface SubnetQueryDto {
   limit?: number;
   search?: string;
   vlanId?: string;
-  locationId?: string;
 }
 
 // --- IP Address DTOs ---
@@ -73,7 +69,6 @@ export interface CreateIPAddressDto {
   floor?: string | null;
   subnetId?: string | null;
   vlanId?: string | null;
-  locationId?: string | null;
   assetId?: string | null;
   assignedUserId?: string | null;
   status?: IPStatus | `${IPStatus}`;
@@ -95,7 +90,6 @@ export interface IPAddressQueryDto {
   subnetId?: string;
   status?: string;
   deviceType?: string;
-  locationId?: string;
   switchPortId?: string;
   switchId?: string;
 }
@@ -105,7 +99,6 @@ export interface IPAddressQueryDto {
 export interface CreateRackDto {
   name: string;
   code: string;
-  locationId?: string | null;
   totalHeight?: number; // default 42
   depth?: number | null; // mm
   width?: number | null; // mm
@@ -122,7 +115,6 @@ export interface RackQueryDto {
   pageSize?: number;
   limit?: number;
   search?: string;
-  locationId?: string;
   status?: string;
 }
 
@@ -147,7 +139,6 @@ export interface CreateSwitchDto {
   rackPosition?: number | null;
   rackHeight?: number;
   assetId?: string | null;
-  locationId?: string | null;
   notes?: string | null;
   autoGeneratePorts?: boolean;
 }
@@ -160,7 +151,6 @@ export interface SwitchQueryDto {
   limit?: number;
   search?: string;
   rackId?: string;
-  locationId?: string;
   vendor?: string;
   role?: string;
   status?: string;

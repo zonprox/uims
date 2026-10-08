@@ -45,7 +45,6 @@ function createTestAsset(overrides: Partial<Asset> = {}): Asset {
     status: 'Active',
     assignedTo: 'Jane Doe',
     assignedEmail: 'jane.doe@enterprise.com',
-    location: 'NY Office - Floor 4',
     purchaseDate: '2026-01-15',
     warrantyExpiry: '2029-01-15',
     notes: 'Primary engineering workstation',
@@ -533,7 +532,6 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
           category: 'Laptops / Notebooks',
           status: 'Active',
           assignedTo: 'Alice Smith',
-          location: 'Building A > Floor 3',
         }),
         createTestAsset({
           id: 'ast-csv-2',
@@ -545,7 +543,6 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
           category: 'Network Switches',
           status: 'In Storage',
           assignedTo: '',
-          location: '',
         }),
       ];
 
@@ -571,7 +568,6 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
         'Category',
         'Status',
         'Assigned To',
-        'Location',
       ]);
       expect(headers).not.toContain('Purchase Price');
       expect(headers).not.toContain('Purchase Cost');

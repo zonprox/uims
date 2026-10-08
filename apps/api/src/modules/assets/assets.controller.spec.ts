@@ -120,10 +120,7 @@ describe('AssetsController', () => {
 
       await controller.exportXlsx({ status: 'ACTIVE' }, mockRes);
 
-      expect(mockAssetsService.exportXlsx).toHaveBeenCalledWith(
-        { status: 'ACTIVE' },
-        mockRes,
-      );
+      expect(mockAssetsService.exportXlsx).toHaveBeenCalledWith({ status: 'ACTIVE' }, mockRes);
     });
 
     it('should support export/xlsx alias endpoint', async () => {
@@ -182,9 +179,15 @@ describe('AssetsController', () => {
 
     it('should have correct route paths registered in NestJS metadata', () => {
       const batchPath = Reflect.getMetadata(PATH_METADATA, AssetsController.prototype.batchDelete);
-      const aliasPath = Reflect.getMetadata(PATH_METADATA, AssetsController.prototype.batchDeleteAlias);
+      const aliasPath = Reflect.getMetadata(
+        PATH_METADATA,
+        AssetsController.prototype.batchDeleteAlias,
+      );
       const exportPath = Reflect.getMetadata(PATH_METADATA, AssetsController.prototype.exportXlsx);
-      const exportAliasPath = Reflect.getMetadata(PATH_METADATA, AssetsController.prototype.exportXlsxAlias);
+      const exportAliasPath = Reflect.getMetadata(
+        PATH_METADATA,
+        AssetsController.prototype.exportXlsxAlias,
+      );
 
       expect(batchPath).toBe('batch-delete');
       expect(aliasPath).toBe('batch');
@@ -200,7 +203,10 @@ describe('AssetsController', () => {
       const roles = Reflect.getMetadata('roles', AssetsController.prototype.batchDelete);
       expect(roles).toEqual(['Admin', 'Super Admin']);
 
-      const aliasGuards = Reflect.getMetadata('__guards__', AssetsController.prototype.batchDeleteAlias);
+      const aliasGuards = Reflect.getMetadata(
+        '__guards__',
+        AssetsController.prototype.batchDeleteAlias,
+      );
       expect(aliasGuards).toContain(JwtAuthGuard);
       expect(aliasGuards).toContain(RolesGuard);
 

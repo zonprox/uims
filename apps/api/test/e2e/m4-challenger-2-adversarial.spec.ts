@@ -113,7 +113,7 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       expect(bsl?.code).toBe('BSL');
     });
 
-    it('1.2 should verify BSH shows exactly 8 departments and 2 office locations, with 0 factories', async () => {
+    it('1.2 should verify BSH shows exactly 8 departments, with 0 factories', async () => {
       const tree = await orgService.getHierarchyTree();
       const root = tree[0];
       const bsh = root.children?.find((c) => c.key === 'org-org-bsh');
@@ -149,75 +149,15 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       for (const expectedDept of expectedBshDepts) {
         expect(bshDeptKeys, `BSH departments must include ${expectedDept}`).toContain(expectedDept);
       }
-
-      // 2. Locations under BSH
-      const locGroup = bsh?.children?.find((c) => c.key?.startsWith('branch-group-'));
-      expect(locGroup, 'BSH should have a Facilities & Campuses branch group').toBeDefined();
-      const bshLocations = locGroup?.children || [];
-      expect(bshLocations.length, 'BSH should contain exactly 2 office locations').toBe(2);
-
-      const locKeys = bshLocations.map((l) => l.key);
-      expect(locKeys).toContain('loc-loc-bsh-d3');
-      expect(locKeys).toContain('loc-loc-bsh-d7');
-
-      // 3. Invariant: 0 factories, 0 workshops, 0 warehouses, 0 sewing lines under BSH
-      const allBshLocTitles = bshLocations.map((l) => l.title.toLowerCase());
-      for (const title of allBshLocTitles) {
-        expect(title).not.toContain('factory');
-        expect(title).not.toContain('warehouse');
-        expect(title).not.toContain('workshop');
-        expect(title).not.toContain('sewing');
-      }
-
-      // Verify direct database query for BSH locations
-      const bshDbLocations = await prisma.location.findMany({
-        where: { organizationId: 'org-bsh' },
-      });
-      expect(bshDbLocations.length).toBe(2);
-      for (const loc of bshDbLocations) {
-        expect(loc.type).toBe('BRANCH');
-      }
     });
 
-    it('1.3 should verify BSL shows BC Building, Central Warehouse, and 7 Factories with 9 departments each', async () => {
+    it('1.3 should verify BSL shows 7 Factories with 9 departments each', async () => {
       const tree = await orgService.getHierarchyTree();
       const root = tree[0];
       const bsl = root.children?.find((c) => c.key === 'org-org-bsl');
       expect(bsl).toBeDefined();
 
-      // 1. Facilities under BSL
-      const locGroup = bsl?.children?.find((c) => c.key?.startsWith('branch-group-'));
-      expect(locGroup, 'BSL should have a Facilities & Campuses group').toBeDefined();
-
-      // Campus level
-      const campus = locGroup?.children?.[0];
-      expect(campus, 'BSL should have Soc Trang Campus at top').toBeDefined();
-      expect(campus?.key).toBe('loc-loc-bsl-st');
-
-      const facilities = campus?.children || [];
-      const facilityKeys = facilities.map((f) => f.key);
-
-      // Verify BC Building exists
-      expect(facilityKeys, 'BSL facilities must include BC Building').toContain('loc-loc-bsl-bc');
-      const bc = facilities.find((f) => f.key === 'loc-loc-bsl-bc');
-      expect(bc?.title).toContain('Business Center Building');
-
-      // Verify Central Warehouse exists
-      expect(facilityKeys, 'BSL facilities must include Central Warehouse').toContain(
-        'loc-loc-bsl-wh',
-      );
-      const wh = facilities.find((f) => f.key === 'loc-loc-bsl-wh');
-      expect(wh?.title).toContain('Central Warehouse Building');
-
-      // Verify Factories 1 to 7 exist
-      for (let f = 1; f <= 7; f++) {
-        const factoryKey = `loc-loc-bsl-f${f}`;
-        expect(facilityKeys, `BSL facilities must include Factory ${f} (${factoryKey})`).toContain(
-          factoryKey,
-        );
-      }
-
-      // 2. Departments under BSL: Verify 7 Factories each have exactly 9 departments
+      // Departments under BSL: Verify 7 Factories each have exactly 9 departments
       const allBslDepts: OrgNode[] = [];
       const collectDepts = (nodes: OrgNode[]) => {
         for (const n of nodes) {
@@ -422,27 +362,11 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
   // 3. POPULATED RELATIONS IN ASSETS, DIRECTORY, AND INVENTORY
   // =========================================================================
   describe('Mission 3: Populated Relations & Anti-NPE Guarantees', () => {
-    it('3.1 Assets: 100% of assets return valid location and department objects without NPEs', async () => {
+    it('3.1 Assets: 100% of assets return valid department and organization objects without NPEs', async () => {
       const assets = await assetsService.findAll({ pageSize: 100 });
       expect(assets.length, 'Live assets should be populated').toBeGreaterThan(0);
 
       for (const asset of assets) {
-        // Location assertion
-        expect(asset.locationId, `Asset ${asset.tag} locationId`).toBeDefined();
-        expect(typeof asset.locationId).toBe('string');
-        expect(asset.locationId.length).toBeGreaterThan(0);
-
-        expect(asset.location, `Asset ${asset.tag} location name`).toBeDefined();
-        expect(typeof asset.location).toBe('string');
-        expect(asset.location.length).toBeGreaterThan(0);
-        expect(
-          asset.location,
-          `Asset ${asset.tag} location must not fall back to 'Storage Vault'`,
-        ).not.toBe('Storage Vault');
-
-        expect(asset.locationPath, `Asset ${asset.tag} locationPath`).toBeDefined();
-        expect(asset.locationPath.length).toBeGreaterThan(0);
-
         // Department assertion
         expect(asset.departmentId, `Asset ${asset.tag} departmentId`).toBeDefined();
         expect(typeof asset.departmentId).toBe('string');
@@ -483,41 +407,21 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
         expect(user.position?.title.length).toBeGreaterThan(0);
         expect(user.position?.code, `User ${user.email} position code`).toBeDefined();
 
-        // Location assertion
-        expect(user.locationId, `User ${user.email} locationId`).toBeDefined();
-        expect(user.location, `User ${user.email} location object`).toBeDefined();
-        expect(user.location?.name.length).toBeGreaterThan(0);
-
         // Organization assertion
         expect(user.organizationId, `User ${user.email} organizationId`).toBeDefined();
         expect(user.organization, `User ${user.email} organization object`).toBeDefined();
       }
     });
 
-    it('3.3 Inventory Items: 100% of inventory items return valid populated locations without NPEs', async () => {
+    it('3.3 Inventory Items: 100% of inventory items return valid category objects without NPEs', async () => {
       const items = await inventoryService.findAll({ pageSize: 100 });
       expect(items.length, 'Live inventory items should be seeded').toBeGreaterThan(0);
 
       for (const item of items) {
-        // Location assertion
-        expect(item.locationId, `Inventory item ${item.sku} locationId`).toBeDefined();
-        expect(typeof item.locationId).toBe('string');
-        expect(item.locationId.length).toBeGreaterThan(0);
-
-        expect(item.location, `Inventory item ${item.sku} location object`).toBeDefined();
-        expect(item.location?.id).toBe(item.locationId);
-        expect(item.location?.name, `Inventory item ${item.sku} location name`).toBeDefined();
-        expect(item.location?.name.length).toBeGreaterThan(0);
-
-        // Organization on location
-        expect(
-          item.location?.organizationId,
-          `Inventory item ${item.sku} location organizationId`,
-        ).toBe('org-bsl');
-        expect(
-          item.location?.organization?.name,
-          `Inventory item ${item.sku} location organization name`,
-        ).toBe('Broadpeak Soc Trang');
+        expect(item.sku).toBeDefined();
+        expect(item.quantity).toBeGreaterThanOrEqual(0);
+        expect(item.minThreshold).toBeGreaterThanOrEqual(0);
+        expect(item.unitCost).toBeGreaterThan(0);
 
         // Category assertion
         expect(item.category, `Inventory item ${item.sku} category object`).toBeDefined();
@@ -531,8 +435,6 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       expect(firstAsset).toBeDefined();
       if (firstAsset) {
         const fullAsset = await assetsService.findOne(firstAsset.id);
-        expect(fullAsset.locationId).toBeDefined();
-        expect(fullAsset.location).toBeDefined();
         expect(fullAsset.departmentId).toBeDefined();
         expect(fullAsset.department).toBeDefined();
       }
@@ -544,7 +446,6 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
         const fullUser = await directoryService.findOne(firstUser.id);
         expect(fullUser.department).toBeDefined();
         expect(fullUser.position).toBeDefined();
-        expect(fullUser.location).toBeDefined();
       }
 
       // 3. Inventory findOne
@@ -552,7 +453,6 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       expect(firstItem).toBeDefined();
       if (firstItem) {
         const fullItem = await inventoryService.findOne(firstItem.id);
-        expect(fullItem.location).toBeDefined();
         expect(fullItem.category).toBeDefined();
       }
     });
@@ -571,12 +471,11 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       expect(assetsRes.status).toBe(200);
       const assetsJson = (await assetsRes.json()) as {
         success: boolean;
-        data: Array<{ location?: unknown; department?: unknown }>;
+        data: Array<{ department?: unknown }>;
       };
       expect(assetsJson.success).toBe(true);
       expect(assetsJson.data.length).toBeGreaterThan(0);
       for (const a of assetsJson.data) {
-        expect(a.location).toBeDefined();
         expect(a.department).toBeDefined();
       }
 
@@ -603,12 +502,12 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       expect(invRes.status).toBe(200);
       const invJson = (await invRes.json()) as {
         success: boolean;
-        data: Array<{ location?: { name?: string } }>;
+        data: Array<{ category?: { name?: string } }>;
       };
       expect(invJson.success).toBe(true);
       expect(invJson.data.length).toBeGreaterThan(0);
       for (const i of invJson.data) {
-        expect(i.location?.name).toBeDefined();
+        expect(i.category?.name).toBeDefined();
       }
     });
   });
@@ -629,51 +528,46 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
     });
 
     it('4.2 should gracefully handle non-existent IDs and queries with empty results without throwing 500', async () => {
-      const ghostLocationAssets = await assetsService.findAll({
-        locationId: 'ghost-loc-non-existent-uuid',
+      const ghostDeptAssets = await assetsService.findAll({
+        departmentId: '00000000-0000-0000-0000-000000000000',
       });
-      expect(ghostLocationAssets).toEqual([]);
+      expect(ghostDeptAssets).toEqual([]);
 
       const ghostDeptDir = await directoryService.findAll({
         departmentId: 'ghost-dept-non-existent-uuid',
       });
       expect(ghostDeptDir.items).toEqual([]);
 
-      const ghostLocInv = await inventoryService.findAll({
-        locationId: 'ghost-loc-non-existent-uuid',
+      const ghostCatInv = await inventoryService.findAll({
+        categoryId: '00000000-0000-0000-0000-000000000000',
       });
-      expect(ghostLocInv).toEqual([]);
+      expect(ghostCatInv).toEqual([]);
     });
 
     it('4.3 should verify direct PostgreSQL zero-null foreign key invariants', async () => {
-      // 1. DirectoryUser: departmentId, positionId, locationId, organizationId must NOT be null
+      // 1. DirectoryUser: departmentId, positionId, organizationId must NOT be null
       const nullDirUsers = await prisma.directoryUser.count({
         where: {
           OR: [
             { departmentId: null },
             { positionId: null },
-            { locationId: null },
             { organizationId: null },
           ],
         },
       });
       expect(nullDirUsers, 'Zero DirectoryUsers should have null foreign keys').toBe(0);
 
-      // 2. Asset: locationId, departmentId must NOT be null
+      // 2. Asset: departmentId must NOT be null
       const nullAssets = await prisma.asset.count({
         where: {
-          OR: [{ locationId: null }, { departmentId: null }],
+          departmentId: null,
         },
       });
-      expect(nullAssets, 'Zero Assets should have null location or department').toBe(0);
+      expect(nullAssets, 'Zero Assets should have null department').toBe(0);
 
-      // 3. InventoryItem: locationId must NOT be null
-      const nullInvItems = await prisma.inventoryItem.count({
-        where: {
-          locationId: null,
-        },
-      });
-      expect(nullInvItems, 'Zero InventoryItems should have null location').toBe(0);
+      // 3. InventoryItem: categoryId is non-nullable at schema level
+      const totalInvItems = await prisma.inventoryItem.count();
+      expect(totalInvItems).toBeGreaterThan(0);
     });
   });
 });

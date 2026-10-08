@@ -15,7 +15,6 @@ import { RolesTab } from '../users/components/RolesTab';
 import { AssetFilterBar } from '../assets/components/AssetFilterBar';
 import { usersService } from '../../services/users.service';
 import { rolesService } from '../../services/roles.service';
-import { organizationService } from '../../services/organization.service';
 
 // Mock message dispatch with reference-stable instance
 const mockMessageError = vi.fn();
@@ -84,13 +83,6 @@ vi.mock('../../services/roles.service', () => ({
     deleteRole: vi.fn(),
     cloneRole: vi.fn(),
     syncPermissions: vi.fn(),
-  },
-}));
-
-vi.mock('../../services/organization.service', () => ({
-  organizationService: {
-    getLocationTree: vi.fn(),
-    getLocations: vi.fn(),
   },
 }));
 
@@ -352,98 +344,74 @@ describe('Milestone 2 Empirical Challenger Adversarial Suite', () => {
   });
 
   // =========================================================================
-  // MISSION ITEM 2: AssetFilterBar Error Feedback Behavior on Catch
+  // MISSION ITEM 2: AssetFilterBar Filter & Reset Behavior
   // =========================================================================
-  describe('2. AssetFilterBar Catch & Feedback Behavior', () => {
-    it('dispatches message.error when both getLocationTree and getLocations fail', async () => {
-      vi.mocked(organizationService.getLocationTree).mockRejectedValue(
-        new Error('Location tree endpoint unreachable'),
-      );
-      vi.mocked(organizationService.getLocations).mockRejectedValue(
-        new Error('Flat locations fallback failed'),
-      );
-
+  describe('2. AssetFilterBar Filter & Reset Behavior', () => {
+    it('renders search input, category select, status select and calls onReset', async () => {
+      const onResetSpy = vi.fn();
       await renderWithProviders(
         createElement(AssetFilterBar, {
-          onReset: vi.fn(),
+          searchQuery: 'laptop',
+          categoryFilter: 'cat-laptop',
+          statusFilter: 'Active',
+          onReset: onResetSpy,
         }),
       );
 
-      expect(organizationService.getLocationTree).toHaveBeenCalled();
-      expect(organizationService.getLocations).toHaveBeenCalled();
-      expect(mockMessageError).toHaveBeenCalledWith('Failed to load locations.');
+      const searchInput = container.querySelector('input') as HTMLInputElement | null;
+      expect(searchInput).not.toBeNull();
+      expect(searchInput?.value).toBe('laptop');
+
+      const resetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Reset'),
+      );
+      expect(resetBtn).toBeDefined();
+
+      await act(async () => {
+        resetBtn?.click();
+      });
+
+      expect(onResetSpy).toHaveBeenCalled();
     });
 
-    it('degrades gracefully without error toast when getLocationTree fails but getLocations succeeds', async () => {
-      vi.mocked(organizationService.getLocationTree).mockRejectedValue(
-        new Error('Tree query failed'),
+    it('triggers onSearchChange when search input changes', async () => {
+      const onSearchSpy = vi.fn();
+      await renderWithProviders(
+        createElement(AssetFilterBar, {
+          searchQuery: '',
+          onSearchChange: onSearchSpy,
+          onReset: vi.fn(),
+        }),
       );
-      vi.mocked(organizationService.getLocations).mockResolvedValue([
-        {
-          id: 'loc-1',
-          name: 'Factory 1 Workshop',
-          code: 'F1-WS',
-          type: 'WORKSHOP',
-          organizationId: 'org-1',
-        },
-      ]);
 
+      const searchInput = container.querySelector('input') as HTMLInputElement | null;
+      expect(searchInput).not.toBeNull();
+
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(searchInput, 'server');
+        searchInput?.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput?.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      expect(onSearchSpy).toHaveBeenCalledWith('server');
+    });
+
+    it('renders cleanly without error toast when optional props are omitted', async () => {
       await renderWithProviders(
         createElement(AssetFilterBar, {
           onReset: vi.fn(),
         }),
       );
 
-      expect(organizationService.getLocationTree).toHaveBeenCalled();
-      expect(organizationService.getLocations).toHaveBeenCalled();
-      // No error message should be displayed because fallback succeeded!
+      expect(container.querySelector('input')).not.toBeNull();
       expect(mockMessageError).not.toHaveBeenCalled();
     });
 
-    it('does not dispatch error toast when getLocationTree succeeds normally', async () => {
-      vi.mocked(organizationService.getLocationTree).mockResolvedValue([
-        {
-          id: 'loc-root',
-          key: 'loc-root',
-          value: 'loc-root',
-          title: 'BSL Plant Campus',
-          label: 'BSL Plant Campus',
-          name: 'BSL Plant Campus',
-          fullPath: 'BSL Plant Campus',
-          type: 'CAMPUS',
-          organizationId: 'org-1',
-          children: [],
-        },
-      ]);
-
-      await renderWithProviders(
-        createElement(AssetFilterBar, {
-          onReset: vi.fn(),
-        }),
-      );
-
-      expect(organizationService.getLocationTree).toHaveBeenCalled();
-      expect(organizationService.getLocations).not.toHaveBeenCalled();
-      expect(mockMessageError).not.toHaveBeenCalled();
-    });
-
-    it('protects against unmounted state updates and error toasts when unmounted mid-flight', async () => {
-      let rejectTree: (err: unknown) => void = () => {};
-      let rejectFallback: (err: unknown) => void = () => {};
-
-      vi.mocked(organizationService.getLocationTree).mockImplementation(
-        () =>
-          new Promise((_, reject) => {
-            rejectTree = reject;
-          }),
-      );
-      vi.mocked(organizationService.getLocations).mockImplementation(
-        () =>
-          new Promise((_, reject) => {
-            rejectFallback = reject;
-          }),
-      );
-
+    it('protects against unmounted state updates cleanly', async () => {
       const root = createRoot(container);
       currentRoot = root;
 
@@ -463,84 +431,12 @@ describe('Milestone 2 Empirical Challenger Adversarial Suite', () => {
         );
       });
 
-      // Unmount the component while request is still pending
       await act(async () => {
         root.unmount();
         currentRoot = null;
       });
 
-      // Now reject both promises after unmount
-      await act(async () => {
-        rejectTree(new Error('Late network drop'));
-        rejectFallback(new Error('Late fallback drop'));
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      });
-
-      // Because mounted flag was set to false on cleanup, no message.error should be triggered
       expect(mockMessageError).not.toHaveBeenCalled();
-    });
-
-    it('re-triggers location fetch and handles failure when orgFilter changes', async () => {
-      vi.mocked(organizationService.getLocationTree).mockResolvedValue([]);
-
-      const root = createRoot(container);
-      currentRoot = root;
-
-      await act(async () => {
-        root.render(
-          createElement(
-            ConfigProvider,
-            null,
-            createElement(
-              App,
-              null,
-              createElement(AssetFilterBar, {
-                orgFilter: 'org-bsl',
-                onReset: vi.fn(),
-              }),
-            ),
-          ),
-        );
-      });
-
-      // Await microtasks to let useEffect trigger
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 80));
-      });
-
-      expect(organizationService.getLocationTree).toHaveBeenCalledWith('org-bsl');
-
-      // Now change orgFilter to another org where request fails
-      vi.mocked(organizationService.getLocationTree).mockRejectedValue(
-        new Error('Org tree not found'),
-      );
-      vi.mocked(organizationService.getLocations).mockRejectedValue(
-        new Error('Org fallback not found'),
-      );
-
-      await act(async () => {
-        root.render(
-          createElement(
-            ConfigProvider,
-            null,
-            createElement(
-              App,
-              null,
-              createElement(AssetFilterBar, {
-                orgFilter: 'org-hcm',
-                onReset: vi.fn(),
-              }),
-            ),
-          ),
-        );
-      });
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 80));
-      });
-
-      expect(organizationService.getLocationTree).toHaveBeenCalledWith('org-hcm');
-      expect(mockMessageError).toHaveBeenCalledWith('Failed to load locations.');
     });
   });
 });

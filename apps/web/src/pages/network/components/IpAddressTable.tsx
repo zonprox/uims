@@ -4,7 +4,6 @@ import {
   ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
-  EnvironmentOutlined,
   FilterOutlined,
   HddOutlined,
   IdcardOutlined,
@@ -30,7 +29,6 @@ import {
   Typography,
 } from 'antd';
 import React, { useMemo } from 'react';
-import type { LocationBranch } from '../../../services/organization.service';
 import type { IPAddress, Subnet, VLAN } from '../../../services/network.service';
 
 const { Text } = Typography;
@@ -39,12 +37,9 @@ export interface IpAddressTableProps {
   ips: Array<IPAddress>;
   subnets: Array<Subnet>;
   vlans: Array<VLAN>;
-  locations: Array<LocationBranch>;
   loading: boolean;
   searchQuery: string;
   onSearchChange: (val: string) => void;
-  siteFilter: string;
-  onSiteChange: (val: string) => void;
   vlanFilter: string;
   onVlanChange: (val: string) => void;
   subnetFilter: string;
@@ -65,12 +60,9 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     ips,
     subnets,
     vlans,
-    locations,
     loading,
     searchQuery,
     onSearchChange,
-    siteFilter,
-    onSiteChange,
     vlanFilter,
     onVlanChange,
     subnetFilter,
@@ -87,7 +79,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
   }) => {
     const isFiltered =
       searchQuery ||
-      siteFilter !== 'all' ||
       vlanFilter !== 'all' ||
       subnetFilter !== 'all' ||
       deviceTypeFilter !== 'all' ||
@@ -110,10 +101,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
             model.toLowerCase().includes(q) ||
             assetTag.toLowerCase().includes(q);
           if (!matches) return false;
-        }
-
-        if (siteFilter !== 'all') {
-          if (ip.locationId !== siteFilter) return false;
         }
 
         if (vlanFilter !== 'all') {
@@ -141,7 +128,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
 
         return true;
       });
-    }, [ips, searchQuery, siteFilter, vlanFilter, subnetFilter, deviceTypeFilter, statusFilter]);
+    }, [ips, searchQuery, vlanFilter, subnetFilter, deviceTypeFilter, statusFilter]);
 
     const columns = useMemo(
       () => [
@@ -319,30 +306,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           },
         },
         {
-          title: 'Location & Section',
-          key: 'location',
-          render: (_: unknown, record: IPAddress) => {
-            const loc = record.location?.name;
-            return (
-              <div>
-                {loc ? (
-                  <Flex align="center" gap={4}>
-                    <EnvironmentOutlined style={{ color: '#1677ff', fontSize: 11 }} />
-                    <Text style={{ fontSize: 11.5 }}>{loc}</Text>
-                  </Flex>
-                ) : (
-                  <Text type="secondary">—</Text>
-                )}
-                {record.section && (
-                  <Text type="secondary" style={{ display: 'block', fontSize: 10.5 }}>
-                    {record.section}
-                  </Text>
-                )}
-              </div>
-            );
-          },
-        },
-        {
           title: 'Linked Asset & Custodian',
           key: 'assetCustodian',
           render: (_: unknown, record: IPAddress) => {
@@ -464,17 +427,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           </Col>
           <Col xs={24} lg={17}>
             <Flex gap={8} justify="flex-end" wrap align="center">
-              <Select
-                value={siteFilter}
-                onChange={onSiteChange}
-                style={{ width: 140 }}
-                placeholder="Site / Location"
-                options={[
-                  { label: 'All Sites', value: 'all' },
-                  ...locations.map((loc) => ({ label: loc.name, value: loc.id })),
-                ]}
-              />
-
               <Select
                 value={vlanFilter}
                 onChange={onVlanChange}

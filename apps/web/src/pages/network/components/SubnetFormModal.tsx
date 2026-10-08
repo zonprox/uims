@@ -16,7 +16,7 @@ import {
   theme,
 } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
-import type { LocationBranch } from '../../../services/organization.service';
+import { formRules } from '../../../utils/formValidators';
 import {
   type NetworkCalculation,
   type Subnet,
@@ -32,7 +32,6 @@ export interface SubnetFormModalProps {
   form: FormInstance;
   submitting: boolean;
   vlans: VLAN[];
-  locations: LocationBranch[];
   onSave: () => void;
   onCancel: () => void;
 }
@@ -84,7 +83,7 @@ function calculateLocalCidr(cidr: string): NetworkCalculation | null {
 }
 
 export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
-  ({ open, editingSubnet, form, submitting, vlans, locations, onSave, onCancel }) => {
+  ({ open, editingSubnet, form, submitting, vlans, onSave, onCancel }) => {
     const { token } = theme.useToken();
     const [calcPreview, setCalcPreview] = useState<NetworkCalculation | null>(null);
 
@@ -117,13 +116,6 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
       [editingSubnet, form],
     );
 
-    const handleVlanChange = (vlanId: string) => {
-      const selected = vlans.find((v) => v.id === vlanId);
-      if (selected?.locationId && !form.getFieldValue('locationId')) {
-        form.setFieldValue('locationId', selected.locationId);
-      }
-    };
-
     useEffect(() => {
       if (open) {
         const currentCidr = form.getFieldValue('cidr');
@@ -153,18 +145,20 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
         okText={editingSubnet ? 'Save Changes' : 'Create Subnet'}
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={form} layout="vertical">
+        <Form
+          form={form}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="CIDR Block (IPv4)"
                 name="cidr"
                 rules={[
-                  { required: true, message: 'CIDR block is required' },
-                  {
-                    pattern: /^(\d{1,3}\.){3}\d{1,3}\/(\d{1,2})$/,
-                    message: 'Format must be valid IPv4 CIDR, e.g. 10.232.130.0/24',
-                  },
+                  formRules.required('CIDR block is required'),
+                  formRules.cidr('Format must be valid IPv4 CIDR, e.g. 10.232.130.0/24'),
                 ]}
               >
                 <Input
@@ -178,7 +172,10 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
               <Form.Item
                 label="Subnet Name"
                 name="name"
-                rules={[{ required: true, message: 'Subnet name is required' }]}
+                rules={[
+                  formRules.required('Subnet name'),
+                  formRules.stringRange('Subnet name', 2, 100),
+                ]}
               >
                 <Input placeholder="e.g. BSL CCTV Security Network" />
               </Form.Item>
@@ -259,47 +256,27 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
                     label: `VLAN ${vlan.vlanNumber} (${vlan.name})`,
                     value: vlan.id,
                   }))}
-                  onChange={handleVlanChange}
                   filterOption={(input, option) =>
                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                   }
                 />
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item label="Location / Site" name="locationId">
-                <Select
-                  placeholder="Select physical site"
-                  allowClear
-                  showSearch
-                  options={locations.map((loc) => ({
-                    label: `${loc.name} ${loc.building ? `(${loc.building})` : ''}`,
-                    value: loc.id,
-                  }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="Default Gateway"
                 name="gateway"
                 rules={[
-                  {
-                    pattern: /^(\d{1,3}\.){3}\d{1,3}$/,
-                    message: 'Must be a valid IPv4 address, e.g. 10.232.130.254',
-                  },
+                  formRules.ipv4('Must be a valid IPv4 address, e.g. 10.232.130.254'),
                 ]}
               >
                 <Input placeholder="e.g. 10.232.130.254" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
               <Form.Item label="Description" name="description">
                 <Input placeholder="e.g. Access switch uplink subnet" />
               </Form.Item>

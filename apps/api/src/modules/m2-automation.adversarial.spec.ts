@@ -534,10 +534,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         findUnique: ReturnType<typeof vi.fn>;
         findFirst: ReturnType<typeof vi.fn>;
       };
-      location: {
-        findUnique: ReturnType<typeof vi.fn>;
-        findFirst: ReturnType<typeof vi.fn>;
-      };
       directoryUser: {
         findUnique: ReturnType<typeof vi.fn>;
       };
@@ -552,10 +548,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
           create: vi.fn(),
         },
         assetCategory: {
-          findUnique: vi.fn(),
-          findFirst: vi.fn(),
-        },
-        location: {
           findUnique: vi.fn(),
           findFirst: vi.fn(),
         },
@@ -583,7 +575,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.IN_USE,
         assignedToId: 'user-dev-1',
         category: { name: 'Laptops' },
-        location: { name: 'HQ' },
         assignedTo: { firstName: 'Alice', lastName: 'Engineer', email: 'alice@company.com' },
       });
 
@@ -618,7 +609,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.AVAILABLE,
         assignedToId: null,
         category: { name: 'Laptops' },
-        location: { name: 'Storage Vault' },
         assignedTo: null,
       });
 
@@ -653,7 +643,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.MAINTENANCE,
         assignedToId: 'technician-1',
         category: { name: 'Laptops' },
-        location: { name: 'Repair Bench' },
         assignedTo: { firstName: 'Bob', lastName: 'Tech', email: 'bob@company.com' },
       });
 
@@ -689,7 +678,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.RETIRED,
         assignedToId: null,
         category: { name: 'Laptops' },
-        location: { name: 'E-Waste Bin' },
         assignedTo: null,
       });
 
@@ -725,7 +713,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.MAINTENANCE,
         assignedToId: null,
         category: { name: 'Servers' },
-        location: { name: 'Repair Bench' },
         assignedTo: null,
       });
 
@@ -757,7 +744,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.IN_USE,
         assignedToId: 'user-new',
         category: { name: 'Laptops' },
-        location: { name: 'HQ' },
         assignedTo: { firstName: 'Charlie', lastName: 'Dev', email: 'charlie@company.com' },
       });
 
@@ -779,7 +765,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
 
     it('EMPIRICAL-AST-7: creating an asset with assignedToId automatically defaults to IN_USE', async () => {
       mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.location.findUnique.mockResolvedValue({ id: 'loc-1', name: 'HQ' });
       mockPrisma.directoryUser.findUnique.mockResolvedValue({ id: 'user-assigned' });
 
       mockPrisma.asset.create.mockResolvedValue({
@@ -789,16 +774,13 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.IN_USE,
         assignedToId: 'user-assigned',
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         category: { name: 'Laptops' },
-        location: { name: 'HQ' },
         assignedTo: { firstName: 'Dave', lastName: 'Lead', email: 'dave@company.com' },
       });
 
       const created = await assetsService.create({
         name: 'Surface Laptop 5',
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         assignedToId: 'user-assigned',
       });
 
@@ -815,7 +797,6 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
 
     it('EMPIRICAL-AST-8: creating an asset with assignedToId but explicit status (MAINTENANCE) respects explicit status', async () => {
       mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.location.findUnique.mockResolvedValue({ id: 'loc-1', name: 'HQ' });
       mockPrisma.directoryUser.findUnique.mockResolvedValue({ id: 'tech-user' });
 
       mockPrisma.asset.create.mockResolvedValue({
@@ -825,16 +806,13 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         status: AssetStatus.MAINTENANCE,
         assignedToId: 'tech-user',
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         category: { name: 'Laptops' },
-        location: { name: 'HQ' },
         assignedTo: { firstName: 'Tech', lastName: 'Specialist', email: 'tech@company.com' },
       });
 
       const created = await assetsService.create({
         name: 'Defective Laptop for Diagnostics',
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         assignedToId: 'tech-user',
         status: 'In Repair', // Explicit override on create
       });
@@ -852,14 +830,12 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
 
     it('EMPIRICAL-AST-9: creating an asset with non-existent assignedToId throws NotFoundException', async () => {
       mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.location.findUnique.mockResolvedValue({ id: 'loc-1', name: 'HQ' });
       mockPrisma.directoryUser.findUnique.mockResolvedValue(null); // User does not exist
 
       await expect(
         assetsService.create({
           name: 'Orphaned Assignment Asset',
           categoryId: 'cat-1',
-          locationId: 'loc-1',
           assignedToId: 'non-existent-user-id',
         }),
       ).rejects.toThrow(NotFoundException);

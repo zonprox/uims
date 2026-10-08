@@ -1,8 +1,8 @@
-import { ApartmentOutlined, CloudServerOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, CloudServerOutlined } from '@ant-design/icons';
 import { Col, Form, type FormInstance, Input, InputNumber, Modal, Row, Select, theme } from 'antd';
 import React from 'react';
 import type { Asset } from '../../../services/assets.service';
-import type { LocationBranch } from '../../../services/organization.service';
+import { formRules } from '../../../utils/formValidators';
 import type { NetworkRack, NetworkSwitch } from '../../../services/network.service';
 
 const { TextArea } = Input;
@@ -12,7 +12,6 @@ export interface SwitchFormModalProps {
   editingSwitch?: NetworkSwitch | null;
   form: FormInstance;
   submitting?: boolean;
-  locations?: Array<LocationBranch>;
   racks?: Array<NetworkRack>;
   assets?: Array<Asset>;
   onSave: () => void;
@@ -25,7 +24,6 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
     editingSwitch,
     form,
     submitting = false,
-    locations = [],
     racks = [],
     assets = [],
     onSave,
@@ -46,7 +44,13 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
         cancelText="Cancel"
         styles={{ body: { padding: '16px 0' } }}
       >
-        <Form form={form} layout="vertical" preserve={false}>
+        <Form
+          form={form}
+          layout="vertical"
+          preserve={false}
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           {/* Row 1: Name and Vendor */}
           <Row gutter={16}>
             <Col span={14}>
@@ -260,10 +264,7 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
                 name="macAddress"
                 label="Base MAC Address"
                 rules={[
-                  {
-                    pattern: /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/,
-                    message: 'Invalid MAC address format (e.g. 70:69:79:2A:41:01)',
-                  },
+                  formRules.mac('Invalid MAC address format (e.g. 70:69:79:2A:41:01)'),
                 ]}
               >
                 <Input placeholder="e.g. 70:69:79:2A:41:01" style={{ fontFamily: 'monospace' }} />
@@ -293,25 +294,9 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
             </Col>
           </Row>
 
-          {/* Row 5: Physical Mounting & Location */}
+          {/* Row 5: Equipment Rack Mounting */}
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="locationId" label="Physical Location">
-                <Select
-                  placeholder="Select datacenter or room"
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  suffixIcon={<EnvironmentOutlined style={{ color: token.colorTextQuaternary }} />}
-                  options={locations.map((loc) => ({
-                    label: loc.name,
-                    value: loc.id,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-
-            <Col span={12}>
+            <Col span={24}>
               <Form.Item name="rackId" label="Equipment Rack Enclosure">
                 <Select
                   placeholder="Select rack cabinet"

@@ -8,21 +8,19 @@ import {
   Modal,
   Row,
   Select,
-  TreeSelect,
 } from 'antd';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { IT_ASSET_CATEGORIES } from '@uims/shared-types';
-import type { Asset, AssetCategory } from '../../../services/assets.service';
+import type { Asset, AssetCategory, CostCenter } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
 import {
   type Department,
-  type LocationBranch,
-  type LocationTreeNode,
   organizationService,
 } from '../../../services/organization.service';
 import { formatErrorMessage } from '../../../utils/feedback';
+import { formRules } from '../../../utils/formValidators';
 
 export interface AssetFormModalProps {
   open: boolean;
@@ -32,52 +30,8 @@ export interface AssetFormModalProps {
   onSave: () => void;
   onCancel: () => void;
   categories?: AssetCategory[];
-  locations?: Array<LocationBranch | LocationTreeNode>;
-  locationTree?: LocationTreeNode[];
   departments?: Department[];
   employees?: DirectoryUser[];
-}
-
-export interface FormattedLocationOption {
-  key: string;
-  value: string;
-  title: string;
-  label: string;
-  children?: FormattedLocationOption[];
-}
-
-export function formatLocationTreeForSelect(
-  nodes: Array<LocationTreeNode | LocationBranch>,
-  parentPath = '',
-): FormattedLocationOption[] {
-  return nodes.map((node) => {
-    const isTree = 'fullPath' in node || 'children' in node;
-    const treeNode = node as LocationTreeNode;
-    const branch = node as LocationBranch;
-
-    const nodeTitle = node.name || (treeNode.title as string) || '';
-    const fullPath =
-      isTree && treeNode.fullPath
-        ? treeNode.fullPath
-        : parentPath
-          ? `${parentPath} > ${nodeTitle}`
-          : branch.building
-            ? `${nodeTitle} (${branch.building}${branch.floor ? ` - ${branch.floor}` : ''})`
-            : nodeTitle;
-
-    const formattedChildren =
-      treeNode.children && treeNode.children.length > 0
-        ? formatLocationTreeForSelect(treeNode.children, fullPath)
-        : undefined;
-
-    return {
-      key: node.id,
-      value: node.id,
-      title: nodeTitle,
-      label: fullPath,
-      children: formattedChildren,
-    };
-  });
 }
 
 const STATUS_OPTIONS = [
@@ -96,18 +50,14 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
     onSave,
     onCancel,
     categories: propCategories,
-    locations: propLocations,
-    locationTree: propLocationTree,
     departments: propDepartments,
     employees: propEmployees,
   }) => {
     const { message } = App.useApp();
     const [categories, setCategories] = useState<AssetCategory[]>(propCategories || []);
-    const [locations, setLocations] = useState<Array<LocationBranch | LocationTreeNode>>(
-      propLocationTree || propLocations || [],
-    );
     const [departments, setDepartments] = useState<Department[]>(propDepartments || []);
     const [employees, setEmployees] = useState<DirectoryUser[]>(propEmployees || []);
+    const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
     const [loadingOptions, setLoadingOptions] = useState(false);
 
     useEffect(() => {
@@ -117,21 +67,20 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       const fetchReferences = async () => {
         setLoadingOptions(true);
         try {
-          const [catResult, locResult, deptResult, empResult] = await Promise.allSettled([
+          const [catResult, deptResult, empResult, ccResult] = await Promise.allSettled([
             propCategories ? Promise.resolve(propCategories) : assetsService.getCategories(),
-            propLocationTree
-              ? Promise.resolve(propLocationTree)
-              : propLocations
-                ? Promise.resolve(propLocations)
-                : organizationService
-                    .getLocationTree()
-                    .catch(async () => organizationService.getLocations()),
             propDepartments
               ? Promise.resolve(propDepartments)
               : organizationService.getDepartments(),
             propEmployees
               ? Promise.resolve({ items: propEmployees })
               : directoryService.getEmployees({ pageSize: 100 }),
+            assetsService.getCostCenters().catch(() => [
+              { id: 'cc-it-ops', code: 'IT-OPS', name: 'IT Operations & Infrastructure' },
+              { id: 'cc-eng-dev', code: 'ENG-DEV', name: 'Software Engineering & DevOps' },
+              { id: 'cc-fin-acc', code: 'FIN-ACC', name: 'Finance & Corporate Accounting' },
+              { id: 'cc-hr-admin', code: 'HR-ADMIN', name: 'Human Resources & General Administration' },
+            ]),
           ]);
 
           if (!mounted) return;
@@ -144,12 +93,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             loadErrors.push('categories');
           }
 
-          if (locResult.status === 'fulfilled') {
-            setLocations(locResult.value as Array<LocationBranch | LocationTreeNode>);
-          } else {
-            loadErrors.push('locations');
-          }
-
           if (deptResult.status === 'fulfilled') {
             setDepartments(deptResult.value);
           } else {
@@ -160,6 +103,10 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             setEmployees(empResult.value.items || []);
           } else {
             loadErrors.push('employees');
+          }
+
+          if (ccResult.status === 'fulfilled') {
+            setCostCenters(ccResult.value);
           }
 
           if (loadErrors.length > 0) {
@@ -183,11 +130,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       propCategories,
       propDepartments,
       propEmployees,
-      propLocationTree,
-      propLocations,
     ]);
-
-    const locationTreeData = useMemo(() => formatLocationTreeForSelect(locations), [locations]);
 
     const categorySelectOptions = useMemo(() => {
       if (categories && categories.length > 0) {
@@ -216,13 +159,17 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
           model: editingAsset.model,
           categoryId: resolvedCatId,
           status: editingAsset.status,
-          locationId: editingAsset.locationId,
           departmentId: editingAsset.departmentId,
           assignedToId: editingAsset.assignedToId,
           purchaseDate: editingAsset.purchaseDate ? dayjs(editingAsset.purchaseDate) : undefined,
           warrantyExpiry: editingAsset.warrantyExpiry
             ? dayjs(editingAsset.warrantyExpiry)
             : undefined,
+          costCenterId:
+            editingAsset.costCenterId ||
+            (typeof editingAsset.costCenter === 'object' && editingAsset.costCenter
+              ? editingAsset.costCenter.id
+              : undefined),
           notes: editingAsset.notes,
         });
       }
@@ -240,19 +187,32 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
         okText={editingAsset ? 'Save Changes' : 'Create Asset'}
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={form} layout="vertical">
+        <Form
+          form={form}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={14}>
             <Col span={12}>
               <Form.Item
                 label="Asset Tag"
                 name="tag"
-                rules={[{ required: true, message: 'Asset tag is required' }]}
+                rules={[
+                  formRules.required('Asset tag'),
+                  formRules.sku('Asset tag'),
+                  formRules.maxString('Asset tag', 100),
+                ]}
               >
                 <Input placeholder="e.g. AST-1042" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Serial Number" name="serialNumber">
+              <Form.Item
+                label="Serial Number"
+                name="serialNumber"
+                rules={[formRules.maxString('Serial number', 100)]}
+              >
                 <Input placeholder="e.g. C02G8392MD6R" />
               </Form.Item>
             </Col>
@@ -263,7 +223,10 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               <Form.Item
                 label="Device Name"
                 name="name"
-                rules={[{ required: true, message: 'Device name is required' }]}
+                rules={[
+                  formRules.required('Device name'),
+                  formRules.maxString('Device name', 100),
+                ]}
               >
                 <Input placeholder="e.g. MacBook Pro 16 M3 Max" />
               </Form.Item>
@@ -272,13 +235,20 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               <Form.Item
                 label="Manufacturer"
                 name="manufacturer"
-                rules={[{ required: true, message: 'Required' }]}
+                rules={[
+                  formRules.required('Manufacturer'),
+                  formRules.maxString('Manufacturer', 100),
+                ]}
               >
                 <Input placeholder="e.g. Apple / Dell" />
               </Form.Item>
             </Col>
             <Col span={6}>
-              <Form.Item label="Model" name="model">
+              <Form.Item
+                label="Model"
+                name="model"
+                rules={[formRules.maxString('Model', 100)]}
+              >
                 <Input placeholder="e.g. A2991" />
               </Form.Item>
             </Col>
@@ -304,28 +274,17 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Status" name="status" rules={[{ required: true }]}>
+              <Form.Item
+                label="Status"
+                name="status"
+                rules={[{ required: true, message: 'Status is required' }]}
+              >
                 <Select options={STATUS_OPTIONS} />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={14}>
-            <Col span={12}>
-              <Form.Item label="Physical Location" name="locationId">
-                <TreeSelect
-                  showSearch
-                  allowClear
-                  treeDefaultExpandAll={false}
-                  placeholder="Select facility / workshop / line / station"
-                  treeNodeFilterProp="title"
-                  treeNodeLabelProp="label"
-                  treeData={locationTreeData}
-                  loading={loadingOptions}
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-            </Col>
             <Col span={12}>
               <Form.Item label="Owner Department" name="departmentId">
                 <Select
@@ -340,6 +299,20 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
                   filterOption={(input, option) =>
                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                   }
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Cost Center" name="costCenterId">
+                <Select
+                  placeholder="Select cost center"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  options={costCenters.map((cc) => ({
+                    label: `${cc.code} - ${cc.name}`,
+                    value: cc.id,
+                  }))}
                 />
               </Form.Item>
             </Col>
@@ -372,13 +345,27 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Warranty Expiry" name="warrantyExpiry">
+              <Form.Item
+                label="Warranty Expiry"
+                name="warrantyExpiry"
+                rules={[
+                  formRules.chronologicalDate(
+                    'purchaseDate',
+                    'Purchase Date',
+                    'Warranty Expiry',
+                  ),
+                ]}
+              >
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item label="Notes" name="notes">
+          <Form.Item
+            label="Notes"
+            name="notes"
+            rules={[formRules.maxString('Notes', 1000)]}
+          >
             <Input.TextArea
               rows={2}
               autoSize={{ minRows: 2, maxRows: 6 }}

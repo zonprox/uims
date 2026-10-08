@@ -3,7 +3,6 @@ import {
   ClearOutlined,
   FilterOutlined,
   ReloadOutlined,
-  SaveOutlined,
   SearchOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
@@ -17,23 +16,22 @@ import {
   Checkbox,
   Col,
   Divider,
-  Drawer,
   Empty,
   Flex,
   Input,
   Row,
   Select,
-  Space,
   Tag,
   Tooltip,
   Typography,
   theme,
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import { rolesService } from '../../../services/roles.service';
 import { formatErrorMessage } from '../../../utils/feedback';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface PermissionMatrixDrawerProps {
   open: boolean;
@@ -196,59 +194,35 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
   };
 
   return (
-    <Drawer
-      title={
-        <Flex align="center" justify="space-between" style={{ width: '100%', paddingRight: 12 }}>
-          <Flex align="center" gap={8}>
-            <Title level={5} style={{ margin: 0, fontSize: 16 }}>
-              Permission Matrix: {role?.name || 'Role'}
-            </Title>
-            {role?.isSystem ? (
-              <Tag color="purple" style={{ margin: 0 }}>
-                System Protected
-              </Tag>
-            ) : (
-              <Tag color="cyan" style={{ margin: 0 }}>
-                Custom Role
-              </Tag>
-            )}
-          </Flex>
-          <Tag color="blue" style={{ fontSize: 11, padding: '2px 8px' }}>
-            {selectedPermIds.size} / {allPermissionIds.length} Granted
-          </Tag>
-        </Flex>
+    <AppDrawer
+      title={role?.name ? `Permissions: ${role.name}` : 'Permission Matrix'}
+      subtitle={role?.isSystem ? 'System Protected Role' : 'Custom Role'}
+      tag={
+        <Tag color="blue" style={{ fontSize: 11, padding: '2px 8px' }}>
+          {selectedPermIds.size} / {allPermissionIds.length} Granted
+        </Tag>
       }
       open={open}
-      destroyOnHidden
-      width={780}
+      size={780}
       onClose={onClose}
+      onCancel={onClose}
+      cancelText="Cancel"
+      onOk={handleSave}
+      okText="Save"
+      okLoading={saving}
+      okDisabled={!isDirty || isSuperAdminRole}
+      footerExtra={
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {isDirty ? (
+            <Badge status="warning" text="Unsaved changes" />
+          ) : (
+            <Badge status="success" text="Synced" />
+          )}
+        </Text>
+      }
       styles={{
         body: { padding: '16px 20px', background: token.colorBgLayout },
-        footer: { padding: '12px 20px', background: token.colorBgContainer },
       }}
-      footer={
-        <Flex justify="space-between" align="center">
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {isDirty ? (
-              <Badge status="warning" text="Unsaved permission changes" />
-            ) : (
-              <Badge status="success" text="All changes synced" />
-            )}
-          </Text>
-          <Space>
-            <Button onClick={onClose}>Cancel</Button>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              loading={saving}
-              disabled={!isDirty || isSuperAdminRole}
-              onClick={handleSave}
-            >
-              Save Permissions
-            </Button>
-          </Space>
-        </Flex>
-      }
     >
       {isSuperAdminRole && (
         <Alert
@@ -441,6 +415,6 @@ export const PermissionMatrixDrawer: React.FC<PermissionMatrixDrawerProps> = ({
           })}
         </Flex>
       )}
-    </Drawer>
+    </AppDrawer>
   );
 };

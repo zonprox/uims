@@ -23,8 +23,6 @@ describe('AssetTable Component', () => {
       status: 'Active',
       assignedTo: 'Marcus Vance',
       assignedEmail: 'marcus@uims.internal',
-      location: 'Floor 4',
-      locationPath: 'Global HQ > NY Office > Floor 4',
       department: 'Engineering',
       purchaseDate: '2026-01-15',
       warrantyExpiry: '2029-01-15',
@@ -40,7 +38,6 @@ describe('AssetTable Component', () => {
       status: 'In Storage',
       assignedTo: '',
       assignedEmail: '',
-      location: 'Warehouse B',
       purchaseDate: '2025-11-20',
       warrantyExpiry: '2028-11-20',
     },
@@ -126,9 +123,7 @@ describe('AssetTable Component', () => {
       onSelectionChange,
     });
 
-    const rowCheckboxes = container.querySelectorAll(
-      'tbody .ant-table-row .ant-checkbox-input',
-    );
+    const rowCheckboxes = container.querySelectorAll('tbody .ant-table-row .ant-checkbox-input');
     expect(rowCheckboxes.length).toBe(2);
 
     await act(async () => {
@@ -157,12 +152,10 @@ describe('AssetTable Component', () => {
 
   it('triggers action callbacks when action buttons are clicked', async () => {
     const onShowDetails = vi.fn();
-    const onShowQr = vi.fn();
     const onOpenEditModal = vi.fn();
 
     await renderComponent({
       onShowDetails,
-      onShowQr,
       onOpenEditModal,
     });
 
@@ -177,11 +170,9 @@ describe('AssetTable Component', () => {
       expect(onShowDetails).toHaveBeenCalledWith(mockAssets[0]);
     }
 
-    // Action buttons in the first row
-    const actionButtons = container.querySelectorAll(
-      'tr[data-row-key="ast-1"] .ant-btn',
-    );
-    expect(actionButtons.length).toBeGreaterThanOrEqual(3);
+    // Action buttons in the first row (Eye, Print QR, Edit, Delete)
+    const actionButtons = container.querySelectorAll('tr[data-row-key="ast-1"] .ant-btn');
+    expect(actionButtons.length).toBe(4);
 
     // Eye button -> onShowDetails
     await act(async () => {
@@ -189,16 +180,35 @@ describe('AssetTable Component', () => {
     });
     expect(onShowDetails).toHaveBeenCalled();
 
-    // QR button -> onShowQr
-    await act(async () => {
-      (actionButtons[1] as HTMLButtonElement).click();
-    });
-    expect(onShowQr).toHaveBeenCalledWith(mockAssets[0]);
-
     // Edit button -> onOpenEditModal
     await act(async () => {
       (actionButtons[2] as HTMLButtonElement).click();
     });
     expect(onOpenEditModal).toHaveBeenCalledWith(mockAssets[0]);
+  });
+
+  it('renders concise column headers and does not render QR code in action column', async () => {
+    await renderComponent();
+
+    const headerTexts = Array.from(container.querySelectorAll('th')).map((th) =>
+      th.textContent?.trim(),
+    );
+    expect(headerTexts).toContain('SUB Code');
+    expect(headerTexts).toContain('Category');
+    expect(headerTexts).toContain('Status');
+    expect(headerTexts).toContain('Assignee');
+    expect(headerTexts).toContain('Organization');
+    expect(headerTexts).not.toContain('Warranty');
+    expect(headerTexts).toContain('Actions');
+
+    // QR code action button should not exist in the action column
+    const qrIcons = container.querySelectorAll('.anticon-qrcode');
+    expect(qrIcons.length).toBe(0);
+
+    // Category should be rendered as a tag with Laptop value
+    const categoryTags = Array.from(container.querySelectorAll('.ant-tag')).filter((el) =>
+      el.textContent?.includes('Laptop'),
+    );
+    expect(categoryTags.length).toBeGreaterThan(0);
   });
 });

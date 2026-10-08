@@ -22,7 +22,6 @@ describe('directoryService', () => {
       activeEmployees: 40,
       assignedWorkstations: 38,
       totalGroups: 8,
-      totalOUs: 6,
       closedAccounts: 2,
     };
     vi.mocked(api.get).mockResolvedValueOnce({ data: { data: mockStats } });
@@ -114,13 +113,17 @@ describe('directoryService', () => {
     expect(created).toEqual(mockGroups[0]);
   });
 
-  it('getOrganizationalUnits fetches OU topology', async () => {
-    const mockOus = [{ id: 'ou-1', name: 'Production', dn: 'OU=Production,DC=uims,DC=internal' }];
-    vi.mocked(api.get).mockResolvedValueOnce({ data: { data: mockOus } });
+  it('updateGroup and deleteGroup operate on /directory/groups/:id', async () => {
+    const updatedGroup = { id: 'grp-1', name: 'GR_Updated' };
+    vi.mocked(api.patch).mockResolvedValueOnce({ data: { data: updatedGroup } });
+    vi.mocked(api.delete).mockResolvedValueOnce({ data: { success: true } });
 
-    const ous = await directoryService.getOrganizationalUnits();
-    expect(api.get).toHaveBeenCalledWith('/directory/organizational-units');
-    expect(ous).toEqual(mockOus);
+    const res = await directoryService.updateGroup('grp-1', { name: 'GR_Updated' });
+    expect(api.patch).toHaveBeenCalledWith('/directory/groups/grp-1', { name: 'GR_Updated' });
+    expect(res).toEqual(updatedGroup);
+
+    await directoryService.deleteGroup('grp-1');
+    expect(api.delete).toHaveBeenCalledWith('/directory/groups/grp-1');
   });
 
   it('syncDomain triggers active directory domain sync', async () => {

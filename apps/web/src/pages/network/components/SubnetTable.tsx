@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, EnvironmentOutlined, EyeOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
 import { Button, Flex, Popconfirm, Progress, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import type { Subnet } from '../../../services/network.service';
@@ -42,27 +42,21 @@ export const SubnetTable: React.FC<SubnetTableProps> = React.memo(
           ),
         },
         {
-          title: 'VLAN & Location',
-          key: 'vlanLocation',
+          title: 'VLAN',
+          key: 'vlan',
           render: (_: unknown, record: Subnet) => (
             <div>
               {record.vlan ? (
-                <Tag color="purple" style={{ fontSize: 11, marginBottom: 2 }}>
+                <Tag color="purple" style={{ fontSize: 11 }}>
                   VLAN {record.vlan.vlanNumber} ({record.vlan.name})
                 </Tag>
               ) : record.vlanName ? (
-                <Tag color="purple" style={{ fontSize: 11, marginBottom: 2 }}>
+                <Tag color="purple" style={{ fontSize: 11 }}>
                   {record.vlanName}
                 </Tag>
               ) : (
-                <Tag style={{ fontSize: 11, marginBottom: 2 }}>Unassigned</Tag>
+                <Tag style={{ fontSize: 11 }}>Unassigned</Tag>
               )}
-              <Flex align="center" gap={4} style={{ marginTop: 2 }}>
-                <EnvironmentOutlined style={{ color: '#64748b', fontSize: 11 }} />
-                <Text type="secondary" style={{ fontSize: 11.5 }}>
-                  {record.location?.name || record.locationName || 'HQ'}
-                </Text>
-              </Flex>
             </div>
           ),
         },

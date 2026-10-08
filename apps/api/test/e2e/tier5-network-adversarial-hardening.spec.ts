@@ -752,7 +752,7 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       expect(elevation.slots.every((s) => !s.isOccupied)).toBe(true);
       expect(elevation.occupiedUnits).toBe(0);
       expect(elevation.availableUnits).toBe(24);
-      expect(elevation.spaceUtilizationPercent).toBe(0);
+      expect(elevation.occupancyRate).toBe(0);
       expect(elevation.totalPowerDrawKw).toBe(0);
       expect(elevation.powerUtilizationPercent).toBe(0);
       expect(elevation.totalWeightKg).toBe(0);
@@ -824,7 +824,7 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       // Total occupied units: Dev1 (4) + Dev2 (1) + Dev3 (2) + Dev4 (2) = 9 units
       expect(elevation.occupiedUnits).toBe(9);
       expect(elevation.availableUnits).toBe(33);
-      expect(elevation.spaceUtilizationPercent).toBeCloseTo((9 / 42) * 100, 1);
+      expect(elevation.occupancyRate).toBeCloseTo((9 / 42) * 100, 1);
     });
 
     it('4.3 calculates power and weight telemetry metrics accurately', async () => {

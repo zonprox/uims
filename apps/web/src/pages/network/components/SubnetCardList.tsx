@@ -90,8 +90,7 @@ export const SubnetCardList: React.FC<SubnetCardListProps> = React.memo(
                 {subnet.name}
               </Text>
               <Text type="secondary" style={{ fontSize: 11.5, display: 'block', marginBottom: 6 }}>
-                Gateway: {subnet.gateway || '—'} •{' '}
-                {subnet.location?.name || subnet.locationName || 'HQ'}
+                Gateway: {subnet.gateway || '—'}
               </Text>
 
               {/* Technical CIDR badges */}

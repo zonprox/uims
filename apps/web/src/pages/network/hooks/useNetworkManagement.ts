@@ -3,7 +3,6 @@ import type { FormInstance } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { type Asset, assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import { type LocationBranch, organizationService } from '../../../services/organization.service';
 import {
   type IPAddress,
   type NetworkStats,
@@ -12,6 +11,7 @@ import {
   networkService,
 } from '../../../services/network.service';
 import { formatErrorMessage } from '../../../utils/feedback';
+import { isValidationError } from '../../../utils/formValidators';
 
 export function useNetworkManagement(
   form: FormInstance,
@@ -24,7 +24,6 @@ export function useNetworkManagement(
   const [vlans, setVlans] = useState<Array<VLAN>>([]);
   const [subnets, setSubnets] = useState<Array<Subnet>>([]);
   const [ips, setIps] = useState<Array<IPAddress>>([]);
-  const [locations, setLocations] = useState<Array<LocationBranch>>([]);
   const [assets, setAssets] = useState<Array<Asset>>([]);
   const [directoryUsers, setDirectoryUsers] = useState<Array<DirectoryUser>>([]);
   const [stats, setStats] = useState<NetworkStats>({
@@ -74,16 +73,14 @@ export function useNetworkManagement(
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [vlanList, subnetList, ipList, locList, assetList, empRes] = await Promise.all([
+      const [vlanList, subnetList, ipList, assetList, empRes] = await Promise.all([
         networkService.getVlans({
           search: searchQuery || undefined,
-          locationId: siteFilter !== 'all' ? siteFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
         }),
         networkService.getSubnets({
           search: searchQuery || undefined,
           vlanId: vlanFilter !== 'all' ? vlanFilter : undefined,
-          locationId: siteFilter !== 'all' ? siteFilter : undefined,
         }),
         networkService.getIps({
           search: searchQuery || undefined,
@@ -91,9 +88,7 @@ export function useNetworkManagement(
           subnetId: subnetFilter !== 'all' ? subnetFilter : undefined,
           deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
-          locationId: siteFilter !== 'all' ? siteFilter : undefined,
         }),
-        organizationService.getLocations(),
         assetsService.getAssets(),
         directoryService
           .getEmployees({ pageSize: 100 })
@@ -103,7 +98,6 @@ export function useNetworkManagement(
       setVlans(vlanList);
       setSubnets(subnetList);
       setIps(ipList);
-      setLocations(locList);
       setAssets(assetList);
       setDirectoryUsers(empRes?.items || []);
 
@@ -121,7 +115,7 @@ export function useNetworkManagement(
     } finally {
       setLoading(false);
     }
-  }, [message, searchQuery, siteFilter, vlanFilter, subnetFilter, deviceTypeFilter, statusFilter]);
+  }, [message, searchQuery, vlanFilter, subnetFilter, deviceTypeFilter, statusFilter]);
 
   useEffect(() => {
     loadData();
@@ -148,7 +142,6 @@ export function useNetworkManagement(
         name: vlan.name,
         description: vlan.description,
         status: vlan.status,
-        locationId: vlan.locationId,
       });
       setVlanModalOpen(true);
     },
@@ -169,6 +162,7 @@ export function useNetworkManagement(
       setVlanModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'save VLAN configuration'));
     } finally {
       setModalSubmitting(false);
@@ -224,7 +218,6 @@ export function useNetworkManagement(
         cidr: subnet.cidr,
         name: subnet.name,
         vlanId: subnet.vlanId || subnet.vlan?.id,
-        locationId: subnet.locationId,
         gateway: subnet.gateway,
         description: subnet.description,
       });
@@ -247,6 +240,7 @@ export function useNetworkManagement(
       setSubnetModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'save Subnet'));
     } finally {
       setModalSubmitting(false);
@@ -303,7 +297,6 @@ export function useNetworkManagement(
         model: ip.model,
         subnetId: ip.subnetId,
         vlanId: ip.vlanId,
-        locationId: ip.locationId,
         assetId: ip.assetId || ip.asset?.id,
         assignedUserId: ip.assignedUserId || ip.assignedUser?.id,
         section: ip.section,
@@ -326,7 +319,6 @@ export function useNetworkManagement(
         assetId: values.assetId || undefined,
         subnetId: values.subnetId || undefined,
         vlanId: values.vlanId || undefined,
-        locationId: values.locationId || undefined,
       };
       setModalSubmitting(true);
 
@@ -341,6 +333,7 @@ export function useNetworkManagement(
       setIpModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'allocate IP'));
     } finally {
       setModalSubmitting(false);
@@ -374,7 +367,6 @@ export function useNetworkManagement(
     vlans,
     subnets,
     ips,
-    locations,
     assets,
     directoryUsers,
     stats,

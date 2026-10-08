@@ -8,7 +8,6 @@ export interface StaffProfile {
   lastName: string;
   displayName: string;
   phone?: string;
-  ouPath?: string;
   status?: string;
   source?: string;
   organizationCode?: string;
@@ -227,7 +226,6 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
           lastName,
           displayName,
           phone,
-          ouPath,
           status: 'ACTIVE',
           source,
           organizationCode: orgCode,

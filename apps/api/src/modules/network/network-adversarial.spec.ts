@@ -119,7 +119,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           name: 'Access Control',
           description: 'Door access controllers',
           status: VlanStatus.ACTIVE,
-          locationId: 'loc-1',
         };
 
         const expectedVlan = {
@@ -127,7 +126,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           ...createData,
           createdAt: new Date(),
           updatedAt: new Date(),
-          location: { id: 'loc-1', name: 'BSL Factory' },
           subnets: [],
         };
 
@@ -140,9 +138,8 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
             name: 'Access Control',
             description: 'Door access controllers',
             status: VlanStatus.ACTIVE,
-            locationId: 'loc-1',
           },
-          include: { location: true, subnets: true },
+          include: { subnets: true },
         });
         expect(result).toBe(expectedVlan);
       });
@@ -164,7 +161,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
         expect(mockPrisma.vLAN.findFirst).toHaveBeenCalledWith({
           where: { OR: [{ id: '130' }, { vlanNumber: 130 }] },
           include: {
-            location: true,
             subnets: true,
             ipAddresses: { take: 100, orderBy: { address: 'asc' } },
           },
@@ -180,7 +176,7 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
         expect(mockPrisma.vLAN.update).toHaveBeenCalledWith({
           where: { id: 'vlan-1' },
           data: expect.objectContaining(updateData),
-          include: { location: true, subnets: true },
+          include: { subnets: true },
         });
         expect(res).toBe(updated);
       });
@@ -202,7 +198,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
             createdAt: new Date(),
             updatedAt: new Date(),
             vlan: { id: 'vlan-1', vlanNumber: 130, name: 'VLAN 130', status: 'ACTIVE' },
-            location: { id: 'loc-1', name: 'BSL Factory' },
           }),
         );
 
@@ -230,7 +225,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
             createdAt: new Date(),
             updatedAt: new Date(),
             vlan: null,
-            location: null,
           }),
         );
 
@@ -263,7 +257,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
             createdAt: new Date(),
             updatedAt: new Date(),
             vlan: null,
-            location: null,
           }),
         );
 
@@ -294,7 +287,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
             updatedAt: new Date(),
             subnet: null,
             vlan: null,
-            location: null,
             asset: null,
             assignedUser: null,
           }),
@@ -566,21 +558,18 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           cidr: '192.168.1.0/24',
           name: 'Office LAN',
           vlanId: 'vlan-10',
-          locationId: 'loc-office',
         },
         {
           id: 'sub-ac-130',
           cidr: '10.232.130.0/24',
           name: 'Access Control',
           vlanId: 'vlan-130',
-          locationId: 'loc-bsl',
         },
         {
           id: 'sub-cctv-99',
           cidr: '10.232.99.0/24',
           name: 'CCTV Network',
           vlanId: 'vlan-99',
-          locationId: 'loc-bsl',
         },
       ];
 
@@ -594,7 +583,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           updatedAt: new Date(),
           subnet: { id: 'sub-ac-130', cidr: '10.232.130.0/24' },
           vlan: { id: 'vlan-130', vlanNumber: 130, name: 'Access Control' },
-          location: { id: 'loc-bsl', name: 'BSL Factory' },
           asset: null,
           assignedUser: null,
         }),
@@ -616,7 +604,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
             address: '10.232.130.42',
             subnetId: 'sub-ac-130',
             vlanId: 'vlan-130',
-            locationId: 'loc-bsl',
           }),
         }),
       );
@@ -632,14 +619,12 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           cidr: '10.0.0.0/16',
           name: 'Corporate Supernet',
           vlanId: 'vlan-super',
-          locationId: 'loc-main',
         },
         {
           id: 'sub-specific',
           cidr: '10.0.5.0/24',
           name: 'Server Room DMZ',
           vlanId: 'vlan-dmz',
-          locationId: 'loc-datacenter',
         },
       ];
 
@@ -653,7 +638,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           updatedAt: new Date(),
           subnet: null,
           vlan: null,
-          location: null,
           asset: null,
           assignedUser: null,
         }),
@@ -673,7 +657,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
             address: '10.0.5.77',
             subnetId: 'sub-specific',
             vlanId: 'vlan-dmz',
-            locationId: 'loc-datacenter',
           }),
         }),
       );
@@ -686,7 +669,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           cidr: '10.232.130.0/24',
           name: 'BSL Subnet',
           vlanId: 'vlan-130',
-          locationId: 'loc-bsl',
         },
       ]);
 
@@ -698,7 +680,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           updatedAt: new Date(),
           subnet: null,
           vlan: null,
-          location: null,
           asset: null,
           assignedUser: null,
         }),
@@ -736,7 +717,6 @@ describe('NetworkModule - Adversarial & Stress Verification Suite', () => {
           updatedAt: new Date(),
           subnet: null,
           vlan: null,
-          location: null,
           asset: null,
           assignedUser: null,
         }),

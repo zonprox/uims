@@ -1,5 +1,16 @@
+import { UserStatus } from '@uims/shared-types';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 export class UserQueryDto extends PaginationDto {
@@ -7,25 +18,29 @@ export class UserQueryDto extends PaginationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   pageSize?: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   roleId?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   role?: string;
 
   @IsOptional()
-  @IsString()
-  status?: string;
+  @IsEnum(UserStatus)
+  status?: UserStatus;
 
   @IsOptional()
   @Type(() => Boolean)
+  @IsBoolean()
   isLocked?: boolean;
 }

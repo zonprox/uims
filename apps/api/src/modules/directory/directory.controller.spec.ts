@@ -6,10 +6,12 @@ describe('DirectoryController', () => {
   let controller: DirectoryController;
   let mockDirectoryService: {
     getStats: ReturnType<typeof vi.fn>;
-    getOrganizationalUnits: ReturnType<typeof vi.fn>;
     syncDomain: ReturnType<typeof vi.fn>;
     findAllGroups: ReturnType<typeof vi.fn>;
+    findOneGroup: ReturnType<typeof vi.fn>;
     createGroup: ReturnType<typeof vi.fn>;
+    updateGroup: ReturnType<typeof vi.fn>;
+    removeGroup: ReturnType<typeof vi.fn>;
     exportMaster: ReturnType<typeof vi.fn>;
     importBatch: ReturnType<typeof vi.fn>;
     findAll: ReturnType<typeof vi.fn>;
@@ -22,10 +24,12 @@ describe('DirectoryController', () => {
   beforeEach(() => {
     mockDirectoryService = {
       getStats: vi.fn().mockResolvedValue({ totalEmployees: 100 }),
-      getOrganizationalUnits: vi.fn().mockResolvedValue([]),
       syncDomain: vi.fn().mockResolvedValue({ status: 'SYNCHRONIZED' }),
       findAllGroups: vi.fn().mockResolvedValue([]),
+      findOneGroup: vi.fn().mockResolvedValue({ id: 'grp-1', name: 'SEC-Eng' }),
       createGroup: vi.fn().mockResolvedValue({ id: 'grp-1' }),
+      updateGroup: vi.fn().mockResolvedValue({ id: 'grp-1', name: 'SEC-Updated' }),
+      removeGroup: vi.fn().mockResolvedValue({ id: 'grp-1' }),
       exportMaster: vi.fn().mockResolvedValue([]),
       importBatch: vi.fn().mockResolvedValue({ total: 1, created: 1 }),
       findAll: vi.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -44,10 +48,23 @@ describe('DirectoryController', () => {
     expect(mockDirectoryService.getStats).toHaveBeenCalled();
   });
 
-  it('should delegate getOrganizationalUnits to directoryService', async () => {
-    const result = await controller.getOrganizationalUnits();
-    expect(result).toEqual([]);
-    expect(mockDirectoryService.getOrganizationalUnits).toHaveBeenCalled();
+  it('should delegate findOneGroup to directoryService', async () => {
+    const result = await controller.findOneGroup('grp-1');
+    expect(result).toEqual({ id: 'grp-1', name: 'SEC-Eng' });
+    expect(mockDirectoryService.findOneGroup).toHaveBeenCalledWith('grp-1');
+  });
+
+  it('should delegate updateGroup to directoryService', async () => {
+    const dto = { name: 'SEC-Updated' };
+    const result = await controller.updateGroup('grp-1', dto);
+    expect(result).toEqual({ id: 'grp-1', name: 'SEC-Updated' });
+    expect(mockDirectoryService.updateGroup).toHaveBeenCalledWith('grp-1', dto);
+  });
+
+  it('should delegate removeGroup to directoryService', async () => {
+    const result = await controller.removeGroup('grp-1');
+    expect(result).toEqual({ id: 'grp-1' });
+    expect(mockDirectoryService.removeGroup).toHaveBeenCalledWith('grp-1');
   });
 
   it('should delegate syncDomain to directoryService', async () => {

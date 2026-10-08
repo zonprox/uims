@@ -1,4 +1,4 @@
-import { ApartmentOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { ApartmentOutlined } from '@ant-design/icons';
 import {
   Button,
   Col,
@@ -15,7 +15,7 @@ import {
 } from 'antd';
 import React, { useMemo } from 'react';
 import type { NetworkRack, RackStatus } from '../../../services/network.service';
-import type { LocationBranch } from '../../../services/organization.service';
+import { formRules } from '../../../utils/formValidators';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -25,13 +25,13 @@ export interface RackFormModalProps {
   editingRack?: NetworkRack | null;
   form: FormInstance;
   submitting?: boolean;
-  locations?: Array<LocationBranch>;
+  locations?: unknown[];
   onSave: () => void;
   onCancel: () => void;
 }
 
 export const RackFormModal: React.FC<RackFormModalProps> = React.memo(
-  ({ open, editingRack, form, submitting = false, locations = [], onSave, onCancel }) => {
+  ({ open, editingRack, form, submitting = false, onSave, onCancel }) => {
     const { token } = theme.useToken();
 
     // Determine the highest occupied unit to prevent shrinking below mounted devices
@@ -57,15 +57,21 @@ export const RackFormModal: React.FC<RackFormModalProps> = React.memo(
         cancelText="Cancel"
         styles={{ body: { padding: '16px 0' } }}
       >
-        <Form form={form} layout="vertical" preserve={false}>
+        <Form
+          form={form}
+          layout="vertical"
+          preserve={false}
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={16}>
             <Col span={14}>
               <Form.Item
                 name="name"
                 label="Rack Name"
                 rules={[
-                  { required: true, message: 'Please enter rack name' },
-                  { min: 2, message: 'Must be at least 2 characters' },
+                  formRules.required('Rack name'),
+                  formRules.stringRange('Rack name', 2, 100),
                 ]}
               >
                 <Input
@@ -79,7 +85,7 @@ export const RackFormModal: React.FC<RackFormModalProps> = React.memo(
                 name="code"
                 label="Rack Code / Identifier"
                 rules={[
-                  { required: true, message: 'Please enter rack code' },
+                  formRules.required('Please enter rack code'),
                   { pattern: /^[A-Z0-9_-]+$/i, message: 'Alphanumeric, dash, or underscore only' },
                 ]}
               >
@@ -92,22 +98,7 @@ export const RackFormModal: React.FC<RackFormModalProps> = React.memo(
           </Row>
 
           <Row gutter={16}>
-            <Col span={14}>
-              <Form.Item name="locationId" label="Physical Location / Datacenter">
-                <Select
-                  placeholder="Select datacenter or room location"
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  suffixIcon={<EnvironmentOutlined style={{ color: token.colorTextQuaternary }} />}
-                  options={locations.map((loc) => ({
-                    label: loc.name,
-                    value: loc.id,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={10}>
+            <Col span={24}>
               <Form.Item name="status" label="Operational Status" initialValue="ACTIVE">
                 <Select<RackStatus>
                   options={[

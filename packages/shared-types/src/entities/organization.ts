@@ -12,7 +12,6 @@ export interface Organization {
   parent?: Organization | null;
   children?: Organization[];
   departmentsCount?: number;
-  locationsCount?: number;
   usersCount?: number;
   createdAt: string;
   updatedAt: string;

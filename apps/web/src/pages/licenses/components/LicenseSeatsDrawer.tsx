@@ -1,9 +1,10 @@
 import { PlusOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Drawer, Empty, Flex, Popconfirm, Tag, Typography, theme } from 'antd';
+import { Avatar, Button, Empty, Flex, Popconfirm, Tag, Typography, theme } from 'antd';
 import React from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import type { License } from '../../../services/licenses.service';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export interface LicenseSeatsDrawerProps {
   open: boolean;
@@ -22,22 +23,13 @@ export const LicenseSeatsDrawer: React.FC<LicenseSeatsDrawerProps> = React.memo(
     const isExhausted = remainingSeats <= 0;
 
     return (
-      <Drawer
-        title={
-          <div>
-            <Title level={5} style={{ margin: 0, fontSize: 14 }}>
-              {license.name} — Seats
-            </Title>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {license.usedSeats} of {license.totalSeats} seats allocated ({remainingSeats}{' '}
-              available)
-            </Text>
-          </div>
-        }
-        width={520}
+      <AppDrawer
+        title={license.name}
+        subtitle={`${license.usedSeats} of ${license.totalSeats} seats allocated (${remainingSeats} available)`}
+        tag={isExhausted ? <Tag color="error">Full</Tag> : undefined}
         open={open}
-        destroyOnHidden
         onClose={onClose}
+        size={520}
         extra={
           <Button
             type="primary"
@@ -49,11 +41,12 @@ export const LicenseSeatsDrawer: React.FC<LicenseSeatsDrawerProps> = React.memo(
             Assign User
           </Button>
         }
+        cancelText="Close"
       >
         <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
-          <Title level={5} style={{ fontSize: 13.5, margin: 0 }}>
+          <Text strong style={{ fontSize: 13 }}>
             Active Allocations ({license.assignedUsers?.length || 0})
-          </Title>
+          </Text>
           {isExhausted && <Tag color="error">Capacity Reached</Tag>}
         </Flex>
 
@@ -117,7 +110,7 @@ export const LicenseSeatsDrawer: React.FC<LicenseSeatsDrawerProps> = React.memo(
             ))}
           </Flex>
         )}
-      </Drawer>
+      </AppDrawer>
     );
   },
 );

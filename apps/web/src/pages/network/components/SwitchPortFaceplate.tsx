@@ -1,4 +1,4 @@
-import { ApiOutlined, ThunderboltFilled } from '@ant-design/icons';
+import { ApiOutlined } from '@ant-design/icons';
 import { Flex, Tag, Tooltip, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import type { NetworkSwitch, PortAdminStatus, SwitchPort } from '../../../services/network.service';
@@ -375,10 +375,19 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               </div>
             )}
             {port.poeEnabled && (
-              <div style={{ color: '#fadb14' }}>
-                <ThunderboltFilled style={{ marginRight: 4 }} />
-                PoE: Active
-              </div>
+              <Flex align="center" gap={5} style={{ color: '#fa8c16' }}>
+                <div
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    backgroundColor: '#fa8c16',
+                    boxShadow: '0 0 5px #fa8c16',
+                    flexShrink: 0,
+                  }}
+                />
+                <span>PoE Power: Active</span>
+              </Flex>
             )}
             {port.description && (
               <div style={{ fontStyle: 'italic', color: '#8c8c8c', fontSize: 10, marginTop: 2 }}>
@@ -448,11 +457,8 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
           >
             {/* Silkscreen Label on TOP for odd upper row sockets */}
             {isUpperRow && (
-              <Flex
+              <div
                 data-testid={`port-label-${portNum}`}
-                align="center"
-                justify="center"
-                gap={1}
                 style={{
                   fontSize: 8.5,
                   fontFamily: 'monospace',
@@ -460,35 +466,71 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   lineHeight: 1,
                   marginBottom: 1,
                   order: 1,
+                  textAlign: 'center',
                 }}
               >
-                {isPoe && (
-                  <span
-                    data-testid={`poe-badge-${portNum}`}
-                    style={{ color: '#fadb14', fontSize: 8, fontWeight: 'bold' }}
-                  >
-                    ⚡
-                  </span>
-                )}
-                <span>{portNum}</span>
-              </Flex>
+                {portNum}
+              </div>
             )}
 
-            {/* Individual Link State LED Indicator */}
-            <div
-              data-testid={`port-led-${portNum}`}
+            {/* Dual Horizontal Status LEDs: Signal LED (Left) + Power/PoE LED (Right) */}
+            <Flex
+              align="center"
+              justify="center"
+              gap={3}
+              data-testid={`port-led-group-${portNum}`}
               style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: statusInfo.color,
-                boxShadow: statusInfo.glow,
                 marginBottom: isUpperRow ? 2 : 0,
                 marginTop: isUpperRow ? 0 : 2,
                 order: 2,
                 flexShrink: 0,
+                lineHeight: 1,
               }}
-            />
+            >
+              {/* 1. Signal / Link State LED Indicator */}
+              <div
+                data-testid={`port-led-${portNum}`}
+                title={`Signal: ${statusInfo.label}`}
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: '50%',
+                  backgroundColor: statusInfo.color,
+                  boxShadow: statusInfo.glow,
+                  flexShrink: 0,
+                }}
+              />
+
+              {/* 2. Power / PoE State LED Indicator (Orange when active, unlit dark gray when off) */}
+              {isPoe ? (
+                <div
+                  data-testid={`poe-badge-${portNum}`}
+                  title="PoE Power: Active"
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    backgroundColor: '#fa8c16',
+                    boxShadow: '0 0 5px #fa8c16',
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <div
+                  data-testid={`power-led-${portNum}`}
+                  title="PoE Power: Inactive"
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    backgroundColor: '#262626',
+                    border: '1px solid #383838',
+                    boxShadow: 'none',
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </Flex>
 
             {/* RJ45 Modular Receptacle with Metallic Spring Shielding Contacts */}
             <div
@@ -568,11 +610,8 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
 
             {/* Silkscreen Label on BOTTOM for even lower row sockets */}
             {!isUpperRow && (
-              <Flex
+              <div
                 data-testid={`port-label-${portNum}`}
-                align="center"
-                justify="center"
-                gap={1}
                 style={{
                   fontSize: 8.5,
                   fontFamily: 'monospace',
@@ -580,18 +619,11 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   lineHeight: 1,
                   marginTop: 1,
                   order: 3,
+                  textAlign: 'center',
                 }}
               >
-                {isPoe && (
-                  <span
-                    data-testid={`poe-badge-${portNum}`}
-                    style={{ color: '#fadb14', fontSize: 8, fontWeight: 'bold' }}
-                  >
-                    ⚡
-                  </span>
-                )}
-                <span>{portNum}</span>
-              </Flex>
+                {portNum}
+              </div>
             )}
           </div>
         </Tooltip>
@@ -656,17 +688,42 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 : 'inset 0 1px 2px rgba(0,0,0,0.6)',
             }}
           >
-            {/* Speed Indicator LED */}
-            <div
-              data-testid={`uplink-led-${uIndex + 1}`}
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: statusInfo.color,
-                boxShadow: statusInfo.glow,
-              }}
-            />
+            {/* Dual Horizontal Status LEDs: Signal LED + Power/PoE LED */}
+            <Flex
+              align="center"
+              justify="center"
+              gap={3}
+              data-testid={`uplink-led-group-${uIndex + 1}`}
+              style={{ lineHeight: 1 }}
+            >
+              <div
+                data-testid={`uplink-led-${uIndex + 1}`}
+                title={`Signal: ${statusInfo.label}`}
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: '50%',
+                  backgroundColor: statusInfo.color,
+                  boxShadow: statusInfo.glow,
+                  flexShrink: 0,
+                }}
+              />
+              <div
+                data-testid={
+                  port?.poeEnabled ? `uplink-poe-${uIndex + 1}` : `uplink-power-led-${uIndex + 1}`
+                }
+                title={port?.poeEnabled ? 'PoE Power: Active' : 'Power: Inactive'}
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: '50%',
+                  backgroundColor: port?.poeEnabled ? '#fa8c16' : '#262626',
+                  boxShadow: port?.poeEnabled ? '0 0 5px #fa8c16' : 'none',
+                  border: port?.poeEnabled ? 'none' : '1px solid #383838',
+                  flexShrink: 0,
+                }}
+              />
+            </Flex>
 
             {/* RJ45 Receptacle */}
             <div
@@ -773,17 +830,40 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 : 'inset 0 1px 3px rgba(0,0,0,0.7), 0 0 2px rgba(255,255,255,0.05)',
             }}
           >
-            {/* LED Status */}
-            <div
-              data-testid={`sfp-led-${index + 1}`}
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: statusInfo.color,
-                boxShadow: statusInfo.glow,
-              }}
-            />
+            {/* Dual Horizontal Status LEDs: Optical Link LED + Activity LED */}
+            <Flex
+              align="center"
+              justify="center"
+              gap={3}
+              data-testid={`sfp-led-group-${index + 1}`}
+              style={{ lineHeight: 1 }}
+            >
+              <div
+                data-testid={`sfp-led-${index + 1}`}
+                title={`Optical Link: ${statusInfo.label}`}
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: '50%',
+                  backgroundColor: statusInfo.color,
+                  boxShadow: statusInfo.glow,
+                  flexShrink: 0,
+                }}
+              />
+              <div
+                data-testid={`sfp-activity-led-${index + 1}`}
+                title={`Activity: ${statusInfo.status === 'ACTIVE' ? 'Active' : 'Standby'}`}
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: '50%',
+                  backgroundColor: statusInfo.status === 'ACTIVE' ? '#52c41a' : '#262626',
+                  boxShadow: statusInfo.status === 'ACTIVE' ? '0 0 5px #52c41a' : 'none',
+                  border: statusInfo.status === 'ACTIVE' ? 'none' : '1px solid #383838',
+                  flexShrink: 0,
+                }}
+              />
+            </Flex>
 
             {/* SFP Optical Transceiver Cage Frame with Latch Release Clip & Duplex Fiber Icons */}
             <div
@@ -1408,9 +1488,18 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               <Text style={{ fontSize: 11.5 }}>Down / Disabled</Text>
             </Flex>
 
-            <Flex align="center" gap={4}>
-              <span style={{ color: '#faad14', fontWeight: 'bold', fontSize: 11 }}>⚡</span>
-              <Text style={{ fontSize: 11.5 }}>PoE Active</Text>
+            <Flex align="center" gap={5}>
+              <div
+                data-testid="legend-led-poe"
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: '#fa8c16',
+                  boxShadow: '0 0 6px #fa8c16',
+                }}
+              />
+              <Text style={{ fontSize: 11.5 }}>PoE Power Active</Text>
             </Flex>
           </Flex>
 

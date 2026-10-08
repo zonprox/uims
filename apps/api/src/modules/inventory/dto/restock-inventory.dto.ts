@@ -1,8 +1,11 @@
-import { IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsNotEmpty, Max, Min } from 'class-validator';
 
 export class RestockInventoryDto {
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
+  @Max(1000000)
   @IsNotEmpty()
   quantity!: number;
 }

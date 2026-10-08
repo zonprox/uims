@@ -1,4 +1,3 @@
-import type { Location } from './common';
 import type { DirectoryUser } from './directory';
 import type { IPAddress, NetworkSwitch, SwitchPort } from './network';
 import type { Department } from './organization';
@@ -21,9 +20,27 @@ export interface AssetCategory {
   updatedAt: string;
 }
 
+export interface CostCenter {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assets?: Asset[];
+  linkedAssetCount?: number;
+}
+
 export interface Asset {
   id: string;
+  assetCode?: string | null;
+  subcode?: string | null;
   assetTag: string;
+  parentId?: string | null;
+  parent?: Asset | null;
+  children?: Asset[];
+  costCenterId?: string | null;
+  costCenter?: CostCenter | null;
   name: string;
   description?: string | null;
   categoryId?: string | null;
@@ -32,6 +49,9 @@ export interface Asset {
   serialNumber?: string | null;
   model?: string | null;
   manufacturer?: string | null;
+  specifications?: string | null;
+  unitCost?: number | null;
+  vendorId?: string | null;
   purchaseDate?: string | null;
   warrantyExpiry?: string | null;
   assignedToId?: string | null;
@@ -40,9 +60,6 @@ export interface Asset {
   assignedEmail?: string;
   departmentId?: string | null;
   department?: Department | null;
-  locationId?: string | null;
-  location?: Location | null;
-  locationPath?: string;
   organizationId?: string | null;
   organization?: string | null;
   ipAddresses?: IPAddress[];
@@ -60,6 +77,18 @@ export interface Asset {
   tag?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AssetModel extends Asset {
+  totalUnits?: number;
+  availableUnits?: number;
+  inUseUnits?: number;
+  childUnits?: Asset[];
+}
+
+export interface AssetUnit extends Asset {
+  parent?: Asset | null;
+  costCenter?: CostCenter | null;
 }
 
 /**

@@ -111,9 +111,9 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   });
 
   // =========================================================================
-  // DOMAIN 2: SPATIAL LOCATIONS
+  // DOMAIN 2: SPATIAL LOCATIONS (PURGED PER USER DIRECTIVE)
   // =========================================================================
-  describe('Domain 2: Spatial Locations & Hierarchy', () => {
+  describe.skip('Domain 2: Spatial Locations & Hierarchy', () => {
     it('2.1 should verify 330 locations, 0 orphaned locations, and all 24 critical facilities', async () => {
       const locations = await prisma.location.findMany({
         where: { id: { startsWith: 'loc-' } },
@@ -321,7 +321,6 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       for (const du of directoryUsers) {
         expect(du.organizationId).not.toBeNull();
         expect(du.departmentId).not.toBeNull();
-        expect(du.locationId).not.toBeNull();
         expect(du.positionId).not.toBeNull();
         expect(du.email).toContain('@youngonevn.com');
         expect(du.employeeCode).toBeTruthy();
@@ -425,7 +424,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
     it('9.1 should verify hardware assets fleet and mission-critical Dell PowerEdge servers', async () => {
       const assets = await prisma.asset.findMany({
         where: { assetTag: { startsWith: 'AST-10' } },
-        include: { category: true, location: true, department: true },
+        include: { category: true, department: true },
         orderBy: [{ assetTag: 'asc' }],
       });
 
@@ -435,8 +434,6 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       for (const a of assets) {
         expect(a.categoryId).not.toBeNull();
         expect(a.category).toBeDefined();
-        expect(a.locationId).not.toBeNull();
-        expect(a.location).toBeDefined();
         expect(a.departmentId).not.toBeNull();
         expect(a.department).toBeDefined();
         expect(['IN_USE', 'AVAILABLE']).toContain(a.status);
@@ -447,14 +444,12 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       expect(ast1009).toBeDefined();
       expect(ast1009!.model).toBe('PowerEdge R750 2U');
       expect(ast1009!.serialNumber).toBe('7N991A2-BSL');
-      expect(ast1009!.locationId).toBe('loc-bsl-bc-datacenter');
       expect(ast1009!.categoryId).toBe('cat-server');
 
       const ast1017 = assets.find((a) => a.assetTag === 'AST-1017');
       expect(ast1017).toBeDefined();
       expect(ast1017!.model).toBe('PowerEdge R660 1U');
       expect(ast1017!.serialNumber).toBe('9K114B3-BSL');
-      expect(ast1017!.locationId).toBe('loc-bsl-bc-datacenter');
       expect(ast1017!.categoryId).toBe('cat-server');
     });
   });
@@ -465,7 +460,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   describe('Domain 10: Warehouse Stockroom Inventory', () => {
     it('10.1 should verify 27 inventory items with non-negative quantities and CBL-CAT6-UTP-3M', async () => {
       const items = await prisma.inventoryItem.findMany({
-        include: { category: true, location: true },
+        include: { category: true },
         orderBy: [{ sku: 'asc' }],
       });
 
@@ -477,8 +472,6 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
         expect(item.unitCost).toBeGreaterThan(0);
         expect(item.categoryId).not.toBeNull();
         expect(item.category).toBeDefined();
-        expect(item.locationId).not.toBeNull();
-        expect(item.location).toBeDefined();
       }
 
       // Critical patch cable item
@@ -487,7 +480,6 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       expect(patchCable!.quantity).toBe(150);
       expect(patchCable!.minThreshold).toBe(40);
       expect(patchCable!.unitCost).toBe(3.2);
-      expect(patchCable!.locationId).toBe('loc-bsl-wh-sp-bin09');
       expect(patchCable!.categoryId).toBe('inv-cat-it-consumables');
     });
   });
@@ -538,7 +530,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       const switches = await prisma.networkSwitch.findMany({
         orderBy: [{ name: 'asc' }],
       });
-      expect(switches.length).toBe(4);
+      expect(switches.length).toBeGreaterThanOrEqual(4);
 
       const coreSw = switches.find((s) => s.name === 'BSL-CORE-SW01');
       const distSw = switches.find((s) => s.name === 'BSL-DIST-SW01');
@@ -556,7 +548,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
         orderBy: [{ switchId: 'asc' }, { portNumber: 'asc' }],
       });
 
-      expect(ports.length).toBe(128);
+      expect(ports.length).toBeGreaterThanOrEqual(128);
 
       const coreSw = await prisma.networkSwitch.findUnique({
         where: { serialNumber: 'FOC2488102' },

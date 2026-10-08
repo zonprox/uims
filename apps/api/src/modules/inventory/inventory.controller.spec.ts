@@ -42,7 +42,6 @@ describe('InventoryController', () => {
       quantity: 8,
       minThreshold: 4,
       unitCost: 175,
-      location: 'IT Lab',
     };
     const created = { id: 'inv-2', ...dto };
     mockInventoryService.create.mockResolvedValue(created);

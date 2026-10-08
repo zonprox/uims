@@ -2,7 +2,6 @@ import {
   ApartmentOutlined,
   CloudServerOutlined,
   ClusterOutlined,
-  EnvironmentOutlined,
   EyeOutlined,
   GlobalOutlined,
 } from '@ant-design/icons';
@@ -12,7 +11,6 @@ import {
   Card,
   Descriptions,
   Divider,
-  Drawer,
   Empty,
   Flex,
   Progress,
@@ -22,6 +20,7 @@ import {
   Typography,
 } from 'antd';
 import React, { useMemo } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import type { Subnet, SwitchPort, VLAN } from '../../../services/network.service';
 
 const { Text, Title } = Typography;
@@ -119,19 +118,18 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
           },
         },
         {
-          title: 'Rack / Location',
-          key: 'rackLocation',
+          title: 'Rack',
+          key: 'rack',
           render: (_: unknown, record: SwitchPort) => {
             const rackName =
               record.switch?.rack?.name ||
               (record as unknown as { rackName?: string }).rackName ||
-              record.switch?.location?.name ||
               '—';
             const rackPos = record.switch?.rackPosition;
             return (
               <div>
                 <Flex align="center" gap={4}>
-                  <EnvironmentOutlined style={{ color: '#1677ff', fontSize: 11 }} />
+                  <ApartmentOutlined style={{ color: '#1677ff', fontSize: 11 }} />
                   <Text style={{ fontSize: 12 }}>{rackName}</Text>
                 </Flex>
                 {rackPos != null && (
@@ -301,25 +299,14 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
     if (!vlan) return null;
 
     return (
-      <Drawer
-        title={
-          <Flex align="center" gap={10}>
-            <ApartmentOutlined style={{ fontSize: 20, color: '#722ed1' }} />
-            <div>
-              <Title level={5} style={{ margin: 0 }}>
-                VLAN {vlan.vlanNumber} — {vlan.name}
-              </Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Network Segregation Profile
-              </Text>
-            </div>
-          </Flex>
-        }
+      <AppDrawer
+        title={`VLAN ${vlan.vlanNumber} — ${vlan.name}`}
+        subtitle="Network Segregation Profile"
+        icon={<ApartmentOutlined style={{ fontSize: 18, color: '#722ed1' }} />}
         open={open}
         onClose={onClose}
-        destroyOnHidden
         size="large"
-        styles={{ body: { padding: '20px 24px' } }}
+        cancelText="Close"
         extra={
           <Space>
             {onFilterSubnetsByVlan && (
@@ -369,21 +356,6 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
                 text={vlan.status}
                 style={{ whiteSpace: 'nowrap' }}
               />
-            </Descriptions.Item>
-            <Descriptions.Item label="Location / Site" span={2}>
-              <Flex align="center" gap={6} wrap="wrap">
-                <EnvironmentOutlined style={{ color: '#1677ff' }} />
-                <Text
-                  strong
-                  ellipsis={{ tooltip: vlan.location?.name || 'Unassigned / Global' }}
-                  style={{ maxWidth: 220, display: 'inline-block' }}
-                >
-                  {vlan.location?.name || 'Unassigned / Global'}
-                </Text>
-                {vlan.location?.city && (
-                  <Tag style={{ whiteSpace: 'nowrap', margin: 0 }}>{vlan.location.city}</Tag>
-                )}
-              </Flex>
             </Descriptions.Item>
             <Descriptions.Item label="Description" span={2}>
               <Text>{vlan.description || 'No operational description provided.'}</Text>
@@ -457,7 +429,7 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
             pagination={false}
           />
         )}
-      </Drawer>
+      </AppDrawer>
     );
   },
 );

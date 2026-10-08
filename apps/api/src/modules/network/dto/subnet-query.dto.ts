@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class SubnetQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -29,15 +29,11 @@ export class SubnetQueryDto {
   @ApiPropertyOptional({ description: 'Search term for name or CIDR' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @ApiPropertyOptional({ description: 'Filter by VLAN UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   vlanId?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by Location UUID' })
-  @IsOptional()
-  @IsString()
-  locationId?: string;
 }

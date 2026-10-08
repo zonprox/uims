@@ -1,7 +1,6 @@
 import { AppstoreOutlined, FilterOutlined, PlusOutlined, TableOutlined } from '@ant-design/icons';
 import { Button, Card, Col, Flex, Input, Row, Segmented, Select } from 'antd';
 import React, { useMemo, useState } from 'react';
-import type { LocationBranch } from '../../../services/organization.service';
 import type { Subnet, VLAN } from '../../../services/network.service';
 import { SubnetCardList } from './SubnetCardList';
 import { SubnetTable } from './SubnetTable';
@@ -9,7 +8,6 @@ import { SubnetTable } from './SubnetTable';
 export interface SubnetManagementTabProps {
   subnets: Array<Subnet>;
   vlans: Array<VLAN>;
-  locations: Array<LocationBranch>;
   loading: boolean;
   onOpenCreateModal: () => void;
   onOpenEditModal: (subnet: Subnet) => void;
@@ -21,7 +19,6 @@ export const SubnetManagementTab: React.FC<SubnetManagementTabProps> = React.mem
   ({
     subnets,
     vlans,
-    locations,
     loading,
     onOpenCreateModal,
     onOpenEditModal,
@@ -30,14 +27,12 @@ export const SubnetManagementTab: React.FC<SubnetManagementTabProps> = React.mem
   }) => {
     const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
     const [searchQuery, setSearchQuery] = useState('');
-    const [locationFilter, setLocationFilter] = useState<string>('all');
     const [vlanFilter, setVlanFilter] = useState<string>('all');
 
-    const isFiltered = searchQuery || locationFilter !== 'all' || vlanFilter !== 'all';
+    const isFiltered = searchQuery || vlanFilter !== 'all';
 
     const handleResetFilters = () => {
       setSearchQuery('');
-      setLocationFilter('all');
       setVlanFilter('all');
     };
 
@@ -50,15 +45,12 @@ export const SubnetManagementTab: React.FC<SubnetManagementTabProps> = React.mem
           const matchGw = (subnet.gateway || '').toLowerCase().includes(q);
           if (!matchCidr && !matchName && !matchGw) return false;
         }
-        if (locationFilter !== 'all') {
-          if (subnet.locationId !== locationFilter) return false;
-        }
         if (vlanFilter !== 'all') {
           if (subnet.vlanId !== vlanFilter && subnet.vlan?.id !== vlanFilter) return false;
         }
         return true;
       });
-    }, [subnets, searchQuery, locationFilter, vlanFilter]);
+    }, [subnets, searchQuery, vlanFilter]);
 
     return (
       <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
@@ -74,17 +66,6 @@ export const SubnetManagementTab: React.FC<SubnetManagementTabProps> = React.mem
           </Col>
           <Col xs={24} md={16}>
             <Flex gap={10} justify="flex-end" wrap align="center">
-              <Select
-                value={locationFilter}
-                onChange={setLocationFilter}
-                style={{ width: 170 }}
-                placeholder="Filter Location"
-                options={[
-                  { label: 'All Locations', value: 'all' },
-                  ...locations.map((loc) => ({ label: loc.name, value: loc.id })),
-                ]}
-              />
-
               <Select
                 value={vlanFilter}
                 onChange={setVlanFilter}

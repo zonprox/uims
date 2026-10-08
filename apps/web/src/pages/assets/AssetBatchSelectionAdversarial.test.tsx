@@ -157,17 +157,13 @@ describe('Adversarial Verification Suite: Table Selection, Batch Toolbar & Batch
   });
 
   describe('1. Multi-Row Selection & Pagination Invariants', () => {
-    it(
-      'manages individual checkbox selection, multiple selections, and deselection accurately',
-      async () => {
+    it('manages individual checkbox selection, multiple selections, and deselection accurately', async () => {
       let selectedKeys: React.Key[] = [];
       let selectedRecords: Asset[] = [];
-      const onSelectionChange = vi.fn(
-        (keys: React.Key[], rows: Asset[]) => {
-          selectedKeys = keys;
-          selectedRecords = rows;
-        },
-      );
+      const onSelectionChange = vi.fn((keys: React.Key[], rows: Asset[]) => {
+        selectedKeys = keys;
+        selectedRecords = rows;
+      });
 
       const renderTable = async (keys: React.Key[]) => {
         if (currentRoot) {
@@ -604,10 +600,7 @@ describe('Adversarial Verification Suite: Table Selection, Batch Toolbar & Batch
 
       // Do NOT trigger onOk (simulating Cancel or modal close)
       // Assert backend was NEVER called
-      expect(api.post).not.toHaveBeenCalledWith(
-        '/assets/batch-delete',
-        expect.anything(),
-      );
+      expect(api.post).not.toHaveBeenCalledWith('/assets/batch-delete', expect.anything());
 
       // Selection must remain intact
       expect(container.textContent).toContain('Selected 1 asset');
@@ -841,7 +834,6 @@ describe('Adversarial Verification Suite: Table Selection, Batch Toolbar & Batch
               category: 'Laptops / Notebooks',
               status: 'Active',
               assignedTo: 'Alice Wonderland',
-              location: 'Floor 3',
             },
           ],
         },
@@ -851,9 +843,7 @@ describe('Adversarial Verification Suite: Table Selection, Batch Toolbar & Batch
       expect(csv).toBeDefined();
 
       const lines = csv.split('\n');
-      expect(lines[0]).toBe(
-        'Tag,Name,Manufacturer,Model,Category,Status,Assigned To,Location',
-      );
+      expect(lines[0]).toBe('Tag,Name,Manufacturer,Model,Category,Status,Assigned To');
       expect(lines[1]).toContain('AST-CSV-01');
       expect(lines[1]).toContain('"ThinkPad X1 ""Carbon"" Gen 11"');
       expect(lines[1]).toContain('Lenovo');
@@ -915,7 +905,11 @@ describe('Adversarial Verification Suite: Table Selection, Batch Toolbar & Batch
           createElement(
             MemoryRouter,
             null,
-            createElement(ConfigProvider, null, createElement(App, null, createElement(TestHarness))),
+            createElement(
+              ConfigProvider,
+              null,
+              createElement(App, null, createElement(TestHarness)),
+            ),
           ),
         );
       });

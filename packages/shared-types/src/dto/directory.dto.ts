@@ -1,4 +1,4 @@
-import type { AccountStatus, DirectorySource } from '../entities/directory';
+import type { AccountStatus, DirectorySource, DomainJoinStatus } from '../entities/directory';
 
 export interface CreateDirectoryUserDto {
   employeeCode?: string;
@@ -8,7 +8,6 @@ export interface CreateDirectoryUserDto {
   displayName?: string;
   phone?: string;
   avatar?: string;
-  ouPath?: string;
   managerName?: string;
   status?: AccountStatus;
   source?: DirectorySource;
@@ -16,10 +15,55 @@ export interface CreateDirectoryUserDto {
   organizationId?: string;
   departmentId?: string;
   positionId?: string;
-  locationId?: string;
+
+  // Active Directory Domain Join Metadata
+  adDomain?: string;
+  computerName?: string;
+  domainJoined?: boolean;
+  domainJoinStatus?: DomainJoinStatus | string;
+
+  // Enterprise Email Password (Encrypted at rest by backend service)
+  emailPassword?: string;
 }
 
 export interface UpdateDirectoryUserDto extends Partial<CreateDirectoryUserDto> {}
+
+export interface ResetEmailPasswordDto {
+  password?: string;
+  newPassword?: string;
+  generateRandom?: boolean;
+}
+
+export interface RevealEmailPasswordResponse {
+  userId?: string;
+  email?: string;
+  password: string;
+  revealedAt: string;
+}
+
+export interface RevealEmailPasswordResponseDto {
+  password: string;
+  revealedAt: string;
+  userId?: string;
+  email?: string;
+}
+
+export interface EmailPasswordResponse {
+  userId: string;
+  email: string;
+  password: string;
+  revealedAt?: string;
+  copiedAt?: string;
+  updatedAt?: string;
+}
+
+export interface AssignAssetDto {
+  assetId: string;
+}
+
+export interface AssignLicenseDto {
+  licenseId: string;
+}
 
 export interface DirectoryUserQueryDto {
   page?: number;
@@ -29,16 +73,18 @@ export interface DirectoryUserQueryDto {
   organizationId?: string;
   departmentId?: string;
   positionId?: string;
-  locationId?: string;
-  ouPath?: string;
   source?: string;
   status?: string;
+
+  // Active Directory Domain Join Filters
+  domainJoined?: boolean;
+  domainJoinStatus?: DomainJoinStatus | string;
+  adDomain?: string;
 }
 
 export interface CreateDirectoryGroupDto {
   name: string;
   email?: string;
-  address?: string;
   description?: string;
   type?: string;
   scope?: string;
@@ -46,6 +92,8 @@ export interface CreateDirectoryGroupDto {
   memberCount?: number | string;
   managedBy?: string;
 }
+
+export interface UpdateDirectoryGroupDto extends Partial<CreateDirectoryGroupDto> {}
 
 export interface BatchImportDirectoryUserItem {
   stt?: number | string;

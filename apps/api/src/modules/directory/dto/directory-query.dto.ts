@@ -1,7 +1,22 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import type { DirectoryUserQueryDto as IDirectoryUserQueryDto } from '@uims/shared-types';
+import {
+  AccountStatus,
+  DirectorySource,
+  type DirectoryUserQueryDto as IDirectoryUserQueryDto,
+  DomainJoinStatus,
+} from '@uims/shared-types';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class DirectoryQueryDto implements IDirectoryUserQueryDto {
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
@@ -32,40 +47,48 @@ export class DirectoryQueryDto implements IDirectoryUserQueryDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @ApiPropertyOptional({ description: 'Filter by Organization UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   organizationId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by Department UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   departmentId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by Position UUID' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4')
   positionId?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by Location UUID' })
-  @IsOptional()
-  @IsString()
-  locationId?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by OU canonical path' })
-  @IsOptional()
-  @IsString()
-  ouPath?: string;
 
   @ApiPropertyOptional({ description: 'Filter by source (LOCAL, LDAP, AZURE_AD)' })
   @IsOptional()
-  @IsString()
-  source?: string;
+  @IsEnum(DirectorySource)
+  source?: DirectorySource;
 
   @ApiPropertyOptional({ description: 'Filter by account status' })
   @IsOptional()
+  @IsEnum(AccountStatus)
+  status?: AccountStatus;
+
+  @ApiPropertyOptional({ description: 'Filter by domain joined status' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  domainJoined?: boolean;
+
+  @ApiPropertyOptional({ description: 'Filter by domain join status enum' })
+  @IsOptional()
+  @IsEnum(DomainJoinStatus)
+  domainJoinStatus?: DomainJoinStatus;
+
+  @ApiPropertyOptional({ description: 'Filter by Active Directory domain' })
+  @IsOptional()
   @IsString()
-  status?: string;
+  @MaxLength(100)
+  adDomain?: string;
 }

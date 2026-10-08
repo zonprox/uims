@@ -156,12 +156,16 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
             ),
         },
         {
-          title: 'Rack Unit & Location',
-          key: 'rackLocation',
+          title: 'Rack & Position',
+          key: 'rackPosition',
           sorter: (a, b) => {
-            const locA = a.location?.name || '';
-            const locB = b.location?.name || '';
-            return locA.localeCompare(locB) || a.id.localeCompare(b.id);
+            const rackA = a.rack?.name || '';
+            const rackB = b.rack?.name || '';
+            return (
+              rackA.localeCompare(rackB) ||
+              (a.rackPosition ?? 0) - (b.rackPosition ?? 0) ||
+              a.id.localeCompare(b.id)
+            );
           },
           render: (_: unknown, record: NetworkSwitch) => (
             <Flex vertical gap={2}>
@@ -192,11 +196,6 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
               ) : (
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   Unmounted
-                </Text>
-              )}
-              {record.location && (
-                <Text type="secondary" ellipsis style={{ fontSize: 11, maxWidth: 180 }}>
-                  {record.location.name}
                 </Text>
               )}
             </Flex>

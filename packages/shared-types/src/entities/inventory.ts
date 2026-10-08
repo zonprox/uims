@@ -1,5 +1,3 @@
-import type { Location } from './common';
-
 export interface InventoryCategory {
   id: string;
   name: string;
@@ -17,10 +15,6 @@ export interface InventoryItem {
   quantity: number;
   minThreshold: number;
   unitCost: number;
-  locationId?: string | null;
-  location?: Location | null;
-  locationName?: string | null;
-  locationPath?: string | null;
   organizationId?: string | null;
   organization?: string | null;
   binNumber?: string | null;

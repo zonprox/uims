@@ -7,8 +7,6 @@ import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
 import {
   type Department,
-  type LocationBranch,
-  type LocationTreeNode,
   organizationService,
 } from '../../../services/organization.service';
 import { AccountStatus, DirectorySource } from '@uims/shared-types';
@@ -55,13 +53,12 @@ vi.mock('antd', async () => {
 vi.mock('../../../services/assets.service', () => ({
   assetsService: {
     getCategories: vi.fn(),
+    getCostCenters: vi.fn().mockResolvedValue([]),
   },
 }));
 
 vi.mock('../../../services/organization.service', () => ({
   organizationService: {
-    getLocationTree: vi.fn(),
-    getLocations: vi.fn(),
     getDepartments: vi.fn(),
   },
 }));
@@ -81,30 +78,6 @@ describe('AssetFormModal Partial Failure & Error State Empirical Challenge', () 
   const mockCategories: AssetCategory[] = [
     { id: 'cat-server', name: 'Server Rack' },
     { id: 'cat-laptop', name: 'Developer Laptop' },
-  ];
-
-  const mockLocations: LocationBranch[] = [
-    {
-      id: 'loc-dc-01',
-      name: 'Primary Data Center',
-      building: 'Bldg A',
-      floor: 'Basement 1',
-      organizationId: 'org-1',
-    },
-  ];
-
-  const mockLocationTree: LocationTreeNode[] = [
-    {
-      id: 'loc-dc-01',
-      key: 'loc-dc-01',
-      value: 'loc-dc-01',
-      name: 'Primary Data Center',
-      title: 'Primary Data Center',
-      label: 'Primary Data Center',
-      fullPath: 'Primary Data Center',
-      type: 'CAMPUS',
-      children: [],
-    },
   ];
 
   const mockDepartments: Department[] = [
@@ -171,8 +144,7 @@ describe('AssetFormModal Partial Failure & Error State Empirical Challenge', () 
 
     // Default healthy mocks
     vi.mocked(assetsService.getCategories).mockResolvedValue(mockCategories);
-    vi.mocked(organizationService.getLocationTree).mockResolvedValue(mockLocationTree);
-    vi.mocked(organizationService.getLocations).mockResolvedValue(mockLocations);
+    vi.mocked(assetsService.getCostCenters).mockResolvedValue([]);
     vi.mocked(organizationService.getDepartments).mockResolvedValue(mockDepartments);
     vi.mocked(directoryService.getEmployees).mockResolvedValue({
       items: mockEmployees,
@@ -271,50 +243,7 @@ describe('AssetFormModal Partial Failure & Error State Empirical Challenge', () 
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load options for: employees.');
   });
 
-  it('Challenge 4: LocationTree rejects but flat getLocations fallback succeeds -> no warning dispatched for locations', async () => {
-    vi.mocked(organizationService.getLocationTree).mockRejectedValueOnce(
-      new Error('Spatial tree indexing unavailable'),
-    );
-    vi.mocked(organizationService.getLocations).mockResolvedValueOnce(mockLocations);
-
-    currentRoot = createRoot(host);
-    await act(async () => {
-      currentRoot?.render(createElement(TestWrapper));
-    });
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
-    });
-
-    expect(document.body.textContent).toContain('Create Asset');
-    expect(vi.mocked(organizationService.getLocations)).toHaveBeenCalled();
-    // No warning should be emitted because fallback succeeded
-    expect(mockMessageWarning).not.toHaveBeenCalled();
-  });
-
-  it('Challenge 5: Both LocationTree AND getLocations fallback reject -> warns user for locations', async () => {
-    vi.mocked(organizationService.getLocationTree).mockRejectedValueOnce(
-      new Error('Spatial tree failure'),
-    );
-    vi.mocked(organizationService.getLocations).mockRejectedValueOnce(
-      new Error('Flat locations fallback failure'),
-    );
-
-    currentRoot = createRoot(host);
-    await act(async () => {
-      currentRoot?.render(createElement(TestWrapper));
-    });
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
-    });
-
-    expect(document.body.textContent).toContain('Create Asset');
-    expect(mockMessageWarning).toHaveBeenCalledTimes(1);
-    expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load options for: locations.');
-  });
-
-  it('Challenge 6: Multi-endpoint partial failure (Categories + Departments reject)', async () => {
+  it('Challenge 4: Multi-endpoint partial failure (Categories + Departments reject)', async () => {
     vi.mocked(assetsService.getCategories).mockRejectedValueOnce(new Error('Cat 500'));
     vi.mocked(organizationService.getDepartments).mockRejectedValueOnce(new Error('Dept 500'));
 
@@ -334,10 +263,8 @@ describe('AssetFormModal Partial Failure & Error State Empirical Challenge', () 
     );
   });
 
-  it('Challenge 7: Total auxiliary failure (All 4 endpoints reject) -> modal remains fully operational for direct inputs', async () => {
+  it('Challenge 5: Total auxiliary failure (All 3 endpoints reject) -> modal remains fully operational for direct inputs', async () => {
     vi.mocked(assetsService.getCategories).mockRejectedValueOnce(new Error('Cat error'));
-    vi.mocked(organizationService.getLocationTree).mockRejectedValueOnce(new Error('Tree error'));
-    vi.mocked(organizationService.getLocations).mockRejectedValueOnce(new Error('Fallback error'));
     vi.mocked(organizationService.getDepartments).mockRejectedValueOnce(new Error('Dept error'));
     vi.mocked(directoryService.getEmployees).mockRejectedValueOnce(new Error('Emp error'));
 
@@ -356,7 +283,7 @@ describe('AssetFormModal Partial Failure & Error State Empirical Challenge', () 
 
     // Consolidated warning message emitted
     expect(mockMessageWarning).toHaveBeenCalledWith(
-      'Failed to load options for: categories, locations, departments, employees.',
+      'Failed to load options for: categories, departments, employees.',
     );
 
     // Assert that submit button triggers onSave callback
@@ -372,7 +299,7 @@ describe('AssetFormModal Partial Failure & Error State Empirical Challenge', () 
     expect(onSaveSpy).toHaveBeenCalled();
   });
 
-  it('Challenge 8: Component unmount before promises settle -> clean abort with zero warnings after unmount', async () => {
+  it('Challenge 6: Component unmount before promises settle -> clean abort with zero warnings after unmount', async () => {
     let resolveSlowCategories: (val: AssetCategory[]) => void = () => {};
     const slowCategoriesPromise = new Promise<AssetCategory[]>((resolve) => {
       resolveSlowCategories = resolve;

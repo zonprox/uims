@@ -205,15 +205,11 @@ const userTimezone: TimezonePreference = {
 | `AssetCategory` | `interface` | `src/entities/asset.ts` | Hierarchical asset categorization category |
 | `ITAssetCategoryDefinition` | `interface` | `src/entities/asset.ts` | Definition metadata for standardized IT hardware categories |
 | `AuditLog` | `interface` | `src/entities/audit.ts` | Enterprise audit trail log record with diff payloads |
-| `Location` | `interface` | `src/entities/common.ts` | Physical campus, site, building, room, or rack location |
-| `LocationPathNode` | `interface` | `src/entities/common.ts` | Hierarchical path component for location breadcrumbs |
-| `LocationTreeNode` | `interface` | `src/entities/common.ts` | Ant Design Tree/TreeSelect/Cascader compatible location hierarchy node |
 | `Vendor` | `interface` | `src/entities/common.ts` | Supplier and third-party vendor details |
 | `Setting` | `interface` | `src/entities/common.ts` | Application and system configuration key-value pair |
 | `DirectoryUser` | `interface` | `src/entities/directory.ts` | Active Directory / LDAP employee profile |
 | `DirectoryGroup` | `interface` | `src/entities/directory.ts` | AD / LDAP security or distribution group |
-| `OrganizationalUnit` | `interface` | `src/entities/directory.ts` | Active Directory Organizational Unit (OU) structure |
-| `DirectorySummaryStats` | `interface` | `src/entities/directory.ts` | Directory user, OU, and group metrics summary |
+| `DirectorySummaryStats` | `interface` | `src/entities/directory.ts` | Directory user and group metrics summary |
 | `InventoryCategory` | `interface` | `src/entities/inventory.ts` | Consumable stock and spare parts category |
 | `InventoryItem` | `interface` | `src/entities/inventory.ts` | Consumable stock and spare parts inventory item |
 | `License` | `interface` | `src/entities/license.ts` | Software license and subscription agreement |
@@ -256,7 +252,6 @@ const userTimezone: TimezonePreference = {
 | `AssetStatus` | `enum` | `src/entities/asset.ts` | `AVAILABLE`, `IN_USE`, `MAINTENANCE`, `RETIRED`, `LOST` |
 | `IT_ASSET_CATEGORY_IDS` | `const object` | `src/entities/asset.ts` | Authoritative standard category IDs (`LAPTOP`, `DESKTOP`, `SERVER`, `SWITCH`, etc.) |
 | `IT_ASSET_CATEGORIES` | `const object` | `src/entities/asset.ts` | Standard IT hardware category definitions registry |
-| `LocationType` | `enum` | `src/entities/common.ts` | `CAMPUS`, `SITE`, `BRANCH`, `BUILDING`, `ROOM`, `RACK`, `SHELF`, etc. |
 | `AccountStatus` | `enum` | `src/entities/directory.ts` | `ACTIVE`, `DISABLED`, `LOCKED`, `SUSPENDED` |
 | `DirectoryAccountStatus` | `alias` | `src/entities/directory.ts` | Type and constant alias for `AccountStatus` |
 | `DirectorySource` | `enum` | `src/entities/directory.ts` | `LOCAL`, `LDAP`, `AZURE_AD` |
@@ -316,6 +311,7 @@ const userTimezone: TimezonePreference = {
 | `UpdateDirectoryUserDto` | `interface` | `src/dto/directory.dto.ts` | Partial payload for updating an Active Directory user |
 | `DirectoryUserQueryDto` | `interface` | `src/dto/directory.dto.ts` | Query filters for directory user listing |
 | `CreateDirectoryGroupDto` | `interface` | `src/dto/directory.dto.ts` | Payload for creating a directory group |
+| `UpdateDirectoryGroupDto` | `interface` | `src/dto/directory.dto.ts` | Partial payload for updating a directory group |
 | `BatchImportDirectoryUserItem` | `interface` | `src/dto/directory.dto.ts` | Row schema for bulk directory user imports |
 | `BatchImportADUserItem` | `type` | `src/dto/directory.dto.ts` | Alias for `BatchImportDirectoryUserItem` |
 | `BatchImportDirectoryResponse` | `interface` | `src/dto/directory.dto.ts` | Summary report for bulk user import jobs |
@@ -369,9 +365,6 @@ const userTimezone: TimezonePreference = {
 | `UpdateDepartmentDto` | `interface` | `src/dto/organization.dto.ts` | Partial payload for updating a department |
 | `CreatePositionDto` | `interface` | `src/dto/organization.dto.ts` | Payload for creating a job position |
 | `UpdatePositionDto` | `interface` | `src/dto/organization.dto.ts` | Partial payload for updating a job position |
-| `CreateLocationDto` | `interface` | `src/dto/organization.dto.ts` | Payload for creating a facility or location |
-| `UpdateLocationDto` | `interface` | `src/dto/organization.dto.ts` | Partial payload for updating a location |
-| `LocationQueryDto` | `interface` | `src/dto/organization.dto.ts` | Query filters for location listing |
 | `CreateRoleRequest` | `interface` | `src/dto/roles.dto.ts` | Payload for creating a new RBAC role |
 | `UpdateRoleRequest` | `interface` | `src/dto/roles.dto.ts` | Payload for modifying a role's permissions |
 | `CloneRoleRequest` | `interface` | `src/dto/roles.dto.ts` | Payload for duplicating an existing role |

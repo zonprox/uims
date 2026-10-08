@@ -53,7 +53,6 @@ function createMockAsset(overrides: Partial<Asset> = {}): Asset {
     status: 'Active',
     assignedTo: 'Net Admin',
     assignedEmail: 'admin@youngonevn.com',
-    location: 'DC-01',
     purchaseDate: '2026-01-01',
     warrantyExpiry: '2029-01-01',
     notes: 'Configured for primary VLAN trunking',

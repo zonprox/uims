@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adjustInventorySchema,
   createInventoryCategorySchema,
   createInventoryItemSchema,
   inventoryQuerySchema,
@@ -25,6 +26,107 @@ describe('inventory.validator', () => {
       };
       const result = createInventoryItemSchema.safeParse(input);
       expect(result.success).toBe(true);
+    });
+
+    it('confirms complete Physical Location purge: zero location fields on inventory schemas', () => {
+      expect('locationId' in createInventoryItemSchema.shape).toBe(false);
+      expect('location' in createInventoryItemSchema.shape).toBe(false);
+      expect('locationId' in inventoryQuerySchema.shape).toBe(false);
+      expect('location' in inventoryQuerySchema.shape).toBe(false);
+    });
+
+    it('validates SKU regex constraints', () => {
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          sku: 'CAB-CAT6-1M',
+        }).success,
+      ).toBe(true);
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          sku: 'SKU_01.A',
+        }).success,
+      ).toBe(true);
+
+      // Rejects spaces or special chars
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          sku: 'SKU with spaces',
+        }).success,
+      ).toBe(false);
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          sku: 'SKU#01',
+        }).success,
+      ).toBe(false);
+    });
+
+    it('validates quantity and minThreshold bounds and coercion', () => {
+      const res = createInventoryItemSchema.safeParse({
+        name: 'Item',
+        categoryId: validCategoryId,
+        quantity: '50',
+        minThreshold: '10',
+      });
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.data.quantity).toBe(50);
+        expect(res.data.minThreshold).toBe(10);
+      }
+
+      // Rejects negative numbers or floats
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          quantity: -1,
+        }).success,
+      ).toBe(false);
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          quantity: 10.5,
+        }).success,
+      ).toBe(false);
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          quantity: 1_000_001,
+        }).success,
+      ).toBe(false);
+    });
+
+    it('validates unitCost currency bounds', () => {
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          unitCost: 2.5,
+        }).success,
+      ).toBe(true);
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          unitCost: -1,
+        }).success,
+      ).toBe(false);
+      expect(
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: validCategoryId,
+          unitCost: 2.555,
+        }).success,
+      ).toBe(false);
     });
 
     it('applies default values for quantity, minThreshold, and unitCost', () => {
@@ -74,14 +176,42 @@ describe('inventory.validator', () => {
     });
   });
 
-  describe('restockInventorySchema', () => {
-    it('validates positive restock quantity', () => {
+  describe('restockInventorySchema & adjustInventorySchema', () => {
+    it('validates positive restock quantity within bounds <= 100,000', () => {
       expect(restockInventorySchema.safeParse({ quantity: 10 }).success).toBe(true);
+      expect(restockInventorySchema.safeParse({ quantity: '500' }).success).toBe(true);
     });
 
-    it('rejects 0 or negative restock quantity', () => {
+    it('rejects 0, negative, float, or >100,000 restock quantity', () => {
       expect(restockInventorySchema.safeParse({ quantity: 0 }).success).toBe(false);
       expect(restockInventorySchema.safeParse({ quantity: -5 }).success).toBe(false);
+      expect(restockInventorySchema.safeParse({ quantity: 10.5 }).success).toBe(false);
+      expect(restockInventorySchema.safeParse({ quantity: 100_001 }).success).toBe(false);
+    });
+
+    it('validates adjustInventorySchema', () => {
+      expect(
+        adjustInventorySchema.safeParse({
+          quantity: 15,
+          reason: 'Physical inventory cycle count',
+        }).success,
+      ).toBe(true);
+
+      // Rejects missing reason
+      expect(
+        adjustInventorySchema.safeParse({
+          quantity: 15,
+          reason: '',
+        }).success,
+      ).toBe(false);
+
+      // Rejects negative quantity
+      expect(
+        adjustInventorySchema.safeParse({
+          quantity: -1,
+          reason: 'Damaged stock',
+        }).success,
+      ).toBe(false);
     });
   });
 
@@ -105,7 +235,7 @@ describe('inventory.validator', () => {
   });
 
   describe('inventoryQuerySchema', () => {
-    it('validates query with category, location, organization, and bounds <= 100', () => {
+    it('validates query with category, organization, and bounds <= 100 (without location)', () => {
       const query = {
         page: 1,
         pageSize: 25,
@@ -113,7 +243,6 @@ describe('inventory.validator', () => {
         search: 'patch cable',
         categoryId: validCategoryId,
         category: 'Networking',
-        location: 'Server Room',
         organizationId: validCategoryId,
         organization: 'Global Corp',
         stockStatus: 'low_stock',

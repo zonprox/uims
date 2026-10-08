@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import {
   Prisma,
   type IPAddress,
-  type Location,
   type NetworkRack,
   type NetworkSwitch,
   type PortAdminStatus,
@@ -85,10 +84,6 @@ export class NetworkService {
       where.status = query.status as VlanStatus;
     }
 
-    if (query?.locationId) {
-      where.locationId = query.locationId;
-    }
-
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
@@ -96,7 +91,6 @@ export class NetworkService {
     return this.prisma.vLAN.findMany({
       where,
       include: {
-        location: true,
         subnets: true,
         _count: { select: { ipAddresses: true, subnets: true } },
       },
@@ -111,7 +105,6 @@ export class NetworkService {
     const vlan = await this.prisma.vLAN.findFirst({
       where: isNumeric ? { OR: [{ id }, { vlanNumber: Number(id) }] } : { id },
       include: {
-        location: true,
         subnets: true,
         ipAddresses: {
           take: 100,
@@ -134,9 +127,8 @@ export class NetworkService {
         name: data.name,
         description: data.description,
         status: data.status as VlanStatus,
-        locationId: data.locationId,
       },
-      include: { location: true, subnets: true },
+      include: { subnets: true },
     });
   }
 
@@ -148,9 +140,8 @@ export class NetworkService {
         name: data.name,
         description: data.description,
         status: data.status as VlanStatus,
-        locationId: data.locationId,
       },
-      include: { location: true, subnets: true },
+      include: { subnets: true },
     });
   }
 
@@ -176,10 +167,6 @@ export class NetworkService {
       where.vlanId = query.vlanId;
     }
 
-    if (query?.locationId) {
-      where.locationId = query.locationId;
-    }
-
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
@@ -188,7 +175,6 @@ export class NetworkService {
       where,
       include: {
         vlan: true,
-        location: true,
         _count: { select: { ipAddresses: true } },
       },
       orderBy: [{ cidr: 'asc' }, { id: 'asc' }],
@@ -204,7 +190,6 @@ export class NetworkService {
       where: { OR: [{ id }, { cidr: id }] },
       include: {
         vlan: true,
-        location: true,
         ipAddresses: {
           take: 100,
           orderBy: { address: 'asc' },
@@ -234,7 +219,6 @@ export class NetworkService {
         cidr: data.cidr,
         name: data.name,
         vlanId,
-        locationId: data.locationId,
         gateway: data.gateway || calc.suggestedGateway,
         networkAddress: data.networkAddress || calc.networkAddress,
         netmask: data.netmask || calc.subnetMask,
@@ -246,7 +230,7 @@ export class NetworkService {
         reservedIps: data.reservedIps ?? 0,
         description: data.description,
       },
-      include: { vlan: true, location: true },
+      include: { vlan: true },
     });
 
     return this.formatSubnet(created);
@@ -258,12 +242,6 @@ export class NetworkService {
       gateway: data.gateway,
       description: data.description,
     };
-
-    if (data.locationId !== undefined) {
-      updateData.location = data.locationId
-        ? { connect: { id: data.locationId } }
-        : { disconnect: true };
-    }
 
     if (data.vlanId !== undefined) {
       updateData.vlan = data.vlanId ? { connect: { id: data.vlanId } } : { disconnect: true };
@@ -286,7 +264,7 @@ export class NetworkService {
     const updated = await this.prisma.subnet.update({
       where: { id },
       data: updateData,
-      include: { vlan: true, location: true },
+      include: { vlan: true },
     });
 
     return this.formatSubnet(updated);
@@ -351,10 +329,6 @@ export class NetworkService {
       where.deviceType = { contains: query.deviceType, mode: 'insensitive' };
     }
 
-    if (query?.locationId) {
-      where.locationId = query.locationId;
-    }
-
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 50));
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
@@ -364,7 +338,6 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        location: true,
         asset: true,
         assignedUser: true,
       },
@@ -382,7 +355,6 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        location: true,
         asset: true,
         assignedUser: true,
       },
@@ -399,7 +371,6 @@ export class NetworkService {
     let targetIp = data.address;
     let subnetId = data.subnetId;
     let vlanId = data.vlanId;
-    let locationId = data.locationId;
 
     if (subnetId) {
       const selectedSubnet = await this.prisma.subnet.findUnique({
@@ -408,7 +379,6 @@ export class NetworkService {
       });
       if (selectedSubnet) {
         vlanId = vlanId || selectedSubnet.vlanId || undefined;
-        locationId = locationId || selectedSubnet.locationId || undefined;
 
         if (!targetIp) {
           const allocatedIps = selectedSubnet.ipAddresses.map((ip) => ip.address);
@@ -429,7 +399,6 @@ export class NetworkService {
       if (matched) {
         subnetId = matched.id;
         vlanId = vlanId || matched.vlanId || undefined;
-        locationId = locationId || matched.locationId || undefined;
       }
     }
 
@@ -478,7 +447,6 @@ export class NetworkService {
         floor: data.floor,
         subnetId,
         vlanId,
-        locationId,
         assetId: data.assetId,
         assignedUserId: data.assignedUserId,
         status,
@@ -490,7 +458,6 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        location: true,
         asset: true,
         assignedUser: true,
       },
@@ -550,11 +517,6 @@ export class NetworkService {
     if (data.vlanId !== undefined) {
       updatePayload.vlan = data.vlanId ? { connect: { id: data.vlanId } } : { disconnect: true };
     }
-    if (data.locationId !== undefined) {
-      updatePayload.location = data.locationId
-        ? { connect: { id: data.locationId } }
-        : { disconnect: true };
-    }
     if (data.assetId !== undefined) {
       updatePayload.asset = data.assetId ? { connect: { id: data.assetId } } : { disconnect: true };
     }
@@ -569,7 +531,6 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        location: true,
         asset: true,
         assignedUser: true,
       },
@@ -620,10 +581,6 @@ export class NetworkService {
       ];
     }
 
-    if (query?.locationId) {
-      where.locationId = query.locationId;
-    }
-
     if (query?.status && query.status !== 'all') {
       where.status = query.status as RackStatus;
     }
@@ -635,7 +592,6 @@ export class NetworkService {
     const racks = await this.prisma.networkRack.findMany({
       where,
       include: {
-        location: true,
         switches: {
           include: {
             ports: true,
@@ -655,7 +611,6 @@ export class NetworkService {
     const rack = await this.prisma.networkRack.findFirst({
       where: { OR: [{ id }, { code: id }] },
       include: {
-        location: true,
         switches: {
           include: {
             ports: {
@@ -696,7 +651,6 @@ export class NetworkService {
       data: {
         name: data.name,
         code: data.code,
-        locationId: data.locationId || null,
         totalHeight,
         depth: data.depth ?? 1070,
         width: data.width ?? 600,
@@ -706,7 +660,6 @@ export class NetworkService {
         notes: data.notes || null,
       },
       include: {
-        location: true,
         _count: { select: { switches: true } },
       },
     });
@@ -777,7 +730,6 @@ export class NetworkService {
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.code !== undefined ? { code: data.code } : {}),
-        ...(data.locationId !== undefined ? { locationId: data.locationId } : {}),
         ...(data.totalHeight !== undefined ? { totalHeight: data.totalHeight } : {}),
         ...(data.depth !== undefined ? { depth: data.depth } : {}),
         ...(data.width !== undefined ? { width: data.width } : {}),
@@ -787,7 +739,6 @@ export class NetworkService {
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
       },
       include: {
-        location: true,
         switches: {
           include: {
             ports: true,
@@ -823,7 +774,6 @@ export class NetworkService {
     const rack = await this.prisma.networkRack.findFirst({
       where: { OR: [{ id }, { code: id }] },
       include: {
-        location: true,
         switches: {
           include: {
             ports: true,
@@ -904,7 +854,6 @@ export class NetworkService {
     const availableUnits = Math.max(0, rack.totalHeight - occupiedUnits);
     const occupancyRate =
       rack.totalHeight > 0 ? Number(((occupiedUnits / rack.totalHeight) * 100).toFixed(1)) : 0;
-    const spaceUtilizationPercent = occupancyRate;
     const totalPowerDrawKw = Number((totalPowerWatts / 1000).toFixed(2));
     const powerUtilizationPercent =
       rack.maxPowerKw && rack.maxPowerKw > 0
@@ -925,7 +874,6 @@ export class NetworkService {
       occupiedUnits,
       availableUnits,
       occupancyRate,
-      spaceUtilizationPercent,
       maxPowerKw: rack.maxPowerKw,
       estimatedPowerUsageKw: totalPowerDrawKw,
       totalPowerDrawKw,
@@ -1001,10 +949,6 @@ export class NetworkService {
       where.rackId = query.rackId;
     }
 
-    if (query?.locationId) {
-      where.locationId = query.locationId;
-    }
-
     if (query?.vendor) {
       where.vendor = { contains: query.vendor, mode: 'insensitive' };
     }
@@ -1025,7 +969,6 @@ export class NetworkService {
       where,
       include: {
         rack: true,
-        location: true,
         asset: true,
         ipAddress: true,
         ports: true,
@@ -1044,7 +987,6 @@ export class NetworkService {
       where: { OR: [{ id }, { serialNumber: id }] },
       include: {
         rack: true,
-        location: true,
         asset: true,
         ipAddress: true,
         ports: {
@@ -1132,7 +1074,6 @@ export class NetworkService {
         rackPosition: data.rackPosition ?? null,
         rackHeight,
         assetId: data.assetId || null,
-        locationId: data.locationId || null,
         notes: data.notes || null,
       },
     });
@@ -1308,7 +1249,6 @@ export class NetworkService {
         ...(data.rackPosition !== undefined ? { rackPosition: data.rackPosition } : {}),
         ...(data.rackHeight !== undefined ? { rackHeight: data.rackHeight } : {}),
         ...(data.assetId !== undefined ? { assetId: data.assetId } : {}),
-        ...(data.locationId !== undefined ? { locationId: data.locationId } : {}),
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
       },
     });
@@ -1526,7 +1466,7 @@ export class NetworkService {
     }
 
     const subnets = await this.prisma.subnet.findMany({
-      include: { vlan: true, location: true },
+      include: { vlan: true },
       take: 100,
       orderBy: { cidr: 'asc' },
     });
@@ -1646,7 +1586,6 @@ export class NetworkService {
       name: vlan.name,
       description: vlan.description,
       status: vlan.status as unknown as import('@uims/shared-types').VlanStatus,
-      locationId: vlan.locationId,
       createdAt: vlan.createdAt
         ? typeof vlan.createdAt === 'string'
           ? vlan.createdAt
@@ -1663,7 +1602,6 @@ export class NetworkService {
   private formatSubnet(
     subnet: Subnet & {
       vlan?: VLAN | null;
-      location?: Location | null;
       _count?: { ipAddresses: number };
     },
   ) {
@@ -1674,7 +1612,6 @@ export class NetworkService {
       cidr: subnet.cidr,
       name: subnet.name,
       vlanId: subnet.vlanId,
-      locationId: subnet.locationId,
       gateway: subnet.gateway || calc.suggestedGateway,
       networkAddress: subnet.networkAddress || calc.networkAddress,
       netmask: subnet.netmask || calc.subnetMask,
@@ -1687,10 +1624,6 @@ export class NetworkService {
       description: subnet.description,
       vlan: subnet.vlan ? this.formatVlan(subnet.vlan) : null,
       vlanName: subnet.vlan ? `VLAN ${subnet.vlan.vlanNumber} (${subnet.vlan.name})` : '',
-      location: subnet.location
-        ? (subnet.location as unknown as import('@uims/shared-types').Location)
-        : null,
-      locationName: subnet.location?.name || '',
       utilization,
       createdAt: subnet.createdAt
         ? typeof subnet.createdAt === 'string'
@@ -1707,7 +1640,6 @@ export class NetworkService {
 
   private formatRack(
     rack: NetworkRack & {
-      location?: Location | null;
       switches?: (NetworkSwitch & { ports?: SwitchPort[] })[];
       _count?: { switches: number };
     },
@@ -1730,10 +1662,6 @@ export class NetworkService {
       id: rack.id,
       name: rack.name,
       code: rack.code,
-      locationId: rack.locationId,
-      location: rack.location
-        ? (rack.location as unknown as import('@uims/shared-types').Location)
-        : null,
       totalHeight: rack.totalHeight,
       depth: rack.depth,
       width: rack.width,
@@ -1762,13 +1690,12 @@ export class NetworkService {
   private formatSwitch(
     sw: NetworkSwitch & {
       rack?: NetworkRack | null;
-      location?: Location | null;
-      asset?: { id: string; name: string; assetTag: string } | null;
+      asset?: { id: string; name: string; assetTag?: string | null } | null;
       ipAddress?: IPAddress | null;
       ports?: (SwitchPort & {
         vlan?: VLAN | null;
         ipAddress?: IPAddress | null;
-        connectedAsset?: { id: string; name: string; assetTag: string } | null;
+        connectedAsset?: { id: string; name: string; assetTag?: string | null } | null;
       })[];
       _count?: { ports: number };
     },
@@ -1800,10 +1727,11 @@ export class NetworkService {
       rackPosition: sw.rackPosition,
       rackHeight: sw.rackHeight,
       assetId: sw.assetId,
-      asset: sw.asset ? (sw.asset as unknown as import('@uims/shared-types').Asset) : null,
-      locationId: sw.locationId,
-      location: sw.location
-        ? (sw.location as unknown as import('@uims/shared-types').Location)
+      asset: sw.asset
+        ? ({
+            ...sw.asset,
+            assetTag: sw.asset.assetTag || '',
+          } as unknown as import('@uims/shared-types').Asset)
         : null,
       notes: sw.notes,
       ports: sw.ports ? sw.ports.map((p) => this.formatPort(p)) : undefined,
@@ -1826,7 +1754,7 @@ export class NetworkService {
       switch?: (NetworkSwitch & { rack?: NetworkRack | null }) | null;
       vlan?: VLAN | null;
       ipAddress?: IPAddress | null;
-      connectedAsset?: { id: string; name: string; assetTag: string } | null;
+      connectedAsset?: { id: string; name: string; assetTag?: string | null } | null;
     },
   ) {
     return {
@@ -1853,7 +1781,10 @@ export class NetworkService {
         : null,
       connectedAssetId: port.connectedAssetId,
       connectedAsset: port.connectedAsset
-        ? (port.connectedAsset as unknown as import('@uims/shared-types').Asset)
+        ? ({
+            ...port.connectedAsset,
+            assetTag: port.connectedAsset.assetTag || '',
+          } as unknown as import('@uims/shared-types').Asset)
         : null,
       description: port.description,
       createdAt: port.createdAt
@@ -1873,8 +1804,7 @@ export class NetworkService {
     ip: IPAddress & {
       subnet?: Subnet | null;
       vlan?: VLAN | null;
-      location?: Location | null;
-      asset?: { id: string; name: string; assetTag: string } | null;
+      asset?: { id: string; name: string; assetTag?: string | null } | null;
       assignedUser?: { id: string; firstName: string; lastName: string; email: string } | null;
       switchPorts?: (SwitchPort & {
         switch?: (NetworkSwitch & { rack?: NetworkRack | null }) | null;
@@ -1909,7 +1839,6 @@ export class NetworkService {
       subnetId: ip.subnetId,
       vlan: ip.vlan ? `VLAN ${ip.vlan.vlanNumber} (${ip.vlan.name})` : null,
       vlanId: ip.vlanId,
-      locationId: ip.locationId,
       deviceType: ip.deviceType || 'Workstation',
       model: ip.model,
       serialNumber: ip.serialNumber,
@@ -1924,7 +1853,13 @@ export class NetworkService {
           : ip.lastSeen.toISOString()
         : 'Real-time',
       description: ip.description,
-      asset: ip.asset,
+      asset: ip.asset
+        ? {
+            id: ip.asset.id,
+            name: ip.asset.name,
+            assetTag: ip.asset.assetTag || '',
+          }
+        : null,
       assignedUser: ip.assignedUser,
       switchPortId: primaryPort?.id ?? null,
       switchPort: primaryPort ? this.formatPort(primaryPort) : null,

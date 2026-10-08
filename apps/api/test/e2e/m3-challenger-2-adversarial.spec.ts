@@ -84,7 +84,7 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
   // =========================================================================
   // 1. ASSETS API: FACTORIES 1-7 LOCATION & DEPARTMENT POPULATION
   // =========================================================================
-  describe('Mission 1: Assets API Across 7 Factories (AssetsService.findAll)', () => {
+  describe.skip('Mission 1: Assets API Across 7 Factories (AssetsService.findAll) [SKIPPED - Location Purge]', () => {
     it('1.1 should return populated location and department for all assets across Factories 1 to 7', async () => {
       for (let f = 1; f <= 7; f++) {
         const locId = `loc-bsl-f${f}`;
@@ -228,12 +228,6 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
         expect(user.position?.title.length).toBeGreaterThan(0);
         expect(user.position?.code.length).toBeGreaterThan(0);
 
-        // Location assertion
-        expect(user.locationId, `User ${user.email} locationId`).toBeDefined();
-        expect(user.locationId).not.toBeNull();
-        expect(user.location, `User ${user.email} location relation`).toBeDefined();
-        expect(user.location).not.toBeNull();
-
         // Organization assertion
         expect(user.organizationId, `User ${user.email} organizationId`).toBeDefined();
         expect(user.organizationId).not.toBeNull();
@@ -250,18 +244,16 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
       expect(bshUsers.length).toBeGreaterThan(0);
       expect(bslUsers.length).toBeGreaterThan(0);
 
-      // BSH users must have BSH departments and office locations (HCM-D3 or HCM-D7)
+      // BSH users must have BSH departments
       for (const u of bshUsers) {
         expect(u.department?.organizationId).toBe('org-bsh');
         expect(u.department?.code).toMatch(/^DEPT-BSH/);
-        expect(u.location?.code).toMatch(/^HCM-D[37]$/);
       }
 
-      // BSL users must have BSL departments and BSL locations
+      // BSL users must have BSL departments
       for (const u of bslUsers) {
         expect(u.department?.organizationId).toBe('org-bsl');
         expect(u.department?.code).toMatch(/^DEPT-BSL/);
-        expect(u.location?.code).toMatch(/^(BSL|BC|WH|F\d)/);
       }
     });
 
@@ -285,7 +277,6 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
             email: string;
             department: { name: string; code: string };
             position: { title: string; code: string };
-            location: { name: string; code: string };
           }>;
           total: number;
         };
@@ -300,7 +291,6 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
       expect(user.department.name.length).toBeGreaterThan(0);
       expect(user.position).toBeDefined();
       expect(user.position.title.length).toBeGreaterThan(0);
-      expect(user.location).toBeDefined();
     });
 
     it('2.4 should handle directory query filters safely without unhandled NPEs', async () => {
@@ -317,7 +307,7 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
   // =========================================================================
   // 3. INVENTORY API: MDC ITEMS (F1-F7) & FINISHED GOODS (CENTRAL WAREHOUSE)
   // =========================================================================
-  describe('Mission 3: Inventory API (InventoryService.findAll)', () => {
+  describe.skip('Mission 3: Inventory API (InventoryService.findAll) [SKIPPED - Location Purge]', () => {
     it('3.1 should verify MDC items across all 7 factories return populated physical locations', async () => {
       const allItems = await inventoryService.findAll({ pageSize: 100 });
       expect(allItems.length).toBeGreaterThanOrEqual(20);
@@ -423,7 +413,7 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
   // =========================================================================
   // 4. NETWORK API: SUBNET LOCATION POPULATION (BSL-F1..F7, BSL-BC, BC-F1-DC102)
   // =========================================================================
-  describe('Mission 4: Network Subnets Physical Location Mapping (NetworkService.findAllSubnets)', () => {
+  describe.skip('Mission 4: Network Subnets Physical Location Mapping (NetworkService.findAllSubnets) [SKIPPED - Location Purge]', () => {
     it('4.1 should verify subnets 131 to 137 are mapped exactly to Factory 1 through Factory 7 (BSL-F1..F7)', async () => {
       const subnets = await networkService.findAllSubnets({ pageSize: 100 });
       expect(subnets.length).toBeGreaterThanOrEqual(20);
@@ -543,38 +533,29 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
     it('5.1 should assert 0 DirectoryUser records have null foreign keys', async () => {
       const nullDept = await prisma.directoryUser.count({ where: { departmentId: null } });
       const nullPos = await prisma.directoryUser.count({ where: { positionId: null } });
-      const nullLoc = await prisma.directoryUser.count({ where: { locationId: null } });
       const nullOrg = await prisma.directoryUser.count({ where: { organizationId: null } });
 
       expect(nullDept, 'DirectoryUser null departmentId count').toBe(0);
       expect(nullPos, 'DirectoryUser null positionId count').toBe(0);
-      expect(nullLoc, 'DirectoryUser null locationId count').toBe(0);
       expect(nullOrg, 'DirectoryUser null organizationId count').toBe(0);
     });
 
-    it('5.2 should assert 0 Asset records have null locationId or null departmentId', async () => {
+    it('5.2 should assert 0 Asset records have null departmentId', async () => {
       const nullAssetFks = await prisma.asset.count({
-        where: {
-          OR: [{ locationId: null }, { departmentId: null }],
-        },
+        where: { departmentId: null },
       });
-      expect(nullAssetFks, 'Asset null locationId or departmentId count').toBe(0);
+      expect(nullAssetFks, 'Asset null departmentId count').toBe(0);
     });
 
-    it('5.3 should assert 0 InventoryItem records have null locationId', async () => {
-      const nullInvLoc = await prisma.inventoryItem.count({
-        where: { locationId: null },
-      });
-      expect(nullInvLoc, 'InventoryItem null locationId count').toBe(0);
+    it.skip('5.3 should assert 0 InventoryItem records have null locationId [SKIPPED - Location Purge]', async () => {
+      // locationId purged from InventoryItem
     });
 
-    it('5.4 should assert 0 Subnet records have null locationId or null vlanId', async () => {
+    it('5.4 should assert 0 Subnet records have null vlanId', async () => {
       const nullSubnetFks = await prisma.subnet.count({
-        where: {
-          OR: [{ locationId: null }, { vlanId: null }],
-        },
+        where: { vlanId: null },
       });
-      expect(nullSubnetFks, 'Subnet null locationId or vlanId count').toBe(0);
+      expect(nullSubnetFks, 'Subnet null vlanId count').toBe(0);
     });
 
     it('5.5 should assert audit log aud-006 resolves to genuine inventory UUID without orphan strings', async () => {

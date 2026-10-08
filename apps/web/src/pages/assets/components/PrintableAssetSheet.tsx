@@ -1,4 +1,5 @@
 import { Empty, QRCode, Typography } from 'antd';
+import dayjs from 'dayjs';
 import React from 'react';
 import type { Asset } from '../../../services/assets.service';
 
@@ -20,7 +21,7 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
     }
 
     const is4Cols = columns === 4;
-    const qrSize = is4Cols ? 76 : 90;
+    const qrSize = is4Cols ? 58 : 72;
 
     return (
       <div
@@ -33,110 +34,191 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
           boxSizing: 'border-box',
         }}
       >
-          {assets.map((asset) => {
-            const modelInfo = [asset.manufacturer, asset.model].filter(Boolean).join(' ');
-            const displayName = asset.name || modelInfo || 'Hardware Asset';
+        {assets.map((asset) => {
+          const sapCode = asset.assetCode || asset.parent?.assetCode || '—';
+          const subcode = asset.subcode || asset.tag || 'N/A';
+          const modelInfo = [asset.manufacturer, asset.model].filter(Boolean).join(' ');
+          const displayName =
+            asset.name ||
+            (asset.parent ? `${asset.parent.manufacturer} ${asset.parent.model}` : modelInfo) ||
+            'Hardware Asset';
+          const formattedDate = asset.purchaseDate
+            ? dayjs(asset.purchaseDate).format('YYYY-MM-DD')
+            : dayjs().format('YYYY-MM-DD');
+          const costCenterDisplay = asset.costCenter
+            ? typeof asset.costCenter === 'object'
+              ? `${asset.costCenter.code || ''} ${asset.costCenter.name ? `- ${asset.costCenter.name}` : ''}`.trim()
+              : String(asset.costCenter)
+            : 'IT-OPS';
 
-            return (
+          return (
+            <div
+              key={asset.id}
+              className="printable-sheet-card"
+              style={{
+                border: '1.5px dashed #777777',
+                borderRadius: '4px',
+                padding: '8px 10px',
+                background: '#ffffff',
+                color: '#000000',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                textAlign: 'left',
+                breakInside: 'avoid',
+                pageBreakInside: 'avoid',
+              }}
+            >
+              {/* Left Column: QR Code (No logo, clean high-contrast scan area) */}
               <div
-                key={asset.id}
-                className="printable-sheet-card"
+                className="printable-sheet-qr"
                 style={{
-                  border: '1.5px dashed #777777',
-                  borderRadius: 4,
-                  padding: '8px 10px',
-                  background: '#ffffff',
-                  color: '#000000',
-                  boxSizing: 'border-box',
                   display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
                   justifyContent: 'center',
-                  textAlign: 'center',
-                  breakInside: 'avoid',
-                  pageBreakInside: 'avoid',
+                  alignItems: 'center',
+                  background: '#ffffff',
+                  backgroundColor: '#ffffff',
+                  flexShrink: 0,
+                  padding: 2,
                 }}
               >
-                <Text
+                <QRCode
+                  type="svg"
+                  value={subcode}
+                  size={qrSize}
+                  bordered={false}
+                  color="#000000"
+                  bgColor="#ffffff"
                   style={{
-                    fontSize: 9,
-                    letterSpacing: '0.5px',
-                    color: '#64748b',
-                    textTransform: 'uppercase',
-                    fontWeight: 600,
-                    marginBottom: 2,
-                    display: 'block',
-                  }}
-                >
-                  UIMS ASSET
-                </Text>
-
-                <div
-                  className="printable-sheet-qr"
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: 2,
-                    background: '#ffffff',
                     backgroundColor: '#ffffff',
                   }}
-                >
-                  <QRCode
-                    type="svg"
-                    value={asset.tag}
-                    size={qrSize}
-                    bordered={false}
-                    color="#000000"
-                    bgColor="#ffffff"
-                    style={{
-                      backgroundColor: '#ffffff',
-                    }}
-                  />
-                </div>
+                />
+              </div>
 
-              <Text
-                strong
-                style={{
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                  fontSize: is4Cols ? 11 : 13,
-                  color: '#000000',
-                  display: 'block',
-                  marginTop: 4,
-                  lineHeight: 1.2,
-                }}
-              >
-                {asset.tag}
-              </Text>
-
-              <Text
-                ellipsis={{ tooltip: displayName }}
-                style={{
-                  fontSize: is4Cols ? 9.5 : 11,
-                  color: '#334155',
-                  maxWidth: '100%',
-                  display: 'block',
-                  marginTop: 2,
-                  lineHeight: 1.2,
-                }}
-              >
-                {displayName}
-              </Text>
-
-              {asset.serialNumber ? (
-                <Text
+              {/* Right Column: IT ASSET TAGGING details */}
+              <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
+                <div
                   style={{
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                    fontSize: is4Cols ? 8.5 : 10,
-                    color: '#64748b',
-                    display: 'block',
-                    marginTop: 2,
-                    lineHeight: 1.2,
+                    fontSize: is4Cols ? 8.5 : 9.5,
+                    letterSpacing: '0.6px',
+                    color: '#000000',
+                    textTransform: 'uppercase',
+                    fontWeight: 800,
+                    borderBottom: '1.5px solid #000000',
+                    paddingBottom: 1,
+                    marginBottom: 3,
+                    lineHeight: 1.1,
                   }}
                 >
-                  S/N: {asset.serialNumber}
-                </Text>
-              ) : null}
+                  IT ASSET TAGGING
+                </div>
+
+                <div
+                  style={{
+                    fontSize: is4Cols ? 7.5 : 8.5,
+                    lineHeight: 1.3,
+                    color: '#000000',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                  }}
+                >
+                  <div
+                    style={{
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>SAP Code: </span>
+                    <span
+                      style={{
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        fontSize: is4Cols ? '8px' : '9px',
+                        fontWeight: 600,
+                        color: '#000000',
+                      }}
+                    >
+                      {sapCode}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>SUB Code: </span>
+                    <Text
+                      strong
+                      style={{
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        fontSize: is4Cols ? '11px' : '13px',
+                        color: '#000000',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {subcode}
+                    </Text>
+                  </div>
+                  <div
+                    style={{
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>Model: </span>
+                    <span
+                      style={{
+                        fontSize: is4Cols ? 8 : 9,
+                        color: '#000000',
+                      }}
+                    >
+                      {displayName}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>Date: </span>
+                    <span
+                      style={{
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        fontSize: is4Cols ? 8 : 9,
+                        color: '#000000',
+                      }}
+                    >
+                      {formattedDate}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>Cost Center: </span>
+                    <span style={{ fontWeight: 600 }}>{costCenterDisplay}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })}

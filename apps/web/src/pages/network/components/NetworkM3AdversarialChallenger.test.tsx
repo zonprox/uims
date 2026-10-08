@@ -3,7 +3,6 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Location } from '@uims/shared-types';
 import type {
   IPAddress,
   NetworkRack,
@@ -13,7 +12,6 @@ import type {
   VLAN,
 } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
-import type { LocationBranch } from '../../../services/organization.service';
 import { IpAddressTable } from './IpAddressTable';
 import { IpFormModal } from './IpFormModal';
 import { PortConfigDrawer } from './PortConfigDrawer';
@@ -48,21 +46,6 @@ vi.mock('../../../services/network.service', async () => {
 describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite', () => {
   let container: HTMLDivElement;
   let currentRoot: Root | null = null;
-
-  const mockLocation: LocationBranch = {
-    id: 'loc-dc1',
-    name: 'Datacenter North',
-    code: 'DCN',
-    type: 'DATACENTER',
-  };
-
-  const mockSwitchLocation: Location = {
-    id: 'loc-dc1',
-    name: 'Datacenter North',
-    code: 'DCN',
-    createdAt: '2026-09-01T00:00:00Z',
-    updatedAt: '2026-09-01T00:00:00Z',
-  };
 
   const mockRack: NetworkRack = {
     id: 'rack-1',
@@ -109,7 +92,6 @@ describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite'
       macAddress: '00:1B:44:11:3A:B7',
       vendor: 'Cisco Systems',
       deviceType: 'Router',
-      locationId: 'loc-dc1',
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
     },
@@ -124,7 +106,6 @@ describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite'
       macAddress: 'F0:2F:74:9C:21:88',
       vendor: 'Dell Technologies',
       deviceType: 'Server',
-      locationId: 'loc-dc1',
       createdAt: '2026-09-01T00:00:00Z',
       updatedAt: '2026-09-01T00:00:00Z',
     },
@@ -145,8 +126,6 @@ describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite'
     rackPosition: 20,
     rackHeight: 1,
     rack: mockRack,
-    locationId: 'loc-dc1',
-    location: mockSwitchLocation,
     ports: [],
     activePortsCount: Math.floor(totalPorts * 0.7),
     ipAddress: mockIps[0],
@@ -375,12 +354,9 @@ describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite'
           ips={mockIps}
           subnets={[mockSubnet]}
           vlans={[mockVlan]}
-          locations={[mockLocation]}
           loading={false}
           searchQuery=""
           onSearchChange={vi.fn()}
-          siteFilter="all"
-          onSiteChange={vi.fn()}
           vlanFilter="all"
           onVlanChange={vi.fn()}
           subnetFilter="all"
@@ -425,7 +401,6 @@ describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite'
             submitting={false}
             subnets={[mockSubnet]}
             vlans={[mockVlan]}
-            locations={[mockLocation]}
             onSave={vi.fn()}
             onCancel={vi.fn()}
           />

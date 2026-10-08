@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class RackQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -29,15 +29,12 @@ export class RackQueryDto {
   @ApiPropertyOptional({ description: 'Search term for name or rack code' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by Location UUID' })
-  @IsOptional()
-  @IsString()
-  locationId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by rack status' })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   status?: string;
 }

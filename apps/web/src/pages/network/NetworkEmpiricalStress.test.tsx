@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssetStatus } from '@uims/shared-types';
 import type { Asset } from '../../services/assets.service';
-import type { LocationBranch } from '../../services/organization.service';
 import {
   type AutoDetectResult,
   type IPAddress,
@@ -26,22 +25,7 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } = vi.hoisted(() => {
-  const locations: Array<LocationBranch> = [
-    {
-      id: 'loc-1',
-      name: 'BSL Factory 1',
-      building: 'Building A',
-      floor: 'Floor 1',
-    },
-    {
-      id: 'loc-2',
-      name: 'HCM Office D3',
-      building: 'Main Tower',
-      floor: 'Floor 7',
-    },
-  ];
-
+const { mockVlans, mockSubnets, mockIps, mockStats, mockAssets } = vi.hoisted(() => {
   const vlans: Array<VLAN> = [
     {
       id: 'vlan-1',
@@ -49,16 +33,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       name: 'Core Servers',
       description: 'Main production server farm VLAN',
       status: 'ACTIVE',
-      locationId: 'loc-1',
-      location: {
-        id: 'loc-1',
-        name: 'BSL Factory 1',
-        address: null,
-        city: 'Bac Ninh',
-        country: 'Vietnam',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      },
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
@@ -68,16 +42,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       name: 'Time Attendance & Access Control',
       description: 'Fingerprint and facial scanners network',
       status: 'ACTIVE',
-      locationId: 'loc-1',
-      location: {
-        id: 'loc-1',
-        name: 'BSL Factory 1',
-        address: null,
-        city: 'Bac Ninh',
-        country: 'Vietnam',
-        createdAt: '2026-01-01T00:00:00Z',
-        updatedAt: '2026-01-01T00:00:00Z',
-      },
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
@@ -89,7 +53,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       cidr: '10.232.10.0/24',
       name: 'BSL Core Server Subnet',
       vlanId: 'vlan-1',
-      locationId: 'loc-1',
       gateway: '10.232.10.254',
       networkAddress: '10.232.10.0',
       netmask: '255.255.255.0',
@@ -100,7 +63,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       usedIps: 45,
       reservedIps: 5,
       vlan: vlans[0],
-      location: vlans[0].location,
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
@@ -109,7 +71,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       cidr: '10.232.130.0/24',
       name: 'Time Attendance Scanner Pool',
       vlanId: 'vlan-2',
-      locationId: 'loc-1',
       gateway: '10.232.130.254',
       networkAddress: '10.232.130.0',
       netmask: '255.255.255.0',
@@ -120,7 +81,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       usedIps: 28,
       reservedIps: 2,
       vlan: vlans[1],
-      location: vlans[1].location,
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
@@ -140,7 +100,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       pingStatus: 'online',
       subnetId: 'sub-1',
       vlanId: 'vlan-1',
-      locationId: 'loc-1',
       subnet: subnets[0],
       vlan: vlans[0],
       asset: {
@@ -151,7 +110,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
         manufacturer: 'Cisco',
         model: 'UCS C240 M5',
         serialNumber: 'FCH2144V0AB',
-        location: vlans[0].location,
         purchaseDate: '2025-01-01',
         warrantyExpiry: '2028-01-01',
         createdAt: '2026-01-01T00:00:00Z',
@@ -173,7 +131,6 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       pingStatus: 'online',
       subnetId: 'sub-2',
       vlanId: 'vlan-2',
-      locationId: 'loc-1',
       subnet: subnets[1],
       vlan: vlans[1],
       createdAt: '2026-01-01T00:00:00Z',
@@ -204,14 +161,12 @@ const { mockLocations, mockVlans, mockSubnets, mockIps, mockStats, mockAssets } 
       status: 'Active',
       assignedTo: 'Alex Chen',
       assignedEmail: 'alex.chen@uims.internal',
-      location: 'BSL Factory 1',
       purchaseDate: '2025-01-01',
       warrantyExpiry: '2028-01-01',
     },
   ];
 
   return {
-    mockLocations: locations,
     mockVlans: vlans,
     mockSubnets: subnets,
     mockIps: ips,
@@ -229,9 +184,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
       getStats: vi.fn().mockResolvedValue(mockStats),
       getVlans: vi.fn().mockImplementation((params) => {
         let list = [...mockVlans];
-        if (params?.locationId) {
-          list = list.filter((v) => v.locationId === params.locationId);
-        }
         if (params?.status) {
           list = list.filter((v) => v.status === params.status);
         }
@@ -252,9 +204,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
         let list = [...mockSubnets];
         if (params?.vlanId) {
           list = list.filter((s) => s.vlanId === params.vlanId || s.vlan?.id === params.vlanId);
-        }
-        if (params?.locationId) {
-          list = list.filter((s) => s.locationId === params.locationId);
         }
         return Promise.resolve(list);
       }),
@@ -333,9 +282,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
         if (params?.status) {
           list = list.filter((i) => String(i.status).toUpperCase() === params.status.toUpperCase());
         }
-        if (params?.locationId) {
-          list = list.filter((i) => i.locationId === params.locationId);
-        }
         return Promise.resolve(list);
       }),
       getIp: vi.fn().mockResolvedValue(mockIps[0]),
@@ -352,12 +298,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
     },
   };
 });
-
-vi.mock('../../services/organization.service', () => ({
-  organizationService: {
-    getLocations: vi.fn().mockResolvedValue(mockLocations),
-  },
-}));
 
 vi.mock('../../services/assets.service', () => ({
   assetsService: {
@@ -437,7 +377,6 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
   describe('Suite 1: Multi-Dimensional Filter Combinations on IP Allocations', () => {
     it('applies 6-dimensional filter conjunction matching a single target IP', async () => {
       const onSearchChange = vi.fn();
-      const onSiteChange = vi.fn();
       const onVlanChange = vi.fn();
       const onSubnetChange = vi.fn();
       const onDeviceTypeChange = vi.fn();
@@ -459,12 +398,9 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
                 ips: mockIps,
                 subnets: mockSubnets,
                 vlans: mockVlans,
-                locations: mockLocations,
                 loading: false,
                 searchQuery: 'cisco',
                 onSearchChange,
-                siteFilter: 'loc-1',
-                onSiteChange,
                 vlanFilter: 'vlan-1',
                 onVlanChange,
                 subnetFilter: 'sub-1',
@@ -507,12 +443,9 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
                 ips: mockIps,
                 subnets: mockSubnets,
                 vlans: mockVlans,
-                locations: mockLocations,
                 loading: false,
                 searchQuery: '',
                 onSearchChange: vi.fn(),
-                siteFilter: 'loc-1',
-                onSiteChange: vi.fn(),
                 vlanFilter: 'vlan-1',
                 onVlanChange: vi.fn(),
                 subnetFilter: 'sub-1',
@@ -700,9 +633,11 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
 
       expect(document.body.textContent).toContain('10.232.10.0/24 — BSL Core Server Subnet');
 
-      // Click "Filter in IP Allocations" in drawer header
-      const filterIpBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find((b) =>
-        b.textContent?.includes('Filter in IP Allocations'),
+      // Click "View IPs" in drawer header
+      const filterIpBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) =>
+          b.textContent?.includes('View IPs') ||
+          b.textContent?.includes('Filter in IP Allocations'),
       ) as HTMLElement | undefined;
       expect(filterIpBtn).toBeTruthy();
 
@@ -740,7 +675,6 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
               createElement(SubnetManagementTab, {
                 subnets: mockSubnets,
                 vlans: mockVlans,
-                locations: mockLocations,
                 loading: false,
                 onOpenCreateModal: vi.fn(),
                 onOpenEditModal: vi.fn(),
@@ -804,7 +738,6 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
               createElement(SubnetManagementTab, {
                 subnets: [],
                 vlans: mockVlans,
-                locations: mockLocations,
                 loading: false,
                 onOpenCreateModal: vi.fn(),
                 onOpenEditModal: vi.fn(),

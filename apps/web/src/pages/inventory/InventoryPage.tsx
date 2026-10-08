@@ -6,7 +6,6 @@ import {
   DeleteOutlined,
   DollarOutlined,
   EditOutlined,
-  EnvironmentOutlined,
   FilterOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -31,13 +30,13 @@ import {
   Table,
   Tag,
   Tooltip,
-  TreeSelect,
   Typography,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import { formatErrorMessage } from '../../utils/feedback';
+import { formRules, isValidationError } from '../../utils/formValidators';
 import {
   type InventoryCategory,
   type InventoryItem,
@@ -45,54 +44,10 @@ import {
   inventoryService,
 } from '../../services/inventory.service';
 import {
-  type LocationBranch,
-  type LocationTreeNode,
   type Organization,
   organizationService,
 } from '../../services/organization.service';
 import { type Vendor, vendorService } from '../../services/vendor.service';
-
-export interface FormattedLocationOption {
-  key: string;
-  value: string;
-  title: string;
-  label: string;
-  children?: FormattedLocationOption[];
-}
-
-export function formatLocationTreeForSelect(
-  nodes: Array<LocationTreeNode | LocationBranch>,
-  parentPath = '',
-): FormattedLocationOption[] {
-  return nodes.map((node) => {
-    const isTree = 'fullPath' in node || 'children' in node;
-    const treeNode = node as LocationTreeNode;
-    const branch = node as LocationBranch;
-
-    const nodeTitle = node.name || (treeNode.title as string) || '';
-    const fullPath =
-      isTree && treeNode.fullPath
-        ? treeNode.fullPath
-        : parentPath
-          ? `${parentPath} > ${nodeTitle}`
-          : branch.building
-            ? `${nodeTitle} (${branch.building}${branch.floor ? ` - ${branch.floor}` : ''})`
-            : nodeTitle;
-
-    const formattedChildren =
-      treeNode.children && treeNode.children.length > 0
-        ? formatLocationTreeForSelect(treeNode.children, fullPath)
-        : undefined;
-
-    return {
-      key: node.id,
-      value: node.id,
-      title: nodeTitle,
-      label: fullPath,
-      children: formattedChildren,
-    };
-  });
-}
 
 const { Text } = Typography;
 
@@ -147,7 +102,6 @@ export default function InventoryPage() {
   const { message } = App.useApp();
   const [items, setItems] = useState<Array<InventoryItem>>([]);
   const [categories, setCategories] = useState<Array<InventoryCategory>>([]);
-  const [locations, setLocations] = useState<Array<LocationBranch | LocationTreeNode>>([]);
   const [organizations, setOrganizations] = useState<Array<Organization>>([]);
   const [vendors, setVendors] = useState<Array<Vendor>>([]);
   const [stats, setStats] = useState<InventoryStats>({
@@ -162,7 +116,6 @@ export default function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [stockFilter, setStockFilter] = useState<string>('all');
   const [orgFilter, setOrgFilter] = useState<string>('all');
-  const [locationFilter, setLocationFilter] = useState<string | undefined>(undefined);
 
   const orgOptions = useMemo(
     () => organizations.map((o) => ({ label: o.name, value: o.id })),
@@ -183,28 +136,16 @@ export default function InventoryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const locPromise = organizationService.getLocationTree
-        ? organizationService
-            .getLocationTree(orgFilter !== 'all' ? orgFilter : undefined)
-            .catch(async () =>
-              organizationService.getLocations ? organizationService.getLocations() : [],
-            )
-        : organizationService.getLocations
-          ? organizationService.getLocations()
-          : Promise.resolve([]);
-
-      const [itemsResult, statsResult, catsResult, locsResult, vendsResult, orgsResult] =
+      const [itemsResult, statsResult, catsResult, vendsResult, orgsResult] =
         await Promise.allSettled([
           inventoryService.getItems({
             search: searchQuery || undefined,
             category: categoryFilter !== 'all' ? categoryFilter : undefined,
             stockStatus: stockFilter !== 'all' ? stockFilter : undefined,
             organizationId: orgFilter !== 'all' ? orgFilter : undefined,
-            locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
           }),
           inventoryService.getStats(),
           inventoryService.getCategories(),
-          locPromise,
           vendorService.getVendors(),
           organizationService.getOrganizations(),
         ]);
@@ -219,12 +160,6 @@ export default function InventoryPage() {
         setCategories(catsResult.value);
       } else {
         message.warning('Failed to load inventory categories.');
-      }
-
-      if (locsResult.status === 'fulfilled') {
-        setLocations(locsResult.value);
-      } else {
-        message.warning('Failed to load inventory storage locations.');
       }
 
       if (vendsResult.status === 'fulfilled') {
@@ -249,7 +184,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, locationFilter, message, orgFilter, searchQuery, stockFilter]);
+  }, [categoryFilter, message, orgFilter, searchQuery, stockFilter]);
 
   const [searchParams] = useSearchParams();
   const deepLinkSku = searchParams.get('sku') || searchParams.get('id');
@@ -267,22 +202,6 @@ export default function InventoryPage() {
       })),
     [categories],
   );
-
-  const locationTreeData = useMemo(() => formatLocationTreeForSelect(locations), [locations]);
-
-  const locationPathMap = useMemo(() => {
-    const map = new Map<string, { title: string; fullPath: string }>();
-    function traverse(nodes: FormattedLocationOption[]) {
-      for (const node of nodes) {
-        map.set(node.value, { title: node.title, fullPath: node.label });
-        if (node.children && node.children.length > 0) {
-          traverse(node.children);
-        }
-      }
-    }
-    traverse(locationTreeData);
-    return map;
-  }, [locationTreeData]);
 
   const vendorOptions = useMemo(
     () =>
@@ -302,7 +221,6 @@ export default function InventoryPage() {
       quantity: 10,
       minThreshold: 5,
       unitCost: 15,
-      locationId: locations[0]?.id,
       vendorId: vendors[0]?.id,
     });
     setModalOpen(true);
@@ -317,11 +235,6 @@ export default function InventoryPage() {
         categoryId:
           item.categoryId ||
           (item.category && typeof item.category === 'object' ? item.category.id : undefined),
-        locationId:
-          item.locationId ||
-          (item.location && typeof item.location === 'object'
-            ? (item.location as { id: string }).id
-            : undefined),
         vendorId:
           item.vendorId ||
           (item.vendor && typeof item.vendor === 'object' ? item.vendor.id : undefined),
@@ -374,7 +287,6 @@ export default function InventoryPage() {
         quantity: Number(values.quantity),
         minThreshold: Number(values.minThreshold),
         unitCost: Number(values.unitCost || 0),
-        locationId: values.locationId,
         vendorId: values.vendorId,
         supplier: supplierName,
         notes: values.notes,
@@ -391,6 +303,7 @@ export default function InventoryPage() {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
+      if (isValidationError(err)) return;
       message.error(formatErrorMessage(err, 'save inventory item'));
     } finally {
       setModalSubmitting(false);
@@ -475,54 +388,26 @@ export default function InventoryPage() {
       },
     },
     {
-      title: 'Location & Bin',
-      key: 'locationBin',
+      title: 'Storage Bin',
+      key: 'binNumber',
       render: (_: unknown, record: InventoryItem) => {
-        const loc =
-          record.location && typeof record.location === 'object'
-            ? (record.location as {
-                id?: string;
-                name: string;
-                fullPath?: string;
-                organization?: { name: string };
-              })
-            : null;
-        const matched = record.locationId ? locationPathMap.get(record.locationId) : undefined;
-        const locName =
-          loc?.name ||
-          matched?.title ||
-          (typeof record.location === 'string' ? record.location : record.locationName);
-        const locFullPath = loc?.fullPath || record.locationPath || matched?.fullPath || locName;
-        const orgName = loc?.organization?.name || record.organization;
-
         return (
           <Flex vertical gap={2}>
-            {orgName && (
+            {record.organization && (
               <Tag
                 color="purple"
                 icon={<BankOutlined />}
                 style={{ fontSize: 10.5, width: 'fit-content' }}
               >
-                {orgName}
+                {record.organization}
               </Tag>
             )}
-            {locName ? (
-              <Tooltip title={locFullPath || locName}>
-                <Tag
-                  icon={<EnvironmentOutlined />}
-                  color="geekblue"
-                  style={{ width: 'fit-content' }}
-                >
-                  {locName}
-                </Tag>
-              </Tooltip>
-            ) : (
-              !orgName && <Text type="secondary">—</Text>
-            )}
-            {record.binNumber && record.binNumber !== 'Unassigned' && (
-              <Text code style={{ fontSize: 11 }}>
+            {record.binNumber && record.binNumber !== 'Unassigned' ? (
+              <Tag color="cyan" style={{ fontSize: 11, width: 'fit-content' }}>
                 {record.binNumber}
-              </Text>
+              </Tag>
+            ) : (
+              !record.organization && <Text type="secondary">—</Text>
             )}
           </Flex>
         );
@@ -659,19 +544,6 @@ export default function InventoryPage() {
                 options={[{ label: 'All Organizations', value: 'all' }, ...orgOptions]}
               />
 
-              <TreeSelect
-                value={locationFilter}
-                onChange={(val) => setLocationFilter(val)}
-                style={{ width: 190 }}
-                placeholder="Location / Warehouse"
-                allowClear
-                showSearch
-                treeNodeFilterProp="title"
-                treeNodeLabelProp="label"
-                treeData={locationTreeData}
-                treeDefaultExpandAll={false}
-              />
-
               <Select
                 value={categoryFilter}
                 onChange={setCategoryFilter}
@@ -696,15 +568,13 @@ export default function InventoryPage() {
               {(searchQuery ||
                 categoryFilter !== 'all' ||
                 stockFilter !== 'all' ||
-                orgFilter !== 'all' ||
-                Boolean(locationFilter)) && (
+                orgFilter !== 'all') && (
                 <Button
                   onClick={() => {
                     setSearchQuery('');
                     setCategoryFilter('all');
                     setStockFilter('all');
                     setOrgFilter('all');
-                    setLocationFilter(undefined);
                   }}
                 >
                   Reset
@@ -743,13 +613,22 @@ export default function InventoryPage() {
         okText={editingItem ? 'Save Changes' : 'Create Item'}
         styles={{ body: { paddingTop: 16 } }}
       >
-        <Form form={form} layout="vertical">
+        <Form
+          form={form}
+          layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
+        >
           <Row gutter={14}>
             <Col span={10}>
               <Form.Item
                 label="SKU"
                 name="sku"
-                rules={[{ required: true, message: 'SKU is required' }]}
+                rules={[
+                  formRules.required('SKU'),
+                  formRules.stringRange('SKU', 1, 50),
+                  formRules.sku('SKU'),
+                ]}
               >
                 <Input placeholder="e.g. CAB-CAT6-2M" />
               </Form.Item>
@@ -758,7 +637,10 @@ export default function InventoryPage() {
               <Form.Item
                 label="Item Name"
                 name="name"
-                rules={[{ required: true, message: 'Item name is required' }]}
+                rules={[
+                  formRules.required('Item name'),
+                  formRules.stringRange('Item name', 2, 200),
+                ]}
               >
                 <Input placeholder="e.g. Cat6 Snagless RJ45 Patch Cable" />
               </Form.Item>
@@ -770,7 +652,7 @@ export default function InventoryPage() {
               <Form.Item
                 label="Category"
                 name="categoryId"
-                rules={[{ required: true, message: 'Category is required' }]}
+                rules={[formRules.required('Category is required')]}
               >
                 <Select
                   placeholder="Select category"
@@ -787,7 +669,7 @@ export default function InventoryPage() {
               <Form.Item
                 label="Supplier / Vendor"
                 name="vendorId"
-                rules={[{ required: true, message: 'Vendor is required' }]}
+                rules={[formRules.required('Vendor is required')]}
               >
                 <Select
                   placeholder="Select approved vendor"
@@ -804,17 +686,38 @@ export default function InventoryPage() {
 
           <Row gutter={14}>
             <Col span={8}>
-              <Form.Item label="Quantity" name="quantity" rules={[{ required: true }]}>
+              <Form.Item
+                label="Quantity"
+                name="quantity"
+                rules={[
+                  formRules.required('Quantity is required'),
+                  formRules.integer(0, 1000000, 'Quantity must be a non-negative integer'),
+                ]}
+              >
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Minimum Threshold" name="minThreshold" rules={[{ required: true }]}>
+              <Form.Item
+                label="Minimum Threshold"
+                name="minThreshold"
+                rules={[
+                  formRules.required('Minimum threshold is required'),
+                  formRules.integer(0, 100000, 'Minimum threshold must be a non-negative integer'),
+                ]}
+              >
                 <InputNumber min={1} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Unit Cost ($)" name="unitCost" rules={[{ required: true }]}>
+              <Form.Item
+                label="Unit Cost ($)"
+                name="unitCost"
+                rules={[
+                  formRules.required('Unit cost is required'),
+                  formRules.currency('Unit cost', 100000000, 'Unit cost must be a non-negative number'),
+                ]}
+              >
                 <InputNumber prefix="$" min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -822,17 +725,8 @@ export default function InventoryPage() {
 
           <Row gutter={14}>
             <Col span={24}>
-              <Form.Item label="Storage Location" name="locationId">
-                <TreeSelect
-                  showSearch
-                  allowClear
-                  treeDefaultExpandAll={false}
-                  placeholder="Select warehouse / workshop / rack / bin"
-                  treeNodeFilterProp="title"
-                  treeNodeLabelProp="label"
-                  treeData={locationTreeData}
-                  style={{ width: '100%' }}
-                />
+              <Form.Item label="Storage Bin" name="binNumber">
+                <Input placeholder="e.g. BIN-A1-04" />
               </Form.Item>
             </Col>
           </Row>
@@ -858,13 +752,10 @@ export default function InventoryPage() {
         >
           <div style={{ padding: '8px 0' }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              Current stock: <b>{restockItem.quantity} units</b> (
-              {typeof restockItem.location === 'object' && restockItem.location !== null
-                ? restockItem.location.name
-                : typeof restockItem.location === 'string'
-                  ? restockItem.location
-                  : 'Unassigned'}
-              )
+              Current stock: <b>{restockItem.quantity} units</b>
+              {restockItem.binNumber && restockItem.binNumber !== 'Unassigned'
+                ? ` (Bin: ${restockItem.binNumber})`
+                : ''}
             </Text>
             <Divider style={{ margin: '12px 0' }} />
             <Text strong style={{ display: 'block', marginBottom: 6 }}>

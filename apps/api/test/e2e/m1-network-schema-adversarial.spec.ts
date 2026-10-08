@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, RackStatus, SwitchRole, SwitchStatus, LocationType } from '@prisma/client';
+import { PrismaClient, RackStatus, SwitchRole, SwitchStatus } from '@prisma/client';
 
 dotenv.config({ path: '.env' });
 dotenv.config({ path: '../../.env' });
@@ -10,7 +10,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
   let prisma: PrismaClient;
   let isDbAvailable = false;
 
-  const testLocationId = 'loc-challenger-m1-test';
   const testVlanNumber = 3987;
   let testVlanId = '';
   const testAssetId = 'asset-challenger-m1-test';
@@ -32,18 +31,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
 
       // Clean up any residual test records from previous runs
       await cleanupTestData();
-
-      // Create prerequisites for FK tests
-      const loc = await prisma.location.upsert({
-        where: { id: testLocationId },
-        update: {},
-        create: {
-          id: testLocationId,
-          name: 'Challenger Server Room',
-          code: 'LOC-CHALLENGER-SR',
-          type: LocationType.ROOM,
-        },
-      });
 
       const vlan = await prisma.vLAN.upsert({
         where: { vlanNumber: testVlanNumber },
@@ -71,7 +58,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
       await prisma.asset.upsert({
         where: { id: testAssetId },
         update: {
-          locationId: loc.id,
           departmentId: sampleDept?.id,
         },
         create: {
@@ -79,7 +65,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
           assetTag: 'TAG-CHALLENGER-01',
           name: 'Challenger Switch Asset',
           categoryId: category.id,
-          locationId: loc.id,
           departmentId: sampleDept?.id,
         },
       });
@@ -87,7 +72,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
       await prisma.asset.upsert({
         where: { id: testAsset2Id },
         update: {
-          locationId: loc.id,
           departmentId: sampleDept?.id,
         },
         create: {
@@ -95,7 +79,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
           assetTag: 'TAG-CHALLENGER-02',
           name: 'Challenger Server Endpoint',
           categoryId: category.id,
-          locationId: loc.id,
           departmentId: sampleDept?.id,
         },
       });
@@ -133,9 +116,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
       await prisma.vLAN.deleteMany({
         where: { name: { startsWith: 'Temp Cascade' } },
       });
-      await prisma.location.deleteMany({
-        where: { code: { startsWith: 'LOC-TEMP-CASCADE' } },
-      });
     } catch {
       // Ignore during setup
     }
@@ -150,7 +130,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
           await prisma.vLAN.deleteMany({ where: { id: testVlanId } });
         }
         await prisma.asset.deleteMany({ where: { id: { in: [testAssetId, testAsset2Id] } } });
-        await prisma.location.deleteMany({ where: { id: testLocationId } });
         await prisma.$disconnect();
       } catch {
         // Ignore during teardown
@@ -277,10 +256,10 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
   // 2. FOREIGN KEY REFERENTIAL INTEGRITY
   // =========================================================================
   describe('2. Foreign Key Referential Integrity', () => {
-    it('2.1 should reject NetworkRack with non-existent locationId', async () => {
+    it.skip('2.1 should reject NetworkRack with non-existent locationId (Purged per user directive)', async () => {
       let threw = false;
       try {
-        await prisma.networkRack.create({
+        await (prisma.networkRack as unknown as { create: (args: unknown) => Promise<unknown> }).create({
           data: {
             name: 'TEST-CHALLENGER-RACK-BAD-LOC',
             code: 'RACK-CHALLENGER-BAD-LOC',
@@ -295,7 +274,7 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
       expect(threw, 'FK violation on invalid locationId must be rejected').toBe(true);
     });
 
-    it('2.2 should reject NetworkSwitch with non-existent rackId, assetId, or locationId', async () => {
+    it('2.2 should reject NetworkSwitch with non-existent rackId or assetId', async () => {
       let threw = false;
       try {
         await prisma.networkSwitch.create({
@@ -473,41 +452,8 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
       ).toBeNull();
     });
 
-    it('3.4 should SET NULL on locationId when Location is deleted', async () => {
-      const dynamicLocCode = `LOC-TEMP-CASCADE-${Math.floor(Math.random() * 10000)}`;
-      const tempLoc = await prisma.location.create({
-        data: {
-          name: 'Temp Cascade Location',
-          code: dynamicLocCode,
-          type: LocationType.ROOM,
-        },
-      });
-
-      const rack = await prisma.networkRack.create({
-        data: {
-          name: 'TEST-CHALLENGER-RACK-LOC',
-          code: `RACK-CHALLENGER-LOC-${Math.floor(Math.random() * 10000)}`,
-          locationId: tempLoc.id,
-        },
-      });
-
-      const sw = await prisma.networkSwitch.create({
-        data: {
-          name: 'TEST-CHALLENGER-SW-LOC',
-          model: 'C9300',
-          vendor: 'Cisco',
-          locationId: tempLoc.id,
-        },
-      });
-
-      // Delete Location
-      await prisma.location.delete({ where: { id: tempLoc.id } });
-
-      const rackAfter = await prisma.networkRack.findUnique({ where: { id: rack.id } });
-      const swAfter = await prisma.networkSwitch.findUnique({ where: { id: sw.id } });
-
-      expect(rackAfter?.locationId).toBeNull();
-      expect(swAfter?.locationId).toBeNull();
+    it.skip('3.4 should SET NULL on locationId when Location is deleted (Purged per user directive)', async () => {
+      // Skipped: model Location was purged per user directive
     });
   });
 

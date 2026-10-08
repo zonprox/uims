@@ -1,3 +1,4 @@
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { AccountStatus } from '@prisma/client';
 import { DirectoryService } from './directory.service';
@@ -45,13 +46,16 @@ interface MockPrismaClient {
   };
   directoryGroup: {
     findFirst: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
   };
   directoryMembership: {
     upsert: ReturnType<typeof vi.fn>;
+    deleteMany: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
   };
   asset: {
@@ -60,10 +64,6 @@ interface MockPrismaClient {
     create: ReturnType<typeof vi.fn>;
   };
   assetCategory: {
-    findFirst: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-  };
-  location: {
     findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
@@ -101,13 +101,16 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
       },
       directoryGroup: {
         findFirst: vi.fn(),
+        findUnique: vi.fn(),
         findMany: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        delete: vi.fn(),
         count: vi.fn(),
       },
       directoryMembership: {
         upsert: vi.fn().mockResolvedValue({}),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
         count: vi.fn().mockResolvedValue(1),
       },
       asset: {
@@ -116,10 +119,6 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
         create: vi.fn(),
       },
       assetCategory: {
-        findFirst: vi.fn(),
-        create: vi.fn(),
-      },
-      location: {
         findFirst: vi.fn(),
         create: vi.fn(),
       },
@@ -557,61 +556,9 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
   });
 
   // =========================================================================
-  // SUITE 3: DirectoryService.getOrganizationalUnits & syncDomain Boundary
+  // SUITE 3: DirectoryService.syncDomain & Group Mutation Boundary Testing
   // =========================================================================
-  describe('Suite 3: DirectoryService.getOrganizationalUnits & syncDomain Boundary Testing', () => {
-    it('Oracle: getOrganizationalUnits must return all 6 canonical OUs with zero metrics when database is empty', async () => {
-      mockPrisma.directoryUser.findMany.mockResolvedValue([]);
-      mockPrisma.directoryGroup.findMany.mockResolvedValue([]);
-
-      const ous = await directoryService.getOrganizationalUnits();
-
-      expect(ous).toHaveLength(6);
-      const canonicalIds = [
-        'ou-corporate',
-        'ou-it',
-        'ou-engineering',
-        'ou-production',
-        'ou-operations',
-        'ou-sales',
-      ];
-      expect(ous.map((ou) => ou.id)).toEqual(canonicalIds);
-
-      for (const ou of ous) {
-        expect(ou.userCount).toBe(0);
-        expect(ou.workstationCount).toBe(0);
-        expect(ou.groupCount).toBe(0);
-        expect(ou.dn).toContain('DC=uims,DC=internal');
-      }
-    });
-
-    it('Oracle: getOrganizationalUnits must filter safely when ouPath or computerName is null', async () => {
-      mockPrisma.directoryUser.findMany.mockResolvedValue([
-        { ouPath: null, computerName: null },
-        { ouPath: 'OU=IT,DC=uims,DC=internal', computerName: null },
-        { ouPath: 'OU=IT,DC=uims,DC=internal', computerName: 'IT-DESK-01' },
-        { ouPath: 'OU=Engineering,DC=uims,DC=internal', computerName: 'ENG-LAP-02' },
-      ]);
-      mockPrisma.directoryGroup.findMany.mockResolvedValue([
-        { ouPath: null },
-        { ouPath: 'OU=IT,DC=uims,DC=internal' },
-      ]);
-
-      const ous = await directoryService.getOrganizationalUnits();
-
-      const itOU = ous.find((ou) => ou.id === 'ou-it');
-      expect(itOU).toBeDefined();
-      expect(itOU?.userCount).toBe(2);
-      expect(itOU?.workstationCount).toBe(1); // Only 1 has non-null computerName
-      expect(itOU?.groupCount).toBe(1);
-
-      const engOU = ous.find((ou) => ou.id === 'ou-engineering');
-      expect(engOU).toBeDefined();
-      expect(engOU?.userCount).toBe(1);
-      expect(engOU?.workstationCount).toBe(1);
-      expect(engOU?.groupCount).toBe(0);
-    });
-
+  describe('Suite 3: DirectoryService.syncDomain & Group Mutation Boundary Testing', () => {
     it('Oracle: syncDomain telemetry must return authentic replication counters and valid latency/timestamp', async () => {
       mockPrisma.directoryUser.count
         .mockResolvedValueOnce(312) // totalUsers
@@ -652,6 +599,144 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
       expect(syncResult.replicatedObjects).toBe(0);
       expect(syncResult.activeIdentities).toBe(0);
       expect(syncResult.status).toBe('SYNCHRONIZED');
+    });
+
+    it('Oracle: updateGroup must reject duplicate group names with ConflictException', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Original',
+      });
+      mockPrisma.directoryGroup.findFirst.mockResolvedValue({
+        id: 'grp-2',
+        name: 'SEC-Duplicate',
+      });
+
+      await expect(
+        directoryService.updateGroup('grp-1', { name: 'SEC-Duplicate' }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('Oracle: updateGroup must throw NotFoundException for non-existent group ID', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue(null);
+
+      await expect(
+        directoryService.updateGroup('grp-ghost', { name: 'SEC-Ghost' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('Oracle: updateGroup must sanitize whitespace on group name update and succeed', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Old',
+      });
+      mockPrisma.directoryGroup.findFirst.mockResolvedValue(null);
+      mockPrisma.directoryGroup.update.mockResolvedValue({
+        id: 'grp-1',
+        name: 'SEC-Trimmed',
+        _count: { memberships: 0 },
+      });
+
+      const updated = await directoryService.updateGroup('grp-1', {
+        name: '   SEC-Trimmed   ',
+      });
+
+      expect(mockPrisma.directoryGroup.findFirst).toHaveBeenCalledWith({
+        where: {
+          name: 'SEC-Trimmed',
+          NOT: { id: 'grp-1' },
+        },
+      });
+      expect(updated.name).toBe('SEC-Trimmed');
+    });
+
+    it('Oracle: removeGroup must cleanly execute transactional membership deletion before deleting group', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-delete-1',
+        name: 'SEC-DeleteMe',
+      });
+      mockPrisma.directoryGroup.delete.mockResolvedValue({
+        id: 'grp-delete-1',
+        name: 'SEC-DeleteMe',
+      });
+
+      const deleted = await directoryService.removeGroup('grp-delete-1');
+
+      expect(deleted.id).toBe('grp-delete-1');
+      expect(mockPrisma.directoryMembership.deleteMany).toHaveBeenCalledWith({
+        where: { groupId: 'grp-delete-1' },
+      });
+      expect(mockPrisma.directoryGroup.delete).toHaveBeenCalledWith({
+        where: { id: 'grp-delete-1' },
+      });
+    });
+
+    it('Oracle: removeGroup must throw NotFoundException for non-existent group ID', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue(null);
+
+      await expect(directoryService.removeGroup('grp-ghost')).rejects.toThrow(NotFoundException);
+    });
+
+    it('Oracle: updateGroup must allow updating group with its own existing name without ConflictException', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-self-1',
+        name: 'SEC-Unchanged',
+      });
+      // findFirst with NOT: { id: 'grp-self-1' } returns null because no OTHER group has this name
+      mockPrisma.directoryGroup.findFirst.mockResolvedValue(null);
+      mockPrisma.directoryGroup.update.mockResolvedValue({
+        id: 'grp-self-1',
+        name: 'SEC-Unchanged',
+        description: 'New Description Only',
+        _count: { memberships: 5 },
+      });
+
+      const result = await directoryService.updateGroup('grp-self-1', {
+        name: 'SEC-Unchanged',
+        description: 'New Description Only',
+      });
+
+      expect(result.id).toBe('grp-self-1');
+      expect(result.description).toBe('New Description Only');
+      expect(mockPrisma.directoryGroup.findFirst).toHaveBeenCalledWith({
+        where: {
+          name: 'SEC-Unchanged',
+          NOT: { id: 'grp-self-1' },
+        },
+      });
+    });
+
+    it('Oracle: updateGroup without name field must skip duplicate collision check', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-desc-only',
+        name: 'SEC-Static',
+      });
+      mockPrisma.directoryGroup.update.mockResolvedValue({
+        id: 'grp-desc-only',
+        name: 'SEC-Static',
+        description: 'Updated description only',
+        _count: { memberships: 2 },
+      });
+
+      const result = await directoryService.updateGroup('grp-desc-only', {
+        description: 'Updated description only',
+      });
+
+      expect(result.description).toBe('Updated description only');
+      expect(mockPrisma.directoryGroup.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('Oracle: removeGroup must propagate error and rollback if cascade deletion fails in transaction', async () => {
+      mockPrisma.directoryGroup.findUnique.mockResolvedValue({
+        id: 'grp-cascade-fail',
+        name: 'SEC-Fail',
+      });
+      mockPrisma.directoryMembership.deleteMany.mockRejectedValueOnce(
+        new Error('Transaction deadlock error'),
+      );
+
+      await expect(
+        directoryService.removeGroup('grp-cascade-fail'),
+      ).rejects.toThrow('Transaction deadlock error');
     });
   });
 
@@ -698,11 +783,9 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
         purchaseDate: new Date('2026-01-15'),
         warrantyExpiry: new Date('2029-01-15'),
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         assignedToId: 'dir-custodian-1',
         notes: 'Assigned to team lead',
         category: { id: 'cat-1', name: 'Laptops' },
-        location: { id: 'loc-1', name: 'HQ Floor 4' },
         assignedTo: mockDirectoryUser,
       });
 
@@ -738,7 +821,6 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
         name: 'Dell UltraSharp 32',
         status: 'AVAILABLE',
         category: { name: 'Monitors' },
-        location: { name: 'IT Storage' },
         assignedTo: null,
       });
 

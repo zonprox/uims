@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsUUID } from 'class-validator';
 
 export class SyncPermissionsDto {
   @ApiProperty({
@@ -8,7 +8,7 @@ export class SyncPermissionsDto {
     example: ['123e4567-e89b-12d3-a456-426614174000'],
   })
   @IsArray()
-  @IsString({ each: true })
+  @IsUUID('4', { each: true, message: 'Each permission ID must be a valid UUID v4' })
   @IsNotEmpty()
   permissionIds!: string[];
 }

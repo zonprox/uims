@@ -73,6 +73,29 @@ export const licensesService = {
     const res = await api.delete(`/licenses/${licenseId}/assign/${assignmentId}`);
     return res.data.data;
   },
+  batchAssignUsers: async (
+    licenseId: string,
+    payload: { userIds: string[] },
+  ): Promise<{
+    count: number;
+    assignedUserIds: string[];
+    skippedUserIds?: string[];
+    license?: License;
+  }> => {
+    const res = await api.post(`/licenses/${licenseId}/batch-assign`, payload);
+    return res.data?.data ?? res.data;
+  },
+  batchAssignLicensesToUser: async (payload: {
+    licenseIds: string[];
+    userId: string;
+  }): Promise<{
+    count: number;
+    assignedLicenseIds: string[];
+    skippedLicenseIds?: string[];
+  }> => {
+    const res = await api.post('/licenses/batch-assign', payload);
+    return res.data?.data ?? res.data;
+  },
   getStats: async (): Promise<LicenseStats> => {
     const res = await api.get('/licenses/stats');
     return res.data.data;

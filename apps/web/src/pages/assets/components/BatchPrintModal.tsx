@@ -28,9 +28,7 @@ export const BatchPrintModal: React.FC<BatchPrintModalProps> = React.memo(
         className="batch-print-modal"
         title={
           <Flex align="center" justify="space-between" style={{ paddingRight: 24 }}>
-            <span>
-              Batch Print QR Labels ({assets.length} Selected)
-            </span>
+            <span>Batch Print QR Labels ({assets.length} Selected)</span>
           </Flex>
         }
         open={open}

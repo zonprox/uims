@@ -2,21 +2,21 @@ import { ClearOutlined, SaveOutlined, ThunderboltOutlined } from '@ant-design/ic
 import {
   App,
   Button,
+  type ButtonProps,
   Col,
   Divider,
-  Drawer,
   Flex,
   Form,
   Input,
   Radio,
   Row,
   Select,
-  Space,
   Switch,
   Tag,
   Typography,
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import type { Asset } from '../../../services/assets.service';
 import type {
   IPAddress,
@@ -29,9 +29,10 @@ import type {
 } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
 import { formatErrorMessage } from '../../../utils/feedback';
+import { isValidationError } from '../../../utils/formValidators';
 import { getPortStatusInfo } from './SwitchPortFaceplate';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 
 export interface PortConfigDrawerProps {
@@ -119,6 +120,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
         onPortUpdated?.(updated);
         onClose();
       } catch (err: unknown) {
+        if (isValidationError(err)) return;
         message.error(formatErrorMessage(err, `update port ${port.name}`));
       } finally {
         setSubmitting(false);
@@ -148,59 +150,45 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
     };
 
     return (
-      <Drawer
-        title={
-          <Flex align="center" justify="space-between" style={{ width: '100%', paddingRight: 24 }}>
-            <Flex align="center" gap={8}>
-              <Title level={5} style={{ margin: 0 }}>
-                Configure Port: {port?.name || '—'}
-              </Title>
-              <Tag
-                color={
-                  statusInfo.status === 'ACTIVE'
-                    ? 'success'
-                    : statusInfo.status === 'CONNECTED_NO_SIGNAL'
-                      ? 'warning'
-                      : statusInfo.status === 'RESERVED'
-                        ? 'blue'
-                        : 'default'
-                }
-              >
-                {statusInfo.label}
-              </Tag>
-            </Flex>
-            {switchEntity && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {switchEntity.name} ({switchEntity.model})
-              </Text>
-            )}
-          </Flex>
+      <AppDrawer
+        title={`Configure Port: ${port?.name || '—'}`}
+        subtitle={switchEntity ? `${switchEntity.name} (${switchEntity.model})` : undefined}
+        tag={
+          <Tag
+            color={
+              statusInfo.status === 'ACTIVE'
+                ? 'success'
+                : statusInfo.status === 'CONNECTED_NO_SIGNAL'
+                  ? 'warning'
+                  : statusInfo.status === 'RESERVED'
+                    ? 'blue'
+                    : 'default'
+            }
+          >
+            {statusInfo.label}
+          </Tag>
         }
         open={open}
         onClose={onClose}
         size={560}
-        destroyOnHidden
-        styles={{ body: { padding: '20px 24px' } }}
-        extra={
-          <Space>
-            <Button onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              onClick={handleSave}
-              loading={submitting}
-              data-testid="save-port-config-button"
-            >
-              Save Configuration
-            </Button>
-          </Space>
+        onCancel={onClose}
+        cancelText="Cancel"
+        cancelProps={{ disabled: submitting }}
+        onOk={handleSave}
+        okText="Save"
+        okLoading={submitting}
+        okProps={
+          {
+            icon: <SaveOutlined />,
+            'data-testid': 'save-port-config-button',
+          } as ButtonProps
         }
       >
         <Form
           form={form}
           layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
           initialValues={{
             adminStatus: true,
             operStatus: 'ACTIVE',
@@ -501,7 +489,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
             </Text>
           </Flex>
         </Form>
-      </Drawer>
+      </AppDrawer>
     );
   },
 );

@@ -29,6 +29,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';
 import { type ReportStats, type ReportSuite, reportsService } from '../../services/reports.service';
+import { isValidationError } from '../../utils/formValidators';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -92,6 +93,7 @@ export default function ReportsPage() {
       setScheduleModalOpen(false);
       loadData();
     } catch (_err: unknown) {
+      if (isValidationError(_err)) return;
       message.error('Failed to save report schedule.');
     } finally {
       setScheduling(false);
@@ -256,6 +258,8 @@ export default function ReportsPage() {
         <Form
           form={form}
           layout="vertical"
+          validateTrigger={['onChange', 'onBlur']}
+          scrollToFirstError={true}
           initialValues={{
             frequency: 'Weekly (Mondays 08:00 UTC)',
             format: 'PDF + Excel summary',

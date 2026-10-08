@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -18,17 +19,14 @@ export class CreateRackDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   name!: string;
 
   @ApiProperty({ description: 'Unique rack code', example: 'RACK-DC-01' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(50)
   code!: string;
-
-  @ApiPropertyOptional({ description: 'Associated Location/Room UUID' })
-  @IsOptional()
-  @IsString()
-  locationId?: string | null;
 
   @ApiPropertyOptional({
     description: 'Total rack unit height (1..100 RU, standard 12, 24, 42, 48, 52)',
@@ -68,5 +66,6 @@ export class CreateRackDto {
   @ApiPropertyOptional({ description: 'Operational notes' })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   notes?: string | null;
 }

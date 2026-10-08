@@ -1,8 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { InventoryQueryDto } from '@uims/shared-types';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
+import { InventoryQueryDto } from './dto/inventory-query.dto';
 import { RestockInventoryDto } from './dto/restock-inventory.dto';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto';
 import { InventoryService } from './inventory.service';

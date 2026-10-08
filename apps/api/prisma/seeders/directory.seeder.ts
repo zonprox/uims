@@ -21,7 +21,6 @@ export async function seedDirectory(
       let orgMap = ctx?.organizations;
       let deptMap = ctx?.departments;
       let posMap = ctx?.positions;
-      let locMap = ctx?.locations;
 
       if (
         !orgMap ||
@@ -29,31 +28,21 @@ export async function seedDirectory(
         !deptMap ||
         deptMap.size === 0 ||
         !posMap ||
-        posMap.size === 0 ||
-        !locMap ||
-        locMap.size === 0
+        posMap.size === 0
       ) {
-        const [organizations, departments, positions, locations] = await Promise.all([
-          prisma.organization.findMany({ take: 50 }),
-          prisma.department.findMany({ take: 200 }),
-          prisma.position.findMany({ take: 100 }),
-          prisma.location.findMany({ take: 500 }),
+        const [organizations, departments, positions] = await Promise.all([
+          prisma.organization.findMany({ take: 50, select: { id: true, code: true, name: true } }),
+          prisma.department.findMany({ take: 200, select: { id: true, code: true, name: true } }),
+          prisma.position.findMany({ take: 100, select: { id: true, code: true, title: true } }),
         ]);
 
         orgMap = buildLookupMap(organizations, [(o) => o.code, (o) => o.name]);
         deptMap = buildLookupMap(departments, [(d) => d.code, (d) => d.name]);
         posMap = buildLookupMap(positions, [(p) => p.code, (p) => p.title]);
-        locMap = buildLookupMap(locations, [(l) => l.code || undefined, (l) => l.name]);
       }
 
       const defaultBslOrgId = orgMap.get('BSL') || 'org-bsl';
       const defaultBshOrgId = orgMap.get('BSH') || 'org-bsh';
-      const defaultBshLocId = locMap.get('loc-bsh-d7') || locMap.get('HCM-D7') || 'loc-bsh-d7';
-      const defaultBslLocId =
-        locMap.get('loc-bsl-bc') ||
-        locMap.get('BSL-BC') ||
-        locMap.get('loc-bsl-st') ||
-        'loc-bsl-st';
 
       // 1. Directory Groups Catalog
       const groupRows = [
@@ -82,7 +71,6 @@ export async function seedDirectory(
         lastName: string;
         displayName: string;
         phone?: string;
-        ouPath?: string;
         status: AccountStatus;
         source: DirectorySource;
         isBSL: boolean;
@@ -105,7 +93,6 @@ export async function seedDirectory(
             lastName: s.lastName,
             displayName: s.displayName,
             phone: s.phone,
-            ouPath: s.ouPath,
             status: s.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
             source: s.source === 'LOCAL' ? DirectorySource.LOCAL : DirectorySource.AZURE_AD,
             isBSL,
@@ -157,27 +144,6 @@ export async function seedDirectory(
             ? posMap.get('POS-BSL-GM') || posMap.get('POS-BSL-ADMIN-LEAD')
             : posMap.get('POS-BSH-MD') || posMap.get('POS-BSH-IT-ENG'));
 
-        let locationId =
-          (c.locKey ? locMap.get(c.locKey) : null) || (c.isBSL ? defaultBslLocId : defaultBshLocId);
-        if (
-          c.isBSL &&
-          (locationId === locMap.get('loc-bsl-st') || locationId === locMap.get('BSL-ST'))
-        ) {
-          const locOverrides: Record<string, string | undefined> = {
-            'DEPT-BSL-MGMT': locMap.get('loc-bsl-bc-exec'),
-            'DEPT-BSL-IT': locMap.get('loc-bsl-bc-datacenter'),
-            'DEPT-BSL-LOG': locMap.get('loc-bsl-wh'),
-            'DEPT-BSL-LOG-MAT': locMap.get('loc-bsl-wh'),
-            'DEPT-BSL-HR': locMap.get('loc-bsl-bc-admin'),
-            'DEPT-BSL-PROD': locMap.get('loc-bsl-f1'),
-            'DEPT-BSL-QA': locMap.get('loc-bsl-f1-qa'),
-          };
-          locationId =
-            (c.deptKey ? locOverrides[c.deptKey] : undefined) ||
-            locMap.get('loc-bsl-bc') ||
-            locationId;
-        }
-
         return tx.directoryUser.upsert({
           where: { email: c.email },
           update: {
@@ -188,11 +154,9 @@ export async function seedDirectory(
             status: c.status,
             source: c.source,
             phone: c.phone || null,
-            ouPath: c.ouPath || null,
             organizationId: organizationId || null,
             departmentId: departmentId || null,
             positionId: positionId || null,
-            locationId: locationId || null,
           },
           create: {
             employeeCode: c.employeeCode || null,
@@ -203,11 +167,9 @@ export async function seedDirectory(
             status: c.status,
             source: c.source,
             phone: c.phone || null,
-            ouPath: c.ouPath || null,
             organizationId: organizationId || null,
             departmentId: departmentId || null,
             positionId: positionId || null,
-            locationId: locationId || null,
           },
         });
       });

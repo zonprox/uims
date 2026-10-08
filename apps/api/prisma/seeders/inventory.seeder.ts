@@ -45,23 +45,6 @@ export async function seedInventory(
     '📦',
     'Hardware Stockroom Inventory',
     async (logger) => {
-      let getLoc = (id: string) => id;
-
-      if (ctx && ctx.locations.size > 0) {
-        getLoc = (id: string) => ctx.locations.get(id) || id;
-      } else {
-        const allLocations = await prisma.location.findMany({ take: 200 });
-        const locMap = new Map<string, string>();
-        for (const l of allLocations) {
-          locMap.set(l.id, l.id);
-          if (l.code) {
-            locMap.set(l.code, l.id);
-            locMap.set(l.code.toUpperCase(), l.id);
-          }
-        }
-        getLoc = (id: string) => locMap.get(id) || allLocations[0]?.id || id;
-      }
-
       const getCatId = (id: string) => ctx?.inventoryCategories.get(id) || id;
       const createdItems: Record<string, InventoryItem> = {};
 
@@ -70,7 +53,7 @@ export async function seedInventory(
           sku,
           name,
           categoryKey,
-          locRef,
+          _locRef,
           binNumber,
           qtyStr,
           threshStr,
@@ -80,7 +63,6 @@ export async function seedInventory(
         ] = row.split('|');
 
         const categoryId = getCatId(categoryKey);
-        const locationId = getLoc(locRef);
         const quantity = parseInt(qtyStr, 10);
         const minThreshold = parseInt(threshStr, 10);
         const unitCost = parseFloat(costStr);
@@ -90,7 +72,6 @@ export async function seedInventory(
           update: {
             name,
             categoryId,
-            locationId,
             binNumber,
             quantity,
             minThreshold,
@@ -102,7 +83,6 @@ export async function seedInventory(
             sku,
             name,
             categoryId,
-            locationId,
             binNumber,
             quantity,
             minThreshold,

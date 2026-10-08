@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NetworkRack, RackElevationData } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
-import type { LocationBranch } from '../../../services/organization.service';
 import { queryClient } from '../../../app/query-client';
+import { RackElevationDrawer } from './RackElevationDrawer';
 import { RackElevationView } from './RackElevationView';
 import { RackFormModal } from './RackFormModal';
 import { RackManagementTab } from './RackManagementTab';
@@ -35,13 +35,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
   let container: HTMLDivElement;
   let currentRoot: Root | null = null;
 
-  const mockLocationBranch: LocationBranch = {
-    id: 'loc-1',
-    name: 'Main Datacenter',
-    code: 'MDC',
-    type: 'DATACENTER',
-  };
-
   const mockRack42U: NetworkRack = {
     id: 'rack-42u-1',
     name: 'DC1 Core Cabinet 01',
@@ -55,13 +48,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     notes: 'Primary distribution rack',
     createdAt: '2026-09-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z',
-    location: {
-      id: 'loc-1',
-      name: 'Main Datacenter',
-      code: 'MDC',
-      createdAt: '2026-09-01T00:00:00Z',
-      updatedAt: '2026-09-01T00:00:00Z',
-    },
     switches: [
       {
         id: 'sw-1',
@@ -148,7 +134,9 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     }
     document
       .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-tooltip')
-      .forEach((el) => el.remove());
+      .forEach((el) => {
+        el.remove();
+      });
   });
 
   const renderWithContext = async (element: React.ReactElement) => {
@@ -215,7 +203,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.querySelectorAll('[data-testid^="empty-slot-"]').length).toBe(0);
     });
 
-    it('Case 1.3: replaces physical U labels with sequential STT and supports toggling between ascending (1→N) and descending (N→1)', async () => {
+    it('Case 1.3: replaces physical U labels with sequential STT and confirms absence of STT segmented toggle', async () => {
       await renderWithContext(
         <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
@@ -236,24 +224,8 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(sw2El?.textContent).toContain('#02');
       expect(sw3El?.textContent).toContain('#03');
 
-      // Find segmented control and switch to descending (N->1)
-      const segmentedEl = container.querySelector('[data-testid="stt-order-segmented"]');
-      expect(segmentedEl).not.toBeNull();
-      const descOption = segmentedEl?.querySelectorAll(
-        '.ant-segmented-item',
-      )[1] as HTMLElement | null;
-      expect(descOption).not.toBeNull();
-
-      await act(async () => {
-        descOption?.click();
-      });
-
-      // After switching to descending: SW-CORE-01 at top is #03, SAN-ARRAY-01 at bottom is #01
-      expect(u24Rail?.textContent).toContain('#03');
-      expect(u20Rail?.textContent).toContain('#02');
-      expect(u10Rail?.textContent).toContain('#01');
-      expect(sw1El?.textContent).toContain('#03');
-      expect(sw3El?.textContent).toContain('#01');
+      // STT segmented control was removed in favor of streamlined sequential layout
+      expect(container.querySelector('[data-testid="stt-order-segmented"]')).toBeNull();
     });
 
     it('Case 1.2: renders empty cabinet state when no equipment is mounted and omits blank slot rows', async () => {
@@ -270,7 +242,9 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
 
       expect(container.textContent).toContain('24U Standard');
       expect(container.querySelector('[data-testid="rack-empty-mount-state"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="mount-first-equipment-btn"]')).not.toBeNull();
+      const mountFirstBtn = container.querySelector('[data-testid="mount-first-equipment-btn"]');
+      expect(mountFirstBtn).not.toBeNull();
+      expect(mountFirstBtn?.textContent?.trim()).toBe('Mount Equipment');
       expect(container.querySelector('[data-testid="left-rail-u-24"]')).toBeNull();
       expect(container.querySelector('[data-testid="left-rail-u-25"]')).toBeNull();
       expect(container.querySelectorAll('[data-testid^="empty-slot-"]').length).toBe(0);
@@ -373,35 +347,25 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.querySelector('[data-testid="rack-device-row-sw-col-2"]')).not.toBeNull();
     });
 
-    it('Case 3.3: toggles STT ordering between ascending (1→N) and descending (N→1)', async () => {
+    it('Case 3.3: maintains fixed sequential top-down STT layout and confirms absence of segmented sorting control', async () => {
       await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
-      const segmentedEl = container.querySelector('[data-testid="stt-order-segmented"]');
-      expect(segmentedEl).not.toBeNull();
-      const descOption = segmentedEl?.querySelectorAll(
-        '.ant-segmented-item',
-      )[1] as HTMLElement | null;
-      expect(descOption).not.toBeNull();
-
-      await act(async () => {
-        descOption?.click();
-      });
+      expect(container.querySelector('[data-testid="stt-order-segmented"]')).toBeNull();
 
       const rowAlpha = container.querySelector('[data-testid="rack-device-row-sw-1"]');
-      expect(rowAlpha?.textContent).toContain('#03');
+      expect(rowAlpha?.textContent).toContain('#01');
     });
   });
 
   describe('Suite 4: Telemetry Utilization Indicators & Scope Refinement', () => {
-    it('Case 4.1: calculates Space utilization correctly and confirms power/weight telemetry removed', async () => {
+    it('Case 4.1: confirms Space utilization telemetry card, progress bar, power, and weight are cleanly omitted', async () => {
       await renderWithContext(
         <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
 
-      // Space Utilization: 7 occupied units out of 42 U = 16.7%
-      expect(container.textContent).toContain('Space Utilization');
-      expect(container.textContent).toContain('7 / 42 U (16.7%)');
-      expect(container.textContent).toContain('35 U Available');
+      // Verify Space Utilization card and progress bar were removed per scope refinement
+      expect(container.textContent).not.toContain('Space Utilization');
+      expect(container.querySelector('.ant-progress')).toBeNull();
 
       // Verify removed power and weight metrics are cleanly omitted per user scope refinement
       expect(container.textContent).not.toContain('Power Consumption');
@@ -409,41 +373,27 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     });
   });
 
-  describe('Suite 5: Front / Rear Elevation Toggle', () => {
-    it('Case 5.1: toggles between Front and Rear view without errors', async () => {
+  describe('Suite 5: Front / Rear Elevation Toggle Removal', () => {
+    it('Case 5.1: renders unified 2D elevation view and confirms front/rear toggle is removed', async () => {
       await renderWithContext(
         <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
 
-      // Defaults to Front View: check model and FRONT badge
-      expect(container.textContent).toContain('FRONT');
+      // Renders equipment with full specifications
       expect(container.textContent).toContain('Catalyst 9300-48P');
 
-      // Switch to Rear View
+      // Front / Rear toggle was removed in favor of streamlined 2D elevation
       const rearBtn = Array.from(container.querySelectorAll('.ant-segmented-item')).find((el) =>
         el.textContent?.includes('Rear View'),
       );
-      expect(rearBtn).toBeDefined();
-
-      if (rearBtn) {
-        await act(async () => {
-          (rearBtn as HTMLElement).click();
-        });
-        await act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 20));
-        });
-
-        // In Rear View: verifies redundant PSU 1 and PSU 2 indicators
-        expect(container.textContent).toContain('REAR');
-        expect(container.textContent).toContain('PSU 1 [AC]');
-        expect(container.textContent).toContain('PSU 2 [AC]');
-        expect(container.textContent).toContain('FAN');
-      }
+      expect(rearBtn).toBeUndefined();
+      expect(container.textContent).not.toContain('FRONT');
+      expect(container.textContent).not.toContain('REAR');
     });
   });
 
   describe('Suite 6: Interactive Mechanics & Mounted Equipment Operations', () => {
-    it('Case 6.1: clicking + Mount Equipment toolbar button triggers onMountClick with available slot and omits empty slot rows', async () => {
+    it('Case 6.1: clicking Mount Equipment toolbar button triggers onMountClick with available slot and omits empty slot rows', async () => {
       const onMountClick = vi.fn();
       await renderWithContext(
         <RackElevationView
@@ -457,11 +407,12 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.querySelector('[data-testid="empty-slot-15"]')).toBeNull();
       expect(container.querySelectorAll('[data-testid^="empty-slot-"]').length).toBe(0);
 
-      // Click prominent + Mount Equipment action button
+      // Click prominent Mount Equipment action button
       const mountBtn = container.querySelector(
         '[data-testid="mount-equipment-btn"]',
       ) as HTMLElement | null;
       expect(mountBtn).not.toBeNull();
+      expect(mountBtn?.textContent?.trim()).toBe('Mount Equipment');
 
       if (mountBtn) {
         await act(async () => {
@@ -537,9 +488,9 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
           rackId: null,
         });
 
-        // Telemetry reflects the unmount: was 7 occupied, now 6 occupied (42 - 6 = 36 available)
-        expect(container.textContent).toContain('6 / 42 U (14.3%)');
-        expect(container.textContent).toContain('36 U Available');
+        // UI reflects remaining mounted devices
+        expect(container.querySelector('[data-testid="mounted-device-sw-2"]')).not.toBeNull();
+        expect(container.querySelector('[data-testid="mounted-device-sw-3"]')).not.toBeNull();
       }
     });
 
@@ -676,7 +627,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.textContent).toContain('RCK-DC1-01');
       expect(container.textContent).toContain('DC1 Core Cabinet 01');
       expect(container.textContent).toContain('42U');
-      expect(container.textContent).toContain('Main Datacenter');
       expect(container.textContent).toContain('3 devices');
       expect(container.textContent).toContain('Active');
 
@@ -708,7 +658,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
             open={true}
             editingRack={mockRack42U}
             form={form}
-            locations={[mockLocationBranch]}
             onSave={onSave}
             onCancel={onCancel}
           />
@@ -747,11 +696,11 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
   });
 
   describe('Suite 9: RackManagementTab Integrated Shell & Filter Conjunction', () => {
-    it('Case 9.1: renders RackManagementTab with search, location filter, and switches view modes', async () => {
+    it('Case 9.1: renders RackManagementTab with tabular view by default and opens RackElevationDrawer', async () => {
       vi.mocked(networkService.getRacks).mockResolvedValue([mockRack42U]);
 
       await renderWithContext(
-        <RackManagementTab racks={[mockRack42U]} locations={[mockLocationBranch]} />,
+        <RackManagementTab racks={[mockRack42U]} />,
       );
 
       // Verify header texts required by NetworkPage tests
@@ -760,27 +709,30 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.textContent).toContain('Collision Detection');
       expect(container.textContent).toContain('Space & RU Telemetry');
 
-      // Verify active cabinet selector
-      expect(container.textContent).toContain('Active Cabinet:');
+      // Defaults to RackTable view: verifies columns and row are rendered directly
+      expect(container.textContent).toContain('Rack Code & Name');
+      expect(container.textContent).toContain('Space Utilization');
+      expect(container.textContent).toContain('RCK-DC1-01');
 
-      // Switch to Table View
-      const tableBtn = Array.from(container.querySelectorAll('.ant-segmented-item')).find((el) =>
-        el.textContent?.includes('Cabinet Table'),
-      );
-      expect(tableBtn).toBeDefined();
+      // Obsolete segmented view toggle and active cabinet selector are removed
+      expect(container.textContent).not.toContain('Active Cabinet:');
+      expect(container.querySelector('.ant-segmented')).toBeNull();
 
-      if (tableBtn) {
+      // Clicking Elevation button opens drawer
+      const elevationBtn = container.querySelector(
+        '[data-testid="view-elevation-DC1 Core Cabinet 01"]',
+      ) as HTMLElement | null;
+      expect(elevationBtn).not.toBeNull();
+
+      if (elevationBtn) {
         await act(async () => {
-          (tableBtn as HTMLElement).click();
-        });
-        await act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 20));
+          elevationBtn.click();
         });
 
-        // In Table View: verifies columns are rendered
-        expect(container.textContent).toContain('Rack Code & Name');
-        expect(container.textContent).toContain('Space Utilization');
-        expect(container.textContent).toContain('RCK-DC1-01');
+        // Drawer is visible with elevation view
+        expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+        expect(document.body.textContent).toContain('2D ELEVATION');
+        expect(document.body.textContent).toContain('EIA-310 19-inch cabinet elevation');
       }
     });
   });
@@ -805,30 +757,15 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     });
   });
 
-  describe('Suite 11: Dynamic Rack Capacity Quick-Stepper (+ / - Controls)', () => {
-    it('Case 11.1: increments rack capacity and calls updateRack with new height', async () => {
-      vi.mocked(networkService.updateRack).mockResolvedValue({
-        ...mockRack42U,
-        totalHeight: 43,
-      });
-
+  describe('Suite 11: Dynamic Rack Capacity Quick-Stepper Removal & Static Height Display', () => {
+    it('Case 11.1: confirms removal of rack increment slot button', async () => {
       await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
-      const incBtn = container.querySelector(
-        '[data-testid="rack-increment-slot-btn"]',
-      ) as HTMLElement | null;
-      expect(incBtn).not.toBeNull();
-
-      await act(async () => {
-        incBtn?.click();
-      });
-
-      expect(networkService.updateRack).toHaveBeenCalledWith('rack-42u-1', { totalHeight: 43 });
+      const incBtn = container.querySelector('[data-testid="rack-increment-slot-btn"]');
+      expect(incBtn).toBeNull();
     });
 
-    it('Case 11.2: prevents decreasing capacity below highest occupied slot position', async () => {
-      // mockRack42U has a switch at U24 (rackPosition: 24, rackHeight: 1 -> highest occupied is U24)
-      // Create a rack already at 24U
+    it('Case 11.2: confirms removal of rack decrement slot button', async () => {
       const rackAtMin: NetworkRack = {
         ...mockRack42U,
         totalHeight: 24,
@@ -836,157 +773,51 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
 
       await renderWithContext(<RackElevationView rack={rackAtMin} />);
 
-      const decBtn = container.querySelector(
-        '[data-testid="rack-decrement-slot-btn"]',
-      ) as HTMLButtonElement | null;
-      expect(decBtn).not.toBeNull();
-      expect(decBtn?.disabled).toBe(true);
+      const decBtn = container.querySelector('[data-testid="rack-decrement-slot-btn"]');
+      expect(decBtn).toBeNull();
+    });
 
-      // Attempting to click disabled button does not trigger updateRack
-      await act(async () => {
-        decBtn?.click();
-      });
+    it('Case 11.3: confirms removal of inline rack capacity InputNumber control', async () => {
+      await renderWithContext(<RackElevationView rack={mockRack42U} />);
+
+      const inputWrap = container.querySelector('[data-testid="rack-capacity-input"]');
+      expect(inputWrap).toBeNull();
+    });
+
+    it('Case 11.4: displays static cabinet height badge in header without editable stepper controls', async () => {
+      const rack52U: NetworkRack = {
+        ...mockRack42U,
+        totalHeight: 52,
+      };
+
+      await renderWithContext(<RackElevationView rack={rack52U} />);
+
+      expect(container.textContent).toContain('52U Standard');
+      expect(container.querySelector('[data-testid="rack-capacity-input"]')).toBeNull();
+      expect(container.querySelector('[data-testid="rack-increment-slot-btn"]')).toBeNull();
+      expect(container.querySelector('[data-testid="rack-decrement-slot-btn"]')).toBeNull();
+    });
+
+    it('Case 11.5: confirms rack elevation layout respects immutable totalHeight from props', async () => {
+      await renderWithContext(<RackElevationView rack={mockRack42U} />);
+
+      expect(container.textContent).toContain('42U Standard');
       expect(networkService.updateRack).not.toHaveBeenCalled();
     });
 
-    it('Case 11.3: allows decreasing capacity when above highest occupied slot position', async () => {
-      vi.mocked(networkService.updateRack).mockResolvedValue({
-        ...mockRack42U,
-        totalHeight: 41,
-      });
-
+    it('Case 11.6: confirms absence of capacity update network requests from elevation toolbar', async () => {
       await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
-      const decBtn = container.querySelector(
-        '[data-testid="rack-decrement-slot-btn"]',
-      ) as HTMLButtonElement | null;
-      expect(decBtn).not.toBeNull();
-      expect(decBtn?.disabled).toBe(false);
-
-      await act(async () => {
-        decBtn?.click();
-      });
-
-      expect(networkService.updateRack).toHaveBeenCalledWith('rack-42u-1', { totalHeight: 41 });
+      expect(container.querySelector('[data-testid="rack-increment-slot-btn"]')).toBeNull();
+      expect(networkService.updateRack).not.toHaveBeenCalled();
     });
 
-    it('Case 11.4: allows custom hyperscale height (e.g. 52U) and commits update via InputNumber', async () => {
-      vi.mocked(networkService.updateRack).mockResolvedValue({
-        ...mockRack42U,
-        totalHeight: 52,
-      });
-
+    it('Case 11.7: confirms toolbar renders cleanly without inline capacity input elements', async () => {
       await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
       const inputWrap = container.querySelector('[data-testid="rack-capacity-input"]');
-      expect(inputWrap).not.toBeNull();
-      const inputEl = (
-        inputWrap?.tagName === 'INPUT' ? inputWrap : inputWrap?.querySelector('input')
-      ) as HTMLInputElement | null;
-      expect(inputEl).not.toBeNull();
-
-      if (inputEl) {
-        await act(async () => {
-          inputEl.focus();
-          inputEl.value = '52';
-          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-          inputEl.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }),
-          );
-          inputEl.blur();
-          inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-        });
-
-        expect(networkService.updateRack).toHaveBeenCalledWith('rack-42u-1', { totalHeight: 52 });
-      }
-    });
-
-    it('Case 11.5: rejects inputting height below highest occupied slot position and reverts input', async () => {
-      await renderWithContext(<RackElevationView rack={mockRack42U} />);
-
-      const inputWrap = container.querySelector('[data-testid="rack-capacity-input"]');
-      const inputEl = (
-        inputWrap?.tagName === 'INPUT' ? inputWrap : inputWrap?.querySelector('input')
-      ) as HTMLInputElement | null;
-      expect(inputEl).not.toBeNull();
-
-      if (inputEl) {
-        await act(async () => {
-          inputEl.focus();
-          inputEl.value = '15'; // Below highest switch at U24
-          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-          inputEl.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }),
-          );
-          inputEl.blur();
-          inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-        });
-
-        // Network update should NOT be called for invalid height below highest occupied
-        expect(networkService.updateRack).not.toHaveBeenCalled();
-      }
-    });
-
-    it('Case 11.6: guards against concurrent click storms while update is in-flight', async () => {
-      let resolveUpdate: (value: NetworkRack) => void = () => {};
-      const pendingPromise = new Promise<NetworkRack>((resolve) => {
-        resolveUpdate = resolve;
-      });
-      vi.mocked(networkService.updateRack).mockReturnValue(pendingPromise);
-
-      await renderWithContext(<RackElevationView rack={mockRack42U} />);
-
-      const incBtn = container.querySelector(
-        '[data-testid="rack-increment-slot-btn"]',
-      ) as HTMLElement | null;
-      expect(incBtn).not.toBeNull();
-
-      // Trigger first click
-      await act(async () => {
-        incBtn?.click();
-      });
-
-      // Rapid second click while first is in-flight
-      await act(async () => {
-        incBtn?.click();
-      });
-
-      // Expect networkService.updateRack was only invoked once
-      expect(networkService.updateRack).toHaveBeenCalledTimes(1);
-
-      // Cleanly resolve pending promise
-      await act(async () => {
-        resolveUpdate({
-          ...mockRack42U,
-          totalHeight: 43,
-        });
-      });
-    });
-
-    it('Case 11.7: pressing Enter on empty or cleared InputNumber cleanly reverts without dispatching update', async () => {
-      await renderWithContext(<RackElevationView rack={mockRack42U} />);
-
-      const inputWrap = container.querySelector('[data-testid="rack-capacity-input"]');
-      const inputEl = (
-        inputWrap?.tagName === 'INPUT' ? inputWrap : inputWrap?.querySelector('input')
-      ) as HTMLInputElement | null;
-      expect(inputEl).not.toBeNull();
-
-      if (inputEl) {
-        await act(async () => {
-          inputEl.focus();
-          inputEl.value = '';
-          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-          inputEl.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }),
-          );
-        });
-
-        expect(networkService.updateRack).not.toHaveBeenCalled();
-      }
+      expect(inputWrap).toBeNull();
+      expect(networkService.updateRack).not.toHaveBeenCalled();
     });
 
     it('Case 11.8: supports keyboard navigation (Enter/Space) on mount equipment button and mounted device', async () => {
@@ -1044,36 +875,19 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.textContent).toContain('48U Standard');
     });
 
-    it('Case 11.10: sanitizes floating point input (e.g. 45.4U) by rounding to nearest integer before dispatching update', async () => {
-      vi.mocked(networkService.updateRack).mockResolvedValue({
+    it('Case 11.10: verifies height display for non-standard heights without editable controls', async () => {
+      const nonStandardRack: NetworkRack = {
         ...mockRack42U,
         totalHeight: 45,
-      });
+      };
 
-      await renderWithContext(<RackElevationView rack={mockRack42U} />);
-
-      const inputWrap = container.querySelector('[data-testid="rack-capacity-input"]');
-      const inputEl = (
-        inputWrap?.tagName === 'INPUT' ? inputWrap : inputWrap?.querySelector('input')
-      ) as HTMLInputElement | null;
-      expect(inputEl).not.toBeNull();
-
-      if (inputEl) {
-        await act(async () => {
-          inputEl.focus();
-          inputEl.value = '45.4';
-          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-          inputEl.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }),
-          );
-        });
-
-        expect(networkService.updateRack).toHaveBeenCalledWith('rack-42u-1', { totalHeight: 45 });
-      }
+      await renderWithContext(<RackElevationView rack={nonStandardRack} />);
+      expect(container.textContent).toContain('45U Standard');
+      expect(container.querySelector('[data-testid="rack-capacity-input"]')).toBeNull();
+      expect(networkService.updateRack).not.toHaveBeenCalled();
     });
 
-    it('Case 11.11: disables + Mount Equipment button when cabinet is 100% full', async () => {
+    it('Case 11.11: disables Mount Equipment button when cabinet is 100% full', async () => {
       const fullRack: NetworkRack = {
         ...mockRack42U,
         totalHeight: 2,
@@ -1114,6 +928,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
         '[data-testid="mount-equipment-btn"]',
       ) as HTMLButtonElement | null;
       expect(mountBtn).not.toBeNull();
+      expect(mountBtn?.textContent?.trim()).toBe('Mount Equipment');
       expect(mountBtn?.disabled).toBe(true);
 
       // Attempting to click disabled mount button does not trigger onMountClick
@@ -1178,14 +993,14 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.querySelector('[data-testid="collision-warning-banner"]')).toBeNull();
     });
 
-    it('Case 12.3: enforces capacity ceiling bounded by occupied units', async () => {
+    it('Case 12.3: verifies capacity ceiling bounded by totalHeight without inline capacity input', async () => {
       await renderWithContext(
         <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
 
-      // Capacity input exists at header level for the rack itself
-      const capInputWrap = container.querySelector('[data-testid="rack-capacity-input"]');
-      expect(capInputWrap).not.toBeNull();
+      // Inline capacity input is removed; rack height is displayed in header badge
+      expect(container.querySelector('[data-testid="rack-capacity-input"]')).toBeNull();
+      expect(container.textContent).toContain('42U Standard');
     });
 
     it('Case 12.4: sorts colliding devices at identical rackPosition deterministically by ID tie-breaker', async () => {
@@ -1292,9 +1107,10 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.querySelector('[data-testid="left-rail-u-39"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="left-rail-u-38"]')).not.toBeNull();
 
-      // Total occupied = 5U (42 - 5 = 37 available)
-      expect(container.textContent).toContain('5 / 42 U (11.9%)');
-      expect(container.textContent).toContain('37 U Available');
+      // All 3 devices are mounted in sequential order
+      expect(container.querySelector('[data-testid="mounted-device-sw-unpos-1"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="mounted-device-sw-unpos-2"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="mounted-device-sw-unpos-3"]')).not.toBeNull();
     });
 
     it('Case 12.6: merges rack switches without rackPosition even when elevation slots are present', async () => {
@@ -1394,10 +1210,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
 
       await renderWithContext(<RackElevationView rack={overCapacityRack} />);
 
-      // Verify accurate over-capacity occupancy metrics (48 / 42 U = 114.3%) rather than false 42/42 (100%)
-      expect(container.textContent).toContain('48 / 42 U (114.3%)');
-      expect(container.textContent).toContain('0 U Available');
-
       // Verify each device receives a contiguous non-overlapping slot allocation
       // Device 1: U25..U48
       expect(container.querySelector('[data-testid="left-rail-u-48"]')).not.toBeNull();
@@ -1411,11 +1223,8 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       const u24Elements = container.querySelectorAll('[data-testid="left-rail-u-24"]');
       expect(u24Elements.length).toBe(1);
 
-      // Decrement button should be disabled since capacity cannot be decreased below 48U
-      const decBtn = container.querySelector(
-        '[data-testid="rack-decrement-slot-btn"]',
-      ) as HTMLButtonElement | null;
-      expect(decBtn?.disabled).toBe(true);
+      // Decrement button should be removed from DOM
+      expect(container.querySelector('[data-testid="rack-decrement-slot-btn"]')).toBeNull();
     });
 
     it('Case 12.9: prevents slot collision between unpositioned multi-U devices and existing positioned devices in mid-cabinet', async () => {
@@ -1484,6 +1293,371 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(u30Rail?.getAttribute('data-testid')).toBe('left-rail-u-30');
       const u30Elements = container.querySelectorAll('[data-testid="left-rail-u-30"]');
       expect(u30Elements.length).toBe(1);
+    });
+  });
+
+  describe('Suite 13: RackElevationDrawer On-Demand Slide-Out & Lifecycle', () => {
+    it('Case 13.1: renders RackElevationDrawer with rack metadata, height badge, and status tag', async () => {
+      await renderWithContext(
+        <RackElevationDrawer open={true} rack={mockRack42U} onClose={vi.fn()} />,
+      );
+
+      expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+      expect(document.body.textContent).toContain('DC1 Core Cabinet 01');
+      expect(document.body.textContent).toContain('RCK-DC1-01');
+      expect(document.body.textContent).toContain('42U Standard');
+      expect(document.body.textContent).toContain('Active');
+    });
+
+    it('Case 13.2: clicking Refresh button in drawer header triggers onRefresh and remounts elevation', async () => {
+      const handleRefresh = vi.fn();
+      await renderWithContext(
+        <RackElevationDrawer
+          open={true}
+          rack={mockRack42U}
+          onClose={vi.fn()}
+          onRefresh={handleRefresh}
+        />,
+      );
+
+      const refreshBtn = document.querySelector(
+        '[data-testid="rack-elevation-drawer-refresh"]',
+      ) as HTMLButtonElement | null;
+      expect(refreshBtn).not.toBeNull();
+
+      if (refreshBtn) {
+        await act(async () => {
+          refreshBtn.click();
+        });
+        expect(handleRefresh).toHaveBeenCalledTimes(1);
+      }
+    });
+
+    it('Case 13.3: clicking Edit button in drawer header triggers onEditRack with active rack', async () => {
+      const handleEdit = vi.fn();
+      await renderWithContext(
+        <RackElevationDrawer
+          open={true}
+          rack={mockRack42U}
+          onClose={vi.fn()}
+          onEditRack={handleEdit}
+        />,
+      );
+
+      const editBtn = document.querySelector(
+        '[data-testid="rack-elevation-drawer-edit"]',
+      ) as HTMLButtonElement | null;
+      expect(editBtn).not.toBeNull();
+
+      if (editBtn) {
+        await act(async () => {
+          editBtn.click();
+        });
+        expect(handleEdit).toHaveBeenCalledWith(mockRack42U);
+      }
+    });
+
+    it('Case 13.4: renders gracefully without crash when rack is null', async () => {
+      await renderWithContext(<RackElevationDrawer open={true} rack={null} onClose={vi.fn()} />);
+
+      expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+      expect(document.body.textContent).toContain('Rack Elevation');
+    });
+
+    it('Case 13.5: clicking drawer close control triggers onClose', async () => {
+      const handleClose = vi.fn();
+      await renderWithContext(
+        <RackElevationDrawer open={true} rack={mockRack42U} onClose={handleClose} />,
+      );
+
+      const closeBtn = (document.querySelector('.ant-drawer-close') ||
+        document.querySelector('button.ant-btn')) as HTMLButtonElement | null;
+      expect(closeBtn).not.toBeNull();
+
+      if (closeBtn) {
+        await act(async () => {
+          closeBtn.click();
+        });
+        expect(handleClose).toHaveBeenCalled();
+      }
+    });
+
+    it('Case 13.6: onMountClick and onSelectSwitch callbacks pass through from RackElevationDrawer to RackElevationView', async () => {
+      const handleMount = vi.fn();
+      const handleSelectSwitch = vi.fn();
+
+      await renderWithContext(
+        <RackElevationDrawer
+          open={true}
+          rack={mockRack42U}
+          onClose={vi.fn()}
+          onMountClick={handleMount}
+          onSelectSwitch={handleSelectSwitch}
+        />,
+      );
+
+      const mountBtn = document.querySelector(
+        '[data-testid="mount-equipment-btn"]',
+      ) as HTMLButtonElement | null;
+      expect(mountBtn).not.toBeNull();
+      if (mountBtn) {
+        await act(async () => {
+          mountBtn.click();
+        });
+        expect(handleMount).toHaveBeenCalled();
+      }
+
+      const mountedDev = document.querySelector(
+        '[data-testid="mounted-device-sw-1"]',
+      ) as HTMLElement | null;
+      expect(mountedDev).not.toBeNull();
+      if (mountedDev) {
+        await act(async () => {
+          mountedDev.click();
+        });
+        expect(handleSelectSwitch).toHaveBeenCalledWith('sw-1');
+      }
+    });
+
+    it('Case 13.7: onDeviceUnmounted callback passes through from RackElevationDrawer to RackElevationView', async () => {
+      const handleUnmounted = vi.fn();
+      vi.mocked(networkService.updateSwitch).mockResolvedValue({} as never);
+
+      await renderWithContext(
+        <RackElevationDrawer
+          open={true}
+          rack={mockRack42U}
+          onClose={vi.fn()}
+          onDeviceUnmounted={handleUnmounted}
+        />,
+      );
+
+      const unmountBtn = document.querySelector(
+        '[data-testid="unmount-device-sw-1"]',
+      ) as HTMLButtonElement | null;
+      expect(unmountBtn).not.toBeNull();
+
+      if (unmountBtn) {
+        await act(async () => {
+          unmountBtn.click();
+        });
+        expect(handleUnmounted).toHaveBeenCalledWith('sw-1');
+      }
+    });
+
+    it('Case 13.8: verifies handleSaveRack in RackManagementTab notifies onRackUpdated callback when saving', async () => {
+      const handleRackUpdated = vi.fn();
+      const updatedRack: NetworkRack = { ...mockRack42U, name: 'DC1 Core Cabinet Updated' };
+      vi.mocked(networkService.updateRack).mockResolvedValue(updatedRack);
+
+      await renderWithContext(
+        <RackManagementTab
+          racks={[mockRack42U]}
+          onRackUpdated={handleRackUpdated}
+        />,
+      );
+
+      // Click Edit on the rack table row
+      const editBtn = document.querySelector(
+        'button[aria-label="Edit Rack"]',
+      ) as HTMLButtonElement | null;
+      expect(editBtn).not.toBeNull();
+
+      if (editBtn) {
+        await act(async () => {
+          editBtn.click();
+        });
+
+        // The RackFormModal is now open; click the Save button
+        const saveBtn = document.querySelector(
+          '.ant-modal-footer button.ant-btn-primary',
+        ) as HTMLButtonElement | null;
+        expect(saveBtn).not.toBeNull();
+
+        if (saveBtn) {
+          await act(async () => {
+            saveBtn.click();
+          });
+
+          expect(networkService.updateRack).toHaveBeenCalledWith(
+            mockRack42U.id,
+            expect.any(Object),
+          );
+          expect(handleRackUpdated).toHaveBeenCalledWith(updatedRack);
+        }
+      }
+    });
+
+    it('Case 13.9: unmounting a device with active elevation slots does not resurrect device on subsequent re-render', async () => {
+      vi.mocked(networkService.updateSwitch).mockResolvedValue({} as never);
+      vi.mocked(networkService.getRackElevation).mockResolvedValue({
+        ...mockElevationData,
+        slots: [],
+      });
+
+      const elevationWithSwitch: RackElevationData = {
+        ...mockElevationData,
+        slots: [
+          {
+            unitNumber: 24,
+            isOccupied: true,
+            isStartingUnit: true,
+            switch: {
+              id: 'sw-1',
+              name: 'BSL-CORE-SW01',
+              model: 'Catalyst 9300',
+              vendor: 'Cisco',
+              role: 'ACCESS',
+              status: 'ONLINE',
+              rackHeight: 1,
+              rackPosition: 24,
+              totalPorts: 24,
+            },
+          },
+        ],
+      };
+
+      const { rerender } = await renderWithContext(
+        <RackElevationView
+          rack={mockRack42U}
+          elevationData={elevationWithSwitch}
+          onRefresh={vi.fn()}
+        />,
+      );
+
+      expect(document.querySelector('[data-testid="mounted-device-sw-1"]')).not.toBeNull();
+
+      const unmountBtn = document.querySelector(
+        '[data-testid="unmount-device-sw-1"]',
+      ) as HTMLButtonElement | null;
+      expect(unmountBtn).not.toBeNull();
+
+      if (unmountBtn) {
+        await act(async () => {
+          unmountBtn.click();
+        });
+
+        // Device immediately removed
+        expect(document.querySelector('[data-testid="mounted-device-sw-1"]')).toBeNull();
+
+        // Simulate parent re-render with fresh rack object
+        await rerender(
+          <RackElevationView rack={{ ...mockRack42U, switches: [] }} onRefresh={vi.fn()} />,
+        );
+
+        // Device must remain unmounted and not resurrected
+        expect(document.querySelector('[data-testid="mounted-device-sw-1"]')).toBeNull();
+      }
+    });
+
+    it('Case 13.10: deleting active rack closes elevation drawer and cleans up selection', async () => {
+      vi.mocked(networkService.deleteRack).mockResolvedValue({} as never);
+
+      await renderWithContext(
+        <RackManagementTab racks={[mockRack42U]} />,
+      );
+
+      // Open drawer
+      const elevationBtn = document.querySelector(
+        '[data-testid="view-elevation-DC1 Core Cabinet 01"]',
+      ) as HTMLElement | null;
+      expect(elevationBtn).not.toBeNull();
+
+      if (elevationBtn) {
+        await act(async () => {
+          elevationBtn.click();
+        });
+        expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+
+        // Click Delete button on the table
+        const deleteBtn = document.querySelector(
+          'button[aria-label="Delete Rack"]',
+        ) as HTMLButtonElement | null;
+        expect(deleteBtn).not.toBeNull();
+
+        if (deleteBtn) {
+          await act(async () => {
+            deleteBtn.click();
+          });
+
+          // Confirm popconfirm
+          const confirmBtn = Array.from(document.querySelectorAll('button')).find(
+            (b) => b.textContent?.trim() === 'Delete' && b.classList.contains('ant-btn-dangerous'),
+          );
+          if (confirmBtn) {
+            await act(async () => {
+              confirmBtn.click();
+            });
+
+            expect(networkService.deleteRack).toHaveBeenCalledWith(mockRack42U.id);
+            expect(document.querySelector('.ant-drawer-open')).toBeNull();
+          }
+        }
+      }
+    });
+
+    it('Case 13.11: editing and saving rack immediately reflects updated name in selectedRack and drawer header', async () => {
+      const updatedRack: NetworkRack = { ...mockRack42U, name: 'DC1 Core Cabinet Renamed' };
+      vi.mocked(networkService.updateRack).mockResolvedValue(updatedRack);
+
+      await renderWithContext(
+        <RackManagementTab racks={[mockRack42U]} />,
+      );
+
+      // Open drawer from table
+      const elevationBtn = document.querySelector(
+        '[data-testid="view-elevation-DC1 Core Cabinet 01"]',
+      ) as HTMLElement | null;
+      expect(elevationBtn).not.toBeNull();
+
+      if (elevationBtn) {
+        await act(async () => {
+          elevationBtn.click();
+        });
+        expect(document.body.textContent).toContain('DC1 Core Cabinet 01');
+
+        // Click Edit in drawer header
+        const editDrawerBtn = document.querySelector(
+          '[data-testid="rack-elevation-drawer-edit"]',
+        ) as HTMLButtonElement | null;
+        expect(editDrawerBtn).not.toBeNull();
+
+        if (editDrawerBtn) {
+          await act(async () => {
+            editDrawerBtn.click();
+          });
+
+          // Drawer closes and modal opens; click Save in modal
+          const saveBtn = document.querySelector(
+            '.ant-modal-footer button.ant-btn-primary',
+          ) as HTMLButtonElement | null;
+          expect(saveBtn).not.toBeNull();
+
+          if (saveBtn) {
+            await act(async () => {
+              saveBtn.click();
+            });
+
+            expect(networkService.updateRack).toHaveBeenCalledWith(
+              mockRack42U.id,
+              expect.any(Object),
+            );
+
+            // Re-open drawer from table row
+            const reOpenBtn = document.querySelector(
+              '[data-testid^="view-elevation-"]',
+            ) as HTMLElement | null;
+            expect(reOpenBtn).not.toBeNull();
+            if (reOpenBtn) {
+              await act(async () => {
+                reOpenBtn.click();
+              });
+              // Drawer header reflects updated name from merged fallbackRack
+              expect(document.body.textContent).toContain('DC1 Core Cabinet Renamed');
+            }
+          }
+        }
+      }
     });
   });
 });

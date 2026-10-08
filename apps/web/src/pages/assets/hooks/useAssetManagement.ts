@@ -7,17 +7,17 @@ import { createElement, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router';
 import { type Asset, type AssetStats, assetsService } from '../../../services/assets.service';
 import { type Organization, organizationService } from '../../../services/organization.service';
+import { api } from '../../../services/api';
 import { formatErrorMessage } from '../../../utils/feedback';
+import { isValidationError } from '../../../utils/formValidators';
 import { parseAssetQrPayload, playSuccessChime, triggerHapticFeedback } from '../utils/qrDecoder';
-
-declare module '../../../services/assets.service' {
-  interface Asset {
-    locationPath?: string | null;
-  }
-}
 
 export interface AssetFormValues {
   tag?: string;
+  subcode?: string;
+  parentId?: string;
+  costCenterId?: string;
+  costCenter?: string;
   name?: string;
   manufacturer?: string;
   model?: string;
@@ -29,8 +29,6 @@ export interface AssetFormValues {
   assignedToId?: string;
   department?: string;
   departmentId?: string;
-  location?: string;
-  locationId?: string;
   purchaseDate?: dayjs.Dayjs;
   warrantyExpiry?: dayjs.Dayjs;
   notes?: string;
@@ -42,15 +40,14 @@ export interface AssetFilterState {
   categoryFilter: string;
   statusFilter: string;
   orgFilter: string;
-  locationFilter?: string;
 }
 
 export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
   const purchaseDate = values.purchaseDate?.format('YYYY-MM-DD');
   const warrantyExpiry = values.warrantyExpiry?.format('YYYY-MM-DD');
 
-  return {
-    tag: values.tag ?? '',
+  const payload: Partial<Asset> & { subcode?: string; parentId?: string; costCenterId?: string } = {
+    tag: values.tag ?? (values.subcode ? values.subcode.trim() : ''),
     name: values.name ?? '',
     manufacturer: values.manufacturer ?? '',
     model: values.model ?? '',
@@ -62,12 +59,25 @@ export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
     assignedToId: values.assignedToId || undefined,
     department: values.department,
     departmentId: values.departmentId || undefined,
-    location: values.location,
-    locationId: values.locationId || undefined,
     purchaseDate,
     warrantyExpiry,
     notes: values.notes,
   };
+
+  if (values.subcode) {
+    payload.subcode = values.subcode.trim();
+  }
+  if (values.parentId) {
+    payload.parentId = values.parentId;
+  }
+  if (values.costCenterId) {
+    payload.costCenterId = values.costCenterId;
+  }
+  if (values.costCenter) {
+    payload.costCenter = values.costCenter.trim();
+  }
+
+  return payload;
 }
 
 export function useAssetManagement(form: FormInstance) {
@@ -85,7 +95,6 @@ export function useAssetManagement(form: FormInstance) {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [orgFilter, setOrgFilter] = useState<string>('all');
-  const [locationFilter, setLocationFilter] = useState<string | undefined>(undefined);
   const [organizations, setOrganizations] = useState<Array<Organization>>([]);
 
   // Selection & Batch Action State
@@ -93,6 +102,8 @@ export function useAssetManagement(form: FormInstance) {
   const [selectedAssets, setSelectedAssets] = useState<Asset[]>([]);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [batchPrintModalOpen, setBatchPrintModalOpen] = useState(false);
+  const [batchAssignModalOpen, setBatchAssignModalOpen] = useState(false);
+  const [batchAssigning, setBatchAssigning] = useState(false);
 
   const handleSelectionChange = useCallback(
     (keys: React.Key[], rows?: Asset[]) => {
@@ -168,9 +179,8 @@ export function useAssetManagement(form: FormInstance) {
       categoryFilter,
       statusFilter,
       orgFilter,
-      locationFilter,
     }),
-    [searchQuery, categoryFilter, statusFilter, orgFilter, locationFilter],
+    [searchQuery, categoryFilter, statusFilter, orgFilter],
   );
 
   const handleFilterChange = useCallback(
@@ -179,7 +189,6 @@ export function useAssetManagement(form: FormInstance) {
       else if (key === 'categoryFilter') setCategoryFilter(val || 'all');
       else if (key === 'statusFilter') setStatusFilter(val || 'all');
       else if (key === 'orgFilter') setOrgFilter(val || 'all');
-      else if (key === 'locationFilter') setLocationFilter(val);
     },
     [],
   );
@@ -209,7 +218,6 @@ export function useAssetManagement(form: FormInstance) {
           category: categoryFilter !== 'all' && !isCategoryId ? categoryFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
           organizationId: orgFilter !== 'all' ? orgFilter : undefined,
-          locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
         }),
         assetsService.getStats().catch((_error: unknown) => null),
       ]);
@@ -243,7 +251,6 @@ export function useAssetManagement(form: FormInstance) {
     }
   }, [
     categoryFilter,
-    locationFilter,
     message,
     orgFilter,
     organizations,
@@ -290,7 +297,6 @@ export function useAssetManagement(form: FormInstance) {
         category: 'Laptops / Notebooks',
         purchaseDate: dayjs(),
         warrantyExpiry: dayjs().add(3, 'year'),
-        location: 'NY Office - Floor 4',
       });
       setModalOpen(true);
     },
@@ -372,7 +378,6 @@ export function useAssetManagement(form: FormInstance) {
       category: 'Laptops / Notebooks',
       purchaseDate: dayjs(),
       warrantyExpiry: dayjs().add(3, 'year'),
-      location: 'NY Office - Floor 4',
     });
     setModalOpen(true);
   }, [form]);
@@ -387,10 +392,13 @@ export function useAssetManagement(form: FormInstance) {
         ...asset,
         categoryId: resolvedCategoryId,
         assignedToId: asset.assignedToId,
-        locationId: asset.locationId,
         departmentId: asset.departmentId,
         purchaseDate: asset.purchaseDate ? dayjs(asset.purchaseDate) : undefined,
         warrantyExpiry: asset.warrantyExpiry ? dayjs(asset.warrantyExpiry) : undefined,
+        costCenter:
+          typeof asset.costCenter === 'object' && asset.costCenter
+            ? asset.costCenter.code || asset.costCenter.name
+            : asset.costCenter,
         notes: asset.notes,
       });
       setModalOpen(true);
@@ -415,11 +423,28 @@ export function useAssetManagement(form: FormInstance) {
       setModalOpen(false);
       loadData();
     } catch (err: unknown) {
-      message.error(formatErrorMessage(err, 'save asset'));
+      if (isValidationError(err)) return;
+      const anyErr = err as {
+        response?: { status?: number; data?: { message?: string } };
+        status?: number;
+      };
+      if (anyErr?.response?.status === 409 || anyErr?.status === 409) {
+        const rawCode = (
+          form.getFieldValue('subcode') ||
+          form.getFieldValue('tag') ||
+          ''
+        ).toUpperCase();
+        notification.error({
+          message: 'Duplicate SUB Code',
+          description: `Physical unit with subcode "${rawCode}" already exists. Please specify a unique SUB Code.`,
+        });
+      } else if (err instanceof Error && err.name !== 'ValidationError') {
+        message.error(formatErrorMessage(err, 'save asset'));
+      }
     } finally {
       setModalSubmitting(false);
     }
-  }, [editingAsset, form, loadData, message]);
+  }, [editingAsset, form, loadData, message, notification]);
 
   const handleDeleteAsset = useCallback(
     async (id: string) => {
@@ -479,7 +504,6 @@ export function useAssetManagement(form: FormInstance) {
         category: categoryFilter !== 'all' && !isCategoryId ? categoryFilter : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
         organizationId: orgFilter !== 'all' ? orgFilter : undefined,
-        locationId: locationFilter && locationFilter !== 'all' ? locationFilter : undefined,
       });
       message.success('Hardware assets exported to Excel successfully.');
     } catch (err: unknown) {
@@ -487,7 +511,7 @@ export function useAssetManagement(form: FormInstance) {
     } finally {
       setExporting(false);
     }
-  }, [categoryFilter, locationFilter, message, orgFilter, searchQuery, statusFilter]);
+  }, [categoryFilter, message, orgFilter, searchQuery, statusFilter]);
 
   const handleBatchDelete = useCallback(() => {
     const count = selectedRowKeys.length;
@@ -540,13 +564,136 @@ export function useAssetManagement(form: FormInstance) {
     });
   }, [loadData, message, modal, selectedAssets, selectedRowKeys]);
 
+  const handleOpenBatchAssign = useCallback(() => {
+    setBatchAssignModalOpen(true);
+  }, []);
+
+  const handleCloseBatchAssign = useCallback(() => {
+    setBatchAssignModalOpen(false);
+  }, []);
+
+  const handleBatchAssign = useCallback(
+    async (values: {
+      mode: 'assign' | 'unassign';
+      assignedToId?: string | null;
+      departmentId?: string | null;
+      status?: string;
+    }) => {
+      if (selectedRowKeys.length === 0) return;
+      try {
+        setBatchAssigning(true);
+        const assetIds = selectedRowKeys.map(String);
+        const result = await assetsService.batchAssignAssets({
+          assetIds,
+          assignedToId: values.assignedToId,
+          departmentId: values.departmentId,
+          status: values.status,
+        });
+
+        const count = result.count ?? assetIds.length;
+        if (values.mode === 'assign') {
+          message.success(`Successfully assigned ${count} asset${count > 1 ? 's' : ''}.`);
+        } else {
+          message.success(`Successfully unassigned ${count} asset${count > 1 ? 's' : ''}.`);
+        }
+
+        setBatchAssignModalOpen(false);
+        setSelectedRowKeys([]);
+        setSelectedAssets([]);
+        await loadData();
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'batch assign assets'));
+      } finally {
+        setBatchAssigning(false);
+      }
+    },
+    [loadData, message, selectedRowKeys],
+  );
+
   const handleResetFilters = useCallback(() => {
     setSearchQuery('');
     setCategoryFilter('all');
     setStatusFilter('all');
     setOrgFilter('all');
-    setLocationFilter(undefined);
   }, []);
+
+  // Device Models State
+  const [activeTab, setActiveTab] = useState<string>('units');
+  const [models, setModels] = useState<Array<Asset>>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [deviceModelDrawerOpen, setDeviceModelDrawerOpen] = useState(false);
+  const [editingModel, setEditingModel] = useState<Asset | null>(null);
+
+  const loadModels = useCallback(async () => {
+    setLoadingModels(true);
+    try {
+      const res = await api.get('/assets/models');
+      const modelList = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+          ? res.data
+          : [];
+      setModels(modelList);
+    } catch (_err: unknown) {
+      const derived = assets.filter(
+        (a) => !a.parentId && (a.assetCode || a.tag.startsWith('MOD-')),
+      );
+      setModels(derived);
+    } finally {
+      setLoadingModels(false);
+    }
+  }, [assets]);
+
+  useEffect(() => {
+    loadModels();
+  }, [loadModels]);
+
+  const handleOpenCreateModel = useCallback(() => {
+    setEditingModel(null);
+    setDeviceModelDrawerOpen(true);
+  }, []);
+
+  const handleOpenEditModel = useCallback((model: Asset) => {
+    setEditingModel(model);
+    setDeviceModelDrawerOpen(true);
+  }, []);
+
+  const handleDeleteModel = useCallback(
+    async (id: string) => {
+      try {
+        await api.delete(`/assets/models/${id}`);
+        message.success('Device model deleted successfully.');
+        loadModels();
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'delete device model'));
+      }
+    },
+    [loadModels, message],
+  );
+
+  const handleRegisterUnitUnderModel = useCallback(
+    (model: Asset) => {
+      setEditingAsset(null);
+      form.resetFields();
+      form.setFieldsValue({
+        parentId: model.id,
+        name: model.name,
+        manufacturer: model.manufacturer,
+        model: model.model,
+        categoryId: model.categoryId,
+        category: model.category,
+        costCenterId:
+          model.costCenterId ||
+          (typeof model.costCenter === 'object' ? model.costCenter?.id : undefined),
+        status: 'Active',
+        purchaseDate: dayjs(),
+        warrantyExpiry: dayjs().add(3, 'year'),
+      });
+      setModalOpen(true);
+      setActiveTab('units');
+    },
+    [form],
+  );
 
   return {
     assets,
@@ -561,8 +708,6 @@ export function useAssetManagement(form: FormInstance) {
     setCategoryFilter,
     statusFilter,
     setStatusFilter,
-    locationFilter,
-    setLocationFilter,
     filterState,
     handleFilterChange,
     modalOpen,
@@ -601,5 +746,24 @@ export function useAssetManagement(form: FormInstance) {
     handleOpenBatchPrint,
     handleCloseBatchPrint,
     handleBatchDelete,
+    batchAssignModalOpen,
+    batchAssigning,
+    handleOpenBatchAssign,
+    handleCloseBatchAssign,
+    handleBatchAssign,
+    // Device Models & Tabs
+    activeTab,
+    setActiveTab,
+    models,
+    loadingModels,
+    loadModels,
+    deviceModelDrawerOpen,
+    setDeviceModelDrawerOpen,
+    editingModel,
+    setEditingModel,
+    handleOpenCreateModel,
+    handleOpenEditModel,
+    handleDeleteModel,
+    handleRegisterUnitUnderModel,
   };
 }

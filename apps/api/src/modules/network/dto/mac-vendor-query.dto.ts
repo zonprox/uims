@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, Matches } from 'class-validator';
 
 export class MacVendorQueryDto {
   @ApiProperty({
@@ -8,5 +8,8 @@ export class MacVendorQueryDto {
   })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/, {
+    message: 'mac must be a valid MAC address',
+  })
   mac!: string;
 }

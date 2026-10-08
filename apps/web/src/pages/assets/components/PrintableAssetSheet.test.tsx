@@ -23,7 +23,6 @@ describe('PrintableAssetSheet Component', () => {
       status: 'Active',
       assignedTo: 'Marcus Vance',
       assignedEmail: 'marcus@uims.internal',
-      location: 'Floor 4',
       purchaseDate: '2026-01-15',
       warrantyExpiry: '2029-01-15',
     },
@@ -38,7 +37,6 @@ describe('PrintableAssetSheet Component', () => {
       status: 'In Storage',
       assignedTo: '',
       assignedEmail: '',
-      location: 'Warehouse B',
       purchaseDate: '2025-11-20',
       warrantyExpiry: '2028-11-20',
     },
@@ -53,7 +51,6 @@ describe('PrintableAssetSheet Component', () => {
       status: 'Active',
       assignedTo: '',
       assignedEmail: '',
-      location: 'Server Room',
       purchaseDate: '2025-06-10',
       warrantyExpiry: '2030-06-10',
     },
@@ -112,14 +109,13 @@ describe('PrintableAssetSheet Component', () => {
 
     expect(container.textContent).toContain('AST-1001');
     expect(container.textContent).toContain('MacBook Pro 16');
-    expect(container.textContent).toContain('S/N: SN-APPLE-1001');
+    expect(container.textContent).not.toContain('S/N:');
 
     expect(container.textContent).toContain('AST-1002');
     expect(container.textContent).toContain('Dell Precision 7780');
 
     expect(container.textContent).toContain('AST-1003');
     expect(container.textContent).toContain('Cisco Catalyst 9300');
-    expect(container.textContent).toContain('S/N: SN-CISCO-9300');
   });
 
   it('renders Ant Design SVG QR codes within cards', async () => {

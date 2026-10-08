@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class RefreshTokenDto {
   @ApiProperty({
@@ -9,5 +9,6 @@ export class RefreshTokenDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   refreshToken?: string;
 }

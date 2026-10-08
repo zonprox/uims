@@ -1,5 +1,12 @@
-import type { Location } from './common';
+import type { Asset } from './asset';
+import type { LicenseAssignment } from './license';
 import type { Department, Organization, Position } from './organization';
+
+export enum DomainJoinStatus {
+  JOINED = 'JOINED',
+  NOT_JOINED = 'NOT_JOINED',
+  PENDING = 'PENDING',
+}
 
 export enum AccountStatus {
   ACTIVE = 'ACTIVE',
@@ -30,19 +37,29 @@ export interface DirectoryUser {
   displayName?: string | null;
   phone?: string | null;
   avatar?: string | null;
-  ouPath?: string | null;
   managerName?: string | null;
   status: AccountStatus;
   source: DirectorySource;
   accountExpiresAt?: string | null;
+
+  // Active Directory Domain Join Attributes
+  adDomain?: string | null;
+  computerName?: string | null;
+  domainJoined?: boolean;
+  domainJoinStatus?: DomainJoinStatus | string | null;
+
+  // Enterprise Email Credentials Metadata
+  hasEmailPassword?: boolean;
+  emailPasswordUpdatedAt?: string | null;
+
   departmentId?: string | null;
   positionId?: string | null;
   organizationId?: string | null;
-  locationId?: string | null;
   organization?: Organization | null;
   department?: Department | null;
   position?: Position | null;
-  location?: Location | null;
+  assignedAssets?: Array<Asset>;
+  licenseAssignments?: Array<LicenseAssignment>;
   assignedAssetsCount?: number;
   assignedLicensesCount?: number;
   createdAt: string;
@@ -54,7 +71,6 @@ export interface DirectorySummaryStats {
   activeEmployees: number;
   assignedWorkstations: number;
   totalGroups: number;
-  totalOUs: number;
   closedAccounts: number;
 }
 
@@ -62,23 +78,11 @@ export interface DirectoryGroup {
   id: string;
   name: string;
   description?: string | null;
-  email?: string | null;
   type?: GroupType | string | null;
   scope?: GroupScope | string | null;
-  ouPath?: string | null;
   managedBy?: string | null;
   memberCount: number;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface OrganizationalUnit {
-  id: string;
-  name: string;
-  dn: string;
-  description?: string;
-  userCount: number;
-  groupCount: number;
-  workstationCount: number;
-  parentDn?: string | null;
+  _count?: { memberships: number };
 }

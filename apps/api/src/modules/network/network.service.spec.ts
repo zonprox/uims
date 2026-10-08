@@ -151,7 +151,6 @@ describe('NetworkService', () => {
           vlanNumber: 130,
           name: 'Access Control',
           status: VlanStatus.ACTIVE,
-          location: { name: 'BSL Factory' },
           subnets: [],
           _count: { ipAddresses: 15, subnets: 1 },
         },
@@ -163,7 +162,6 @@ describe('NetworkService', () => {
       expect(mockPrisma.vLAN.findMany).toHaveBeenCalledWith({
         where: { name: { contains: 'Access', mode: 'insensitive' } },
         include: {
-          location: true,
           subnets: true,
           _count: { select: { ipAddresses: true, subnets: true } },
         },
@@ -186,7 +184,7 @@ describe('NetworkService', () => {
 
     it('createVlan creates a new VLAN', async () => {
       const dto = { vlanNumber: 131, name: 'Fingerprint Readers', status: VlanStatus.ACTIVE };
-      const created = { id: 'vlan-131', ...dto, location: null, subnets: [] };
+      const created = { id: 'vlan-131', ...dto, subnets: [] };
       mockPrisma.vLAN.create.mockResolvedValue(created);
 
       const result = await service.createVlan(dto);
@@ -221,7 +219,6 @@ describe('NetworkService', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           vlan: { vlanNumber: 130, name: 'Access Control' },
-          location: { name: 'BSL Factory' },
         }),
       );
 
@@ -259,7 +256,6 @@ describe('NetworkService', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           vlan: { vlanNumber: 130, name: 'Access Control' },
-          location: { name: 'BSL Factory' },
         },
       ]);
 
@@ -298,7 +294,6 @@ describe('NetworkService', () => {
           cidr: '10.232.130.0/24',
           name: 'Access Control',
           vlanId: 'vlan-130',
-          locationId: 'loc-bsl',
         },
       ]);
 
@@ -310,7 +305,6 @@ describe('NetworkService', () => {
           updatedAt: new Date(),
           subnet: { cidr: '10.232.130.0/24', name: 'Access Control' },
           vlan: { vlanNumber: 130, name: 'Access Control' },
-          location: { name: 'BSL Factory' },
         }),
       );
 
@@ -442,7 +436,6 @@ describe('NetworkService', () => {
             name: 'Access Control',
             description: null,
             status: VlanStatus.ACTIVE,
-            locationId: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           },
@@ -508,8 +501,6 @@ describe('NetworkService', () => {
           totalHeight: 42,
           maxPowerKw: 10,
           maxWeightKg: 800,
-          locationId: 'loc-1',
-          location: { id: 'loc-1', name: 'Main DC' },
           switches: [
             {
               id: 'sw-1',
@@ -545,8 +536,6 @@ describe('NetworkService', () => {
         totalHeight: 42,
         maxPowerKw: 10,
         maxWeightKg: 800,
-        locationId: 'loc-1',
-        location: { id: 'loc-1', name: 'Main DC' },
         switches: [],
         _count: { switches: 0 },
         createdAt: new Date(),
@@ -576,8 +565,6 @@ describe('NetworkService', () => {
         totalHeight: 42,
         maxPowerKw: 10,
         maxWeightKg: 800,
-        locationId: null,
-        location: null,
         switches: [],
         _count: { switches: 0 },
         createdAt: new Date(),
@@ -607,8 +594,6 @@ describe('NetworkService', () => {
         totalHeight: 42,
         maxPowerKw: 15,
         maxWeightKg: 900,
-        locationId: null,
-        location: null,
         switches: [],
         _count: { switches: 0 },
         createdAt: new Date(),
@@ -637,8 +622,6 @@ describe('NetworkService', () => {
         totalHeight: 52,
         maxPowerKw: 12,
         maxWeightKg: 1000,
-        locationId: null,
-        location: null,
         switches: [],
         _count: { switches: 0 },
         createdAt: new Date(),
@@ -703,8 +686,6 @@ describe('NetworkService', () => {
         totalHeight: 24,
         maxPowerKw: 8,
         maxWeightKg: 600,
-        locationId: null,
-        location: null,
         switches: [],
         _count: { switches: 0 },
         createdAt: new Date(),
@@ -742,8 +723,6 @@ describe('NetworkService', () => {
         totalHeight: 4,
         maxPowerKw: 5,
         maxWeightKg: 500,
-        locationId: 'loc-1',
-        location: { name: 'DC1' },
         switches: [
           {
             id: 'sw-1',
@@ -812,7 +791,6 @@ describe('NetworkService', () => {
           rack: { id: 'rack-1', name: 'RACK-DC-01', code: 'RACK-DC-01' },
           ipAddress: { id: 'ip-1', address: '10.232.1.1' },
           asset: { id: 'ast-1', assetTag: 'AST-1010', name: 'Core Switch' },
-          location: { id: 'loc-1', name: 'Main DC' },
           ports: [
             { operStatus: 'ACTIVE', adminStatus: 'UP' },
             { operStatus: 'DOWN', adminStatus: 'UP' },
@@ -850,7 +828,6 @@ describe('NetworkService', () => {
         rack: { id: 'rack-1', name: 'RACK-DC-01', code: 'RACK-DC-01' },
         ipAddress: null,
         asset: null,
-        location: null,
         ports: [],
         _count: { ports: 48 },
         createdAt: new Date(),
@@ -880,7 +857,6 @@ describe('NetworkService', () => {
         rack: null,
         ipAddress: null,
         asset: null,
-        location: null,
         ports: [],
         _count: { ports: 52 },
         createdAt: new Date(),
@@ -926,7 +902,6 @@ describe('NetworkService', () => {
         rack: null,
         ipAddress: null,
         asset: null,
-        location: null,
         ports: [],
         _count: { ports: 12 },
         createdAt: new Date(),
@@ -975,7 +950,6 @@ describe('NetworkService', () => {
         rack: null,
         ipAddress: null,
         asset: null,
-        location: null,
         ports: [],
         _count: { ports: 20 },
         createdAt: new Date(),
@@ -1025,7 +999,6 @@ describe('NetworkService', () => {
         rack: null,
         ipAddress: null,
         asset: null,
-        location: null,
         ports: [],
         _count: { ports: 6 },
         createdAt: new Date(),
@@ -1091,7 +1064,6 @@ describe('NetworkService', () => {
         rack: { id: 'rack-1', name: 'Rack 01', code: 'RCK-01' },
         ipAddress: null,
         asset: null,
-        location: null,
         ports: [],
         _count: { ports: 0 },
         createdAt: new Date(),
@@ -1182,7 +1154,6 @@ describe('NetworkService', () => {
             name: 'Data',
             status: 'ACTIVE',
             description: null,
-            locationId: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           },

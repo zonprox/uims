@@ -1,7 +1,6 @@
 import {
   DeleteOutlined,
   EditOutlined,
-  EnvironmentOutlined,
   EyeOutlined,
   FilterOutlined,
   PlusOutlined,
@@ -24,7 +23,6 @@ import {
   Typography,
 } from 'antd';
 import React, { useMemo } from 'react';
-import type { LocationBranch } from '../../../services/organization.service';
 import type { Subnet, VLAN } from '../../../services/network.service';
 
 const { Text } = Typography;
@@ -32,12 +30,9 @@ const { Text } = Typography;
 export interface VlanTableProps {
   vlans: Array<VLAN>;
   subnets: Array<Subnet>;
-  locations: Array<LocationBranch>;
   loading: boolean;
   searchQuery: string;
   onSearchChange: (val: string) => void;
-  locationFilter: string;
-  onLocationChange: (val: string) => void;
   statusFilter: string;
   onStatusChange: (val: string) => void;
   onResetFilters: () => void;
@@ -51,12 +46,9 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
   ({
     vlans,
     subnets,
-    locations,
     loading,
     searchQuery,
     onSearchChange,
-    locationFilter,
-    onLocationChange,
     statusFilter,
     onStatusChange,
     onResetFilters,
@@ -65,7 +57,7 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
     onOpenDetailDrawer,
     onDeleteVlan,
   }) => {
-    const isFiltered = searchQuery || locationFilter !== 'all' || statusFilter !== 'all';
+    const isFiltered = searchQuery || statusFilter !== 'all';
 
     // Map subnets per VLAN for quick count and tags
     const subnetsByVlanId = useMemo(() => {
@@ -90,15 +82,12 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
           const matchDesc = (vlan.description || '').toLowerCase().includes(q);
           if (!matchNum && !matchName && !matchDesc) return false;
         }
-        if (locationFilter !== 'all') {
-          if (vlan.locationId !== locationFilter) return false;
-        }
         if (statusFilter !== 'all') {
           if (vlan.status !== statusFilter) return false;
         }
         return true;
       });
-    }, [vlans, searchQuery, locationFilter, statusFilter]);
+    }, [vlans, searchQuery, statusFilter]);
 
     const columns = useMemo(
       () => [
@@ -135,22 +124,6 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
               )}
             </div>
           ),
-        },
-        {
-          title: 'Location / Site',
-          key: 'location',
-          sorter: (a: VLAN, b: VLAN) =>
-            (a.location?.name || '').localeCompare(b.location?.name || ''),
-          render: (_: unknown, record: VLAN) => {
-            const locName = record.location?.name;
-            if (!locName) return <Text type="secondary">—</Text>;
-            return (
-              <Flex align="center" gap={4}>
-                <EnvironmentOutlined style={{ color: '#1677ff', fontSize: 12 }} />
-                <Text style={{ fontSize: 12 }}>{locName}</Text>
-              </Flex>
-            );
-          },
         },
         {
           title: 'Associated Subnets',
@@ -279,17 +252,6 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
           </Col>
           <Col xs={24} md={16}>
             <Flex gap={10} justify="flex-end" wrap>
-              <Select
-                value={locationFilter}
-                onChange={onLocationChange}
-                style={{ width: 180 }}
-                placeholder="Filter Location"
-                options={[
-                  { label: 'All Locations', value: 'all' },
-                  ...locations.map((loc) => ({ label: loc.name, value: loc.id })),
-                ]}
-              />
-
               <Select
                 value={statusFilter}
                 onChange={onStatusChange}

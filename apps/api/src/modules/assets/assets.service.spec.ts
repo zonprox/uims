@@ -30,11 +30,6 @@ describe('AssetsService', () => {
         create: vi.fn(),
         findMany: vi.fn(),
       },
-      location: {
-        findFirst: vi.fn(),
-        findUnique: vi.fn(),
-        create: vi.fn(),
-      },
       directoryUser: {
         findUnique: vi.fn(),
       },
@@ -46,9 +41,8 @@ describe('AssetsService', () => {
   });
 
   describe('create', () => {
-    it('should create an asset with atomic category and location lookup within transaction', async () => {
+    it('should create an asset with atomic category lookup within transaction', async () => {
       mockPrisma.assetCategory.findFirst.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.location.findFirst.mockResolvedValue({ id: 'loc-1', name: 'HQ Storage' });
 
       mockPrisma.asset.create.mockResolvedValue({
         id: 'ast-1',
@@ -61,9 +55,7 @@ describe('AssetsService', () => {
         purchaseDate: new Date('2026-01-15'),
         warrantyExpiry: new Date('2029-01-15'),
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         category: { name: 'Laptops' },
-        location: { name: 'HQ Storage' },
         assignedTo: { firstName: 'Alex', lastName: 'Johnson', email: 'alex@company.com' },
         notes: 'Lead engineer laptop',
       });
@@ -71,7 +63,6 @@ describe('AssetsService', () => {
       const result = await service.create({
         name: 'MacBook Pro 16',
         category: 'Laptops',
-        location: 'HQ Storage',
         status: 'Active',
         serialNumber: 'C02XYZ123',
         manufacturer: 'Apple',
@@ -83,12 +74,10 @@ describe('AssetsService', () => {
       expect(result.status).toBe('Active');
       expect(result.assignedTo).toBe('Alex Johnson');
       expect(result.categoryId).toBe('cat-1');
-      expect(result.locationId).toBe('loc-1');
     });
 
     it('should automatically set status to IN_USE when assignedToId is provided', async () => {
       mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.location.findUnique.mockResolvedValue({ id: 'loc-1', name: 'HQ Storage' });
       mockPrisma.directoryUser.findUnique.mockResolvedValue({ id: 'dir-1' });
 
       mockPrisma.asset.create.mockResolvedValue({
@@ -98,16 +87,13 @@ describe('AssetsService', () => {
         status: AssetStatus.IN_USE,
         assignedToId: 'dir-1',
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         category: { id: 'cat-1', name: 'Laptops' },
-        location: { id: 'loc-1', name: 'HQ Storage' },
         assignedTo: { firstName: 'Alex', lastName: 'Johnson', email: 'alex@company.com' },
       });
 
       const asset = await service.create({
         name: 'ThinkPad T14',
         categoryId: 'cat-1',
-        locationId: 'loc-1',
         assignedToId: 'dir-1',
       });
 
@@ -132,7 +118,6 @@ describe('AssetsService', () => {
         status: AssetStatus.AVAILABLE,
         assignedToId: null,
         category: { name: 'Laptops' },
-        location: { name: 'Storage' },
       });
 
       const updated = await service.update('ast-1', { assignedToId: null });
@@ -158,7 +143,6 @@ describe('AssetsService', () => {
         status: AssetStatus.IN_USE,
         assignedToId: 'dir-1',
         category: { name: 'Laptops' },
-        location: { name: 'Storage' },
         assignedTo: { firstName: 'Alice', lastName: 'Engineer', email: 'alice@company.com' },
       });
 
@@ -185,7 +169,6 @@ describe('AssetsService', () => {
         status: AssetStatus.MAINTENANCE,
         assignedToId: 'dir-1',
         category: { name: 'Laptops' },
-        location: { name: 'Storage' },
         assignedTo: { firstName: 'Alice', lastName: 'Engineer', email: 'alice@company.com' },
       });
 
@@ -215,7 +198,6 @@ describe('AssetsService', () => {
         status: AssetStatus.MAINTENANCE,
         assignedToId: null,
         category: { name: 'Laptops' },
-        location: { name: 'Storage' },
       });
 
       await service.update('ast-1', { assignedToId: null });
@@ -238,7 +220,6 @@ describe('AssetsService', () => {
           name: 'Dell XPS 15',
           status: AssetStatus.AVAILABLE,
           category: { name: 'Laptops' },
-          location: { name: 'Floor 3' },
           assignedTo: null,
         },
       ]);
@@ -310,7 +291,6 @@ describe('AssetsService', () => {
         name: 'Cisco Catalyst 9300-48P',
         status: AssetStatus.IN_USE,
         category: { name: 'Network Switches' },
-        location: { name: 'Datacenter' },
         assignedTo: null,
         notes: 'Rack 4 - Switch 2',
       });
@@ -397,12 +377,13 @@ describe('AssetsService', () => {
   describe('exportXlsx', () => {
     function createMockResponse() {
       const stream = new PassThrough();
-      const mockRes = stream as unknown as Response & PassThrough & {
-        setHeader: ReturnType<typeof vi.fn>;
-        status: ReturnType<typeof vi.fn>;
-        json: ReturnType<typeof vi.fn>;
-        headersSent: boolean;
-      };
+      const mockRes = stream as unknown as Response &
+        PassThrough & {
+          setHeader: ReturnType<typeof vi.fn>;
+          status: ReturnType<typeof vi.fn>;
+          json: ReturnType<typeof vi.fn>;
+          headersSent: boolean;
+        };
       mockRes.setHeader = vi.fn();
       mockRes.status = vi.fn().mockReturnThis();
       mockRes.json = vi.fn().mockReturnThis();
@@ -423,7 +404,6 @@ describe('AssetsService', () => {
           purchaseDate: new Date('2026-01-15'),
           warrantyExpiry: new Date('2029-01-15'),
           category: { name: 'Laptops' },
-          location: { name: 'HQ Building', fullPath: 'HQ / Floor 2' },
           department: { name: 'Engineering' },
           assignedTo: { firstName: 'Alice', lastName: 'Johnson' },
         },
@@ -454,12 +434,11 @@ describe('AssetsService', () => {
       expect(headerRow?.getCell(3).value).toBe('Category');
       expect(headerRow?.getCell(4).value).toBe('Status');
       expect(headerRow?.getCell(5).value).toBe('Department');
-      expect(headerRow?.getCell(6).value).toBe('Location');
-      expect(headerRow?.getCell(7).value).toBe('Serial Number');
-      expect(headerRow?.getCell(8).value).toBe('Purchase Cost');
-      expect(headerRow?.getCell(9).value).toBe('Purchase Date');
-      expect(headerRow?.getCell(10).value).toBe('Warranty Expiry');
-      expect(headerRow?.getCell(11).value).toBe('Assigned To');
+      expect(headerRow?.getCell(6).value).toBe('Serial Number');
+      expect(headerRow?.getCell(7).value).toBe('Purchase Cost');
+      expect(headerRow?.getCell(8).value).toBe('Purchase Date');
+      expect(headerRow?.getCell(9).value).toBe('Warranty Expiry');
+      expect(headerRow?.getCell(10).value).toBe('Assigned To');
 
       // Verify header cell style
       const headerCell = headerRow?.getCell(1);
@@ -480,12 +459,11 @@ describe('AssetsService', () => {
       expect(dataRow?.getCell(3).value).toBe('Laptops');
       expect(dataRow?.getCell(4).value).toBe('Active');
       expect(dataRow?.getCell(5).value).toBe('Engineering');
-      expect(dataRow?.getCell(6).value).toBe('HQ Building');
-      expect(dataRow?.getCell(7).value).toBe('SN123456');
-      expect(dataRow?.getCell(8).numFmt).toBe('$#,##0.00');
+      expect(dataRow?.getCell(6).value).toBe('SN123456');
+      expect(dataRow?.getCell(7).numFmt).toBe('$#,##0.00');
+      expect(dataRow?.getCell(8).numFmt).toBe('yyyy-mm-dd');
       expect(dataRow?.getCell(9).numFmt).toBe('yyyy-mm-dd');
-      expect(dataRow?.getCell(10).numFmt).toBe('yyyy-mm-dd');
-      expect(dataRow?.getCell(11).value).toBe('Alice Johnson');
+      expect(dataRow?.getCell(10).value).toBe('Alice Johnson');
 
       // Verify column width bounds
       worksheet?.columns.forEach((col) => {
@@ -504,7 +482,6 @@ describe('AssetsService', () => {
         status: AssetStatus.AVAILABLE,
         serialNumber: `SN-${i + 1}`,
         category: { name: 'Devices' },
-        location: { name: 'Storage' },
         department: { name: 'IT' },
         assignedTo: null,
       }));
@@ -516,14 +493,11 @@ describe('AssetsService', () => {
         status: AssetStatus.AVAILABLE,
         serialNumber: `SN-${101 + i}`,
         category: { name: 'Devices' },
-        location: { name: 'Storage' },
         department: { name: 'IT' },
         assignedTo: null,
       }));
 
-      mockPrisma.asset.findMany
-        .mockResolvedValueOnce(batch1)
-        .mockResolvedValueOnce(batch2);
+      mockPrisma.asset.findMany.mockResolvedValueOnce(batch1).mockResolvedValueOnce(batch2);
 
       await service.exportXlsx({}, mockRes);
 
@@ -663,7 +637,9 @@ describe('AssetsService', () => {
 
   describe('BatchDeleteAssetDto validation', () => {
     it('should validate valid array of ID strings', async () => {
-      const dto = plainToInstance(BatchDeleteAssetDto, { ids: ['ast-1', 'ast-2'] });
+      const dto = plainToInstance(BatchDeleteAssetDto, {
+        ids: ['a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'b8c3445e-653a-43d9-a75d-59508d5e08b1'],
+      });
       const errors = await validate(dto);
       expect(errors).toHaveLength(0);
     });

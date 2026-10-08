@@ -73,7 +73,6 @@ export interface VlanQueryParams {
   limit?: number;
   search?: string;
   status?: string;
-  locationId?: string;
 }
 
 export interface SubnetQueryParams {
@@ -82,7 +81,6 @@ export interface SubnetQueryParams {
   limit?: number;
   search?: string;
   vlanId?: string;
-  locationId?: string;
 }
 
 export interface IpQueryParams {
@@ -96,7 +94,6 @@ export interface IpQueryParams {
   subnet?: string;
   status?: string;
   deviceType?: string;
-  locationId?: string;
 }
 
 export interface MacVendorLookupResult {
@@ -149,7 +146,6 @@ export const networkService = {
     name: string;
     description?: string | null;
     status?: VlanStatus | `${VlanStatus}`;
-    locationId?: string | null;
   }): Promise<VLAN> => {
     const res = await api.post('/network/vlans', data);
     return res.data.data;
@@ -179,7 +175,6 @@ export const networkService = {
     cidr: string;
     name: string;
     vlanId?: string | null;
-    locationId?: string | null;
     gateway?: string | null;
     description?: string | null;
   }): Promise<Subnet> => {

@@ -26,6 +26,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../stores/auth.store';
 import { useThemeStore } from '../../stores/theme.store';
+import { formRules } from '../../utils/formValidators';
 
 const { Title, Text } = Typography;
 
@@ -218,6 +219,8 @@ export default function LoginPage() {
               password: 'Youngone@2026',
               remember: true,
             }}
+            validateTrigger={['onChange', 'onBlur']}
+            scrollToFirstError={true}
             onFinish={onFinish}
             layout="vertical"
             requiredMark={false}
@@ -226,7 +229,8 @@ export default function LoginPage() {
               label="Email Address or AD Username"
               name="email"
               rules={[
-                { required: true, message: 'Please enter your corporate email or AD username' },
+                formRules.required('Corporate email or AD username'),
+                formRules.maxString('Identifier', 255),
               ]}
               style={{ marginBottom: 16 }}
             >
@@ -242,7 +246,7 @@ export default function LoginPage() {
             <Form.Item
               label="Password"
               name="password"
-              rules={[{ required: true, message: 'Please enter your password' }]}
+              rules={[formRules.required('Password')]}
               style={{ marginBottom: 16 }}
             >
               <Input.Password

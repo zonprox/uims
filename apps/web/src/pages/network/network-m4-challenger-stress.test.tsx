@@ -283,7 +283,6 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Fronten
             form={form}
             submitting={false}
             racks={[]}
-            locations={[]}
             onSave={vi.fn()}
             onCancel={vi.fn()}
           />

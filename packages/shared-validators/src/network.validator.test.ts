@@ -393,4 +393,90 @@ describe('network.validator', () => {
       }
     });
   });
+
+  describe('Strict boundaries and Physical Location purge verifications', () => {
+    it('confirms complete Physical Location purge: zero location fields on network schemas', () => {
+      expect('locationId' in createVlanSchema.shape).toBe(false);
+      expect('locationId' in vlanQuerySchema.shape).toBe(false);
+      expect('locationId' in createSubnetSchema.shape).toBe(false);
+      expect('locationId' in subnetQuerySchema.shape).toBe(false);
+      expect('locationId' in createIpAddressSchema.shape).toBe(false);
+      expect('locationId' in ipAddressQuerySchema.shape).toBe(false);
+      expect('locationId' in createRackSchema.shape).toBe(false);
+      expect('locationId' in rackQuerySchema.shape).toBe(false);
+      expect('locationId' in createSwitchSchema.shape).toBe(false);
+      expect('locationId' in switchQuerySchema.shape).toBe(false);
+    });
+
+    it('rejects leading zeroes in IPv4 octets', () => {
+      expect(createIpAddressSchema.safeParse({ address: '01.0.0.1' }).success).toBe(false);
+      expect(createIpAddressSchema.safeParse({ address: '10.00.0.1' }).success).toBe(false);
+      expect(createIpAddressSchema.safeParse({ address: '192.168.01.1' }).success).toBe(false);
+      expect(createIpAddressSchema.safeParse({ address: '10.232.130.15' }).success).toBe(true);
+    });
+
+    it('rejects invalid or leading-zero CIDR prefixes', () => {
+      expect(createSubnetSchema.safeParse({ cidr: '10.232.130.0/35', name: 'S1' }).success).toBe(
+        false,
+      );
+      expect(createSubnetSchema.safeParse({ cidr: '10.232.130.0/01', name: 'S1' }).success).toBe(
+        false,
+      );
+      expect(createSubnetSchema.safeParse({ cidr: '01.0.0.0/24', name: 'S1' }).success).toBe(
+        false,
+      );
+      expect(createSubnetSchema.safeParse({ cidr: '10.232.130.0/24', name: 'S1' }).success).toBe(
+        true,
+      );
+    });
+
+    it('validates MAC address formats in createIpAddressSchema', () => {
+      expect(
+        createIpAddressSchema.safeParse({
+          address: '10.232.130.15',
+          macAddress: '00:1B:44:11:3A:B7',
+        }).success,
+      ).toBe(true);
+      expect(
+        createIpAddressSchema.safeParse({
+          address: '10.232.130.15',
+          macAddress: '001b.4411.3ab7',
+        }).success,
+      ).toBe(true);
+      expect(
+        createIpAddressSchema.safeParse({
+          address: '10.232.130.15',
+          macAddress: 'invalid-mac',
+        }).success,
+      ).toBe(false);
+    });
+
+    it('validates taggedVlanIds bounds in createSwitchPortSchema', () => {
+      const basePort = {
+        switchId: '123e4567-e89b-12d3-a456-426614174000',
+        portNumber: 1,
+        name: 'Gi1/0/1',
+      };
+      expect(
+        createSwitchPortSchema.safeParse({
+          ...basePort,
+          taggedVlanIds: [1, 100, 4094],
+        }).success,
+      ).toBe(true);
+
+      // Rejects VLAN ID out of bounds [1..4094]
+      expect(
+        createSwitchPortSchema.safeParse({
+          ...basePort,
+          taggedVlanIds: [0],
+        }).success,
+      ).toBe(false);
+      expect(
+        createSwitchPortSchema.safeParse({
+          ...basePort,
+          taggedVlanIds: [5000],
+        }).success,
+      ).toBe(false);
+    });
+  });
 });

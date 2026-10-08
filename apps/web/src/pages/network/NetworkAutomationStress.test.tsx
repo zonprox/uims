@@ -3,7 +3,6 @@ import { act, createElement, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset } from '../../services/assets.service';
-import type { LocationBranch } from '../../services/organization.service';
 import {
   type AutoDetectResult,
   type NetworkCalculation,
@@ -21,12 +20,7 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
-  const locations: LocationBranch[] = [
-    { id: 'loc-1', name: 'BSL Factory 1', building: 'Building A', floor: 'Floor 1' },
-    { id: 'loc-2', name: 'HCM Office D3', building: 'Main Tower', floor: 'Floor 7' },
-  ];
-
+const { mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
   const vlans: VLAN[] = [
     {
       id: 'vlan-1',
@@ -34,7 +28,6 @@ const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
       name: 'Core Servers',
       description: 'Production servers',
       status: 'ACTIVE',
-      locationId: 'loc-1',
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
@@ -44,7 +37,6 @@ const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
       name: 'Time Attendance',
       description: 'Fingerprint scanners',
       status: 'ACTIVE',
-      locationId: 'loc-1',
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
@@ -56,7 +48,6 @@ const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
       cidr: '10.232.10.0/24',
       name: 'Core Server Subnet',
       vlanId: 'vlan-1',
-      locationId: 'loc-1',
       gateway: '10.232.10.254',
       networkAddress: '10.232.10.0',
       netmask: '255.255.255.0',
@@ -74,7 +65,6 @@ const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
       cidr: '10.232.130.0/24',
       name: 'Attendance Subnet',
       vlanId: 'vlan-2',
-      locationId: 'loc-1',
       gateway: '10.232.130.254',
       networkAddress: '10.232.130.0',
       netmask: '255.255.255.0',
@@ -101,14 +91,12 @@ const { mockLocations, mockVlans, mockSubnets, mockAssets } = vi.hoisted(() => {
       status: 'Active',
       assignedTo: 'Alex Chen',
       assignedEmail: 'alex.chen@uims.internal',
-      location: 'BSL Factory 1',
       purchaseDate: '2025-01-01',
       warrantyExpiry: '2028-01-01',
     },
   ];
 
   return {
-    mockLocations: locations,
     mockVlans: vlans,
     mockSubnets: subnets,
     mockAssets: assets,
@@ -285,7 +273,6 @@ describe('Milestone 3 Empirical Stress Tests: Automation & Modals', () => {
                 form={form}
                 submitting={false}
                 vlans={mockVlans}
-                locations={mockLocations}
                 onSave={vi.fn()}
                 onCancel={vi.fn()}
               />
@@ -475,7 +462,6 @@ describe('Milestone 3 Empirical Stress Tests: Automation & Modals', () => {
                 submitting={false}
                 subnets={mockSubnets}
                 vlans={mockVlans}
-                locations={mockLocations}
                 assets={mockAssets}
                 onSave={vi.fn()}
                 onCancel={vi.fn()}
@@ -580,7 +566,6 @@ describe('Milestone 3 Empirical Stress Tests: Automation & Modals', () => {
                 submitting={false}
                 subnets={mockSubnets}
                 vlans={mockVlans}
-                locations={mockLocations}
                 assets={mockAssets}
                 onSave={vi.fn()}
                 onCancel={vi.fn()}
@@ -667,7 +652,6 @@ describe('Milestone 3 Empirical Stress Tests: Automation & Modals', () => {
                 submitting={false}
                 subnets={mockSubnets}
                 vlans={mockVlans}
-                locations={mockLocations}
                 assets={mockAssets}
                 onSave={vi.fn()}
                 onCancel={vi.fn()}

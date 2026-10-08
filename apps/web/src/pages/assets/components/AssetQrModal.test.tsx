@@ -25,7 +25,6 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
     status: 'Active',
     assignedTo: 'Marcus Vance',
     assignedEmail: 'marcus@uims.internal',
-    location: 'Building A, Room 402',
     purchaseDate: '2026-02-10',
     warrantyExpiry: '2029-02-10',
   };
@@ -76,7 +75,8 @@ describe('AssetQrModal and AssetDetailDrawer Dark Mode & Print Integration', () 
       expect(document.body.textContent).toContain('Asset Tag Label: AST-2026-0042');
       expect(document.body.textContent).toContain('AST-2026-0042');
       expect(document.body.textContent).toContain('Dell Precision 5570');
-      expect(document.body.textContent).toContain('SN-DELL-5570-01');
+      expect(document.body.textContent).not.toContain('SN-DELL-5570-01');
+      expect(document.body.textContent).not.toContain('S/N:');
 
       const labelBadge = document.body.querySelector('.printable-asset-label');
       expect(labelBadge).not.toBeNull();

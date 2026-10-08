@@ -38,6 +38,24 @@ export interface BatchAssignUserLicenseDto {
   userIds: string[];
 }
 
+export interface BatchAssignLicensesToUserDto {
+  licenseIds: string[];
+  userId: string;
+}
+
+export interface BatchAssignUserLicenseResultDto {
+  count: number;
+  assignedUserIds: string[];
+  skippedUserIds?: string[];
+  license?: unknown;
+}
+
+export interface BatchAssignLicensesToUserResultDto {
+  count: number;
+  assignedLicenseIds: string[];
+  skippedLicenseIds?: string[];
+}
+
 export interface LicenseStatsDto {
   total: number;
   annualSpend: number;
