@@ -151,7 +151,9 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
           customCostCenter:
             typeof editingAsset.costCenter === 'string'
               ? editingAsset.costCenter
-              : undefined,
+              : typeof editingAsset.costCenter === 'number'
+                ? String(editingAsset.costCenter)
+                : undefined,
           departmentId: editingAsset.departmentId,
           assignedToId: editingAsset.assignedToId,
           purchaseDate: editingAsset.purchaseDate ? dayjs(editingAsset.purchaseDate) : undefined,
@@ -183,14 +185,24 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
         setInternalSubmitting(true);
 
         const subcode = (values.subcode || values.tag || '').trim().toUpperCase();
+        const customCostCenter =
+          typeof values.customCostCenter === 'string'
+            ? values.customCostCenter.trim()
+            : typeof values.customCostCenter === 'number'
+              ? String(values.customCostCenter).trim()
+              : undefined;
+        const validCostCenter =
+          customCostCenter && /^\d+$/.test(customCostCenter) ? customCostCenter : undefined;
+
+        const { customCostCenter: _unusedCustomCc, ...restValues } = values;
         const payload = {
-          ...values,
+          ...restValues,
           subcode,
           tag: subcode,
           parentId: values.parentId || undefined,
           serialNumber: values.serialNumber ? values.serialNumber.trim() : undefined,
           costCenterId: values.costCenterId || undefined,
-          costCenter: values.customCostCenter ? values.customCostCenter.trim() : undefined,
+          costCenter: validCostCenter,
           status: values.status || 'Active',
           departmentId: values.departmentId || undefined,
           assignedToId: values.assignedToId || undefined,
@@ -354,10 +366,10 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
               <Form.Item
                 label="Cost Center (Manual / Custom Entry)"
                 name="customCostCenter"
-                tooltip="Type custom cost center code/name if not listed in the dropdown"
-                rules={[formRules.maxString('Cost center', 50)]}
+                tooltip="Type custom numeric cost center code if not listed in the dropdown"
+                rules={[formRules.maxString('Cost center', 50), formRules.digits('Cost center')]}
               >
-                <Input placeholder="e.g. IT-OPS / ENG-DEV / CC-1002" allowClear />
+                <Input placeholder="e.g. 1002 or 01234" inputMode="numeric" maxLength={50} allowClear />
               </Form.Item>
             </Col>
           </Row>

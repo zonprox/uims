@@ -116,6 +116,32 @@ export const formRules = {
       `${label} can only contain letters, numbers, hyphens, and underscores.`,
   }),
 
+  // Numeric digits only (0-9), preserving leading zeros
+  digits: (label = 'Cost center', customMessage?: string): Rule => ({
+    pattern: /^\d+$/,
+    message: customMessage || `${label} must contain only digits (0-9).`,
+    validator(_rule, value: unknown) {
+      if (value === undefined || value === null || value === '') {
+        return Promise.resolve();
+      }
+      if (typeof value !== 'string' && typeof value !== 'number') {
+        return Promise.reject(
+          new Error(customMessage || `${label} must contain only digits (0-9).`),
+        );
+      }
+      const strVal = typeof value === 'string' ? value.trim() : String(value).trim();
+      if (strVal === '') {
+        return Promise.resolve();
+      }
+      if (!/^\d+$/.test(strVal)) {
+        return Promise.reject(
+          new Error(customMessage || `${label} must contain only digits (0-9).`),
+        );
+      }
+      return Promise.resolve();
+    },
+  }),
+
   // Integer range (non-negative or bounded)
   integer: (min = 0, max = 1_000_000, customMessage?: string): Rule => ({
     type: 'integer',

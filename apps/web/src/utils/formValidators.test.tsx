@@ -301,6 +301,109 @@ describe('Challenger M3-1: Adversarial Form Rule Stress Testing & Catch Block De
         await expect(validatorNoEnd(ruleConfigNoEnd as RuleObject, undefined)).resolves.toBeUndefined();
       });
     });
+
+    describe('1.8 Digits-Only Validator Stress Testing', () => {
+      const digitsRule = formRules.digits('Cost center');
+      const pattern = getPattern(digitsRule);
+      const validator = getValidator(digitsRule);
+      const ruleObj = digitsRule as RuleObject;
+
+      it('must match digits pattern regex', () => {
+        expect(pattern.test('1002')).toBe(true);
+        expect(pattern.test('01234')).toBe(true);
+        expect(pattern.test('0')).toBe(true);
+        expect(pattern.test('00000')).toBe(true);
+        expect(pattern.test('abc')).toBe(false);
+        expect(pattern.test('12a34')).toBe(false);
+        expect(pattern.test('-10')).toBe(false);
+        expect(pattern.test('12.34')).toBe(false);
+      });
+
+      it('must reject non-digit strings with validation feedback', async () => {
+        await expect(validator(ruleObj, 'abc')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, '12a34')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, 'CC-1002')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, '-123')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, '12.34')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        // Unicode fullwidth numbers, special characters, and emojis
+        await expect(validator(ruleObj, '１２３')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, '123😊')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, 'CC#1002')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+      });
+
+      it('must reject non-primitive non-string types with validation feedback', async () => {
+        await expect(validator(ruleObj, true)).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, {})).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, NaN)).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, Infinity)).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+        await expect(validator(ruleObj, -Infinity)).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+      });
+
+      it('must support custom labels and custom error messages', async () => {
+        const customRule = formRules.digits('Account Code', 'Only numeric digits allowed');
+        const customVal = getValidator(customRule);
+        const customRuleObj = customRule as RuleObject;
+
+        await expect(customVal(customRuleObj, 'abc')).rejects.toThrow(
+          'Only numeric digits allowed',
+        );
+
+        const defaultLabelRule = formRules.digits();
+        const defaultVal = getValidator(defaultLabelRule);
+        const defaultRuleObj = defaultLabelRule as RuleObject;
+
+        await expect(defaultVal(defaultRuleObj, 'xyz')).rejects.toThrow(
+          'Cost center must contain only digits (0-9).',
+        );
+      });
+
+      it('must accept valid digit strings preserving leading zeros', async () => {
+        await expect(validator(ruleObj, '1002')).resolves.toBeUndefined();
+        await expect(validator(ruleObj, '01234')).resolves.toBeUndefined();
+        await expect(validator(ruleObj, '00000')).resolves.toBeUndefined();
+        await expect(validator(ruleObj, '0')).resolves.toBeUndefined();
+        await expect(validator(ruleObj, 1002)).resolves.toBeUndefined();
+        await expect(validator(ruleObj, 0)).resolves.toBeUndefined();
+      });
+
+      it('must accept valid digit strings with surrounding whitespace trimmed', async () => {
+        await expect(validator(ruleObj, '  01234  ')).resolves.toBeUndefined();
+        await expect(validator(ruleObj, ' 1002 ')).resolves.toBeUndefined();
+      });
+
+      it('must resolve cleanly for empty/blank values (optional unless required)', async () => {
+        await expect(validator(ruleObj, undefined)).resolves.toBeUndefined();
+        await expect(validator(ruleObj, null)).resolves.toBeUndefined();
+        await expect(validator(ruleObj, '')).resolves.toBeUndefined();
+        await expect(validator(ruleObj, '   ')).resolves.toBeUndefined();
+      });
+    });
   });
 
   describe('2. Catch Block Defense Verification: isValidationError', () => {
