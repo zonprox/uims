@@ -1,6 +1,6 @@
 import { App, ConfigProvider } from 'antd';
 import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
+import { type Root, createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppUser, Role } from '@uims/shared-types';
@@ -82,6 +82,8 @@ vi.mock('../../services/roles.service', () => ({
   },
 }));
 
+let currentRoot: Root | null = null;
+
 describe('AccessControlPage Component Tests', () => {
   let container: HTMLDivElement;
 
@@ -90,15 +92,32 @@ describe('AccessControlPage Component Tests', () => {
     document.body.appendChild(container);
   });
 
-  afterEach(() => {
-    document.body.removeChild(container);
+  afterEach(async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (currentRoot) {
+      await act(async () => {
+        currentRoot?.unmount();
+      });
+      currentRoot = null;
+    }
+    if (container.parentNode) {
+      document.body.removeChild(container);
+    }
+    document
+      .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-tooltip')
+      .forEach((el) => {
+        el.remove();
+      });
+    document.body.innerHTML = '';
     vi.clearAllMocks();
   });
 
   const renderComponent = async () => {
-    const root = createRoot(container);
+    currentRoot = createRoot(container);
     await act(async () => {
-      root.render(
+      currentRoot?.render(
         createElement(
           MemoryRouter,
           null,
@@ -114,7 +133,7 @@ describe('AccessControlPage Component Tests', () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 80));
     });
-    return root;
+    return currentRoot;
   };
 
   it('renders PageContainer title, breadcrumbs, and operator telemetry stats', async () => {
