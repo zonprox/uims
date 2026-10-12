@@ -407,6 +407,14 @@ Every change must satisfy the full verification cycle prior to merging or pushin
   - In non-production environments (`NODE_ENV !== 'production'` or test/development), `REDIS_URL` may remain optional to permit isolated unit tests, CI test runs, and local offline development with graceful fallback.
 - **Mandatory Fail-Fast Application Bootstrap**: Application bootstrap must fail fast immediately with an explicit, readable configuration error (`process.exit(1)`) if required production environment variables are absent, preventing improperly configured containers from entering service meshes or serving live traffic.
 
+### 16.18 Biome Formatter Enforcement & Zero Discrepancy Invariant
+- **Pre-Commit Formatter Verification**: Every code modification across TypeScript, TSX, JSON, and CSS files MUST be formatted and verified via Biome (`pnpm run format` / `pnpm run format:check`). Zero formatting discrepancies or lint rule violations are permitted prior to commit.
+- **Strict CI Formatting Gate**: In remote CI workflows, `pnpm run format:check` runs as an initial non-bypassable gate preceding typecheck and tests. Commits containing unformatted files or multi-line/single-line indentation drift will immediately fail CI.
+
+### 16.19 UI Table Column Evolution & Component Test Synchronicity
+- **Table Column Streamlining Protocol**: Whenever table columns are refactored or streamlined (e.g. relocating secondary attributes like Cost Center, Serial Number, or Technical Specs from primary table columns into dedicated detail drawers or modals), all corresponding unit, component, and adversarial test suites MUST be updated synchronously.
+- **Container-Specific Test Assertions**: Tests must not assert that relocated attributes appear directly in raw table headers (`document.body.textContent` or column title selectors). Instead, tests must simulate opening the appropriate target container (e.g. clicking the record row, code link, or action button to open `AssetDetailDrawer` or modal) and verify the attribute renders within that specific component context.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, zero anti-patterns in UI components, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

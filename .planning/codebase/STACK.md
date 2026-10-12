@@ -1,57 +1,102 @@
+---
+last_mapped_commit: 47a62716158aff0e5b1b981ab498a7df3f1defc4
+last_mapped_at: 2026-10-12
+---
 # Technology Stack
 
-**Analysis Date:** 2026-09-28
+**Analysis Date:** 2026-10-12
 
 ## Languages
+
 **Primary:**
-- TypeScript 7.0.2 — API (`@uims/api`), Web (`@uims/web`), Shared Packages
+- TypeScript 7.0.2 - Monorepo-wide language across API, Web, and all shared packages (`apps/api`, `apps/web`, `packages/shared-types`, `packages/shared-validators`, `packages/shared-utils`, `packages/eslint-config`)
+
 **Secondary:**
-- JavaScript / Node.js — Build scripts, tooling
+- SQL (PostgreSQL 17 dialect) - Database migrations and custom query constraints (`apps/api/prisma/migrations/`)
+- Bash - Enterprise dev stack daemon and operational automation scripts (`scripts/dev.sh`, `scripts/run-e2e-network.mjs`)
+- CSS - Minimal global design system tokens and resets (`apps/web/src/styles/global.css`)
 
 ## Runtime
+
 **Environment:**
-- Node.js >=22.0.0
+- Node.js >= 22.0.0 (Native ESM support, Node 22+ LTS features)
+- Docker & Docker Compose - Containerized PostgreSQL 17, Redis 8, MeiliSearch, and SeaweedFS cluster
+
 **Package Manager:**
-- pnpm 11.21.0
-- Lockfile: present (`pnpm-lock.yaml`)
+- pnpm 11.21.0 - Strict workspace dependency isolation and deduplicated symlinks
+- Lockfile: `pnpm-lock.yaml` present and synchronized
+- Workspace configuration: `pnpm-workspace.yaml` with build permissions for `@prisma/client`, `bcrypt`, and `esbuild`
 
 ## Frameworks
+
 **Core:**
-- NestJS 11.2.3 — Backend API framework (`apps/api`)
-- React 19.3.0 — Frontend UI library (`apps/web`)
-- Vite 8.3.0 — Frontend build tool/bundler
+- NestJS 11.2.7 - Modular monolith enterprise backend framework (`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`)
+- React 19.3.0 - Modern UI component library with concurrent rendering (`react`, `react-dom`)
+- Ant Design 6.6.5 - Enterprise component library strictly conforming to Ant Design v6 semantic tokens (`antd`, `@ant-design/icons`, `@ant-design/pro-components`)
+- React Router 8.4.0 - Declarative client-side routing with lazy-loaded code-splitting (`react-router`)
+- Zustand 5.0.15 - Minimalist reactive client state management (`zustand`)
+- TanStack React Query 5.104.1 - Asynchronous server state caching, background invalidation, and data synchronization (`@tanstack/react-query`)
+- Prisma ORM 7.10.0 - Next-generation schema modeling and query engine with `@prisma/adapter-pg` driver adapter
+
 **Testing:**
-- Vitest 5.0.0 — Unit testing
-- Playwright 1.63.0 — End-to-end testing
-**Build/Dev:**
-- Turbo 2.10.12 — Monorepo task orchestration
-- Biome 2.5.13 — Formatting and linting
-- ESLint 10.10.0 — Linting
+- Vitest 5.0.3 - Unified lightning-fast test runner for Node (API) and Happy-DOM (Web)
+- Happy-DOM 20.14.6 - High-performance browser environment simulation for React 19 component tests
+- Playwright 1.64.0 - End-to-end browser automation and network workflow test verification (`@playwright/test`)
+
+**Build & Tooling:**
+- Turborepo 2.11.7 - High-performance build orchestrator with remote-capable pipeline caching (`turbo.json`)
+- Vite 8.3.4 - Frontend development server with HTTPS termination and Hot Module Replacement (HMR)
+- tsdown 0.23.1 - Rolldown-powered rapid dual-output ESM + DTS compiler for shared packages
+- Biome 2.5.15 - Blazing-fast code formatting engine (`@biomejs/biome`)
+- ESLint 10.12.0 - Comprehensive static code analysis and AST linting (`typescript-eslint` 8.71.1)
 
 ## Key Dependencies
+
 **Critical:**
-- Prisma 7.10.0 — Database ORM (`@prisma/client`)
-- Socket.io 4.8.3 — Real-time WebSockets
-- Zustand 5.0.15 — Frontend state management
-- TanStack React Query 5.102.8 — Data fetching and caching
-- Ant Design 6.6.3 — Frontend UI component library
+- `zod` 4.6.5 - Runtime schema validation across frontend forms, shared validators, and backend DTOs
+- `ioredis` 6.0.0 - High-performance Redis client for caching and session management
+- `socket.io` 4.8.4 & `socket.io-client` 4.8.4 - Real-time WebSocket notifications and system alerts
+- `bcrypt` 6.0.0 - Salted multi-round cryptographic password hashing (12 rounds)
+- `passport` 0.7.0 & `passport-jwt` 4.0.1 - Decoupled authentication strategies and JWT validation
+- `@nestjs/jwt` 11.0.2 - Access and refresh token generation, verification, and rotation
+- `pino` 10.4.0 & `pino-http` 11.0.0 - Low-overhead structured JSON logging
+- `helmet` 8.3.0 - HTTP security header hardening
+- `compression` 1.8.2 - Gzip HTTP response payload compression
+- `cookie-parser` 1.4.7 - Secure HTTP cookie parsing for auth tokens
+- `exceljs` 4.4.0 - High-capacity XLSX spreadsheet importing and export pipelines
+- `dayjs` 1.11.23 - Lightweight immutable date and timezone manipulation library
+- `jsqr` 1.4.0 - Pure TypeScript QR code decoding for camera-based asset inventory scanning
+
 **Infrastructure:**
-- pg 8.23.0 — PostgreSQL client
-- ioredis 6.0.0 — Redis client
+- `@prisma/adapter-pg` 7.10.0 - Direct PostgreSQL wire protocol adapter for Prisma 7
+- `pg` 8.23.1 - Low-level PostgreSQL connection pool driver
+- `@nestjs/swagger` 11.4.7 - Automated OpenAPI 3.0 documentation generator
 
 ## Configuration
+
 **Environment:**
-- Configured via `.env` files (e.g., `.env.example`), loaded via `dotenv` and NestJS ConfigModule.
-- Key configs required: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `MEILISEARCH_HOST`, `S3_ENDPOINT`
+- Validated at startup via NestJS `ConfigService.getOrThrow<string>()` and fail-fast assertions
+- Root `.env` loads configuration for dev stack daemon, Docker Compose, and localized processes
+- Strict parameterization: Zero plaintext fallback secrets permitted in source code or compose manifests
+
 **Build:**
-- Monorepo: `turbo.json`, `pnpm-workspace.yaml`
-- Apps: `vite.config.ts`, `tsconfig.json`
+- `turbo.json`: Task pipelines (`build`, `dev`, `lint`, `typecheck`, `test`, `test:e2e`) with strict dependency ordering and environment hashing
+- `tsconfig.json`: Strict TypeScript settings (`strict: true`, `noUncheckedIndexedAccess: true`, `moduleResolution: bundler` / `node16`)
+- `biome.json`: Unified formatter configuration with 2-space indentation and single quotes
 
 ## Platform Requirements
+
 **Development:**
-- Node.js >=22.0.0, pnpm >=11.0.0, Docker Desktop (for `docker-compose.dev.yml`)
+- Linux / macOS / WSL2 environment
+- Node.js >= 22.0.0, pnpm >= 11.0.0
+- Docker Engine >= 24.0.0 and Docker Compose v2+
+- Port allocations: Web (5679 HTTPS), API (3002), PostgreSQL (5433), Redis (6381), MeiliSearch (7700), SeaweedFS (8333/8888/9333/8080)
+
 **Production:**
-- Node.js environment, PostgreSQL DB, Redis instance, MeiliSearch, S3-compatible storage.
+- Multi-stage Docker containerization (`apps/api/Dockerfile`, `apps/web/Dockerfile`)
+- Nginx reverse proxy terminating TLS on port 443 with HSTS and proxying `/api/v1` to API service
+- Orchestration: Docker Compose / Kubernetes cluster with automated container healthcheck validation (`/api/v1/health`)
 
 ---
-*Stack analysis: 2026-09-28*
+
+*Stack analysis: 2026-10-12*
