@@ -463,7 +463,7 @@ describe('AssetsPage QR Scanner Integration', () => {
     });
   });
 
-  it('confirms spatial location filter is purged and displays cost center and department in table', async () => {
+  it('confirms spatial location filter is purged and displays cost center in detail drawer and department in table', async () => {
     const root = createRoot(container);
     await act(async () => {
       root.render(createElement(MemoryRouter, null, createElement(AssetsPage)));
@@ -472,8 +472,20 @@ describe('AssetsPage QR Scanner Integration', () => {
     // Check location filter in filter bar is purged
     expect(document.body.textContent).not.toContain('Location / Facility');
 
-    // Check table content
+    // Check table content contains department
     expect(document.body.textContent).toContain('Engineering');
+
+    // Click asset code AST-1001 to open detail drawer where Cost Center is displayed
+    const assetCodeElement = Array.from(document.body.querySelectorAll('span, code, a')).find(
+      (el) => el.textContent?.includes('AST-1001'),
+    );
+    expect(assetCodeElement).toBeDefined();
+
+    await act(async () => {
+      (assetCodeElement as HTMLElement)?.click();
+    });
+
+    // Verify Cost Center is displayed in AssetDetailDrawer
     expect(document.body.textContent).toContain('Cost Center');
 
     act(() => {
