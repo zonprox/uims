@@ -46,9 +46,9 @@
     "prepare": "echo 'Ready'"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.13",
-    "@playwright/test": "^1.63.0",
-    "playwright": "^1.63.0",
-    "turbo": "^2.10.12"
+    "@biomejs/biome": "^2.5.15",
+    "@playwright/test": "^1.64.0",
+    "playwright": "^1.64.0",
+    "turbo": "^2.11.7"
   }
 }
