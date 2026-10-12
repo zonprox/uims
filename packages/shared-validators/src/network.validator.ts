@@ -34,10 +34,7 @@ export const ipv4Schema = z
   .trim()
   .regex(ipv4Regex, 'Invalid IPv4 address format (e.g. 10.232.130.15)');
 
-export const ipv6Schema = z
-  .string()
-  .trim()
-  .regex(ipv6Regex, 'Invalid IPv6 address format');
+export const ipv6Schema = z.string().trim().regex(ipv6Regex, 'Invalid IPv6 address format');
 
 export const cidrSchema = z
   .string()
@@ -78,12 +75,7 @@ export const createSubnetSchema = z.object({
   cidr: cidrSchema,
   name: z.string().trim().min(1, 'Subnet name is required').max(100),
   vlanId: uuidSchema.nullable().optional(),
-  gateway: z
-    .string()
-    .trim()
-    .regex(ipv4Regex, 'Invalid IPv4 gateway address')
-    .nullable()
-    .optional(),
+  gateway: z.string().trim().regex(ipv4Regex, 'Invalid IPv4 gateway address').nullable().optional(),
   networkAddress: z.string().trim().regex(ipv4Regex).nullable().optional(),
   netmask: z.string().trim().regex(ipv4Regex).nullable().optional(),
   broadcastAddress: z.string().trim().regex(ipv4Regex).nullable().optional(),

@@ -734,9 +734,9 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
         new Error('Transaction deadlock error'),
       );
 
-      await expect(
-        directoryService.removeGroup('grp-cascade-fail'),
-      ).rejects.toThrow('Transaction deadlock error');
+      await expect(directoryService.removeGroup('grp-cascade-fail')).rejects.toThrow(
+        'Transaction deadlock error',
+      );
     });
   });
 

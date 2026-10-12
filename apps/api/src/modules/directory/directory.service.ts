@@ -481,8 +481,6 @@ export class DirectoryService {
     };
   }
 
-
-
   async syncDomain(): Promise<DomainSyncResult> {
     const [totalUsers, activeUsers, totalGroups] = await Promise.all([
       this.prisma.directoryUser.count(),
@@ -591,7 +589,9 @@ export class DirectoryService {
       where: { id },
       data: {
         ...(updateGroupDto.name !== undefined && { name: updateGroupDto.name.trim() }),
-        ...(updateGroupDto.description !== undefined && { description: updateGroupDto.description }),
+        ...(updateGroupDto.description !== undefined && {
+          description: updateGroupDto.description,
+        }),
         ...(updateGroupDto.type !== undefined && { type: updateGroupDto.type }),
         ...(updateGroupDto.scope !== undefined && { scope: updateGroupDto.scope }),
         ...(updateGroupDto.managedBy !== undefined && { managedBy: updateGroupDto.managedBy }),

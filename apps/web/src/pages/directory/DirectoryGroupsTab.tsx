@@ -172,8 +172,7 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
       dataIndex: 'type',
       key: 'type',
       width: 140,
-      sorter: (a, b) =>
-        (a.type || '').localeCompare(b.type || '') || a.id.localeCompare(b.id),
+      sorter: (a, b) => (a.type || '').localeCompare(b.type || '') || a.id.localeCompare(b.id),
       render: (_: unknown, record: DirectoryGroup) => {
         const typeColor =
           record.type === 'Security'
@@ -191,8 +190,7 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
       dataIndex: 'scope',
       key: 'scope',
       width: 130,
-      sorter: (a, b) =>
-        (a.scope || '').localeCompare(b.scope || '') || a.id.localeCompare(b.id),
+      sorter: (a, b) => (a.scope || '').localeCompare(b.scope || '') || a.id.localeCompare(b.id),
       render: (_: unknown, record: DirectoryGroup) => {
         const scopeColor =
           record.scope === 'Global'
@@ -224,8 +222,7 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
       dataIndex: 'memberCount',
       key: 'members',
       width: 130,
-      sorter: (a, b) =>
-        (a.memberCount ?? 0) - (b.memberCount ?? 0) || a.id.localeCompare(b.id),
+      sorter: (a, b) => (a.memberCount ?? 0) - (b.memberCount ?? 0) || a.id.localeCompare(b.id),
       render: (_: unknown, record: DirectoryGroup) => (
         <Badge
           count={`${record.memberCount ?? 0} members`}

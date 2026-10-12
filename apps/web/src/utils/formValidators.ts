@@ -112,8 +112,7 @@ export const formRules = {
   sku: (label = 'SKU / Code', customMessage?: string): Rule => ({
     pattern: /^[A-Za-z0-9_-]+$/,
     message:
-      customMessage ||
-      `${label} can only contain letters, numbers, hyphens, and underscores.`,
+      customMessage || `${label} can only contain letters, numbers, hyphens, and underscores.`,
   }),
 
   // Numeric digits only (0-9), preserving leading zeros
@@ -149,9 +148,7 @@ export const formRules = {
       value !== undefined && value !== null && value !== '' ? Number(value) : value,
     min,
     max,
-    message:
-      customMessage ||
-      `Must be a whole integer between ${min} and ${max.toLocaleString()}.`,
+    message: customMessage || `Must be a whole integer between ${min} and ${max.toLocaleString()}.`,
   }),
 
   integerRange: (label: string, min = 0, max = 1_000_000, customMessage?: string): Rule => ({
@@ -170,11 +167,18 @@ export const formRules = {
     validator(_rule, value) {
       if (value === undefined || value === null || value === '') return Promise.resolve();
       const num = Number(value);
-      if (isNaN(num)) return Promise.reject(new Error(customMessage || `${label} must be a valid number.`));
-      if (num < 0) return Promise.reject(new Error(customMessage || `${label} cannot be negative.`));
-      if (num > max) return Promise.reject(new Error(customMessage || `${label} cannot exceed ${max.toLocaleString()}.`));
+      if (isNaN(num))
+        return Promise.reject(new Error(customMessage || `${label} must be a valid number.`));
+      if (num < 0)
+        return Promise.reject(new Error(customMessage || `${label} cannot be negative.`));
+      if (num > max)
+        return Promise.reject(
+          new Error(customMessage || `${label} cannot exceed ${max.toLocaleString()}.`),
+        );
       if (Math.abs(Math.round(num * 100) - num * 100) > 1e-7) {
-        return Promise.reject(new Error(customMessage || `${label} cannot have more than 2 decimal places.`));
+        return Promise.reject(
+          new Error(customMessage || `${label} cannot have more than 2 decimal places.`),
+        );
       }
       return Promise.resolve();
     },
@@ -188,25 +192,23 @@ export const formRules = {
   }),
 
   // Chronological Date Validator (ensures laterDate >= earlierDate)
-  chronologicalDate: (
-    earlierFieldName: string,
-    earlierLabel: string,
-    laterLabel: string,
-  ): Rule => ({ getFieldValue }) => ({
-    validator(_, value: unknown) {
-      if (!value) return Promise.resolve();
-      const earlierVal = getFieldValue(earlierFieldName);
-      if (!earlierVal) return Promise.resolve();
-      const start = dayjs.isDayjs(earlierVal) ? earlierVal : dayjs(earlierVal as string);
-      const end = dayjs.isDayjs(value) ? value : dayjs(value as string);
-      if (start.isValid() && end.isValid() && end.isBefore(start, 'day')) {
-        return Promise.reject(
-          new Error(`${laterLabel} cannot precede ${earlierLabel.toLowerCase()}.`),
-        );
-      }
-      return Promise.resolve();
-    },
-  }),
+  chronologicalDate:
+    (earlierFieldName: string, earlierLabel: string, laterLabel: string): Rule =>
+    ({ getFieldValue }) => ({
+      validator(_, value: unknown) {
+        if (!value) return Promise.resolve();
+        const earlierVal = getFieldValue(earlierFieldName);
+        if (!earlierVal) return Promise.resolve();
+        const start = dayjs.isDayjs(earlierVal) ? earlierVal : dayjs(earlierVal as string);
+        const end = dayjs.isDayjs(value) ? value : dayjs(value as string);
+        if (start.isValid() && end.isValid() && end.isBefore(start, 'day')) {
+          return Promise.reject(
+            new Error(`${laterLabel} cannot precede ${earlierLabel.toLowerCase()}.`),
+          );
+        }
+        return Promise.resolve();
+      },
+    }),
 
   // Valid URL
   url: (label = 'Website URL', customMessage?: string): Rule => ({

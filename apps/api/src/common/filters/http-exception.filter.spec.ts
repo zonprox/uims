@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { HttpExceptionFilter } from './http-exception.filter';
 
 describe('HttpExceptionFilter', () => {
-  const createMockHost = (statusMock: ReturnType<typeof vi.fn>, jsonMock: ReturnType<typeof vi.fn>) => {
+  const createMockHost = (
+    statusMock: ReturnType<typeof vi.fn>,
+    jsonMock: ReturnType<typeof vi.fn>,
+  ) => {
     const getResponseMock = vi.fn().mockReturnValue({
       status: statusMock,
       json: jsonMock,

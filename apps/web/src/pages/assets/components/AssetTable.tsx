@@ -57,14 +57,22 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                   copyable
                   code
                   strong
-                  style={{ fontSize: 13, color: '#1677ff', cursor: 'pointer', display: 'inline-block' }}
+                  style={{
+                    fontSize: 13,
+                    color: '#1677ff',
+                    cursor: 'pointer',
+                    display: 'inline-block',
+                  }}
                   onClick={() => onShowDetails(record)}
                 >
                   {code}
                 </Text>
                 {sapCode && (
                   <div style={{ marginTop: 2 }}>
-                    <Tag color="cyan" style={{ fontSize: 10.5, margin: 0, padding: '0 4px', lineHeight: '18px' }}>
+                    <Tag
+                      color="cyan"
+                      style={{ fontSize: 10.5, margin: 0, padding: '0 4px', lineHeight: '18px' }}
+                    >
                       SAP: {sapCode}
                     </Tag>
                   </div>
@@ -154,7 +162,8 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           dataIndex: 'organization',
           key: 'organization',
           sorter: (a: Asset, b: Asset) =>
-            (a.organization || '').localeCompare(b.organization || '') || a.tag.localeCompare(b.tag),
+            (a.organization || '').localeCompare(b.organization || '') ||
+            a.tag.localeCompare(b.tag),
           render: (_: unknown, record: Asset) => {
             return (
               <Flex vertical gap={4}>
@@ -168,9 +177,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                     {record.organization}
                   </Tag>
                 )}
-                {!record.department && !record.organization && (
-                  <Text type="secondary">—</Text>
-                )}
+                {!record.department && !record.organization && <Text type="secondary">—</Text>}
               </Flex>
             );
           },

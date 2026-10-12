@@ -5,10 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset, AssetCategory } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import {
-  type Department,
-  organizationService,
-} from '../../../services/organization.service';
+import { type Department, organizationService } from '../../../services/organization.service';
 import { AccountStatus, DirectorySource } from '@uims/shared-types';
 import { AssetFormModal } from './AssetFormModal';
 

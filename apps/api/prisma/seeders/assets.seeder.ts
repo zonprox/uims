@@ -1276,8 +1276,12 @@ export async function seedAssets(
           prisma.department.findMany({ take: 200 }),
           prisma.directoryUser.findMany({ take: 100 }),
         ]);
-        const deptMap = new Map<string, string>(departments.map((d: { code: string; id: string }) => [d.code, d.id]));
-        const userMap = new Map<string, string>(dirUsers.map((u: { email: string; id: string }) => [u.email, u.id]));
+        const deptMap = new Map<string, string>(
+          departments.map((d: { code: string; id: string }) => [d.code, d.id]),
+        );
+        const userMap = new Map<string, string>(
+          dirUsers.map((u: { email: string; id: string }) => [u.email, u.id]),
+        );
         getDept = (code: string) =>
           deptMap.get(code) || deptMap.get('DEPT-BSL-MGMT') || departments[0]?.id || code;
         getUser = (email: string) => (email ? userMap.get(email) || null : null);
@@ -1314,7 +1318,9 @@ export async function seedAssets(
           const vendorId = resolveVendorId(modelRow.manufacturer, effectiveVendors);
           const costCenterId = getCcId(modelRow.costCenterCode);
           const departmentId =
-            getDept('DEPT-BSL-IT') || (ctx ? Array.from(ctx.departments.values())[0] : null) || null;
+            getDept('DEPT-BSL-IT') ||
+            (ctx ? Array.from(ctx.departments.values())[0] : null) ||
+            null;
 
           return tx.asset.upsert({
             where: { assetCode: modelRow.assetCode },

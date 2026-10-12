@@ -50,12 +50,12 @@ describe('license.validator', () => {
     });
 
     it('rejects invalid or unauthorized type and status strings', () => {
-      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, type: 'INVALID' }).success).toBe(
-        false,
-      );
-      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, status: 'UNKNOWN' }).success).toBe(
-        false,
-      );
+      expect(
+        createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, type: 'INVALID' }).success,
+      ).toBe(false);
+      expect(
+        createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, status: 'UNKNOWN' }).success,
+      ).toBe(false);
     });
 
     it('rejects totalSeats with float, negative, non-numeric, or exceeding 1,000,000', () => {
@@ -68,12 +68,12 @@ describe('license.validator', () => {
     });
 
     it('rejects invalid currency amounts in cost and costPerSeat', () => {
-      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, costPerSeat: -1 }).success).toBe(
-        false,
-      );
-      expect(createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, cost: 99.999 }).success).toBe(
-        false,
-      );
+      expect(
+        createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, costPerSeat: -1 }).success,
+      ).toBe(false);
+      expect(
+        createLicenseSchema.safeParse({ name: 'App', totalSeats: 10, cost: 99.999 }).success,
+      ).toBe(false);
     });
 
     it('validates vendorId UUID format', () => {

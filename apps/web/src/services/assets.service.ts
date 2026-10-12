@@ -149,15 +149,7 @@ export const assetsService = {
 
   exportCsv: async (): Promise<string> => {
     const assets = await assetsService.getAssets();
-    const headers = [
-      'Tag',
-      'Name',
-      'Manufacturer',
-      'Model',
-      'Category',
-      'Status',
-      'Assigned To',
-    ];
+    const headers = ['Tag', 'Name', 'Manufacturer', 'Model', 'Category', 'Status', 'Assigned To'];
     const rows = assets.map((a) => [
       a.tag,
       `"${(a.name || '').replace(/"/g, '""')}"`,

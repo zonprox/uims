@@ -88,10 +88,7 @@ export const RoleCloneModal: React.FC<RoleCloneModalProps> = ({
         <Form.Item
           name="targetRoleName"
           label="New Role Name"
-          rules={[
-            formRules.required('Role name'),
-            formRules.stringRange('Role name', 2, 50),
-          ]}
+          rules={[formRules.required('Role name'), formRules.stringRange('Role name', 2, 50)]}
         >
           <Input placeholder="e.g. Senior IT Field Technician" autoFocus />
         </Form.Item>

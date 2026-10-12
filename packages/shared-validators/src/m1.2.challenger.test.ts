@@ -11,23 +11,14 @@ import {
   loginSchema,
   resetPasswordSchema,
 } from './auth.validator';
-import {
-  createDirectoryGroupSchema,
-  createDirectoryUserSchema,
-} from './directory.validator';
-import {
-  antdRules,
-  zodToAntdRule,
-} from './index';
+import { createDirectoryGroupSchema, createDirectoryUserSchema } from './directory.validator';
+import { antdRules, zodToAntdRule } from './index';
 import {
   adjustInventorySchema,
   createInventoryItemSchema,
   restockInventorySchema,
 } from './inventory.validator';
-import {
-  createLicenseSchema,
-  updateLicenseSchema,
-} from './license.validator';
+import { createLicenseSchema, updateLicenseSchema } from './license.validator';
 import { createAppUserSchema, resetAppUserPasswordSchema } from './user.validator';
 import { createVendorSchema } from './vendor.validator';
 
@@ -164,7 +155,9 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
       expect(createAssetSchema.safeParse({ name: 'Server', assetCode: code50 }).success).toBe(true);
 
       const code51 = 'A'.repeat(51);
-      expect(createAssetSchema.safeParse({ name: 'Server', assetCode: code51 }).success).toBe(false);
+      expect(createAssetSchema.safeParse({ name: 'Server', assetCode: code51 }).success).toBe(
+        false,
+      );
     });
 
     it('rejects negative unitCost and malformed currencies', () => {
@@ -181,13 +174,17 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
 
     it('rejects unitCost with more than 2 decimal places and over 100M', () => {
       expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 10.999 }).success).toBe(false);
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 100_000_001 }).success).toBe(false);
+      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 100_000_001 }).success).toBe(
+        false,
+      );
 
       // Valid precision cases
       expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 0 }).success).toBe(true);
       expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 0.07 }).success).toBe(true);
       expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 0.29 }).success).toBe(true);
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: '450.50' }).success).toBe(true);
+      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: '450.50' }).success).toBe(
+        true,
+      );
     });
   });
 
@@ -208,12 +205,12 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
     });
 
     it('accepts valid integer seat counts and valid numeric strings', () => {
-      expect(
-        createLicenseSchema.safeParse({ name: 'JetBrains', totalSeats: 1 }).success,
-      ).toBe(true);
-      expect(
-        createLicenseSchema.safeParse({ name: 'JetBrains', totalSeats: '25' }).success,
-      ).toBe(true);
+      expect(createLicenseSchema.safeParse({ name: 'JetBrains', totalSeats: 1 }).success).toBe(
+        true,
+      );
+      expect(createLicenseSchema.safeParse({ name: 'JetBrains', totalSeats: '25' }).success).toBe(
+        true,
+      );
       expect(
         createLicenseSchema.safeParse({ name: 'JetBrains', totalSeats: 1_000_000 }).success,
       ).toBe(true);
@@ -335,15 +332,11 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
     });
 
     it('rejects negative adjustments and restock violations', () => {
-      expect(
-        adjustInventorySchema.safeParse({ quantity: -5, reason: 'Stock audit' }).success,
-      ).toBe(false);
-      expect(
-        restockInventorySchema.safeParse({ quantity: 0 }).success,
-      ).toBe(false);
-      expect(
-        restockInventorySchema.safeParse({ quantity: -10 }).success,
-      ).toBe(false);
+      expect(adjustInventorySchema.safeParse({ quantity: -5, reason: 'Stock audit' }).success).toBe(
+        false,
+      );
+      expect(restockInventorySchema.safeParse({ quantity: 0 }).success).toBe(false);
+      expect(restockInventorySchema.safeParse({ quantity: -10 }).success).toBe(false);
     });
   });
 
@@ -359,10 +352,18 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
 
       // loginSchema
       expect(loginSchema.safeParse({ email: 'admin@corp.com', password: '' }).success).toBe(false);
-      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass7 }).success).toBe(false);
-      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass8 }).success).toBe(true);
-      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass128 }).success).toBe(true);
-      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass129 }).success).toBe(false);
+      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass7 }).success).toBe(
+        false,
+      );
+      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass8 }).success).toBe(
+        true,
+      );
+      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass128 }).success).toBe(
+        true,
+      );
+      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: pass129 }).success).toBe(
+        false,
+      );
 
       // createAppUserSchema
       expect(
@@ -453,7 +454,9 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
     it('rejects invalid values with descriptive error message', async () => {
       // Invalid email
       const emailRule = zodToAntdRule(createAppUserSchema.shape.email);
-      await expect(emailRule.validator({}, 'not-an-email')).rejects.toThrow('Invalid email address');
+      await expect(emailRule.validator({}, 'not-an-email')).rejects.toThrow(
+        'Invalid email address',
+      );
 
       // Invalid number
       const seatsRule = zodToAntdRule(createLicenseSchema.shape.totalSeats);
@@ -515,8 +518,12 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
       await expect(vendorEmailRule.validator({}, 'vendor@corp.com')).resolves.toBeUndefined();
 
       // With malformed email: rejects
-      await expect(groupEmailRule.validator({}, 'bad-email')).rejects.toThrow('Invalid email address');
-      await expect(vendorEmailRule.validator({}, 'bad-email')).rejects.toThrow('Invalid email address');
+      await expect(groupEmailRule.validator({}, 'bad-email')).rejects.toThrow(
+        'Invalid email address',
+      );
+      await expect(vendorEmailRule.validator({}, 'bad-email')).rejects.toThrow(
+        'Invalid email address',
+      );
 
       // VERIFIED FIX:
       // When an optional formatted field is blank (empty string '' or whitespace '   '),
@@ -528,4 +535,3 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
     });
   });
 });
-

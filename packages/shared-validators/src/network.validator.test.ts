@@ -422,9 +422,7 @@ describe('network.validator', () => {
       expect(createSubnetSchema.safeParse({ cidr: '10.232.130.0/01', name: 'S1' }).success).toBe(
         false,
       );
-      expect(createSubnetSchema.safeParse({ cidr: '01.0.0.0/24', name: 'S1' }).success).toBe(
-        false,
-      );
+      expect(createSubnetSchema.safeParse({ cidr: '01.0.0.0/24', name: 'S1' }).success).toBe(false);
       expect(createSubnetSchema.safeParse({ cidr: '10.232.130.0/24', name: 'S1' }).success).toBe(
         true,
       );

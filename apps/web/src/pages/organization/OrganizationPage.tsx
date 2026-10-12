@@ -1638,11 +1638,7 @@ export default function OrganizationPage() {
           </Form.Item>
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item
-                label="Tax ID"
-                name="taxId"
-                rules={[formRules.maxString('Tax ID', 50)]}
-              >
+              <Form.Item label="Tax ID" name="taxId" rules={[formRules.maxString('Tax ID', 50)]}>
                 <Input placeholder="e.g. US-TAX-99881234" />
               </Form.Item>
             </Col>
@@ -1658,29 +1654,17 @@ export default function OrganizationPage() {
           </Row>
           <Row gutter={14}>
             <Col span={12}>
-              <Form.Item
-                label="Phone Number"
-                name="phone"
-                rules={[formRules.phone()]}
-              >
+              <Form.Item label="Phone Number" name="phone" rules={[formRules.phone()]}>
                 <Input placeholder="e.g. +1 (555) 100-0000" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item
-                label="Website"
-                name="website"
-                rules={[formRules.url('Website URL')]}
-              >
+              <Form.Item label="Website" name="website" rules={[formRules.url('Website URL')]}>
                 <Input placeholder="e.g. https://acme.enterprise" />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item
-            label="Address"
-            name="address"
-            rules={[formRules.maxString('Address', 255)]}
-          >
+          <Form.Item label="Address" name="address" rules={[formRules.maxString('Address', 255)]}>
             <Input placeholder="e.g. 350 5th Ave, New York, NY 10118" />
           </Form.Item>
         </Form>

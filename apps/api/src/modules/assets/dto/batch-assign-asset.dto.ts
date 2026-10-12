@@ -1,6 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { BatchAssignAssetDto as IBatchAssignAssetDto } from '@uims/shared-types';
-import { ArrayNotEmpty, IsArray, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 
 export class BatchAssignAssetDto implements IBatchAssignAssetDto {
   @ApiProperty({

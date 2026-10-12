@@ -219,7 +219,9 @@ describe('Challenger M3-1: Adversarial Form Rule Stress Testing & Catch Block De
       });
 
       it('must reject amounts exceeding maximum bound', async () => {
-        await expect(validator(ruleObj, 100_000_001)).rejects.toThrow('Cost cannot exceed 100,000,000.');
+        await expect(validator(ruleObj, 100_000_001)).rejects.toThrow(
+          'Cost cannot exceed 100,000,000.',
+        );
       });
 
       it('must accept valid currency values within bounds', async () => {
@@ -243,7 +245,9 @@ describe('Challenger M3-1: Adversarial Form Rule Stress Testing & Catch Block De
 
       it('must reject when end date is strictly before start date', async () => {
         const dateRuleBuilder = formRules.chronologicalDate('startDate', 'Start Date', 'End Date');
-        const ruleConfig = (dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule)({
+        const ruleConfig = (
+          dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule
+        )({
           getFieldValue: getFieldMock({ startDate: '2026-10-10' }),
         });
         const validator = getValidator(ruleConfig);
@@ -255,7 +259,9 @@ describe('Challenger M3-1: Adversarial Form Rule Stress Testing & Catch Block De
 
       it('must accept when end date is same as start date', async () => {
         const dateRuleBuilder = formRules.chronologicalDate('startDate', 'Start Date', 'End Date');
-        const ruleConfig = (dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule)({
+        const ruleConfig = (
+          dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule
+        )({
           getFieldValue: getFieldMock({ startDate: '2026-10-10' }),
         });
         const validator = getValidator(ruleConfig);
@@ -265,7 +271,9 @@ describe('Challenger M3-1: Adversarial Form Rule Stress Testing & Catch Block De
 
       it('must accept when end date is after start date', async () => {
         const dateRuleBuilder = formRules.chronologicalDate('startDate', 'Start Date', 'End Date');
-        const ruleConfig = (dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule)({
+        const ruleConfig = (
+          dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule
+        )({
           getFieldValue: getFieldMock({ startDate: '2026-10-10' }),
         });
         const validator = getValidator(ruleConfig);
@@ -275,7 +283,9 @@ describe('Challenger M3-1: Adversarial Form Rule Stress Testing & Catch Block De
 
       it('must handle dayjs instances correctly', async () => {
         const dateRuleBuilder = formRules.chronologicalDate('startDate', 'Start Date', 'End Date');
-        const ruleConfig = (dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule)({
+        const ruleConfig = (
+          dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule
+        )({
           getFieldValue: getFieldMock({ startDate: dayjs('2026-10-10') }),
         });
         const validator = getValidator(ruleConfig);
@@ -283,22 +293,32 @@ describe('Challenger M3-1: Adversarial Form Rule Stress Testing & Catch Block De
         await expect(validator(ruleConfig as RuleObject, dayjs('2026-10-09'))).rejects.toThrow(
           'End Date cannot precede start date.',
         );
-        await expect(validator(ruleConfig as RuleObject, dayjs('2026-10-11'))).resolves.toBeUndefined();
+        await expect(
+          validator(ruleConfig as RuleObject, dayjs('2026-10-11')),
+        ).resolves.toBeUndefined();
       });
 
       it('must resolve when either start date or end date is missing', async () => {
         const dateRuleBuilder = formRules.chronologicalDate('startDate', 'Start Date', 'End Date');
-        const ruleConfigNoStart = (dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule)({
+        const ruleConfigNoStart = (
+          dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule
+        )({
           getFieldValue: getFieldMock({ startDate: undefined }),
         });
         const validatorNoStart = getValidator(ruleConfigNoStart);
-        await expect(validatorNoStart(ruleConfigNoStart as RuleObject, '2026-10-10')).resolves.toBeUndefined();
+        await expect(
+          validatorNoStart(ruleConfigNoStart as RuleObject, '2026-10-10'),
+        ).resolves.toBeUndefined();
 
-        const ruleConfigNoEnd = (dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule)({
+        const ruleConfigNoEnd = (
+          dateRuleBuilder as (ctx: { getFieldValue: (f: string) => unknown }) => Rule
+        )({
           getFieldValue: getFieldMock({ startDate: '2026-10-10' }),
         });
         const validatorNoEnd = getValidator(ruleConfigNoEnd);
-        await expect(validatorNoEnd(ruleConfigNoEnd as RuleObject, undefined)).resolves.toBeUndefined();
+        await expect(
+          validatorNoEnd(ruleConfigNoEnd as RuleObject, undefined),
+        ).resolves.toBeUndefined();
       });
     });
 

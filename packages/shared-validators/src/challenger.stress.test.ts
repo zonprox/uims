@@ -20,11 +20,7 @@ import {
   restockInventorySchema,
   adjustInventorySchema,
 } from './inventory.validator';
-import {
-  createLicenseSchema,
-  licenseStatusSchema,
-  licenseTypeSchema,
-} from './license.validator';
+import { createLicenseSchema, licenseStatusSchema, licenseTypeSchema } from './license.validator';
 import {
   autoDetectQuerySchema,
   calculateSubnetQuerySchema,
@@ -42,7 +38,6 @@ import {
 } from './network.validator';
 import { loginSchema } from './auth.validator';
 import { createAppUserSchema } from './user.validator';
-
 
 describe('Adversarial Stress Testing — Challenger M1-1', () => {
   describe('1. Malformed IPv4 Inputs', () => {
@@ -407,7 +402,9 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
       expect(res.success).toBe(false);
       if (!res.success) {
         expect(res.error).toBeInstanceOf(z.ZodError);
-        expect(res.error.issues[0]?.message).toContain('Specifications cannot exceed 2000 characters');
+        expect(res.error.issues[0]?.message).toContain(
+          'Specifications cannot exceed 2000 characters',
+        );
       }
     });
 
@@ -470,102 +467,131 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
       'undefined',
     ];
 
-    it.each(maliciousEnumPayloads)('rejects unwhitelisted status "%s" in assetStatusSchema', (status) => {
-      const res = assetStatusSchema.safeParse(status);
-      expect(res.success).toBe(false);
-      if (!res.success) {
-        expect(res.error).toBeInstanceOf(z.ZodError);
-        expect(res.error.issues.length).toBeGreaterThan(0);
-      }
-    });
+    it.each(maliciousEnumPayloads)(
+      'rejects unwhitelisted status "%s" in assetStatusSchema',
+      (status) => {
+        const res = assetStatusSchema.safeParse(status);
+        expect(res.success).toBe(false);
+        if (!res.success) {
+          expect(res.error).toBeInstanceOf(z.ZodError);
+          expect(res.error.issues.length).toBeGreaterThan(0);
+        }
+      },
+    );
 
-    it.each(maliciousEnumPayloads)('rejects unwhitelisted status "%s" in createAssetSchema', (status) => {
-      const res = createAssetSchema.safeParse({
-        name: 'Laptop Asset',
-        status,
-      });
-      expect(res.success).toBe(false);
-      if (!res.success) {
-        expect(res.error).toBeInstanceOf(z.ZodError);
-      }
-    });
+    it.each(maliciousEnumPayloads)(
+      'rejects unwhitelisted status "%s" in createAssetSchema',
+      (status) => {
+        const res = createAssetSchema.safeParse({
+          name: 'Laptop Asset',
+          status,
+        });
+        expect(res.success).toBe(false);
+        if (!res.success) {
+          expect(res.error).toBeInstanceOf(z.ZodError);
+        }
+      },
+    );
 
-    it.each(maliciousEnumPayloads)('rejects unwhitelisted status "%s" in createVlanSchema', (status) => {
-      const res = createVlanSchema.safeParse({
-        name: 'VLAN 100',
-        vlanNumber: 100,
-        status,
-      });
-      expect(res.success).toBe(false);
-      if (!res.success) {
-        expect(res.error).toBeInstanceOf(z.ZodError);
-      }
-    });
+    it.each(maliciousEnumPayloads)(
+      'rejects unwhitelisted status "%s" in createVlanSchema',
+      (status) => {
+        const res = createVlanSchema.safeParse({
+          name: 'VLAN 100',
+          vlanNumber: 100,
+          status,
+        });
+        expect(res.success).toBe(false);
+        if (!res.success) {
+          expect(res.error).toBeInstanceOf(z.ZodError);
+        }
+      },
+    );
 
-    it.each(maliciousEnumPayloads)('rejects unwhitelisted status "%s" in createIpAddressSchema', (status) => {
-      const res = createIpAddressSchema.safeParse({
-        status,
-      });
-      expect(res.success).toBe(false);
-      if (!res.success) {
-        expect(res.error).toBeInstanceOf(z.ZodError);
-      }
-    });
+    it.each(maliciousEnumPayloads)(
+      'rejects unwhitelisted status "%s" in createIpAddressSchema',
+      (status) => {
+        const res = createIpAddressSchema.safeParse({
+          status,
+        });
+        expect(res.success).toBe(false);
+        if (!res.success) {
+          expect(res.error).toBeInstanceOf(z.ZodError);
+        }
+      },
+    );
 
-    it.each(maliciousEnumPayloads)('rejects unwhitelisted role/status "%s" in createSwitchSchema', (badVal) => {
-      expect(
-        createSwitchSchema.safeParse({
-          name: 'SW1',
-          model: 'M1',
-          vendor: 'V1',
-          status: badVal,
-        }).success,
-      ).toBe(false);
+    it.each(maliciousEnumPayloads)(
+      'rejects unwhitelisted role/status "%s" in createSwitchSchema',
+      (badVal) => {
+        expect(
+          createSwitchSchema.safeParse({
+            name: 'SW1',
+            model: 'M1',
+            vendor: 'V1',
+            status: badVal,
+          }).success,
+        ).toBe(false);
 
-      expect(
-        createSwitchSchema.safeParse({
-          name: 'SW1',
-          model: 'M1',
-          vendor: 'V1',
-          role: badVal,
-        }).success,
-      ).toBe(false);
-    });
+        expect(
+          createSwitchSchema.safeParse({
+            name: 'SW1',
+            model: 'M1',
+            vendor: 'V1',
+            role: badVal,
+          }).success,
+        ).toBe(false);
+      },
+    );
 
-    it.each(maliciousEnumPayloads)('rejects unwhitelisted formFactor/adminStatus/operStatus "%s" in createSwitchPortSchema', (badVal) => {
-      const base = {
-        switchId: 'd3b07384-d113-4ec6-8968-3d1f11223344',
-        portNumber: 1,
-        name: 'GigabitEthernet0/1',
-      };
+    it.each(maliciousEnumPayloads)(
+      'rejects unwhitelisted formFactor/adminStatus/operStatus "%s" in createSwitchPortSchema',
+      (badVal) => {
+        const base = {
+          switchId: 'd3b07384-d113-4ec6-8968-3d1f11223344',
+          portNumber: 1,
+          name: 'GigabitEthernet0/1',
+        };
 
-      expect(createSwitchPortSchema.safeParse({ ...base, formFactor: badVal }).success).toBe(false);
-      expect(createSwitchPortSchema.safeParse({ ...base, adminStatus: badVal }).success).toBe(false);
-      expect(createSwitchPortSchema.safeParse({ ...base, operStatus: badVal }).success).toBe(false);
-    });
+        expect(createSwitchPortSchema.safeParse({ ...base, formFactor: badVal }).success).toBe(
+          false,
+        );
+        expect(createSwitchPortSchema.safeParse({ ...base, adminStatus: badVal }).success).toBe(
+          false,
+        );
+        expect(createSwitchPortSchema.safeParse({ ...base, operStatus: badVal }).success).toBe(
+          false,
+        );
+      },
+    );
 
-    it.each(maliciousEnumPayloads)('rejects unwhitelisted type and status "%s" in createLicenseSchema', (badVal) => {
-      expect(
-        createLicenseSchema.safeParse({
-          name: 'Software License',
-          totalSeats: 10,
-          type: badVal,
-        }).success,
-      ).toBe(false);
+    it.each(maliciousEnumPayloads)(
+      'rejects unwhitelisted type and status "%s" in createLicenseSchema',
+      (badVal) => {
+        expect(
+          createLicenseSchema.safeParse({
+            name: 'Software License',
+            totalSeats: 10,
+            type: badVal,
+          }).success,
+        ).toBe(false);
 
-      expect(
-        createLicenseSchema.safeParse({
-          name: 'Software License',
-          totalSeats: 10,
-          status: badVal,
-        }).success,
-      ).toBe(false);
-    });
+        expect(
+          createLicenseSchema.safeParse({
+            name: 'Software License',
+            totalSeats: 10,
+            status: badVal,
+          }).success,
+        ).toBe(false);
+      },
+    );
   });
 
   describe('7. Directory & Auth Adversarial Tests', () => {
     it('rejects short password (< 8 chars) in loginSchema and createAppUserSchema', () => {
-      expect(loginSchema.safeParse({ email: 'test@example.com', password: '123' }).success).toBe(false);
+      expect(loginSchema.safeParse({ email: 'test@example.com', password: '123' }).success).toBe(
+        false,
+      );
       expect(
         createAppUserSchema.safeParse({
           username: 'admin_test',
@@ -579,7 +605,9 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
 
     it('rejects oversized password (> 128 chars) in loginSchema and createAppUserSchema', () => {
       const over128 = 'a'.repeat(129);
-      expect(loginSchema.safeParse({ email: 'test@example.com', password: over128 }).success).toBe(false);
+      expect(loginSchema.safeParse({ email: 'test@example.com', password: over128 }).success).toBe(
+        false,
+      );
       expect(
         createAppUserSchema.safeParse({
           username: 'admin_test',
@@ -625,7 +653,11 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
         cidrSchema.safeParse('10.0.0.0/33'),
         macSchema.safeParse('ZZ:ZZ:ZZ:ZZ:ZZ:ZZ'),
         createVlanSchema.safeParse({ name: 'VLAN', vlanNumber: 0 }),
-        createInventoryItemSchema.safeParse({ name: 'Item', categoryId: 'd3b07384-d113-4ec6-8968-3d1f11223344', quantity: -1 }),
+        createInventoryItemSchema.safeParse({
+          name: 'Item',
+          categoryId: 'd3b07384-d113-4ec6-8968-3d1f11223344',
+          quantity: -1,
+        }),
         createAssetSchema.safeParse({ name: 'Asset', specifications: 'A'.repeat(2001) }),
         assetStatusSchema.safeParse('__proto__'),
       ];
@@ -642,4 +674,3 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
     });
   });
 });
-

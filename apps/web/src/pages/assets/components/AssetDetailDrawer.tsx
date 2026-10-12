@@ -6,18 +6,7 @@ import {
   LaptopOutlined,
   PrinterOutlined,
 } from '@ant-design/icons';
-import {
-  Badge,
-  Button,
-  Card,
-  Descriptions,
-  Empty,
-  Flex,
-  Tabs,
-  Tag,
-  Typography,
-  theme,
-} from 'antd';
+import { Badge, Button, Card, Descriptions, Empty, Flex, Tabs, Tag, Typography, theme } from 'antd';
 import React, { useRef } from 'react';
 import AppDrawer from '../../../components/AppDrawer';
 import { FormattedDate } from '../../../components/FormattedDate';

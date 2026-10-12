@@ -270,8 +270,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
   };
 });
 
-
-
 vi.mock('../../services/assets.service', () => ({
   assetsService: {
     getAssets: vi.fn().mockResolvedValue(mockAssets),

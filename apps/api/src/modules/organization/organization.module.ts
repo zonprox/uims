@@ -7,11 +7,7 @@ import {
 import { OrganizationService } from './organization.service';
 
 @Module({
-  controllers: [
-    OrganizationController,
-    DepartmentController,
-    PositionController,
-  ],
+  controllers: [OrganizationController, DepartmentController, PositionController],
   providers: [OrganizationService],
   exports: [OrganizationService],
 })

@@ -295,9 +295,7 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
               <Form.Item
                 label="MAC Address"
                 name="macAddress"
-                rules={[
-                  formRules.mac('Enter valid MAC address (e.g. 00:1B:44:11:3A:B7)'),
-                ]}
+                rules={[formRules.mac('Enter valid MAC address (e.g. 00:1B:44:11:3A:B7)')]}
               >
                 <Input
                   placeholder="e.g. 00:1B:44:11:3A:B7"

@@ -17,13 +17,19 @@ export const createAssetSchema = z.object({
   assetCode: z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9_-]+$/, 'Asset code must contain only alphanumeric characters, underscores, or hyphens')
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Asset code must contain only alphanumeric characters, underscores, or hyphens',
+    )
     .max(50, 'Asset code cannot exceed 50 characters')
     .optional(),
   subcode: z
     .string()
     .trim()
-    .regex(/^[A-Za-z0-9_-]+$/, 'Subcode must contain only alphanumeric characters, underscores, or hyphens')
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Subcode must contain only alphanumeric characters, underscores, or hyphens',
+    )
     .max(50, 'Subcode cannot exceed 50 characters')
     .optional(),
   assetTag: z.string().trim().max(100).optional(),
@@ -40,7 +46,12 @@ export const createAssetSchema = z.object({
   serialNumber: z.string().max(100).nullable().optional(),
   model: z.string().trim().max(100).nullable().optional(),
   manufacturer: z.string().trim().max(100).nullable().optional(),
-  specifications: z.string().trim().max(2000, 'Specifications cannot exceed 2000 characters').nullable().optional(),
+  specifications: z
+    .string()
+    .trim()
+    .max(2000, 'Specifications cannot exceed 2000 characters')
+    .nullable()
+    .optional(),
   unitCost: currencySchema.nullable().optional(),
   purchaseDate: dateSchema.nullable().optional(),
   warrantyExpiry: dateSchema.nullable().optional(),
@@ -55,13 +66,21 @@ export const createCostCenterSchema = z.object({
     .trim()
     .min(1, 'Cost center code is required')
     .max(50, 'Cost center code cannot exceed 50 characters')
-    .regex(/^[A-Za-z0-9_-]+$/, 'Cost center code must contain only alphanumeric characters, underscores, or hyphens'),
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Cost center code must contain only alphanumeric characters, underscores, or hyphens',
+    ),
   name: z
     .string()
     .trim()
     .min(1, 'Cost center name is required')
     .max(100, 'Cost center name cannot exceed 100 characters'),
-  description: z.string().trim().max(500, 'Description cannot exceed 500 characters').nullable().optional(),
+  description: z
+    .string()
+    .trim()
+    .max(500, 'Description cannot exceed 500 characters')
+    .nullable()
+    .optional(),
 });
 
 export const updateCostCenterSchema = createCostCenterSchema.partial();
@@ -80,7 +99,10 @@ export const createDeviceModelSchema = z.object({
     .trim()
     .min(1, 'Model asset code is required')
     .max(50, 'Model asset code cannot exceed 50 characters')
-    .regex(/^[A-Za-z0-9_-]+$/, 'Asset code must contain only alphanumeric characters, underscores, or hyphens'),
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Asset code must contain only alphanumeric characters, underscores, or hyphens',
+    ),
   name: z
     .string()
     .trim()
@@ -102,7 +124,10 @@ export const createAssetUnitSchema = z.object({
     .trim()
     .min(1, 'Unit subcode is required')
     .max(50, 'Unit subcode cannot exceed 50 characters')
-    .regex(/^[A-Za-z0-9_-]+$/, 'Subcode must contain only alphanumeric characters, underscores, or hyphens'),
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Subcode must contain only alphanumeric characters, underscores, or hyphens',
+    ),
   parentId: uuidSchema,
   serialNumber: z.string().max(100).nullable().optional(),
   costCenterId: uuidSchema.nullable().optional(),

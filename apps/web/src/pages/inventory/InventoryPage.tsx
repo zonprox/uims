@@ -43,10 +43,7 @@ import {
   type InventoryStats,
   inventoryService,
 } from '../../services/inventory.service';
-import {
-  type Organization,
-  organizationService,
-} from '../../services/organization.service';
+import { type Organization, organizationService } from '../../services/organization.service';
 import { type Vendor, vendorService } from '../../services/vendor.service';
 
 const { Text } = Typography;
@@ -715,7 +712,11 @@ export default function InventoryPage() {
                 name="unitCost"
                 rules={[
                   formRules.required('Unit cost is required'),
-                  formRules.currency('Unit cost', 100000000, 'Unit cost must be a non-negative number'),
+                  formRules.currency(
+                    'Unit cost',
+                    100000000,
+                    'Unit cost must be a non-negative number',
+                  ),
                 ]}
               >
                 <InputNumber prefix="$" min={0} style={{ width: '100%' }} />

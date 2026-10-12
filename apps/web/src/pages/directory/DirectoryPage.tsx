@@ -9,11 +9,7 @@ import {
   UploadOutlined,
   UserAddOutlined,
 } from '@ant-design/icons';
-import type {
-  DirectoryGroup,
-  DirectorySummaryStats,
-  DirectoryUser,
-} from '@uims/shared-types';
+import type { DirectoryGroup, DirectorySummaryStats, DirectoryUser } from '@uims/shared-types';
 import { App, Button, Tabs } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import PageContainer from '../../components/PageContainer';

@@ -138,10 +138,7 @@ describe('PhysicalUnitModal Component', () => {
   });
 
   const setInputValue = (input: HTMLInputElement, value: string) => {
-    const set = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      'value',
-    )?.set;
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
     set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));

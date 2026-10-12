@@ -548,11 +548,7 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       // 1. DirectoryUser: departmentId, positionId, organizationId must NOT be null
       const nullDirUsers = await prisma.directoryUser.count({
         where: {
-          OR: [
-            { departmentId: null },
-            { positionId: null },
-            { organizationId: null },
-          ],
+          OR: [{ departmentId: null }, { positionId: null }, { organizationId: null }],
         },
       });
       expect(nullDirUsers, 'Zero DirectoryUsers should have null foreign keys').toBe(0);

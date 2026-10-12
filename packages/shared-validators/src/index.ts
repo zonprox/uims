@@ -44,7 +44,8 @@ export function zodToAntdRule(schema: z.ZodTypeAny, customErrorMessage?: string)
       // Whitespace-only strings on required schemas must not bypass required validation
       const direct = schema.safeParse(value);
       const isWhitespaceOnly = typeof value === 'string' && value.length > 0 && value.trim() === '';
-      const isOptionalOrNullable = schema.safeParse(undefined).success || schema.safeParse(null).success;
+      const isOptionalOrNullable =
+        schema.safeParse(undefined).success || schema.safeParse(null).success;
 
       if (direct.success && (!isWhitespaceOnly || isOptionalOrNullable)) {
         return Promise.resolve();
@@ -52,9 +53,7 @@ export function zodToAntdRule(schema: z.ZodTypeAny, customErrorMessage?: string)
 
       // 2. Check if the value is blank (undefined, null, empty string, or whitespace-only string)
       const isBlank =
-        value === undefined ||
-        value === null ||
-        (typeof value === 'string' && value.trim() === '');
+        value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
 
       if (isBlank) {
         // If blank: if schema allows undefined or null (optional/nullable), resolve cleanly
@@ -69,9 +68,7 @@ export function zodToAntdRule(schema: z.ZodTypeAny, customErrorMessage?: string)
 
       // 3. If non-blank but invalid: return Promise.reject with message
       const firstError =
-        customErrorMessage ||
-        direct.error?.issues[0]?.message ||
-        'Validation failed';
+        customErrorMessage || direct.error?.issues[0]?.message || 'Validation failed';
       return Promise.reject(new Error(firstError));
     },
   };
@@ -103,6 +100,5 @@ export const antdRules = {
     pattern: SKU_REGEX,
     message: `${label} can only contain letters, numbers, hyphens, and underscores`,
   }),
-  fromZod: (schema: z.ZodTypeAny, customMessage?: string) =>
-    zodToAntdRule(schema, customMessage),
+  fromZod: (schema: z.ZodTypeAny, customMessage?: string) => zodToAntdRule(schema, customMessage),
 };

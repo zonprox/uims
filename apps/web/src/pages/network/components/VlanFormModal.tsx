@@ -61,10 +61,7 @@ export const VlanFormModal: React.FC<VlanFormModalProps> = React.memo(
             <Form.Item
               label="VLAN Name"
               name="name"
-              rules={[
-                formRules.required('VLAN name'),
-                formRules.stringRange('VLAN name', 2, 100),
-              ]}
+              rules={[formRules.required('VLAN name'), formRules.stringRange('VLAN name', 2, 100)]}
             >
               <Input placeholder="e.g. Core Network / CCTV Security" />
             </Form.Item>

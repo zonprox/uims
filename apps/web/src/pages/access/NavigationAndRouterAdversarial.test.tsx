@@ -3,12 +3,7 @@ import { act, createElement, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  AppUser,
-  DirectoryGroup,
-  DirectoryUser,
-  Role,
-} from '@uims/shared-types';
+import type { AppUser, DirectoryGroup, DirectoryUser, Role } from '@uims/shared-types';
 import CommandPalette from '../../components/CommandPalette';
 import {
   getNavMenuItems,

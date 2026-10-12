@@ -9,7 +9,10 @@ export class CreateDirectoryGroupDto implements ICreateDirectoryGroupDto {
   @MaxLength(100)
   name!: string;
 
-  @ApiPropertyOptional({ description: 'Distribution email address', example: 'dl-printing@company.corp' })
+  @ApiPropertyOptional({
+    description: 'Distribution email address',
+    example: 'dl-printing@company.corp',
+  })
   @IsEmail()
   @MaxLength(255)
   @IsOptional()

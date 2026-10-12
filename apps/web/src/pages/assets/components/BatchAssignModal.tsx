@@ -22,10 +22,7 @@ import {
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import {
-  type Department,
-  organizationService,
-} from '../../../services/organization.service';
+import { type Department, organizationService } from '../../../services/organization.service';
 import { formRules } from '../../../utils/formValidators';
 
 const { Text } = Typography;
@@ -213,7 +210,10 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                   name="assignedToId"
                   label="Target Directory Employee"
                   rules={[
-                    formRules.required('Target directory employee', 'Please select an employee to assign assets'),
+                    formRules.required(
+                      'Target directory employee',
+                      'Please select an employee to assign assets',
+                    ),
                   ]}
                 >
                   <Select

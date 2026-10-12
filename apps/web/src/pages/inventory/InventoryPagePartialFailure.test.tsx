@@ -233,7 +233,9 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     expect(host.textContent).toContain('CAB-CAT6-5M');
 
     // Warns user
-    expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory aggregate statistics.');
+    expect(mockMessageWarning).toHaveBeenCalledWith(
+      'Failed to load inventory aggregate statistics.',
+    );
   });
 
   it('Challenge 5: Multi-auxiliary rejection (Vendors + Categories + Orgs + Stats reject)', async () => {
@@ -255,7 +257,9 @@ describe('InventoryPage Partial Failure & Error State Empirical Challenge', () =
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load approved vendors.');
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory categories.');
     expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load organizations.');
-    expect(mockMessageWarning).toHaveBeenCalledWith('Failed to load inventory aggregate statistics.');
+    expect(mockMessageWarning).toHaveBeenCalledWith(
+      'Failed to load inventory aggregate statistics.',
+    );
   });
 
   it('Challenge 6: Core items service failure -> notifies via message.error and renders gracefully', async () => {

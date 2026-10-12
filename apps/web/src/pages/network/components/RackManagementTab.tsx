@@ -1,9 +1,4 @@
-import {
-  ApartmentOutlined,
-  ClearOutlined,
-  PlusOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
+import { ApartmentOutlined, ClearOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import {
   App,
   Button,

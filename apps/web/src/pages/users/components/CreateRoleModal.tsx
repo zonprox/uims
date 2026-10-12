@@ -97,10 +97,7 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
         <Form.Item
           name="name"
           label="Role Name"
-          rules={[
-            formRules.required('Role name'),
-            formRules.stringRange('Role name', 2, 50),
-          ]}
+          rules={[formRules.required('Role name'), formRules.stringRange('Role name', 2, 50)]}
         >
           <Input placeholder="e.g. Junior Network Administrator" autoFocus />
         </Form.Item>

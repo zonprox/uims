@@ -699,9 +699,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     it('Case 9.1: renders RackManagementTab with tabular view by default and opens RackElevationDrawer', async () => {
       vi.mocked(networkService.getRacks).mockResolvedValue([mockRack42U]);
 
-      await renderWithContext(
-        <RackManagementTab racks={[mockRack42U]} />,
-      );
+      await renderWithContext(<RackManagementTab racks={[mockRack42U]} />);
 
       // Verify header texts required by NetworkPage tests
       expect(container.textContent).toContain('Racks & Elevation Management');
@@ -1451,10 +1449,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       vi.mocked(networkService.updateRack).mockResolvedValue(updatedRack);
 
       await renderWithContext(
-        <RackManagementTab
-          racks={[mockRack42U]}
-          onRackUpdated={handleRackUpdated}
-        />,
+        <RackManagementTab racks={[mockRack42U]} onRackUpdated={handleRackUpdated} />,
       );
 
       // Click Edit on the rack table row
@@ -1553,9 +1548,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     it('Case 13.10: deleting active rack closes elevation drawer and cleans up selection', async () => {
       vi.mocked(networkService.deleteRack).mockResolvedValue({} as never);
 
-      await renderWithContext(
-        <RackManagementTab racks={[mockRack42U]} />,
-      );
+      await renderWithContext(<RackManagementTab racks={[mockRack42U]} />);
 
       // Open drawer
       const elevationBtn = document.querySelector(
@@ -1600,9 +1593,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       const updatedRack: NetworkRack = { ...mockRack42U, name: 'DC1 Core Cabinet Renamed' };
       vi.mocked(networkService.updateRack).mockResolvedValue(updatedRack);
 
-      await renderWithContext(
-        <RackManagementTab racks={[mockRack42U]} />,
-      );
+      await renderWithContext(<RackManagementTab racks={[mockRack42U]} />);
 
       // Open drawer from table
       const elevationBtn = document.querySelector(

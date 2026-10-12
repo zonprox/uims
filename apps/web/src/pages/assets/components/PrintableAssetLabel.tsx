@@ -108,8 +108,7 @@ export const PrintableAssetLabel: React.FC<PrintableAssetLabelProps> = React.mem
               <span style={{ fontWeight: 700 }}>SAP Code: </span>
               <span
                 style={{
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                   fontWeight: 600,
                 }}
               >
@@ -127,8 +126,7 @@ export const PrintableAssetLabel: React.FC<PrintableAssetLabelProps> = React.mem
               <span style={{ fontWeight: 700 }}>SUB Code: </span>
               <span
                 style={{
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                   fontWeight: 700,
                 }}
               >
@@ -157,8 +155,7 @@ export const PrintableAssetLabel: React.FC<PrintableAssetLabelProps> = React.mem
               <span style={{ fontWeight: 700 }}>Date: </span>
               <span
                 style={{
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                 }}
               >
                 {formattedDate}

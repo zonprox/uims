@@ -1,6 +1,12 @@
 import { LicenseStatus, LicenseType } from '@uims/shared-types';
 import { z } from 'zod';
-import { currencySchema, dateSchema, emailSchema, normalizedEnum, uuidSchema } from './common.validator';
+import {
+  currencySchema,
+  dateSchema,
+  emailSchema,
+  normalizedEnum,
+  uuidSchema,
+} from './common.validator';
 
 export const licenseTypeSynonyms: Record<string, LicenseType> = {
   OPENSOURCE: LicenseType.OPEN_SOURCE,

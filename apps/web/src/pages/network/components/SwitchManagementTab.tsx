@@ -116,20 +116,19 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
     const loadSwitches = useCallback(async () => {
       setInternalLoading(true);
       try {
-        const [switchList, rackList, assetList, vlanList, subnetList, ipList] =
-          await Promise.all([
-            networkService.getSwitches({
-              search: activeSearch || undefined,
-              vendor: vendorFilter !== 'all' ? vendorFilter : undefined,
-              role: roleFilter !== 'all' ? roleFilter : undefined,
-              status: statusFilter !== 'all' ? statusFilter : undefined,
-            }),
-            propRacks ? Promise.resolve(propRacks) : networkService.getRacks(),
-            assetsService.getAssets().catch((_err: unknown) => []),
-            networkService.getVlans().catch((_err: unknown) => []),
-            networkService.getSubnets().catch((_err: unknown) => []),
-            networkService.getIps().catch((_err: unknown) => []),
-          ]);
+        const [switchList, rackList, assetList, vlanList, subnetList, ipList] = await Promise.all([
+          networkService.getSwitches({
+            search: activeSearch || undefined,
+            vendor: vendorFilter !== 'all' ? vendorFilter : undefined,
+            role: roleFilter !== 'all' ? roleFilter : undefined,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+          }),
+          propRacks ? Promise.resolve(propRacks) : networkService.getRacks(),
+          assetsService.getAssets().catch((_err: unknown) => []),
+          networkService.getVlans().catch((_err: unknown) => []),
+          networkService.getSubnets().catch((_err: unknown) => []),
+          networkService.getIps().catch((_err: unknown) => []),
+        ]);
 
         setInternalSwitches(switchList || []);
         if (!propRacks) setInternalRacks(rackList || []);
@@ -142,14 +141,7 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
       } finally {
         setInternalLoading(false);
       }
-    }, [
-      activeSearch,
-      vendorFilter,
-      roleFilter,
-      statusFilter,
-      propRacks,
-      message,
-    ]);
+    }, [activeSearch, vendorFilter, roleFilter, statusFilter, propRacks, message]);
 
     useEffect(() => {
       if (!propSwitches) {

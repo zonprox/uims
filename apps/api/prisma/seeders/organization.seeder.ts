@@ -48,7 +48,6 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
       const orgBSL = orgMap.BSL;
       const orgBSH = orgMap.BSH;
 
-
       // 2. Physical Location system purged in Milestone 2
 
       // 3. Standardized Departments Catalog

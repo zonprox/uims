@@ -222,9 +222,9 @@ describe('common validators', () => {
 
   describe('idParamSchema', () => {
     it('validates id param with valid UUID', () => {
-      expect(
-        idParamSchema.safeParse({ id: '123e4567-e89b-12d3-a456-426614174000' }).success,
-      ).toBe(true);
+      expect(idParamSchema.safeParse({ id: '123e4567-e89b-12d3-a456-426614174000' }).success).toBe(
+        true,
+      );
     });
 
     it('rejects non-UUID id param', () => {

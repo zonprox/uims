@@ -786,10 +786,7 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       vi.mocked(networkService.getRacks).mockResolvedValue([mockRack]);
 
       await renderWithContext(
-        <SwitchManagementTab
-          switches={[mock24PortSwitch, mock48PortSwitch]}
-          racks={[mockRack]}
-        />,
+        <SwitchManagementTab switches={[mock24PortSwitch, mock48PortSwitch]} racks={[mockRack]} />,
       );
 
       // KPI stat summary cards
@@ -817,10 +814,7 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
   describe('Suite 5: Clean React 19 / Ant Design v6 Lifecycle Teardown', () => {
     it('Case 5.1: unmounts cleanly without portal DOM leakage or unhandled async scheduler exceptions', async () => {
       await renderWithContext(
-        <SwitchManagementTab
-          switches={[mock24PortSwitch]}
-          racks={[mockRack]}
-        />,
+        <SwitchManagementTab switches={[mock24PortSwitch]} racks={[mockRack]} />,
       );
 
       // Verify mounted

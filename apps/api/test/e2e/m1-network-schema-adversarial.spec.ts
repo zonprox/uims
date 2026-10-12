@@ -259,7 +259,9 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
     it.skip('2.1 should reject NetworkRack with non-existent locationId (Purged per user directive)', async () => {
       let threw = false;
       try {
-        await (prisma.networkRack as unknown as { create: (args: unknown) => Promise<unknown> }).create({
+        await (
+          prisma.networkRack as unknown as { create: (args: unknown) => Promise<unknown> }
+        ).create({
           data: {
             name: 'TEST-CHALLENGER-RACK-BAD-LOC',
             code: 'RACK-CHALLENGER-BAD-LOC',

@@ -1,8 +1,4 @@
-import {
-  CloudServerOutlined,
-  GlobalOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { CloudServerOutlined, GlobalOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import {
   Badge,
   Button,

@@ -249,14 +249,7 @@ export function useAssetManagement(form: FormInstance) {
     } finally {
       setLoading(false);
     }
-  }, [
-    categoryFilter,
-    message,
-    orgFilter,
-    organizations,
-    searchQuery,
-    statusFilter,
-  ]);
+  }, [categoryFilter, message, orgFilter, organizations, searchQuery, statusFilter]);
 
   const [searchParams] = useSearchParams();
   const deepLinkId = searchParams.get('id') || searchParams.get('tag');

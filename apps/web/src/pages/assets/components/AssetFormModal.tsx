@@ -1,24 +1,11 @@
-import {
-  App,
-  Col,
-  DatePicker,
-  Form,
-  type FormInstance,
-  Input,
-  Modal,
-  Row,
-  Select,
-} from 'antd';
+import { App, Col, DatePicker, Form, type FormInstance, Input, Modal, Row, Select } from 'antd';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { IT_ASSET_CATEGORIES } from '@uims/shared-types';
 import type { Asset, AssetCategory, CostCenter } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import {
-  type Department,
-  organizationService,
-} from '../../../services/organization.service';
+import { type Department, organizationService } from '../../../services/organization.service';
 import { formatErrorMessage } from '../../../utils/feedback';
 import { formRules } from '../../../utils/formValidators';
 
@@ -79,7 +66,11 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               { id: 'cc-it-ops', code: 'IT-OPS', name: 'IT Operations & Infrastructure' },
               { id: 'cc-eng-dev', code: 'ENG-DEV', name: 'Software Engineering & DevOps' },
               { id: 'cc-fin-acc', code: 'FIN-ACC', name: 'Finance & Corporate Accounting' },
-              { id: 'cc-hr-admin', code: 'HR-ADMIN', name: 'Human Resources & General Administration' },
+              {
+                id: 'cc-hr-admin',
+                code: 'HR-ADMIN',
+                name: 'Human Resources & General Administration',
+              },
             ]),
           ]);
 
@@ -124,13 +115,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
       return () => {
         mounted = false;
       };
-    }, [
-      message,
-      open,
-      propCategories,
-      propDepartments,
-      propEmployees,
-    ]);
+    }, [message, open, propCategories, propDepartments, propEmployees]);
 
     const categorySelectOptions = useMemo(() => {
       if (categories && categories.length > 0) {
@@ -223,10 +208,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               <Form.Item
                 label="Device Name"
                 name="name"
-                rules={[
-                  formRules.required('Device name'),
-                  formRules.maxString('Device name', 100),
-                ]}
+                rules={[formRules.required('Device name'), formRules.maxString('Device name', 100)]}
               >
                 <Input placeholder="e.g. MacBook Pro 16 M3 Max" />
               </Form.Item>
@@ -244,11 +226,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
               </Form.Item>
             </Col>
             <Col span={6}>
-              <Form.Item
-                label="Model"
-                name="model"
-                rules={[formRules.maxString('Model', 100)]}
-              >
+              <Form.Item label="Model" name="model" rules={[formRules.maxString('Model', 100)]}>
                 <Input placeholder="e.g. A2991" />
               </Form.Item>
             </Col>
@@ -349,11 +327,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
                 label="Warranty Expiry"
                 name="warrantyExpiry"
                 rules={[
-                  formRules.chronologicalDate(
-                    'purchaseDate',
-                    'Purchase Date',
-                    'Warranty Expiry',
-                  ),
+                  formRules.chronologicalDate('purchaseDate', 'Purchase Date', 'Warranty Expiry'),
                 ]}
               >
                 <DatePicker style={{ width: '100%' }} />
@@ -361,11 +335,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = React.memo(
             </Col>
           </Row>
 
-          <Form.Item
-            label="Notes"
-            name="notes"
-            rules={[formRules.maxString('Notes', 1000)]}
-          >
+          <Form.Item label="Notes" name="notes" rules={[formRules.maxString('Notes', 1000)]}>
             <Input.TextArea
               rows={2}
               autoSize={{ minRows: 2, maxRows: 6 }}

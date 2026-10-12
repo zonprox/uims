@@ -68,10 +68,7 @@ export const dateStringSchema = z
   }, 'Invalid calendar date');
 
 // Robust date schema: accepts date string or Date object, transforms Date to ISO string
-export const dateSchema = z.union([
-  dateStringSchema,
-  z.date().transform((d) => d.toISOString()),
-]);
+export const dateSchema = z.union([dateStringSchema, z.date().transform((d) => d.toISOString())]);
 
 // Generic Enum Normalizer with Synonym Support
 export function normalizedEnum<T extends Record<string, string>>(

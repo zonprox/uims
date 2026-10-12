@@ -537,10 +537,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
           <Form.Item
             name="email"
             label="Email Address"
-            rules={[
-              formRules.required('Email address'),
-              formRules.email('Email address'),
-            ]}
+            rules={[formRules.required('Email address'), formRules.email('Email address')]}
           >
             <Input placeholder="e.g. jsmith@youngonevn.com" />
           </Form.Item>
@@ -642,10 +639,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
           <Form.Item
             name="email"
             label="Email Address"
-            rules={[
-              formRules.required('Email address'),
-              formRules.email('Email address'),
-            ]}
+            rules={[formRules.required('Email address'), formRules.email('Email address')]}
           >
             <Input placeholder="user@youngonevn.com" />
           </Form.Item>
@@ -707,10 +701,7 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
           <Form.Item
             name="newPassword"
             label="New Password"
-            rules={[
-              formRules.required('New password'),
-              formRules.stringRange('Password', 8, 128),
-            ]}
+            rules={[formRules.required('New password'), formRules.stringRange('Password', 8, 128)]}
           >
             <Input.Password placeholder="Enter new password" />
           </Form.Item>

@@ -42,12 +42,10 @@ describe('asset.validator', () => {
     });
 
     it('rejects arbitrary malformed status strings', () => {
-      expect(createAssetSchema.safeParse({ name: 'Laptop', status: 'HACKED' }).success).toBe(
-        false,
-      );
-      expect(createAssetSchema.safeParse({ name: 'Laptop', status: 'INVALID_STATUS' }).success).toBe(
-        false,
-      );
+      expect(createAssetSchema.safeParse({ name: 'Laptop', status: 'HACKED' }).success).toBe(false);
+      expect(
+        createAssetSchema.safeParse({ name: 'Laptop', status: 'INVALID_STATUS' }).success,
+      ).toBe(false);
     });
 
     it('rejects asset when name is empty or missing', () => {
@@ -60,8 +58,11 @@ describe('asset.validator', () => {
 
     it('validates assetCode and subcode regex constraints', () => {
       expect(
-        createAssetSchema.safeParse({ name: 'Device', assetCode: 'AST-2026_01', subcode: 'SUB-001' })
-          .success,
+        createAssetSchema.safeParse({
+          name: 'Device',
+          assetCode: 'AST-2026_01',
+          subcode: 'SUB-001',
+        }).success,
       ).toBe(true);
 
       // Rejects spaces or special chars
@@ -92,9 +93,9 @@ describe('asset.validator', () => {
       expect(
         createAssetSchema.safeParse({ name: 'Device', costCenterId: 'not-a-uuid' }).success,
       ).toBe(false);
-      expect(
-        createAssetSchema.safeParse({ name: 'Device', vendorId: 'not-a-uuid' }).success,
-      ).toBe(false);
+      expect(createAssetSchema.safeParse({ name: 'Device', vendorId: 'not-a-uuid' }).success).toBe(
+        false,
+      );
     });
 
     it('validates unitCost currency bounds', () => {
@@ -274,12 +275,12 @@ describe('asset.validator', () => {
 
       expect('locationId' in createAssetUnitSchema.shape).toBe(false);
       expect(updateAssetUnitSchema.safeParse({ serialNumber: 'SN-99999' }).success).toBe(true);
-      expect(createAssetUnitSchema.safeParse({ subcode: 'UNIT 001', parentId: validUuid }).success).toBe(
-        false,
-      );
-      expect(createAssetUnitSchema.safeParse({ subcode: 'UNIT-001', parentId: 'not-a-uuid' }).success).toBe(
-        false,
-      );
+      expect(
+        createAssetUnitSchema.safeParse({ subcode: 'UNIT 001', parentId: validUuid }).success,
+      ).toBe(false);
+      expect(
+        createAssetUnitSchema.safeParse({ subcode: 'UNIT-001', parentId: 'not-a-uuid' }).success,
+      ).toBe(false);
     });
 
     it('validates asset category creation and update', () => {
@@ -295,12 +296,12 @@ describe('asset.validator', () => {
     });
 
     it('validates issueAssetUnitSchema, batchAssignAssetSchema, batchDeleteAssetSchema', () => {
-      expect(issueAssetUnitSchema.safeParse({ userId: validUuid, notes: 'Issued for WFH' }).success).toBe(
-        true,
-      );
-      expect(batchAssignAssetSchema.safeParse({ ids: [validUuid], departmentId: validUuid }).success).toBe(
-        true,
-      );
+      expect(
+        issueAssetUnitSchema.safeParse({ userId: validUuid, notes: 'Issued for WFH' }).success,
+      ).toBe(true);
+      expect(
+        batchAssignAssetSchema.safeParse({ ids: [validUuid], departmentId: validUuid }).success,
+      ).toBe(true);
       expect(batchAssignAssetSchema.safeParse({ ids: [] }).success).toBe(false);
       expect(batchDeleteAssetSchema.safeParse({ ids: [validUuid] }).success).toBe(true);
       expect(batchDeleteAssetSchema.safeParse({ ids: [] }).success).toBe(false);

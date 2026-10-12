@@ -80,12 +80,16 @@ describe('zodToAntdRule & antdRules Client Adapter Suite', () => {
 
     it('12. resolves valid UUID on optional uuidSchema', async () => {
       const rule = zodToAntdRule(uuidSchema.optional());
-      await expect(rule.validator({}, '123e4567-e89b-12d3-a456-426614174000')).resolves.toBeUndefined();
+      await expect(
+        rule.validator({}, '123e4567-e89b-12d3-a456-426614174000'),
+      ).resolves.toBeUndefined();
     });
 
     it('13. rejects invalid UUID format on optional uuidSchema', async () => {
       const rule = zodToAntdRule(uuidSchema.optional());
-      await expect(rule.validator({}, 'invalid-uuid-format')).rejects.toThrow('Invalid UUID format');
+      await expect(rule.validator({}, 'invalid-uuid-format')).rejects.toThrow(
+        'Invalid UUID format',
+      );
     });
 
     it('14. resolves 0 on optional number schema without false rejection', async () => {
@@ -173,8 +177,12 @@ describe('zodToAntdRule & antdRules Client Adapter Suite', () => {
 
       await expect(emailRule.validator({}, 'cisco-email')).rejects.toThrow('Invalid email address');
       await expect(websiteRule.validator({}, 'not-a-url')).rejects.toThrow('Invalid URL format');
-      await expect(phoneRule.validator({}, '123')).rejects.toThrow('Invalid telephone number format');
-      await expect(phoneRule.validator({}, '(---)---')).rejects.toThrow('Phone number must contain at least 7 digits');
+      await expect(phoneRule.validator({}, '123')).rejects.toThrow(
+        'Invalid telephone number format',
+      );
+      await expect(phoneRule.validator({}, '(---)---')).rejects.toThrow(
+        'Phone number must contain at least 7 digits',
+      );
     });
 
     it('26. handles Asset costCenterId blank and invalid UUID format', async () => {
@@ -207,14 +215,22 @@ describe('zodToAntdRule & antdRules Client Adapter Suite', () => {
   describe('Custom Error Message Overrides', () => {
     it('29. uses custom error message on required field empty submission', async () => {
       const rule = zodToAntdRule(emailSchema, 'Distribution email is strictly required');
-      await expect(rule.validator({}, '')).rejects.toThrow('Distribution email is strictly required');
-      await expect(rule.validator({}, '   ')).rejects.toThrow('Distribution email is strictly required');
-      await expect(rule.validator({}, undefined)).rejects.toThrow('Distribution email is strictly required');
+      await expect(rule.validator({}, '')).rejects.toThrow(
+        'Distribution email is strictly required',
+      );
+      await expect(rule.validator({}, '   ')).rejects.toThrow(
+        'Distribution email is strictly required',
+      );
+      await expect(rule.validator({}, undefined)).rejects.toThrow(
+        'Distribution email is strictly required',
+      );
     });
 
     it('30. uses custom error message on invalid input', async () => {
       const rule = zodToAntdRule(emailSchema, 'Please enter a valid company email');
-      await expect(rule.validator({}, 'not-an-email')).rejects.toThrow('Please enter a valid company email');
+      await expect(rule.validator({}, 'not-an-email')).rejects.toThrow(
+        'Please enter a valid company email',
+      );
     });
   });
 
@@ -241,7 +257,9 @@ describe('zodToAntdRule & antdRules Client Adapter Suite', () => {
       const looseStringRule = zodToAntdRule(z.string());
       await expect(looseStringRule.validator({}, '')).resolves.toBeUndefined();
       await expect(looseStringRule.validator({}, 'anything')).resolves.toBeUndefined();
-      await expect(looseStringRule.validator({}, undefined)).rejects.toThrow('This field is required');
+      await expect(looseStringRule.validator({}, undefined)).rejects.toThrow(
+        'This field is required',
+      );
     });
 
     it('33. handles z.string().min(1) requiring non-empty string', async () => {

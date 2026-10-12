@@ -16,10 +16,7 @@ import React, { useEffect, useState } from 'react';
 import type { Asset, AssetCategory, CostCenter } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import {
-  type Department,
-  organizationService,
-} from '../../../services/organization.service';
+import { type Department, organizationService } from '../../../services/organization.service';
 import { api } from '../../../services/api';
 import { formatErrorMessage } from '../../../utils/feedback';
 import { formRules, isValidationError } from '../../../utils/formValidators';
@@ -369,7 +366,12 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
                 tooltip="Type custom numeric cost center code if not listed in the dropdown"
                 rules={[formRules.maxString('Cost center', 50), formRules.digits('Cost center')]}
               >
-                <Input placeholder="e.g. 1002 or 01234" inputMode="numeric" maxLength={50} allowClear />
+                <Input
+                  placeholder="e.g. 1002 or 01234"
+                  inputMode="numeric"
+                  maxLength={50}
+                  allowClear
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -434,11 +436,7 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
                 label="Warranty Expiry"
                 name="warrantyExpiry"
                 rules={[
-                  formRules.chronologicalDate(
-                    'purchaseDate',
-                    'Purchase Date',
-                    'Warranty Expiry',
-                  ),
+                  formRules.chronologicalDate('purchaseDate', 'Purchase Date', 'Warranty Expiry'),
                 ]}
               >
                 <DatePicker style={{ width: '100%' }} />
@@ -446,11 +444,7 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
             </Col>
           </Row>
 
-          <Form.Item
-            label="Notes"
-            name="notes"
-            rules={[formRules.maxString('Notes', 1000)]}
-          >
+          <Form.Item label="Notes" name="notes" rules={[formRules.maxString('Notes', 1000)]}>
             <Input.TextArea
               rows={2}
               autoSize={{ minRows: 2, maxRows: 6 }}

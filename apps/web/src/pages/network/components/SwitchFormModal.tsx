@@ -263,9 +263,7 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
               <Form.Item
                 name="macAddress"
                 label="Base MAC Address"
-                rules={[
-                  formRules.mac('Invalid MAC address format (e.g. 70:69:79:2A:41:01)'),
-                ]}
+                rules={[formRules.mac('Invalid MAC address format (e.g. 70:69:79:2A:41:01)')]}
               >
                 <Input placeholder="e.g. 70:69:79:2A:41:01" style={{ fontFamily: 'monospace' }} />
               </Form.Item>

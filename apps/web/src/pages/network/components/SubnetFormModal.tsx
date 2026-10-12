@@ -266,9 +266,7 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
               <Form.Item
                 label="Default Gateway"
                 name="gateway"
-                rules={[
-                  formRules.ipv4('Must be a valid IPv4 address, e.g. 10.232.130.254'),
-                ]}
+                rules={[formRules.ipv4('Must be a valid IPv4 address, e.g. 10.232.130.254')]}
               >
                 <Input placeholder="e.g. 10.232.130.254" />
               </Form.Item>

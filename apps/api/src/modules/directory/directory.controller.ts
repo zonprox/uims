@@ -61,10 +61,7 @@ export class DirectoryController {
   @Patch('groups/:id')
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Update directory group details' })
-  updateGroup(
-    @Param('id') id: string,
-    @Body() updateGroupDto: UpdateDirectoryGroupDto,
-  ) {
+  updateGroup(@Param('id') id: string, @Body() updateGroupDto: UpdateDirectoryGroupDto) {
     return this.directoryService.updateGroup(id, updateGroupDto);
   }
 

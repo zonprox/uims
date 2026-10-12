@@ -84,14 +84,18 @@ describe('DirectoryGroupsTab Component Tests', () => {
       document.body.removeChild(container);
     }
     document
-      .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-popconfirm')
+      .querySelectorAll(
+        '.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-popconfirm',
+      )
       .forEach((el) => {
         el.remove();
       });
     vi.clearAllMocks();
   });
 
-  const renderComponent = async (props?: Partial<React.ComponentProps<typeof DirectoryGroupsTab>>) => {
+  const renderComponent = async (
+    props?: Partial<React.ComponentProps<typeof DirectoryGroupsTab>>,
+  ) => {
     const root = createRoot(container);
     currentRoot = root;
     await act(async () => {
@@ -132,12 +136,16 @@ describe('DirectoryGroupsTab Component Tests', () => {
     expect(table).not.toBeNull();
 
     // Verify all 6 Table Headers
-    const headers = Array.from(container.querySelectorAll('.ant-table-thead th')).map(
-      (th) => th.textContent?.trim(),
+    const headers = Array.from(container.querySelectorAll('.ant-table-thead th')).map((th) =>
+      th.textContent?.trim(),
     );
     expect(headers.some((h) => h?.includes('Group Name'))).toBe(true);
-    expect(headers.some((h) => h === 'Type' || (h?.includes('Type') && !h?.includes('Scope')))).toBe(true);
-    expect(headers.some((h) => h === 'Scope' || (h?.includes('Scope') && !h?.includes('Type')))).toBe(true);
+    expect(
+      headers.some((h) => h === 'Type' || (h?.includes('Type') && !h?.includes('Scope'))),
+    ).toBe(true);
+    expect(
+      headers.some((h) => h === 'Scope' || (h?.includes('Scope') && !h?.includes('Type'))),
+    ).toBe(true);
     expect(headers.some((h) => h?.includes('Type & Scope'))).toBe(false);
     expect(headers.some((h) => h?.includes('Managed By'))).toBe(true);
     expect(headers.some((h) => h?.includes('Members'))).toBe(true);
@@ -241,7 +249,9 @@ describe('DirectoryGroupsTab Component Tests', () => {
     const modalTitle = document.querySelector('.ant-modal-title');
     expect(modalTitle?.textContent).toContain('Create Directory Group');
 
-    const nameInput = document.querySelector('input[placeholder*="GR_Engineering_Staff"]') as HTMLInputElement;
+    const nameInput = document.querySelector(
+      'input[placeholder*="GR_Engineering_Staff"]',
+    ) as HTMLInputElement;
     expect(nameInput).not.toBeNull();
 
     await act(async () => {
@@ -295,7 +305,9 @@ describe('DirectoryGroupsTab Component Tests', () => {
     expect(editModalTitle?.textContent).toContain('Edit Directory Group');
 
     // Name input should be populated with existing record name
-    const nameInput = document.querySelector('.ant-modal input[placeholder*="GR_Engineering_Staff"]') as HTMLInputElement;
+    const nameInput = document.querySelector(
+      '.ant-modal input[placeholder*="GR_Engineering_Staff"]',
+    ) as HTMLInputElement;
     expect(nameInput).not.toBeNull();
     expect(nameInput.value).toBe('GR_Engineering_Staff');
 

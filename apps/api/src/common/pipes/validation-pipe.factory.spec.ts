@@ -145,9 +145,9 @@ describe('ValidationPipeFactory', () => {
       const pipe = createValidationPipe();
       const metadata = { type: 'body' as const, metatype: AssignUserLicenseDto };
 
-      await expect(
-        pipe.transform({ unwhitelistedField: 'attack' }, metadata),
-      ).rejects.toThrow(BadRequestException);
+      await expect(pipe.transform({ unwhitelistedField: 'attack' }, metadata)).rejects.toThrow(
+        BadRequestException,
+      );
 
       try {
         await pipe.transform({ unwhitelistedField: 'attack' }, metadata);
@@ -191,4 +191,3 @@ describe('ValidationPipeFactory', () => {
     });
   });
 });
-

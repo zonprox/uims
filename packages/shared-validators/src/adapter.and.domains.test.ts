@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  auditQuerySchema,
-  logEventSchema,
-} from './audit.validator';
-import {
-  changePasswordSchema,
-  loginSchema,
-  resetPasswordSchema,
-} from './auth.validator';
+import { auditQuerySchema, logEventSchema } from './audit.validator';
+import { changePasswordSchema, loginSchema, resetPasswordSchema } from './auth.validator';
 import {
   antdRules,
   CIDR_REGEX,
@@ -150,9 +143,9 @@ describe('Organization, Vendor, Audit, Auth, and Rule Adapter Suite', () => {
 
   describe('Auth and User Validators (Bounds and Regexes)', () => {
     it('validates login credentials and bounds [8..128]', () => {
-      expect(loginSchema.safeParse({ email: 'admin@corp.com', password: 'Password123!' }).success).toBe(
-        true,
-      );
+      expect(
+        loginSchema.safeParse({ email: 'admin@corp.com', password: 'Password123!' }).success,
+      ).toBe(true);
       expect(loginSchema.safeParse({ email: 'admin@corp.com', password: 'short' }).success).toBe(
         false,
       );
@@ -209,9 +202,9 @@ describe('Organization, Vendor, Audit, Auth, and Rule Adapter Suite', () => {
     });
 
     it('validates resetAppUserPasswordSchema bounds [8..128]', () => {
-      expect(resetAppUserPasswordSchema.safeParse({ newPassword: 'ValidPassword123' }).success).toBe(
-        true,
-      );
+      expect(
+        resetAppUserPasswordSchema.safeParse({ newPassword: 'ValidPassword123' }).success,
+      ).toBe(true);
       expect(resetAppUserPasswordSchema.safeParse({ newPassword: '123' }).success).toBe(false);
     });
   });

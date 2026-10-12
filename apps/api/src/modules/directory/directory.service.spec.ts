@@ -601,9 +601,9 @@ describe('DirectoryService', () => {
     it('should throw NotFoundException if group does not exist', async () => {
       mockPrisma.directoryGroup.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.updateGroup('grp-nonexistent', { name: 'SEC-New' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.updateGroup('grp-nonexistent', { name: 'SEC-New' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException if updated name collides with another group', async () => {
@@ -616,9 +616,9 @@ describe('DirectoryService', () => {
         name: 'SEC-Existing',
       });
 
-      await expect(
-        service.updateGroup('grp-1', { name: 'SEC-Existing' }),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.updateGroup('grp-1', { name: 'SEC-Existing' })).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 

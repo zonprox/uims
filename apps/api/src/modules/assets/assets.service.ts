@@ -950,14 +950,9 @@ export class AssetsService {
       departmentId: asset.departmentId,
       department: asset.department?.name || '',
 
-      organizationId:
-        asset.department?.organizationId ||
-        asset.assignedTo?.organizationId ||
-        null,
+      organizationId: asset.department?.organizationId || asset.assignedTo?.organizationId || null,
       organization:
-        asset.department?.organization?.name ||
-        asset.assignedTo?.organization?.name ||
-        null,
+        asset.department?.organization?.name || asset.assignedTo?.organization?.name || null,
       purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
       warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.toISOString().split('T')[0] : '',
       notes: asset.notes || '',

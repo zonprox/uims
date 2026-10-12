@@ -88,9 +88,9 @@ describe('directory.validator', () => {
     });
 
     it('validates batch membership with UUID arrays', () => {
-      expect(batchGroupMembershipSchema.safeParse({ userIds: [validUuid, validUuid2] }).success).toBe(
-        true,
-      );
+      expect(
+        batchGroupMembershipSchema.safeParse({ userIds: [validUuid, validUuid2] }).success,
+      ).toBe(true);
       expect(batchGroupMembershipSchema.safeParse({ userIds: [] }).success).toBe(false);
     });
   });
