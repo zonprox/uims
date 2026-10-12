@@ -259,7 +259,9 @@ describe('Milestone 3 Challenger 2 — Empirical Dependent Seeders Harmonization
 
     it('2.3 should successfully query directory users via live HTTP endpoint GET /api/v1/directory/users', async () => {
       if (!(await isServerRunning())) {
-        const users = await directoryService.findAllUsers({ pageSize: 20 });
+        const users = await (typeof directoryService.findAllUsers === 'function'
+          ? directoryService.findAllUsers({ pageSize: 20 })
+          : directoryService.findAll({ pageSize: 20 }));
         expect(users.total).toBeGreaterThanOrEqual(14);
         expect(users.items.length).toBeGreaterThan(0);
         return;

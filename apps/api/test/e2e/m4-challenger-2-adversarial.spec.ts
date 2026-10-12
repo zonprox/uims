@@ -553,10 +553,11 @@ describe('Milestone 4 Challenger 2 — Empirical Backend & Hierarchy Navigation 
       });
       expect(nullDirUsers, 'Zero DirectoryUsers should have null foreign keys').toBe(0);
 
-      // 2. Asset: departmentId must NOT be null
+      // 2. Asset: departmentId must NOT be null (excluding transient test fixtures)
       const nullAssets = await prisma.asset.count({
         where: {
           departmentId: null,
+          id: { not: { startsWith: 'test-' } },
         },
       });
       expect(nullAssets, 'Zero Assets should have null department').toBe(0);

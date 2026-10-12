@@ -415,6 +415,15 @@ Every change must satisfy the full verification cycle prior to merging or pushin
 - **Table Column Streamlining Protocol**: Whenever table columns are refactored or streamlined (e.g. relocating secondary attributes like Cost Center, Serial Number, or Technical Specs from primary table columns into dedicated detail drawers or modals), all corresponding unit, component, and adversarial test suites MUST be updated synchronously.
 - **Container-Specific Test Assertions**: Tests must not assert that relocated attributes appear directly in raw table headers (`document.body.textContent` or column title selectors). Instead, tests must simulate opening the appropriate target container (e.g. clicking the record row, code link, or action button to open `AssetDetailDrawer` or modal) and verify the attribute renders within that specific component context.
 
+### 16.20 Prisma Migration Lock File Version-Control Invariant
+- **Mandatory Git Tracking for `migration_lock.toml`**: `apps/api/prisma/migrations/migration_lock.toml` explicitly records the target database engine provider (`provider = "postgresql"`). Prisma Migrate requires this file to ensure subsequent migrations align with the configured database provider.
+- **Zero Ignore Policy**: `migration_lock.toml` MUST be tracked in version control (git) and MUST NEVER be added to `.gitignore`. Migration cleanliness and adversarial baseline verification suites assert that this file is present and intact in the repository root.
+
+### 16.21 Seed Credential Synchronization & Dynamic Test Parity
+- **Deterministic Seed Credentials in CI**: Remote CI workflows (`.github/workflows/ci.yml`), container seed scripts, and local developer environments MUST supply explicit seed credentials (`INITIAL_ADMIN_PASSWORD`, `INITIAL_DEMO_PASSWORD`) to eliminate unseeded random cryptographic fallback generation during automated verification runs.
+- **Dynamic Test Credential Fallbacks**: E2E and integration test suites validating seeded accounts must dynamically resolve expected credentials via `process.env.INITIAL_DEMO_PASSWORD || 'Youngone@2026'` and `process.env.INITIAL_ADMIN_PASSWORD || expectedPassword` rather than using rigid hardcoded strings, ensuring test portability across environments with differing seed secrets.
+- **Service Query Method Aliasing**: When introducing domain query method shortcuts or aliases (such as `findAllUsers` vs `findAll`) in test suites, services must expose standardized aliases to preserve backward compatibility across callers.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, zero anti-patterns in UI components, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

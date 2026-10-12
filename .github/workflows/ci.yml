@@ -45,6 +45,8 @@ jobs:
       JWT_SECRET: uims_test_ci_jwt_secret_minimum_32_characters_long
       JWT_REFRESH_SECRET: uims_test_ci_jwt_refresh_secret_minimum_32_characters_long
       AUDIT_SIGNING_KEY: uims_test_ci_audit_signing_key_minimum_32_characters_long
+      INITIAL_ADMIN_PASSWORD: Youngone@2026
+      INITIAL_DEMO_PASSWORD: Youngone@2026
       CI: true
 
     steps:

@@ -263,6 +263,13 @@ export class DirectoryService {
     };
   }
 
+  /**
+   * Alias for findAll to maintain semantic consistency and backward compatibility.
+   */
+  async findAllUsers(query?: DirectoryQueryDto) {
+    return this.findAll(query);
+  }
+
   async findOne(id: string) {
     const user = await this.prisma.directoryUser.findFirst({
       where: {

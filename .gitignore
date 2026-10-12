@@ -97,8 +97,7 @@ data/
 *.sqlite-journal
 *.sql.gz
 
-# Prisma (Keep migrations, ignore lock/temporary files)
-apps/api/prisma/migrations/**/migration_lock.toml
+# Prisma (Keep migrations and migration_lock.toml tracked)
 
 # ------------------------------------------------------------------------------
 # IDE, Editors & Development Tools

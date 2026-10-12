@@ -391,6 +391,8 @@ describe('Challenger M1-2 — Migration Baseline Cleanliness & Relational Integr
         throw new Error('Database is not available for nullability testing');
       }
 
+      const sampleDept = await prisma.department.findFirst();
+
       // Models have assetCode, subcode is null
       const m1 = await prisma.asset.create({
         data: {
@@ -399,6 +401,7 @@ describe('Challenger M1-2 — Migration Baseline Cleanliness & Relational Integr
           subcode: null,
           name: 'Model 1',
           status: 'AVAILABLE',
+          departmentId: sampleDept?.id,
         },
       });
       const m2 = await prisma.asset.create({
@@ -408,6 +411,7 @@ describe('Challenger M1-2 — Migration Baseline Cleanliness & Relational Integr
           subcode: null,
           name: 'Model 2',
           status: 'AVAILABLE',
+          departmentId: sampleDept?.id,
         },
       });
 
@@ -419,6 +423,7 @@ describe('Challenger M1-2 — Migration Baseline Cleanliness & Relational Integr
           subcode: 'SUB-CHALLENGER-NULL-1',
           name: 'Unit 1',
           status: 'AVAILABLE',
+          departmentId: sampleDept?.id,
         },
       });
       const u2 = await prisma.asset.create({
@@ -428,6 +433,7 @@ describe('Challenger M1-2 — Migration Baseline Cleanliness & Relational Integr
           subcode: 'SUB-CHALLENGER-NULL-2',
           name: 'Unit 2',
           status: 'AVAILABLE',
+          departmentId: sampleDept?.id,
         },
       });
 

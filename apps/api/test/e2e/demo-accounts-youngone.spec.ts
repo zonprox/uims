@@ -62,6 +62,9 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
   it('1. All 4 demo accounts exist in AppUser with their respective roles', async () => {
     expect(isDbAvailable).toBe(true);
 
+    const demoPassword = process.env.INITIAL_DEMO_PASSWORD || 'Youngone@2026';
+    const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || demoPassword;
+
     const accounts = [
       { email: 'admin@youngonevn.com', expectedRole: 'Admin', username: 'admin' },
       { email: 'manager@youngonevn.com', expectedRole: 'Manager', username: 'manager' },
@@ -81,9 +84,10 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
       expect(user?.role?.name).toBe(acc.expectedRole);
       expect(user?.status).toBe('ACTIVE');
 
-      // Verify bcrypt password matches Youngone@2026
+      // Verify bcrypt password matches configured seed password
       if (user?.passwordHash) {
-        const matches = await bcrypt.compare('Youngone@2026', user.passwordHash);
+        const expectedPwd = acc.username === 'admin' ? adminPassword : demoPassword;
+        const matches = await bcrypt.compare(expectedPwd, user.passwordHash);
         expect(matches).toBe(true);
       }
     }
@@ -142,6 +146,9 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
   it('4. Authenticates all 4 demo accounts via AuthService and verifies JWT role claims', async () => {
     expect(isDbAvailable).toBe(true);
 
+    const demoPassword = process.env.INITIAL_DEMO_PASSWORD || 'Youngone@2026';
+    const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || demoPassword;
+
     const demoAccounts = [
       { email: 'admin@youngonevn.com', expectedRole: 'Admin' },
       { email: 'manager@youngonevn.com', expectedRole: 'Manager' },
@@ -150,9 +157,10 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
     ];
 
     for (const acc of demoAccounts) {
+      const password = acc.expectedRole === 'Admin' ? adminPassword : demoPassword;
       const result = await authService.login({
         email: acc.email,
-        password: 'Youngone@2026',
+        password,
       });
 
       expect(result).toBeDefined();
