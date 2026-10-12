@@ -126,7 +126,6 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       setEditingRack(null);
       form.resetFields();
       form.setFieldsValue({
-        totalHeight: 42,
         status: 'ACTIVE',
       });
       setModalOpen(true);
@@ -137,7 +136,6 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       form.setFieldsValue({
         name: rack.name,
         code: rack.code,
-        totalHeight: rack.totalHeight,
         status: rack.status,
         notes: rack.notes,
       });

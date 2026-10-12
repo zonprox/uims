@@ -58,7 +58,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
     id: 'rack-adv-01',
     name: 'Adversarial Cabinet 01',
     code: 'RCK-ADV-01',
-    totalHeight: 42,
     maxPowerKw: 10.0,
     maxWeightKg: 800,
     depth: 1070,
@@ -120,13 +119,12 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
   // SUITE 1: EXTREME & MALFORMED RACK UNIT DIMENSIONS
   // =========================================================================
   describe('Suite 1: Extreme & Boundary Rack Unit Dimensions', () => {
-    it('Case 1.1: renders 1U Micro Edge Shelf (TotalHeight=1) with 100% saturation and single U01 rail marker', async () => {
+    it('Case 1.1: renders standard 42U cabinet with 1U edge device and single U01 rail marker', async () => {
       const rack1U: NetworkRack = {
         ...mockRackTemplate,
         id: 'rack-1u',
         name: 'Micro Edge Gateway Shelf',
         code: 'RCK-EDGE-01U',
-        totalHeight: 1,
         switches: [
           {
             id: 'sw-micro-1',
@@ -147,12 +145,11 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       await renderWithContext(<RackElevationView rack={rack1U} />);
 
       // Verify header
-      expect(container.textContent).toContain('1U Standard');
-      expect(container.textContent).toContain('1U CABINET');
+      expect(container.textContent).toContain('42U Standard');
+      expect(container.textContent).toContain('42U CABINET');
 
-      // Rail markers: U01 must exist; U02 must not exist
+      // Rail markers: U01 must exist (since device is mounted there)
       expect(container.querySelector('[data-testid="left-rail-u-1"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="left-rail-u-2"]')).toBeNull();
 
       // Space Telemetry card is omitted per streamlined R3 UI
       expect(container.textContent).not.toContain('Space Utilization');
@@ -163,13 +160,12 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(devEl).not.toBeNull();
     });
 
-    it('Case 1.2: renders 52U Hyperscale Datacenter Tall Cabinet with top marker U52 and multi-U device', async () => {
-      const rack52U: NetworkRack = {
+    it('Case 1.2: renders standard 42U cabinet with multi-U spine switch', async () => {
+      const rackMultiU: NetworkRack = {
         ...mockRackTemplate,
-        id: 'rack-52u',
-        name: 'Hyperscale 52U Super Cabinet',
-        code: 'RCK-HYPER-52U',
-        totalHeight: 52,
+        id: 'rack-multiu',
+        name: 'Hyperscale Super Cabinet',
+        code: 'RCK-HYPER-42U',
         switches: [
           {
             id: 'sw-spine-1',
@@ -179,7 +175,7 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
             role: 'CORE',
             status: 'ONLINE',
             rackHeight: 3,
-            rackPosition: 50, // occupies U50..U52 (3U)
+            rackPosition: 40, // occupies U40..U42 (3U)
             totalPorts: 36,
             createdAt: '2026-09-01T00:00:00Z',
             updatedAt: '2026-09-01T00:00:00Z',
@@ -187,16 +183,14 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
         ],
       };
 
-      await renderWithContext(<RackElevationView rack={rack52U} />);
+      await renderWithContext(<RackElevationView rack={rackMultiU} />);
 
-      expect(container.textContent).toContain('52U Standard');
-      expect(container.textContent).toContain('52U CABINET');
+      expect(container.textContent).toContain('42U Standard');
+      expect(container.textContent).toContain('42U CABINET');
 
-      // Rail checks for mounted device (U50..U52) and omitted empty U01
-      expect(container.querySelector('[data-testid="left-rail-u-52"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="left-rail-u-50"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="left-rail-u-53"]')).toBeNull();
-      expect(container.querySelector('[data-testid="left-rail-u-1"]')).toBeNull();
+      // Rail checks for mounted device (U40..U42)
+      expect(container.querySelector('[data-testid="left-rail-u-42"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="left-rail-u-40"]')).not.toBeNull();
 
       // Space Telemetry card is omitted per streamlined R3 UI
       expect(container.textContent).not.toContain('Space Utilization');
@@ -211,16 +205,14 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(devEl?.textContent).toContain('3U');
     });
 
-    it('Case 1.3: handles fallback when rack totalHeight is zero or undefined gracefully defaulting to 42U', async () => {
-      const rackZeroU: NetworkRack = {
+    it('Case 1.3: verifies standard 42U cabinet elevation defaults gracefully', async () => {
+      const rackStandard: NetworkRack = {
         ...mockRackTemplate,
-        id: 'rack-zero-u',
-        totalHeight: 0, // Fallback to 42
+        id: 'rack-std-u',
       };
 
-      await renderWithContext(<RackElevationView rack={rackZeroU} />);
+      await renderWithContext(<RackElevationView rack={rackStandard} />);
 
-      // Should safely fallback to 42U standard without division-by-zero or NaN
       expect(container.textContent).toContain('42U Standard');
       expect(container.textContent).toContain('42U CABINET');
       expect(container.textContent).not.toContain('NaN');
@@ -260,7 +252,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       const saturatedRack: NetworkRack = {
         ...mockRackTemplate,
         id: 'rack-saturated',
-        totalHeight: 42,
         switches: fullSwitches,
       };
 
@@ -584,7 +575,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
         id: 'rack-dc-01',
         name: 'Datacenter Rack 01',
         code: 'RCK-DC-01',
-        totalHeight: 42,
         status: 'ACTIVE',
         createdAt: '2026-09-01T00:00:00Z',
         updatedAt: '2026-09-01T00:00:00Z',
@@ -789,7 +779,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
           rackId: 'rack-async-unmount',
           rackName: 'Unmounted',
           rackCode: 'UNM',
-          totalHeight: 42,
           usedUnits: 0,
           availableUnits: 42,
           occupancyRate: 0,

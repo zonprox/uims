@@ -251,7 +251,7 @@ describe('networkService Unit Tests', () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       data: {
         success: true,
-        data: [{ id: 'rack-1', name: 'Rack 01', code: 'RCK-01', totalHeight: 42 }],
+        data: [{ id: 'rack-1', name: 'Rack 01', code: 'RCK-01' }],
       },
     });
     const racks = await networkService.getRacks({ search: 'RCK' });
@@ -263,7 +263,7 @@ describe('networkService Unit Tests', () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       data: {
         success: true,
-        data: { id: 'rack-1', name: 'Rack 01', code: 'RCK-01', totalHeight: 42 },
+        data: { id: 'rack-1', name: 'Rack 01', code: 'RCK-01' },
       },
     });
     const rack = await networkService.getRack('rack-1');
@@ -274,26 +274,24 @@ describe('networkService Unit Tests', () => {
     vi.mocked(api.post).mockResolvedValueOnce({
       data: {
         success: true,
-        data: { id: 'rack-2', name: 'Rack 02', code: 'RCK-02', totalHeight: 48 },
+        data: { id: 'rack-2', name: 'Rack 02', code: 'RCK-02' },
       },
     });
     const created = await networkService.createRack({
       name: 'Rack 02',
       code: 'RCK-02',
-      totalHeight: 48,
     });
     expect(api.post).toHaveBeenCalledWith('/network/racks', {
       name: 'Rack 02',
       code: 'RCK-02',
-      totalHeight: 48,
     });
-    expect(created.totalHeight).toBe(48);
+    expect(created.code).toBe('RCK-02');
 
     // updateRack
     vi.mocked(api.patch).mockResolvedValueOnce({
       data: {
         success: true,
-        data: { id: 'rack-2', name: 'Rack 02 Updated', code: 'RCK-02', totalHeight: 48 },
+        data: { id: 'rack-2', name: 'Rack 02 Updated', code: 'RCK-02' },
       },
     });
     const updated = await networkService.updateRack('rack-2', { name: 'Rack 02 Updated' });
@@ -313,7 +311,6 @@ describe('networkService Unit Tests', () => {
           rackId: 'rack-1',
           rackName: 'Rack 01',
           rackCode: 'RCK-01',
-          totalHeight: 42,
           usedUnits: 2,
           availableUnits: 40,
           occupancyRate: 4.8,
@@ -323,7 +320,6 @@ describe('networkService Unit Tests', () => {
     });
     const elevation = await networkService.getRackElevation('rack-1');
     expect(api.get).toHaveBeenCalledWith('/network/racks/rack-1/elevation');
-    expect(elevation.totalHeight).toBe(42);
     expect(elevation.usedUnits).toBe(2);
   });
 

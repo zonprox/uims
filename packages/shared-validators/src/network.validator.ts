@@ -144,7 +144,6 @@ export const ipAddressQuerySchema = z.object({
 export const createRackSchema = z.object({
   name: z.string().trim().min(1, 'Rack name is required').max(100),
   code: z.string().trim().min(1, 'Rack code is required').max(50),
-  totalHeight: z.number().int().min(1).max(100).default(42).optional(),
   depth: z.number().positive().nullable().optional(),
   width: z.number().positive().nullable().optional(),
   maxPowerKw: z.number().positive().nullable().optional(),

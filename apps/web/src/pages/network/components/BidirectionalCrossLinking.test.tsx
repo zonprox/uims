@@ -24,7 +24,6 @@ describe('Milestone 6: Bidirectional IPAM & Asset Cross-Linking', () => {
     id: 'rack-01',
     name: 'Rack 01',
     code: 'RCK-DC-01',
-    totalHeight: 42,
     status: 'ACTIVE',
     createdAt: '2026-09-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z',

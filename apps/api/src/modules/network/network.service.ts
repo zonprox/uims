@@ -55,6 +55,8 @@ import {
 } from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
 
+export const STANDARD_RACK_HEIGHT = 42;
+
 @Injectable()
 export class NetworkService {
   private readonly logger = new Logger(NetworkService.name);
@@ -642,16 +644,10 @@ export class NetworkService {
       throw new BadRequestException(`Rack code "${data.code}" already exists.`);
     }
 
-    const totalHeight = data.totalHeight ?? 42;
-    if (!Number.isInteger(totalHeight) || totalHeight < 1 || totalHeight > 100) {
-      throw new BadRequestException('Rack totalHeight must be between 1 and 100 RU.');
-    }
-
     const rack = await this.prisma.networkRack.create({
       data: {
         name: data.name,
         code: data.code,
-        totalHeight,
         depth: data.depth ?? 1070,
         width: data.width ?? 600,
         maxPowerKw: data.maxPowerKw ?? 8.0,
@@ -687,50 +683,11 @@ export class NetworkService {
       }
     }
 
-    if (data.totalHeight !== undefined) {
-      if (!Number.isInteger(data.totalHeight) || data.totalHeight < 1 || data.totalHeight > 100) {
-        throw new BadRequestException('Rack totalHeight must be between 1 and 100 RU.');
-      }
-
-      const mountedSwitches = await this.prisma.networkSwitch.findMany({
-        where: {
-          rackId: id,
-          rackPosition: { not: null },
-        },
-        select: {
-          name: true,
-          rackPosition: true,
-          rackHeight: true,
-        },
-        take: 100,
-        orderBy: [{ rackPosition: 'desc' }, { id: 'asc' }],
-      });
-
-      let highestOccupied = 0;
-      let highestSwitchName = '';
-      for (const sw of mountedSwitches) {
-        if (sw.rackPosition !== null) {
-          const end = sw.rackPosition + (sw.rackHeight || 1) - 1;
-          if (end > highestOccupied) {
-            highestOccupied = end;
-            highestSwitchName = sw.name;
-          }
-        }
-      }
-
-      if (highestOccupied > 0 && data.totalHeight < highestOccupied) {
-        throw new BadRequestException(
-          `Cannot decrease rack height to ${data.totalHeight}U. Mounted device "${highestSwitchName}" occupies up to U${highestOccupied}.`,
-        );
-      }
-    }
-
     const updated = await this.prisma.networkRack.update({
       where: { id },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.code !== undefined ? { code: data.code } : {}),
-        ...(data.totalHeight !== undefined ? { totalHeight: data.totalHeight } : {}),
         ...(data.depth !== undefined ? { depth: data.depth } : {}),
         ...(data.width !== undefined ? { width: data.width } : {}),
         ...(data.maxPowerKw !== undefined ? { maxPowerKw: data.maxPowerKw } : {}),
@@ -793,7 +750,7 @@ export class NetworkService {
     let totalPowerWatts = 0;
     let totalWeightKg = 0;
 
-    for (let u = 1; u <= rack.totalHeight; u++) {
+    for (let u = 1; u <= STANDARD_RACK_HEIGHT; u++) {
       const occupant = mounted.find(
         (sw) =>
           sw.rackPosition !== null &&
@@ -851,9 +808,8 @@ export class NetworkService {
     totalPowerWatts = mounted.length * 350;
     totalWeightKg = mounted.length * 8.5;
 
-    const availableUnits = Math.max(0, rack.totalHeight - occupiedUnits);
-    const occupancyRate =
-      rack.totalHeight > 0 ? Number(((occupiedUnits / rack.totalHeight) * 100).toFixed(1)) : 0;
+    const availableUnits = Math.max(0, STANDARD_RACK_HEIGHT - occupiedUnits);
+    const occupancyRate = Number(((occupiedUnits / STANDARD_RACK_HEIGHT) * 100).toFixed(1));
     const totalPowerDrawKw = Number((totalPowerWatts / 1000).toFixed(2));
     const powerUtilizationPercent =
       rack.maxPowerKw && rack.maxPowerKw > 0
@@ -869,7 +825,6 @@ export class NetworkService {
       rack: rack as unknown as import('@uims/shared-types').NetworkRack,
       rackName: rack.name,
       rackCode: rack.code,
-      totalHeight: rack.totalHeight,
       usedUnits: occupiedUnits,
       occupiedUnits,
       availableUnits,
@@ -900,9 +855,9 @@ export class NetworkService {
       throw new BadRequestException(`Start unit U${startUnit} cannot be less than U1.`);
     }
     const endUnit = startUnit + unitHeight - 1;
-    if (endUnit > rack.totalHeight) {
+    if (endUnit > STANDARD_RACK_HEIGHT) {
       throw new BadRequestException(
-        `Device span U${startUnit}-U${endUnit} exceeds rack height U${rack.totalHeight}.`,
+        `Device span U${startUnit}-U${endUnit} exceeds rack height U${STANDARD_RACK_HEIGHT}.`,
       );
     }
 
@@ -1649,9 +1604,8 @@ export class NetworkService {
       (sum, sw) => sum + (sw.rackPosition !== null ? sw.rackHeight : 0),
       0,
     );
-    const availableUnits = Math.max(0, rack.totalHeight - usedUnits);
-    const occupancyRate =
-      rack.totalHeight > 0 ? Number(((usedUnits / rack.totalHeight) * 100).toFixed(1)) : 0;
+    const availableUnits = Math.max(0, STANDARD_RACK_HEIGHT - usedUnits);
+    const occupancyRate = Number(((usedUnits / STANDARD_RACK_HEIGHT) * 100).toFixed(1));
     const estimatedPowerUsageKw = Number(((switches.length * 350) / 1000).toFixed(2));
     const powerUtilization =
       rack.maxPowerKw && rack.maxPowerKw > 0
@@ -1662,7 +1616,6 @@ export class NetworkService {
       id: rack.id,
       name: rack.name,
       code: rack.code,
-      totalHeight: rack.totalHeight,
       depth: rack.depth,
       width: rack.width,
       maxPowerKw: rack.maxPowerKw,

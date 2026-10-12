@@ -338,7 +338,6 @@ CREATE TABLE "NetworkRack" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "code" TEXT NOT NULL,
-    "totalHeight" INTEGER NOT NULL DEFAULT 42,
     "depth" DOUBLE PRECISION,
     "width" DOUBLE PRECISION,
     "maxPowerKw" DOUBLE PRECISION,

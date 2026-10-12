@@ -51,7 +51,6 @@ describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite'
     id: 'rack-1',
     name: 'Rack-01',
     code: 'RACK-01',
-    totalHeight: 42,
     status: 'ACTIVE',
     createdAt: '2026-09-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z',

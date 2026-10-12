@@ -47,6 +47,7 @@ export interface RackElevationViewProps {
 }
 
 const UNIT_HEIGHT_PX = 28;
+export const STANDARD_RACK_HEIGHT = 42;
 
 export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
   ({
@@ -106,7 +107,6 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
     }, [propElevationData, fetchElevation]);
 
     const activeElevation = propElevationData || fetchedElevation;
-    const totalHeight = rack.totalHeight || activeElevation?.totalHeight || 42;
 
     // Helper to extract mounted devices from active elevation or rack switches
     const extractMountedDevices = useCallback(
@@ -201,7 +201,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
       return max;
     }, [devices]);
 
-    const availableUnits = Math.max(0, totalHeight - totalEquipmentHeight);
+    const availableUnits = Math.max(0, STANDARD_RACK_HEIGHT - totalEquipmentHeight);
 
     // Devices sorted top-to-bottom sequentially (1..N)
     const sortedDevices = useMemo(() => {
@@ -230,7 +230,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
 
       // Ensure effective allocation height can accommodate all mounted equipment without visual overlaps
       const effectiveAllocationHeight = Math.max(
-        totalHeight,
+        STANDARD_RACK_HEIGHT,
         maxPositionedUnit,
         totalEquipmentHeight,
       );
@@ -296,7 +296,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
           pixelHeight: devHeightU * UNIT_HEIGHT_PX,
         };
       });
-    }, [sortedDevices, totalHeight, maxPositionedUnit, totalEquipmentHeight]);
+    }, [sortedDevices, maxPositionedUnit, totalEquipmentHeight]);
 
     // Unmount device handler with immediate UI state reflection and concurrency lock
     const handleUnmountDevice = useCallback(
@@ -378,13 +378,13 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
           occupiedUnits.add(u);
         }
       }
-      for (let u = 1; u <= totalHeight; u++) {
+      for (let u = 1; u <= STANDARD_RACK_HEIGHT; u++) {
         if (!occupiedUnits.has(u)) {
           return u;
         }
       }
       return 1;
-    }, [positionedDevices, totalHeight]);
+    }, [positionedDevices]);
 
     const handleMountEquipment = useCallback(() => {
       if (availableUnits <= 0) {
@@ -445,11 +445,10 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                 <Tag color="purple" style={{ fontFamily: 'monospace' }}>
                   {rack.code}
                 </Tag>
-                <Tag color="blue">{totalHeight}U Standard</Tag>
+                <Tag color="blue">42U Standard</Tag>
               </Flex>
               <Text type="secondary" style={{ fontSize: 13 }}>
-                EIA-310 19-inch cabinet elevation · {totalHeight} rack units (U01–U
-                {String(totalHeight).padStart(2, '0')})
+                EIA-310 19-inch cabinet elevation · 42 rack units (U01–U42)
               </Text>
             </Flex>
 
@@ -534,7 +533,7 @@ export const RackElevationView: React.FC<RackElevationViewProps> = React.memo(
                     fontFamily: 'monospace',
                   }}
                 >
-                  {totalHeight}U CABINET
+                  42U CABINET
                 </Text>
               </div>
 

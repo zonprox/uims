@@ -376,7 +376,6 @@ describe('Milestone 1 Challenger — PostgreSQL Schema Constraints, FK Integrity
         data: {
           name: 'TEST-CHALLENGER-RACK-UNMOUNT',
           code: 'RACK-CHALLENGER-UNMOUNT',
-          totalHeight: 42,
         },
       });
 

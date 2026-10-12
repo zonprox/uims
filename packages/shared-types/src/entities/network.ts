@@ -115,7 +115,6 @@ export interface NetworkRack {
   id: string;
   name: string;
   code: string;
-  totalHeight: number; // 12, 24, 42, 48 RU
   depth?: number | null; // mm
   width?: number | null; // mm
   maxPowerKw?: number | null; // kW capacity
@@ -212,7 +211,6 @@ export interface RackElevationData {
   rackId: string;
   rackName: string;
   rackCode: string;
-  totalHeight: number;
   usedUnits: number;
   availableUnits: number;
   occupancyRate: number;

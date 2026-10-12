@@ -320,7 +320,6 @@ describe('NetworkController', () => {
     const dto: CreateRackDto = {
       name: 'Core Datacenter Rack 01',
       code: 'RACK-DC-01',
-      totalHeight: 42,
       status: RackStatus.ACTIVE,
     };
     const created = { id: 'rack-1', ...dto };
@@ -332,7 +331,7 @@ describe('NetworkController', () => {
   });
 
   it('getRackElevation calls networkService.getRackElevation with rack id', async () => {
-    const elevation = { rackId: 'rack-1', totalHeight: 42, slots: [] };
+    const elevation = { rackId: 'rack-1', slots: [] };
     mockNetworkService.getRackElevation.mockResolvedValue(elevation);
 
     const result = await controller.getRackElevation('rack-1');

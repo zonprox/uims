@@ -53,7 +53,7 @@ export const RackElevationDrawer: React.FC<RackElevationDrawerProps> = React.mem
     return (
       <AppDrawer
         title={rack?.name || 'Rack Elevation'}
-        subtitle={rack ? `${rack.code} · ${rack.totalHeight}U Standard` : undefined}
+        subtitle={rack ? `${rack.code} · 42U Standard` : undefined}
         icon={<ApartmentOutlined style={{ fontSize: 18, color: token.colorPrimary }} />}
         tag={rack ? getStatusTag(rack.status) : undefined}
         open={open}

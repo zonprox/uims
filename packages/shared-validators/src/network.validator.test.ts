@@ -155,7 +155,6 @@ describe('network.validator', () => {
       const valid = {
         name: 'Datacenter Rack 01',
         code: 'RACK-DC-01',
-        totalHeight: 42,
         depth: 1070,
         width: 600,
         maxPowerKw: 10,
@@ -170,15 +169,6 @@ describe('network.validator', () => {
     it('rejects missing name or code', () => {
       expect(createRackSchema.safeParse({ name: '', code: 'RACK-01' }).success).toBe(false);
       expect(createRackSchema.safeParse({ name: 'Rack 01', code: '' }).success).toBe(false);
-    });
-
-    it('rejects invalid height', () => {
-      expect(
-        createRackSchema.safeParse({ name: 'Rack', code: 'R-01', totalHeight: 0 }).success,
-      ).toBe(false);
-      expect(
-        createRackSchema.safeParse({ name: 'Rack', code: 'R-01', totalHeight: 150 }).success,
-      ).toBe(false);
     });
   });
 

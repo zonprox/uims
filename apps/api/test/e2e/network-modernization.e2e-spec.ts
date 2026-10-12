@@ -27,7 +27,6 @@ export interface DbNetworkRack {
   name: string;
   code: string;
   locationId: string | null;
-  totalHeight: number; // 12, 24, 42, 48
   depth: number | null; // mm
   width: number | null; // mm
   maxPowerKw: number | null;
@@ -146,7 +145,7 @@ export interface DbIpAddress {
 }
 
 export interface RackElevationSlot {
-  unit: number; // 1..totalHeight
+  unit: number; // 1..42
   occupied: boolean;
   device: {
     id: string;
@@ -163,7 +162,6 @@ export interface RackElevationSlot {
 
 export interface RackElevationData {
   rack: DbNetworkRack;
-  totalHeight: number;
   slots: RackElevationSlot[];
   occupiedUnits: number;
   availableUnits: number;
@@ -189,7 +187,6 @@ export interface CreateRackInput {
   name: string;
   code: string;
   locationId?: string | null;
-  totalHeight?: number;
   depth?: number | null;
   width?: number | null;
   maxPowerKw?: number | null;
@@ -272,17 +269,12 @@ export class InMemoryNetworkEngine {
     if (existing) {
       throw new BadRequestException(`Rack code "${input.code}" already exists.`);
     }
-    const totalHeight = input.totalHeight ?? 42;
-    if (totalHeight < 1 || totalHeight > 48) {
-      throw new BadRequestException('Rack totalHeight must be between 1 and 48 RU.');
-    }
     const now = new Date();
     const rack: DbNetworkRack = {
       id: `rack-${crypto.randomUUID()}`,
       name: input.name,
       code: input.code,
       locationId: input.locationId ?? null,
-      totalHeight,
       depth: input.depth ?? 1070,
       width: input.width ?? 600,
       maxPowerKw: input.maxPowerKw ?? 8.0,
@@ -310,12 +302,6 @@ export class InMemoryNetworkEngine {
     }
     if (input.name) rack.name = input.name;
     if (input.locationId !== undefined) rack.locationId = input.locationId;
-    if (input.totalHeight !== undefined) {
-      if (input.totalHeight < 1 || input.totalHeight > 48) {
-        throw new BadRequestException('Rack totalHeight must be between 1 and 48 RU.');
-      }
-      rack.totalHeight = input.totalHeight;
-    }
     if (input.maxPowerKw !== undefined) rack.maxPowerKw = input.maxPowerKw;
     if (input.maxWeightKg !== undefined) rack.maxWeightKg = input.maxWeightKg;
     if (input.status) rack.status = input.status;
@@ -391,9 +377,9 @@ export class InMemoryNetworkEngine {
       throw new BadRequestException(`Start unit U${startUnit} cannot be less than U1.`);
     }
     const endUnit = startUnit + unitHeight - 1;
-    if (endUnit > rack.totalHeight) {
+    if (endUnit > 42) {
       throw new BadRequestException(
-        `Device span U${startUnit}-U${endUnit} exceeds rack height U${rack.totalHeight}.`,
+        `Device span U${startUnit}-U${endUnit} exceeds rack height U42.`,
       );
     }
 
@@ -426,7 +412,7 @@ export class InMemoryNetworkEngine {
     let totalPowerWatts = 0;
     let totalWeightKg = 0;
 
-    for (let u = 1; u <= rack.totalHeight; u++) {
+    for (let u = 1; u <= 42; u++) {
       const occupant = mounted.find((sw) => {
         if (sw.rackPosition === null) return false;
         return u >= sw.rackPosition && u <= sw.rackPosition + sw.rackHeight - 1;
@@ -464,8 +450,8 @@ export class InMemoryNetworkEngine {
       totalWeightKg += sw.weightKg ?? 8.5;
     }
 
-    const availableUnits = rack.totalHeight - occupiedUnits;
-    const occupancyRate = Number(((occupiedUnits / rack.totalHeight) * 100).toFixed(1));
+    const availableUnits = 42 - occupiedUnits;
+    const occupancyRate = Number(((occupiedUnits / 42) * 100).toFixed(1));
     const totalPowerDrawKw = Number((totalPowerWatts / 1000).toFixed(2));
     const powerUtilizationPercent =
       rack.maxPowerKw && rack.maxPowerKw > 0
@@ -478,7 +464,6 @@ export class InMemoryNetworkEngine {
 
     return {
       rack,
-      totalHeight: rack.totalHeight,
       slots,
       occupiedUnits,
       availableUnits,
@@ -960,8 +945,8 @@ describe('Network Modernization E2E Specification Suite', () => {
       });
 
       it('T1.1.3: should compute 4 enterprise KPI stat cards accurately', () => {
-        engine.createRack({ name: 'Datacenter Rack 01', code: 'DC1-RCK-01', totalHeight: 42 });
-        engine.createRack({ name: 'Datacenter Rack 02', code: 'DC1-RCK-02', totalHeight: 42 });
+        engine.createRack({ name: 'Datacenter Rack 01', code: 'DC1-RCK-01' });
+        engine.createRack({ name: 'Datacenter Rack 02', code: 'DC1-RCK-02' });
         const sw1 = engine.createSwitch({
           name: 'Core Switch 01',
           model: 'Catalyst 9300',
@@ -1061,7 +1046,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         const rack = engine.createRack({
           name: 'Server Farm Cabinet 01',
           code: 'SFC-01',
-          totalHeight: 42,
           depth: 1070,
           width: 600,
           maxPowerKw: 10.0,
@@ -1086,11 +1070,9 @@ describe('Network Modernization E2E Specification Suite', () => {
         const rack = engine.createRack({
           name: 'Standard Datacenter',
           code: 'DC-42U',
-          totalHeight: 42,
         });
         const elevation = engine.getRackElevation(rack.id);
 
-        expect(elevation.totalHeight).toBe(42);
         expect(elevation.slots).toHaveLength(42);
         expect(elevation.slots[0].unit).toBe(1);
         expect(elevation.slots[41].unit).toBe(42);
@@ -1100,7 +1082,7 @@ describe('Network Modernization E2E Specification Suite', () => {
       });
 
       it('T1.2.3: should slot multi-U devices correctly without gaps (1U, 2U, 4U)', () => {
-        const rack = engine.createRack({ name: 'Compute Rack', code: 'CMP-42U', totalHeight: 42 });
+        const rack = engine.createRack({ name: 'Compute Rack', code: 'CMP-42U' });
         // Mount 1U switch at U42
         engine.createSwitch({
           name: 'ToR Switch',
@@ -1154,7 +1136,7 @@ describe('Network Modernization E2E Specification Suite', () => {
       });
 
       it('T1.2.4: should reject mounting device that collides with occupied RU units', () => {
-        const rack = engine.createRack({ name: 'Density Test', code: 'DENS-42U', totalHeight: 42 });
+        const rack = engine.createRack({ name: 'Density Test', code: 'DENS-42U' });
         engine.createSwitch({
           name: 'Device A',
           model: 'M1',
@@ -1216,7 +1198,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         const rack = engine.createRack({
           name: 'High Power Rack',
           code: 'HPR-01',
-          totalHeight: 42,
           maxPowerKw: 10.0,
           maxWeightKg: 1000,
         });
@@ -1248,14 +1229,12 @@ describe('Network Modernization E2E Specification Suite', () => {
         expect(elevation.weightUtilizationPercent).toBe(2.5); // 25 / 1000 * 100 = 2.5%
       });
 
-      it('T1.2.6: should support 12U, 24U, 42U, and 48U rack heights dynamically', () => {
-        const r12 = engine.createRack({ name: 'IDF 12U', code: 'IDF-12U', totalHeight: 12 });
-        const r24 = engine.createRack({ name: 'IDF 24U', code: 'IDF-24U', totalHeight: 24 });
-        const r48 = engine.createRack({ name: 'Cabinet 48U', code: 'DC-48U', totalHeight: 48 });
+      it('T1.2.6: should construct standard 42U cabinet slots for equipment racks', () => {
+        const r42 = engine.createRack({ name: 'Standard Cabinet 42U', code: 'DC-42U' });
 
-        expect(engine.getRackElevation(r12.id).slots).toHaveLength(12);
-        expect(engine.getRackElevation(r24.id).slots).toHaveLength(24);
-        expect(engine.getRackElevation(r48.id).slots).toHaveLength(48);
+        const elevation = engine.getRackElevation(r42.id);
+        expect(elevation.slots).toHaveLength(42);
+        expect(elevation.availableUnits).toBe(42);
       });
     });
 
@@ -1314,7 +1293,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         const rack = engine.createRack({
           name: 'Datacenter Row A',
           code: 'DC-ROWA-01',
-          totalHeight: 42,
         });
         const sw = engine.createSwitch({
           name: 'Rack Mounted Switch',
@@ -1542,7 +1520,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         const rack = engine.createRack({
           name: 'Core Cabinet',
           code: 'DC-COR-01',
-          totalHeight: 42,
         });
         const sw = engine.createSwitch({
           name: 'Core Switch 01',
@@ -1637,7 +1614,7 @@ describe('Network Modernization E2E Specification Suite', () => {
         };
         engine.assets.push(asset);
 
-        const rack = engine.createRack({ name: 'DC Rack 01', code: 'DC-R01', totalHeight: 42 });
+        const rack = engine.createRack({ name: 'DC Rack 01', code: 'DC-R01' });
         const sw = engine.createSwitch({
           name: 'Access Switch 01',
           model: 'C9200',
@@ -1822,24 +1799,17 @@ describe('Network Modernization E2E Specification Suite', () => {
     // Boundary 2: Rack Elevation Boundaries & Constraints (R2)
     // ------------------------------------------------------------------------
     describe('Boundary 2: Rack Elevation Boundaries & Constraints (R2)', () => {
-      it('T2.2.1: should support minimum 1U rack and maximum 48U rack', () => {
-        const minRack = engine.createRack({
-          name: 'Mini 1U Shelf',
-          code: 'MINI-1U',
-          totalHeight: 1,
+      it('T2.2.1: should construct standard 42U cabinet slots for equipment racks', () => {
+        const rack = engine.createRack({
+          name: 'Datacenter Cabinet',
+          code: 'DC-42U',
         });
-        expect(engine.getRackElevation(minRack.id).slots).toHaveLength(1);
-
-        const maxRack = engine.createRack({
-          name: 'Datacenter 48U',
-          code: 'MAX-48U',
-          totalHeight: 48,
-        });
-        expect(engine.getRackElevation(maxRack.id).slots).toHaveLength(48);
+        expect(engine.getRackElevation(rack.id).slots).toHaveLength(42);
+        expect(engine.getRackElevation(rack.id).availableUnits).toBe(42);
       });
 
       it('T2.2.2: should reject slotting at U0 or negative slot numbers', () => {
-        const rack = engine.createRack({ name: 'Test Rack', code: 'TEST-42U', totalHeight: 42 });
+        const rack = engine.createRack({ name: 'Test Rack', code: 'TEST-42U' });
         expect(() =>
           engine.createSwitch({
             name: 'Invalid U0',
@@ -1851,27 +1821,27 @@ describe('Network Modernization E2E Specification Suite', () => {
         ).toThrow(BadRequestException);
       });
 
-      it('T2.2.3: should reject slotting beyond rack height', () => {
-        const rack = engine.createRack({ name: 'Test 24U', code: 'TEST-24U', totalHeight: 24 });
-        // Start unit 25 exceeds 24U
+      it('T2.2.3: should reject slotting beyond standard 42U rack height', () => {
+        const rack = engine.createRack({ name: 'Test 42U', code: 'TEST-42U' });
+        // Start unit 43 exceeds 42U
         expect(() =>
           engine.createSwitch({
-            name: 'Exceeds 24U',
+            name: 'Exceeds 42U',
             model: 'M1',
             vendor: 'Cisco',
             rackId: rack.id,
-            rackPosition: 25,
+            rackPosition: 43,
           }),
         ).toThrow(BadRequestException);
 
-        // Start unit 24 with height 2 spans U24-U25, exceeding 24U
+        // Start unit 42 with height 2 spans U42-U43, exceeding 42U
         expect(() =>
           engine.createSwitch({
             name: 'Span Exceeds',
             model: 'M2',
             vendor: 'Cisco',
             rackId: rack.id,
-            rackPosition: 24,
+            rackPosition: 42,
             rackHeight: 2,
           }),
         ).toThrow(BadRequestException);
@@ -1881,7 +1851,6 @@ describe('Network Modernization E2E Specification Suite', () => {
         const rack = engine.createRack({
           name: 'Contiguous Test',
           code: 'CTG-42U',
-          totalHeight: 42,
         });
         // Device A: U1 to U2 (2U)
         engine.createSwitch({
@@ -1909,11 +1878,10 @@ describe('Network Modernization E2E Specification Suite', () => {
 
       it('T2.2.5: should handle 100% full rack saturation with 0 available slots', () => {
         const rack = engine.createRack({
-          name: 'Full 12U Rack',
-          code: 'FULL-12U',
-          totalHeight: 12,
+          name: 'Full 42U Rack',
+          code: 'FULL-42U',
         });
-        for (let u = 1; u <= 12; u++) {
+        for (let u = 1; u <= 42; u++) {
           engine.createSwitch({
             name: `Blade ${u}`,
             model: '1U Blade',
@@ -1924,7 +1892,7 @@ describe('Network Modernization E2E Specification Suite', () => {
           });
         }
         const elevation = engine.getRackElevation(rack.id);
-        expect(elevation.occupiedUnits).toBe(12);
+        expect(elevation.occupiedUnits).toBe(42);
         expect(elevation.availableUnits).toBe(0);
         expect(elevation.occupancyRate).toBe(100.0);
       });
@@ -2232,7 +2200,6 @@ describe('Network Modernization E2E Specification Suite', () => {
       const rack = engine.createRack({
         name: 'Datacenter Rack 01',
         code: 'DC1-RCK-01',
-        totalHeight: 42,
       });
       const sw = engine.createSwitch({
         name: 'Core Switch 01',
@@ -2315,8 +2282,8 @@ describe('Network Modernization E2E Specification Suite', () => {
     });
 
     it('T3.2: should update IP and Asset upstream locations when switch is relocated to another rack', () => {
-      const rack1 = engine.createRack({ name: 'Rack Old', code: 'RCK-OLD', totalHeight: 42 });
-      const rack2 = engine.createRack({ name: 'Rack New', code: 'RCK-NEW', totalHeight: 42 });
+      const rack1 = engine.createRack({ name: 'Rack Old', code: 'RCK-OLD' });
+      const rack2 = engine.createRack({ name: 'Rack New', code: 'RCK-NEW' });
 
       const sw = engine.createSwitch({
         name: 'Movable Switch',
@@ -2483,7 +2450,6 @@ describe('Network Modernization E2E Specification Suite', () => {
       const rack = engine.createRack({
         name: 'High Density 42U',
         code: 'HD-42U',
-        totalHeight: 42,
         maxPowerKw: 10.0,
       });
 
@@ -2536,8 +2502,8 @@ describe('Network Modernization E2E Specification Suite', () => {
     });
 
     it('T3.7: should model cross-rack trunk patch connection between two distribution switches', () => {
-      const rack1 = engine.createRack({ name: 'Rack 1', code: 'RCK-1', totalHeight: 42 });
-      const rack2 = engine.createRack({ name: 'Rack 2', code: 'RCK-2', totalHeight: 42 });
+      const rack1 = engine.createRack({ name: 'Rack 1', code: 'RCK-1' });
+      const rack2 = engine.createRack({ name: 'Rack 2', code: 'RCK-2' });
 
       const sw1 = engine.createSwitch({
         name: 'Switch 1',
@@ -2773,13 +2739,11 @@ describe('Network Modernization E2E Specification Suite', () => {
       const dc1 = engine.createRack({
         name: 'BSL Datacenter Rack 01',
         code: 'RACK-DC-01',
-        totalHeight: 42,
         maxPowerKw: 10.0,
       });
       const dc2 = engine.createRack({
         name: 'BSL Datacenter Rack 02',
         code: 'RACK-DC-02',
-        totalHeight: 42,
         maxPowerKw: 10.0,
       });
 
@@ -2839,11 +2803,10 @@ describe('Network Modernization E2E Specification Suite', () => {
     });
 
     it('T4.2: Factory 1 Intermediate Distribution Frame (IDF) Cutover', () => {
-      // 24U Cabinet in Factory 1 IDF
+      // 24U Cabinet in Factory 1 IDF -> standardized rack
       const idfRack = engine.createRack({
         name: 'Factory 1 IDF Cabinet',
         code: 'RACK-F1-IDF',
-        totalHeight: 24,
         maxPowerKw: 4.0,
       });
 
@@ -2898,8 +2861,8 @@ describe('Network Modernization E2E Specification Suite', () => {
 
     it('T4.3: Virtual Server Host Dual-Homed Redundant Uplink Provisioning', () => {
       // 2 Redundant ToR Switches across separate racks
-      const rackA = engine.createRack({ name: 'Rack A', code: 'RCK-A', totalHeight: 42 });
-      const rackB = engine.createRack({ name: 'Rack B', code: 'RCK-B', totalHeight: 42 });
+      const rackA = engine.createRack({ name: 'Rack A', code: 'RCK-A' });
+      const rackB = engine.createRack({ name: 'Rack B', code: 'RCK-B' });
 
       const torA = engine.createSwitch({
         name: 'TOR-SW-A',
@@ -3065,16 +3028,14 @@ describe('Network Modernization E2E Specification Suite', () => {
     });
 
     it('T4.6: Datacenter Rack Decommissioning & Switch Relocation Workflow', () => {
-      // Step 1: Legacy Rack 24U decommissioned
+      // Step 1: Legacy Rack decommissioned
       const legacyRack = engine.createRack({
         name: 'Legacy Rack 01',
         code: 'RCK-LEG-01',
-        totalHeight: 24,
       });
       const newRack = engine.createRack({
-        name: 'Modern 48U Rack',
+        name: 'Modern Rack',
         code: 'RCK-MOD-01',
-        totalHeight: 48,
       });
 
       const sw = engine.createSwitch({
@@ -3145,13 +3106,11 @@ describe('Network Modernization E2E Specification Suite', () => {
       const rack1 = engine.createRack({
         name: 'Rack 1',
         code: 'R1',
-        totalHeight: 42,
         maxPowerKw: 8.0,
       });
       const rack2 = engine.createRack({
         name: 'Rack 2',
         code: 'R2',
-        totalHeight: 42,
         maxPowerKw: 8.0,
       });
 

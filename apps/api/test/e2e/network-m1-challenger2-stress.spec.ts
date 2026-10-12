@@ -153,7 +153,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
         data: {
           name: 'Collision Rack 1',
           code: rackCode,
-          totalHeight: 42,
         },
       });
 
@@ -164,7 +163,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
           data: {
             name: 'Collision Rack 2',
             code: rackCode,
-            totalHeight: 48,
           },
         });
       } catch (error: unknown) {
@@ -229,7 +227,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
         data: {
           name: `Preserve Test Rack ${uniqueSuffix}`,
           code: `RACK-PRESERVE-${uniqueSuffix}`,
-          totalHeight: 42,
         },
       });
 
@@ -271,7 +268,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
           id: 'b6f4e198-5c7a-4df1-8693-01053f3e1b10',
           name: 'Datacenter Rack A-01 🇻🇳',
           code: 'RACK-DC-A01',
-          totalHeight: 42,
           depth: 1070.5,
           width: 600,
           maxPowerKw: 8.5,
@@ -291,7 +287,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
 
         expect(parsed).toEqual(originalRack);
         expect(parsed.name).toBe('Datacenter Rack A-01 🇻🇳');
-        expect(parsed.totalHeight).toBe(42);
         expect(parsed.depth).toBe(1070.5);
       });
 
@@ -369,7 +364,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
           rackId: 'rack-01',
           rackName: 'DC-RACK-01',
           rackCode: 'R01',
-          totalHeight: 42,
           usedUnits: 2,
           availableUnits: 40,
           occupancyRate: 4.76,
@@ -390,21 +384,6 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress & Verificati
 
     describe('2.2 Boundary, Overflow & Type Validation Stress', () => {
       it('should reject invalid numbers and boundary violations for Rack creation', () => {
-        // Zero or negative totalHeight
-        expect(createRackSchema.safeParse({ name: 'R', code: 'C', totalHeight: 0 }).success).toBe(
-          false,
-        );
-        expect(createRackSchema.safeParse({ name: 'R', code: 'C', totalHeight: -5 }).success).toBe(
-          false,
-        );
-        // Exceeds max RU height 100
-        expect(createRackSchema.safeParse({ name: 'R', code: 'C', totalHeight: 101 }).success).toBe(
-          false,
-        );
-        // Floating point totalHeight
-        expect(
-          createRackSchema.safeParse({ name: 'R', code: 'C', totalHeight: 42.5 }).success,
-        ).toBe(false);
         // Negative dimensions or weights
         expect(createRackSchema.safeParse({ name: 'R', code: 'C', depth: -100 }).success).toBe(
           false,

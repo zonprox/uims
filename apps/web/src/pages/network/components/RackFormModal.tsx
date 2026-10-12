@@ -1,24 +1,10 @@
 import { ApartmentOutlined } from '@ant-design/icons';
-import {
-  Button,
-  Col,
-  Flex,
-  Form,
-  type FormInstance,
-  Input,
-  InputNumber,
-  Modal,
-  Row,
-  Select,
-  theme,
-  Typography,
-} from 'antd';
-import React, { useMemo } from 'react';
+import { Col, Form, type FormInstance, Input, Modal, Row, Select, theme } from 'antd';
+import React from 'react';
 import type { NetworkRack, RackStatus } from '../../../services/network.service';
 import { formRules } from '../../../utils/formValidators';
 
 const { TextArea } = Input;
-const { Text } = Typography;
 
 export interface RackFormModalProps {
   open: boolean;
@@ -33,16 +19,6 @@ export interface RackFormModalProps {
 export const RackFormModal: React.FC<RackFormModalProps> = React.memo(
   ({ open, editingRack, form, submitting = false, onSave, onCancel }) => {
     const { token } = theme.useToken();
-
-    // Determine the highest occupied unit to prevent shrinking below mounted devices
-    const highestOccupiedUnit = useMemo(() => {
-      if (!editingRack?.switches || editingRack.switches.length === 0) return 0;
-      return editingRack.switches.reduce((max, sw) => {
-        if (sw.rackPosition === null || sw.rackPosition === undefined) return max;
-        const end = sw.rackPosition + Math.max(1, sw.rackHeight || 1) - 1;
-        return Math.max(max, end);
-      }, 0);
-    }, [editingRack]);
 
     return (
       <Modal
@@ -108,77 +84,6 @@ export const RackFormModal: React.FC<RackFormModalProps> = React.memo(
                     { label: 'Retired', value: 'RETIRED' },
                   ]}
                 />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item
-                name="totalHeight"
-                label="Total Height (RU)"
-                rules={[
-                  { required: true, message: 'Please enter rack height' },
-                  { type: 'number', min: 1, message: 'Must be at least 1U' },
-                  { type: 'number', max: 100, message: 'Must not exceed 100 RU' },
-                  {
-                    validator: async (_, value) => {
-                      if (
-                        value !== undefined &&
-                        value !== null &&
-                        highestOccupiedUnit > 0 &&
-                        value < highestOccupiedUnit
-                      ) {
-                        return Promise.reject(
-                          new Error(
-                            `Cannot decrease rack height below U${highestOccupiedUnit} (highest mounted device).`,
-                          ),
-                        );
-                      }
-                      return Promise.resolve();
-                    },
-                  },
-                ]}
-                initialValue={42}
-                extra={
-                  highestOccupiedUnit > 0
-                    ? `Highest mounted device reaches U${highestOccupiedUnit}. Minimum capacity is ${highestOccupiedUnit}U.`
-                    : 'Standard enterprise cabinet heights range from 12U to 48U+.'
-                }
-              >
-                <Flex align="center" gap={12} wrap>
-                  <InputNumber
-                    min={Math.max(1, highestOccupiedUnit)}
-                    max={100}
-                    step={1}
-                    precision={0}
-                    formatter={(val) => (val !== undefined && val !== null ? `${val} RU` : '')}
-                    parser={(val) => Number(val?.replace(/[^0-9]/g, ''))}
-                    style={{ width: 130 }}
-                    data-testid="rack-total-height-input"
-                  />
-                  <Flex align="center" gap={6} wrap>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Presets:
-                    </Text>
-                    {[12, 24, 42, 48].map((preset) => {
-                      const disabled = highestOccupiedUnit > 0 && preset < highestOccupiedUnit;
-                      return (
-                        <Button
-                          key={preset}
-                          size="small"
-                          disabled={disabled}
-                          onClick={() => {
-                            form.setFieldValue('totalHeight', preset);
-                            form.validateFields(['totalHeight']);
-                          }}
-                        >
-                          {preset}U
-                        </Button>
-                      );
-                    })}
-                  </Flex>
-                </Flex>
               </Form.Item>
             </Col>
           </Row>

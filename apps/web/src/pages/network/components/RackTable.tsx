@@ -88,31 +88,14 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
           ),
         },
         {
-          title: 'Height',
-          key: 'totalHeight',
-          width: 90,
-          sorter: (a, b) => a.totalHeight - b.totalHeight || a.id.localeCompare(b.id),
-          render: (_: unknown, record: NetworkRack) => (
-            <Tag color="blue" style={{ fontWeight: 600 }}>
-              {record.totalHeight}U
-            </Tag>
-          ),
-        },
-        {
           title: 'Space Utilization',
           key: 'occupancy',
           width: 180,
           sorter: (a, b) => {
             const utilA =
-              a.occupancyRate ??
-              (a.usedUnits !== undefined && a.totalHeight
-                ? (a.usedUnits / a.totalHeight) * 100
-                : 0);
+              a.occupancyRate ?? (a.usedUnits !== undefined ? (a.usedUnits / 42) * 100 : 0);
             const utilB =
-              b.occupancyRate ??
-              (b.usedUnits !== undefined && b.totalHeight
-                ? (b.usedUnits / b.totalHeight) * 100
-                : 0);
+              b.occupancyRate ?? (b.usedUnits !== undefined ? (b.usedUnits / 42) * 100 : 0);
             return utilA - utilB || a.id.localeCompare(b.id);
           },
           render: (_: unknown, record: NetworkRack) => {
@@ -122,7 +105,7 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
                 ?.filter((s) => s.rackPosition !== null)
                 .reduce((sum, s) => sum + (s.rackHeight || 1), 0) ??
               0;
-            const total = record.totalHeight || 42;
+            const total = 42;
             const percent = Number(((occupied / total) * 100).toFixed(1));
 
             return (

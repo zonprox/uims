@@ -99,7 +99,6 @@ export interface IPAddressQueryDto {
 export interface CreateRackDto {
   name: string;
   code: string;
-  totalHeight?: number; // default 42
   depth?: number | null; // mm
   width?: number | null; // mm
   maxPowerKw?: number | null; // kW

@@ -39,7 +39,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     id: 'rack-42u-1',
     name: 'DC1 Core Cabinet 01',
     code: 'RCK-DC1-01',
-    totalHeight: 42,
     maxPowerKw: 8.0,
     maxWeightKg: 600,
     depth: 1000,
@@ -98,7 +97,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     rackId: 'rack-42u-1',
     rackName: 'DC1 Core Cabinet 01',
     rackCode: 'RCK-DC1-01',
-    totalHeight: 42,
     usedUnits: 7,
     availableUnits: 35,
     occupancyRate: 16.7,
@@ -229,18 +227,17 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     });
 
     it('Case 1.2: renders empty cabinet state when no equipment is mounted and omits blank slot rows', async () => {
-      const rack24U: NetworkRack = {
+      const rackEmpty: NetworkRack = {
         ...mockRack42U,
-        id: 'rack-24u',
-        name: 'Edge Cabinet 24U',
-        code: 'RCK-EDGE-24',
-        totalHeight: 24,
+        id: 'rack-empty',
+        name: 'Empty Cabinet',
+        code: 'RCK-EMPTY-01',
         switches: [],
       };
 
-      await renderWithContext(<RackElevationView rack={rack24U} />);
+      await renderWithContext(<RackElevationView rack={rackEmpty} />);
 
-      expect(container.textContent).toContain('24U Standard');
+      expect(container.textContent).toContain('42U Standard');
       expect(container.querySelector('[data-testid="rack-empty-mount-state"]')).not.toBeNull();
       const mountFirstBtn = container.querySelector('[data-testid="mount-first-equipment-btn"]');
       expect(mountFirstBtn).not.toBeNull();
@@ -626,7 +623,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
 
       expect(container.textContent).toContain('RCK-DC1-01');
       expect(container.textContent).toContain('DC1 Core Cabinet 01');
-      expect(container.textContent).toContain('42U');
+      expect(container.textContent).toContain('7 / 42 U');
       expect(container.textContent).toContain('3 devices');
       expect(container.textContent).toContain('Active');
 
@@ -670,28 +667,21 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(document.body.textContent).toContain('Edit Equipment Rack');
       expect(document.body.textContent).toContain('Rack Name');
       expect(document.body.textContent).toContain('Rack Code / Identifier');
-      expect(document.body.textContent).toContain('Total Height (RU)');
-      expect(document.body.textContent).toContain('Presets:');
-      expect(document.body.textContent).toContain('42U');
+
+      // Total Height (RU) and presets are removed in 42U standard cabinet model
+      expect(document.body.textContent).not.toContain('Total Height (RU)');
+      expect(document.body.textContent).not.toContain('Presets:');
+
+      // Verify operational status is rendered once without duplication
+      const statusLabels = Array.from(document.body.querySelectorAll('label')).filter((l) =>
+        l.textContent?.includes('Operational Status'),
+      );
+      expect(statusLabels).toHaveLength(1);
 
       // Verify removed cluttered fields are absent
       expect(document.body.textContent).not.toContain('Max Power Rating');
       expect(document.body.textContent).not.toContain('Weight Rating');
       expect(document.body.textContent).not.toContain('Cabinet Depth');
-
-      // Verify preset 12U is disabled because highest mounted device is at U24
-      const preset12Btn = Array.from(document.body.querySelectorAll('button')).find(
-        (b) => b.textContent?.trim() === '12U',
-      );
-      expect(preset12Btn).toBeDefined();
-      expect((preset12Btn as HTMLButtonElement)?.disabled).toBe(true);
-
-      // Preset 24U and 48U are enabled
-      const preset24Btn = Array.from(document.body.querySelectorAll('button')).find(
-        (b) => b.textContent?.trim() === '24U',
-      );
-      expect(preset24Btn).toBeDefined();
-      expect((preset24Btn as HTMLButtonElement)?.disabled).toBe(false);
     });
   });
 
@@ -766,7 +756,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     it('Case 11.2: confirms removal of rack decrement slot button', async () => {
       const rackAtMin: NetworkRack = {
         ...mockRack42U,
-        totalHeight: 24,
       };
 
       await renderWithContext(<RackElevationView rack={rackAtMin} />);
@@ -783,20 +772,15 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     });
 
     it('Case 11.4: displays static cabinet height badge in header without editable stepper controls', async () => {
-      const rack52U: NetworkRack = {
-        ...mockRack42U,
-        totalHeight: 52,
-      };
+      await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
-      await renderWithContext(<RackElevationView rack={rack52U} />);
-
-      expect(container.textContent).toContain('52U Standard');
+      expect(container.textContent).toContain('42U Standard');
       expect(container.querySelector('[data-testid="rack-capacity-input"]')).toBeNull();
       expect(container.querySelector('[data-testid="rack-increment-slot-btn"]')).toBeNull();
       expect(container.querySelector('[data-testid="rack-decrement-slot-btn"]')).toBeNull();
     });
 
-    it('Case 11.5: confirms rack elevation layout respects immutable totalHeight from props', async () => {
+    it('Case 11.5: confirms rack elevation layout renders 42U standard cabinet', async () => {
       await renderWithContext(<RackElevationView rack={mockRack42U} />);
 
       expect(container.textContent).toContain('42U Standard');
@@ -863,24 +847,19 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     });
 
     it('Case 11.9: switching between racks synchronizes capacity state even when initial heights match', async () => {
-      const rackA: NetworkRack = { ...mockRack42U, id: 'rack-a', totalHeight: 48 };
-      const rackB: NetworkRack = { ...mockRack42U, id: 'rack-b', totalHeight: 48 };
+      const rackA: NetworkRack = { ...mockRack42U, id: 'rack-a' };
+      const rackB: NetworkRack = { ...mockRack42U, id: 'rack-b' };
 
       const { rerender } = await renderWithContext(<RackElevationView rack={rackA} />);
-      expect(container.textContent).toContain('48U Standard');
+      expect(container.textContent).toContain('42U Standard');
 
       await rerender(<RackElevationView rack={rackB} />);
-      expect(container.textContent).toContain('48U Standard');
+      expect(container.textContent).toContain('42U Standard');
     });
 
-    it('Case 11.10: verifies height display for non-standard heights without editable controls', async () => {
-      const nonStandardRack: NetworkRack = {
-        ...mockRack42U,
-        totalHeight: 45,
-      };
-
-      await renderWithContext(<RackElevationView rack={nonStandardRack} />);
-      expect(container.textContent).toContain('45U Standard');
+    it('Case 11.10: verifies height display for standard 42U cabinet without editable controls', async () => {
+      await renderWithContext(<RackElevationView rack={mockRack42U} />);
+      expect(container.textContent).toContain('42U Standard');
       expect(container.querySelector('[data-testid="rack-capacity-input"]')).toBeNull();
       expect(networkService.updateRack).not.toHaveBeenCalled();
     });
@@ -888,31 +867,17 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     it('Case 11.11: disables Mount Equipment button when cabinet is 100% full', async () => {
       const fullRack: NetworkRack = {
         ...mockRack42U,
-        totalHeight: 2,
         switches: [
           {
             id: 'sw-f1',
             name: 'SW-FULL-01',
-            model: 'Catalyst 9300',
+            model: 'Full Chassis 42U',
             vendor: 'Cisco',
             role: 'CORE',
             status: 'ONLINE',
-            rackHeight: 1,
+            rackHeight: 42,
             rackPosition: 1,
-            totalPorts: 24,
-            createdAt: '2026-09-01T00:00:00Z',
-            updatedAt: '2026-09-01T00:00:00Z',
-          },
-          {
-            id: 'sw-f2',
-            name: 'SW-FULL-02',
-            model: 'Catalyst 9300',
-            vendor: 'Cisco',
-            role: 'ACCESS',
-            status: 'ONLINE',
-            rackHeight: 1,
-            rackPosition: 2,
-            totalPorts: 24,
+            totalPorts: 48,
             createdAt: '2026-09-01T00:00:00Z',
             updatedAt: '2026-09-01T00:00:00Z',
           },
@@ -991,7 +956,7 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
       expect(container.querySelector('[data-testid="collision-warning-banner"]')).toBeNull();
     });
 
-    it('Case 12.3: verifies capacity ceiling bounded by totalHeight without inline capacity input', async () => {
+    it('Case 12.3: verifies capacity ceiling bounded by standard 42U without inline capacity input', async () => {
       await renderWithContext(
         <RackElevationView rack={mockRack42U} elevationData={mockElevationData} />,
       );
@@ -1048,7 +1013,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     it('Case 12.5: automatically allocates contiguous non-overlapping sequential units from top down for devices without rackPosition', async () => {
       const unpositionedRack: NetworkRack = {
         ...mockRack42U,
-        totalHeight: 42,
         switches: [
           {
             id: 'sw-unpos-1',
@@ -1175,7 +1139,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     it('Case 12.8: handles cumulative equipment height strictly exceeding rack capacity without overlaps or corrupted metrics', async () => {
       const overCapacityRack: NetworkRack = {
         ...mockRack42U,
-        totalHeight: 42,
         switches: [
           {
             id: 'sw-over-1',
@@ -1228,7 +1191,6 @@ describe('Milestone 4: 2D Visual Rack Elevation & Cabinet Management', () => {
     it('Case 12.9: prevents slot collision between unpositioned multi-U devices and existing positioned devices in mid-cabinet', async () => {
       const midPositionedRack: NetworkRack = {
         ...mockRack42U,
-        totalHeight: 42,
         switches: [
           {
             id: 'sw-mid-fixed',

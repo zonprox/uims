@@ -39,7 +39,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
     id: 'rack-dc-01',
     name: 'Core Datacenter Rack 01',
     code: 'RACK-DC-01',
-    totalHeight: 42,
     status: 'ACTIVE',
     createdAt: '2026-09-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z',

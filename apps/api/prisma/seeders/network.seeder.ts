@@ -133,12 +133,11 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       // 3. Seed 3 Network Racks
       const rackMap = new Map<string, string>();
       const rackResults = await inTransactionChunks(prisma, rackRows, 50, async (tx, row) => {
-        const [name, code, _locKey, hStr, dStr, wStr, kwStr, kgStr, notes] = row.split('|');
+        const [name, code, _locKey, _hStr, dStr, wStr, kwStr, kgStr, notes] = row.split('|');
         return tx.networkRack.upsert({
           where: { code },
           update: {
             name,
-            totalHeight: parseInt(hStr, 10),
             depth: parseInt(dStr, 10),
             width: parseInt(wStr, 10),
             maxPowerKw: parseFloat(kwStr),
@@ -149,7 +148,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           create: {
             name,
             code,
-            totalHeight: parseInt(hStr, 10),
             depth: parseInt(dStr, 10),
             width: parseInt(wStr, 10),
             maxPowerKw: parseFloat(kwStr),

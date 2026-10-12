@@ -510,7 +510,6 @@ model NetworkRack {
   id          String     @id @default(uuid())
   name        String
   code        String     @unique
-  totalHeight Int        @default(42) // 12, 24, 42, 48 RU
   depth       Float?     // mm (e.g. 1000, 1070)
   width       Float?     // mm (e.g. 600, 800)
   maxPowerKw  Float?     // kW capacity (e.g. 5.0, 7.5, 10.0)

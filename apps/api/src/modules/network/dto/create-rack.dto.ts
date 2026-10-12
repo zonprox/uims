@@ -1,16 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RackStatus } from '@uims/shared-types';
-import {
-  IsEnum,
-  IsInt,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Max,
-  MaxLength,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateRackDto {
   @ApiProperty({
@@ -27,16 +17,6 @@ export class CreateRackDto {
   @IsNotEmpty()
   @MaxLength(50)
   code!: string;
-
-  @ApiPropertyOptional({
-    description: 'Total rack unit height (1..100 RU, standard 12, 24, 42, 48, 52)',
-    default: 42,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  totalHeight?: number;
 
   @ApiPropertyOptional({ description: 'Rack depth in mm', example: 1070 })
   @IsOptional()

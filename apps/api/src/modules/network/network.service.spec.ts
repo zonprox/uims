@@ -498,7 +498,6 @@ describe('NetworkService', () => {
           id: 'rack-1',
           name: 'Server Rack 01',
           code: 'RACK-01',
-          totalHeight: 42,
           maxPowerKw: 10,
           maxWeightKg: 800,
           switches: [
@@ -533,7 +532,6 @@ describe('NetworkService', () => {
         id: 'rack-1',
         name: 'Server Rack 01',
         code: 'RACK-01',
-        totalHeight: 42,
         maxPowerKw: 10,
         maxWeightKg: 800,
         switches: [],
@@ -553,7 +551,6 @@ describe('NetworkService', () => {
         service.createRack({
           name: 'Duplicate Rack',
           code: 'DUP-01',
-          totalHeight: 42,
         }),
       ).rejects.toThrow(BadRequestException);
 
@@ -562,7 +559,6 @@ describe('NetworkService', () => {
         id: 'rack-created-1',
         name: 'New Rack',
         code: 'RACK-NEW',
-        totalHeight: 42,
         maxPowerKw: 10,
         maxWeightKg: 800,
         switches: [],
@@ -574,7 +570,6 @@ describe('NetworkService', () => {
       const created = await service.createRack({
         name: 'New Rack',
         code: 'RACK-NEW',
-        totalHeight: 42,
       });
 
       expect(created.code).toBe('RACK-NEW');
@@ -591,7 +586,6 @@ describe('NetworkService', () => {
         id: 'rack-1',
         name: 'Updated Rack Name',
         code: 'RACK-01',
-        totalHeight: 42,
         maxPowerKw: 15,
         maxWeightKg: 900,
         switches: [],
@@ -607,93 +601,6 @@ describe('NetworkService', () => {
 
       expect(updated.name).toBe('Updated Rack Name');
       expect(mockPrisma.networkRack.update).toHaveBeenCalled();
-    });
-
-    it('updateRack supports custom height expansion up to 52U+ hyperscale cabinets', async () => {
-      mockPrisma.networkRack.findUnique.mockResolvedValue({
-        id: 'rack-1',
-        code: 'RACK-01',
-      });
-      mockPrisma.networkSwitch.findMany.mockResolvedValue([]);
-      mockPrisma.networkRack.update.mockResolvedValue({
-        id: 'rack-1',
-        name: 'Hyperscale 52U Cabinet',
-        code: 'RACK-01',
-        totalHeight: 52,
-        maxPowerKw: 12,
-        maxWeightKg: 1000,
-        switches: [],
-        _count: { switches: 0 },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      const updated = await service.updateRack('rack-1', { totalHeight: 52 });
-      expect(updated.totalHeight).toBe(52);
-    });
-
-    it('updateRack rejects out-of-bounds totalHeight (< 1 or > 100)', async () => {
-      mockPrisma.networkRack.findUnique.mockResolvedValue({
-        id: 'rack-1',
-        code: 'RACK-01',
-      });
-
-      await expect(service.updateRack('rack-1', { totalHeight: 0 })).rejects.toThrow(
-        'Rack totalHeight must be between 1 and 100 RU.',
-      );
-      await expect(service.updateRack('rack-1', { totalHeight: 101 })).rejects.toThrow(
-        'Rack totalHeight must be between 1 and 100 RU.',
-      );
-      await expect(service.updateRack('rack-1', { totalHeight: 42.5 })).rejects.toThrow(
-        'Rack totalHeight must be between 1 and 100 RU.',
-      );
-    });
-
-    it('updateRack rejects decreasing totalHeight below highest occupied slot of mounted switches', async () => {
-      mockPrisma.networkRack.findUnique.mockResolvedValue({
-        id: 'rack-1',
-        code: 'RACK-01',
-      });
-      mockPrisma.networkSwitch.findMany.mockResolvedValue([
-        {
-          name: 'Core Switch Alpha',
-          rackPosition: 24,
-          rackHeight: 2, // occupies U24-U25 -> highest occupied is U25
-        },
-      ]);
-
-      await expect(service.updateRack('rack-1', { totalHeight: 24 })).rejects.toThrow(
-        'Cannot decrease rack height to 24U. Mounted device "Core Switch Alpha" occupies up to U25.',
-      );
-    });
-
-    it('updateRack allows decreasing totalHeight when above highest occupied slot', async () => {
-      mockPrisma.networkRack.findUnique.mockResolvedValue({
-        id: 'rack-1',
-        code: 'RACK-01',
-      });
-      mockPrisma.networkSwitch.findMany.mockResolvedValue([
-        {
-          name: 'Core Switch Alpha',
-          rackPosition: 20,
-          rackHeight: 2, // occupies U20-U21
-        },
-      ]);
-      mockPrisma.networkRack.update.mockResolvedValue({
-        id: 'rack-1',
-        name: 'Rack 1',
-        code: 'RACK-01',
-        totalHeight: 24,
-        maxPowerKw: 8,
-        maxWeightKg: 600,
-        switches: [],
-        _count: { switches: 0 },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      const updated = await service.updateRack('rack-1', { totalHeight: 24 });
-      expect(updated.totalHeight).toBe(24);
     });
 
     it('deleteRack sets mounted switches rackId to null and deletes rack', async () => {
@@ -715,12 +622,11 @@ describe('NetworkService', () => {
       });
     });
 
-    it('getRackElevation generates 2D slot array and telemetry calculations', async () => {
+    it('getRackElevation generates 2D slot array and telemetry calculations for standard 42U cabinet', async () => {
       mockPrisma.networkRack.findFirst.mockResolvedValue({
         id: 'rack-elev',
         name: 'Elevation Rack',
         code: 'RACK-EL-01',
-        totalHeight: 4,
         maxPowerKw: 5,
         maxWeightKg: 500,
         switches: [
@@ -744,10 +650,9 @@ describe('NetworkService', () => {
 
       const elevation = await service.getRackElevation('rack-elev');
       expect(elevation.rackCode).toBe('RACK-EL-01');
-      expect(elevation.totalHeight).toBe(4);
       expect(elevation.usedUnits).toBe(2);
-      expect(elevation.availableUnits).toBe(2);
-      expect(elevation.slots).toHaveLength(4);
+      expect(elevation.availableUnits).toBe(40);
+      expect(elevation.slots).toHaveLength(42);
 
       // Slot 1: unoccupied
       expect(elevation.slots[0].unitNumber).toBe(1);
@@ -1046,7 +951,6 @@ describe('NetworkService', () => {
       mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
       mockPrisma.networkRack.findUnique.mockResolvedValue({
         id: 'rack-1',
-        totalHeight: 42,
       });
       mockPrisma.networkSwitch.findMany.mockResolvedValue([]);
       mockPrisma.networkSwitch.create.mockResolvedValue({ id: 'sw-mounted-1' });
@@ -1094,7 +998,6 @@ describe('NetworkService', () => {
       mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
       mockPrisma.networkRack.findUnique.mockResolvedValue({
         id: 'rack-1',
-        totalHeight: 42,
       });
       mockPrisma.networkSwitch.findMany.mockResolvedValue([
         {
@@ -1116,6 +1019,25 @@ describe('NetworkService', () => {
           autoGeneratePorts: false,
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('createSwitch rejects mounting switch beyond standard 42U rack capacity', async () => {
+      mockPrisma.networkSwitch.findUnique.mockResolvedValue(null);
+      mockPrisma.networkRack.findUnique.mockResolvedValue({
+        id: 'rack-1',
+      });
+
+      await expect(
+        service.createSwitch({
+          name: 'SW-OVERFLOW',
+          model: 'Catalyst',
+          vendor: 'Cisco',
+          rackId: 'rack-1',
+          rackPosition: 42,
+          rackHeight: 2,
+          autoGeneratePorts: false,
+        }),
+      ).rejects.toThrow('Device span U42-U43 exceeds rack height U42.');
     });
 
     it('deleteSwitch cascades and deletes associated switch ports', async () => {

@@ -49,7 +49,6 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       const r1 = await service.createRack({
         name: 'Tier 5 Primary Datacenter Rack',
         code: RACK_CODE_PRIMARY,
-        totalHeight: 42,
         maxPowerKw: 10.0,
         maxWeightKg: 1000,
         status: 'ACTIVE',
@@ -57,9 +56,8 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       primaryRackId = r1.id;
 
       const r2 = await service.createRack({
-        name: 'Tier 5 Secondary 24U IDF Rack',
+        name: 'Tier 5 Secondary IDF Rack',
         code: RACK_CODE_SECONDARY,
-        totalHeight: 24,
         maxPowerKw: 5.0,
         maxWeightKg: 500,
         status: 'ACTIVE',
@@ -350,40 +348,76 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       });
     });
 
-    it('1.6 empirical challenge: shrinking rack totalHeight with mounted devices (Shrink Attack)', async () => {
+    it('1.6 empirical challenge: rejecting switch mounting beyond standard 42U rack capacity (Mount Overflow Attack)', async () => {
       if (!isDbAvailable) return;
 
-      // Create a 42U rack and mount a switch at U38
-      const shrinkRack = await service.createRack({
-        name: 'Tier 5 Shrink Test Rack',
+      const overflowRack = await service.createRack({
+        name: 'Tier 5 Overflow Test Rack',
         code: RACK_CODE_SHRINK,
-        totalHeight: 42,
         status: 'ACTIVE',
       });
 
-      const highSwitch = await service.createSwitch({
-        name: 'Tier5-High-Switch-U38',
-        model: 'Catalyst-3850',
-        vendor: 'Cisco',
-        rackId: shrinkRack.id,
-        rackPosition: 38,
-        rackHeight: 1,
-        autoGeneratePorts: false,
-      });
-      expect(highSwitch.rackPosition).toBe(38);
-
-      // Now update the rack totalHeight to 24U (shorter than mounted switch U38)
-      // EMPIRICAL TEST: Check that updateRack rejects shrinking below mounted switches
       try {
+        // Attempt 1: Start position strictly beyond 42 (U43, 1U)
         await expect(
-          service.updateRack(shrinkRack.id, {
-            totalHeight: 24,
+          service.createSwitch({
+            name: 'Tier5-Overflow-Switch-U43',
+            model: 'Catalyst-3850',
+            vendor: 'Cisco',
+            rackId: overflowRack.id,
+            rackPosition: 43,
+            rackHeight: 1,
+            autoGeneratePorts: false,
           }),
         ).rejects.toThrow(BadRequestException);
+
+        // Attempt 2: Multi-unit switch starting at boundary U42 spanning to U43 (2U)
+        await expect(
+          service.createSwitch({
+            name: 'Tier5-Overflow-Switch-U42-2U',
+            model: 'Catalyst-4500X',
+            vendor: 'Cisco',
+            rackId: overflowRack.id,
+            rackPosition: 42,
+            rackHeight: 2,
+            autoGeneratePorts: false,
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        // Attempt 3: 4U switch starting at U40 spanning to U43 (4U)
+        await expect(
+          service.createSwitch({
+            name: 'Tier5-Overflow-Switch-U40-4U',
+            model: 'Nexus-7000',
+            vendor: 'Cisco',
+            rackId: overflowRack.id,
+            rackPosition: 40,
+            rackHeight: 4,
+            autoGeneratePorts: false,
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        // Attempt 4: Mount valid 1U switch at boundary U42, then attempt updating rackHeight to 2U
+        const boundarySwitch = await service.createSwitch({
+          name: 'Tier5-Boundary-Switch-U42',
+          model: 'Catalyst-3850',
+          vendor: 'Cisco',
+          rackId: overflowRack.id,
+          rackPosition: 42,
+          rackHeight: 1,
+          autoGeneratePorts: false,
+        });
+        expect(boundarySwitch.rackPosition).toBe(42);
+
+        await expect(
+          service.updateSwitch(boundarySwitch.id, {
+            rackHeight: 2,
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        await service.deleteSwitch(boundarySwitch.id);
       } finally {
-        // Cleanup
-        await service.deleteSwitch(highSwitch.id);
-        await service.deleteRack(shrinkRack.id);
+        await service.deleteRack(overflowRack.id);
       }
     });
   });
@@ -543,7 +577,6 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
         service.createRack({
           name: 'Duplicate Rack Code',
           code: RACK_CODE_PRIMARY,
-          totalHeight: 42,
         }),
       ).rejects.toThrow(/already exists/);
 
@@ -683,7 +716,6 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       const tempRack = await service.createRack({
         name: 'Tier5-Temp-SetNull-Rack',
         code: 'RACK-TIER5-TEMP-SETNULL',
-        totalHeight: 24,
       });
 
       // Create switch mounted in this rack
@@ -747,11 +779,10 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       if (!isDbAvailable) return;
 
       const elevation = await service.getRackElevation(secondaryRackId);
-      expect(elevation.totalHeight).toBe(24);
-      expect(elevation.slots.length).toBe(24);
+      expect(elevation.slots.length).toBe(42);
       expect(elevation.slots.every((s) => !s.isOccupied)).toBe(true);
       expect(elevation.occupiedUnits).toBe(0);
-      expect(elevation.availableUnits).toBe(24);
+      expect(elevation.availableUnits).toBe(42);
       expect(elevation.occupancyRate).toBe(0);
       expect(elevation.totalPowerDrawKw).toBe(0);
       expect(elevation.powerUtilizationPercent).toBe(0);
@@ -763,7 +794,6 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       if (!isDbAvailable) return;
 
       const elevation = await service.getRackElevation(primaryRackId);
-      expect(elevation.totalHeight).toBe(42);
       expect(elevation.slots.length).toBe(42);
 
       // Device 1: 4U switch at U1..U4
@@ -843,25 +873,21 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       expect(elevation.weightUtilizationPercent).toBe(3.4);
     });
 
-    it('4.4 supports 12U, 24U, 42U, and 48U rack sizes dynamically with exact slot count', async () => {
+    it('4.4 constructs standard 42U cabinet elevation with exact slot count and numbering', async () => {
       if (!isDbAvailable) return;
 
-      const rackSizes = [12, 24, 42, 48];
-      for (const size of rackSizes) {
-        const temp = await service.createRack({
-          name: `Tier5-Size-${size}U-Rack`,
-          code: `RACK-TIER5-SIZE-${size}U`,
-          totalHeight: size,
-        });
+      const temp = await service.createRack({
+        name: 'Tier5-Standard-42U-Rack',
+        code: 'RACK-TIER5-STD-42U',
+      });
 
-        const elev = await service.getRackElevation(temp.id);
-        expect(elev.totalHeight).toBe(size);
-        expect(elev.slots.length).toBe(size);
-        expect(elev.slots[0].unitNumber).toBe(1);
-        expect(elev.slots[size - 1].unitNumber).toBe(size);
+      const elev = await service.getRackElevation(temp.id);
+      expect(elev.slots.length).toBe(42);
+      expect(elev.slots[0].unitNumber).toBe(1);
+      expect(elev.slots[41].unitNumber).toBe(42);
+      expect(elev.availableUnits).toBe(42);
 
-        await service.deleteRack(temp.id);
-      }
+      await service.deleteRack(temp.id);
     });
 
     it('4.5 handles null or zero maxPowerKw and maxWeightKg gracefully without NaN', async () => {
@@ -870,7 +896,6 @@ describe('Tier 5 Adversarial Coverage Hardening — Network Modernization Suite'
       const zeroCapRack = await service.createRack({
         name: 'Tier5-Zero-Capacity-Rack',
         code: 'RACK-TIER5-ZERO-CAP',
-        totalHeight: 42,
         maxPowerKw: 0,
         maxWeightKg: 0,
       });

@@ -89,49 +89,18 @@ describe('Milestone 1 Challenger — Empirical Zod Schema Adversarial Suite', ()
   // 2. RACK UNIT HEIGHT & POSITION EDGE CASES
   // =========================================================================
   describe('Rack Unit Height & Position Boundaries', () => {
-    describe('createRackSchema.totalHeight', () => {
+    describe('createRackSchema validation', () => {
       const baseValidRack = {
         name: 'Rack-Alpha',
         code: 'RACK-A01',
       };
 
-      it('defaults totalHeight to 42 when omitted', () => {
+      it('validates rack payload without totalHeight', () => {
         const res = createRackSchema.safeParse(baseValidRack);
         expect(res.success).toBe(true);
         if (res.success) {
-          expect(res.data.totalHeight).toBe(42);
+          expect('totalHeight' in res.data).toBe(false);
         }
-      });
-
-      it('accepts standard rack heights (12, 24, 42, 48, 100)', () => {
-        for (const height of [1, 12, 24, 42, 48, 100]) {
-          const res = createRackSchema.safeParse({ ...baseValidRack, totalHeight: height });
-          expect(res.success, `totalHeight ${height} should be valid`).toBe(true);
-        }
-      });
-
-      it('rejects totalHeight <= 0', () => {
-        expect(createRackSchema.safeParse({ ...baseValidRack, totalHeight: 0 }).success).toBe(
-          false,
-        );
-        expect(createRackSchema.safeParse({ ...baseValidRack, totalHeight: -12 }).success).toBe(
-          false,
-        );
-      });
-
-      it('rejects totalHeight > 100', () => {
-        expect(createRackSchema.safeParse({ ...baseValidRack, totalHeight: 101 }).success).toBe(
-          false,
-        );
-        expect(createRackSchema.safeParse({ ...baseValidRack, totalHeight: 1000 }).success).toBe(
-          false,
-        );
-      });
-
-      it('rejects float totalHeight (e.g. 42.5)', () => {
-        expect(createRackSchema.safeParse({ ...baseValidRack, totalHeight: 42.5 }).success).toBe(
-          false,
-        );
       });
 
       it('rejects negative dimensions and power capacities', () => {
