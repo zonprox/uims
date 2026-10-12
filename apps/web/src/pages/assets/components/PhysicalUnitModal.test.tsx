@@ -347,9 +347,6 @@ describe('PhysicalUnitModal Component', () => {
       setInputValue(customCcInput, 'CC-1002');
     });
 
-    // Validation error text should be rendered in the document
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
-
     const submitBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Register Unit'),
     );
@@ -358,7 +355,8 @@ describe('PhysicalUnitModal Component', () => {
       submitBtn?.click();
     });
 
-    // api.post should NOT have been called due to failed validation
+    // Validation error text should be rendered in the document and block submission
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
   });
 
@@ -392,8 +390,6 @@ describe('PhysicalUnitModal Component', () => {
       setInputValue(customCcInput, 'abc');
     });
 
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
-
     const submitBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Register Unit'),
     );
@@ -402,6 +398,7 @@ describe('PhysicalUnitModal Component', () => {
       submitBtn?.click();
     });
 
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
   });
 
@@ -585,8 +582,6 @@ describe('PhysicalUnitModal Component', () => {
       setInputValue(customCcInput, '１２３');
     });
 
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
-
     const submitBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Register Unit'),
     );
@@ -595,27 +590,30 @@ describe('PhysicalUnitModal Component', () => {
       submitBtn?.click();
     });
 
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
 
     // Also verify special characters and emojis
     await act(async () => {
       setInputValue(customCcInput, 'CC#1002');
     });
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
 
     await act(async () => {
       submitBtn?.click();
     });
+
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
 
     await act(async () => {
       setInputValue(customCcInput, '123😊');
     });
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
 
     await act(async () => {
       submitBtn?.click();
     });
+
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
   });
 
@@ -649,8 +647,6 @@ describe('PhysicalUnitModal Component', () => {
       setInputValue(customCcInput, '-1002');
     });
 
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
-
     const submitBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Register Unit'),
     );
@@ -659,6 +655,7 @@ describe('PhysicalUnitModal Component', () => {
       submitBtn?.click();
     });
 
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
 
     // Test decimal input
@@ -666,12 +663,11 @@ describe('PhysicalUnitModal Component', () => {
       setInputValue(customCcInput, '12.34');
     });
 
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
-
     await act(async () => {
       submitBtn?.click();
     });
 
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
   });
 
@@ -866,8 +862,6 @@ describe('PhysicalUnitModal Component', () => {
       setInputValue(customCcInput, '８８９９');
     });
 
-    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
-
     const submitBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Register Unit'),
     );
@@ -876,6 +870,7 @@ describe('PhysicalUnitModal Component', () => {
       submitBtn?.click();
     });
 
+    expect(document.body.textContent).toContain('Cost center must contain only digits (0-9).');
     expect(api.post).not.toHaveBeenCalled();
 
     // Now correct to ASCII digits '8899'
