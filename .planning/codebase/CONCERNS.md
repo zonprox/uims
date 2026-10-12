@@ -1,5 +1,5 @@
 ---
-last_mapped_commit: 47a62716158aff0e5b1b981ab498a7df3f1defc4
+last_mapped_commit: 513c003639d98df385b56ab541797a216524064b
 last_mapped_at: 2026-10-12
 ---
 # Codebase Concerns
@@ -17,6 +17,11 @@ last_mapped_at: 2026-10-12
 - Resolution: All workspace dependencies modernized to latest stable 2026 releases (Biome 2.5.15, Playwright 1.64.0, Turbo 2.11.7, React Router 8.4.0, Socket.io 4.8.4, Zod 4.6.5, NestJS 11.2.7, ESLint 10.12.0, Vite 8.3.4, Vitest 5.0.3, Ant Design 6.6.5) while preserving foundational architecture (TypeScript 7.x, NestJS 11.x, React 19.x, Vite 8.x, Ant Design v6+, Prisma 7.x).
 - Status: Fully synchronized and deduplicated in `pnpm-lock.yaml`.
 - Prevention Directive: Strictly prohibit library downgrades (refuting legacy TD-020). Always verify with `pnpm dedupe` and `pnpm test` when modifying dependencies.
+
+**Network Rack Model Consolidation & Simplification (RESOLVED):**
+- Resolution: Consolidated duplicate rack height fields across schema, backend DTOs, frontend components, and validators to standardize on `uHeight`, eliminating redundant `totalHeight` schema baggage.
+- Status: Fully synchronized across all 27 files, tests passing 100% (1,062 / 1,062).
+- Prevention Directive: When modeling physical dimensions, maintain a single authoritative attribute across schema, entities, and validation layers to avoid dual-source-of-truth drift.
 
 **AssetsPage Column Text Assertion in Test Suite (RESOLVED):**
 - Resolution: Synchronized `src/pages/assets/AssetsPage.test.tsx` (line 466) with streamlined table column layout (`[SUB Code, Device Model, Category, Status, Assignee, Organization, Actions]`). The test was updated to click on the asset code (`AST-1001`) and assert that `Cost Center` renders inside `AssetDetailDrawer`.
@@ -40,7 +45,7 @@ last_mapped_at: 2026-10-12
 
 ## Known Bugs
 
-*(None currently open — 100% of monorepo unit and adversarial test suites passing)*
+*(None currently open — 100% of monorepo unit and adversarial test suites passing with 1,062 / 1,062 tests green)*
 
 ## Security Considerations
 

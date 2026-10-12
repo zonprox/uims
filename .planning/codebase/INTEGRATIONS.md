@@ -1,5 +1,5 @@
 ---
-last_mapped_commit: 47a62716158aff0e5b1b981ab498a7df3f1defc4
+last_mapped_commit: 513c003639d98df385b56ab541797a216524064b
 last_mapped_at: 2026-10-12
 ---
 # External Integrations
@@ -9,7 +9,7 @@ last_mapped_at: 2026-10-12
 ## APIs & External Services
 
 **Full-Text Search Engine:**
-- MeiliSearch (`getmeili/meilisearch:latest`) - Fast typo-tolerant full-text search across hardware assets, directory users, licenses, and inventory
+- MeiliSearch (`getmeili/meilisearch:latest`) - High-performance typo-tolerant full-text search across hardware assets, directory users, licenses, and inventory
   - Client / Protocol: REST API on port `7700` (`http://meilisearch:7700`)
   - Integration Service: `apps/api/src/modules/search/search.service.ts`
   - Authentication: `MEILISEARCH_API_KEY` via `MEILI_MASTER_KEY` environment variable
@@ -26,7 +26,7 @@ last_mapped_at: 2026-10-12
 - Cloudflare Quick Tunnel (`cloudflared`) - Dynamic secure HTTPS public egress for remote mobile testing and external webhooks
   - Client / Binary: `cloudflared tunnel --url https://localhost:5679 --no-tls-verify` managed via `scripts/dev.sh`
   - Domain Pattern: Matches `CLOUDFLARE_DEV_ORIGIN_REGEX` (`^https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com$`)
-  - CORS Whitelisting: Dynamic evaluation in non-production mode via `apps/api/src/config/cors.config.ts`
+  - CORS Whitelisting: Dynamic evaluation in non-production mode exclusively via centralized `apps/api/src/config/cors.config.ts`
 
 ## Data Storage
 

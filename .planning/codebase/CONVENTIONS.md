@@ -1,5 +1,5 @@
 ---
-last_mapped_commit: 47a62716158aff0e5b1b981ab498a7df3f1defc4
+last_mapped_commit: 513c003639d98df385b56ab541797a216524064b
 last_mapped_at: 2026-10-12
 ---
 # Coding Conventions
@@ -33,14 +33,14 @@ last_mapped_at: 2026-10-12
 ## Code Style
 
 **Formatting:**
-- Engine: Biome 2.5.13 (`@biomejs/biome`) via `pnpm format`
+- Engine: Biome 2.5.15 (`@biomejs/biome`) via `pnpm format`
 - Indentation: 2 spaces (no tabs)
 - Quote Style: Single quotes (`'`) for TypeScript code; double quotes (`"`) in JSON and JSX attributes
 - Line Length: 100 characters standard width
 - Trailing Commas: ES5 trailing commas in multi-line objects, arrays, and imports
 
 **Linting:**
-- Linter: ESLint 10.10.0 with `typescript-eslint` 8.70.0 and shared config `@uims/eslint-config`
+- Linter: ESLint 10.12.0 with `typescript-eslint` 8.71.1 and shared config `@uims/eslint-config`
 - Strict Diagnostics Policy: Zero `@ts-ignore`, zero `@ts-nocheck`, and zero unindexed `@ts-expect-error`
 - Zero `any` Policy: Strict prohibition of `any` and `as any` across production code and test suites. Use `unknown`, generic parameters, or explicit interfaces.
 

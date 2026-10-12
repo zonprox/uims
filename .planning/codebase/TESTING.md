@@ -1,5 +1,5 @@
 ---
-last_mapped_commit: 47a62716158aff0e5b1b981ab498a7df3f1defc4
+last_mapped_commit: 513c003639d98df385b56ab541797a216524064b
 last_mapped_at: 2026-10-12
 ---
 # Testing Patterns
@@ -9,11 +9,11 @@ last_mapped_at: 2026-10-12
 ## Test Framework
 
 **Runner:**
-- Vitest 5.0.0 - Primary test runner for unit, integration, and UI component tests across monorepo packages
+- Vitest 5.0.3 - Primary test runner for unit, integration, and UI component tests across monorepo packages
   - Backend Config: `apps/api/vitest.config.mts` (Environment: `node`, timeout: `20000ms`)
   - Frontend Config: `apps/web/vitest.config.ts` (Environment: `happy-dom`, timeout: `30000ms`, with `@vitejs/plugin-react`)
-  - Shared Packages: Vitest 5.0.0 with Happy-DOM and Node environments
-- Playwright 1.63.0 - End-to-end browser and automated network testing (`playwright.config.ts`, `scripts/run-e2e-network.mjs`)
+  - Shared Packages: Vitest 5.0.3 with Happy-DOM and Node environments
+- Playwright 1.64.0 - End-to-end browser and automated network testing (`playwright.config.ts`, `scripts/run-e2e-network.mjs`)
 
 **Assertion Library:**
 - Vitest built-in assertions (`expect`, `vi`) conforming to standard Jest/Chai assertion signatures
@@ -195,8 +195,9 @@ export function createMockAsset(overrides?: Partial<Asset>): Asset {
 
 **Current Test Metrics:**
 - Total Test Suites: 85 test files
-- Total Tests: 1,062 automated tests across the monorepo (1,061 passing, 1 known UI column text mismatch under review)
+- Total Tests: 1,062 automated tests across the monorepo (1,062 passing, 100% pass rate)
 - Typecheck Coverage: 100% clean across all 6 workspace packages (`pnpm typecheck` passed with 8/8 cached tasks)
+- Code Formatting: 100% clean across 572 files (`pnpm format:check` passed with 0 errors)
 
 **View Coverage:**
 

@@ -1,5 +1,5 @@
 ---
-last_mapped_commit: 47a62716158aff0e5b1b981ab498a7df3f1defc4
+last_mapped_commit: 513c003639d98df385b56ab541797a216524064b
 last_mapped_at: 2026-10-12
 ---
 # Technology Stack
@@ -9,31 +9,32 @@ last_mapped_at: 2026-10-12
 ## Languages
 
 **Primary:**
-- TypeScript 7.0.2 - Monorepo-wide language across API, Web, and all shared packages (`apps/api`, `apps/web`, `packages/shared-types`, `packages/shared-validators`, `packages/shared-utils`, `packages/eslint-config`)
+- TypeScript 7.0.2 - Monorepo-wide language across API, Web SPA, and shared packages (`apps/api`, `apps/web`, `packages/shared-types`, `packages/shared-validators`, `packages/shared-utils`, `packages/eslint-config`)
 
 **Secondary:**
-- SQL (PostgreSQL 17 dialect) - Database migrations and custom query constraints (`apps/api/prisma/migrations/`)
-- Bash - Enterprise dev stack daemon and operational automation scripts (`scripts/dev.sh`, `scripts/run-e2e-network.mjs`)
-- CSS - Minimal global design system tokens and resets (`apps/web/src/styles/global.css`)
+- SQL (PostgreSQL 17 Dialect) - Database schema, migrations, constraints, and optimized relational views (`apps/api/prisma/migrations/`)
+- Bash / Shell Scripting - Universal developer daemon orchestration and stack lifecycle management (`scripts/dev.sh`)
+- Node.js ESM Scripts - Automated test orchestration and network verification runner (`scripts/run-e2e-network.mjs`)
+- CSS - Minimal global design system tokens, typography resets, and Ant Design v6 theme variables (`apps/web/src/styles/global.css`)
 
 ## Runtime
 
 **Environment:**
-- Node.js >= 22.0.0 (Native ESM support, Node 22+ LTS features)
-- Docker & Docker Compose - Containerized PostgreSQL 17, Redis 8, MeiliSearch, and SeaweedFS cluster
+- Node.js >= 22.0.0 (Native ESM execution, Node 22+ LTS APIs)
+- Docker & Docker Compose v2+ - Containerized PostgreSQL 17, Redis 8, MeiliSearch, and SeaweedFS storage cluster
 
 **Package Manager:**
 - pnpm 11.21.0 - Strict workspace dependency isolation and deduplicated symlinks
-- Lockfile: `pnpm-lock.yaml` present and synchronized
-- Workspace configuration: `pnpm-workspace.yaml` with build permissions for `@prisma/client`, `bcrypt`, and `esbuild`
+- Lockfile: `pnpm-lock.yaml` (present, synchronized, and deduplicated)
+- Workspace Configuration: `pnpm-workspace.yaml` with build script authorization for `@prisma/client`, `bcrypt`, and `esbuild`
 
 ## Frameworks
 
 **Core:**
-- NestJS 11.2.7 - Modular monolith enterprise backend framework (`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`)
-- React 19.3.0 - Modern UI component library with concurrent rendering (`react`, `react-dom`)
-- Ant Design 6.6.5 - Enterprise component library strictly conforming to Ant Design v6 semantic tokens (`antd`, `@ant-design/icons`, `@ant-design/pro-components`)
-- React Router 8.4.0 - Declarative client-side routing with lazy-loaded code-splitting (`react-router`)
+- NestJS 11.2.7 - Enterprise modular monolith backend framework (`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`)
+- React 19.3.0 - Modern UI component library with concurrent rendering and action transitions (`react`, `react-dom`)
+- Ant Design 6.6.5 - Enterprise UI component library strictly following Ant Design v6 semantic tokens (`antd`, `@ant-design/icons`, `@ant-design/pro-components`)
+- React Router 8.4.0 - Declarative client-side routing with route-level code splitting (`react-router`)
 - Zustand 5.0.15 - Minimalist reactive client state management (`zustand`)
 - TanStack React Query 5.104.1 - Asynchronous server state caching, background invalidation, and data synchronization (`@tanstack/react-query`)
 - Prisma ORM 7.10.0 - Next-generation schema modeling and query engine with `@prisma/adapter-pg` driver adapter
