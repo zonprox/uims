@@ -84,6 +84,9 @@ jobs:
       - name: Deploy Prisma Migrations
         run: pnpm run db:migrate:prod
 
+      - name: Seed Database
+        run: pnpm run db:seed
+
       - name: Check formatting (Biome)
         run: pnpm run format:check
 
