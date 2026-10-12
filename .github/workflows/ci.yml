@@ -14,10 +14,34 @@ jobs:
   verify:
     name: Monorepo Verification & Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: uims
+          POSTGRES_PASSWORD: uims_ci_test_secret_32_characters
+          POSTGRES_DB: uims_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       DATABASE_URL: postgresql://uims:uims_ci_test_secret_32_characters@localhost:5432/uims_test?schema=public
+      REDIS_URL: redis://localhost:6379
       JWT_SECRET: uims_test_ci_jwt_secret_minimum_32_characters_long
       JWT_REFRESH_SECRET: uims_test_ci_jwt_refresh_secret_minimum_32_characters_long
       AUDIT_SIGNING_KEY: uims_test_ci_audit_signing_key_minimum_32_characters_long
@@ -56,6 +80,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm run db:generate
+
+      - name: Deploy Prisma Migrations
+        run: pnpm run db:migrate:prod
 
       - name: Check formatting (Biome)
         run: pnpm run format:check
