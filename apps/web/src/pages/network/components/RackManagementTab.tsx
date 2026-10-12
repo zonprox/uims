@@ -19,6 +19,7 @@ import type { NetworkRack } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
 import { formatErrorMessage } from '../../../utils/feedback';
 import { isValidationError } from '../../../utils/formValidators';
+import { MountSwitchModal } from './MountSwitchModal';
 import { RackElevationDrawer } from './RackElevationDrawer';
 import { RackFormModal } from './RackFormModal';
 import { RackTable } from './RackTable';
@@ -200,9 +201,13 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
       setElevationDrawerOpen(true);
     };
 
+    // Modal state for Mounting Equipment / Switch
+    const [mountModalOpen, setMountModalOpen] = useState(false);
+    const [mountTargetUnit, setMountTargetUnit] = useState<number | null>(null);
+
     const handleEmptySlotMount = (unitNumber: number) => {
-      message.info(`Ready to mount equipment at slot U${String(unitNumber).padStart(2, '0')}.`);
-      handleOpenCreate();
+      setMountTargetUnit(unitNumber);
+      setMountModalOpen(true);
     };
 
     // Filter racks by search query
@@ -326,6 +331,31 @@ export const RackManagementTab: React.FC<RackManagementTabProps> = React.memo(
           submitting={submitting}
           onSave={handleSaveRack}
           onCancel={() => setModalOpen(false)}
+        />
+
+        {/* Mount Equipment into Rack Modal */}
+        <MountSwitchModal
+          open={mountModalOpen}
+          rack={selectedRack}
+          targetUnit={mountTargetUnit}
+          onCancel={() => {
+            setMountModalOpen(false);
+            setMountTargetUnit(null);
+          }}
+          onSuccess={(mountedSwitch) => {
+            setMountModalOpen(false);
+            setMountTargetUnit(null);
+            if (!propRacks) {
+              loadRacks();
+            }
+            if (selectedRack) {
+              onRackUpdated?.({
+                ...selectedRack,
+                switches: [...(selectedRack.switches || []), mountedSwitch],
+              });
+            }
+            queryClient.invalidateQueries({ queryKey: ['rack-elevation', selectedRack?.id] });
+          }}
         />
 
         {/* On-Demand 2D Visual Rack Elevation Drawer */}
