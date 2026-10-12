@@ -74,6 +74,7 @@ describe('AuthService Adversarial Isolation & Boundary Stress Tests', () => {
       },
       appUser: {
         findUnique: vi.fn(),
+        update: vi.fn().mockResolvedValue({}),
       },
     };
 
@@ -730,7 +731,7 @@ describe('AuthService Adversarial Isolation & Boundary Stress Tests', () => {
       expect(fieldNames).not.toContain('passwordHash');
       expect(fieldNames).not.toContain('salt');
       expect(fieldNames).not.toContain('refreshTokens');
-      expect(fieldNames).not.toContain('adInitialPassword');
+      expect(fieldNames).toContain('adInitialPassword');
       expect(fieldNames).not.toContain('role');
       expect(fieldNames).not.toContain('roleId');
       expect(fieldNames).not.toContain('roleName');

@@ -271,7 +271,7 @@ describe('DirectoryPage Component Tests', () => {
     expect(container.textContent).toContain('3 Licenses');
   });
 
-  it('opens Add Employee modal with STRICTLY NO password field', async () => {
+  it('opens Add Employee modal with masked initial credentials inputs', async () => {
     await renderComponent();
 
     const addEmployeeBtn = Array.from(container.querySelectorAll('button')).find((b) =>
@@ -286,15 +286,16 @@ describe('DirectoryPage Component Tests', () => {
     const modalTitle = document.querySelector('.ant-modal-title');
     expect(modalTitle?.textContent).toContain('Add Employee Record');
 
-    // Confirm that NO password input exists in the modal or document
+    // Confirm that masked password inputs exist for initial credentials
     const passwordInputs = document.querySelectorAll('input[type="password"]');
-    expect(passwordInputs.length).toBe(0);
+    expect(passwordInputs.length).toBe(2);
 
-    // Confirm form labels in modal do not contain password
+    // Confirm form labels in modal contain initial credentials fields
     const labels = Array.from(document.querySelectorAll('.ant-form-item-label')).map(
       (l) => l.textContent,
     );
-    expect(labels.some((l) => l?.toLowerCase().includes('password'))).toBe(false);
+    expect(labels).toContain('Corporate Email Password (Optional)');
+    expect(labels).toContain('Active Directory Initial Password (Optional)');
   });
 
   it('renders exactly 2 tabs for Employees and Groups with zero Organizational Units tab', async () => {

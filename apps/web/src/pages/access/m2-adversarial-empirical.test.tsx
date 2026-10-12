@@ -307,12 +307,12 @@ describe('Milestone 2 Empirical Challenger Adversarial Suite', () => {
       );
 
       const text = container.textContent || '';
-      expect(text).toContain('11'); // totalRoles
+      expect(text).not.toContain('Total Roles');
       expect(text).toContain('6'); // systemRolesCount
       expect(text).toContain('5'); // customRolesCount
       expect(text).toContain('78'); // totalPermissionsCount
       expect(text).toContain('4'); // superAdminsCount
-      expect(text).toContain('96%'); // assignedUsersCoverage
+      expect(text).not.toContain('User Coverage');
     });
 
     it('empirically verifies RolesTab graceful fallback when stats is null', async () => {
@@ -329,16 +329,15 @@ describe('Milestone 2 Empirical Challenger Adversarial Suite', () => {
 
       const text = container.textContent || '';
       // Fallbacks in RolesTab:
-      // stats?.totalRoles ?? roles.length => 2
       // stats?.systemRolesCount ?? 6 => 6
       // stats?.customRolesCount ?? 0 => 0
       // stats?.totalPermissionsCount ?? 52 => 52
       // stats?.superAdminsCount ?? 2 => 2
-      // stats?.assignedUsersCoverage ?? 100 => 100%
-      expect(text).toContain('2');
+      expect(text).not.toContain('Total Roles');
       expect(text).toContain('6');
       expect(text).toContain('52');
-      expect(text).toContain('100%');
+      expect(text).toContain('2'); // superAdminsCount fallback
+      expect(text).not.toContain('User Coverage');
       expect(text).not.toContain('NaN');
     });
   });

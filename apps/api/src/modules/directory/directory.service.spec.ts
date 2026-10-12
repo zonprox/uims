@@ -61,6 +61,7 @@ describe('DirectoryService', () => {
     service = new DirectoryService(
       mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
     );
+    process.env.DIRECTORY_ENCRYPTION_KEY = 'test-secret-key-32-chars-long!!';
   });
 
   describe('create', () => {
@@ -151,6 +152,74 @@ describe('DirectoryService', () => {
         }),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('should encrypt adInitialPassword using AES-256-GCM, set adInitialPasswordUpdatedAt, and purge adInitialPassword from returned API object', async () => {
+      mockPrisma.directoryUser.findFirst.mockResolvedValue(null);
+      mockPrisma.directoryUser.create.mockImplementation(
+        (args: { data: Record<string, unknown> }) =>
+          Promise.resolve({
+            id: 'dir-sec-1',
+            ...args.data,
+            assignedAssets: [],
+            licenseAssignments: [],
+          }),
+      );
+
+      const result = await service.create({
+        email: 'corp.user@youngonevn.com',
+        firstName: 'Alice',
+        lastName: 'Wang',
+        adInitialPassword: 'InitialAdSecretPass123!',
+      });
+
+      expect(mockPrisma.directoryUser.create).toHaveBeenCalledTimes(1);
+      const createCall = mockPrisma.directoryUser.create.mock.calls[0][0];
+      // Assert encrypted at rest with AES-256-GCM canonical envelope enc:v1:
+      expect(createCall.data.adInitialPassword).toMatch(
+        /^enc:v1:[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/i,
+      );
+      expect(createCall.data.adInitialPasswordUpdatedAt).toBeInstanceOf(Date);
+
+      // Assert purged from returned API payload
+      expect(result).not.toHaveProperty('adInitialPassword');
+      expect((result as Record<string, unknown>).adInitialPassword).toBeUndefined();
+      expect(result.hasAdInitialPassword).toBe(true);
+      expect(result.hasEmailPassword).toBe(false);
+    });
+
+    it('should encrypt both emailPassword and adInitialPassword and purge both from returned API object', async () => {
+      mockPrisma.directoryUser.findFirst.mockResolvedValue(null);
+      mockPrisma.directoryUser.create.mockImplementation(
+        (args: { data: Record<string, unknown> }) =>
+          Promise.resolve({
+            id: 'dir-sec-2',
+            ...args.data,
+            assignedAssets: [],
+            licenseAssignments: [],
+          }),
+      );
+
+      const result = await service.create({
+        email: 'dual.cred@youngonevn.com',
+        firstName: 'Bob',
+        lastName: 'Smith',
+        emailPassword: 'InitialEmailPass123!',
+        adInitialPassword: 'InitialAdPass456!',
+      });
+
+      const createCall = mockPrisma.directoryUser.create.mock.calls[0][0];
+      expect(createCall.data.emailPassword).toMatch(
+        /^enc:v1:[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/i,
+      );
+      expect(createCall.data.adInitialPassword).toMatch(
+        /^enc:v1:[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/i,
+      );
+
+      expect(result).not.toHaveProperty('emailPassword');
+      expect(result).not.toHaveProperty('adInitialPassword');
+      expect(result.hasEmailPassword).toBe(true);
+      expect(result.hasAdInitialPassword).toBe(true);
+    });
   });
 
   describe('findAll', () => {
@@ -215,6 +284,29 @@ describe('DirectoryService', () => {
       const result = await service.findOne('dir-1');
       expect(result.id).toBe('dir-1');
       expect(result.fullName).toBe('Bob Taylor');
+    });
+
+    it('should purge adInitialPassword and return boolean flags hasAdInitialPassword in findOne', async () => {
+      mockPrisma.directoryUser.findFirst.mockResolvedValue({
+        id: 'dir-1',
+        employeeCode: 'EMP001',
+        email: 'bob@company.com',
+        firstName: 'Bob',
+        lastName: 'Taylor',
+        displayName: 'Bob Taylor',
+        adInitialPassword:
+          'enc:v1:0123456789abcdef01234567:0123456789abcdef0123456789abcdef:012345',
+        emailPassword: 'enc:v1:0123456789abcdef01234567:0123456789abcdef0123456789abcdef:abcdef',
+        assignedAssets: [],
+        licenseAssignments: [],
+        groupMemberships: [],
+      });
+
+      const result = await service.findOne('dir-1');
+      expect(result.hasAdInitialPassword).toBe(true);
+      expect(result.hasEmailPassword).toBe(true);
+      expect(result).not.toHaveProperty('adInitialPassword');
+      expect(result).not.toHaveProperty('emailPassword');
     });
 
     it('should throw NotFoundException when user does not exist', async () => {

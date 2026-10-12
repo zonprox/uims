@@ -365,40 +365,57 @@ describe('EmployeesTab Adversarial Component Tests', () => {
     return root;
   };
 
-  describe('1. Employee Directory Form Verification & Zero Password Invariant', () => {
-    it('verifies Add Employee modal strictly omits password fields, reveal toggles, and credentials', async () => {
+  describe('1. Employee Directory Form Verification & Credential Provisioning', () => {
+    it('verifies Add Employee modal includes masked password inputs for Corporate Email Password and AD Initial Password', async () => {
       await renderComponent({ createModalOpen: true });
 
       const modalTitle = document.querySelector('.ant-modal-title');
       expect(modalTitle?.textContent).toContain('Add Employee Record');
 
-      // Check all input elements in the modal
-      const passwordInputs = document.querySelectorAll('input[type="password"]');
-      expect(passwordInputs.length).toBe(0);
+      // Check masked password input elements in the modal
+      const passwordInputs = document.querySelectorAll('.ant-modal input[type="password"]');
+      expect(passwordInputs.length).toBe(2);
 
-      // Check all input placeholders and names
-      const allInputs = Array.from(document.querySelectorAll('.ant-modal input'));
-      const dangerousInputs = allInputs.filter((input) => {
-        const id = input.getAttribute('id') || '';
-        const placeholder = input.getAttribute('placeholder') || '';
-        const name = input.getAttribute('name') || '';
-        return (
-          id.toLowerCase().includes('pass') ||
-          placeholder.toLowerCase().includes('pass') ||
-          name.toLowerCase().includes('pass')
-        );
-      });
-      expect(dangerousInputs).toHaveLength(0);
+      const emailPasswordInput = document.querySelector(
+        '.ant-modal input#emailPassword',
+      ) as HTMLInputElement | null;
+      const adPasswordInput = document.querySelector(
+        '.ant-modal input#adInitialPassword',
+      ) as HTMLInputElement | null;
 
-      // Check all Form.Item labels
+      expect(emailPasswordInput).not.toBeNull();
+      expect(emailPasswordInput?.getAttribute('type')).toBe('password');
+      expect(emailPasswordInput?.getAttribute('placeholder')).toBe('e.g. Initial email password');
+
+      expect(adPasswordInput).not.toBeNull();
+      expect(adPasswordInput?.getAttribute('type')).toBe('password');
+      expect(adPasswordInput?.getAttribute('placeholder')).toBe('e.g. Initial AD password');
+
+      // Check Form.Item labels
       const labels = Array.from(document.querySelectorAll('.ant-form-item-label')).map((l) =>
         l.textContent?.trim(),
       );
-      expect(labels.some((l) => l?.toLowerCase().includes('password'))).toBe(false);
-      expect(labels.some((l) => l?.toLowerCase().includes('credential'))).toBe(false);
+      expect(labels).toContain('Corporate Email Password (Optional)');
+      expect(labels).toContain('Active Directory Initial Password (Optional)');
     });
 
-    it('verifies submitting Add Employee invokes directoryService.createEmployee with zero password fields', async () => {
+    it('verifies Corporate Email input provides autocomplete recommendations for @youngonevn.com and @youngone.com', async () => {
+      await renderComponent({ createModalOpen: true });
+
+      const emailInput = document.querySelector(
+        '.ant-modal input#email',
+      ) as HTMLInputElement | null;
+      expect(emailInput).not.toBeNull();
+
+      await act(async () => {
+        if (emailInput) setInputValue(emailInput, 'jsmith');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+
+      expect(emailInput?.value).toBe('jsmith');
+    });
+
+    it('verifies submitting Add Employee invokes directoryService.createEmployee with credentials when entered', async () => {
       await renderComponent({ createModalOpen: true });
 
       const firstNameInput = document.querySelector(
@@ -410,15 +427,25 @@ describe('EmployeesTab Adversarial Component Tests', () => {
       const emailInput = document.querySelector(
         '.ant-modal input#email',
       ) as HTMLInputElement | null;
+      const emailPasswordInput = document.querySelector(
+        '.ant-modal input#emailPassword',
+      ) as HTMLInputElement | null;
+      const adPasswordInput = document.querySelector(
+        '.ant-modal input#adInitialPassword',
+      ) as HTMLInputElement | null;
 
       expect(firstNameInput).not.toBeNull();
       expect(lastNameInput).not.toBeNull();
       expect(emailInput).not.toBeNull();
+      expect(emailPasswordInput).not.toBeNull();
+      expect(adPasswordInput).not.toBeNull();
 
       await act(async () => {
         if (firstNameInput) setInputValue(firstNameInput, 'David');
         if (lastNameInput) setInputValue(lastNameInput, 'Miller');
-        if (emailInput) setInputValue(emailInput, 'dmiller@uims.internal');
+        if (emailInput) setInputValue(emailInput, 'dmiller@youngonevn.com');
+        if (emailPasswordInput) setInputValue(emailPasswordInput, 'CorporateEmailPass123!');
+        if (adPasswordInput) setInputValue(adPasswordInput, 'InitialADPass123!');
         await new Promise((resolve) => setTimeout(resolve, 50));
       });
 
@@ -438,13 +465,49 @@ describe('EmployeesTab Adversarial Component Tests', () => {
       const passedPayload = mockCreateEmployee.mock.calls[0][0] as Record<string, unknown>;
       expect(passedPayload.firstName).toBe('David');
       expect(passedPayload.lastName).toBe('Miller');
-      expect(passedPayload.email).toBe('dmiller@uims.internal');
+      expect(passedPayload.email).toBe('dmiller@youngonevn.com');
       expect(passedPayload.displayName).toBe('David Miller');
-      // Assert zero credentials in payload
+      expect(passedPayload.emailPassword).toBe('CorporateEmailPass123!');
+      expect(passedPayload.adInitialPassword).toBe('InitialADPass123!');
+    });
+
+    it('verifies submitting Add Employee without credentials omits password fields from create payload', async () => {
+      await renderComponent({ createModalOpen: true });
+
+      const firstNameInput = document.querySelector(
+        '.ant-modal input#firstName',
+      ) as HTMLInputElement | null;
+      const lastNameInput = document.querySelector(
+        '.ant-modal input#lastName',
+      ) as HTMLInputElement | null;
+      const emailInput = document.querySelector(
+        '.ant-modal input#email',
+      ) as HTMLInputElement | null;
+
+      await act(async () => {
+        if (firstNameInput) setInputValue(firstNameInput, 'Alice');
+        if (lastNameInput) setInputValue(lastNameInput, 'Wonder');
+        if (emailInput) setInputValue(emailInput, 'awonder@youngone.com');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+
+      const modalOkBtn = Array.from(document.querySelectorAll('.ant-modal button')).find((b) =>
+        b.textContent?.includes('Add Employee'),
+      ) as HTMLButtonElement | undefined;
+
+      await act(async () => {
+        modalOkBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      expect(mockCreateEmployee).toHaveBeenCalledTimes(1);
+      const passedPayload = mockCreateEmployee.mock.calls[0][0] as Record<string, unknown>;
+      expect(passedPayload.firstName).toBe('Alice');
+      expect(passedPayload.lastName).toBe('Wonder');
+      expect(passedPayload).not.toHaveProperty('emailPassword');
+      expect(passedPayload).not.toHaveProperty('adInitialPassword');
       expect(passedPayload).not.toHaveProperty('password');
       expect(passedPayload).not.toHaveProperty('passwordHash');
-      expect(passedPayload).not.toHaveProperty('initialPassword');
-      expect(passedPayload).not.toHaveProperty('adInitialPassword');
     });
 
     it('verifies editing employee details opens enterprise AppDrawer without credentials and saves changes', async () => {

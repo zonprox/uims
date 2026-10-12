@@ -25,6 +25,7 @@ import { CreateCostCenterDto } from './dto/create-cost-center.dto';
 import { CreateDeviceModelDto } from './dto/create-device-model.dto';
 import { IssueAssetUnitDto } from './dto/issue-asset-unit.dto';
 import { RegisterPhysicalUnitDto } from './dto/register-physical-unit.dto';
+import { ReturnAssetDto } from './dto/return-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 import { UpdateCostCenterDto } from './dto/update-cost-center.dto';
 import { UpdateDeviceModelDto } from './dto/update-device-model.dto';
@@ -46,6 +47,21 @@ export class AssetsController {
   @ApiOperation({ summary: 'Get all asset categories' })
   getCategories() {
     return this.assetsService.getCategories();
+  }
+
+  @Get('handover-template')
+  @ApiOperation({ summary: 'Get standardized printable asset handover or return record template' })
+  getHandoverTemplate(
+    @Query('type') type: 'assignment' | 'return' | undefined,
+    @Res() res: Response,
+  ): void {
+    const html = this.assetsService.getHandoverTemplateHtml(type);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="asset_${type === 'return' ? 'return' : 'handover'}_template.html"`,
+    );
+    res.send(html);
   }
 
   @Get('export.xlsx')
@@ -247,5 +263,13 @@ export class AssetsController {
   @ApiOperation({ summary: 'Delete asset' })
   remove(@Param('id') id: string) {
     return this.assetsService.remove(id);
+  }
+
+  @Post(':id/return')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Return asset to storage with handover record' })
+  returnAsset(@Param('id') id: string, @Body() body: ReturnAssetDto) {
+    return this.assetsService.returnAsset(id, body);
   }
 }

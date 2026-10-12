@@ -29,10 +29,18 @@ export class SearchQueryDto implements ISearchQueryDto {
 
   @ApiPropertyOptional({
     description: 'Category filter',
-    enum: ['all', 'assets', 'licenses', 'users'],
+    enum: ['all', 'hardware', 'licenses', 'inventory', 'network', 'employees', 'users', 'assets'],
     default: 'all',
   })
-  @IsEnum(['all', 'assets', 'licenses', 'users'])
+  @IsEnum(['all', 'hardware', 'licenses', 'inventory', 'network', 'employees', 'users', 'assets'])
   @IsOptional()
-  type?: 'all' | 'assets' | 'licenses' | 'users';
+  type?:
+    | 'all'
+    | 'hardware'
+    | 'licenses'
+    | 'inventory'
+    | 'network'
+    | 'employees'
+    | 'users'
+    | 'assets';
 }

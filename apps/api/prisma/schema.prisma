@@ -66,6 +66,11 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum HandoverRecordType {
+  ASSIGNMENT
+  RETURN
+}
+
 model AppUser {
   id                 String     @id @default(uuid())
   username           String     @unique
@@ -119,6 +124,10 @@ model DirectoryUser {
   emailPassword          String?
   emailPasswordUpdatedAt DateTime?
 
+  // Active Directory Initial Credentials (Encrypted at rest via AES-256-GCM)
+  adInitialPassword          String?
+  adInitialPasswordUpdatedAt DateTime?
+
   departmentId     String?
   positionId       String?
   organizationId   String?
@@ -132,6 +141,7 @@ model DirectoryUser {
   licenseAssignments LicenseAssignment[]
   groupMemberships   DirectoryMembership[]
   assignedIPs        IPAddress[]
+  handoverRecords    AssetHandoverRecord[]
 
   @@index([organizationId])
   @@index([departmentId])
@@ -212,6 +222,7 @@ model Asset {
   warrantyExpiry DateTime?
   assignedToId   String?
   departmentId   String?
+  hasPendingRecord Boolean    @default(false)
   notes          String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -223,6 +234,7 @@ model Asset {
   ipAddresses    IPAddress[]
   networkSwitch  NetworkSwitch?     @relation("SwitchAsset")
   connectedPorts SwitchPort[]       @relation("ConnectedAssetPorts")
+  handoverRecords AssetHandoverRecord[]
 
   @@index([parentId])
   @@index([costCenterId])
@@ -239,6 +251,26 @@ model Asset {
   @@index([name])
   @@index([model])
   @@index([serialNumber])
+  @@index([hasPendingRecord])
+}
+
+model AssetHandoverRecord {
+  id           String             @id @default(uuid())
+  assetId      String
+  type         HandoverRecordType
+  recipientId  String?
+  signedDocUrl String?
+  isPending    Boolean            @default(true)
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  asset        Asset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  recipient    DirectoryUser?     @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+
+  @@index([assetId])
+  @@index([recipientId])
+  @@index([isPending])
 }
 
 model AssetCategory {

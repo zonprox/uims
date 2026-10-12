@@ -1,28 +1,34 @@
 import {
+  DownloadOutlined,
+  FileDoneOutlined,
   IdcardOutlined,
   InboxOutlined,
   LaptopOutlined,
   UserOutlined,
   UserSwitchOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import {
   Alert,
+  App,
   Badge,
+  Button,
   Card,
   Descriptions,
   Divider,
   Flex,
   Form,
+  Input,
   Modal,
   Radio,
   Select,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import type { Asset } from '../../../services/assets.service';
+import { type Asset, assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import { type Department, organizationService } from '../../../services/organization.service';
 import { formRules } from '../../../utils/formValidators';
 
 const { Text } = Typography;
@@ -30,8 +36,8 @@ const { Text } = Typography;
 export interface BatchAssignFormValues {
   mode: 'assign' | 'unassign';
   assignedToId?: string | null;
-  departmentId?: string | null;
   status?: string;
+  recordDocUrl?: string;
 }
 
 export interface BatchAssignModalProps {
@@ -45,12 +51,14 @@ export interface BatchAssignModalProps {
 
 export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
   ({ open, assets, submitting, onAssign, onCancel, employees: propEmployees }) => {
+    const { token } = theme.useToken();
+    const { message } = App.useApp();
     const [form] = Form.useForm<BatchAssignFormValues>();
     const [mode, setMode] = useState<'assign' | 'unassign'>('assign');
     const [employees, setEmployees] = useState<DirectoryUser[]>(propEmployees || []);
     const [loadingEmployees, setLoadingEmployees] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-    const [departments, setDepartments] = useState<Department[]>([]);
+    const [downloadingTemplate, setDownloadingTemplate] = useState(false);
 
     useEffect(() => {
       if (!open) {
@@ -69,15 +77,11 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
       const loadOptions = async () => {
         setLoadingEmployees(true);
         try {
-          const [empRes, deptRes] = await Promise.all([
-            propEmployees
-              ? { items: propEmployees }
-              : directoryService.getEmployees({ pageSize: 100 }),
-            organizationService.getDepartments().catch((_e: unknown) => []),
-          ]);
+          const empRes = propEmployees
+            ? { items: propEmployees }
+            : await directoryService.getEmployees({ pageSize: 100 });
           if (mounted) {
             setEmployees(empRes.items || []);
-            setDepartments(deptRes || []);
           }
         } catch (_error: unknown) {
           // Handled gracefully
@@ -107,14 +111,26 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
       });
     };
 
+    const handleDownloadTemplate = async () => {
+      try {
+        setDownloadingTemplate(true);
+        await assetsService.downloadHandoverTemplate('assignment');
+        message.success('Asset handover template downloaded successfully.');
+      } catch (_err: unknown) {
+        message.error('Failed to download asset handover template.');
+      } finally {
+        setDownloadingTemplate(false);
+      }
+    };
+
     const handleOk = async () => {
       try {
         const values = await form.validateFields();
         onAssign({
           mode,
           assignedToId: mode === 'assign' ? values.assignedToId : null,
-          departmentId: values.departmentId || null,
           status: values.status,
+          recordDocUrl: values.recordDocUrl?.trim() || undefined,
         });
       } catch (_validationErr: unknown) {
         // Validation errors surfaced by Ant Form
@@ -127,7 +143,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
       <Modal
         title={
           <Flex align="center" gap={8}>
-            <UserSwitchOutlined style={{ color: '#1677ff' }} />
+            <UserSwitchOutlined style={{ color: token.colorPrimary }} />
             <span>Batch Assign Hardware Assets</span>
           </Flex>
         }
@@ -154,13 +170,17 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
             align="center"
             style={{
               padding: '10px 14px',
-              backgroundColor: '#f1f5f9',
-              borderRadius: 8,
-              border: '1px solid #e2e8f0',
+              backgroundColor: token.colorFillAlter,
+              borderRadius: token.borderRadiusLG,
+              border: `1px solid ${token.colorBorderSecondary}`,
             }}
           >
             <Flex align="center" gap={8}>
-              <Badge count={count} overflowCount={9999} style={{ backgroundColor: '#1677ff' }} />
+              <Badge
+                count={count}
+                overflowCount={9999}
+                style={{ backgroundColor: token.colorPrimary }}
+              />
               <Text strong style={{ fontSize: 13 }}>
                 Selected Assets for Batch Update
               </Text>
@@ -225,12 +245,6 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                     onChange={(val) => {
                       setSelectedUserId(val);
                       form.setFieldsValue({ assignedToId: val });
-                      if (val) {
-                        const user = employees.find((u) => u.id === val);
-                        if (user?.department?.id) {
-                          form.setFieldsValue({ departmentId: user.department.id });
-                        }
-                      }
                     }}
                     options={employees.map((u) => ({
                       label: `${u.fullName || `${u.firstName} ${u.lastName}`.trim()} (${u.employeeCode || u.email})`,
@@ -243,11 +257,15 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                 </Form.Item>
 
                 {selectedUser && (
-                  <Card size="small" style={{ backgroundColor: '#f8fafc', marginBottom: 14 }}>
+                  <Card
+                    size="small"
+                    styles={{ body: { backgroundColor: token.colorFillAlter } }}
+                    style={{ marginBottom: 14, borderColor: token.colorBorderSecondary }}
+                  >
                     <Descriptions title="Recipient Details" size="small" column={1}>
                       <Descriptions.Item label="Full Name">
                         <Flex align="center" gap={6}>
-                          <UserOutlined style={{ color: '#1677ff' }} />
+                          <UserOutlined style={{ color: token.colorPrimary }} />
                           <Text strong>
                             {selectedUser.fullName ||
                               `${selectedUser.firstName} ${selectedUser.lastName}`}
@@ -270,6 +288,41 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                     </Descriptions>
                   </Card>
                 )}
+
+                <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Standard Handover Record Documentation
+                  </Text>
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    loading={downloadingTemplate}
+                    onClick={handleDownloadTemplate}
+                  >
+                    Download Handover Template
+                  </Button>
+                </Flex>
+
+                <Form.Item
+                  name="recordDocUrl"
+                  label="Signed Handover Document (URL or File Link)"
+                  tooltip="Attach scanned signed record. If omitted, assigned assets will be flagged with a Pending Record badge."
+                >
+                  <Input
+                    placeholder="e.g. https://storage.youngonevn.com/records/handover-signed.pdf"
+                    prefix={<FileDoneOutlined style={{ color: token.colorTextSecondary }} />}
+                    allowClear
+                  />
+                </Form.Item>
+
+                <Alert
+                  type="info"
+                  showIcon
+                  icon={<WarningOutlined />}
+                  title="Handover Verification Rule"
+                  description="Submitting without a signed record will flag assigned assets with a 'Pending Record' badge until document is uploaded."
+                  style={{ marginBottom: 14 }}
+                />
               </>
             ) : (
               <Alert
@@ -280,21 +333,6 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                 style={{ marginBottom: 14 }}
               />
             )}
-
-            <Form.Item name="departmentId" label="Assign Department (Optional)">
-              <Select
-                showSearch
-                allowClear
-                placeholder="Select department (optional)"
-                options={departments.map((dept) => ({
-                  label: dept.name,
-                  value: dept.id,
-                }))}
-                filterOption={(input, option) =>
-                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-              />
-            </Form.Item>
 
             <Form.Item name="status" label="Asset Status">
               <Select

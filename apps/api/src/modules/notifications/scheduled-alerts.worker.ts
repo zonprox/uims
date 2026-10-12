@@ -117,7 +117,7 @@ export class ScheduledAlertsWorker {
               title: 'License Expired',
               message: `License "${lic.name}" expired on ${dateStr}. Review subscriptions immediately.`,
               type: 'ALERT',
-              link: '/licenses',
+              link: `/licenses?drawer=${lic.id}`,
             },
           );
           if (sent) notified++;
@@ -137,7 +137,7 @@ export class ScheduledAlertsWorker {
               title: 'Urgent: License Expiring Tomorrow',
               message: `License "${lic.name}" will expire tomorrow (${dateStr}). Immediate renewal required.`,
               type: 'ALERT',
-              link: '/licenses',
+              link: `/licenses?drawer=${lic.id}`,
             },
           );
           if (sent) notified++;
@@ -157,7 +157,7 @@ export class ScheduledAlertsWorker {
               title: 'Critical: License Expiring Soon',
               message: `License "${lic.name}" will expire in ${daysRemaining} day(s) (${dateStr}).`,
               type: 'ALERT',
-              link: '/licenses',
+              link: `/licenses?drawer=${lic.id}`,
             },
           );
           if (sent) notified++;
@@ -171,7 +171,7 @@ export class ScheduledAlertsWorker {
               title: 'License Expiring in 15 Days',
               message: `License "${lic.name}" will expire in ${daysRemaining} days (${dateStr}). Plan renewal.`,
               type: 'WARNING',
-              link: '/licenses',
+              link: `/licenses?drawer=${lic.id}`,
             },
           );
           if (sent) notified++;
@@ -185,7 +185,7 @@ export class ScheduledAlertsWorker {
               title: 'License Expiration Notice (30 Days)',
               message: `License "${lic.name}" will expire in ${daysRemaining} days (${dateStr}).`,
               type: 'WARNING',
-              link: '/licenses',
+              link: `/licenses?drawer=${lic.id}`,
             },
           );
           if (sent) notified++;
@@ -244,7 +244,7 @@ export class ScheduledAlertsWorker {
               title: 'Asset Warranty Expired',
               message: `Warranty for asset "${asset.name}" (${asset.assetTag}) has expired on ${dateStr}.`,
               type: 'WARNING',
-              link: '/assets',
+              link: `/assets?drawer=${asset.id}`,
             },
           );
           if (sent) notified++;
@@ -258,7 +258,7 @@ export class ScheduledAlertsWorker {
               title: 'Asset Warranty Expiring in 7 Days',
               message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} day(s) (${dateStr}).`,
               type: 'WARNING',
-              link: '/assets',
+              link: `/assets?drawer=${asset.id}`,
             },
           );
           if (sent) notified++;
@@ -272,7 +272,7 @@ export class ScheduledAlertsWorker {
               title: 'Asset Warranty Expiring in 15 Days',
               message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
               type: 'WARNING',
-              link: '/assets',
+              link: `/assets?drawer=${asset.id}`,
             },
           );
           if (sent) notified++;
@@ -286,7 +286,7 @@ export class ScheduledAlertsWorker {
               title: 'Asset Warranty Expiring Soon (30 Days)',
               message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
               type: 'WARNING',
-              link: '/assets',
+              link: `/assets?drawer=${asset.id}`,
             },
           );
           if (sent) notified++;
@@ -340,7 +340,7 @@ export class ScheduledAlertsWorker {
             title: 'Overdue Maintenance Alert',
             message: `Asset "${asset.name}" (${asset.assetTag}) has been under maintenance for ${daysInMaintenance} days (exceeds 14-day threshold).`,
             type: 'WARNING',
-            link: '/assets',
+            link: `/assets?drawer=${asset.id}`,
           },
         );
         if (sent) notified++;
@@ -426,7 +426,7 @@ export class ScheduledAlertsWorker {
               title: 'Item Out of Stock',
               message: `Item "${item.name}" (${item.sku}) is out of stock (0 units remaining).`,
               type: 'ALERT',
-              link: '/inventory',
+              link: `/inventory?drawer=${item.id}`,
             },
           );
           if (sent) notified++;
@@ -439,7 +439,7 @@ export class ScheduledAlertsWorker {
               title: 'Low Stock Alert',
               message: `Item "${item.name}" (${item.sku}) is low on stock: ${item.quantity} units remaining (threshold: ${item.minThreshold}).`,
               type: 'WARNING',
-              link: '/inventory',
+              link: `/inventory?drawer=${item.id}`,
             },
           );
           if (sent) notified++;

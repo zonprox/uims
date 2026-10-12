@@ -2,6 +2,7 @@ import {
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   KeyOutlined,
   LockOutlined,
   ReloadOutlined,
@@ -32,11 +33,13 @@ import {
   Typography,
   theme,
 } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { FormattedDateTime } from '../../components/FormattedDate';
 import { usersService } from '../../services/users.service';
 import { formatErrorMessage } from '../../utils/feedback';
 import { formRules, isValidationError } from '../../utils/formValidators';
+import { UserDetailDrawer } from './UserDetailDrawer';
 
 const { Text } = Typography;
 
@@ -73,6 +76,48 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Deep linking and drawer navigation
+  const [searchParams, setSearchParams] = useSearchParams();
+  const drawerUserId = searchParams.get('drawer') || searchParams.get('id');
+  const [detailUser, setDetailUser] = useState<AppUser | null>(null);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (drawerUserId) {
+      const match = users.find((u) => u.id === drawerUserId);
+      if (match) {
+        setDetailUser(match);
+        setDetailDrawerOpen(true);
+      } else if (typeof usersService.getUser === 'function') {
+        usersService
+          .getUser(drawerUserId)
+          .then((res) => {
+            const user = (res as { data?: AppUser }).data || res;
+            if (user && (user as AppUser).id) {
+              setDetailUser(user as AppUser);
+              setDetailDrawerOpen(true);
+            }
+          })
+          .catch((error: unknown) => {
+            console.error(
+              'Failed to resolve deep-linked entity:',
+              error instanceof Error ? error.message : String(error),
+            );
+          });
+      }
+    }
+  }, [drawerUserId, users]);
+
+  const handleCloseDetailDrawer = () => {
+    setDetailDrawerOpen(false);
+    if (searchParams.has('drawer') || searchParams.has('id')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('drawer');
+      newParams.delete('id');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   // Modals state
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -368,10 +413,22 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
+      width: 180,
       fixed: 'right' as const,
       render: (_: unknown, record: AppUser) => (
         <Space orientation="horizontal" size={2}>
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setDetailUser(record);
+                setDetailDrawerOpen(true);
+              }}
+            />
+          </Tooltip>
+
           <Tooltip title="Edit User">
             <Button
               type="text"
@@ -494,6 +551,22 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
           pageSizeOptions: ['10', '25', '50', '100'],
           showTotal: (total) => `Total ${total} accounts`,
         }}
+        onRow={(record) => ({
+          onClick: (e) => {
+            const target = e.target as HTMLElement;
+            if (
+              target.closest('button') ||
+              target.closest('.ant-btn') ||
+              target.closest('.ant-popover') ||
+              target.closest('.ant-popconfirm')
+            ) {
+              return;
+            }
+            setDetailUser(record);
+            setDetailDrawerOpen(true);
+          },
+          style: { cursor: 'pointer' },
+        })}
         size="middle"
       />
 
@@ -722,6 +795,14 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
           </Flex>
         </Form>
       </Modal>
+
+      {/* User Profile Detail Drawer */}
+      <UserDetailDrawer
+        open={detailDrawerOpen}
+        user={detailUser}
+        onClose={handleCloseDetailDrawer}
+        onEdit={(user) => handleOpenEdit(user)}
+      />
     </div>
   );
 };

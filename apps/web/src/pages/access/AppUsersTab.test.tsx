@@ -190,6 +190,7 @@ describe('AppUsersTab Adversarial Component Tests', () => {
 
       expect(container.textContent).toContain('Active');
       expect(container.textContent).toContain('Suspended');
+      expect(container.textContent).toContain('Never');
     });
   });
 
@@ -452,6 +453,31 @@ describe('AppUsersTab Adversarial Component Tests', () => {
 
       expect(container.textContent).toContain('secadmin');
       expect(container.textContent).toContain('auditor01');
+    });
+  });
+
+  describe('7. User Detail Drawer Interaction', () => {
+    it('opens UserDetailDrawer when clicking the View Details button on a user row', async () => {
+      await renderComponent();
+
+      const viewDetailsBtn = Array.from(container.querySelectorAll('button')).find((btn) =>
+        btn.querySelector('.anticon-eye'),
+      );
+      expect(viewDetailsBtn).toBeDefined();
+
+      if (viewDetailsBtn) {
+        await act(async () => {
+          viewDetailsBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        });
+
+        const drawer = document.querySelector('.ant-drawer');
+        expect(drawer).not.toBeNull();
+        expect(drawer?.textContent).toContain('User Profile Details');
+      }
     });
   });
 });

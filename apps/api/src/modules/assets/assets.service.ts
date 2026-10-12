@@ -6,17 +6,17 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { AssetStatus, Prisma } from '@prisma/client';
+import { AssetStatus, HandoverRecordType, Prisma } from '@prisma/client';
 import type {
   AssetQueryDto,
   AssetStatsDto,
-  BatchAssignAssetDto,
   BatchAssignAssetResultDto,
   BatchDeleteResultDto,
   CreateAssetDto,
   CreateCostCenterDto,
   CreateDeviceModelDto,
   IssueAssetUnitDto,
+  LogEventDto,
   RegisterPhysicalUnitDto,
   UpdateAssetDto,
   UpdateCostCenterDto,
@@ -27,7 +27,10 @@ import { mapAssetStatus, mapAssetStatusToLabel } from '@uims/shared-utils';
 import ExcelJS from 'exceljs';
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { BatchAssignAssetDto } from './dto/batch-assign-asset.dto';
+import type { ReturnAssetDto } from './dto/return-asset.dto';
 
 type AssetWithRelations = Prisma.AssetGetPayload<{
   include: {
@@ -140,6 +143,7 @@ export class AssetsService {
   constructor(
     private prisma: PrismaService,
     @Optional() private notificationsService?: NotificationsService,
+    @Optional() private auditService?: AuditService,
   ) {}
 
   private async resolveCategoryId(
@@ -792,13 +796,6 @@ export class AssetsService {
       }
     }
 
-    if (dto.departmentId) {
-      const dept = await this.prisma.department.findUnique({ where: { id: dto.departmentId } });
-      if (!dept) {
-        throw new NotFoundException(`Department with ID "${dto.departmentId}" not found`);
-      }
-    }
-
     let targetStatus: AssetStatus;
     if (dto.status) {
       targetStatus = mapAssetStatus(dto.status);
@@ -808,13 +805,15 @@ export class AssetsService {
       targetStatus = AssetStatus.AVAILABLE;
     }
 
+    const hasDoc = Boolean(dto.recordDocUrl && dto.recordDocUrl.trim().length > 0);
+    const hasPendingRecord = dto.assignedToId ? !hasDoc : false;
+    const isPending = !hasDoc;
+
     const updatePayload: Prisma.AssetUncheckedUpdateManyInput = {
       assignedToId: dto.assignedToId ? dto.assignedToId : null,
       status: targetStatus,
+      hasPendingRecord,
     };
-    if (dto.departmentId !== undefined) {
-      updatePayload.departmentId = dto.departmentId ? dto.departmentId : null;
-    }
 
     const CHUNK_SIZE = 100;
     let totalAssigned = 0;
@@ -841,6 +840,21 @@ export class AssetsService {
           data: updatePayload,
         });
 
+        if (dto.assignedToId) {
+          await tx.assetHandoverRecord.createMany({
+            data: existingIds.map((assetId) => ({
+              assetId,
+              type: HandoverRecordType.ASSIGNMENT,
+              recipientId: dto.assignedToId as string,
+              signedDocUrl: hasDoc ? dto.recordDocUrl?.trim() : null,
+              isPending,
+              notes: hasDoc
+                ? 'Batch assigned with signed handover record'
+                : 'Batch assigned pending signed handover record',
+            })),
+          });
+        }
+
         return { count: updateResult.count, assignedIds: existingIds };
       });
 
@@ -852,12 +866,27 @@ export class AssetsService {
 
     if (this.notificationsService && dto.assignedToId && assignedIds.length > 0) {
       try {
-        await this.notificationsService.notifyUser(dto.assignedToId, {
-          title: 'Assets Assigned',
-          message: `${totalAssigned} hardware asset${totalAssigned > 1 ? 's have' : ' has'} been assigned to you.`,
-          type: 'INFO',
-          link: '/assets',
-        });
+        if (hasPendingRecord) {
+          await this.notificationsService.notifyUser(dto.assignedToId, {
+            title: 'Assets Assigned — Handover Record Pending',
+            message: `${totalAssigned} hardware asset${totalAssigned > 1 ? 's have' : ' has'} been assigned to you. A signed handover record is pending. Please sign and upload the record.`,
+            type: 'WARNING',
+            link: '/assets',
+          });
+          await this.notificationsService.notifyAdmins({
+            title: 'Pending Asset Handover Records',
+            message: `${totalAssigned} hardware assets assigned to user without uploaded handover documentation. Flagged with Pending Record badge.`,
+            type: 'WARNING',
+            link: '/assets',
+          });
+        } else {
+          await this.notificationsService.notifyUser(dto.assignedToId, {
+            title: 'Assets Assigned',
+            message: `${totalAssigned} hardware asset${totalAssigned > 1 ? 's have' : ' has'} been assigned to you with signed handover documentation attached.`,
+            type: 'INFO',
+            link: '/assets',
+          });
+        }
       } catch (error: unknown) {
         this.logger.error(
           `Failed to dispatch batch assign notification to user "${dto.assignedToId}"`,
@@ -870,6 +899,413 @@ export class AssetsService {
       count: totalAssigned,
       assignedIds,
     };
+  }
+
+  getHandoverTemplateHtml(type: 'assignment' | 'return' = 'assignment'): string {
+    const isReturn = type === 'return';
+    const title = isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD';
+    const subtitle = isReturn
+      ? 'Equipment Return & Custody Termination'
+      : 'Equipment Assignment & Custody Transfer';
+    const currentDate = new Date().toISOString().split('T')[0];
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} — UIMS</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      line-height: 1.5;
+      padding: 36px 48px;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .brand {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #2563eb;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0 0 4px 0;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+    }
+    .meta-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      font-size: 12px;
+    }
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .meta-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .meta-value {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #334155;
+      margin: 20px 0 10px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 600;
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+    }
+    td {
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+    }
+    .terms {
+      font-size: 11px;
+      color: #475569;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 24px 0;
+      line-height: 1.6;
+    }
+    .terms ol {
+      margin: 4px 0 0 0;
+      padding-left: 18px;
+    }
+    .signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 36px;
+      margin-top: 36px;
+    }
+    .sig-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 14px;
+      background: #fff;
+    }
+    .sig-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      margin-bottom: 40px;
+    }
+    .sig-line {
+      border-top: 1px solid #94a3b8;
+      padding-top: 6px;
+      font-size: 11px;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+    @media print {
+      body {
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="brand">Unified IT Management System (UIMS)</div>
+      <h1 class="title">${title}</h1>
+      <p class="subtitle">${subtitle}</p>
+    </div>
+    <div style="text-align: right; font-size: 12px; color: #64748b;">
+      <div>Ref ID: <strong>HOR-${Date.now().toString(36).toUpperCase()}</strong></div>
+      <div>Date: <strong>${currentDate}</strong></div>
+    </div>
+  </div>
+
+  <div class="meta-grid meta-box">
+    <div class="meta-item">
+      <span class="meta-label">Record Type</span>
+      <span class="meta-value">${isReturn ? 'Return (To Storage)' : 'Handover (Assignment)'}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Execution Date</span>
+      <span class="meta-value">${currentDate}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Issued By</span>
+      <span class="meta-value">IT Asset Management</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Organization</span>
+      <span class="meta-value">Youngone Corporation</span>
+    </div>
+  </div>
+
+  <div class="section-title">1. Parties Involved</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 50%;">IT Representative (${isReturn ? 'Receiver' : 'Issuer'})</th>
+        <th style="width: 50%;">Employee / Custodian (${isReturn ? 'Returner' : 'Recipient'})</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div><strong>Name:</strong> ___________________________________</div>
+          <div style="margin-top: 6px;"><strong>Code:</strong> _________________ <strong>Dept:</strong> IT Infrastructure</div>
+        </td>
+        <td>
+          <div><strong>Name:</strong> ___________________________________</div>
+          <div style="margin-top: 6px;"><strong>Code:</strong> _________________ <strong>Dept:</strong> ____________________</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">2. Hardware Equipment Specifications</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 20%;">Asset Tag</th>
+        <th style="width: 25%;">Model & Manufacturer</th>
+        <th style="width: 25%;">Serial Number</th>
+        <th style="width: 15%;">Condition</th>
+        <th style="width: 15%;">Accessories</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>AST-__________</td>
+        <td>____________________</td>
+        <td>SN-_________________</td>
+        <td>${isReturn ? '[ ] Normal [ ] Defective' : '[ ] Good / New'}</td>
+        <td>[ ] Charger [ ] Bag [ ] Mouse</td>
+      </tr>
+      <tr>
+        <td>AST-__________</td>
+        <td>____________________</td>
+        <td>SN-_________________</td>
+        <td>${isReturn ? '[ ] Normal [ ] Defective' : '[ ] Good / New'}</td>
+        <td>[ ] Charger [ ] Bag [ ] Mouse</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="terms">
+    <strong>Terms & Custody Acknowledgement:</strong>
+    <ol>
+      ${
+        isReturn
+          ? `<li>The employee confirms that all assigned assets listed above are returned to IT Department custody.</li>
+             <li>All corporate data stored on local storage will be backed up or securely purged according to IT policy.</li>
+             <li>Physical damages beyond ordinary wear and tear must be recorded in the inspection notes.</li>`
+          : `<li>The recipient acknowledges receipt of the equipment in good working condition.</li>
+             <li>The recipient agrees to follow corporate security policies and safeguard the equipment.</li>
+             <li>The equipment remains company property and must be returned upon transfer or termination.</li>`
+      }
+    </ol>
+  </div>
+
+  <div class="section-title">3. Acknowledgement & Signatures</div>
+  <div class="signatures">
+    <div class="sig-card">
+      <div class="sig-title">IT Department Representative</div>
+      <div class="sig-line">
+        <span>Signature: ______________________</span>
+        <span>Date: ___/___/______</span>
+      </div>
+    </div>
+    <div class="sig-card">
+      <div class="sig-title">Employee / Custodian</div>
+      <div class="sig-line">
+        <span>Signature: ______________________</span>
+        <span>Date: ___/___/______</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  async returnAsset(id: string, dto: ReturnAssetDto) {
+    const existing = await this.prisma.asset.findUnique({
+      where: { id },
+      include: {
+        assignedTo: { include: { organization: true } },
+        department: { include: { organization: true } },
+        category: true,
+        parent: true,
+        costCenter: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Asset with ID "${id}" not found`);
+    }
+
+    const previousRecipientId = existing.assignedToId;
+    const targetStatus = dto.status ? mapAssetStatus(dto.status) : AssetStatus.AVAILABLE;
+    const hasDoc = Boolean(dto.recordDocUrl && dto.recordDocUrl.trim().length > 0);
+    const isPending = !hasDoc;
+    const hasPendingRecord = !hasDoc;
+
+    const returnTimestamp = new Date().toISOString().split('T')[0];
+    const updatedNotes = dto.conditionNotes
+      ? `${existing.notes ? `${existing.notes}\n` : ''}[Return ${returnTimestamp}]: ${dto.conditionNotes}`
+      : existing.notes;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.asset.update({
+        where: { id },
+        data: {
+          status: targetStatus,
+          assignedToId: null,
+          hasPendingRecord,
+          notes: updatedNotes,
+        },
+        include: {
+          category: true,
+          assignedTo: { include: { organization: true } },
+          department: { include: { organization: true } },
+          parent: true,
+          costCenter: true,
+        },
+      });
+
+      const handoverRecord = await tx.assetHandoverRecord.create({
+        data: {
+          assetId: id,
+          type: HandoverRecordType.RETURN,
+          recipientId: previousRecipientId,
+          signedDocUrl: hasDoc ? dto.recordDocUrl?.trim() : null,
+          isPending,
+          notes: dto.conditionNotes || null,
+        },
+      });
+
+      return { asset: updated, handoverRecord };
+    });
+
+    if (this.notificationsService && isPending) {
+      try {
+        if (previousRecipientId) {
+          await this.notificationsService.notifyUser(previousRecipientId, {
+            title: 'Pending Return Record',
+            message: `Asset "${existing.name}" (${existing.assetTag || id}) was returned without a signed record. Please upload the signed return document.`,
+            type: 'WARNING',
+            link: `/assets?drawer=${id}`,
+          });
+        }
+        await this.notificationsService.notifyAdmins({
+          title: 'Pending Asset Return Record',
+          message: `Asset "${existing.name}" (${existing.assetTag || id}) was returned without a signed document. Marked with Pending Record badge.`,
+          type: 'WARNING',
+          link: `/assets?drawer=${id}`,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to dispatch pending return record notification for asset "${existing.name}"`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    try {
+      const auditData: LogEventDto = {
+        action: 'ASSET_RETURNED',
+        entity: 'Asset',
+        entityType: 'Hardware',
+        entityId: id,
+        severity: isPending ? 'Warning' : 'Info',
+        status: 'Success',
+        details: `Asset "${existing.name}" (${existing.assetTag || id}) returned. Status: ${targetStatus}. Signed doc: ${hasDoc ? 'Attached' : 'Pending'}.${dto.conditionNotes ? ` Notes: ${dto.conditionNotes}` : ''}`,
+        oldValue: {
+          status: existing.status,
+          assignedToId: previousRecipientId,
+          hasPendingRecord: existing.hasPendingRecord,
+        },
+        newValue: {
+          status: targetStatus,
+          assignedToId: null,
+          hasPendingRecord,
+          handoverRecordId: result.handoverRecord.id,
+        },
+      };
+
+      if (this.auditService) {
+        await this.auditService.logEvent(auditData);
+      } else {
+        await this.prisma.auditLog.create({
+          data: {
+            userName: 'System Engine',
+            userEmail: 'daemon@youngonevn.com',
+            action: auditData.action,
+            severity: auditData.severity || 'Info',
+            entity: auditData.entity,
+            entityType: auditData.entityType || 'Hardware',
+            entityId: auditData.entityId,
+            ipAddress: '127.0.0.1 (Localhost)',
+            status: 'Success',
+            statusCode: 200,
+            details: auditData.details || '',
+            oldValue: auditData.oldValue as Prisma.InputJsonValue,
+            newValue: auditData.newValue as Prisma.InputJsonValue,
+          },
+        });
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to record audit log for asset return "${id}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    return this.formatAsset(result.asset as unknown as AssetWithRelations);
   }
 
   async remove(id: string) {
@@ -955,6 +1391,7 @@ export class AssetsService {
         asset.department?.organization?.name || asset.assignedTo?.organization?.name || null,
       purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
       warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.toISOString().split('T')[0] : '',
+      hasPendingRecord: Boolean(asset.hasPendingRecord),
       notes: asset.notes || '',
       createdAt: asset.createdAt ? asset.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: asset.updatedAt ? asset.updatedAt.toISOString() : new Date().toISOString(),

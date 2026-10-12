@@ -5,11 +5,14 @@ import {
   EditOutlined,
   EyeOutlined,
   PrinterOutlined,
+  RollbackOutlined,
   UserOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
+import { ReturnAssetModal } from './ReturnAssetModal';
 
 const { Text } = Typography;
 
@@ -22,6 +25,7 @@ export interface AssetTableProps {
   onShowQr?: (asset: Asset) => void;
   onOpenEditModal: (asset: Asset) => void;
   onDeleteAsset: (id: string) => void;
+  onReturnAsset?: (asset: Asset) => void;
 }
 
 export const AssetTable: React.FC<AssetTableProps> = React.memo(
@@ -34,7 +38,18 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
     onShowQr,
     onOpenEditModal,
     onDeleteAsset,
+    onReturnAsset,
   }) => {
+    const [returningAsset, setReturningAsset] = useState<Asset | null>(null);
+
+    const handleReturnClick = (asset: Asset) => {
+      if (onReturnAsset) {
+        onReturnAsset(asset);
+      } else {
+        setReturningAsset(asset);
+      }
+    };
+
     const columns = useMemo(
       () => [
         {
@@ -124,10 +139,10 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Status',
           dataIndex: 'status',
           key: 'status',
-          width: 120,
+          width: 140,
           sorter: (a: Asset, b: Asset) =>
             a.status.localeCompare(b.status) || a.tag.localeCompare(b.tag),
-          render: (status: string) => {
+          render: (status: string, record: Asset) => {
             let color = 'default';
             const s = (status || '').toUpperCase();
             if (s === 'AVAILABLE' || s === 'ACTIVE') color = 'success';
@@ -136,7 +151,20 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             else if (s === 'IN STORAGE') color = 'cyan';
             else if (s === 'RETIRED') color = 'error';
             else if (s === 'LOST') color = 'default';
-            return <Tag color={color}>{status}</Tag>;
+            return (
+              <Flex vertical gap={4} align="flex-start">
+                <Tag color={color}>{status}</Tag>
+                {record.hasPendingRecord && (
+                  <Tag
+                    color="warning"
+                    icon={<WarningOutlined />}
+                    style={{ fontSize: 11, margin: 0 }}
+                  >
+                    Pending Record
+                  </Tag>
+                )}
+              </Flex>
+            );
           },
         },
         {
@@ -185,61 +213,82 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 160,
+          width: 190,
           fixed: 'end' as const,
-          render: (_: unknown, record: Asset) => (
-            <Space size="small">
-              <Tooltip title="View Details">
-                <Button
-                  type="text"
-                  shape="circle"
-                  size="small"
-                  icon={<EyeOutlined />}
-                  onClick={() => onShowDetails(record)}
-                />
-              </Tooltip>
-              {onShowQr && (
-                <Tooltip title="Print QR Label">
+          render: (_: unknown, record: Asset) => {
+            const isAssigned =
+              (record.status === 'Assigned' ||
+                record.status === 'In Use' ||
+                (Boolean(onReturnAsset) && record.status !== 'In Storage')) &&
+              Boolean(
+                record.assignedToId || (record.assignedTo && record.assignedTo !== 'Unassigned'),
+              );
+
+            return (
+              <Space size="small">
+                <Tooltip title="View Details">
                   <Button
                     type="text"
                     shape="circle"
                     size="small"
-                    icon={<PrinterOutlined />}
-                    onClick={() => onShowQr(record)}
+                    icon={<EyeOutlined />}
+                    onClick={() => onShowDetails(record)}
                   />
                 </Tooltip>
-              )}
-              <Tooltip title="Edit Unit">
-                <Button
-                  type="text"
-                  shape="circle"
-                  size="small"
-                  icon={<EditOutlined />}
-                  onClick={() => onOpenEditModal(record)}
-                />
-              </Tooltip>
-              <Popconfirm
-                title="Delete physical unit?"
-                description="This action cannot be undone."
-                onConfirm={() => onDeleteAsset(record.id)}
-                okText="Delete"
-                okButtonProps={{ danger: true }}
-              >
-                <Tooltip title="Delete">
+                {onShowQr && (
+                  <Tooltip title="Print QR Label">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      size="small"
+                      icon={<PrinterOutlined />}
+                      onClick={() => onShowQr(record)}
+                    />
+                  </Tooltip>
+                )}
+                <Tooltip title="Edit Unit">
                   <Button
                     type="text"
                     shape="circle"
                     size="small"
-                    danger
-                    icon={<DeleteOutlined />}
+                    icon={<EditOutlined />}
+                    onClick={() => onOpenEditModal(record)}
                   />
                 </Tooltip>
-              </Popconfirm>
-            </Space>
-          ),
+                {isAssigned && (
+                  <Tooltip title="Return Asset">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      size="small"
+                      icon={<RollbackOutlined />}
+                      onClick={() => handleReturnClick(record)}
+                    />
+                  </Tooltip>
+                )}
+                <Popconfirm
+                  title="Delete physical unit?"
+                  description="This action cannot be undone."
+                  onConfirm={() => onDeleteAsset(record.id)}
+                  okText="Delete"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Tooltip title="Delete">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                    />
+                  </Tooltip>
+                </Popconfirm>
+              </Space>
+            );
+          },
         },
       ],
-      [onDeleteAsset, onOpenEditModal, onShowDetails, onShowQr],
+      [onDeleteAsset, onOpenEditModal, onShowDetails, onShowQr, onReturnAsset],
     );
 
     const rowSelection = useMemo(() => {
@@ -252,21 +301,31 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
     }, [selectedRowKeys, onSelectionChange]);
 
     return (
-      <Table
-        size="middle"
-        columns={columns}
-        dataSource={assets}
-        rowKey="id"
-        loading={loading}
-        rowSelection={rowSelection}
-        scroll={{ x: 'max-content' }}
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total) => `Total ${total} units`,
-        }}
-      />
+      <>
+        <Table
+          size="middle"
+          columns={columns}
+          dataSource={assets}
+          rowKey="id"
+          loading={loading}
+          rowSelection={rowSelection}
+          scroll={{ x: 'max-content' }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50', '100'],
+            showTotal: (total) => `Total ${total} units`,
+          }}
+        />
+        {returningAsset && (
+          <ReturnAssetModal
+            open={Boolean(returningAsset)}
+            asset={returningAsset}
+            onCancel={() => setReturningAsset(null)}
+            onSuccess={() => setReturningAsset(null)}
+          />
+        )}
+      </>
     );
   },
 );

@@ -391,7 +391,11 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress Suite', () =
     let mockPrisma: {
       asset: { findMany: ReturnType<typeof vi.fn> };
       license: { findMany: ReturnType<typeof vi.fn> };
+      inventoryItem: { findMany: ReturnType<typeof vi.fn> };
+      networkSwitch: { findMany: ReturnType<typeof vi.fn> };
+      subnet: { findMany: ReturnType<typeof vi.fn> };
       directoryUser: { findMany: ReturnType<typeof vi.fn> };
+      appUser: { findMany: ReturnType<typeof vi.fn> };
     };
     let mockConfig: {
       get: ReturnType<typeof vi.fn>;
@@ -402,7 +406,11 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress Suite', () =
       mockPrisma = {
         asset: { findMany: vi.fn().mockResolvedValue([]) },
         license: { findMany: vi.fn().mockResolvedValue([]) },
+        inventoryItem: { findMany: vi.fn().mockResolvedValue([]) },
+        networkSwitch: { findMany: vi.fn().mockResolvedValue([]) },
+        subnet: { findMany: vi.fn().mockResolvedValue([]) },
         directoryUser: { findMany: vi.fn().mockResolvedValue([]) },
+        appUser: { findMany: vi.fn().mockResolvedValue([]) },
       };
 
       mockConfig = {
@@ -436,12 +444,19 @@ describe('Milestone 1 Challenger 2 — Empirical Adversarial Stress Suite', () =
       expect(result.counts).toEqual({
         assets: 0,
         licenses: 0,
+        inventory: 0,
+        network: 0,
+        employees: 0,
         users: 0,
       });
 
       expect(mockPrisma.asset.findMany).toHaveBeenCalledTimes(1);
       expect(mockPrisma.license.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.inventoryItem.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.networkSwitch.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.subnet.findMany).toHaveBeenCalledTimes(1);
       expect(mockPrisma.directoryUser.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.appUser.findMany).toHaveBeenCalledTimes(1);
     });
 
     // -----------------------------------------------------------------------

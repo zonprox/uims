@@ -771,7 +771,7 @@ describe('Adversarial Navigation & Router State Suite', () => {
       act(() => root.unmount());
     });
 
-    it('strictly verifies ZERO password inputs in Directory Add Employee modal', async () => {
+    it('verifies masked password inputs for corporate email and AD credentials in Directory Add Employee modal', async () => {
       const root = createRoot(container);
       await act(async () => {
         root.render(
@@ -803,15 +803,15 @@ describe('Adversarial Navigation & Router State Suite', () => {
       expect(modal).toBeDefined();
       expect(modal?.textContent).toContain('Add Employee Record');
 
-      // Assert ZERO password fields in the entire DOM
-      const passwordInputs = document.querySelectorAll('input[type="password"]');
-      expect(passwordInputs.length).toBe(0);
+      // Assert masked password fields exist for initial corporate credentials
+      const passwordInputs = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+      expect(passwordInputs.length).toBe(2);
 
-      // Assert no label contains password
-      const labels = Array.from(document.querySelectorAll('.ant-form-item-label')).map(
-        (l) => l.textContent,
+      const placeholders = Array.from(passwordInputs).map((input) =>
+        input.getAttribute('placeholder'),
       );
-      expect(labels.some((l) => l?.toLowerCase().includes('password'))).toBe(false);
+      expect(placeholders).toContain('e.g. Initial email password');
+      expect(placeholders).toContain('e.g. Initial AD password');
 
       act(() => root.unmount());
     });

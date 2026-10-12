@@ -61,6 +61,7 @@ describe('AuthService', () => {
           status: 'ACTIVE',
           role: { name: 'Employee' },
         }),
+        update: vi.fn().mockResolvedValue({}),
       },
     };
 
@@ -102,6 +103,10 @@ describe('AuthService', () => {
       expect(result.accessToken).toBe('mock-jwt-token');
       expect(result.user.name).toBe('Alex Johnson');
       expect(result.user.role).toBe('Super Admin');
+      expect(mockPrismaService.appUser.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { lastLoginAt: expect.any(Date) },
+      });
     });
 
     it('should validate user credentials by AD username and return token', async () => {

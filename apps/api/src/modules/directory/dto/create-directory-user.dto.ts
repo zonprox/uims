@@ -127,4 +127,12 @@ export class CreateDirectoryUserDto implements ICreateDirectoryUserDto {
   @IsString()
   @MaxLength(128)
   emailPassword?: string;
+
+  @ApiPropertyOptional({
+    description: 'Active Directory Initial Password (encrypted at rest by server)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  adInitialPassword?: string;
 }

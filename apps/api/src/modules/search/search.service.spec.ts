@@ -9,12 +9,14 @@ describe('SearchService', () => {
   let mockConfig: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    const userMock = { findMany: vi.fn().mockResolvedValue([]) };
     mockPrisma = {
       asset: { findMany: vi.fn().mockResolvedValue([]) },
       license: { findMany: vi.fn().mockResolvedValue([]) },
-      user: userMock,
-      directoryUser: userMock,
+      inventoryItem: { findMany: vi.fn().mockResolvedValue([]) },
+      networkSwitch: { findMany: vi.fn().mockResolvedValue([]) },
+      subnet: { findMany: vi.fn().mockResolvedValue([]) },
+      directoryUser: { findMany: vi.fn().mockResolvedValue([]) },
+      appUser: { findMany: vi.fn().mockResolvedValue([]) },
     };
 
     mockConfig = {
@@ -32,7 +34,7 @@ describe('SearchService', () => {
   });
 
   describe('searchDatabaseFallback', () => {
-    it('should search across assets, licenses, and users and format results', async () => {
+    it('should search across all 6 domains and format results with deep links', async () => {
       mockPrisma.asset.findMany.mockResolvedValue([
         {
           id: 'a1',
@@ -54,53 +56,134 @@ describe('SearchService', () => {
           status: 'ACTIVE',
         },
       ]);
-      mockPrisma.user.findMany.mockResolvedValue([
+      mockPrisma.inventoryItem.findMany.mockResolvedValue([
+        {
+          id: 'i1',
+          name: 'Logitech MX Master 3S',
+          sku: 'LOGI-MX3S',
+          quantity: 25,
+          minThreshold: 5,
+          category: { name: 'Peripherals' },
+        },
+      ]);
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([
+        {
+          id: 'sw1',
+          name: 'Core Switch 01',
+          model: 'Catalyst 9300',
+          vendor: 'Cisco',
+          totalPorts: 48,
+          role: 'CORE',
+          status: 'ONLINE',
+        },
+      ]);
+      mockPrisma.subnet.findMany.mockResolvedValue([
+        {
+          id: 'sub1',
+          name: 'HQ Floor 2',
+          cidr: '10.10.20.0/24',
+          gateway: '10.10.20.1',
+          totalIps: 254,
+        },
+      ]);
+      mockPrisma.directoryUser.findMany.mockResolvedValue([
         {
           id: 'u1',
           displayName: 'Sarah Chen',
           firstName: 'Sarah',
           lastName: 'Chen',
           email: 'sarah.chen@company.com',
-          username: 'sarah.chen',
-          jobTitle: 'Systems Admin',
-          department: 'IT',
+          position: { title: 'Systems Admin' },
+          department: { name: 'IT Infrastructure' },
+          status: 'ACTIVE',
+        },
+      ]);
+      mockPrisma.appUser.findMany.mockResolvedValue([
+        {
+          id: 'usr1',
+          displayName: 'Admin User',
+          username: 'admin',
+          firstName: 'Admin',
+          lastName: 'User',
+          email: 'admin@company.com',
+          role: { name: 'Super Admin' },
           status: 'ACTIVE',
         },
       ]);
 
-      const response = await service.searchDatabaseFallback('test', 10);
+      const response = await service.searchDatabaseFallback('test', 20);
 
       expect(response.query).toBe('test');
-      expect(response.total).toBe(3);
-      expect(response.results).toHaveLength(3);
+      expect(response.total).toBe(7);
+      expect(response.results).toHaveLength(7);
 
-      // Verify asset formatting
+      // 1. Hardware Asset formatting
       expect(response.results[0]).toEqual({
         id: 'a1',
         title: 'ThinkPad T14 (AST-1005)',
         subtitle: 'Lenovo T14 Gen 4 • Laptops',
-        category: 'Asset',
-        path: '/assets',
+        category: 'Hardware',
+        path: '/assets?drawer=a1',
         status: 'IN_USE',
       });
 
-      // Verify license formatting
+      // 2. License formatting
       expect(response.results[1]).toEqual({
         id: 'l1',
         title: 'Microsoft 365 (Microsoft)',
         subtitle: '100 seats • SUBSCRIPTION',
         category: 'License',
-        path: '/licenses',
+        path: '/licenses?drawer=l1',
         status: 'ACTIVE',
       });
 
-      // Verify directory user formatting
+      // 3. Inventory formatting
       expect(response.results[2]).toEqual({
+        id: 'i1',
+        title: 'Logitech MX Master 3S (LOGI-MX3S)',
+        subtitle: 'Qty: 25 • Peripherals',
+        category: 'Inventory',
+        path: '/inventory?sku=LOGI-MX3S',
+        status: 'IN_STOCK',
+      });
+
+      // 4. Network Switch formatting
+      expect(response.results[3]).toEqual({
+        id: 'sw1',
+        title: 'Core Switch 01 (Catalyst 9300)',
+        subtitle: 'Cisco • 48 Ports • CORE',
+        category: 'Network',
+        path: '/network',
+        status: 'ONLINE',
+      });
+
+      // 5. Subnet formatting
+      expect(response.results[4]).toEqual({
+        id: 'sub1',
+        title: 'HQ Floor 2 (10.10.20.0/24)',
+        subtitle: 'Gateway: 10.10.20.1 • 254 IPs',
+        category: 'Network',
+        path: '/network',
+        status: 'ACTIVE',
+      });
+
+      // 6. Directory Employee formatting
+      expect(response.results[5]).toEqual({
         id: 'u1',
         title: 'Sarah Chen',
         subtitle: 'sarah.chen@company.com • Systems Admin',
-        category: 'Directory',
-        path: '/users',
+        category: 'Employee',
+        path: '/directory?drawer=u1',
+        status: 'ACTIVE',
+      });
+
+      // 7. Console App User formatting
+      expect(response.results[6]).toEqual({
+        id: 'usr1',
+        title: 'Admin User',
+        subtitle: 'admin@company.com • Super Admin',
+        category: 'User',
+        path: '/users?drawer=usr1',
         status: 'ACTIVE',
       });
     });
@@ -129,6 +212,31 @@ describe('SearchService', () => {
 
       const response = await service.searchDatabaseFallback('Asset', 1);
       expect(response.results).toHaveLength(1);
+    });
+
+    it('should query only the targeted domain when type filter is provided', async () => {
+      mockPrisma.inventoryItem.findMany.mockResolvedValue([
+        {
+          id: 'i1',
+          name: 'HDMI Cable',
+          sku: 'CBL-HDMI',
+          quantity: 2,
+          minThreshold: 5,
+          category: { name: 'Cables' },
+        },
+      ]);
+
+      const response = await service.searchDatabaseFallback('HDMI', 10, 'inventory');
+      expect(response.results).toHaveLength(1);
+      expect(response.results[0].category).toBe('Inventory');
+      expect(response.results[0].status).toBe('LOW_STOCK');
+
+      expect(mockPrisma.inventoryItem.findMany).toHaveBeenCalled();
+      expect(mockPrisma.asset.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.license.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.networkSwitch.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.directoryUser.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.appUser.findMany).not.toHaveBeenCalled();
     });
   });
 
@@ -194,13 +302,13 @@ describe('SearchService', () => {
   });
 
   describe('syncAllToMeilisearch', () => {
-    it('should process assets, licenses, and directory users using cursor pagination in batches of 100', async () => {
+    it('should process all 6 domains using cursor pagination in batches of 100', async () => {
       // Mock health check
       vi.spyOn(service, 'checkHealthAndInit').mockResolvedValue(true);
       (service as unknown as { isMeiliAvailable: boolean }).isMeiliAvailable = true;
 
-      // First batch: 100 items, second batch: 1 item, third batch: empty
-      const batch1 = Array.from({ length: 100 }, (_, i) => ({
+      // 1. Assets: 101 items (batch1: 100, batch2: 1)
+      const assetBatch1 = Array.from({ length: 100 }, (_, i) => ({
         id: `a-${i}`,
         name: `Asset ${i}`,
         assetTag: `TAG-${i}`,
@@ -209,7 +317,7 @@ describe('SearchService', () => {
         manufacturer: 'Lenovo',
         status: 'IN_USE',
       }));
-      const batch2 = [
+      const assetBatch2 = [
         {
           id: 'a-100',
           name: 'Asset 100',
@@ -220,20 +328,58 @@ describe('SearchService', () => {
           status: 'IN_USE',
         },
       ];
+      mockPrisma.asset.findMany
+        .mockResolvedValueOnce(assetBatch1)
+        .mockResolvedValueOnce(assetBatch2);
 
-      mockPrisma.asset.findMany.mockResolvedValueOnce(batch1).mockResolvedValueOnce(batch2);
-
+      // 2. Licenses
       mockPrisma.license.findMany.mockResolvedValueOnce([
         {
           id: 'lic-1',
           name: 'Office 365',
-          vendor: 'MS',
+          vendor: 'Microsoft',
           type: 'SUBSCRIPTION',
           totalSeats: 50,
           status: 'ACTIVE',
         },
       ]);
 
+      // 3. Inventory
+      mockPrisma.inventoryItem.findMany.mockResolvedValueOnce([
+        {
+          id: 'inv-1',
+          name: 'USB-C Adapter',
+          sku: 'ADPT-USBC',
+          quantity: 20,
+          minThreshold: 5,
+          supplier: 'Anker',
+          binNumber: 'B-12',
+        },
+      ]);
+
+      // 4. Network: 1 switch, 1 subnet
+      mockPrisma.networkSwitch.findMany.mockResolvedValueOnce([
+        {
+          id: 'sw-1',
+          name: 'Edge Switch 01',
+          model: 'Catalyst 3850',
+          vendor: 'Cisco',
+          role: 'ACCESS',
+          totalPorts: 24,
+          status: 'ONLINE',
+        },
+      ]);
+      mockPrisma.subnet.findMany.mockResolvedValueOnce([
+        {
+          id: 'sub-1',
+          name: 'Servers VLAN 100',
+          cidr: '192.168.100.0/24',
+          gateway: '192.168.100.1',
+          totalIps: 254,
+        },
+      ]);
+
+      // 5. Employees
       mockPrisma.directoryUser.findMany.mockResolvedValueOnce([
         {
           id: 'user-1',
@@ -241,6 +387,20 @@ describe('SearchService', () => {
           firstName: 'Jane',
           lastName: 'Doe',
           email: 'jane@company.com',
+          employeeCode: 'EMP-002',
+          status: 'ACTIVE',
+        },
+      ]);
+
+      // 6. Users
+      mockPrisma.appUser.findMany.mockResolvedValueOnce([
+        {
+          id: 'app-user-1',
+          username: 'janedoe',
+          displayName: 'Jane Doe',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane.admin@company.com',
           status: 'ACTIVE',
         },
       ]);
@@ -255,6 +415,9 @@ describe('SearchService', () => {
         expect(res.counts).toEqual({
           assets: 101,
           licenses: 1,
+          inventory: 1,
+          network: 2,
+          employees: 1,
           users: 1,
         });
 
@@ -277,6 +440,14 @@ describe('SearchService', () => {
             orderBy: { id: 'asc' },
           }),
         );
+
+        // Verify calls to other domain models
+        expect(mockPrisma.license.findMany).toHaveBeenCalled();
+        expect(mockPrisma.inventoryItem.findMany).toHaveBeenCalled();
+        expect(mockPrisma.networkSwitch.findMany).toHaveBeenCalled();
+        expect(mockPrisma.subnet.findMany).toHaveBeenCalled();
+        expect(mockPrisma.directoryUser.findMany).toHaveBeenCalled();
+        expect(mockPrisma.appUser.findMany).toHaveBeenCalled();
       } finally {
         global.fetch = globalFetch;
       }

@@ -113,20 +113,40 @@ export default function LicensesPage() {
   }, [message, searchQuery, typeFilter, vendorFilter]);
 
   const [searchParams] = useSearchParams();
-  const deepLinkId = searchParams.get('id') || searchParams.get('key');
+  const deepLinkId =
+    searchParams.get('drawer') || searchParams.get('id') || searchParams.get('key');
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
-    if (deepLinkId && licenses.length > 0) {
-      const match = licenses.find(
-        (l) => l.id === deepLinkId || l.name.toLowerCase().includes(deepLinkId.toLowerCase()),
-      );
-      if (match) {
-        setSelectedLicense(match);
-        setSeatsDrawerOpen(true);
+    if (deepLinkId) {
+      if (licenses.length > 0) {
+        const match = licenses.find(
+          (l) => l.id === deepLinkId || l.name.toLowerCase().includes(deepLinkId.toLowerCase()),
+        );
+        if (match) {
+          setSelectedLicense(match);
+          setSeatsDrawerOpen(true);
+          return;
+        }
+      }
+      if (typeof licensesService.getLicense === 'function') {
+        licensesService
+          .getLicense(deepLinkId)
+          .then((lic) => {
+            if (lic) {
+              setSelectedLicense(lic);
+              setSeatsDrawerOpen(true);
+            }
+          })
+          .catch((error: unknown) => {
+            console.error(
+              'Failed to resolve deep-linked entity:',
+              error instanceof Error ? error.message : String(error),
+            );
+          });
       }
     }
   }, [deepLinkId, licenses]);

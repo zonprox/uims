@@ -252,7 +252,8 @@ export function useAssetManagement(form: FormInstance) {
   }, [categoryFilter, message, orgFilter, organizations, searchQuery, statusFilter]);
 
   const [searchParams] = useSearchParams();
-  const deepLinkId = searchParams.get('id') || searchParams.get('tag');
+  const deepLinkId =
+    searchParams.get('drawer') || searchParams.get('id') || searchParams.get('tag');
   const scanParam = searchParams.get('scan');
 
   useEffect(() => {
@@ -261,13 +262,32 @@ export function useAssetManagement(form: FormInstance) {
 
   // Deep linking: auto-open detail drawer if query parameter is present
   useEffect(() => {
-    if (deepLinkId && assets.length > 0) {
-      const match = assets.find(
-        (a) => a.id === deepLinkId || a.tag.toLowerCase() === deepLinkId.toLowerCase(),
-      );
-      if (match) {
-        setSelectedAsset(match);
-        setDetailDrawerOpen(true);
+    if (deepLinkId) {
+      if (assets.length > 0) {
+        const match = assets.find(
+          (a) => a.id === deepLinkId || a.tag.toLowerCase() === deepLinkId.toLowerCase(),
+        );
+        if (match) {
+          setSelectedAsset(match);
+          setDetailDrawerOpen(true);
+          return;
+        }
+      }
+      if (typeof assetsService.getAsset === 'function') {
+        assetsService
+          .getAsset(deepLinkId)
+          .then((asset) => {
+            if (asset) {
+              setSelectedAsset(asset);
+              setDetailDrawerOpen(true);
+            }
+          })
+          .catch((error: unknown) => {
+            console.error(
+              'Failed to resolve deep-linked entity:',
+              error instanceof Error ? error.message : String(error),
+            );
+          });
       }
     }
   }, [deepLinkId, assets]);

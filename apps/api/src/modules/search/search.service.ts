@@ -7,10 +7,11 @@ function mapMeiliHit(indexUid: string, hit: Record<string, unknown>): SearchResu
   if (indexUid === 'assets') {
     return {
       id: String(hit.id),
-      title: `${hit.name} (${hit.assetTag || hit.tag})`,
-      subtitle: `${hit.manufacturer || ''} ${hit.model || ''} • ${hit.category || 'Asset'}`.trim(),
-      category: 'Asset',
-      path: '/assets',
+      title: `${hit.name} (${hit.assetTag || hit.tag || 'Asset'})`,
+      subtitle:
+        `${hit.manufacturer || ''} ${hit.model || ''} • ${hit.category || 'Hardware'}`.trim(),
+      category: 'Hardware',
+      path: `/assets?drawer=${hit.id}`,
       status: hit.status as string,
     };
   }
@@ -18,9 +19,47 @@ function mapMeiliHit(indexUid: string, hit: Record<string, unknown>): SearchResu
     return {
       id: String(hit.id),
       title: `${hit.name} (${hit.vendor || 'License'})`,
-      subtitle: `${hit.totalSeats} seats • ${hit.type}`,
+      subtitle: `${hit.totalSeats || 0} seats • ${hit.type || 'License'}`,
       category: 'License',
-      path: '/licenses',
+      path: `/licenses?drawer=${hit.id}`,
+      status: hit.status as string,
+    };
+  }
+  if (indexUid === 'inventory') {
+    const sku = (hit.sku || hit.id) as string;
+    return {
+      id: String(hit.id),
+      title: `${hit.name} (${sku})`,
+      subtitle: `Qty: ${hit.quantity ?? 0} • ${hit.category || 'Consumable'}`,
+      category: 'Inventory',
+      path: `/inventory?sku=${sku}`,
+      status:
+        (hit.status as string) ||
+        (hit.quantity !== undefined
+          ? Number(hit.quantity) <= Number(hit.minThreshold ?? 5)
+            ? 'LOW_STOCK'
+            : 'IN_STOCK'
+          : undefined),
+    };
+  }
+  if (indexUid === 'network') {
+    return {
+      id: String(hit.id),
+      title: `${hit.name} (${hit.model || hit.cidr || 'Network'})`,
+      subtitle:
+        `${hit.vendor || ''} ${hit.role ? `• ${hit.role}` : ''} ${hit.totalPorts ? `• ${hit.totalPorts} Ports` : ''}`.trim(),
+      category: 'Network',
+      path: '/network',
+      status: hit.status as string,
+    };
+  }
+  if (indexUid === 'employees') {
+    return {
+      id: String(hit.id),
+      title: (hit.displayName || hit.name || hit.email) as string,
+      subtitle: `${hit.email} • ${hit.jobTitle || hit.department || 'Directory'}`,
+      category: 'Employee',
+      path: `/directory?drawer=${hit.id}`,
       status: hit.status as string,
     };
   }
@@ -28,9 +67,9 @@ function mapMeiliHit(indexUid: string, hit: Record<string, unknown>): SearchResu
     return {
       id: String(hit.id),
       title: (hit.displayName || hit.name || hit.username) as string,
-      subtitle: `${hit.email} • ${hit.jobTitle || hit.department || 'Directory'}`,
-      category: 'Directory',
-      path: '/users',
+      subtitle: `${hit.email} • ${hit.role || 'Console User'}`,
+      category: 'User',
+      path: `/users?drawer=${hit.id}`,
       status: hit.status as string,
     };
   }
@@ -105,6 +144,7 @@ export class SearchService implements OnModuleInit {
   async search(query: SearchQueryDto): Promise<SearchResponseDto> {
     const q = (query.q || '').trim();
     const limit = Math.min(50, Math.max(1, Number(query.limit) || 10));
+    const type = query.type || 'all';
 
     if (!q) {
       return { query: q, total: 0, results: [] };
@@ -112,7 +152,7 @@ export class SearchService implements OnModuleInit {
 
     if (this.isMeiliAvailable) {
       try {
-        const meiliResults = await this.searchMeilisearch(q, limit);
+        const meiliResults = await this.searchMeilisearch(q, limit, type);
         if (meiliResults && meiliResults.length > 0) {
           return {
             query: q,
@@ -127,16 +167,43 @@ export class SearchService implements OnModuleInit {
     }
 
     // Database search fallback
-    return this.searchDatabaseFallback(q, limit);
+    return this.searchDatabaseFallback(q, limit, type);
   }
 
-  private async searchMeilisearch(q: string, limit: number): Promise<Array<SearchResultItem>> {
+  private async searchMeilisearch(
+    q: string,
+    limit: number,
+    type: SearchQueryDto['type'] = 'all',
+  ): Promise<Array<SearchResultItem>> {
+    let indexUids: string[];
+    switch (type) {
+      case 'hardware':
+      case 'assets':
+        indexUids = ['assets'];
+        break;
+      case 'licenses':
+        indexUids = ['licenses'];
+        break;
+      case 'inventory':
+        indexUids = ['inventory'];
+        break;
+      case 'network':
+        indexUids = ['network'];
+        break;
+      case 'employees':
+        indexUids = ['employees'];
+        break;
+      case 'users':
+        indexUids = ['users'];
+        break;
+      case 'all':
+      default:
+        indexUids = ['assets', 'licenses', 'inventory', 'network', 'employees', 'users'];
+        break;
+    }
+
     const searchBody = {
-      queries: [
-        { indexUid: 'assets', q, limit },
-        { indexUid: 'licenses', q, limit },
-        { indexUid: 'users', q, limit },
-      ],
+      queries: indexUids.map((indexUid) => ({ indexUid, q, limit })),
     };
 
     const res = await fetch(`${this.meiliHost}/multi-search`, {
@@ -166,61 +233,140 @@ export class SearchService implements OnModuleInit {
     return results.slice(0, limit);
   }
 
-  async searchDatabaseFallback(q: string, limit: number): Promise<SearchResponseDto> {
+  async searchDatabaseFallback(
+    q: string,
+    limit: number,
+    type: SearchQueryDto['type'] = 'all',
+  ): Promise<SearchResponseDto> {
     const boundedLimit = Math.min(Math.max(1, limit || 20), 100);
-    const [assets, licenses, users] = await Promise.all([
-      this.prisma.asset.findMany({
-        where: {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { assetTag: { contains: q, mode: 'insensitive' } },
-            { serialNumber: { contains: q, mode: 'insensitive' } },
-            { model: { contains: q, mode: 'insensitive' } },
-          ],
-        },
-        include: { category: true },
-        take: boundedLimit,
-        orderBy: { id: 'asc' },
-      }),
-      this.prisma.license.findMany({
-        where: {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { vendor: { contains: q, mode: 'insensitive' } },
-            { licenseKey: { contains: q, mode: 'insensitive' } },
-          ],
-        },
-        take: boundedLimit,
-        orderBy: { id: 'asc' },
-      }),
-      this.prisma.directoryUser.findMany({
-        where: {
-          OR: [
-            { displayName: { contains: q, mode: 'insensitive' } },
-            { firstName: { contains: q, mode: 'insensitive' } },
-            { lastName: { contains: q, mode: 'insensitive' } },
-            { email: { contains: q, mode: 'insensitive' } },
-            { employeeCode: { contains: q, mode: 'insensitive' } },
-            { department: { name: { contains: q, mode: 'insensitive' } } },
-            { position: { title: { contains: q, mode: 'insensitive' } } },
-          ],
-        },
-        include: {
-          department: true,
-          position: true,
-        },
-        take: boundedLimit,
-        orderBy: { id: 'asc' },
-      }),
-    ]);
+    const shouldSearchAll = !type || type === 'all';
+    const shouldSearchHardware = shouldSearchAll || type === 'hardware' || type === 'assets';
+    const shouldSearchLicenses = shouldSearchAll || type === 'licenses';
+    const shouldSearchInventory = shouldSearchAll || type === 'inventory';
+    const shouldSearchNetwork = shouldSearchAll || type === 'network';
+    const shouldSearchEmployees = shouldSearchAll || type === 'employees';
+    const shouldSearchUsers = shouldSearchAll || type === 'users';
+
+    const [assets, licenses, inventoryItems, networkSwitches, subnets, directoryUsers, appUsers] =
+      await Promise.all([
+        shouldSearchHardware
+          ? this.prisma.asset.findMany({
+              where: {
+                OR: [
+                  { name: { contains: q, mode: 'insensitive' } },
+                  { assetTag: { contains: q, mode: 'insensitive' } },
+                  { assetCode: { contains: q, mode: 'insensitive' } },
+                  { serialNumber: { contains: q, mode: 'insensitive' } },
+                  { model: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+              include: { category: true },
+              take: boundedLimit,
+              orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            })
+          : Promise.resolve([]),
+        shouldSearchLicenses
+          ? this.prisma.license.findMany({
+              where: {
+                OR: [
+                  { name: { contains: q, mode: 'insensitive' } },
+                  { vendor: { contains: q, mode: 'insensitive' } },
+                  { licenseKey: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+              take: boundedLimit,
+              orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            })
+          : Promise.resolve([]),
+        shouldSearchInventory
+          ? this.prisma.inventoryItem.findMany({
+              where: {
+                OR: [
+                  { name: { contains: q, mode: 'insensitive' } },
+                  { sku: { contains: q, mode: 'insensitive' } },
+                  { supplier: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+              include: { category: true },
+              take: boundedLimit,
+              orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            })
+          : Promise.resolve([]),
+        shouldSearchNetwork
+          ? this.prisma.networkSwitch.findMany({
+              where: {
+                OR: [
+                  { name: { contains: q, mode: 'insensitive' } },
+                  { model: { contains: q, mode: 'insensitive' } },
+                  { vendor: { contains: q, mode: 'insensitive' } },
+                  { serialNumber: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+              take: boundedLimit,
+              orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            })
+          : Promise.resolve([]),
+        shouldSearchNetwork
+          ? this.prisma.subnet.findMany({
+              where: {
+                OR: [
+                  { name: { contains: q, mode: 'insensitive' } },
+                  { cidr: { contains: q, mode: 'insensitive' } },
+                  { description: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+              take: boundedLimit,
+              orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            })
+          : Promise.resolve([]),
+        shouldSearchEmployees
+          ? this.prisma.directoryUser.findMany({
+              where: {
+                OR: [
+                  { displayName: { contains: q, mode: 'insensitive' } },
+                  { firstName: { contains: q, mode: 'insensitive' } },
+                  { lastName: { contains: q, mode: 'insensitive' } },
+                  { email: { contains: q, mode: 'insensitive' } },
+                  { employeeCode: { contains: q, mode: 'insensitive' } },
+                  { department: { name: { contains: q, mode: 'insensitive' } } },
+                  { position: { title: { contains: q, mode: 'insensitive' } } },
+                ],
+              },
+              include: {
+                department: true,
+                position: true,
+              },
+              take: boundedLimit,
+              orderBy: [{ email: 'asc' }, { id: 'asc' }],
+            })
+          : Promise.resolve([]),
+        shouldSearchUsers
+          ? this.prisma.appUser.findMany({
+              where: {
+                OR: [
+                  { username: { contains: q, mode: 'insensitive' } },
+                  { email: { contains: q, mode: 'insensitive' } },
+                  { firstName: { contains: q, mode: 'insensitive' } },
+                  { lastName: { contains: q, mode: 'insensitive' } },
+                  { displayName: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+              include: {
+                role: true,
+              },
+              take: boundedLimit,
+              orderBy: [{ username: 'asc' }, { id: 'asc' }],
+            })
+          : Promise.resolve([]),
+      ]);
 
     const results: Array<SearchResultItem> = [
       ...assets.map((a) => ({
         id: a.id,
-        title: `${a.name} (${a.assetTag})`,
+        title: `${a.name} (${a.assetTag || a.assetCode || 'Asset'})`,
         subtitle: `${[a.manufacturer, a.model].filter(Boolean).join(' ') || 'Hardware'} • ${a.category?.name || 'Uncategorized'}`,
-        category: 'Asset' as const,
-        path: '/assets',
+        category: 'Hardware' as const,
+        path: `/assets?drawer=${a.id}`,
         status: a.status,
       })),
       ...licenses.map((l) => ({
@@ -228,16 +374,48 @@ export class SearchService implements OnModuleInit {
         title: `${l.name} (${l.vendor || 'License'})`,
         subtitle: `${l.totalSeats} seats • ${l.type}`,
         category: 'License' as const,
-        path: '/licenses',
+        path: `/licenses?drawer=${l.id}`,
         status: l.status,
       })),
-      ...users.map((u) => ({
+      ...inventoryItems.map((i) => ({
+        id: i.id,
+        title: `${i.name} (${i.sku})`,
+        subtitle: `Qty: ${i.quantity} • ${i.category?.name || 'Consumable'}`,
+        category: 'Inventory' as const,
+        path: `/inventory?sku=${i.sku || i.id}`,
+        status: i.quantity <= i.minThreshold ? 'LOW_STOCK' : 'IN_STOCK',
+      })),
+      ...networkSwitches.map((s) => ({
+        id: s.id,
+        title: `${s.name} (${s.model})`,
+        subtitle: `${s.vendor} • ${s.totalPorts} Ports • ${s.role}`,
+        category: 'Network' as const,
+        path: '/network',
+        status: s.status,
+      })),
+      ...subnets.map((sub) => ({
+        id: sub.id,
+        title: `${sub.name} (${sub.cidr})`,
+        subtitle: `Gateway: ${sub.gateway || 'N/A'} • ${sub.totalIps} IPs`,
+        category: 'Network' as const,
+        path: '/network',
+        status: 'ACTIVE',
+      })),
+      ...directoryUsers.map((u) => ({
         id: u.id,
         title: u.displayName || `${u.firstName} ${u.lastName}`.trim() || u.email,
-        subtitle: `${u.email} • ${u.position?.title || (u as unknown as { jobTitle?: string }).jobTitle || u.department?.name || 'Directory'}`,
-        category: 'Directory' as const,
-        path: '/users',
+        subtitle: `${u.email} • ${u.position?.title || u.department?.name || 'Directory'}`,
+        category: 'Employee' as const,
+        path: `/directory?drawer=${u.id}`,
         status: u.status,
+      })),
+      ...appUsers.map((usr) => ({
+        id: usr.id,
+        title: usr.displayName || `${usr.firstName} ${usr.lastName}`.trim() || usr.username,
+        subtitle: `${usr.email} • ${usr.role?.name || 'Console User'}`,
+        category: 'User' as const,
+        path: `/users?drawer=${usr.id}`,
+        status: usr.status,
       })),
     ].slice(0, boundedLimit);
 
@@ -257,7 +435,7 @@ export class SearchService implements OnModuleInit {
     }
 
     try {
-      // 1. Assets: Cursor-based pagination in batches of 100
+      // 1. Assets (Hardware): Cursor-based pagination in batches of 100
       let totalAssetDocs = 0;
       let lastAssetId: string | undefined;
       while (true) {
@@ -274,7 +452,7 @@ export class SearchService implements OnModuleInit {
         const assetDocs = assetsBatch.map((a) => ({
           id: a.id,
           name: a.name,
-          assetTag: a.assetTag,
+          assetTag: a.assetTag || a.assetCode,
           serialNumber: a.serialNumber,
           model: a.model,
           manufacturer: a.manufacturer,
@@ -316,40 +494,149 @@ export class SearchService implements OnModuleInit {
         if (licensesBatch.length < 100) break;
       }
 
-      // 3. Directory Users: Cursor-based pagination in batches of 100
+      // 3. Consumable Inventory: Cursor-based pagination in batches of 100
+      let totalInventoryDocs = 0;
+      let lastInventoryId: string | undefined;
+      while (true) {
+        const inventoryBatch = await this.prisma.inventoryItem.findMany({
+          take: 100,
+          skip: lastInventoryId ? 1 : 0,
+          cursor: lastInventoryId ? { id: lastInventoryId } : undefined,
+          orderBy: { id: 'asc' },
+          include: { category: true },
+        });
+
+        if (!inventoryBatch || inventoryBatch.length === 0) break;
+
+        const inventoryDocs = inventoryBatch.map((i) => ({
+          id: i.id,
+          name: i.name,
+          sku: i.sku,
+          category: i.category?.name,
+          quantity: i.quantity,
+          minThreshold: i.minThreshold,
+          supplier: i.supplier,
+          binNumber: i.binNumber,
+        }));
+        await this.sendDocuments('inventory', inventoryDocs);
+        totalInventoryDocs += inventoryDocs.length;
+        lastInventoryId = inventoryBatch[inventoryBatch.length - 1].id;
+
+        if (inventoryBatch.length < 100) break;
+      }
+
+      // 4. Network: Switches & Subnets in batches of 100
+      let totalNetworkDocs = 0;
+      let lastSwitchId: string | undefined;
+      while (true) {
+        const switchBatch = await this.prisma.networkSwitch.findMany({
+          take: 100,
+          skip: lastSwitchId ? 1 : 0,
+          cursor: lastSwitchId ? { id: lastSwitchId } : undefined,
+          orderBy: { id: 'asc' },
+        });
+
+        if (!switchBatch || switchBatch.length === 0) break;
+
+        const switchDocs = switchBatch.map((s) => ({
+          id: s.id,
+          name: s.name,
+          model: s.model,
+          vendor: s.vendor,
+          role: s.role,
+          totalPorts: s.totalPorts,
+          status: s.status,
+        }));
+        await this.sendDocuments('network', switchDocs);
+        totalNetworkDocs += switchDocs.length;
+        lastSwitchId = switchBatch[switchBatch.length - 1].id;
+
+        if (switchBatch.length < 100) break;
+      }
+
+      let lastSubnetId: string | undefined;
+      while (true) {
+        const subnetBatch = await this.prisma.subnet.findMany({
+          take: 100,
+          skip: lastSubnetId ? 1 : 0,
+          cursor: lastSubnetId ? { id: lastSubnetId } : undefined,
+          orderBy: { id: 'asc' },
+        });
+
+        if (!subnetBatch || subnetBatch.length === 0) break;
+
+        const subnetDocs = subnetBatch.map((sub) => ({
+          id: sub.id,
+          name: sub.name,
+          cidr: sub.cidr,
+          gateway: sub.gateway,
+          totalIps: sub.totalIps,
+          status: 'ACTIVE',
+        }));
+        await this.sendDocuments('network', subnetDocs);
+        totalNetworkDocs += subnetDocs.length;
+        lastSubnetId = subnetBatch[subnetBatch.length - 1].id;
+
+        if (subnetBatch.length < 100) break;
+      }
+
+      // 5. Employees (Directory Users): Cursor-based pagination in batches of 100
+      let totalEmployeeDocs = 0;
+      let lastEmployeeId: string | undefined;
+      while (true) {
+        const employeesBatch = await this.prisma.directoryUser.findMany({
+          take: 100,
+          skip: lastEmployeeId ? 1 : 0,
+          cursor: lastEmployeeId ? { id: lastEmployeeId } : undefined,
+          orderBy: { id: 'asc' },
+          include: { department: true, position: true },
+        });
+
+        if (!employeesBatch || employeesBatch.length === 0) break;
+
+        const employeeDocs = employeesBatch.map((u) => ({
+          id: u.id,
+          name: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
+          employeeCode: u.employeeCode,
+          email: u.email,
+          jobTitle: u.position?.title,
+          department: u.department?.name,
+          status: u.status,
+        }));
+        await this.sendDocuments('employees', employeeDocs);
+        totalEmployeeDocs += employeeDocs.length;
+        lastEmployeeId = employeesBatch[employeesBatch.length - 1].id;
+
+        if (employeesBatch.length < 100) break;
+      }
+
+      // 6. Users (Console App Users): Cursor-based pagination in batches of 100
       let totalUserDocs = 0;
       let lastUserId: string | undefined;
-      const prismaClient = this.prisma;
-      const userModel =
-        prismaClient.directoryUser ||
-        (prismaClient as unknown as { user?: typeof prismaClient.directoryUser }).user;
-      if (userModel) {
-        while (true) {
-          const usersBatch = await userModel.findMany({
-            take: 100,
-            skip: lastUserId ? 1 : 0,
-            cursor: lastUserId ? { id: lastUserId } : undefined,
-            orderBy: { id: 'asc' },
-            include: { department: true, position: true },
-          });
+      while (true) {
+        const usersBatch = await this.prisma.appUser.findMany({
+          take: 100,
+          skip: lastUserId ? 1 : 0,
+          cursor: lastUserId ? { id: lastUserId } : undefined,
+          orderBy: { id: 'asc' },
+          include: { role: true },
+        });
 
-          if (!usersBatch || usersBatch.length === 0) break;
+        if (!usersBatch || usersBatch.length === 0) break;
 
-          const userDocs = usersBatch.map((u) => ({
-            id: u.id,
-            name: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
-            username: u.employeeCode || (u.email ? u.email.split('@')[0] : 'user'),
-            email: u.email,
-            jobTitle: u.position?.title,
-            department: u.department?.name,
-            status: u.status,
-          }));
-          await this.sendDocuments('users', userDocs);
-          totalUserDocs += userDocs.length;
-          lastUserId = usersBatch[usersBatch.length - 1].id;
+        const userDocs = usersBatch.map((usr) => ({
+          id: usr.id,
+          username: usr.username,
+          name: usr.displayName || `${usr.firstName} ${usr.lastName}`.trim(),
+          email: usr.email,
+          role: usr.role?.name,
+          status: usr.status,
+        }));
+        await this.sendDocuments('users', userDocs);
+        totalUserDocs += userDocs.length;
+        lastUserId = usersBatch[usersBatch.length - 1].id;
 
-          if (usersBatch.length < 100) break;
-        }
+        if (usersBatch.length < 100) break;
       }
 
       return {
@@ -358,12 +645,18 @@ export class SearchService implements OnModuleInit {
         counts: {
           assets: totalAssetDocs,
           licenses: totalLicenseDocs,
+          inventory: totalInventoryDocs,
+          network: totalNetworkDocs,
+          employees: totalEmployeeDocs,
           users: totalUserDocs,
         },
       };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Failed to sync to Meilisearch: ${msg}`);
+      this.logger.error(
+        `Failed to sync to Meilisearch: ${msg}`,
+        err instanceof Error ? err.stack : undefined,
+      );
       return { success: false, error: msg };
     }
   }

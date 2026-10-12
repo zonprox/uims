@@ -134,30 +134,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
     <div>
       {/* KPI Overview Metrics */}
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={24} sm={12} md={4}>
-          <Card
-            size="small"
-            style={{ borderRadius: 8, height: '100%' }}
-            styles={{ body: { padding: '12px 14px' } }}
-          >
-            <Text
-              type="secondary"
-              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
-            >
-              Total Roles
-            </Text>
-            <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
-              <Title level={3} style={{ margin: 0, fontSize: 22, color: '#0f172a' }}>
-                {stats?.totalRoles ?? roles.length}
-              </Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                defined
-              </Text>
-            </Flex>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} md={4}>
+        <Col xs={24} sm={12} md={6}>
           <Card
             size="small"
             style={{ borderRadius: 8, height: '100%' }}
@@ -180,7 +157,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} md={4}>
+        <Col xs={24} sm={12} md={6}>
           <Card
             size="small"
             style={{ borderRadius: 8, height: '100%' }}
@@ -203,7 +180,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} md={4}>
+        <Col xs={24} sm={12} md={6}>
           <Card
             size="small"
             style={{ borderRadius: 8, height: '100%' }}
@@ -226,7 +203,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} md={4}>
+        <Col xs={24} sm={12} md={6}>
           <Card
             size="small"
             style={{ borderRadius: 8, height: '100%' }}
@@ -244,29 +221,6 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               </Title>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 wildcard
-              </Text>
-            </Flex>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} md={4}>
-          <Card
-            size="small"
-            style={{ borderRadius: 8, height: '100%' }}
-            styles={{ body: { padding: '12px 14px' } }}
-          >
-            <Text
-              type="secondary"
-              style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}
-            >
-              User Coverage
-            </Text>
-            <Flex align="baseline" gap={6} style={{ marginTop: 4 }}>
-              <Title level={3} style={{ margin: 0, fontSize: 22, color: '#2563eb' }}>
-                {stats?.assignedUsersCoverage ?? 100}%
-              </Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                assigned
               </Text>
             </Flex>
           </Card>
@@ -365,11 +319,20 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               title: 'Description',
               dataIndex: 'description',
               key: 'description',
-              render: (desc: string) => (
-                <Text type="secondary" style={{ fontSize: 12.5 }}>
-                  {desc || 'No description provided.'}
-                </Text>
-              ),
+              render: (desc: string) => {
+                const text = desc || 'No description provided.';
+                return (
+                  <Tooltip title={text}>
+                    <Text
+                      type="secondary"
+                      ellipsis
+                      style={{ fontSize: 12.5, maxWidth: 320, display: 'inline-block' }}
+                    >
+                      {text}
+                    </Text>
+                  </Tooltip>
+                );
+              },
             },
             {
               title: 'Assigned Users',

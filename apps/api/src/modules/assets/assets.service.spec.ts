@@ -12,7 +12,18 @@ describe('AssetsService', () => {
   let service: AssetsService;
   let mockPrisma: Record<string, unknown>;
 
+  let mockNotificationsService: Record<string, ReturnType<typeof vi.fn>>;
+  let mockAuditService: Record<string, ReturnType<typeof vi.fn>>;
+
   beforeEach(() => {
+    mockNotificationsService = {
+      notifyUser: vi.fn().mockResolvedValue(undefined),
+      notifyAdmins: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAuditService = {
+      logEvent: vi.fn().mockResolvedValue(undefined),
+    };
+
     mockPrisma = {
       $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(mockPrisma)),
       asset: {
@@ -20,6 +31,7 @@ describe('AssetsService', () => {
         findMany: vi.fn(),
         findUnique: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
         delete: vi.fn(),
         deleteMany: vi.fn(),
         count: vi.fn(),
@@ -33,10 +45,19 @@ describe('AssetsService', () => {
       directoryUser: {
         findUnique: vi.fn(),
       },
+      assetHandoverRecord: {
+        create: vi.fn(),
+        createMany: vi.fn(),
+      },
+      auditLog: {
+        create: vi.fn(),
+      },
     };
 
     service = new AssetsService(
       mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+      mockNotificationsService as unknown as import('../notifications/notifications.service').NotificationsService,
+      mockAuditService as unknown as import('../audit/audit.service').AuditService,
     );
   });
 
@@ -661,6 +682,299 @@ describe('AssetsService', () => {
       const dto = plainToInstance(BatchDeleteAssetDto, { ids: [''] });
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('batchAssign', () => {
+    it('should return empty result when assetIds is empty or invalid', async () => {
+      const res1 = await service.batchAssign({ assetIds: [] });
+      expect(res1).toEqual({ count: 0, assignedIds: [] });
+
+      const res2 = await service.batchAssign({ assetIds: ['   ', ''] });
+      expect(res2).toEqual({ count: 0, assignedIds: [] });
+    });
+
+    it('should throw NotFoundException if assignedToId user does not exist', async () => {
+      (
+        mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.batchAssign({
+          assetIds: ['ast-1'],
+          assignedToId: 'nonexistent-user',
+        }),
+      ).rejects.toThrow('Directory user with ID "nonexistent-user" not found');
+    });
+
+    it('should batch assign with pending record and dispatch warning when recordDocUrl is omitted', async () => {
+      (
+        mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue({
+        id: 'usr-1',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+      (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+        { id: 'ast-1' },
+        { id: 'ast-2' },
+      ]);
+      (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany.mockResolvedValue({
+        count: 2,
+      });
+      (
+        mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }
+      ).createMany.mockResolvedValue({ count: 2 });
+
+      const res = await service.batchAssign({
+        assetIds: ['ast-1', 'ast-2'],
+        assignedToId: 'usr-1',
+      });
+
+      expect(res.count).toBe(2);
+      expect(res.assignedIds).toEqual(['ast-1', 'ast-2']);
+      expect(
+        (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assignedToId: 'usr-1',
+            hasPendingRecord: true,
+          }),
+        }),
+      );
+      expect(
+        (mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }).createMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.arrayContaining([
+            expect.objectContaining({
+              assetId: 'ast-1',
+              recipientId: 'usr-1',
+              isPending: true,
+              signedDocUrl: null,
+            }),
+          ]),
+        }),
+      );
+      expect(mockNotificationsService.notifyUser).toHaveBeenCalledWith(
+        'usr-1',
+        expect.objectContaining({
+          type: 'WARNING',
+          title: expect.stringContaining('Pending'),
+        }),
+      );
+    });
+
+    it('should batch assign with completed record when recordDocUrl is provided', async () => {
+      (
+        mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue({
+        id: 'usr-1',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+      (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+        { id: 'ast-1' },
+      ]);
+      (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany.mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }
+      ).createMany.mockResolvedValue({ count: 1 });
+
+      const res = await service.batchAssign({
+        assetIds: ['ast-1'],
+        assignedToId: 'usr-1',
+        recordDocUrl: 'https://storage.corp/handover-1.pdf',
+      });
+
+      expect(res.count).toBe(1);
+      expect(
+        (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assignedToId: 'usr-1',
+            hasPendingRecord: false,
+          }),
+        }),
+      );
+      expect(
+        (mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }).createMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.arrayContaining([
+            expect.objectContaining({
+              assetId: 'ast-1',
+              recipientId: 'usr-1',
+              isPending: false,
+              signedDocUrl: 'https://storage.corp/handover-1.pdf',
+            }),
+          ]),
+        }),
+      );
+      expect(mockNotificationsService.notifyUser).toHaveBeenCalledWith(
+        'usr-1',
+        expect.objectContaining({
+          type: 'INFO',
+        }),
+      );
+    });
+  });
+
+  describe('returnAsset', () => {
+    it('should throw NotFoundException if target asset is not found', async () => {
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        null,
+      );
+
+      await expect(service.returnAsset('ast-404', { status: 'In Storage' })).rejects.toThrow(
+        'Asset with ID "ast-404" not found',
+      );
+    });
+
+    it('should return asset with pending record when recordDocUrl is omitted and log audit event', async () => {
+      const mockExisting = {
+        id: 'ast-10',
+        name: 'Dell XPS 15',
+        assetTag: 'AST-10',
+        status: AssetStatus.IN_USE,
+        assignedToId: 'usr-10',
+        hasPendingRecord: false,
+        notes: 'Initial assignment',
+      };
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        mockExisting,
+      );
+      (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+        ...mockExisting,
+        status: AssetStatus.AVAILABLE,
+        assignedToId: null,
+        hasPendingRecord: true,
+      });
+      (
+        mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+      ).create.mockResolvedValue({
+        id: 'hor-1',
+        assetId: 'ast-10',
+        isPending: true,
+      });
+
+      const result = await service.returnAsset('ast-10', {
+        status: 'In Storage',
+        conditionNotes: 'Good physical condition, minor scratch',
+      });
+
+      expect(result.id).toBe('ast-10');
+      expect(
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assignedToId: null,
+            hasPendingRecord: true,
+          }),
+        }),
+      );
+      expect(
+        (mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }).create,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assetId: 'ast-10',
+            recipientId: 'usr-10',
+            isPending: true,
+            signedDocUrl: null,
+          }),
+        }),
+      );
+      expect(mockNotificationsService.notifyUser).toHaveBeenCalledWith(
+        'usr-10',
+        expect.objectContaining({
+          type: 'WARNING',
+        }),
+      );
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ASSET_RETURNED',
+          entityId: 'ast-10',
+        }),
+      );
+    });
+
+    it('should return asset without pending record when recordDocUrl is provided', async () => {
+      const mockExisting = {
+        id: 'ast-11',
+        name: 'MacBook Air M2',
+        assetTag: 'AST-11',
+        status: AssetStatus.IN_USE,
+        assignedToId: 'usr-11',
+        hasPendingRecord: false,
+        notes: null,
+      };
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        mockExisting,
+      );
+      (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+        ...mockExisting,
+        status: AssetStatus.AVAILABLE,
+        assignedToId: null,
+        hasPendingRecord: false,
+      });
+      (
+        mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+      ).create.mockResolvedValue({
+        id: 'hor-2',
+        assetId: 'ast-11',
+        isPending: false,
+      });
+
+      const result = await service.returnAsset('ast-11', {
+        status: 'In Storage',
+        recordDocUrl: 'https://storage.corp/return-rec.pdf',
+      });
+
+      expect(result.id).toBe('ast-11');
+      expect(
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            hasPendingRecord: false,
+          }),
+        }),
+      );
+      expect(
+        (mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }).create,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            signedDocUrl: 'https://storage.corp/return-rec.pdf',
+            isPending: false,
+          }),
+        }),
+      );
+      expect(mockAuditService.logEvent).toHaveBeenCalled();
+    });
+  });
+
+  describe('getHandoverTemplateHtml', () => {
+    it('should generate printable assignment handover template HTML', () => {
+      const html = service.getHandoverTemplateHtml('assignment');
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('HARDWARE ASSET HANDOVER RECORD');
+      expect(html).toContain('Parties Involved');
+      expect(html).toContain('Hardware Equipment Specifications');
+      expect(html).toContain('Signatures');
+    });
+
+    it('should generate printable return handover template HTML', () => {
+      const html = service.getHandoverTemplateHtml('return');
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).toContain('HARDWARE ASSET RETURN RECORD');
+      expect(html).toContain('Return (To Storage)');
     });
   });
 });

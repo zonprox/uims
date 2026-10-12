@@ -264,6 +264,19 @@ export class AuthService {
         );
       }
 
+      // Update last sign-in timestamp for user
+      try {
+        await this.prisma.appUser.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to update lastLoginAt for user ${user.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+
       // Track active session in Redis
       if (this.redis) {
         try {

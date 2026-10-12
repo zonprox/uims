@@ -1,14 +1,33 @@
+export type SearchResultCategory =
+  | 'Hardware'
+  | 'License'
+  | 'Inventory'
+  | 'Network'
+  | 'Employee'
+  | 'User'
+  | 'Asset'
+  | 'Directory'
+  | 'Navigation';
+
 export interface SearchQueryDto {
   q: string;
   limit?: number;
-  type?: 'all' | 'assets' | 'licenses' | 'users';
+  type?:
+    | 'all'
+    | 'hardware'
+    | 'licenses'
+    | 'inventory'
+    | 'network'
+    | 'employees'
+    | 'users'
+    | 'assets';
 }
 
 export interface SearchResultItem {
   id: string;
   title: string;
   subtitle?: string;
-  category: 'Asset' | 'License' | 'Directory' | 'Navigation';
+  category: SearchResultCategory;
   path: string;
   status?: string;
   meta?: Record<string, unknown>;

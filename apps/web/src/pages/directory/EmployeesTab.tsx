@@ -28,6 +28,7 @@ import type {
 import {
   Alert,
   App,
+  AutoComplete,
   Avatar,
   Button,
   Card,
@@ -50,6 +51,7 @@ import {
   theme,
 } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import AppDrawer from '../../components/AppDrawer';
 import { directoryService } from '../../services/directory.service';
 import {
@@ -104,6 +106,32 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
   const [activeEditTab, setActiveEditTab] = useState('general');
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const currentCustodyEmpIdRef = useRef<string | null>(null);
+
+  // Email domain suggestions for Corporate Email autocomplete
+  const [emailDomainOptions, setEmailDomainOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+
+  const handleEmailSearch = (text: string) => {
+    if (!text) {
+      setEmailDomainOptions([]);
+      return;
+    }
+    const atIndex = text.indexOf('@');
+    const allowedDomains = ['youngonevn.com', 'youngone.com'];
+    if (atIndex !== -1) {
+      const prefix = text.slice(0, atIndex);
+      const domain = text.slice(atIndex + 1).toLowerCase();
+      const filtered = allowedDomains.filter((d) => d.startsWith(domain));
+      setEmailDomainOptions(
+        filtered.map((d) => ({ value: `${prefix}@${d}`, label: `${prefix}@${d}` })),
+      );
+    } else {
+      setEmailDomainOptions(
+        allowedDomains.map((d) => ({ value: `${text}@${d}`, label: `${text}@${d}` })),
+      );
+    }
+  };
 
   // Forms
   const [createForm] = Form.useForm();
@@ -295,9 +323,41 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     [message],
   );
 
+  // Deep linking: auto-open employee detail drawer via ?drawer=<id> or ?id=<id>
+  const [searchParams] = useSearchParams();
+  const deepLinkEmpId = searchParams.get('drawer') || searchParams.get('id');
+
+  useEffect(() => {
+    if (deepLinkEmpId) {
+      const match = employees.find((e) => e.id === deepLinkEmpId);
+      if (match) {
+        handleOpenDetail(match);
+      } else if (typeof directoryService.getEmployee === 'function') {
+        directoryService
+          .getEmployee(deepLinkEmpId)
+          .then((emp: DirectoryUser) => {
+            if (emp) {
+              handleOpenDetail(emp);
+            }
+          })
+          .catch((error: unknown) => {
+            console.error(
+              'Failed to resolve deep-linked entity:',
+              error instanceof Error ? error.message : String(error),
+            );
+          });
+      }
+    }
+  }, [deepLinkEmpId, employees, handleOpenDetail]);
+
   const handleCreateEmployee = async (values: CreateDirectoryUserDto) => {
     setModalSubmitting(true);
     try {
+      const emailPassword = (values as unknown as { emailPassword?: string }).emailPassword?.trim();
+      const adInitialPassword = (
+        values as unknown as { adInitialPassword?: string }
+      ).adInitialPassword?.trim();
+
       await directoryService.createEmployee({
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
@@ -313,10 +373,13 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         computerName: values.computerName?.trim() || undefined,
         domainJoined: values.domainJoinStatus === 'JOINED',
         domainJoinStatus: values.domainJoinStatus || undefined,
+        ...(emailPassword ? { emailPassword } : {}),
+        ...(adInitialPassword ? { adInitialPassword } : {}),
       });
       message.success('Employee directory record created successfully.');
       setCreateModalOpen(false);
       createForm.resetFields();
+      setEmailDomainOptions([]);
       onRefresh();
     } catch (err: unknown) {
       if (isValidationError(err)) return;
@@ -1058,13 +1121,14 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         getStatusTag={getStatusTag}
       />
 
-      {/* Create Employee Modal (STRICTLY NO PASSWORD FIELD TO PRESERVE SECURITY INVARIANT) */}
+      {/* Create Employee Modal (Corporate Email Autocomplete & Masked Initial Credentials) */}
       <Modal
         title="Add Employee Record"
         open={createModalOpen}
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
+          setEmailDomainOptions([]);
         }}
         onOk={() => createForm.submit()}
         confirmLoading={modalSubmitting}
@@ -1116,12 +1180,38 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   { type: 'email', message: 'Enter a valid corporate email.' },
                 ]}
               >
-                <Input placeholder="e.g. jsmith@youngonevn.com" />
+                <AutoComplete
+                  options={emailDomainOptions}
+                  onSearch={handleEmailSearch}
+                  placeholder="e.g. jsmith@youngonevn.com"
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="employeeCode" label="Employee ID / Badge Code">
                 <Input placeholder="e.g. 63020037" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* Initial Corporate Credentials */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="emailPassword"
+                label="Corporate Email Password (Optional)"
+                rules={[{ min: 8, message: 'Minimum 8 characters.' }]}
+              >
+                <Input.Password placeholder="e.g. Initial email password" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="adInitialPassword"
+                label="Active Directory Initial Password (Optional)"
+                rules={[{ min: 8, message: 'Minimum 8 characters.' }]}
+              >
+                <Input.Password placeholder="e.g. Initial AD password" />
               </Form.Item>
             </Col>
           </Row>

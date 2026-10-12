@@ -24,6 +24,8 @@ describe('AssetsController', () => {
       remove: vi.fn(),
       batchDelete: vi.fn(),
       getCategories: vi.fn(),
+      getHandoverTemplateHtml: vi.fn(),
+      returnAsset: vi.fn(),
     };
 
     controller = new AssetsController(mockAssetsService as unknown as AssetsService);
@@ -152,6 +154,44 @@ describe('AssetsController', () => {
 
       expect(mockAssetsService.batchDelete).toHaveBeenCalledWith(['a1']);
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('handover-template & return', () => {
+    it('should set response headers and stream handover template HTML', () => {
+      const mockRes = {
+        setHeader: vi.fn(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      mockAssetsService.getHandoverTemplateHtml.mockReturnValue(
+        '<!DOCTYPE html><html>Template</html>',
+      );
+
+      controller.getHandoverTemplate('assignment', mockRes);
+
+      expect(mockAssetsService.getHandoverTemplateHtml).toHaveBeenCalledWith('assignment');
+      expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html; charset=utf-8');
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        'attachment; filename="asset_handover_template.html"',
+      );
+      expect(mockRes.send).toHaveBeenCalledWith('<!DOCTYPE html><html>Template</html>');
+    });
+
+    it('should call service returnAsset with ID and ReturnAssetDto', async () => {
+      const returnDto = {
+        status: 'In Storage',
+        conditionNotes: 'All parts inspected',
+        recordDocUrl: 'https://storage.corp/record.pdf',
+      };
+      const mockResult = { id: 'ast-1', status: 'In Storage', hasPendingRecord: false };
+      mockAssetsService.returnAsset.mockResolvedValue(mockResult);
+
+      const result = await controller.returnAsset('ast-1', returnDto);
+
+      expect(mockAssetsService.returnAsset).toHaveBeenCalledWith('ast-1', returnDto);
+      expect(result).toBe(mockResult);
     });
   });
 

@@ -15,6 +15,7 @@ import {
 import { Empty, Flex, Input, Modal, Spin, Tag, Typography, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import type { SearchResultItem } from '@uims/shared-types';
 import { api } from '../services/api';
 
 const { Text } = Typography;
@@ -138,14 +139,6 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
 ];
 
-interface SearchResultItem {
-  id: string;
-  title: string;
-  subtitle?: string;
-  category: string;
-  path: string;
-}
-
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
@@ -235,14 +228,43 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
+      case 'Hardware':
       case 'Asset':
         return <LaptopOutlined />;
       case 'License':
         return <SafetyCertificateOutlined />;
+      case 'Inventory':
+        return <DatabaseOutlined />;
+      case 'Network':
+        return <GlobalOutlined />;
+      case 'Employee':
       case 'Directory':
         return <TeamOutlined />;
+      case 'User':
+        return <UserOutlined />;
       default:
         return <SearchOutlined />;
+    }
+  };
+
+  const getCategoryTagColor = (category: string) => {
+    switch (category) {
+      case 'Hardware':
+      case 'Asset':
+        return 'blue';
+      case 'License':
+        return 'cyan';
+      case 'Inventory':
+        return 'gold';
+      case 'Network':
+        return 'purple';
+      case 'Employee':
+      case 'Directory':
+        return 'green';
+      case 'User':
+        return 'geekblue';
+      default:
+        return 'default';
     }
   };
 
@@ -414,7 +436,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                             )}
                           </div>
                         </Flex>
-                        <Tag color="blue" style={{ fontSize: 10.5, margin: 0 }}>
+                        <Tag
+                          color={getCategoryTagColor(item.category)}
+                          style={{ fontSize: 10.5, margin: 0 }}
+                        >
                           {item.category}
                         </Tag>
                       </Flex>

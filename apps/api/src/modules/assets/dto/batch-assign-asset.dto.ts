@@ -31,15 +31,6 @@ export class BatchAssignAssetDto implements IBatchAssignAssetDto {
   assignedToId?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Department ID to associate with the assigned assets',
-    example: '123e4567-e89b-12d3-a456-426614174004',
-  })
-  @IsOptional()
-  @ValidateIf((_obj, val) => val !== null && val !== undefined)
-  @IsUUID('4')
-  departmentId?: string | null;
-
-  @ApiPropertyOptional({
     description:
       'Explicit lifecycle status for the assets (defaults to IN_USE if assigned, or AVAILABLE if unassigned)',
     example: 'IN_USE',
@@ -48,4 +39,12 @@ export class BatchAssignAssetDto implements IBatchAssignAssetDto {
   @IsString()
   @MaxLength(50)
   status?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL of the uploaded scanned signed handover document',
+    example: 'https://storage.example.com/handover-records/handover-rec-123.pdf',
+  })
+  @IsOptional()
+  @IsString()
+  recordDocUrl?: string;
 }

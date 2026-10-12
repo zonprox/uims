@@ -53,6 +53,7 @@ export interface Asset {
     inUse: number;
   };
   status: 'Active' | 'In Repair' | 'In Storage' | 'Retired' | string;
+  hasPendingRecord?: boolean;
   assignedTo: string;
   assignedToId?: string | null;
   assignedEmail: string;
@@ -203,5 +204,42 @@ export const assetsService = {
   batchAssignAssets: async (payload: BatchAssignAssetDto): Promise<BatchAssignAssetResultDto> => {
     const res = await api.post('/assets/batch-assign', payload);
     return res.data?.data ?? res.data;
+  },
+
+  returnAsset: async (
+    id: string,
+    data: { status?: string; conditionNotes?: string; recordDocUrl?: string },
+  ): Promise<Asset> => {
+    const res = await api.post(`/assets/${id}/return`, data);
+    return res.data?.data ?? res.data;
+  },
+
+  downloadHandoverTemplate: async (type: 'assignment' | 'return' = 'assignment'): Promise<Blob> => {
+    const res = await api.get('/assets/handover-template', {
+      params: { type },
+      responseType: 'blob',
+    });
+    const blob: Blob = res.data;
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      try {
+        const createObjectURL = window.URL?.createObjectURL || URL?.createObjectURL;
+        if (typeof createObjectURL === 'function') {
+          const blobUrl = createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          const timestamp = dayjs().format('YYYY-MM-DD');
+          link.setAttribute('download', `asset_${type}_template_${timestamp}.html`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          if (typeof window.URL?.revokeObjectURL === 'function') {
+            window.URL.revokeObjectURL(blobUrl);
+          }
+        }
+      } catch (_err: unknown) {
+        // Safe fallback in test environments
+      }
+    }
+    return blob;
   },
 };

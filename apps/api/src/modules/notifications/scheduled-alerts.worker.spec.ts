@@ -85,7 +85,7 @@ describe('ScheduledAlertsWorker', () => {
         expect.objectContaining({
           title: 'License Expired',
           type: 'ALERT',
-          link: '/licenses',
+          link: '/licenses?drawer=lic-1',
         }),
       );
       expect(mockRedis.set).toHaveBeenCalledWith('alert:license:expired:lic-1', true, 86400 * 7);
@@ -301,7 +301,7 @@ describe('ScheduledAlertsWorker', () => {
         expect.objectContaining({
           title: 'Overdue Maintenance Alert',
           type: 'WARNING',
-          link: '/assets',
+          link: '/assets?drawer=ast-m1',
         }),
       );
       expect(mockRedis.set).toHaveBeenCalledWith(

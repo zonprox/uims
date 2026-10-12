@@ -5,14 +5,29 @@ import {
   EditOutlined,
   LaptopOutlined,
   PrinterOutlined,
+  RollbackOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
-import { Badge, Button, Card, Descriptions, Empty, Flex, Tabs, Tag, Typography, theme } from 'antd';
-import React, { useRef } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Flex,
+  Tabs,
+  Tag,
+  Typography,
+  theme,
+} from 'antd';
+import React, { useRef, useState } from 'react';
 import AppDrawer from '../../../components/AppDrawer';
 import { FormattedDate } from '../../../components/FormattedDate';
 import type { Asset } from '../../../services/assets.service';
 import { printAssetLabel } from '../utils/printAssetLabel';
 import { PrintableAssetLabel } from './PrintableAssetLabel';
+import { ReturnAssetModal } from './ReturnAssetModal';
 
 const { Text } = Typography;
 
@@ -21,6 +36,7 @@ export interface AssetDetailDrawerProps {
   selectedAsset: Asset | null;
   onClose: () => void;
   onOpenEditModal: (asset: Asset) => void;
+  onReturnAsset?: (asset: Asset) => void;
   onViewSwitchFaceplate?: (switchId?: string, portId?: string) => void;
   onViewRackElevation?: (rackId?: string, unit?: number) => void;
 }
@@ -31,12 +47,22 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
     selectedAsset,
     onClose,
     onOpenEditModal,
+    onReturnAsset,
     onViewSwitchFaceplate,
     onViewRackElevation,
   }) => {
     if (!selectedAsset) return null;
     const { token } = theme.useToken();
     const qrContainerRef = useRef<HTMLDivElement>(null);
+    const [returnModalOpen, setReturnModalOpen] = useState(false);
+
+    const handleReturnClick = () => {
+      if (onReturnAsset) {
+        onReturnAsset(selectedAsset);
+      } else {
+        setReturnModalOpen(true);
+      }
+    };
 
     const renderDepartment = () => {
       if (!selectedAsset.department) {
@@ -324,173 +350,215 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
     };
 
     return (
-      <AppDrawer
-        title={selectedAsset.name}
-        subtitle={
-          selectedAsset.model
-            ? `${selectedAsset.manufacturer} ${selectedAsset.model}`.trim()
-            : selectedAsset.category
-        }
-        icon={<LaptopOutlined style={{ color: token.colorPrimary }} />}
-        tag={<Tag color="blue">{selectedAsset.tag}</Tag>}
-        open={open}
-        onClose={onClose}
-        size={540}
-        extra={
-          <Button
-            type="primary"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              onClose();
-              onOpenEditModal(selectedAsset);
-            }}
-          >
-            Edit
-          </Button>
-        }
-        cancelText="Close"
-      >
-        <Tabs
-          defaultActiveKey="details"
-          items={[
-            {
-              key: 'details',
-              label: 'Details',
-              children: (
-                <div>
-                  <Descriptions
-                    title="Asset Information"
-                    bordered
-                    size="small"
-                    column={1}
-                    styles={{ label: { whiteSpace: 'nowrap' } }}
-                    style={{ marginBottom: 16 }}
-                  >
-                    <Descriptions.Item label="Asset Tag">{selectedAsset.tag}</Descriptions.Item>
-                    <Descriptions.Item label="Serial Number">
-                      {selectedAsset.serialNumber ? (
-                        <Text code copyable={{ text: selectedAsset.serialNumber }}>
-                          {selectedAsset.serialNumber}
-                        </Text>
-                      ) : (
-                        <Text type="secondary">—</Text>
-                      )}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Manufacturer">
-                      {selectedAsset.manufacturer}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Model">{selectedAsset.model}</Descriptions.Item>
-                    <Descriptions.Item label="Category">{selectedAsset.category}</Descriptions.Item>
-                    <Descriptions.Item label="Status">
-                      <Tag color={selectedAsset.status === 'Active' ? 'success' : 'warning'}>
-                        {selectedAsset.status}
-                      </Tag>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Notes">
-                      {typeof selectedAsset.notes === 'string' && selectedAsset.notes.trim() ? (
-                        <Text style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                          {selectedAsset.notes}
-                        </Text>
-                      ) : (
-                        <Text type="secondary">—</Text>
-                      )}
-                    </Descriptions.Item>
-                  </Descriptions>
-
-                  <Descriptions
-                    title="Allocation"
-                    bordered
-                    size="small"
-                    column={1}
-                    styles={{ label: { whiteSpace: 'nowrap' } }}
-                    style={{ marginBottom: 16 }}
-                  >
-                    {selectedAsset.organization && (
-                      <Descriptions.Item label="Organization">
-                        <Tag color="purple" icon={<BankOutlined />}>
-                          {selectedAsset.organization}
+      <>
+        <AppDrawer
+          title={selectedAsset.name}
+          subtitle={
+            selectedAsset.model
+              ? `${selectedAsset.manufacturer} ${selectedAsset.model}`.trim()
+              : selectedAsset.category
+          }
+          icon={<LaptopOutlined style={{ color: token.colorPrimary }} />}
+          tag={
+            <Flex align="center" gap={6}>
+              <Tag color="blue">{selectedAsset.tag}</Tag>
+              {selectedAsset.hasPendingRecord && (
+                <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0 }}>
+                  Pending Record
+                </Tag>
+              )}
+            </Flex>
+          }
+          open={open}
+          onClose={onClose}
+          size={540}
+          extra={
+            <Flex align="center" gap={8}>
+              {(selectedAsset.assignedToId ||
+                (selectedAsset.assignedTo && selectedAsset.assignedTo !== 'Unassigned')) && (
+                <Button size="small" icon={<RollbackOutlined />} onClick={handleReturnClick}>
+                  Return
+                </Button>
+              )}
+              <Button
+                type="primary"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  onClose();
+                  onOpenEditModal(selectedAsset);
+                }}
+              >
+                Edit
+              </Button>
+            </Flex>
+          }
+          cancelText="Close"
+        >
+          {selectedAsset.hasPendingRecord && (
+            <Alert
+              type="warning"
+              showIcon
+              icon={<WarningOutlined />}
+              title="Pending Handover Record"
+              description="This asset is currently flagged with a pending signed handover or return document. Please upload the verified signed document."
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          <Tabs
+            defaultActiveKey="details"
+            items={[
+              {
+                key: 'details',
+                label: 'Details',
+                children: (
+                  <div>
+                    <Descriptions
+                      title="Asset Information"
+                      bordered
+                      size="small"
+                      column={1}
+                      styles={{ label: { whiteSpace: 'nowrap' } }}
+                      style={{ marginBottom: 16 }}
+                    >
+                      <Descriptions.Item label="Asset Tag">{selectedAsset.tag}</Descriptions.Item>
+                      <Descriptions.Item label="Serial Number">
+                        {selectedAsset.serialNumber ? (
+                          <Text code copyable={{ text: selectedAsset.serialNumber }}>
+                            {selectedAsset.serialNumber}
+                          </Text>
+                        ) : (
+                          <Text type="secondary">—</Text>
+                        )}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Manufacturer">
+                        {selectedAsset.manufacturer}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Model">{selectedAsset.model}</Descriptions.Item>
+                      <Descriptions.Item label="Category">
+                        {selectedAsset.category}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Status">
+                        <Tag color={selectedAsset.status === 'Active' ? 'success' : 'warning'}>
+                          {selectedAsset.status}
                         </Tag>
                       </Descriptions.Item>
-                    )}
-                    <Descriptions.Item label="Owner Department">
-                      {renderDepartment()}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Cost Center">
-                      {selectedAsset.costCenter ? (
-                        typeof selectedAsset.costCenter === 'object' ? (
-                          <Tag color="geekblue">
-                            {selectedAsset.costCenter.code
-                              ? `${selectedAsset.costCenter.code} - ${selectedAsset.costCenter.name}`
-                              : selectedAsset.costCenter.name}
-                          </Tag>
+                      <Descriptions.Item label="Notes">
+                        {typeof selectedAsset.notes === 'string' && selectedAsset.notes.trim() ? (
+                          <Text style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {selectedAsset.notes}
+                          </Text>
                         ) : (
-                          <Tag color="geekblue">{selectedAsset.costCenter}</Tag>
-                        )
-                      ) : (
-                        <Tag color="default">Unassigned</Tag>
-                      )}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Assigned User">
-                      {selectedAsset.assignedTo ? (
-                        <>
-                          <Typography.Text strong>{selectedAsset.assignedTo}</Typography.Text>
-                          {selectedAsset.assignedEmail ? (
-                            <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
-                              ({selectedAsset.assignedEmail})
-                            </Typography.Text>
-                          ) : null}
-                        </>
-                      ) : (
-                        <Tag color="default">Unassigned</Tag>
-                      )}
-                    </Descriptions.Item>
-                  </Descriptions>
+                          <Text type="secondary">—</Text>
+                        )}
+                      </Descriptions.Item>
+                    </Descriptions>
 
-                  {renderNetworkConnectivity()}
+                    <Descriptions
+                      title="Allocation"
+                      bordered
+                      size="small"
+                      column={1}
+                      styles={{ label: { whiteSpace: 'nowrap' } }}
+                      style={{ marginBottom: 16 }}
+                    >
+                      {selectedAsset.organization && (
+                        <Descriptions.Item label="Organization">
+                          <Tag color="purple" icon={<BankOutlined />}>
+                            {selectedAsset.organization}
+                          </Tag>
+                        </Descriptions.Item>
+                      )}
+                      <Descriptions.Item label="Owner Department">
+                        {renderDepartment()}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Cost Center">
+                        {selectedAsset.costCenter ? (
+                          typeof selectedAsset.costCenter === 'object' ? (
+                            <Tag color="geekblue">
+                              {selectedAsset.costCenter.code
+                                ? `${selectedAsset.costCenter.code} - ${selectedAsset.costCenter.name}`
+                                : selectedAsset.costCenter.name}
+                            </Tag>
+                          ) : (
+                            <Tag color="geekblue">{selectedAsset.costCenter}</Tag>
+                          )
+                        ) : (
+                          <Tag color="default">Unassigned</Tag>
+                        )}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Assigned User">
+                        {selectedAsset.assignedTo ? (
+                          <>
+                            <Typography.Text strong>{selectedAsset.assignedTo}</Typography.Text>
+                            {selectedAsset.assignedEmail ? (
+                              <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+                                ({selectedAsset.assignedEmail})
+                              </Typography.Text>
+                            ) : null}
+                          </>
+                        ) : (
+                          <Tag color="default">Unassigned</Tag>
+                        )}
+                      </Descriptions.Item>
+                    </Descriptions>
 
-                  <Descriptions
-                    title="Lifecycle & Warranty"
-                    bordered
-                    size="small"
-                    column={1}
-                    styles={{ label: { whiteSpace: 'nowrap' } }}
+                    {renderNetworkConnectivity()}
+
+                    <Descriptions
+                      title="Lifecycle & Warranty"
+                      bordered
+                      size="small"
+                      column={1}
+                      styles={{ label: { whiteSpace: 'nowrap' } }}
+                    >
+                      <Descriptions.Item label="Purchase Date">
+                        <FormattedDate date={selectedAsset.purchaseDate} />
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Warranty Expiration">
+                        <FormattedDate date={selectedAsset.warrantyExpiry} />
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </div>
+                ),
+              },
+              {
+                key: 'label',
+                label: 'QR Code',
+                children: (
+                  <Flex
+                    vertical
+                    align="center"
+                    justify="center"
+                    gap={16}
+                    style={{ padding: '20px 0' }}
                   >
-                    <Descriptions.Item label="Purchase Date">
-                      <FormattedDate date={selectedAsset.purchaseDate} />
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Warranty Expiration">
-                      <FormattedDate date={selectedAsset.warrantyExpiry} />
-                    </Descriptions.Item>
-                  </Descriptions>
-                </div>
-              ),
-            },
-            {
-              key: 'label',
-              label: 'QR Code',
-              children: (
-                <Flex
-                  vertical
-                  align="center"
-                  justify="center"
-                  gap={16}
-                  style={{ padding: '20px 0' }}
-                >
-                  <PrintableAssetLabel asset={selectedAsset} containerRef={qrContainerRef} />
-                  <Button
-                    type="primary"
-                    icon={<PrinterOutlined />}
-                    onClick={() => printAssetLabel(selectedAsset, qrContainerRef.current)}
-                  >
-                    Print QR Label
-                  </Button>
-                </Flex>
-              ),
-            },
-          ]}
-        />
-      </AppDrawer>
+                    <PrintableAssetLabel asset={selectedAsset} containerRef={qrContainerRef} />
+                    <Button
+                      type="primary"
+                      icon={<PrinterOutlined />}
+                      onClick={() => printAssetLabel(selectedAsset, qrContainerRef.current)}
+                    >
+                      Print QR Label
+                    </Button>
+                  </Flex>
+                ),
+              },
+            ]}
+          />
+        </AppDrawer>
+        {returnModalOpen && (
+          <ReturnAssetModal
+            open={returnModalOpen}
+            asset={selectedAsset}
+            onCancel={() => setReturnModalOpen(false)}
+            onSuccess={() => {
+              setReturnModalOpen(false);
+              onClose();
+            }}
+          />
+        )}
+      </>
     );
   },
 );

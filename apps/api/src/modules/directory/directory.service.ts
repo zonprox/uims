@@ -122,6 +122,10 @@ export class DirectoryService {
           ? encryptDirectoryPassword(userData.emailPassword)
           : null,
         emailPasswordUpdatedAt: userData.emailPassword ? new Date() : null,
+        adInitialPassword: userData.adInitialPassword
+          ? encryptDirectoryPassword(userData.adInitialPassword)
+          : null,
+        adInitialPasswordUpdatedAt: userData.adInitialPassword ? new Date() : null,
       },
       include: {
         organization: true,
@@ -170,10 +174,12 @@ export class DirectoryService {
       fullName:
         `${created.firstName} ${created.lastName}`.trim() || created.displayName || created.email,
       hasEmailPassword: Boolean(created.emailPassword),
+      hasAdInitialPassword: Boolean(created.adInitialPassword),
       assignedAssetsCount: created.assignedAssets?.length || 0,
       assignedLicensesCount: created.licenseAssignments?.length || 0,
     };
     delete (result as { emailPassword?: string | null }).emailPassword;
+    delete (result as { adInitialPassword?: string | null }).adInitialPassword;
     return result;
   }
 
@@ -247,10 +253,12 @@ export class DirectoryService {
         ...u,
         fullName: `${u.firstName} ${u.lastName}`.trim() || u.displayName || u.email,
         hasEmailPassword: Boolean(u.emailPassword),
+        hasAdInitialPassword: Boolean(u.adInitialPassword),
         assignedAssetsCount: u.assignedAssets?.length || 0,
         assignedLicensesCount: u.licenseAssignments?.length || 0,
       };
       delete (item as { emailPassword?: string | null }).emailPassword;
+      delete (item as { adInitialPassword?: string | null }).adInitialPassword;
       return item;
     });
 
@@ -305,10 +313,12 @@ export class DirectoryService {
       ...user,
       fullName: `${user.firstName} ${user.lastName}`.trim() || user.displayName || user.email,
       hasEmailPassword: Boolean(user.emailPassword),
+      hasAdInitialPassword: Boolean(user.adInitialPassword),
       assignedAssetsCount: user.assignedAssets?.length || 0,
       assignedLicensesCount: user.licenseAssignments?.length || 0,
     };
     delete (result as { emailPassword?: string | null }).emailPassword;
+    delete (result as { adInitialPassword?: string | null }).adInitialPassword;
     return result;
   }
 
@@ -364,6 +374,13 @@ export class DirectoryService {
       updateData.emailPasswordUpdatedAt = new Date();
     }
 
+    if ((updateUserDto as { adInitialPassword?: string }).adInitialPassword) {
+      updateData.adInitialPassword = encryptDirectoryPassword(
+        (updateUserDto as { adInitialPassword: string }).adInitialPassword,
+      );
+      updateData.adInitialPasswordUpdatedAt = new Date();
+    }
+
     const updated = await this.prisma.directoryUser.update({
       where: { id },
       data: updateData,
@@ -414,10 +431,12 @@ export class DirectoryService {
       fullName:
         `${updated.firstName} ${updated.lastName}`.trim() || updated.displayName || updated.email,
       hasEmailPassword: Boolean(updated.emailPassword),
+      hasAdInitialPassword: Boolean(updated.adInitialPassword),
       assignedAssetsCount: updated.assignedAssets?.length || 0,
       assignedLicensesCount: updated.licenseAssignments?.length || 0,
     };
     delete (result as { emailPassword?: string | null }).emailPassword;
+    delete (result as { adInitialPassword?: string | null }).adInitialPassword;
     return result;
   }
 

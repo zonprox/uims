@@ -1,321 +1,216 @@
 import {
-  BarChartOutlined,
-  CalendarOutlined,
-  DollarOutlined,
+  DatabaseOutlined,
   DownloadOutlined,
   FilePdfOutlined,
-  LineChartOutlined,
-  MailOutlined,
-  PieChartOutlined,
-  ReloadOutlined,
+  GlobalOutlined,
+  LaptopOutlined,
   SafetyCertificateOutlined,
-  ScheduleOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
-import {
-  App,
-  Button,
-  Card,
-  Col,
-  Flex,
-  Form,
-  Input,
-  Modal,
-  Row,
-  Select,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
-import { useCallback, useEffect, useState } from 'react';
+import { App, Button, Card, Col, Flex, Row, Space, Tag, Typography } from 'antd';
+import { useState } from 'react';
 import PageContainer from '../../components/PageContainer';
-import { type ReportStats, type ReportSuite, reportsService } from '../../services/reports.service';
-import { isValidationError } from '../../utils/formValidators';
+import { reportsService } from '../../services/reports.service';
 
 const { Text, Title, Paragraph } = Typography;
 
+interface OperationalDomainExport {
+  id: string;
+  domain: 'hardware' | 'licenses' | 'inventory' | 'network' | 'employees';
+  title: string;
+  tag: string;
+  tagColor: string;
+  icon: React.ReactNode;
+  description: string;
+  fields: string[];
+}
+
+const OPERATIONAL_DOMAINS: OperationalDomainExport[] = [
+  {
+    id: 'domain-hardware',
+    domain: 'hardware',
+    title: 'Hardware Assets',
+    tag: 'Hardware Fleet',
+    tagColor: 'blue',
+    icon: <LaptopOutlined style={{ fontSize: 24, color: '#1677ff' }} />,
+    description:
+      'Complete inventory of physical computing equipment, workstations, servers, and peripherals including serial numbers, cost centers, warranty expiration, and custodian assignments.',
+    fields: ['Asset Tag', 'Model', 'Category', 'Status', 'Custodian', 'Warranty'],
+  },
+  {
+    id: 'domain-licenses',
+    domain: 'licenses',
+    title: 'Software Licenses',
+    tag: 'SaaS & Enterprise',
+    tagColor: 'green',
+    icon: <SafetyCertificateOutlined style={{ fontSize: 24, color: '#52c41a' }} />,
+    description:
+      'Enterprise software subscriptions and perpetual license contracts detailing vendor agreements, seat utilization, allocated seats, unit costs, and renewal schedules.',
+    fields: ['Software Name', 'Vendor', 'Seats', 'Cost/Seat', 'Total Cost', 'Expiry'],
+  },
+  {
+    id: 'domain-inventory',
+    domain: 'inventory',
+    title: 'Consumable Inventory',
+    tag: 'Stock & Supplies',
+    tagColor: 'orange',
+    icon: <DatabaseOutlined style={{ fontSize: 24, color: '#fa8c16' }} />,
+    description:
+      'Consumable stock items, spare network cabling, adapters, and peripheral accessories tracking SKU numbers, bin locations, minimum thresholds, and valuations.',
+    fields: ['SKU', 'Item Name', 'Quantity', 'Threshold', 'Valuation', 'Supplier'],
+  },
+  {
+    id: 'domain-network',
+    domain: 'network',
+    title: 'Network Infrastructure',
+    tag: 'Switches & IPAM',
+    tagColor: 'purple',
+    icon: <GlobalOutlined style={{ fontSize: 24, color: '#722ed1' }} />,
+    description:
+      'Network switches, rack positions, port allocations, subnets, and IP address management (IPAM) records including CIDR ranges, gateway routes, and management addresses.',
+    fields: ['Asset Name', 'Type', 'CIDR/Vendor', 'Gateway', 'Capacity', 'Management IP'],
+  },
+  {
+    id: 'domain-employees',
+    domain: 'employees',
+    title: 'Directory Employees',
+    tag: 'Staff Directory',
+    tagColor: 'cyan',
+    icon: <TeamOutlined style={{ fontSize: 24, color: '#13c2c2' }} />,
+    description:
+      'Corporate employee directory records covering corporate emails, departments, job titles, business phone extensions, account status, and Active Directory domain join states.',
+    fields: ['Employee Code', 'Full Name', 'Email', 'Department', 'Job Title', 'AD Status'],
+  },
+];
+
 export default function ReportsPage() {
   const { message } = App.useApp();
-  const [reportsList, setReportsList] = useState<Array<ReportSuite>>([]);
-  const [stats, setStats] = useState<ReportStats>({
-    scheduledReports: '4 Active',
-    annualCostSavings: '$42,500',
-    globalSlaMet: '98.2%',
-    auditReadiness: '100%',
-  });
-  const [loading, setLoading] = useState(false);
-  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-  const [scheduling, setScheduling] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  const [form] = Form.useForm();
+  const handleDownload = async (
+    domain: 'hardware' | 'licenses' | 'inventory' | 'network' | 'employees',
+    format: 'xlsx' | 'pdf',
+  ) => {
+    const downloadKey = `${domain}-${format}`;
+    setDownloading(downloadKey);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+    const formatLabel = format === 'xlsx' ? 'Excel (.xlsx)' : 'PDF';
+    const domainTitle = OPERATIONAL_DOMAINS.find((d) => d.domain === domain)?.title || domain;
+
     try {
-      const [suites, statsData] = await Promise.all([
-        reportsService.getReportSuites(),
-        reportsService.getStats().catch((_error: unknown) => null),
-      ]);
-      setReportsList(suites);
-      if (statsData) setStats(statsData);
-    } catch (_err: unknown) {
-      message.error('Failed to load reports suite.');
-    } finally {
-      setLoading(false);
-    }
-  }, [message]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const handleDownload = (reportName: string, format: 'PDF' | 'Excel' | 'CSV') => {
-    setDownloading(`${reportName}-${format}`);
-    message.loading(`Compiling live data for ${reportName} (${format})...`, 1.2).then(() => {
-      setDownloading(null);
-      message.success(`${reportName}.${format.toLowerCase()} generated and downloaded.`);
-    });
-  };
-
-  const handleScheduleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      setScheduling(true);
-
-      await reportsService.scheduleReport({
-        reportType: values.reportType,
-        frequency: values.frequency,
-        format: values.format,
-        recipients: values.recipients,
+      message.loading({
+        content: `Compiling ${domainTitle} report (${formatLabel})...`,
+        key: downloadKey,
+        duration: 0,
       });
 
-      message.success(`Automated delivery for "${values.reportType}" scheduled.`);
-      setScheduleModalOpen(false);
-      loadData();
-    } catch (_err: unknown) {
-      if (isValidationError(_err)) return;
-      message.error('Failed to save report schedule.');
-    } finally {
-      setScheduling(false);
-    }
-  };
+      await reportsService.exportReport(domain, format);
 
-  const getCategoryIcon = (category: string) => {
-    if (category.includes('Finance'))
-      return <PieChartOutlined style={{ color: '#1677ff', fontSize: 20 }} />;
-    if (category.includes('Software'))
-      return <DollarOutlined style={{ color: '#10b981', fontSize: 20 }} />;
-    if (category.includes('Operations'))
-      return <BarChartOutlined style={{ color: '#6366f1', fontSize: 20 }} />;
-    if (category.includes('Security'))
-      return <SafetyCertificateOutlined style={{ color: '#ec4899', fontSize: 20 }} />;
-    return <LineChartOutlined style={{ color: '#f59e0b', fontSize: 20 }} />;
+      message.success({
+        content: `${domainTitle} report (${formatLabel}) exported successfully.`,
+        key: downloadKey,
+        duration: 3,
+      });
+    } catch (_error: unknown) {
+      message.error({
+        content: `Failed to export ${domainTitle} report. Please try again.`,
+        key: downloadKey,
+        duration: 4,
+      });
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (
     <PageContainer
-      title="Reports & Analytics"
-      subtitle="Generate operational summaries, financial depreciation models, and compliance exports."
-      breadcrumbs={[{ title: 'Reports & Analytics' }]}
-      stats={[
-        {
-          title: 'Scheduled',
-          value: stats.scheduledReports,
-          prefix: <CalendarOutlined />,
-          color: '#1677ff',
-        },
-        {
-          title: 'Cost Savings',
-          value: stats.annualCostSavings,
-          prefix: <DollarOutlined />,
-          color: '#10b981',
-        },
-        {
-          title: 'SLA Adherence',
-          value: stats.globalSlaMet,
-          prefix: <LineChartOutlined />,
-          color: '#6366f1',
-        },
-        {
-          title: 'SOC 2 Readiness',
-          value: stats.auditReadiness,
-          prefix: <SafetyCertificateOutlined />,
-          color: '#059669',
-        },
-      ]}
-      extra={
-        <Flex gap={8}>
-          <Tooltip title="Reload from server">
-            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadData} />
-          </Tooltip>
-          <Button
-            type="primary"
-            icon={<ScheduleOutlined />}
-            onClick={() => setScheduleModalOpen(true)}
-          >
-            Schedule Report
-          </Button>
-        </Flex>
-      }
+      title="Operational Data Exports"
+      subtitle="Export live system datasets to formatted Excel workbooks and standard PDF documents."
+      breadcrumbs={[{ title: 'Reports' }]}
     >
-      <Row gutter={[14, 14]}>
-        {reportsList.map((rep) => (
-          <Col xs={24} md={12} key={rep.id}>
+      <Row gutter={[16, 16]}>
+        {OPERATIONAL_DOMAINS.map((item) => (
+          <Col xs={24} md={12} key={item.id}>
             <Card
-              size="small"
-              styles={{ body: { padding: '18px 20px' } }}
+              styles={{
+                body: {
+                  padding: '22px 24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 250,
+                },
+              }}
               title={
-                <Flex align="center" gap={10}>
-                  {getCategoryIcon(rep.category)}
-                  <div>
-                    <Text strong style={{ fontSize: 13.5 }}>
-                      {rep.title}
-                    </Text>
-                    <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 'normal' }}>
-                      {rep.category} • Frequency: {rep.frequency}
-                    </div>
-                  </div>
+                <Flex align="center" justify="space-between" style={{ width: '100%' }}>
+                  <Space size={12}>
+                    {item.icon}
+                    <Title level={5} style={{ margin: 0 }}>
+                      {item.title}
+                    </Title>
+                  </Space>
+                  <Tag color={item.tagColor}>{item.tag}</Tag>
                 </Flex>
               }
-              extra={<Tag color="blue">{rep.frequency}</Tag>}
             >
-              <Paragraph
-                type="secondary"
-                style={{ fontSize: 12.5, minHeight: 38, marginBottom: 14 }}
-              >
-                {rep.description}
-              </Paragraph>
+              <div>
+                <Paragraph
+                  type="secondary"
+                  style={{
+                    fontSize: 13,
+                    lineHeight: '1.6',
+                    marginBottom: 16,
+                  }}
+                >
+                  {item.description}
+                </Paragraph>
 
-              <div
-                style={{
-                  background: 'rgba(140, 140, 140, 0.06)',
-                  padding: '10px 12px',
-                  borderRadius: 6,
-                  marginBottom: 16,
-                }}
-              >
-                <Flex justify="space-between" align="center">
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {rep.stats?.label || 'Key Metric'}
-                    </Text>
-                    <Title level={4} style={{ margin: 0, fontWeight: 700 }}>
-                      {rep.stats?.primary || 'N/A'}
-                    </Title>
-                  </div>
-                  <Tag color="cyan">{rep.stats?.secondary || 'Active'}</Tag>
-                </Flex>
+                <div style={{ marginBottom: 20 }}>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 11.5, display: 'block', marginBottom: 6 }}
+                  >
+                    Included Dataset Fields:
+                  </Text>
+                  <Space size={[4, 6]} wrap>
+                    {item.fields.map((field) => (
+                      <Tag key={field} style={{ fontSize: 11, margin: 0 }}>
+                        {field}
+                      </Tag>
+                    ))}
+                  </Space>
+                </div>
               </div>
 
-              <Flex justify="space-between" align="center">
-                <Text type="secondary" style={{ fontSize: 11.5 }}>
-                  Available formats:
+              <div>
+                <Text
+                  type="secondary"
+                  style={{ fontSize: 11.5, display: 'block', marginBottom: 8 }}
+                >
+                  Export Formats:
                 </Text>
-                <Flex gap={8}>
+                <Flex gap={10} wrap="wrap">
                   <Button
-                    size="small"
+                    type="primary"
+                    icon={<DownloadOutlined />}
+                    loading={downloading === `${item.domain}-xlsx`}
+                    onClick={() => handleDownload(item.domain, 'xlsx')}
+                  >
+                    Export Excel (.xlsx)
+                  </Button>
+                  <Button
                     icon={<FilePdfOutlined />}
-                    loading={downloading === `${rep.title}-PDF`}
-                    onClick={() => handleDownload(rep.title, 'PDF')}
+                    loading={downloading === `${item.domain}-pdf`}
+                    onClick={() => handleDownload(item.domain, 'pdf')}
                   >
-                    PDF
-                  </Button>
-                  <Button
-                    size="small"
-                    icon={<DownloadOutlined />}
-                    loading={downloading === `${rep.title}-Excel`}
-                    onClick={() => handleDownload(rep.title, 'Excel')}
-                  >
-                    Excel (.xlsx)
-                  </Button>
-                  <Button
-                    size="small"
-                    icon={<DownloadOutlined />}
-                    loading={downloading === `${rep.title}-CSV`}
-                    onClick={() => handleDownload(rep.title, 'CSV')}
-                  >
-                    CSV
+                    Export PDF
                   </Button>
                 </Flex>
-              </Flex>
+              </div>
             </Card>
           </Col>
         ))}
       </Row>
-
-      {/* Schedule Modal */}
-      <Modal
-        title="Schedule Report"
-        open={scheduleModalOpen}
-        onOk={handleScheduleSubmit}
-        onCancel={() => setScheduleModalOpen(false)}
-        confirmLoading={scheduling}
-        destroyOnHidden={true}
-        width={540}
-        okText="Schedule Report"
-        styles={{ body: { paddingTop: 16 } }}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          validateTrigger={['onChange', 'onBlur']}
-          scrollToFirstError={true}
-          initialValues={{
-            frequency: 'Weekly (Mondays 08:00 UTC)',
-            format: 'PDF + Excel summary',
-            recipients: 'executive-team@company.com, cio@company.com',
-          }}
-        >
-          <Form.Item label="Report Type" name="reportType" rules={[{ required: true }]}>
-            <Select
-              placeholder="Choose report type"
-              showSearch
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={reportsList.map((r) => ({
-                label: r.title,
-                value: r.title,
-              }))}
-            />
-          </Form.Item>
-
-          <Row gutter={14}>
-            <Col span={12}>
-              <Form.Item label="Frequency" name="frequency" rules={[{ required: true }]}>
-                <Select
-                  options={[
-                    { label: 'Daily (07:00 UTC)', value: 'Daily (07:00 UTC)' },
-                    { label: 'Weekly (Mondays 08:00 UTC)', value: 'Weekly (Mondays 08:00 UTC)' },
-                    { label: 'Monthly (1st of Month)', value: 'Monthly (1st of Month)' },
-                    { label: 'Quarterly Executive Digest', value: 'Quarterly Executive Digest' },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Format" name="format" rules={[{ required: true }]}>
-                <Select
-                  options={[
-                    { label: 'PDF Report Document', value: 'PDF' },
-                    { label: 'PDF + Excel summary', value: 'PDF + Excel summary' },
-                    { label: 'Raw CSV Data Stream', value: 'Raw CSV Data Stream' },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            label="Email Recipients"
-            name="recipients"
-            rules={[{ required: true }]}
-            tooltip="Comma separated email list"
-          >
-            <Input prefix={<MailOutlined />} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </PageContainer>
   );
 }

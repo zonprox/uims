@@ -829,7 +829,6 @@ describe('Milestone 2 Validation Pipeline & DTO Ingestion Rejections (Adversaria
             'a0000000-0000-4000-8000-000000000002',
           ],
           assignedToId: 'b0000000-0000-4000-8000-000000000001',
-          departmentId: 'c0000000-0000-4000-8000-000000000001',
           status: 'IN_USE',
         };
 
