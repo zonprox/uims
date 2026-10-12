@@ -17,14 +17,14 @@ All test tasks are orchestrated through [Turborepo](https://turbo.build/repo) ([
 
 ## Test Suite Distribution
 
-The monorepo contains a comprehensive suite of unit, integration, and boundary/adversarial tests:
+The monorepo contains an extensive suite of 195 test files spanning unit, integration, and boundary/adversarial tests with all API tests passing cleanly:
 
 | Workspace | Test Files | Total Tests | Primary Focus Areas | Key Test Locations |
 | :--- | :--- | :--- | :--- | :--- |
-| **API** (`@uims/api`) | 40 files | 349 tests | Auth & RBAC guards, Prisma exception filters, audit interceptors, NestJS services/controllers, WebSocket notifications gateway, scheduled alert workers, adversarial stress suites | [`apps/api/src/common/guards/`](file:///home/user/projects/uims/apps/api/src/common/guards/), [`apps/api/src/modules/`](file:///home/user/projects/uims/apps/api/src/modules/) |
-| **Web** (`@uims/web`) | 34 files | 284 tests | Zustand store state transitions, React Router navigation and error boundaries, Ant Design layouts and dark/light themes, QR code encoding/decoding, modal workflows, API services | [`apps/web/src/stores/`](file:///home/user/projects/uims/apps/web/src/stores/), [`apps/web/src/components/`](file:///home/user/projects/uims/apps/web/src/components/), [`apps/web/src/pages/`](file:///home/user/projects/uims/apps/web/src/pages/) |
-| **Validators** (`@uims/shared-validators`) | 3 files | 12 tests | Zod schema validation (email, UUID, pagination, notifications, role assignments) | [`packages/shared-validators/src/`](file:///home/user/projects/uims/packages/shared-validators/src/) |
-| **Utilities** (`@uims/shared-utils`) | 3 files | 15 tests | Timezone catalog generation, dayjs date formatting, enum transformations | [`packages/shared-utils/src/`](file:///home/user/projects/uims/packages/shared-utils/src/) |
+| **API** (`@uims/api`) | 91 files | 349+ tests (all passing) | Auth & RBAC guards, Prisma exception filters, audit interceptors, NestJS services/controllers, WebSocket notifications gateway, scheduled alert workers, adversarial stress suites | [`apps/api/src/common/guards/`](file:///home/user/projects/uims/apps/api/src/common/guards/), [`apps/api/src/modules/`](file:///home/user/projects/uims/apps/api/src/modules/), [`apps/api/test/e2e/`](file:///home/user/projects/uims/apps/api/test/e2e/) |
+| **Web** (`@uims/web`) | 85 files | 1,062 tests | Zustand store state transitions, React Router navigation and error boundaries, Ant Design layouts and dark/light themes, QR code encoding/decoding, modal workflows, API services, adversarial suites | [`apps/web/src/stores/`](file:///home/user/projects/uims/apps/web/src/stores/), [`apps/web/src/components/`](file:///home/user/projects/uims/apps/web/src/components/), [`apps/web/src/pages/`](file:///home/user/projects/uims/apps/web/src/pages/) |
+| **Validators** (`@uims/shared-validators`) | 14 files | 529 tests | Zod schema validation (email, UUID, pagination, notifications, role assignments, network/rack/IPAM, asset, license, inventory, directory) | [`packages/shared-validators/src/`](file:///home/user/projects/uims/packages/shared-validators/src/) |
+| **Utilities** (`@uims/shared-utils`) | 5 files | 94 tests | Timezone catalog generation, dayjs date formatting, enum transformations, string and byte utilities | [`packages/shared-utils/src/`](file:///home/user/projects/uims/packages/shared-utils/src/) |
 
 ## Workspace Configurations
 

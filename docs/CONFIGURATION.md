@@ -35,7 +35,7 @@ The primary source of truth for runtime configuration is the process environment
 
 | Name | Required | Default | Description |
 |---|---|---|---|
-| `REDIS_URL` | **Required** (prod) | None | Full Redis connection URI (e.g., `redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}`). Required in production for distributed caching, session invalidation, and BullMQ queues. Optional in dev. |
+| `REDIS_URL` | **Required** (prod) | None | Full Redis connection URI (e.g., `redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}`). Required in production for distributed caching, session invalidation, and rate limiting. Optional in dev. |
 | `REDIS_HOST` | Optional | `localhost` | Redis server host for connection URL interpolation. In Docker Compose, the container host is `redis`. |
 | `REDIS_PORT` | Optional | `6379` | Redis server port (`.env.example` default `6379`). In Docker Compose, the host port mapping defaults to `${REDIS_PORT:-6381}:6379`. |
 | `REDIS_PASSWORD` | Optional | None | Authentication password for Redis. Set securely; `.env.example` specifies the placeholder `your_secure_redis_password`. |
@@ -91,7 +91,7 @@ The primary source of truth for runtime configuration is the process environment
   - `DATABASE_URL`: Required for Prisma database connection during application bootstrapping.
   - `JWT_SECRET`: Required for signing and verifying access tokens (enforced minimum 32 characters by Zod schema in [`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts)).
   - `JWT_REFRESH_SECRET`: Required for signing and verifying refresh tokens (enforced minimum 32 characters).
-  - `REDIS_URL`: Required in production (`NODE_ENV=production`) for distributed caching, session tracking, and background queues.
+  - `REDIS_URL`: Required in production (`NODE_ENV=production`) for distributed caching, session tracking, and rate limiting.
   
   The API enforces these invariants at bootstrap using Zod schema validation in [`app.config.ts`](file:///home/user/projects/uims/apps/api/src/config/app.config.ts). If any required variable is missing or fails validation, startup fails fast with an explicit descriptive error.
 

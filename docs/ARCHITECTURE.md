@@ -5,8 +5,8 @@
 Unified IT Management System (UIMS) is an enterprise IT management platform designed to centralize the administration of IT infrastructure, assets, networks, and organizational structures.
 - **Backend:** NestJS 11 (Node.js 22+, TypeScript 7) providing a modular RESTful API and real-time WebSocket gateway. Interactive OpenAPI / Swagger documentation is generated via `@nestjs/swagger` at `/api/v1/docs`.
 - **Frontend:** React 19 Single Page Application (SPA) built with Vite 8 and Ant Design 6 (`antd`). Client-side state is managed using Zustand 5, server-state caching and synchronization are managed via TanStack Query 5, and real-time events are received via `socket.io-client`.
-- **Data Layer:** PostgreSQL 17 (primary relational store accessed via Prisma ORM 7 with `@prisma/adapter-pg`), Redis 8 (caching, sessions, and job queues), Meilisearch (high-performance full-text search engine), SeaweedFS (S3-compatible distributed object storage for assets and files).
-- **Asynchronous Processing:** Redis-backed BullMQ 6 worker queues for asynchronous task execution and background jobs.
+- **Data Layer:** PostgreSQL 17 (primary relational store accessed via Prisma ORM 7 with `@prisma/adapter-pg`), Redis 8 (distributed caching, session invalidation, and rate limiting), Meilisearch (high-performance full-text search engine), SeaweedFS (S3-compatible distributed object storage for assets and files).
+- **Asynchronous Processing:** Dedicated `@nestjs/schedule` worker execution (e.g. `ScheduledAlertsWorker` via cursor pagination) for asynchronous scheduled tasks, and Redis via `ioredis` for distributed caching, session invalidation, and rate limiting.
 - **Architecture Style:** Modular Monolith API with a React SPA frontend, deployed as containerized micro-services via Docker Compose.
 
 ## Component Diagram
@@ -27,7 +27,7 @@ graph TD
 
     subgraph Infrastructure [Data Layer]
         DB[(Postgres 17)]
-        Cache[(Redis & BullMQ)]
+        Cache[(Redis)]
         Search[(Meilisearch)]
         Storage[(SeaweedFS)]
     end
@@ -53,7 +53,7 @@ graph TD
    - `RolesGuard`: Verifies role assignments for the requested route (`roles.guard.ts`).
    - `PermissionsGuard`: Evaluates fine-grained permissions against role-based access control (RBAC) policies (`permissions.guard.ts`).
 4. **Controller Routing:** The request is routed to the corresponding module controller under `apps/api/src/modules/` (e.g., `inventory`, `assets`, `users`).
-5. **Business Logic & Asynchronous Processing:** The controller delegates execution to a service. Asynchronous or heavy computational workloads are enqueued to Redis via BullMQ 6 worker queues.
+5. **Business Logic & Asynchronous Processing:** The controller delegates execution to a service. Asynchronous scheduled worker execution runs via `@nestjs/schedule` (e.g. `ScheduledAlertsWorker` via cursor pagination), while Redis via `ioredis` provides high-performance distributed caching, session invalidation, and rate limiting.
 6. **Data Access:** The service interacts with:
    - **PostgreSQL 17** via Prisma 7 ORM with native connection pooling (`@prisma/adapter-pg`) for relational entity operations.
    - **Redis 8** for distributed key-value caching, rate limiting, and session verification.

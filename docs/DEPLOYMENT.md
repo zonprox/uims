@@ -43,7 +43,7 @@ The stack consists of 8 interconnected services:
 | Service | Image / Build Context | Container Name | Exposed Port(s) | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | **`postgres`** | `postgres:17-alpine` | `uims-postgres` | `${DATABASE_PORT:-5433}:5432` | Relational database. Initialized with extensions via [`init.sql`](file:///home/user/projects/uims/docker/postgres/init.sql). |
-| **`redis`** | `redis:8-alpine` | `uims-redis` | `${REDIS_PORT:-6381}:6379` | In-memory store for session caching and BullMQ background task queues. |
+| **`redis`** | `redis:8-alpine` | `uims-redis` | `${REDIS_PORT:-6381}:6379` | In-memory store for session caching, distributed locks, and rate limiting. |
 | **`meilisearch`** | `getmeili/meilisearch:latest` | `uims-meilisearch` | `7700:7700` | Search engine handling full-text search indexing. |
 | **`seaweedfs-master`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-master` | `9333:9333` | Master node managing volume assignments for SeaweedFS cluster. |
 | **`seaweedfs-volume`** | `chrislusf/seaweedfs:latest` | `uims-seaweedfs-volume` | `8080:8080` | Volume storage node storing raw file blobs. |

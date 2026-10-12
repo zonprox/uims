@@ -19,9 +19,9 @@ last_mapped_at: 2026-10-12
 - Prevention Directive: Strictly prohibit library downgrades (refuting legacy TD-020). Always verify with `pnpm dedupe` and `pnpm test` when modifying dependencies.
 
 **Network Rack Model Consolidation & Simplification (RESOLVED):**
-- Resolution: Consolidated duplicate rack height fields across schema, backend DTOs, frontend components, and validators to standardize on `uHeight`, eliminating redundant `totalHeight` schema baggage.
+- Resolution: Completely eliminated schema height columns (`totalHeight`, `uHeight`) from `apps/api/prisma/schema.prisma` and standardized on a constant 42U cabinet baseline (`STANDARD_RACK_HEIGHT = 42`) across frontend elevation drawers/views, validators, and backend DTOs.
 - Status: Fully synchronized across all 27 files, tests passing 100% (1,062 / 1,062).
-- Prevention Directive: When modeling physical dimensions, maintain a single authoritative attribute across schema, entities, and validation layers to avoid dual-source-of-truth drift.
+- Prevention Directive: When modeling physical dimensions with standard fixed capacities, eliminate redundant schema height columns and enforce a single authoritative constant baseline across backend DTOs, frontend views, and validation layers to prevent dual-source-of-truth drift.
 
 **AssetsPage Column Text Assertion in Test Suite (RESOLVED):**
 - Resolution: Synchronized `src/pages/assets/AssetsPage.test.tsx` (line 466) with streamlined table column layout (`[SUB Code, Device Model, Category, Status, Assignee, Organization, Actions]`). The test was updated to click on the asset code (`AST-1001`) and assert that `Cost Center` renders inside `AssetDetailDrawer`.
