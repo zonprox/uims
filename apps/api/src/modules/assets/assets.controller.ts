@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,21 +9,26 @@ import {
   Post,
   Query,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AssetsService } from './assets.service';
 import { AssetQueryDto } from './dto/asset-query.dto';
+import { AttachHandoverDocumentDto } from './dto/attach-handover-document.dto';
 import { BatchAssignAssetDto } from './dto/batch-assign-asset.dto';
 import { BatchDeleteAssetDto } from './dto/batch-delete-asset.dto';
 import { CheckinPhysicalUnitDto } from './dto/checkin-physical-unit.dto';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { CreateCostCenterDto } from './dto/create-cost-center.dto';
 import { CreateDeviceModelDto } from './dto/create-device-model.dto';
+import { GenerateHandoverDocumentDto } from './dto/generate-handover-document.dto';
 import { IssueAssetUnitDto } from './dto/issue-asset-unit.dto';
 import { RegisterPhysicalUnitDto } from './dto/register-physical-unit.dto';
 import { ReturnAssetDto } from './dto/return-asset.dto';
@@ -62,6 +68,102 @@ export class AssetsController {
       `attachment; filename="asset_${type === 'return' ? 'return' : 'handover'}_template.html"`,
     );
     res.send(html);
+  }
+
+  @Post('handover-documents/generate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Generate populated printable asset handover or return document' })
+  generateHandoverDocument(@Body() body: GenerateHandoverDocumentDto) {
+    return this.assetsService.generateHandoverDocument(body);
+  }
+
+  @Get('handover-documents/generate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Generate populated printable asset handover or return document (GET)' })
+  generateHandoverDocumentGet(
+    @Query('type') type: 'assignment' | 'return' | undefined,
+    @Query('assetIds') assetIds: string | undefined,
+    @Query('recipientId') recipientId: string | undefined,
+    @Query('conditionNotes') conditionNotes: string | undefined,
+  ) {
+    if (type && type !== 'assignment' && type !== 'return') {
+      throw new BadRequestException('type must be either "assignment" or "return"');
+    }
+    const parsedAssetIds = assetIds
+      ? assetIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined;
+    return this.assetsService.generateHandoverDocument({
+      type: type || 'assignment',
+      assetIds: parsedAssetIds,
+      recipientId,
+      conditionNotes,
+    });
+  }
+
+  @Post('handover-documents/upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        assetId: { type: 'string', nullable: true },
+      },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+      },
+      fileFilter: (_req, file, callback) => {
+        const allowedMimes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+        if (!allowedMimes.includes(file.mimetype?.toLowerCase())) {
+          return callback(
+            new BadRequestException(
+              'Invalid file type. Only PDF, PNG, JPG, and JPEG documents are permitted.',
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload scanned signed handover or return document (PDF/images up to 10MB)',
+  })
+  uploadHandoverDocument(
+    @UploadedFile()
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined,
+    @Body('assetId') assetId?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException(
+        'A document file is required (PDF, PNG, JPG, or JPEG up to 10MB).',
+      );
+    }
+    const cleanAssetId = assetId?.trim() ? assetId.trim() : undefined;
+    return this.assetsService.saveHandoverDocumentFile(file, cleanAssetId);
+  }
+
+  @Get('handover-documents/file/:filename')
+  @ApiOperation({ summary: 'Download or view stored signed handover document' })
+  getHandoverDocumentFile(
+    @Param('filename') filename: string,
+    @Query('download') download: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const isAttachment = download === 'true' || download === '1';
+    return this.assetsService.streamHandoverDocumentFile(filename, res, isAttachment);
   }
 
   @Get('export.xlsx')
@@ -271,5 +373,13 @@ export class AssetsController {
   @ApiOperation({ summary: 'Return asset to storage with handover record' })
   returnAsset(@Param('id') id: string, @Body() body: ReturnAssetDto) {
     return this.assetsService.returnAsset(id, body);
+  }
+
+  @Post(':id/handover-document')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Attach signed handover document and resolve pending record' })
+  attachHandoverDocument(@Param('id') id: string, @Body() body: AttachHandoverDocumentDto) {
+    return this.assetsService.attachHandoverDocument(id, body.fileUrl, body.notes);
   }
 }

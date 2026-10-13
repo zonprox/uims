@@ -591,6 +591,7 @@ export function useAssetManagement(form: FormInstance) {
       assignedToId?: string | null;
       departmentId?: string | null;
       status?: string;
+      signedDocUrl?: string;
     }) => {
       if (selectedRowKeys.length === 0) return;
       try {
@@ -601,6 +602,7 @@ export function useAssetManagement(form: FormInstance) {
           assignedToId: values.assignedToId,
           departmentId: values.departmentId,
           status: values.status,
+          signedDocUrl: values.signedDocUrl,
         });
 
         const count = result.count ?? assetIds.length;

@@ -55,6 +55,7 @@ async function clearDatabase(client: PrismaClient) {
       await tx.vLAN.deleteMany();
       await tx.inventoryItem.deleteMany();
       await tx.inventoryCategory.deleteMany();
+      await tx.assetHandoverRecord.deleteMany();
       await tx.asset.deleteMany();
       await tx.costCenter.deleteMany();
       await tx.assetCategory.deleteMany();

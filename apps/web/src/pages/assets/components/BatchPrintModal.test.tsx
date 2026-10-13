@@ -83,6 +83,7 @@ describe('BatchPrintModal Component', () => {
     open: boolean;
     assets: Asset[];
     onClose: () => void;
+    defaultColumns?: number;
   }) => {
     currentRoot = createRoot(container);
     await act(async () => {
@@ -141,24 +142,49 @@ describe('BatchPrintModal Component', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('switches grid density between 3 and 4 columns', async () => {
+  it('renders standardized 4-column layout badge and cols-4 grid', async () => {
     const onClose = vi.fn();
-    await renderComponent({ open: true, assets: mockAssets, onClose });
+    await renderComponent({ open: true, assets: mockAssets, onClose, defaultColumns: 4 });
 
-    const segmentedItems = document.body.querySelectorAll('.ant-segmented-item');
-    expect(segmentedItems.length).toBe(2);
-
-    // Click 4 Columns
-    const fourColsItem = Array.from(segmentedItems).find((el) =>
-      el.textContent?.includes('4 Columns'),
-    );
-    expect(fourColsItem).toBeDefined();
-
-    await act(async () => {
-      (fourColsItem as HTMLElement)?.click();
-    });
-
+    expect(document.body.textContent).toContain('Standard 4-Column A4 Layout');
     const grid = document.body.querySelector('.printable-asset-sheet');
     expect(grid?.classList.contains('cols-4')).toBe(true);
+  });
+
+  it('generates A4 portrait print HTML with nowrap and balanced margins', async () => {
+    const { generateBatchPrintSheetHtml } = await import('../utils/printAssetLabel');
+    const html = generateBatchPrintSheetHtml('<div class="card">Item</div>');
+    expect(html).toContain('size: A4 portrait;');
+    expect(html).toContain('margin: 6mm 5mm;');
+    expect(html).toContain('grid-template-columns: repeat(4, 1fr)');
+    expect(html).toContain('white-space: nowrap !important;');
+    expect(html).toContain('text-overflow: ellipsis !important;');
+    expect(html).toContain('gap: 2.5mm !important;');
+  });
+
+  it('unwraps nested printable-asset-sheet when printing container', async () => {
+    const { printBatchAssetSheet } = await import('../utils/printAssetLabel');
+    const outerWrapper = document.createElement('div');
+    outerWrapper.innerHTML = `
+      <div class="printable-asset-sheet cols-4">
+        <div class="printable-sheet-card" id="card-1">Card 1</div>
+        <div class="printable-sheet-card" id="card-2">Card 2</div>
+      </div>
+    `;
+    document.body.appendChild(outerWrapper);
+
+    printBatchAssetSheet(outerWrapper);
+    const iframe = document.getElementById('uims-batch-print-frame') as HTMLIFrameElement | null;
+    expect(iframe).not.toBeNull();
+
+    // Verify printed content contains cards directly inside the sheet without double nested sheets
+    const printedHtml = iframe?.contentWindow?.document.body.innerHTML || '';
+    expect(printedHtml).toContain('id="card-1"');
+    expect(printedHtml).toContain('id="card-2"');
+    // Ensure only one printable-asset-sheet exists in the printed document
+    const sheetMatches = printedHtml.match(/class="printable-asset-sheet/g);
+    expect(sheetMatches?.length).toBe(1);
+
+    outerWrapper.remove();
   });
 });

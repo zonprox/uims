@@ -7,7 +7,7 @@ const { Text } = Typography;
 
 export interface PrintableAssetSheetProps {
   assets: Asset[];
-  columns?: 3 | 4;
+  columns?: number;
 }
 
 export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.memo(
@@ -20,16 +20,15 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
       );
     }
 
-    const is4Cols = columns === 4;
-    const qrSize = is4Cols ? 68 : 88;
+    const qrSize = columns === 3 ? 52 : 44;
 
     return (
       <div
-        className={`printable-asset-sheet ${is4Cols ? 'cols-4' : 'cols-3'}`}
+        className={`printable-asset-sheet cols-${columns}`}
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${columns}, 1fr)`,
-          gap: is4Cols ? '6px' : '8px',
+          gap: columns === 3 ? '8px' : '6px',
           width: '100%',
           boxSizing: 'border-box',
         }}
@@ -58,20 +57,22 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
               style={{
                 border: '1.5px dashed #777777',
                 borderRadius: '4px',
-                padding: '8px 10px',
+                padding: columns === 3 ? '8px 10px' : '4px 6px',
                 background: '#ffffff',
                 color: '#000000',
                 boxSizing: 'border-box',
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: is4Cols ? 8 : 12,
+                gap: 5,
                 textAlign: 'left',
                 breakInside: 'avoid',
                 pageBreakInside: 'avoid',
+                overflow: 'hidden',
+                minWidth: 0,
               }}
             >
-              {/* Left Column: QR Code (No logo, clean high-contrast scan area) */}
+              {/* Left Column: QR Code (Sharp high-contrast scan area) */}
               <div
                 className="printable-sheet-qr"
                 style={{
@@ -81,8 +82,8 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                   background: '#ffffff',
                   backgroundColor: '#ffffff',
                   flexShrink: 0,
-                  padding: 4,
-                  borderRadius: 4,
+                  padding: 1,
+                  borderRadius: 3,
                 }}
               >
                 <QRCode
@@ -99,121 +100,209 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
               </div>
 
               {/* Right Column: IT ASSET TAGGING details */}
-              <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
+              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                 <div
+                  className="printable-sheet-meta-title"
                   style={{
-                    fontSize: is4Cols ? 11.5 : 13,
-                    letterSpacing: '0.6px',
+                    fontSize: 9.5,
+                    letterSpacing: '0.4px',
                     color: '#000000',
                     textTransform: 'uppercase',
                     fontWeight: 800,
-                    borderBottom: '1.5px solid #000000',
-                    paddingBottom: is4Cols ? 2 : 3,
-                    marginBottom: is4Cols ? 4 : 6,
-                    lineHeight: 1.2,
+                    borderBottom: '1px solid #000000',
+                    paddingBottom: 2,
+                    marginBottom: 3,
+                    lineHeight: 1.1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
                   IT ASSET TAGGING
                 </div>
 
                 <div
+                  className="printable-sheet-meta-rows"
                   style={{
-                    fontSize: is4Cols ? 10 : 11,
-                    lineHeight: 1.35,
+                    fontSize: 8.5,
+                    lineHeight: 1.25,
                     color: '#000000',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 2,
+                    gap: 1.5,
+                    minWidth: 0,
                   }}
                 >
                   <div
+                    className="printable-sheet-meta-row"
                     style={{
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                      lineHeight: 1.3,
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 3,
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>SAP Code: </span>
                     <span
+                      className="label-key"
+                      style={{ fontWeight: 700, flexShrink: 0, fontSize: 8.5 }}
+                    >
+                      SAP:
+                    </span>
+                    <span
+                      className="label-val"
                       style={{
                         fontFamily:
                           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                         fontWeight: 600,
                         color: '#000000',
+                        fontSize: 8.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {sapCode}
                     </span>
                   </div>
+
                   <div
+                    className="printable-sheet-meta-row"
                     style={{
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                      lineHeight: 1.3,
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 3,
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>SUB Code: </span>
+                    <span
+                      className="label-key"
+                      style={{ fontWeight: 700, flexShrink: 0, fontSize: 8.5 }}
+                    >
+                      SUB:
+                    </span>
                     <Text
                       strong
+                      className="label-val"
                       style={{
                         fontFamily:
                           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                        fontSize: is4Cols ? '11px' : '13px',
+                        fontSize: columns === 3 ? '13px' : '11px',
                         color: '#000000',
                         lineHeight: 1.2,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {subcode}
                     </Text>
                   </div>
+
                   <div
+                    className="printable-sheet-meta-row"
                     style={{
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                      lineHeight: 1.3,
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 3,
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>Model: </span>
                     <span
+                      className="label-key"
+                      style={{ fontWeight: 700, flexShrink: 0, fontSize: 8.5 }}
+                    >
+                      Model:
+                    </span>
+                    <span
+                      className="label-val"
                       style={{
                         color: '#000000',
+                        fontSize: 8.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
+                      title={displayName}
                     >
                       {displayName}
                     </span>
                   </div>
+
                   <div
+                    className="printable-sheet-meta-row"
                     style={{
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                      lineHeight: 1.3,
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 3,
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>Date: </span>
                     <span
+                      className="label-key"
+                      style={{ fontWeight: 700, flexShrink: 0, fontSize: 8.5 }}
+                    >
+                      Date:
+                    </span>
+                    <span
+                      className="label-val"
                       style={{
                         fontFamily:
                           'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                         color: '#000000',
+                        fontSize: 8.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {formattedDate}
                     </span>
                   </div>
+
                   <div
+                    className="printable-sheet-meta-row"
                     style={{
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                      lineHeight: 1.3,
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 3,
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>Cost Center: </span>
-                    <span style={{ fontWeight: 600, color: '#000000' }}>{costCenterDisplay}</span>
+                    <span
+                      className="label-key"
+                      style={{ fontWeight: 700, flexShrink: 0, fontSize: 8.5 }}
+                    >
+                      CC:
+                    </span>
+                    <span
+                      className="label-val"
+                      style={{
+                        fontWeight: 600,
+                        color: '#000000',
+                        fontSize: 8.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={costCenterDisplay}
+                    >
+                      {costCenterDisplay}
+                    </span>
                   </div>
                 </div>
               </div>

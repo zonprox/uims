@@ -130,9 +130,38 @@ export interface BatchAssignAssetDto {
   assignedToId?: string | null;
   departmentId?: string | null;
   status?: string | AssetStatus;
+  signedDocUrl?: string;
 }
 
 export interface BatchAssignAssetResultDto {
   count: number;
   assignedIds: string[];
+}
+
+export interface ReturnAssetDto {
+  status?: string;
+  conditionNotes?: string;
+  signedDocUrl?: string;
+}
+
+export interface GenerateHandoverDocumentDto {
+  type: 'assignment' | 'return';
+  assetIds?: string[];
+  recipientId?: string;
+  conditionNotes?: string;
+}
+
+export interface HandoverDocumentResultDto {
+  html: string;
+  title: string;
+  filename: string;
+  generatedAt: string;
+}
+
+export interface UploadHandoverDocumentResultDto {
+  fileUrl: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
 }

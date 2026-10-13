@@ -534,9 +534,9 @@ export function printAssetLabel(
 
 /**
  * Builds self-contained HTML for batch printing multiple asset QR label sheets.
+ * Standardized on 4 cards per row (A4 sheet decal format).
  */
-export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: 3 | 4 = 3): string {
-  const is4Cols = columns === 4;
+export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: number = 4): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -544,11 +544,14 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: 3
   <title>Batch Asset Labels - UIMS</title>
   <style>
     @page {
-      size: auto;
-      margin: 8mm;
+      size: A4 portrait;
+      margin: 6mm 5mm;
     }
     :root {
       color-scheme: light !important;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box !important;
     }
     html, body {
       margin: 0 !important;
@@ -560,58 +563,106 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: 3
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      width: 100% !important;
     }
     .printable-asset-sheet {
       display: grid !important;
       grid-template-columns: repeat(${columns}, 1fr) !important;
-      gap: ${is4Cols ? '6px' : '8px'} !important;
+      gap: 2.5mm !important;
       width: 100% !important;
       box-sizing: border-box !important;
       background: #ffffff !important;
       background-color: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
     }
     .printable-sheet-card {
-      position: static !important;
+      position: relative !important;
       border: 1.5px dashed #777777 !important;
-      border-radius: 4px !important;
+      border-radius: 3px !important;
       background: #ffffff !important;
       background-color: #ffffff !important;
       color: #000000 !important;
       box-sizing: border-box !important;
-      padding: ${is4Cols ? '8px 10px' : '12px 14px'} !important;
+      padding: 4px 6px !important;
       display: flex !important;
       flex-direction: row !important;
       align-items: center !important;
       text-align: left !important;
-      gap: ${is4Cols ? '8px' : '14px'} !important;
+      gap: 5px !important;
       break-inside: avoid !important;
       page-break-inside: avoid !important;
-    }
-    .printable-sheet-card span,
-    .printable-sheet-card strong,
-    .printable-sheet-card p,
-    .printable-sheet-card div {
-      color: #000000 !important;
-      background: transparent !important;
-      white-space: normal !important;
-      word-break: break-word !important;
-      overflow-wrap: break-word !important;
+      overflow: hidden !important;
+      min-width: 0 !important;
     }
     .printable-sheet-qr {
       display: flex !important;
       justify-content: center !important;
       align-items: center !important;
-      padding: 2px !important;
+      padding: 1px !important;
       background: #ffffff !important;
       background-color: #ffffff !important;
+      flex-shrink: 0 !important;
     }
     .printable-sheet-qr svg {
       display: block !important;
+      width: 44px !important;
+      height: 44px !important;
+    }
+    .printable-sheet-meta-title {
+      font-size: 9.5px !important;
+      letter-spacing: 0.4px !important;
+      color: #000000 !important;
+      text-transform: uppercase !important;
+      font-weight: 800 !important;
+      border-bottom: 1px solid #000000 !important;
+      padding-bottom: 2px !important;
+      margin-bottom: 3px !important;
+      line-height: 1.1 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    .printable-sheet-meta-rows {
+      font-size: 8.5px !important;
+      line-height: 1.25 !important;
+      color: #000000 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1.5px !important;
+      min-width: 0 !important;
+    }
+    .printable-sheet-meta-row {
+      display: flex !important;
+      align-items: baseline !important;
+      gap: 3px !important;
+      white-space: nowrap !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      line-height: 1.25 !important;
+    }
+    .printable-sheet-meta-row .label-key,
+    .printable-sheet-meta-row strong {
+      font-weight: 700 !important;
+      flex-shrink: 0 !important;
+      color: #000000 !important;
+      white-space: nowrap !important;
+      font-size: 8.5px !important;
+    }
+    .printable-sheet-meta-row .label-val,
+    .printable-sheet-meta-row span:not(.label-key) {
+      color: #000000 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+      min-width: 0 !important;
+      font-size: 8.5px !important;
     }
   </style>
 </head>
 <body>
-  <div class="printable-asset-sheet ${is4Cols ? 'cols-4' : 'cols-3'}">
+  <div class="printable-asset-sheet cols-4">
     ${sheetContentHtml}
   </div>
 </body>
@@ -625,14 +676,25 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: 3
  */
 export function printBatchAssetSheet(
   sheetContainer?: HTMLElement | null,
-  columns: 3 | 4 = 3,
+  columns: number = 4,
 ): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
     return;
   }
 
-  const target = sheetContainer || document.querySelector('.printable-asset-sheet');
-  const sheetContentHtml = target ? target.innerHTML : '';
+  let sheetContentHtml = '';
+  if (sheetContainer) {
+    if (sheetContainer.classList.contains('printable-asset-sheet')) {
+      sheetContentHtml = sheetContainer.innerHTML;
+    } else {
+      const innerSheet = sheetContainer.querySelector('.printable-asset-sheet');
+      sheetContentHtml = innerSheet ? innerSheet.innerHTML : sheetContainer.innerHTML;
+    }
+  } else {
+    const found = document.querySelector('.printable-asset-sheet');
+    sheetContentHtml = found ? found.innerHTML : '';
+  }
+
   const html = generateBatchPrintSheetHtml(sheetContentHtml, columns);
 
   const iframe = document.createElement('iframe');

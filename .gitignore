@@ -159,6 +159,8 @@ temp/
 .tmp/
 scratch/
 .scratch/
+uploads/
 *.core
 *.dump
 *.stackdump
+

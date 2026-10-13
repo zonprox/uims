@@ -248,6 +248,7 @@ export default function AssetsPage() {
                   onShowQr={handleShowQr}
                   onOpenEditModal={handleOpenEditModal}
                   onDeleteAsset={handleDeleteAsset}
+                  onAssetUpdated={loadData}
                 />
               </Card>
             ),
@@ -291,6 +292,7 @@ export default function AssetsPage() {
         selectedAsset={selectedAsset}
         onClose={() => setDetailDrawerOpen(false)}
         onOpenEditModal={handleOpenEditModal}
+        onAssetUpdated={loadData}
         onViewSwitchFaceplate={(switchId) => {
           setDetailDrawerOpen(false);
           navigate(`/network?tab=switches${switchId ? `&switchId=${switchId}` : ''}`);

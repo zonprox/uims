@@ -26,6 +26,7 @@ export interface AssetTableProps {
   onOpenEditModal: (asset: Asset) => void;
   onDeleteAsset: (id: string) => void;
   onReturnAsset?: (asset: Asset) => void;
+  onAssetUpdated?: () => void;
 }
 
 export const AssetTable: React.FC<AssetTableProps> = React.memo(
@@ -39,6 +40,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
     onOpenEditModal,
     onDeleteAsset,
     onReturnAsset,
+    onAssetUpdated,
   }) => {
     const [returningAsset, setReturningAsset] = useState<Asset | null>(null);
 
@@ -322,7 +324,10 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             open={Boolean(returningAsset)}
             asset={returningAsset}
             onCancel={() => setReturningAsset(null)}
-            onSuccess={() => setReturningAsset(null)}
+            onSuccess={() => {
+              setReturningAsset(null);
+              onAssetUpdated?.();
+            }}
           />
         )}
       </>

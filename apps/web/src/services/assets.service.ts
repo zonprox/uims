@@ -54,6 +54,15 @@ export interface Asset {
   };
   status: 'Active' | 'In Repair' | 'In Storage' | 'Retired' | string;
   hasPendingRecord?: boolean;
+  signedDocUrl?: string | null;
+  latestHandoverRecord?: {
+    id: string;
+    type: string;
+    signedDocUrl?: string | null;
+    isPending: boolean;
+    notes?: string | null;
+    createdAt?: string;
+  } | null;
   assignedTo: string;
   assignedToId?: string | null;
   assignedEmail: string;
@@ -208,38 +217,56 @@ export const assetsService = {
 
   returnAsset: async (
     id: string,
-    data: { status?: string; conditionNotes?: string; recordDocUrl?: string },
+    data: {
+      status?: string;
+      conditionNotes?: string;
+      signedDocUrl?: string;
+    },
   ): Promise<Asset> => {
     const res = await api.post(`/assets/${id}/return`, data);
     return res.data?.data ?? res.data;
   },
 
-  downloadHandoverTemplate: async (type: 'assignment' | 'return' = 'assignment'): Promise<Blob> => {
-    const res = await api.get('/assets/handover-template', {
-      params: { type },
-      responseType: 'blob',
-    });
-    const blob: Blob = res.data;
-    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      try {
-        const createObjectURL = window.URL?.createObjectURL || URL?.createObjectURL;
-        if (typeof createObjectURL === 'function') {
-          const blobUrl = createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          const timestamp = dayjs().format('YYYY-MM-DD');
-          link.setAttribute('download', `asset_${type}_template_${timestamp}.html`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          if (typeof window.URL?.revokeObjectURL === 'function') {
-            window.URL.revokeObjectURL(blobUrl);
-          }
-        }
-      } catch (_err: unknown) {
-        // Safe fallback in test environments
-      }
+  generateHandoverDocument: async (payload: {
+    type: 'assignment' | 'return';
+    assetIds?: string[];
+    recipientId?: string;
+    conditionNotes?: string;
+  }): Promise<{ html: string; title: string; filename: string; generatedAt: string }> => {
+    const res = await api.post('/assets/handover-documents/generate', payload);
+    return res.data?.data ?? res.data;
+  },
+
+  uploadHandoverDocument: async (
+    file: File | Blob,
+    assetId?: string,
+  ): Promise<{
+    fileUrl: string;
+    fileName: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    asset?: Asset;
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (assetId) {
+      formData.append('assetId', assetId);
     }
-    return blob;
+    const res = await api.post('/assets/handover-documents/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000,
+    });
+    return res.data?.data ?? res.data;
+  },
+
+  attachHandoverDocument: async (
+    id: string,
+    payload: { fileUrl: string; notes?: string },
+  ): Promise<Asset> => {
+    const res = await api.post(`/assets/${id}/handover-document`, payload);
+    return res.data?.data ?? res.data;
   },
 };

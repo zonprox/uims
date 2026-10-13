@@ -41,10 +41,10 @@ export class BatchAssignAssetDto implements IBatchAssignAssetDto {
   status?: string;
 
   @ApiPropertyOptional({
-    description: 'URL of the uploaded scanned signed handover document',
-    example: 'https://storage.example.com/handover-records/handover-rec-123.pdf',
+    description: 'File URL of the stored signed handover document',
+    example: '/api/v1/assets/handover-documents/file/handover-1718000000.pdf',
   })
   @IsOptional()
   @IsString()
-  recordDocUrl?: string;
+  signedDocUrl?: string;
 }

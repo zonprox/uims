@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import type { ReturnAssetDto as IReturnAssetDto } from '@uims/shared-types';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class ReturnAssetDto {
+export class ReturnAssetDto implements IReturnAssetDto {
   @ApiPropertyOptional({
     description: 'Target asset lifecycle status after return (defaults to In Storage)',
     example: 'In Storage',
@@ -21,10 +22,10 @@ export class ReturnAssetDto {
   conditionNotes?: string;
 
   @ApiPropertyOptional({
-    description: 'URL of the uploaded scanned signed handover/return record document',
-    example: 'https://storage.example.com/handover-records/return-rec-123.pdf',
+    description: 'File URL of the stored signed handover/return record document',
+    example: '/api/v1/assets/handover-documents/file/return-1718000000.pdf',
   })
   @IsOptional()
   @IsString()
-  recordDocUrl?: string;
+  signedDocUrl?: string;
 }

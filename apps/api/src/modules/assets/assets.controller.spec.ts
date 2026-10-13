@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { PATH_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,6 +27,10 @@ describe('AssetsController', () => {
       getCategories: vi.fn(),
       getHandoverTemplateHtml: vi.fn(),
       returnAsset: vi.fn(),
+      generateHandoverDocument: vi.fn(),
+      saveHandoverDocumentFile: vi.fn(),
+      streamHandoverDocumentFile: vi.fn(),
+      attachHandoverDocument: vi.fn(),
     };
 
     controller = new AssetsController(mockAssetsService as unknown as AssetsService);
@@ -183,7 +188,7 @@ describe('AssetsController', () => {
       const returnDto = {
         status: 'In Storage',
         conditionNotes: 'All parts inspected',
-        recordDocUrl: 'https://storage.corp/record.pdf',
+        signedDocUrl: '/api/v1/assets/handover-documents/file/record.pdf',
       };
       const mockResult = { id: 'ast-1', status: 'In Storage', hasPendingRecord: false };
       mockAssetsService.returnAsset.mockResolvedValue(mockResult);
@@ -195,6 +200,132 @@ describe('AssetsController', () => {
     });
   });
 
+  describe('handover-documents endpoints', () => {
+    it('should call generateHandoverDocument via POST with body DTO', async () => {
+      const dto = {
+        type: 'assignment' as const,
+        assetIds: ['ast-1', 'ast-2'],
+        recipientId: 'usr-1',
+        conditionNotes: 'Good',
+      };
+      const mockDoc = {
+        html: '<html>Handover</html>',
+        title: 'HARDWARE ASSET HANDOVER RECORD',
+        filename: 'asset_handover_2026-10-13_hor.html',
+        generatedAt: '2026-10-13T00:00:00.000Z',
+      };
+      mockAssetsService.generateHandoverDocument.mockResolvedValue(mockDoc);
+
+      const result = await controller.generateHandoverDocument(dto);
+
+      expect(mockAssetsService.generateHandoverDocument).toHaveBeenCalledWith(dto);
+      expect(result).toBe(mockDoc);
+    });
+
+    it('should call generateHandoverDocumentGet via GET with query params', async () => {
+      const mockDoc = {
+        html: '<html>Return</html>',
+        title: 'HARDWARE ASSET RETURN RECORD',
+        filename: 'asset_return_2026-10-13_ret.html',
+        generatedAt: '2026-10-13T00:00:00.000Z',
+      };
+      mockAssetsService.generateHandoverDocument.mockResolvedValue(mockDoc);
+
+      const result = await controller.generateHandoverDocumentGet(
+        'return',
+        'ast-1,ast-2',
+        'usr-2',
+        'Inspection done',
+      );
+
+      expect(mockAssetsService.generateHandoverDocument).toHaveBeenCalledWith({
+        type: 'return',
+        assetIds: ['ast-1', 'ast-2'],
+        recipientId: 'usr-2',
+        conditionNotes: 'Inspection done',
+      });
+      expect(result).toBe(mockDoc);
+    });
+
+    it('should throw BadRequestException when invalid type is provided to generateHandoverDocumentGet', async () => {
+      expect(() =>
+        controller.generateHandoverDocumentGet(
+          'invalid' as unknown as 'assignment',
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('should call uploadHandoverDocument with file and trimmed assetId', async () => {
+      const file = {
+        originalname: 'signed.pdf',
+        mimetype: 'application/pdf',
+        size: 2048,
+        buffer: Buffer.from('pdf-data'),
+      } as Express.Multer.File;
+
+      const mockUploadResult = {
+        fileUrl: '/api/v1/assets/handover-documents/file/hor-signed.pdf',
+        fileName: 'hor-signed.pdf',
+        originalName: 'signed.pdf',
+        size: 2048,
+        mimeType: 'application/pdf',
+      };
+      mockAssetsService.saveHandoverDocumentFile.mockResolvedValue(mockUploadResult);
+
+      const result = await controller.uploadHandoverDocument(file, '  ast-10  ');
+
+      expect(mockAssetsService.saveHandoverDocumentFile).toHaveBeenCalledWith(file, 'ast-10');
+      expect(result).toBe(mockUploadResult);
+
+      await controller.uploadHandoverDocument(file, '   ');
+      expect(mockAssetsService.saveHandoverDocumentFile).toHaveBeenCalledWith(file, undefined);
+    });
+
+    it('should call getHandoverDocumentFile with filename, download query, and response', async () => {
+      const mockRes = {
+        setHeader: vi.fn(),
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      await controller.getHandoverDocumentFile('sample.pdf', undefined, mockRes);
+
+      expect(mockAssetsService.streamHandoverDocumentFile).toHaveBeenCalledWith(
+        'sample.pdf',
+        mockRes,
+        false,
+      );
+
+      await controller.getHandoverDocumentFile('sample.pdf', 'true', mockRes);
+      expect(mockAssetsService.streamHandoverDocumentFile).toHaveBeenCalledWith(
+        'sample.pdf',
+        mockRes,
+        true,
+      );
+    });
+
+    it('should call attachHandoverDocument with asset id, fileUrl, and notes', async () => {
+      const attachDto = {
+        fileUrl: '/files/signed-record.pdf',
+        notes: 'Handover signed by John Doe',
+      };
+      const mockAsset = { id: 'ast-5', hasPendingRecord: false };
+      mockAssetsService.attachHandoverDocument.mockResolvedValue(mockAsset);
+
+      const result = await controller.attachHandoverDocument('ast-5', attachDto);
+
+      expect(mockAssetsService.attachHandoverDocument).toHaveBeenCalledWith(
+        'ast-5',
+        attachDto.fileUrl,
+        attachDto.notes,
+      );
+      expect(result).toBe(mockAsset);
+    });
+  });
+
   describe('Route Precedence & Security Metadata', () => {
     it('should declare export and batch endpoints prior to parameterized :id routes to prevent shadowing', () => {
       const propertyNames = Object.getOwnPropertyNames(AssetsController.prototype);
@@ -202,19 +333,28 @@ describe('AssetsController', () => {
       const exportIndex = propertyNames.indexOf('exportXlsx');
       const batchDeleteIndex = propertyNames.indexOf('batchDelete');
       const batchDeleteAliasIndex = propertyNames.indexOf('batchDeleteAlias');
+      const generateDocIndex = propertyNames.indexOf('generateHandoverDocument');
+      const uploadDocIndex = propertyNames.indexOf('uploadHandoverDocument');
+      const serveDocIndex = propertyNames.indexOf('getHandoverDocumentFile');
       const findOneIndex = propertyNames.indexOf('findOne');
       const removeIndex = propertyNames.indexOf('remove');
 
       expect(exportIndex).toBeGreaterThan(-1);
       expect(batchDeleteIndex).toBeGreaterThan(-1);
       expect(batchDeleteAliasIndex).toBeGreaterThan(-1);
+      expect(generateDocIndex).toBeGreaterThan(-1);
+      expect(uploadDocIndex).toBeGreaterThan(-1);
+      expect(serveDocIndex).toBeGreaterThan(-1);
       expect(findOneIndex).toBeGreaterThan(-1);
       expect(removeIndex).toBeGreaterThan(-1);
 
-      // Verify declaration order on prototype: static routes must precede :id
+      // Verify declaration order on prototype: static and subpath routes must precede :id
       expect(exportIndex).toBeLessThan(findOneIndex);
       expect(batchDeleteIndex).toBeLessThan(removeIndex);
       expect(batchDeleteAliasIndex).toBeLessThan(removeIndex);
+      expect(generateDocIndex).toBeLessThan(findOneIndex);
+      expect(uploadDocIndex).toBeLessThan(findOneIndex);
+      expect(serveDocIndex).toBeLessThan(findOneIndex);
     });
 
     it('should have correct route paths registered in NestJS metadata', () => {

@@ -2,14 +2,19 @@ import {
   AppstoreOutlined,
   BankOutlined,
   ClusterOutlined,
+  DownloadOutlined,
   EditOutlined,
+  EyeOutlined,
+  FileDoneOutlined,
   LaptopOutlined,
   PrinterOutlined,
   RollbackOutlined,
+  UploadOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import {
   Alert,
+  App,
   Badge,
   Button,
   Card,
@@ -19,12 +24,13 @@ import {
   Tabs,
   Tag,
   Typography,
+  Upload,
   theme,
 } from 'antd';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import AppDrawer from '../../../components/AppDrawer';
 import { FormattedDate } from '../../../components/FormattedDate';
-import type { Asset } from '../../../services/assets.service';
+import { type Asset, assetsService } from '../../../services/assets.service';
 import { printAssetLabel } from '../utils/printAssetLabel';
 import { PrintableAssetLabel } from './PrintableAssetLabel';
 import { ReturnAssetModal } from './ReturnAssetModal';
@@ -39,6 +45,7 @@ export interface AssetDetailDrawerProps {
   onReturnAsset?: (asset: Asset) => void;
   onViewSwitchFaceplate?: (switchId?: string, portId?: string) => void;
   onViewRackElevation?: (rackId?: string, unit?: number) => void;
+  onAssetUpdated?: (asset: Asset) => void;
 }
 
 export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
@@ -50,15 +57,24 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
     onReturnAsset,
     onViewSwitchFaceplate,
     onViewRackElevation,
+    onAssetUpdated,
   }) => {
-    if (!selectedAsset) return null;
     const { token } = theme.useToken();
+    const { message } = App.useApp();
     const qrContainerRef = useRef<HTMLDivElement>(null);
     const [returnModalOpen, setReturnModalOpen] = useState(false);
+    const [assetData, setAssetData] = useState<Asset | null>(selectedAsset);
+    const [inlineUploading, setInlineUploading] = useState(false);
+
+    useEffect(() => {
+      setAssetData(selectedAsset);
+    }, [selectedAsset]);
+
+    if (!selectedAsset || !assetData) return null;
 
     const handleReturnClick = () => {
       if (onReturnAsset) {
-        onReturnAsset(selectedAsset);
+        onReturnAsset(assetData);
       } else {
         setReturnModalOpen(true);
       }
@@ -352,17 +368,17 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
     return (
       <>
         <AppDrawer
-          title={selectedAsset.name}
+          title={assetData.name}
           subtitle={
-            selectedAsset.model
-              ? `${selectedAsset.manufacturer} ${selectedAsset.model}`.trim()
-              : selectedAsset.category
+            assetData.model
+              ? `${assetData.manufacturer} ${assetData.model}`.trim()
+              : assetData.category
           }
           icon={<LaptopOutlined style={{ color: token.colorPrimary }} />}
           tag={
             <Flex align="center" gap={6}>
-              <Tag color="blue">{selectedAsset.tag}</Tag>
-              {selectedAsset.hasPendingRecord && (
+              <Tag color="blue">{assetData.tag}</Tag>
+              {assetData.hasPendingRecord && (
                 <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0 }}>
                   Pending Record
                 </Tag>
@@ -374,8 +390,8 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
           size={540}
           extra={
             <Flex align="center" gap={8}>
-              {(selectedAsset.assignedToId ||
-                (selectedAsset.assignedTo && selectedAsset.assignedTo !== 'Unassigned')) && (
+              {(assetData.assignedToId ||
+                (assetData.assignedTo && assetData.assignedTo !== 'Unassigned')) && (
                 <Button size="small" icon={<RollbackOutlined />} onClick={handleReturnClick}>
                   Return
                 </Button>
@@ -386,7 +402,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                 icon={<EditOutlined />}
                 onClick={() => {
                   onClose();
-                  onOpenEditModal(selectedAsset);
+                  onOpenEditModal(assetData);
                 }}
               >
                 Edit
@@ -395,13 +411,84 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
           }
           cancelText="Close"
         >
-          {selectedAsset.hasPendingRecord && (
+          {assetData.hasPendingRecord && (
             <Alert
               type="warning"
               showIcon
               icon={<WarningOutlined />}
               title="Pending Handover Record"
-              description="This asset is currently flagged with a pending signed handover or return document. Please upload the verified signed document."
+              description={
+                <Flex vertical gap={8} style={{ marginTop: 4 }}>
+                  <Text style={{ fontSize: 12 }}>
+                    This asset is flagged with a pending signed handover or return document. Upload
+                    the verified document below to resolve the pending status immediately.
+                  </Text>
+                  <Upload
+                    name="file"
+                    multiple={false}
+                    showUploadList={false}
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    beforeUpload={async (file) => {
+                      const isValidType =
+                        ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'].includes(
+                          file.type.toLowerCase(),
+                        ) || /\.(pdf|png|jpe?g)$/i.test(file.name);
+                      if (!isValidType) {
+                        message.error(
+                          'Invalid file format. Only PDF, PNG, JPG, and JPEG documents are permitted.',
+                        );
+                        return Upload.LIST_IGNORE;
+                      }
+                      if (file.size === 0) {
+                        message.error(
+                          'The selected file is empty (0 bytes). Please select a valid document.',
+                        );
+                        return Upload.LIST_IGNORE;
+                      }
+                      const isUnder10MB = file.size / 1024 / 1024 <= 10;
+                      if (!isUnder10MB) {
+                        message.error('File size exceeds the 10MB limit.');
+                        return Upload.LIST_IGNORE;
+                      }
+
+                      try {
+                        setInlineUploading(true);
+                        const res = await assetsService.uploadHandoverDocument(file, assetData.id);
+                        const updated: Asset = res.asset
+                          ? res.asset
+                          : {
+                              ...assetData,
+                              hasPendingRecord: false,
+                              signedDocUrl: res.fileUrl,
+                            };
+                        setAssetData(updated);
+                        onAssetUpdated?.(updated);
+                        message.success(
+                          'Signed handover document uploaded. Pending status cleared.',
+                        );
+                      } catch (err: unknown) {
+                        message.error(
+                          err instanceof Error
+                            ? err.message
+                            : 'Failed to upload signed handover document.',
+                        );
+                      } finally {
+                        setInlineUploading(false);
+                      }
+                      return false;
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<UploadOutlined />}
+                      loading={inlineUploading}
+                    >
+                      Upload Signed Document
+                    </Button>
+                  </Upload>
+                </Flex>
+              }
               style={{ marginBottom: 16 }}
             />
           )}
@@ -421,32 +508,85 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                       styles={{ label: { whiteSpace: 'nowrap' } }}
                       style={{ marginBottom: 16 }}
                     >
-                      <Descriptions.Item label="Asset Tag">{selectedAsset.tag}</Descriptions.Item>
+                      <Descriptions.Item label="Asset Tag">{assetData.tag}</Descriptions.Item>
                       <Descriptions.Item label="Serial Number">
-                        {selectedAsset.serialNumber ? (
-                          <Text code copyable={{ text: selectedAsset.serialNumber }}>
-                            {selectedAsset.serialNumber}
+                        {assetData.serialNumber ? (
+                          <Text code copyable={{ text: assetData.serialNumber }}>
+                            {assetData.serialNumber}
                           </Text>
                         ) : (
                           <Text type="secondary">—</Text>
                         )}
                       </Descriptions.Item>
                       <Descriptions.Item label="Manufacturer">
-                        {selectedAsset.manufacturer}
+                        {assetData.manufacturer}
                       </Descriptions.Item>
-                      <Descriptions.Item label="Model">{selectedAsset.model}</Descriptions.Item>
-                      <Descriptions.Item label="Category">
-                        {selectedAsset.category}
-                      </Descriptions.Item>
+                      <Descriptions.Item label="Model">{assetData.model}</Descriptions.Item>
+                      <Descriptions.Item label="Category">{assetData.category}</Descriptions.Item>
                       <Descriptions.Item label="Status">
-                        <Tag color={selectedAsset.status === 'Active' ? 'success' : 'warning'}>
-                          {selectedAsset.status}
+                        <Tag color={assetData.status === 'Active' ? 'success' : 'warning'}>
+                          {assetData.status}
                         </Tag>
                       </Descriptions.Item>
+                      {(assetData.signedDocUrl || assetData.latestHandoverRecord?.signedDocUrl) && (
+                        <Descriptions.Item label="Signed Document">
+                          <Flex align="center" gap={8} wrap="wrap">
+                            <Tag color="success" icon={<FileDoneOutlined />} style={{ margin: 0 }}>
+                              Signed & Verified
+                            </Tag>
+                            <Button
+                              size="small"
+                              icon={<EyeOutlined />}
+                              onClick={() => {
+                                const url =
+                                  assetData.signedDocUrl ||
+                                  assetData.latestHandoverRecord?.signedDocUrl;
+                                if (url) {
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
+                            >
+                              View Document
+                            </Button>
+                            <Button
+                              size="small"
+                              icon={<DownloadOutlined />}
+                              onClick={() => {
+                                const url =
+                                  assetData.signedDocUrl ||
+                                  assetData.latestHandoverRecord?.signedDocUrl;
+                                if (url) {
+                                  const a = document.createElement('a');
+                                  const downloadUrl = url.includes('?')
+                                    ? `${url}&download=true`
+                                    : `${url}?download=true`;
+                                  a.href = downloadUrl;
+                                  const cleanUrl = url.split(/[?#]/)[0];
+                                  const rawExt = cleanUrl.split('.').pop()?.toLowerCase();
+                                  const ext =
+                                    rawExt && ['pdf', 'png', 'jpg', 'jpeg'].includes(rawExt)
+                                      ? rawExt
+                                      : 'pdf';
+                                  const safeTag = (assetData.tag || 'asset').replace(
+                                    /[^a-zA-Z0-9_-]/g,
+                                    '_',
+                                  );
+                                  a.download = `signed_record_${safeTag}.${ext}`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                }
+                              }}
+                            >
+                              Download
+                            </Button>
+                          </Flex>
+                        </Descriptions.Item>
+                      )}
                       <Descriptions.Item label="Notes">
-                        {typeof selectedAsset.notes === 'string' && selectedAsset.notes.trim() ? (
+                        {typeof assetData.notes === 'string' && assetData.notes.trim() ? (
                           <Text style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                            {selectedAsset.notes}
+                            {assetData.notes}
                           </Text>
                         ) : (
                           <Text type="secondary">—</Text>
@@ -550,11 +690,12 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
         {returnModalOpen && (
           <ReturnAssetModal
             open={returnModalOpen}
-            asset={selectedAsset}
+            asset={assetData || selectedAsset}
             onCancel={() => setReturnModalOpen(false)}
             onSuccess={() => {
               setReturnModalOpen(false);
               onClose();
+              onAssetUpdated?.(assetData || selectedAsset);
             }}
           />
         )}

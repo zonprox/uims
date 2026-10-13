@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import { HandoverRecordType, type PrismaClient } from '@prisma/client';
 import { inTransactionChunks, runDomainSeeder, type SeederContext } from './seeder.utils';
 
 export interface DeviceModelSeedDef {
@@ -20,11 +20,12 @@ export interface PhysicalUnitSeedDef {
   serialNumber: string;
   status: 'IN_USE' | 'AVAILABLE';
   userEmail?: string;
-  locationKey: string;
+  locationKey?: string;
   departmentCode: string;
   costCenterCode?: string;
   purchaseDate: string;
   warrantyExpiry: string;
+  hasPendingRecord?: boolean;
   notes?: string;
 }
 
@@ -1337,6 +1338,8 @@ export async function seedAssets(
               parentId: null,
               subcode: null,
               assetTag: modelRow.assetCode, // Mirrored tag for compatibility
+              status: 'AVAILABLE',
+              hasPendingRecord: false,
               notes: modelRow.notes,
             },
             create: {
@@ -1354,6 +1357,7 @@ export async function seedAssets(
               subcode: null,
               assetTag: modelRow.assetCode, // Mirrored tag for compatibility
               status: 'AVAILABLE',
+              hasPendingRecord: false,
               notes: modelRow.notes,
             },
           });
@@ -1382,7 +1386,7 @@ export async function seedAssets(
         prisma,
         physicalUnitRows,
         50,
-        async (tx, unitRow) => {
+        async (tx, unitRow, rowIndex) => {
           const parentModel = modelMap.get(unitRow.modelCode);
           if (!parentModel) {
             throw new Error(
@@ -1401,10 +1405,15 @@ export async function seedAssets(
           const purchaseDate = new Date(unitRow.purchaseDate);
           const warrantyExpiry = new Date(unitRow.warrantyExpiry);
 
+          const isAssigned = unitRow.status === 'IN_USE' && Boolean(assignedToId);
+          const hasPendingRecord = isAssigned
+            ? (unitRow.hasPendingRecord ?? rowIndex % 4 === 0)
+            : false;
+
           return tx.asset.upsert({
             where: { subcode: unitRow.subcode },
             update: {
-              name: unitRow.name || parentModel.row.name,
+              name: parentModel.row.name,
               manufacturer: parentModel.row.manufacturer,
               model: parentModel.row.model,
               serialNumber: unitRow.serialNumber,
@@ -1413,17 +1422,20 @@ export async function seedAssets(
               assetCode: null, // Models only
               assetTag: unitRow.subcode, // Mirrored tag = subcode
               categoryId,
+              specifications: parentModel.row.specifications,
+              unitCost: parentModel.row.unitCost,
               vendorId,
               departmentId,
               assignedToId,
               costCenterId,
               purchaseDate,
               warrantyExpiry,
+              hasPendingRecord,
               notes: unitRow.notes,
             },
             create: {
               subcode: unitRow.subcode,
-              name: unitRow.name || parentModel.row.name,
+              name: parentModel.row.name,
               manufacturer: parentModel.row.manufacturer,
               model: parentModel.row.model,
               serialNumber: unitRow.serialNumber,
@@ -1432,12 +1444,15 @@ export async function seedAssets(
               assetCode: null, // Models only
               assetTag: unitRow.subcode, // Mirrored tag = subcode
               categoryId,
+              specifications: parentModel.row.specifications,
+              unitCost: parentModel.row.unitCost,
               vendorId,
               departmentId,
               assignedToId,
               costCenterId,
               purchaseDate,
               warrantyExpiry,
+              hasPendingRecord,
               notes: unitRow.notes,
             },
           });
@@ -1453,6 +1468,64 @@ export async function seedAssets(
           ctx.assets.set(record.id, record.id);
         }
       }
+
+      // ------------------------------------------------------------------------
+      // Phase 3: Seed Asset Handover Records for In-Use and Historical Assets
+      // ------------------------------------------------------------------------
+      logger.log('Seeding Asset Handover Records for physical units...');
+      const handoverRows: Array<{
+        assetId: string;
+        type: HandoverRecordType;
+        recipientId: string | null;
+        signedDocUrl: string | null;
+        isPending: boolean;
+        notes: string;
+        createdAt: Date;
+      }> = [];
+
+      for (let i = 0; i < physicalUnitRows.length; i++) {
+        const uRow = physicalUnitRows[i];
+        const record = unitRecords[i];
+        const assignedToId =
+          uRow.status === 'IN_USE' && uRow.userEmail ? getUser(uRow.userEmail) : null;
+        const purchaseDate = new Date(uRow.purchaseDate);
+
+        if (uRow.status === 'IN_USE' && assignedToId) {
+          const isPending = Boolean(record.hasPendingRecord);
+          handoverRows.push({
+            assetId: record.id,
+            type: HandoverRecordType.ASSIGNMENT,
+            recipientId: assignedToId,
+            signedDocUrl: isPending
+              ? null
+              : '/api/v1/assets/handover-documents/file/sample-signed-handover.pdf',
+            isPending,
+            notes: isPending
+              ? 'Handover slip issued to custodian. Awaiting physical signature and upload.'
+              : 'Signed handover documentation verified and archived in electronic repository.',
+            createdAt: purchaseDate,
+          });
+        } else if (uRow.status === 'AVAILABLE' && i % 6 === 0) {
+          const previousUser =
+            getUser('tri.doan@youngonevn.com') || getUser('nam.pham@youngonevn.com');
+          handoverRows.push({
+            assetId: record.id,
+            type: HandoverRecordType.RETURN,
+            recipientId: previousUser || null,
+            signedDocUrl: '/api/v1/assets/handover-documents/file/sample-signed-handover.pdf',
+            isPending: false,
+            notes: 'Returned in good working condition during hardware refresh.',
+            createdAt: new Date(),
+          });
+        }
+      }
+
+      await inTransactionChunks(prisma, handoverRows, 50, async (tx, hRow) => {
+        return tx.assetHandoverRecord.create({
+          data: hRow,
+        });
+      });
+      logger.log(`✅ Seeded ${handoverRows.length} Asset Handover Records.`);
 
       logger.log(
         `✅ Seeded ${deviceModelRows.length} Device Models and ${physicalUnitRows.length} Physical Units across BSL & BSH.`,

@@ -4,6 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import ExcelJS from 'exceljs';
 import type { Response } from 'express';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AssetStatus } from '@uims/shared-types';
 import { AssetsService } from './assets.service';
 import { BatchDeleteAssetDto } from './dto/batch-delete-asset.dto';
@@ -48,6 +49,8 @@ describe('AssetsService', () => {
       assetHandoverRecord: {
         create: vi.fn(),
         createMany: vi.fn(),
+        findFirst: vi.fn(),
+        update: vi.fn(),
       },
       auditLog: {
         create: vi.fn(),
@@ -707,7 +710,7 @@ describe('AssetsService', () => {
       ).rejects.toThrow('Directory user with ID "nonexistent-user" not found');
     });
 
-    it('should batch assign with pending record and dispatch warning when recordDocUrl is omitted', async () => {
+    it('should batch assign with pending record and dispatch warning when signedDocUrl is omitted', async () => {
       (
         mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
       ).findUnique.mockResolvedValue({
@@ -766,7 +769,7 @@ describe('AssetsService', () => {
       );
     });
 
-    it('should batch assign with completed record when recordDocUrl is provided', async () => {
+    it('should batch assign with completed record when signedDocUrl is provided', async () => {
       (
         mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
       ).findUnique.mockResolvedValue({
@@ -787,7 +790,7 @@ describe('AssetsService', () => {
       const res = await service.batchAssign({
         assetIds: ['ast-1'],
         assignedToId: 'usr-1',
-        recordDocUrl: 'https://storage.corp/handover-1.pdf',
+        signedDocUrl: 'https://storage.corp/handover-1.pdf',
       });
 
       expect(res.count).toBe(1);
@@ -835,7 +838,7 @@ describe('AssetsService', () => {
       );
     });
 
-    it('should return asset with pending record when recordDocUrl is omitted and log audit event', async () => {
+    it('should return asset with pending record when signedDocUrl is omitted and log audit event', async () => {
       const mockExisting = {
         id: 'ast-10',
         name: 'Dell XPS 15',
@@ -904,7 +907,7 @@ describe('AssetsService', () => {
       );
     });
 
-    it('should return asset without pending record when recordDocUrl is provided', async () => {
+    it('should return asset without pending record when signedDocUrl is provided', async () => {
       const mockExisting = {
         id: 'ast-11',
         name: 'MacBook Air M2',
@@ -933,7 +936,7 @@ describe('AssetsService', () => {
 
       const result = await service.returnAsset('ast-11', {
         status: 'In Storage',
-        recordDocUrl: 'https://storage.corp/return-rec.pdf',
+        signedDocUrl: 'https://storage.corp/return-rec.pdf',
       });
 
       expect(result.id).toBe('ast-11');
@@ -975,6 +978,487 @@ describe('AssetsService', () => {
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain('HARDWARE ASSET RETURN RECORD');
       expect(html).toContain('Return (To Storage)');
+    });
+  });
+
+  describe('generateHandoverDocument', () => {
+    it('should generate assignment document populated with asset details and recipient info', async () => {
+      const mockAsset = {
+        id: 'ast-gen-1',
+        assetTag: 'AST-5001',
+        name: 'Dell Latitude 5540',
+        manufacturer: 'Dell',
+        model: 'Latitude 5540',
+        serialNumber: 'SN-DELL-5540',
+        status: AssetStatus.IN_USE,
+        notes: 'Equipped with 32GB RAM',
+        category: { name: 'Laptops' },
+      };
+      const mockUser = {
+        id: 'usr-gen-1',
+        employeeCode: 'EMP-900',
+        firstName: 'John',
+        lastName: 'Doe',
+        displayName: 'John Doe',
+        email: 'john.doe@company.internal',
+        department: { name: 'Operations' },
+      };
+
+      (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+        mockAsset,
+      ]);
+      (
+        mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.generateHandoverDocument({
+        type: 'assignment',
+        assetIds: ['ast-gen-1'],
+        recipientId: 'usr-gen-1',
+        conditionNotes: 'All ports verified and operational',
+      });
+
+      expect(result.title).toContain('HARDWARE ASSET HANDOVER RECORD');
+      expect(result.html).toContain('HARDWARE ASSET HANDOVER RECORD');
+      expect(result.html).toContain('AST-5001');
+      expect(result.html).toContain('Dell Latitude 5540');
+      expect(result.html).toContain('SN-DELL-5540');
+      expect(result.html).toContain('John Doe');
+      expect(result.html).toContain('EMP-900');
+      expect(result.html).toContain('Operations');
+      expect(result.html).toContain('All ports verified and operational');
+      expect(result.html).toContain('Employee / Custodian (Recipient)');
+      expect(result.html).toContain('IT Department Representative (Issuer)');
+      expect(result.filename).toBeDefined();
+      expect(result.generatedAt).toBeDefined();
+    });
+
+    it('should generate return document populated with returning asset info', async () => {
+      const mockAsset = {
+        id: 'ast-gen-2',
+        assetTag: 'AST-5002',
+        name: 'MacBook Pro 14',
+        manufacturer: 'Apple',
+        model: 'M2 Pro',
+        serialNumber: 'SN-APL-002',
+        status: AssetStatus.AVAILABLE,
+        notes: 'Slight scratches on bottom lid',
+        category: { name: 'Laptops' },
+      };
+
+      (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+        mockAsset,
+      ]);
+
+      const result = await service.generateHandoverDocument({
+        type: 'return',
+        assetIds: ['ast-gen-2'],
+      });
+
+      expect(result.title).toContain('HARDWARE ASSET RETURN RECORD');
+      expect(result.html).toContain('HARDWARE ASSET RETURN RECORD');
+      expect(result.html).toContain('AST-5002');
+      expect(result.html).toContain('MacBook Pro 14');
+      expect(result.html).toContain('Employee / Custodian (Returner)');
+      expect(result.html).toContain('IT Department Representative (Receiver)');
+    });
+
+    it('should chunk asset queries by 100 when generating document for >100 assets without truncation', async () => {
+      const assetIds = Array.from({ length: 150 }, (_, i) => `ast-${i + 1}`);
+
+      const chunk1 = assetIds.slice(0, 100).map((id, i) => ({
+        id,
+        assetTag: `AST-${i + 1}`,
+        name: `Device ${i + 1}`,
+        manufacturer: 'Dell',
+        model: 'Latitude',
+        serialNumber: `SN-${i + 1}`,
+        status: AssetStatus.AVAILABLE,
+        category: { name: 'Laptops' },
+      }));
+
+      const chunk2 = assetIds.slice(100).map((id, i) => ({
+        id,
+        assetTag: `AST-${i + 101}`,
+        name: `Device ${i + 101}`,
+        manufacturer: 'Dell',
+        model: 'Latitude',
+        serialNumber: `SN-${i + 101}`,
+        status: AssetStatus.AVAILABLE,
+        category: { name: 'Laptops' },
+      }));
+
+      (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany
+        .mockResolvedValueOnce(chunk1)
+        .mockResolvedValueOnce(chunk2);
+
+      const result = await service.generateHandoverDocument({
+        type: 'assignment',
+        assetIds,
+      });
+
+      expect(
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany,
+      ).toHaveBeenCalledTimes(2);
+      expect(result.html).toContain('AST-1');
+      expect(result.html).toContain('AST-100');
+      expect(result.html).toContain('AST-150');
+      expect(result.html).toContain('Device 150');
+    });
+
+    it('should include paged media break rules (thead, tr, terms, signatures) in document HTML', async () => {
+      const result = await service.generateHandoverDocument({
+        type: 'assignment',
+        assetIds: [],
+      });
+
+      expect(result.html).toContain('display: table-header-group;');
+      expect(result.html).toContain('page-break-inside: avoid;');
+      expect(result.html).toContain('break-inside: avoid;');
+      expect(result.html).toContain('size: A4 portrait;');
+    });
+  });
+
+  describe('saveHandoverDocumentFile', () => {
+    it('should throw BadRequestException when file buffer is missing', async () => {
+      const invalidFile = {
+        fieldname: 'file',
+        originalname: 'test.pdf',
+        encoding: '7bit',
+        mimetype: 'application/pdf',
+        size: 0,
+        buffer: undefined as unknown as Buffer,
+      } as Express.Multer.File;
+
+      await expect(service.saveHandoverDocumentFile(invalidFile)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when file mimetype is not allowed', async () => {
+      const invalidFile = {
+        fieldname: 'file',
+        originalname: 'script.sh',
+        encoding: '7bit',
+        mimetype: 'application/x-sh',
+        size: 100,
+        buffer: Buffer.from('#!/bin/bash\necho hello'),
+      } as Express.Multer.File;
+
+      await expect(service.saveHandoverDocumentFile(invalidFile)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when file size exceeds 10MB', async () => {
+      const oversizedFile = {
+        fieldname: 'file',
+        originalname: 'large.pdf',
+        encoding: '7bit',
+        mimetype: 'application/pdf',
+        size: 11 * 1024 * 1024,
+        buffer: Buffer.alloc(100),
+      } as Express.Multer.File;
+
+      await expect(service.saveHandoverDocumentFile(oversizedFile)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should save valid PDF file and return fileUrl', async () => {
+      const validFile = {
+        fieldname: 'file',
+        originalname: 'signed-record.pdf',
+        encoding: '7bit',
+        mimetype: 'application/pdf',
+        size: 1024,
+        buffer: Buffer.from('%PDF-1.4 test content'),
+      } as Express.Multer.File;
+
+      const result = await service.saveHandoverDocumentFile(validFile);
+
+      expect(result.fileName).toBeDefined();
+      expect(result.fileUrl).toContain('/api/v1/assets/handover-documents/file/');
+      expect(result.size).toBe(1024);
+      expect(result.originalName).toBe('signed-record.pdf');
+    });
+
+    it('should automatically attach document to asset when assetId is provided', async () => {
+      const validFile = {
+        fieldname: 'file',
+        originalname: 'signed-handover.png',
+        encoding: '7bit',
+        mimetype: 'image/png',
+        size: 2048,
+        buffer: Buffer.from('fake-png-data'),
+      } as Express.Multer.File;
+
+      const mockAsset = {
+        id: 'ast-with-pending',
+        assetTag: 'AST-999',
+        name: 'HP EliteBook',
+        hasPendingRecord: true,
+      };
+
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        mockAsset,
+      );
+      (
+        mockPrisma.assetHandoverRecord as { findFirst: ReturnType<typeof vi.fn> }
+      ).findFirst.mockResolvedValue({
+        id: 'hor-pending-1',
+        assetId: 'ast-with-pending',
+        isPending: true,
+      });
+      (
+        mockPrisma.assetHandoverRecord as { update: ReturnType<typeof vi.fn> }
+      ).update.mockResolvedValue({
+        id: 'hor-pending-1',
+        isPending: false,
+      });
+      (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+        ...mockAsset,
+        hasPendingRecord: false,
+        handoverRecords: [{ id: 'hor-pending-1', signedDocUrl: 'url' }],
+      });
+
+      const result = await service.saveHandoverDocumentFile(validFile, 'ast-with-pending');
+
+      expect(result.fileUrl).toBeDefined();
+      expect(
+        (mockPrisma.assetHandoverRecord as { update: ReturnType<typeof vi.fn> }).update,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'hor-pending-1' },
+          data: expect.objectContaining({
+            isPending: false,
+            signedDocUrl: result.fileUrl,
+          }),
+        }),
+      );
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ASSET_RECORD_RESOLVED',
+          entityId: 'ast-with-pending',
+        }),
+      );
+    });
+
+    it('should sanitize dangerous or unlisted file extensions to safe extension based on MIME type', async () => {
+      const maliciousFile = {
+        fieldname: 'file',
+        originalname: 'exploit.php',
+        encoding: '7bit',
+        mimetype: 'application/pdf',
+        size: 512,
+        buffer: Buffer.from('%PDF-1.4 test'),
+      } as Express.Multer.File;
+
+      const result = await service.saveHandoverDocumentFile(maliciousFile);
+      expect(result.fileName.endsWith('.pdf')).toBe(true);
+      expect(result.fileName.endsWith('.php')).toBe(false);
+    });
+
+    it('should rollback and delete temporary file if attachHandoverDocument fails', async () => {
+      const validFile = {
+        fieldname: 'file',
+        originalname: 'rollback-test.pdf',
+        encoding: '7bit',
+        mimetype: 'application/pdf',
+        size: 1024,
+        buffer: Buffer.from('%PDF-1.4 rollback test'),
+      } as Express.Multer.File;
+
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        null,
+      );
+
+      await expect(
+        service.saveHandoverDocumentFile(validFile, 'non-existent-asset-id'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject zero-byte empty document files with BadRequestException', async () => {
+      const emptyFile = {
+        fieldname: 'file',
+        originalname: 'empty.pdf',
+        encoding: '7bit',
+        mimetype: 'application/pdf',
+        size: 0,
+        buffer: Buffer.from(''),
+      } as Express.Multer.File;
+
+      await expect(service.saveHandoverDocumentFile(emptyFile)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('streamHandoverDocumentFile', () => {
+    it('should throw NotFoundException when file does not exist', async () => {
+      const mockRes = {
+        setHeader: vi.fn(),
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      await expect(
+        service.streamHandoverDocumentFile('non-existent-file-12345.pdf', mockRes),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject non-allowed file extensions with NotFoundException', async () => {
+      const mockRes = {
+        setHeader: vi.fn(),
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      await expect(service.streamHandoverDocumentFile('suspicious.exe', mockRes)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should reject path traversal attempts with NotFoundException', async () => {
+      const mockRes = {
+        setHeader: vi.fn(),
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      await expect(
+        service.streamHandoverDocumentFile('../../../../etc/passwd', mockRes),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject requests pointing to directories inside upload folder with NotFoundException', async () => {
+      const mockRes = {
+        setHeader: vi.fn(),
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      await expect(service.streamHandoverDocumentFile('.', mockRes)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('attachHandoverDocument', () => {
+    it('should throw NotFoundException if asset does not exist', async () => {
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        null,
+      );
+
+      await expect(
+        service.attachHandoverDocument('non-existent-ast', '/uploads/doc.pdf'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should resolve pending handover record and update hasPendingRecord to false', async () => {
+      const mockAsset = {
+        id: 'ast-pending-resolve',
+        assetTag: 'AST-RESOLVE-1',
+        name: 'Lenovo ThinkPad P1',
+        hasPendingRecord: true,
+      };
+
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        mockAsset,
+      );
+      (
+        mockPrisma.assetHandoverRecord as { findFirst: ReturnType<typeof vi.fn> }
+      ).findFirst.mockResolvedValue({
+        id: 'rec-p-1',
+        assetId: 'ast-pending-resolve',
+        isPending: true,
+        notes: 'Initial assignment notes',
+      });
+      (
+        mockPrisma.assetHandoverRecord as { update: ReturnType<typeof vi.fn> }
+      ).update.mockResolvedValue({
+        id: 'rec-p-1',
+        isPending: false,
+        signedDocUrl: '/files/signed.pdf',
+      });
+      (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+        ...mockAsset,
+        hasPendingRecord: false,
+        handoverRecords: [{ id: 'rec-p-1', signedDocUrl: '/files/signed.pdf' }],
+      });
+
+      const result = await service.attachHandoverDocument(
+        'ast-pending-resolve',
+        '/files/signed.pdf',
+        'Signed hardcopy received',
+      );
+
+      expect(result.hasPendingRecord).toBe(false);
+      expect(
+        (mockPrisma.assetHandoverRecord as { update: ReturnType<typeof vi.fn> }).update,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rec-p-1' },
+          data: expect.objectContaining({
+            isPending: false,
+            signedDocUrl: '/files/signed.pdf',
+            notes: 'Initial assignment notes; Signed hardcopy received',
+          }),
+        }),
+      );
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ASSET_RECORD_RESOLVED',
+          entityId: 'ast-pending-resolve',
+        }),
+      );
+    });
+
+    it('should create new completed handover record if no pending record exists', async () => {
+      const mockAsset = {
+        id: 'ast-no-pending',
+        assetTag: 'AST-NO-PENDING',
+        name: 'Dell Monitor',
+        hasPendingRecord: false,
+      };
+
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+        mockAsset,
+      );
+      (
+        mockPrisma.assetHandoverRecord as { findFirst: ReturnType<typeof vi.fn> }
+      ).findFirst.mockResolvedValue(null);
+      (
+        mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+      ).create.mockResolvedValue({
+        id: 'rec-new-1',
+        assetId: 'ast-no-pending',
+        isPending: false,
+        signedDocUrl: '/files/signed-receipt.pdf',
+      });
+      (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+        ...mockAsset,
+        hasPendingRecord: false,
+        handoverRecords: [{ id: 'rec-new-1', signedDocUrl: '/files/signed-receipt.pdf' }],
+      });
+
+      await service.attachHandoverDocument(
+        'ast-no-pending',
+        '/files/signed-receipt.pdf',
+        'Direct upload',
+      );
+
+      expect(
+        (mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }).create,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assetId: 'ast-no-pending',
+            isPending: false,
+            signedDocUrl: '/files/signed-receipt.pdf',
+          }),
+        }),
+      );
     });
   });
 });

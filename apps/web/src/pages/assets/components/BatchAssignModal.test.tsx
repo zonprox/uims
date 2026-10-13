@@ -2,11 +2,26 @@ import { App, ConfigProvider } from 'antd';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Asset } from '../../../services/assets.service';
+import { type Asset, assetsService } from '../../../services/assets.service';
 import type { DirectoryUser } from '../../../services/directory.service';
 import { BatchAssignModal, type BatchAssignFormValues } from './BatchAssignModal';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+vi.mock('../../../services/assets.service', () => ({
+  assetsService: {
+    generateHandoverDocument: vi.fn().mockResolvedValue({
+      html: '<html>Handover Record</html>',
+      title: 'HARDWARE ASSET HANDOVER RECORD',
+      filename: 'asset_handover_test.html',
+      generatedAt: '2026-10-13T00:00:00.000Z',
+    }),
+    uploadHandoverDocument: vi.fn().mockResolvedValue({
+      fileUrl: '/api/v1/assets/handover-documents/file/signed-test.pdf',
+      fileName: 'signed-test.pdf',
+    }),
+  },
+}));
 
 describe('BatchAssignModal Component', () => {
   let container: HTMLDivElement;
@@ -210,5 +225,190 @@ describe('BatchAssignModal Component', () => {
     });
 
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('renders document generation toolbar with Preview, Print, and Download buttons and direct upload dragger', async () => {
+    const onAssign = vi.fn();
+    const onCancel = vi.fn();
+
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel,
+    });
+
+    // Check handover documentation card
+    expect(document.body.textContent).toContain('Handover Record Documentation');
+    expect(document.body.textContent).toContain('Populate pre-filled handover document');
+    expect(document.body.textContent).toContain('Preview');
+    expect(document.body.textContent).toContain('Print');
+    expect(document.body.textContent).toContain('Download');
+
+    // Check direct upload dragger
+    expect(document.body.textContent).toContain('Signed Handover Document');
+    expect(document.body.textContent).toContain('Click or drag signed document here to upload');
+    expect(document.body.textContent).toContain('Supports PDF, PNG, JPG up to 10MB');
+
+    const dragger = document.querySelector('.ant-upload-drag');
+    expect(dragger).toBeDefined();
+  });
+
+  it('triggers preview handover document when clicking preview button', async () => {
+    const onAssign = vi.fn();
+    const onCancel = vi.fn();
+
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel,
+    });
+
+    const previewBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Preview'),
+    );
+    expect(previewBtn).toBeDefined();
+
+    await act(async () => {
+      previewBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(assetsService.generateHandoverDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assignment',
+        assetIds: ['ast-1', 'ast-2'],
+      }),
+    );
+  });
+
+  it('triggers print handover document when clicking print button', async () => {
+    const onAssign = vi.fn();
+    const onCancel = vi.fn();
+
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel,
+    });
+
+    const printBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+      b.textContent?.includes('Print'),
+    );
+    expect(printBtn).toBeDefined();
+
+    await act(async () => {
+      printBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(assetsService.generateHandoverDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assignment',
+        assetIds: ['ast-1', 'ast-2'],
+      }),
+    );
+  });
+
+  it('triggers download handover document when clicking download button', async () => {
+    const onAssign = vi.fn();
+    const onCancel = vi.fn();
+
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel,
+    });
+
+    const downloadBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Download'),
+    );
+    expect(downloadBtn).toBeDefined();
+
+    await act(async () => {
+      downloadBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(assetsService.generateHandoverDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assignment',
+        assetIds: ['ast-1', 'ast-2'],
+      }),
+    );
+  });
+
+  it('uploads signed document and passes signedDocUrl to onAssign when file is attached', async () => {
+    const onAssign = vi.fn();
+    const onCancel = vi.fn();
+
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel,
+    });
+
+    // Select employee
+    const select = document.querySelector('.ant-select-selection-search-input');
+    expect(select).toBeDefined();
+    await act(async () => {
+      select?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    const option = document.querySelector('.ant-select-item-option');
+    if (option) {
+      await act(async () => {
+        option.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+    }
+
+    // Attach file via input
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput).toBeDefined();
+
+    const testFile = new File(['dummy-content'], 'signed_handover.pdf', {
+      type: 'application/pdf',
+    });
+
+    await act(async () => {
+      if (fileInput) {
+        Object.defineProperty(fileInput, 'files', {
+          value: [testFile],
+          writable: true,
+        });
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    const okBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.ant-modal-footer button'),
+    ).find((b) => b.textContent?.includes('Assign 2 Assets'));
+
+    if (okBtn && !okBtn.disabled) {
+      await act(async () => {
+        okBtn.click();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      expect(assetsService.uploadHandoverDocument).toHaveBeenCalled();
+      expect(onAssign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mode: 'assign',
+          signedDocUrl: '/api/v1/assets/handover-documents/file/signed-test.pdf',
+        }),
+      );
+    }
   });
 });

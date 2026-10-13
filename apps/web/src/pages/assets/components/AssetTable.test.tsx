@@ -211,4 +211,10 @@ describe('AssetTable Component', () => {
     );
     expect(categoryTags.length).toBeGreaterThan(0);
   });
+
+  it('accepts onAssetUpdated callback prop cleanly', async () => {
+    const onAssetUpdated = vi.fn();
+    await renderComponent({ onAssetUpdated });
+    expect(container.textContent).toContain('AST-1001');
+  });
 });

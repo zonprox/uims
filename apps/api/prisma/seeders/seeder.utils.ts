@@ -79,15 +79,15 @@ export async function inTransactionChunks<T, R>(
   prisma: PrismaClient,
   items: T[],
   chunkSize: number,
-  fn: (tx: Prisma.TransactionClient, item: T) => Promise<R>,
+  fn: (tx: Prisma.TransactionClient, item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
   const results: R[] = [];
   for (let i = 0; i < items.length; i += chunkSize) {
     const chunk = items.slice(i, i + chunkSize);
     const chunkResults = await prisma.$transaction(async (tx) => {
       const res: R[] = [];
-      for (const item of chunk) {
-        res.push(await fn(tx, item));
+      for (let j = 0; j < chunk.length; j++) {
+        res.push(await fn(tx, chunk[j], i + j));
       }
       return res;
     });

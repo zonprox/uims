@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   Optional,
@@ -27,9 +28,13 @@ import { mapAssetStatus, mapAssetStatusToLabel } from '@uims/shared-utils';
 import ExcelJS from 'exceljs';
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { BatchAssignAssetDto } from './dto/batch-assign-asset.dto';
+import type { GenerateHandoverDocumentDto } from './dto/generate-handover-document.dto';
 import type { ReturnAssetDto } from './dto/return-asset.dto';
 
 type AssetWithRelations = Prisma.AssetGetPayload<{
@@ -40,7 +45,17 @@ type AssetWithRelations = Prisma.AssetGetPayload<{
     parent: true;
     costCenter: true;
   };
-}>;
+}> & {
+  handoverRecords?: Array<{
+    id: string;
+    type: HandoverRecordType;
+    signedDocUrl: string | null;
+    isPending: boolean;
+    notes: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+};
 
 interface StatusStyle {
   fill: string;
@@ -130,6 +145,27 @@ function autoFitColumnWidths(worksheet: ExcelJS.Worksheet): void {
   });
 }
 
+function escapeHtml(str: string | null | undefined): string {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getHandoverUploadDir(): string {
+  const cwd = process.cwd();
+  const dir = cwd.endsWith('apps/api')
+    ? path.resolve(cwd, 'uploads/handover-records')
+    : path.resolve(cwd, 'apps/api/uploads/handover-records');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
 function generateAssetTag(): string {
   const timeSuffix = Date.now().toString(36).toUpperCase().slice(-4);
   const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -181,7 +217,26 @@ export class AssetsService {
     }
 
     const formatted = await this.prisma.$transaction(async (tx) => {
-      const categoryId = await this.resolveCategoryId(tx, data.categoryId, data.category);
+      let parentModel: Prisma.AssetGetPayload<{ include: { category: true } }> | null = null;
+      if (data.parentId) {
+        parentModel = await tx.asset.findUnique({
+          where: { id: data.parentId },
+          include: { category: true },
+        });
+        if (!parentModel) {
+          throw new NotFoundException(`Parent device model with ID "${data.parentId}" not found`);
+        }
+        if (parentModel.parentId !== null) {
+          throw new BadRequestException(
+            'Cannot register unit under another physical unit. Parent must be a device model.',
+          );
+        }
+      }
+
+      const categoryId =
+        (await this.resolveCategoryId(tx, data.categoryId, data.category)) ||
+        parentModel?.categoryId ||
+        null;
 
       if (data.assignedToId) {
         const user = await tx.directoryUser.findUnique({ where: { id: data.assignedToId } });
@@ -190,25 +245,33 @@ export class AssetsService {
         }
       }
 
+      const normalizedSubcode = data.subcode
+        ? data.subcode.trim().toUpperCase()
+        : data.tag
+          ? data.tag.trim().toUpperCase()
+          : null;
+
       const created = await tx.asset.create({
         data: {
           assetCode: data.assetCode ? data.assetCode.trim().toUpperCase() : null,
-          subcode: data.subcode ? data.subcode.trim().toUpperCase() : null,
+          subcode: normalizedSubcode,
           assetTag:
             data.assetTag ||
             data.tag ||
-            (data.subcode ? data.subcode.trim().toUpperCase() : undefined) ||
+            normalizedSubcode ||
             (data.assetCode ? data.assetCode.trim().toUpperCase() : undefined) ||
             generateAssetTag(),
           parentId: data.parentId || null,
-          costCenterId: data.costCenterId || null,
-          name: data.name,
-          manufacturer: data.manufacturer,
-          model: data.model,
+          costCenterId: data.costCenterId || parentModel?.costCenterId || null,
+          name: data.name || parentModel?.name || 'Hardware Asset',
+          manufacturer: data.manufacturer || parentModel?.manufacturer || null,
+          model: data.model || parentModel?.model || null,
           serialNumber: data.serialNumber ? data.serialNumber.trim() : null,
-          specifications: data.specifications || null,
+          specifications: data.specifications || parentModel?.specifications || null,
           unitCost:
-            data.unitCost !== undefined && data.unitCost !== null ? Number(data.unitCost) : null,
+            data.unitCost !== undefined && data.unitCost !== null
+              ? Number(data.unitCost)
+              : (parentModel?.unitCost ?? null),
           description: data.description || null,
           status,
           purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
@@ -349,6 +412,10 @@ export class AssetsService {
         department: { include: { organization: true } },
         parent: true,
         costCenter: true,
+        handoverRecords: {
+          take: 1,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: pageSize,
@@ -558,6 +625,10 @@ export class AssetsService {
         department: { include: { organization: true } },
         parent: true,
         costCenter: true,
+        handoverRecords: {
+          take: 5,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        },
         children: {
           take: 100,
           orderBy: [{ id: 'asc' }],
@@ -805,7 +876,8 @@ export class AssetsService {
       targetStatus = AssetStatus.AVAILABLE;
     }
 
-    const hasDoc = Boolean(dto.recordDocUrl && dto.recordDocUrl.trim().length > 0);
+    const docUrl = dto.signedDocUrl;
+    const hasDoc = Boolean(docUrl && docUrl.trim().length > 0);
     const hasPendingRecord = dto.assignedToId ? !hasDoc : false;
     const isPending = !hasDoc;
 
@@ -846,7 +918,7 @@ export class AssetsService {
               assetId,
               type: HandoverRecordType.ASSIGNMENT,
               recipientId: dto.assignedToId as string,
-              signedDocUrl: hasDoc ? dto.recordDocUrl?.trim() : null,
+              signedDocUrl: hasDoc ? docUrl?.trim() : null,
               isPending,
               notes: hasDoc
                 ? 'Batch assigned with signed handover record'
@@ -901,33 +973,99 @@ export class AssetsService {
     };
   }
 
-  getHandoverTemplateHtml(type: 'assignment' | 'return' = 'assignment'): string {
-    const isReturn = type === 'return';
-    const title = isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD';
-    const subtitle = isReturn
-      ? 'Equipment Return & Custody Termination'
-      : 'Equipment Assignment & Custody Transfer';
-    const currentDate = new Date().toISOString().split('T')[0];
+  buildHandoverDocumentHtml(params: {
+    title: string;
+    subtitle: string;
+    refId: string;
+    type: 'assignment' | 'return';
+    currentDate: string;
+    recipient?: {
+      fullName: string;
+      employeeCode: string;
+      department: string;
+      email: string;
+      organization: string;
+    } | null;
+    assets: Array<{
+      id?: string;
+      tag: string;
+      name: string;
+      manufacturer: string;
+      model: string;
+      serialNumber: string | null;
+      condition: string;
+    }>;
+    conditionNotes?: string;
+  }): string {
+    const isReturn = params.type === 'return';
+    const recipient = params.recipient;
+    const assets = params.assets;
+
+    let equipmentRowsHtml = '';
+    if (assets.length > 0) {
+      equipmentRowsHtml = assets
+        .map(
+          (a, idx) => `
+      <tr>
+        <td style="text-align: center; font-weight: 600;">${idx + 1}</td>
+        <td><strong style="color: #1e40af;">${escapeHtml(a.tag)}</strong></td>
+        <td><strong>${escapeHtml(a.name)}</strong></td>
+        <td>${escapeHtml(`${a.manufacturer} ${a.model}`.trim() || '—')}</td>
+        <td><code>${escapeHtml(a.serialNumber || 'N/A')}</code></td>
+        <td>${escapeHtml(a.condition)}</td>
+      </tr>`,
+        )
+        .join('');
+    } else {
+      equipmentRowsHtml = `
+      <tr>
+        <td style="text-align: center;">1</td>
+        <td>AST-__________</td>
+        <td>____________________</td>
+        <td>____________________</td>
+        <td>SN-_________________</td>
+        <td>${isReturn ? '[ ] Normal [ ] Defective' : '[ ] Good / Operational'}</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">2</td>
+        <td>AST-__________</td>
+        <td>____________________</td>
+        <td>____________________</td>
+        <td>SN-_________________</td>
+        <td>${isReturn ? '[ ] Normal [ ] Defective' : '[ ] Good / Operational'}</td>
+      </tr>`;
+    }
+
+    const orgName = recipient?.organization || 'Youngone Corporation';
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} — UIMS</title>
+  <title>${escapeHtml(params.title)} — UIMS</title>
   <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 18mm;
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #0f172a;
       line-height: 1.5;
-      padding: 36px 48px;
-      max-width: 820px;
+      padding: 32px 40px;
+      max-width: 840px;
       margin: 0 auto;
+      background: #ffffff;
+      font-size: 12px;
     }
     .header {
       border-bottom: 2px solid #0f172a;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
+      padding-bottom: 14px;
+      margin-bottom: 20px;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
@@ -956,7 +1094,7 @@ export class AssetsService {
       border: 1px solid #e2e8f0;
       border-radius: 6px;
       padding: 12px 16px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 12px;
@@ -972,6 +1110,7 @@ export class AssetsService {
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      margin-bottom: 2px;
     }
     .meta-value {
       font-weight: 600;
@@ -983,15 +1122,22 @@ export class AssetsService {
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #334155;
-      margin: 20px 0 10px 0;
+      margin: 18px 0 10px 0;
       padding-bottom: 4px;
       border-bottom: 1px solid #e2e8f0;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       font-size: 12px;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     th {
       background: #f1f5f9;
@@ -1004,6 +1150,7 @@ export class AssetsService {
     td {
       padding: 8px 10px;
       border: 1px solid #cbd5e1;
+      vertical-align: top;
     }
     .terms {
       font-size: 11px;
@@ -1012,8 +1159,10 @@ export class AssetsService {
       border: 1px dashed #cbd5e1;
       border-radius: 6px;
       padding: 12px 16px;
-      margin: 24px 0;
+      margin: 20px 0;
       line-height: 1.6;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .terms ol {
       margin: 4px 0 0 0;
@@ -1022,8 +1171,10 @@ export class AssetsService {
     .signatures {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 36px;
-      margin-top: 36px;
+      gap: 28px;
+      margin-top: 24px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .sig-card {
       border: 1px solid #e2e8f0;
@@ -1036,7 +1187,13 @@ export class AssetsService {
       font-weight: 700;
       color: #0f172a;
       text-transform: uppercase;
-      margin-bottom: 40px;
+      margin-bottom: 8px;
+    }
+    .sig-details {
+      font-size: 11px;
+      color: #475569;
+      margin-bottom: 36px;
+      line-height: 1.6;
     }
     .sig-line {
       border-top: 1px solid #94a3b8;
@@ -1049,6 +1206,28 @@ export class AssetsService {
     @media print {
       body {
         padding: 0;
+        margin: 0;
+        max-width: 100%;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .no-print {
+        display: none !important;
+      }
+      thead {
+        display: table-header-group;
+      }
+      tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .terms {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .signatures {
+        page-break-inside: avoid;
+        break-inside: avoid;
       }
     }
   </style>
@@ -1057,23 +1236,23 @@ export class AssetsService {
   <div class="header">
     <div>
       <div class="brand">Unified IT Management System (UIMS)</div>
-      <h1 class="title">${title}</h1>
-      <p class="subtitle">${subtitle}</p>
+      <h1 class="title">${escapeHtml(params.title)}</h1>
+      <p class="subtitle">${escapeHtml(params.subtitle)}</p>
     </div>
     <div style="text-align: right; font-size: 12px; color: #64748b;">
-      <div>Ref ID: <strong>HOR-${Date.now().toString(36).toUpperCase()}</strong></div>
-      <div>Date: <strong>${currentDate}</strong></div>
+      <div>Ref ID: <strong>${escapeHtml(params.refId)}</strong></div>
+      <div>Date: <strong>${escapeHtml(params.currentDate)}</strong></div>
     </div>
   </div>
 
-  <div class="meta-grid meta-box">
+  <div class="meta-box">
     <div class="meta-item">
       <span class="meta-label">Record Type</span>
       <span class="meta-value">${isReturn ? 'Return (To Storage)' : 'Handover (Assignment)'}</span>
     </div>
     <div class="meta-item">
       <span class="meta-label">Execution Date</span>
-      <span class="meta-value">${currentDate}</span>
+      <span class="meta-value">${escapeHtml(params.currentDate)}</span>
     </div>
     <div class="meta-item">
       <span class="meta-label">Issued By</span>
@@ -1081,7 +1260,7 @@ export class AssetsService {
     </div>
     <div class="meta-item">
       <span class="meta-label">Organization</span>
-      <span class="meta-value">Youngone Corporation</span>
+      <span class="meta-value">${escapeHtml(orgName)}</span>
     </div>
   </div>
 
@@ -1096,57 +1275,60 @@ export class AssetsService {
     <tbody>
       <tr>
         <td>
-          <div><strong>Name:</strong> ___________________________________</div>
-          <div style="margin-top: 6px;"><strong>Code:</strong> _________________ <strong>Dept:</strong> IT Infrastructure</div>
+          <div><strong>Name:</strong> IT Asset Administrator</div>
+          <div style="margin-top: 4px;"><strong>Department:</strong> IT Infrastructure & Operations</div>
+          <div style="margin-top: 4px;"><strong>Contact:</strong> it-support@youngonevn.com</div>
         </td>
         <td>
-          <div><strong>Name:</strong> ___________________________________</div>
-          <div style="margin-top: 6px;"><strong>Code:</strong> _________________ <strong>Dept:</strong> ____________________</div>
+          <div><strong>Name:</strong> ${recipient ? `<strong>${escapeHtml(recipient.fullName)}</strong>` : '___________________________________'}</div>
+          <div style="margin-top: 4px;">
+            <strong>Code:</strong> ${recipient?.employeeCode ? escapeHtml(recipient.employeeCode) : '_________________'}
+            &nbsp;&nbsp;
+            <strong>Dept:</strong> ${recipient?.department ? escapeHtml(recipient.department) : '____________________'}
+          </div>
+          <div style="margin-top: 4px;"><strong>Email:</strong> ${recipient?.email ? escapeHtml(recipient.email) : '___________________________________'}</div>
         </td>
       </tr>
     </tbody>
   </table>
 
-  <div class="section-title">2. Hardware Equipment Specifications</div>
+  <div class="section-title">2. Hardware Equipment Specifications (${assets.length} item${assets.length === 1 ? '' : 's'})</div>
   <table>
     <thead>
       <tr>
+        <th style="width: 6%; text-align: center;">#</th>
         <th style="width: 20%;">Asset Tag</th>
-        <th style="width: 25%;">Model & Manufacturer</th>
-        <th style="width: 25%;">Serial Number</th>
-        <th style="width: 15%;">Condition</th>
-        <th style="width: 15%;">Accessories</th>
+        <th style="width: 24%;">Asset Name</th>
+        <th style="width: 22%;">Manufacturer & Model</th>
+        <th style="width: 14%;">Serial Number</th>
+        <th style="width: 14%;">Condition</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>AST-__________</td>
-        <td>____________________</td>
-        <td>SN-_________________</td>
-        <td>${isReturn ? '[ ] Normal [ ] Defective' : '[ ] Good / New'}</td>
-        <td>[ ] Charger [ ] Bag [ ] Mouse</td>
-      </tr>
-      <tr>
-        <td>AST-__________</td>
-        <td>____________________</td>
-        <td>SN-_________________</td>
-        <td>${isReturn ? '[ ] Normal [ ] Defective' : '[ ] Good / New'}</td>
-        <td>[ ] Charger [ ] Bag [ ] Mouse</td>
-      </tr>
+      ${equipmentRowsHtml}
     </tbody>
   </table>
+
+  ${
+    params.conditionNotes
+      ? `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 18px; font-size: 11.5px;">
+          <strong>${isReturn ? 'Return Inspection Notes' : 'Handover Notes & Remarks'}:</strong> ${escapeHtml(params.conditionNotes)}
+        </div>`
+      : ''
+  }
 
   <div class="terms">
     <strong>Terms & Custody Acknowledgement:</strong>
     <ol>
       ${
         isReturn
-          ? `<li>The employee confirms that all assigned assets listed above are returned to IT Department custody.</li>
-             <li>All corporate data stored on local storage will be backed up or securely purged according to IT policy.</li>
-             <li>Physical damages beyond ordinary wear and tear must be recorded in the inspection notes.</li>`
-          : `<li>The recipient acknowledges receipt of the equipment in good working condition.</li>
-             <li>The recipient agrees to follow corporate security policies and safeguard the equipment.</li>
-             <li>The equipment remains company property and must be returned upon transfer or termination.</li>`
+          ? `<li>The employee confirms that all assigned hardware assets listed above have been returned to IT Department custody.</li>
+             <li>All corporate data stored on local drives will be backed up or securely wiped in accordance with corporate information security standards.</li>
+             <li>Physical hardware condition and returned accessories have been inspected and documented above.</li>`
+          : `<li>The recipient acknowledges receipt of the equipment listed above in good working condition and verified specifications.</li>
+             <li>The recipient agrees to follow corporate security policies, safeguard the equipment, and use it exclusively for authorized business purposes.</li>
+             <li>The equipment remains company property and must be returned upon department transfer, role transition, or employment termination.</li>
+             <li>Any physical damage, loss, theft, or hardware malfunction must be reported immediately to IT Asset Management.</li>`
       }
     </ol>
   </div>
@@ -1154,14 +1336,24 @@ export class AssetsService {
   <div class="section-title">3. Acknowledgement & Signatures</div>
   <div class="signatures">
     <div class="sig-card">
-      <div class="sig-title">IT Department Representative</div>
+      <div class="sig-title">IT Department Representative (${isReturn ? 'Receiver' : 'Issuer'})</div>
+      <div class="sig-details">
+        <div><strong>Name:</strong> IT Asset Administrator</div>
+        <div><strong>Title:</strong> IT Asset Custodian</div>
+        <div><strong>Department:</strong> IT Infrastructure</div>
+      </div>
       <div class="sig-line">
         <span>Signature: ______________________</span>
         <span>Date: ___/___/______</span>
       </div>
     </div>
     <div class="sig-card">
-      <div class="sig-title">Employee / Custodian</div>
+      <div class="sig-title">Employee / Custodian (${isReturn ? 'Returner' : 'Recipient'})</div>
+      <div class="sig-details">
+        <div><strong>Name:</strong> ${recipient ? escapeHtml(recipient.fullName) : '__________________________'}</div>
+        <div><strong>Code:</strong> ${recipient?.employeeCode ? escapeHtml(recipient.employeeCode) : '________________'}</div>
+        <div><strong>Dept:</strong> ${recipient?.department ? escapeHtml(recipient.department) : '________________'}</div>
+      </div>
       <div class="sig-line">
         <span>Signature: ______________________</span>
         <span>Date: ___/___/______</span>
@@ -1170,6 +1362,367 @@ export class AssetsService {
   </div>
 </body>
 </html>`;
+  }
+
+  getHandoverTemplateHtml(type: 'assignment' | 'return' = 'assignment'): string {
+    const isReturn = type === 'return';
+    const currentDate = new Date().toISOString().split('T')[0];
+    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+    return this.buildHandoverDocumentHtml({
+      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
+      subtitle: isReturn
+        ? 'Equipment Return & Custody Termination'
+        : 'Equipment Assignment & Custody Transfer',
+      refId,
+      type,
+      currentDate,
+      assets: [],
+    });
+  }
+
+  async generateHandoverDocument(dto: GenerateHandoverDocumentDto) {
+    const isReturn = dto.type === 'return';
+    const currentDate = new Date().toISOString().split('T')[0];
+    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+
+    let recipient: {
+      fullName: string;
+      employeeCode: string;
+      department: string;
+      email: string;
+      organization: string;
+    } | null = null;
+
+    let assets: Array<{
+      id: string;
+      tag: string;
+      name: string;
+      manufacturer: string;
+      model: string;
+      serialNumber: string | null;
+      condition: string;
+    }> = [];
+
+    if (dto.recipientId) {
+      const user = await this.prisma.directoryUser.findUnique({
+        where: { id: dto.recipientId },
+        include: { department: true, organization: true },
+      });
+      if (user) {
+        recipient = {
+          fullName: user.displayName || `${user.firstName} ${user.lastName}`.trim(),
+          employeeCode: user.employeeCode || '—',
+          department: user.department?.name || '—',
+          email: user.email || '—',
+          organization: user.organization?.name || 'Youngone Corporation',
+        };
+      }
+    }
+
+    if (dto.assetIds && dto.assetIds.length > 0) {
+      type AssetForDocument = Prisma.AssetGetPayload<{
+        include: {
+          category: true;
+          assignedTo: { include: { department: true; organization: true } };
+          department: { include: { organization: true } };
+        };
+      }>;
+      const foundAssets: AssetForDocument[] = [];
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < dto.assetIds.length; i += CHUNK_SIZE) {
+        const chunk = dto.assetIds.slice(i, i + CHUNK_SIZE);
+        const chunkFound = await this.prisma.asset.findMany({
+          where: { id: { in: chunk } },
+          include: {
+            category: true,
+            assignedTo: { include: { department: true, organization: true } },
+            department: { include: { organization: true } },
+          },
+          take: chunk.length,
+          orderBy: [{ id: 'asc' }],
+        });
+        foundAssets.push(...chunkFound);
+      }
+
+      assets = foundAssets.map((a) => ({
+        id: a.id,
+        tag: a.assetTag || a.subcode || a.assetCode || a.id,
+        name: a.name,
+        manufacturer: a.manufacturer || 'Generic',
+        model: a.model || 'Standard',
+        serialNumber: a.serialNumber || 'N/A',
+        condition: isReturn ? dto.conditionNotes || 'Returned / Inspected' : 'Good / Operational',
+      }));
+
+      if (!recipient && isReturn && foundAssets.length > 0 && foundAssets[0].assignedTo) {
+        const u = foundAssets[0].assignedTo;
+        recipient = {
+          fullName: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
+          employeeCode: u.employeeCode || '—',
+          department: u.department?.name || foundAssets[0].department?.name || '—',
+          email: u.email || '—',
+          organization: u.organization?.name || 'Youngone Corporation',
+        };
+      }
+    }
+
+    const title = isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD';
+    const subtitle = isReturn
+      ? 'Equipment Return & Custody Termination'
+      : 'Equipment Assignment & Custody Transfer';
+
+    const html = this.buildHandoverDocumentHtml({
+      title,
+      subtitle,
+      refId,
+      type: dto.type,
+      currentDate,
+      recipient,
+      assets,
+      conditionNotes: dto.conditionNotes,
+    });
+
+    const filename = `asset_${isReturn ? 'return' : 'handover'}_${currentDate}_${refId.toLowerCase()}.html`;
+
+    return {
+      html,
+      title,
+      filename,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async saveHandoverDocumentFile(
+    file: {
+      originalname: string;
+      mimetype: string;
+      size: number;
+      buffer: Buffer;
+    },
+    assetId?: string,
+  ) {
+    if (!file || !file.buffer || file.size === 0 || file.buffer.length === 0) {
+      throw new BadRequestException(
+        'A non-empty document file is required (PDF, PNG, JPG, or JPEG up to 10MB).',
+      );
+    }
+
+    const allowedMimes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowedMimes.includes(file.mimetype.toLowerCase())) {
+      throw new BadRequestException(
+        'Invalid file type. Only PDF, PNG, JPG, and JPEG documents are permitted.',
+      );
+    }
+
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_SIZE) {
+      throw new BadRequestException('File exceeds the maximum permitted size of 10MB.');
+    }
+
+    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg'];
+    const rawExt = path.extname(file.originalname).toLowerCase();
+    let ext: string;
+    if (allowedExtensions.includes(rawExt)) {
+      ext = rawExt;
+    } else {
+      const mime = file.mimetype.toLowerCase();
+      if (mime.includes('pdf')) {
+        ext = '.pdf';
+      } else if (mime.includes('png')) {
+        ext = '.png';
+      } else {
+        ext = '.jpg';
+      }
+    }
+    const safeName = `handover-${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
+    const uploadDir = getHandoverUploadDir();
+    const filePath = path.join(uploadDir, safeName);
+
+    try {
+      await fs.promises.writeFile(filePath, file.buffer);
+    } catch (writeErr: unknown) {
+      this.logger.error(
+        `Failed to write handover document file "${safeName}" to disk`,
+        writeErr instanceof Error ? writeErr.stack : String(writeErr),
+      );
+      throw new InternalServerErrorException(
+        'Failed to save uploaded document file due to storage error.',
+      );
+    }
+
+    const fileUrl = `/api/v1/assets/handover-documents/file/${safeName}`;
+
+    let assetResult = undefined;
+    const cleanAssetId = assetId?.trim() || undefined;
+    if (cleanAssetId) {
+      try {
+        assetResult = await this.attachHandoverDocument(cleanAssetId, fileUrl);
+      } catch (attachErr: unknown) {
+        try {
+          if (fs.existsSync(filePath)) {
+            await fs.promises.unlink(filePath);
+          }
+        } catch (cleanupErr: unknown) {
+          this.logger.warn(
+            `Failed to cleanup temporary handover document file "${filePath}" after error`,
+            cleanupErr instanceof Error ? cleanupErr.stack : String(cleanupErr),
+          );
+        }
+        throw attachErr;
+      }
+    }
+
+    return {
+      fileUrl,
+      fileName: safeName,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      asset: assetResult,
+    };
+  }
+
+  async streamHandoverDocumentFile(
+    filename: string,
+    res: Response,
+    isAttachment = false,
+  ): Promise<void> {
+    const sanitized = path.basename(filename).replace(/\0/g, '');
+    const uploadDir = getHandoverUploadDir();
+    const filePath = path.resolve(uploadDir, sanitized);
+
+    const ext = path.extname(sanitized).toLowerCase();
+    const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg'];
+
+    if (
+      !allowedExtensions.includes(ext) ||
+      !filePath.startsWith(uploadDir + path.sep) ||
+      !fs.existsSync(filePath) ||
+      !fs.statSync(filePath).isFile()
+    ) {
+      throw new NotFoundException(`Handover document file "${sanitized}" not found`);
+    }
+
+    const mimeMap: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+    };
+    const contentType = mimeMap[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    const dispositionType = isAttachment ? 'attachment' : 'inline';
+    res.setHeader('Content-Disposition', `${dispositionType}; filename="${sanitized}"`);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', (err: unknown) => {
+      this.logger.error(
+        `Failed to stream handover document file "${sanitized}"`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      if (!res.headersSent) {
+        res.status(500).json({ statusCode: 500, message: 'Failed to stream handover document' });
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
+  }
+
+  async attachHandoverDocument(id: string, fileUrl: string, notes?: string) {
+    const existing = await this.prisma.asset.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        assignedTo: { include: { organization: true } },
+        department: { include: { organization: true } },
+        parent: true,
+        costCenter: true,
+        handoverRecords: {
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 1,
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Asset with ID "${id}" not found`);
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const latestPending = await tx.assetHandoverRecord.findFirst({
+        where: { assetId: id, isPending: true },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+
+      if (latestPending) {
+        await tx.assetHandoverRecord.update({
+          where: { id: latestPending.id },
+          data: {
+            signedDocUrl: fileUrl,
+            isPending: false,
+            notes: notes
+              ? `${latestPending.notes ? `${latestPending.notes}; ` : ''}${notes}`
+              : latestPending.notes,
+          },
+        });
+      } else {
+        await tx.assetHandoverRecord.create({
+          data: {
+            assetId: id,
+            type: existing.assignedToId ? HandoverRecordType.ASSIGNMENT : HandoverRecordType.RETURN,
+            recipientId: existing.assignedToId || null,
+            signedDocUrl: fileUrl,
+            isPending: false,
+            notes: notes || 'Signed handover document attached directly',
+          },
+        });
+      }
+
+      const updated = await tx.asset.update({
+        where: { id },
+        data: {
+          hasPendingRecord: false,
+        },
+        include: {
+          category: true,
+          assignedTo: { include: { organization: true } },
+          department: { include: { organization: true } },
+          parent: true,
+          costCenter: true,
+          handoverRecords: {
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 5,
+          },
+        },
+      });
+
+      return updated;
+    });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'ASSET_RECORD_RESOLVED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Signed handover document attached to asset (${existing.assetTag || id}). Pending record resolved. File: ${fileUrl}`,
+          oldValue: { hasPendingRecord: existing.hasPendingRecord },
+          newValue: { hasPendingRecord: false, signedDocUrl: fileUrl },
+        });
+      } catch (auditErr: unknown) {
+        this.logger.error(
+          `Failed to log audit event for resolving record on asset "${id}"`,
+          auditErr instanceof Error ? auditErr.stack : String(auditErr),
+        );
+      }
+    }
+
+    return this.formatAsset(result as unknown as AssetWithRelations);
   }
 
   async returnAsset(id: string, dto: ReturnAssetDto) {
@@ -1190,7 +1743,8 @@ export class AssetsService {
 
     const previousRecipientId = existing.assignedToId;
     const targetStatus = dto.status ? mapAssetStatus(dto.status) : AssetStatus.AVAILABLE;
-    const hasDoc = Boolean(dto.recordDocUrl && dto.recordDocUrl.trim().length > 0);
+    const docUrl = dto.signedDocUrl;
+    const hasDoc = Boolean(docUrl && docUrl.trim().length > 0);
     const isPending = !hasDoc;
     const hasPendingRecord = !hasDoc;
 
@@ -1200,6 +1754,17 @@ export class AssetsService {
       : existing.notes;
 
     const result = await this.prisma.$transaction(async (tx) => {
+      const handoverRecord = await tx.assetHandoverRecord.create({
+        data: {
+          assetId: id,
+          type: HandoverRecordType.RETURN,
+          recipientId: previousRecipientId,
+          signedDocUrl: hasDoc ? docUrl?.trim() : null,
+          isPending,
+          notes: dto.conditionNotes || null,
+        },
+      });
+
       const updated = await tx.asset.update({
         where: { id },
         data: {
@@ -1214,17 +1779,10 @@ export class AssetsService {
           department: { include: { organization: true } },
           parent: true,
           costCenter: true,
-        },
-      });
-
-      const handoverRecord = await tx.assetHandoverRecord.create({
-        data: {
-          assetId: id,
-          type: HandoverRecordType.RETURN,
-          recipientId: previousRecipientId,
-          signedDocUrl: hasDoc ? dto.recordDocUrl?.trim() : null,
-          isPending,
-          notes: dto.conditionNotes || null,
+          handoverRecords: {
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 5,
+          },
         },
       });
 
@@ -1337,6 +1895,22 @@ export class AssetsService {
       ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`.trim()
       : 'Unassigned';
 
+    const handoverRecords = (
+      asset as {
+        handoverRecords?: Array<{
+          id: string;
+          type: string;
+          signedDocUrl?: string | null;
+          isPending: boolean;
+          notes?: string | null;
+          createdAt?: Date;
+        }>;
+      }
+    ).handoverRecords;
+    const latestHandover = handoverRecords?.[0] || null;
+    const signedRecord = handoverRecords?.find((r) => Boolean(r.signedDocUrl));
+    const signedDocUrl = signedRecord?.signedDocUrl || latestHandover?.signedDocUrl || null;
+
     return {
       id: asset.id,
       assetCode: asset.assetCode || null,
@@ -1392,6 +1966,19 @@ export class AssetsService {
       purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().split('T')[0] : '',
       warrantyExpiry: asset.warrantyExpiry ? asset.warrantyExpiry.toISOString().split('T')[0] : '',
       hasPendingRecord: Boolean(asset.hasPendingRecord),
+      signedDocUrl,
+      latestHandoverRecord: latestHandover
+        ? {
+            id: latestHandover.id,
+            type: latestHandover.type,
+            signedDocUrl: latestHandover.signedDocUrl || null,
+            isPending: Boolean(latestHandover.isPending),
+            notes: latestHandover.notes || null,
+            createdAt: latestHandover.createdAt
+              ? latestHandover.createdAt.toISOString()
+              : undefined,
+          }
+        : null,
       notes: asset.notes || '',
       createdAt: asset.createdAt ? asset.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: asset.updatedAt ? asset.updatedAt.toISOString() : new Date().toISOString(),
