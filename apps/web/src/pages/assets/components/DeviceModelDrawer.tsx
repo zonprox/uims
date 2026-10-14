@@ -129,7 +129,7 @@ export const DeviceModelDrawer: React.FC<DeviceModelDrawerProps> = React.memo(
         title={editingModel ? `Edit Device Model: ${editingModel.name}` : 'Create Device Model'}
         open={open}
         onClose={onClose}
-        destroyOnClose
+        destroyOnHidden
         styles={{
           wrapper: { width: 520 },
           body: {

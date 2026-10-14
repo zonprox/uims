@@ -20,10 +20,6 @@ vi.mock('../../../services/assets.service', () => ({
       blob: new Blob(['docx']),
       filename: 'asset_handover_test.docx',
     }),
-    downloadHandoverXlsx: vi.fn().mockResolvedValue({
-      blob: new Blob(['xlsx']),
-      filename: 'asset_handover_test.xlsx',
-    }),
     uploadHandoverDocument: vi.fn().mockResolvedValue({
       fileUrl: '/api/v1/assets/handover-documents/file/signed-test.pdf',
       fileName: 'signed-test.pdf',
@@ -107,7 +103,7 @@ describe('BatchAssignModal Component', () => {
       currentRoot = null;
     }
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     });
     if (container && container.parentNode) {
       container.parentNode.removeChild(container);
@@ -148,7 +144,7 @@ describe('BatchAssignModal Component', () => {
     });
   };
 
-  it('renders modal with selected assets count and tags when open', async () => {
+  it('renders drawer with selected assets count and tags when open', async () => {
     const onAssign = vi.fn();
     const onCancel = vi.fn();
 
@@ -160,8 +156,8 @@ describe('BatchAssignModal Component', () => {
       onCancel,
     });
 
-    const modalTitle = document.querySelector('.ant-modal-title');
-    expect(modalTitle?.textContent).toContain('Batch Assign Hardware Assets');
+    const drawerTitle = document.querySelector('.ant-drawer-title, .ant-drawer-header');
+    expect(drawerTitle?.textContent).toContain('Batch Assign Hardware Assets');
     expect(document.body.textContent).toContain('Selected Assets for Batch Update');
     expect(document.body.textContent).toContain('2 hardware devices');
     expect(document.body.textContent).toContain('AST-1001: MacBook Pro 16');
@@ -196,7 +192,7 @@ describe('BatchAssignModal Component', () => {
 
     // Click OK button (Unassign 2 Assets)
     const okBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal-footer button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
     ).find((b) => b.textContent?.includes('Unassign'));
     expect(okBtn).toBeDefined();
 
@@ -226,7 +222,7 @@ describe('BatchAssignModal Component', () => {
     });
 
     const cancelBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal-footer button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
     ).find((b) => b.textContent?.includes('Cancel'));
     expect(cancelBtn).toBeDefined();
 
@@ -277,7 +273,7 @@ describe('BatchAssignModal Component', () => {
     expect(document.body.textContent).toContain('Preview');
     expect(document.body.textContent).toContain('Print');
     expect(document.body.textContent).toContain('Word (.docx)');
-    expect(document.body.textContent).toContain('Excel (.xlsx)');
+    expect(document.body.textContent).not.toContain('Excel');
 
     // Check direct upload dragger
     expect(document.body.textContent).toContain('Signed Handover Document');
@@ -383,7 +379,7 @@ describe('BatchAssignModal Component', () => {
     );
   });
 
-  it('triggers download handover spreadsheet when clicking Excel button', async () => {
+  it('does NOT render Excel download button and exclusively provides Word (.docx)', async () => {
     const onAssign = vi.fn();
     const onCancel = vi.fn();
 
@@ -396,23 +392,9 @@ describe('BatchAssignModal Component', () => {
       initialUserId: 'usr-1',
     });
 
-    const excelBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
-      b.textContent?.includes('Excel (.xlsx)'),
-    );
-    expect(excelBtn).toBeDefined();
-
-    await act(async () => {
-      excelBtn?.click();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
-
-    expect(assetsService.downloadHandoverXlsx).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assignment',
-        assetIds: ['ast-1', 'ast-2'],
-        recipientId: 'usr-1',
-      }),
-    );
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.ant-drawer button'));
+    expect(buttons.some((b) => b.textContent?.includes('Excel'))).toBe(false);
+    expect(buttons.some((b) => b.textContent?.includes('Word (.docx)'))).toBe(true);
   });
 
   it('uploads signed document and passes signedDocUrl to onAssign when file is attached', async () => {
@@ -448,7 +430,7 @@ describe('BatchAssignModal Component', () => {
     });
 
     const okBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal-footer button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
     ).find((b) => b.textContent?.includes('Assign 2 Assets'));
 
     if (okBtn && !okBtn.disabled) {
@@ -465,5 +447,163 @@ describe('BatchAssignModal Component', () => {
         }),
       );
     }
+  });
+
+  it('renders correct singular pluralization for 1 asset and 16 assets truncation tooltip', async () => {
+    // 1 asset
+    await renderComponent({
+      open: true,
+      assets: [mockAssets[0]],
+      submitting: false,
+      onAssign: vi.fn(),
+      onCancel: vi.fn(),
+      initialUserId: 'usr-1',
+    });
+
+    expect(document.body.textContent).toContain('1 hardware device selected');
+    expect(document.body.textContent).toContain('1 hardware device');
+    const assignBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
+    ).find((b) => b.textContent?.includes('Assign 1 Asset'));
+    expect(assignBtn).toBeDefined();
+
+    // 16 assets (truncation boundary)
+    const sixteenAssets: Asset[] = Array.from({ length: 16 }, (_, i) => ({
+      ...mockAssets[0],
+      id: `ast-${i + 1}`,
+      tag: `AST-${1000 + i}`,
+      name: `Device ${i + 1}`,
+    }));
+
+    await renderComponent({
+      open: true,
+      assets: sixteenAssets,
+      submitting: false,
+      onAssign: vi.fn(),
+      onCancel: vi.fn(),
+      initialUserId: 'usr-1',
+    });
+
+    expect(document.body.textContent).toContain('16 hardware devices selected');
+    expect(document.body.textContent).toContain('+1 more item');
+  });
+
+  it('correctly formats employee name when fullName and lastName are undefined (no "Sarah undefined")', async () => {
+    const singleNameEmployee: DirectoryUser = {
+      ...mockEmployees[0],
+      id: 'usr-single',
+      firstName: 'Sarah',
+      lastName: undefined as unknown as string,
+      fullName: undefined,
+      email: 'sarah.single@corp.uims.internal',
+    };
+
+    if (!currentRoot) {
+      currentRoot = createRoot(container);
+    }
+    await act(async () => {
+      currentRoot?.render(
+        createElement(
+          ConfigProvider,
+          null,
+          createElement(
+            App,
+            null,
+            createElement(BatchAssignModal, {
+              open: true,
+              assets: mockAssets,
+              submitting: false,
+              onAssign: vi.fn(),
+              onCancel: vi.fn(),
+              employees: [singleNameEmployee],
+              initialUserId: 'usr-single',
+            }),
+          ),
+        ),
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(document.body.textContent).toContain('Sarah');
+    expect(document.body.textContent).not.toContain('Sarah undefined');
+    expect(document.body.textContent).not.toContain('undefined');
+  });
+
+  it('catches and reports onAssign errors rather than swallowing them', async () => {
+    const onAssign = vi.fn().mockImplementation(() => {
+      throw new Error('Database transaction aborted');
+    });
+
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel: vi.fn(),
+      initialUserId: 'usr-1',
+    });
+
+    const assignBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
+    ).find((b) => b.textContent?.includes('Assign 2 Assets'));
+
+    await act(async () => {
+      assignBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(onAssign).toHaveBeenCalled();
+  });
+
+  it('renders clean empty state and disabled action button when assets array is empty', async () => {
+    await renderComponent({
+      open: true,
+      assets: [],
+      submitting: false,
+      onAssign: vi.fn(),
+      onCancel: vi.fn(),
+      initialUserId: 'usr-1',
+    });
+
+    expect(document.body.textContent).toContain('No hardware devices selected');
+    const assignBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
+    ).find((b) => b.textContent?.includes('Assign 0 Assets'));
+    expect(assignBtn).toBeDefined();
+    expect(assignBtn?.disabled).toBe(true);
+  });
+
+  it('formats select option label cleanly without duplicate email when employee has only email', async () => {
+    const emailOnlyEmployee: DirectoryUser = {
+      ...mockEmployees[0],
+      id: 'usr-email-only',
+      firstName: '',
+      lastName: '',
+      fullName: undefined,
+      displayName: undefined,
+      employeeCode: undefined,
+      email: 'contractor@corp.uims.internal',
+    };
+
+    const { formatUserSelectLabel } = await import('./BatchAssignModal');
+    const label = formatUserSelectLabel(emailOnlyEmployee);
+    expect(label).toBe('contractor@corp.uims.internal');
+    expect(label).not.toContain('(');
+  });
+
+  it('renders singular "1 Asset" in drawer header tag when exactly 1 asset is selected', async () => {
+    await renderComponent({
+      open: true,
+      assets: [mockAssets[0]],
+      submitting: false,
+      onAssign: vi.fn(),
+      onCancel: vi.fn(),
+    });
+
+    const tags = Array.from(document.querySelectorAll('.ant-tag'));
+    const assetTag = tags.find((t) => t.textContent === '1 Asset');
+    expect(assetTag).toBeDefined();
   });
 });

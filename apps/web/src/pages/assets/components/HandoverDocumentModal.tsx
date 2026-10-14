@@ -1,10 +1,9 @@
 import {
-  FileExcelOutlined,
   FileTextOutlined,
   FileWordOutlined,
   PrinterOutlined,
 } from '@ant-design/icons';
-import { Button, Flex, Modal, Typography, theme } from 'antd';
+import { App, Button, Flex, Modal, Typography, theme } from 'antd';
 import React, { useMemo } from 'react';
 import { printDocumentHtml } from '../utils/printDocument';
 
@@ -17,9 +16,7 @@ export interface HandoverDocumentModalProps {
   filename: string;
   onClose: () => void;
   onDownloadDocx?: () => Promise<void> | void;
-  onDownloadXlsx?: () => Promise<void> | void;
   downloadingDocx?: boolean;
-  downloadingXlsx?: boolean;
 }
 
 export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React.memo(
@@ -29,14 +26,22 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
     html,
     onClose,
     onDownloadDocx,
-    onDownloadXlsx,
     downloadingDocx = false,
-    downloadingXlsx = false,
   }) => {
     const { token } = theme.useToken();
+    const { message } = App.useApp();
 
     const handlePrint = () => {
       printDocumentHtml(html);
+    };
+
+    const handleDownload = async () => {
+      if (!onDownloadDocx) return;
+      try {
+        await onDownloadDocx();
+      } catch (err: unknown) {
+        message.error(err instanceof Error ? err.message : 'Failed to download Word document.');
+      }
     };
 
     const srcDoc = useMemo(() => html, [html]);
@@ -53,23 +58,13 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
               <Button size="small" icon={<PrinterOutlined />} onClick={handlePrint}>
                 Print Record
               </Button>
-              {onDownloadXlsx && (
-                <Button
-                  size="small"
-                  icon={<FileExcelOutlined style={{ color: '#10b981' }} />}
-                  loading={downloadingXlsx}
-                  onClick={onDownloadXlsx}
-                >
-                  Download Excel
-                </Button>
-              )}
               {onDownloadDocx && (
                 <Button
                   size="small"
                   type="primary"
                   icon={<FileWordOutlined />}
                   loading={downloadingDocx}
-                  onClick={onDownloadDocx}
+                  onClick={handleDownload}
                 >
                   Download Word (.docx)
                 </Button>
@@ -84,23 +79,13 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
           <Button key="close" onClick={onClose}>
             Close
           </Button>,
-          onDownloadXlsx && (
-            <Button
-              key="download-xlsx"
-              icon={<FileExcelOutlined style={{ color: '#10b981' }} />}
-              loading={downloadingXlsx}
-              onClick={onDownloadXlsx}
-            >
-              Download Excel (.xlsx)
-            </Button>
-          ),
           onDownloadDocx && (
             <Button
               key="download-docx"
               type="primary"
               icon={<FileWordOutlined />}
               loading={downloadingDocx}
-              onClick={onDownloadDocx}
+              onClick={handleDownload}
             >
               Download Word (.docx)
             </Button>
@@ -126,11 +111,11 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
             style={{
               width: '100%',
               height: 560,
-              backgroundColor: '#fff',
+              backgroundColor: token.colorWhite,
               border: `1px solid ${token.colorBorderSecondary}`,
               borderRadius: token.borderRadiusLG,
               overflow: 'hidden',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              boxShadow: token.boxShadowSecondary,
             }}
           >
             <iframe

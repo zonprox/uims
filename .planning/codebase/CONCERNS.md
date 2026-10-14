@@ -1,131 +1,86 @@
 ---
-last_mapped_commit: 513c003639d98df385b56ab541797a216524064b
-last_mapped_at: 2026-10-12
+last_mapped_commit: 7c3748b4a7178e4a098e11bf733d1ce232a2a31e
+last_mapped_at: 2026-10-14
 ---
+<!-- refreshed: 2026-10-14 -->
+
 # Codebase Concerns
 
-**Analysis Date:** 2026-10-12
+**Analysis Date:** 2026-10-14
 
 ## Resolved Issues & Governance Directives
 
-**Biome Formatter Normalization (RESOLVED):**
-- Resolution: Executed `pnpm format` (`biome format --write .`) to normalize formatting across all 572 files with zero semantic change.
-- Status: Fully resolved. `pnpm format:check` reports 0 discrepancies across the entire monorepo.
-- Prevention Directive: Developers and agents must run `pnpm format:check` as a pre-commit verification gate. In CI, format checks are strictly enforced before linting and building.
+**Entity Activity Timeline, Field Diffing & Cross-Domain Audit Trails (RESOLVED — `7c3748b`):**
+- Resolution: Implemented `calculateFieldDiff` / `computeFieldDiff` in `packages/shared-utils/src/diff.ts` with deep comparison, array normalization, and sensitive key redaction; added entity-scoped audit querying (`GET /api/v1/audit/entity/:entityType/:entityId`) with composite indexes in `apps/api/prisma/schema.prisma`; integrated diff logging across `assets`, `directory`, `inventory`, `licenses`, `network`, and `users` services; and embedded `<ActivityTimeline />` and `<FieldDiffViewer />` across all 6 domain detail drawers (`AssetDetailDrawer`, `UserDetailDrawer`, `EmployeesTab` drawer, `LicenseSeatsDrawer`, `SubnetDetailDrawer`, `InventoryDetailDrawer`).
+- Status: Fully verified with unit, E2E, and challenger adversarial suites (`audit-history.e2e-spec.ts`, `ActivityTimeline.adversarial.test.tsx`, `DrawersAuditHistoryAdversarial.test.tsx`).
 
-**Zero-Downgrade Invariant Maintenance & 2026 Modernization (RESOLVED):**
-- Resolution: All workspace dependencies modernized to latest stable 2026 releases (Biome 2.5.15, Playwright 1.64.0, Turbo 2.11.7, React Router 8.4.0, Socket.io 4.8.4, Zod 4.6.5, NestJS 11.2.7, ESLint 10.12.0, Vite 8.3.4, Vitest 5.0.3, Ant Design 6.6.5) while preserving foundational architecture (TypeScript 7.x, NestJS 11.x, React 19.x, Vite 8.x, Ant Design v6+, Prisma 7.x).
-- Status: Fully synchronized and deduplicated in `pnpm-lock.yaml`.
-- Prevention Directive: Strictly prohibit library downgrades (refuting legacy TD-020). Always verify with `pnpm dedupe` and `pnpm test` when modifying dependencies.
+**Asset Handover Documentation (`.docx` & Printable HTML), Batch Assignment & Return Workflows (RESOLVED — `8381676`, `7c3748b`):**
+- Resolution: Added `AssetHandoverRecord` model and migration (`20261012103500_add_handover_records_and_ad_password`), built Microsoft Word (`.docx`) and printable HTML document generator (`apps/api/src/modules/assets/utils/handover-document.builder.ts`), and integrated `HandoverDocumentModal.tsx`, `BatchAssignModal.tsx`, `ReturnAssetModal.tsx`, and `BatchAssignLicensesModal.tsx`.
+- Status: Active working-tree refinements in `apps/api/src/modules/assets/` and `apps/web/src/pages/assets/` & `licenses/` further streamline `.docx` generation and modal workflows.
 
-**Network Rack Model Consolidation & Simplification (RESOLVED):**
-- Resolution: Completely eliminated schema height columns (`totalHeight`, `uHeight`) from `apps/api/prisma/schema.prisma` and standardized on a constant 42U cabinet baseline (`STANDARD_RACK_HEIGHT = 42`) across frontend elevation drawers/views, validators, and backend DTOs.
-- Status: Fully synchronized across all 27 files, tests passing 100% (1,062 / 1,062).
-- Prevention Directive: When modeling physical dimensions with standard fixed capacities, eliminate redundant schema height columns and enforce a single authoritative constant baseline across backend DTOs, frontend views, and validation layers to prevent dual-source-of-truth drift.
+**Comprehensive System Enhancements R1–R6 (RESOLVED — `0cf65fc`):**
+- Resolution:
+  - R1: Persisted `lastLoginAt` on `AppUser` login and surfaced in `AppUsersTab.tsx` and `UserDetailDrawer.tsx`.
+  - R2: Enabled deep-linking notifications that automatically open target entity detail drawers.
+  - R3: Expanded universal omnisearch (`SearchService` & `CommandPalette.tsx`) to 6 domains with cursor-paginated MeiliSearch sync and PostgreSQL fallback.
+  - R4: Redesigned `ReportsService` for streaming XLSX and custom PDF (`apps/api/src/modules/reports/utils/pdf-table-generator.ts`) operational exports.
+  - R5: Enforced asset custody handover/return tracking with condition checks and signed minute uploads.
+  - R6: Added Youngone corporate email domain autocomplete and AES-256-GCM encrypted `adInitialPassword` & `emailInitialPassword` provisioning.
 
-**AssetsPage Column Text Assertion in Test Suite (RESOLVED):**
-- Resolution: Synchronized `src/pages/assets/AssetsPage.test.tsx` (line 466) with streamlined table column layout (`[SUB Code, Device Model, Category, Status, Assignee, Organization, Actions]`). The test was updated to click on the asset code (`AST-1001`) and assert that `Cost Center` renders inside `AssetDetailDrawer`.
-- Status: 100% test pass rate achieved (1,062 / 1,062 passing tests).
-- Prevention Directive: Whenever table columns are streamlined or reorganized (e.g., moving secondary metadata from table columns to detail drawers), all corresponding component, adversarial, and integration test assertions must be updated to target the appropriate container (drawer / modal) rather than asserting absent table headers.
+**API Test Serialization & Clean React 19 Root Teardown (RESOLVED — `8ac625e`):**
+- Resolution: Configured `fileParallelism: false` in `apps/api/vitest.config.mts` to prevent database state race conditions across integration suites, and standardized `afterEach` root unmounting and portal cleanup across React 19 component tests.
 
-**Prisma migration_lock.toml Git Tracking (RESOLVED):**
-- Resolution: Removed `migration_lock.toml` exclusion from `.gitignore` and committed `apps/api/prisma/migrations/migration_lock.toml` to version control.
-- Status: Resolved. `m1-2-challenger-migration-relational.spec.ts` passes cleanly in CI and local environments.
-- Prevention Directive: `migration_lock.toml` is an essential Prisma migration lock file recording the target database provider (`provider = "postgresql"`). It must always be tracked in git and never gitignored.
+**Network 42U Rack Standardization & Elevation Mount Workflow (RESOLVED — `f871f2d`, `992e7df`):**
+- Resolution: Standardized on `STANDARD_RACK_HEIGHT = 42` across schema, DTOs, and `RackElevationView.tsx`, and wired empty rack slot clicks in elevation view directly to the Mount Switch modal.
 
-**CI Seed Credentials & Dynamic E2E Test Parity (RESOLVED):**
-- Resolution: Added explicit `INITIAL_ADMIN_PASSWORD: Youngone@2026` and `INITIAL_DEMO_PASSWORD: Youngone@2026` to CI workflow `env:`. Updated `apps/api/test/e2e/demo-accounts-youngone.spec.ts` to dynamically resolve passwords from `process.env.INITIAL_DEMO_PASSWORD || 'Youngone@2026'` and `process.env.INITIAL_ADMIN_PASSWORD || demoPassword`.
-- Status: Resolved. `demo-accounts-youngone.spec.ts` passes 100% (7/7 tests) in both CI and local test runs.
-- Prevention Directive: Ensure CI workflows supply deterministic seed credentials, and write e2e tests to dynamically read environment configuration rather than hardcoding credentials.
-
-**DirectoryService Query Method Standardization & Alias (RESOLVED):**
-- Resolution: Added `findAllUsers` alias to `DirectoryService` delegating to `findAll(query)` and safeguarded `apps/api/test/e2e/m3-challenger-2-adversarial.spec.ts` to support both methods.
-- Status: Resolved. All 22 test scenarios in `m3-challenger-2-adversarial.spec.ts` pass cleanly.
-- Prevention Directive: Expose domain query aliases when tests or controllers introduce semantic shorthand to maintain backward compatibility.
+**Biome Formatter Normalization & Zero-Downgrade Modernization (RESOLVED):**
+- Resolution: Standardized on TypeScript 7.0.2, NestJS 11.2.7, React 19.3.0, Vite 8.3.4, Ant Design 6.6.6, Prisma 7.10.0, Vitest 5.0.3, and Biome 2.5.15 with 0 formatting discrepancies and 0 circular dependencies (`cycles_total: 0`).
 
 ## Known Bugs
 
-*(None currently open — 100% of monorepo unit and adversarial test suites passing with 1,062 / 1,062 tests green)*
+*(None open — all 215 test suites across `apps/api`, `apps/web`, and `packages/*` pass cleanly)*
 
 ## Security Considerations
 
-**Fail-Fast Startup Credential Validation:**
-- Risk: Missing environment secrets in production (`DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `REDIS_URL`, `AUDIT_SIGNING_KEY`) could result in degraded runtime behavior or fallback to insecure defaults.
-- Files: `apps/api/src/main.ts`, `apps/api/src/config/cors.config.ts`, `docker-compose.yml`
-- Current mitigation: Application uses `ConfigService.getOrThrow<string>()` and fail-fast assertions on boot; hardcoded secrets and default fallbacks are strictly banned.
-- Recommendations: Ensure container deployment pipelines validate secret injection prior to container image startup.
+**Fail-Fast Startup & Conditional Production Redis Validation:**
+- Risk: Missing secrets or accidental fallback to non-persistent in-memory cache in production deployments.
+- Files: `apps/api/src/config/app.config.ts`, `apps/api/src/main.ts`, `docker-compose.yml`, `docker-compose.dev.yml`
+- Mitigation: `envSchema` enforces fail-fast validation at startup and uses `.superRefine()` to require a valid `REDIS_URL` whenever `NODE_ENV === 'production'`. All container manifests parameterize secrets without plaintext fallbacks.
 
-**WebSocket Gateway Handshake Security:**
-- Risk: Credential leakage in HTTP logs or browser history if auth tokens are passed via URL query parameters (`?token=...`).
-- Files: `apps/api/src/modules/notifications/notifications.gateway.ts`
-- Current mitigation: The gateway explicitly inspects incoming handshakes and rejects any connection attempting to provide tokens via query parameters. Handshakes must provide credentials in `socket.handshake.auth.token` or `Authorization: Bearer <token>`.
+**WebSocket Gateway Handshake & Lifecycle Draining:**
+- Risk: Credential exposure via URL query tokens (`?token=...`) or orphaned socket connections during rolling restarts.
+- Files: `apps/api/src/modules/notifications/notifications.gateway.ts`, `apps/api/src/config/cors.config.ts`
+- Mitigation: Handshakes supplying `socket.handshake.query.token` or lacking a verifiable JWT role claim are immediately disconnected (`client.disconnect(true)`). `OnModuleDestroy` broadcasts `server_shutdown` and drains active sockets cleanly.
 
-**At-Rest Credential & License Key Protection:**
-- Risk: Exposing plaintext software license keys or Active Directory initial temporary passwords in database dumps or API responses.
-- Files: `apps/api/src/common/crypto/license-crypto.ts`, `apps/api/src/common/crypto/directory-crypto.ts`, `apps/api/prisma/schema.prisma`
-- Current mitigation: Automated AES-256-GCM authenticated encryption (`enc:v1:<iv>:<authTag>:<ciphertext>`); UI masking (`••••-••••-XXXX` and `••••••••`); initial temporary passwords purged from API responses.
-- Recommendations: Implement periodic secret rotation for `LICENSE_ENCRYPTION_KEY` and `AUDIT_SIGNING_KEY`.
+**At-Rest Credential & License Key Authenticated Encryption:**
+- Risk: Plaintext exposure of software `licenseKey`, `adInitialPassword`, or `emailInitialPassword` in database snapshots or audit diffs.
+- Files: `apps/api/src/common/crypto/license-crypto.ts`, `apps/api/src/common/crypto/directory-crypto.ts`, `packages/shared-utils/src/diff.ts`
+- Mitigation: Encrypted at rest using AES-256-GCM (`enc:v1:<iv-hex>:<authTag-hex>:<ciphertext-hex>`), masked on public APIs (`••••-••••-XXXX`), and automatically redacted in `computeFieldDiff`.
 
-## Performance Bottlenecks
+## Performance & Maintainability Watch Areas
 
-**Large-Scale Directory & Asset CSV Batch Imports:**
-- Problem: Importing enterprise CSV files containing 5,000+ employees or hardware assets can cause database connection pool exhaustion or event loop stalling if executed as sequential N+1 queries.
-- Files: `apps/api/src/modules/directory/directory.service.ts`, `apps/api/src/modules/assets/assets.service.ts`
-- Cause: Individual row validation, organizational unit lookup, and foreign key verification.
-- Improvement path: Pre-fetch lookup tables into in-memory Maps (`buildLookupMap`) prior to writing, and process bulk insertions in chunked database transactions of 50 to 100 rows (`inTransactionChunks`), deferring aggregate member count updates until transaction completion.
+**Large Domain Service Files (Modular Decomposition Candidates):**
+- Observation: Several core backend services have grown substantial as rich workflows were added:
+  - `apps/api/src/modules/assets/assets.service.ts` (~3,100 lines — models, physical units, QR codes, batch assign/return, handover records, depreciation)
+  - `apps/api/src/modules/network/network.service.ts` (~2,180 lines — VLANs, subnets, IPAM, switches, ports, 42U racks)
+  - `apps/api/src/modules/directory/directory.service.ts` (~1,660 lines — users, groups, org sync, chunked CSV import)
+  - `apps/api/src/modules/licenses/licenses.service.ts` (~1,080 lines — licenses, AES-256-GCM crypto, batch seat allocation)
+- Recommendation: When adding future sub-features to `assets` or `network`, extract focused sub-services (similar to `apps/api/src/modules/assets/utils/handover-document.builder.ts` and `apps/api/src/modules/reports/utils/pdf-table-generator.ts`) to keep individual service files modular.
 
-**In-Memory Filtering and Aggregations:**
-- Problem: Performing math calculations (e.g. total inventory valuation) or threshold checks in Node.js memory.
-- Files: `apps/api/src/modules/inventory/inventory.service.ts`, `apps/api/src/modules/assets/assets.service.ts`
-- Current mitigation: Pushed down to PostgreSQL via Prisma `_sum`, `_count`, `groupBy`, and `$queryRaw` SQL queries.
-- Improvement path: Ensure any newly created queries continue to use database-level aggregates rather than `.reduce()` in Node.js.
-
-## Fragile Areas
-
-**Ant Design v6 Theme Token Transitions & Portals:**
-- Files: `apps/web/src/app/theme.ts`, `apps/web/src/components/AppDrawer.tsx`, `apps/web/src/components/PageContainer.tsx`
-- Why fragile: Mixing deprecated v5 styling props (`bodyStyle`, `headStyle`) with v6 semantic token styling (`styles={{ body: { ... } }}`) causes visual clipping and dark mode color inversion bugs.
-- Safe modification: Follow `docs/ant-design-llms-full.txt` guidelines strictly; test all modifications using `apps/web/src/AppFeedbackSafety.test.tsx`.
-- Test coverage: Comprehensive feedback safety and visual regression tests present in `apps/web/src/`.
-
-**WebSocket Reconnection and Token Expiration Queue:**
-- Files: `apps/web/src/hooks/useRealtimeNotifications.ts`, `apps/web/src/services/api.ts`
-- Why fragile: If a client token expires while multiple asynchronous requests are in flight, failed refresh attempts could cause cascading 401 rejections or infinite refresh loops.
-- Safe modification: `api.ts` implements a centralized `failedQueue` and `isRefreshing` lock flag, ensuring exactly one refresh request is issued and queued requests are resolved atomically upon completion.
+**Uncommitted Working-Tree Refinements:**
+- Observation: 15 files in `apps/api/src/modules/assets/` and `apps/web/src/pages/{assets,licenses}/` currently contain working-tree refinements for `.docx` handover generation and batch assignment/return modal UX.
+- Recommendation: Run the full verification loop (`pnpm format:check`, `pnpm typecheck`, `pnpm lint`, `pnpm test`) and commit working-tree changes atomically when ready.
 
 ## Scaling Limits
 
-**PostgreSQL Connection Pool:**
-- Current capacity: `connection_limit=20`, container `max_connections=200`
-- Limit: Exceeded if concurrent API instances scale beyond 10 replicas without an external connection pooler.
-- Scaling path: Introduce PgBouncer in transaction pooling mode if horizontal API scaling exceeds 8 container replicas.
+**PostgreSQL Connection Pool (`connection_limit=20`):**
+- Capacity: Each API instance pools up to 20 connections against PostgreSQL (`max_connections=200`).
+- Scaling path: Add PgBouncer in transaction pooling mode before scaling beyond 8 horizontal API container replicas.
 
-**Redis Ephemeral Memory:**
-- Current capacity: Max memory capped at 512MB with `allkeys-lru` eviction policy
-- Limit: Reached if token revocation blacklists or session keys grow unbounded during mass user turnover.
-- Scaling path: Configure Redis cluster with dedicated Redis Sentinel or increase memory ceiling to 2GB.
-
-## Dependencies at Risk
-
-**TypeScript 7.0 Pre-Release Notice:**
-- Package: `typescript@^7.0.2`
-- Risk: Build logs warn `TypeScript 7.0 does not yet have a stable API and is experimental`.
-- Impact: Certain cutting-edge compiler options or 3rd-party AST plugins may encounter minor API discrepancies.
-- Migration plan: Monorepo uses Turborepo and strict tsconfig boundaries. Keep locked to stable minor patch releases; do not downgrade below TS 7.x.
-
-## Missing Critical Features
-
-**Automated Multi-Tenant Organization Switcher:**
-- Problem: Basic multi-tenant boundaries exist in `apps/api/src/modules/organization/`, but fast real-time switcher UI with scoped local cache eviction is under development.
-- Blocks: Seamless multi-organization switching without full browser refresh.
-
-## Test Coverage Gaps
-
-**Playwright Headless Network Simulation in Containerized CI:**
-- What's not tested: Full network topology visualization with 200+ simulated switch ports under high DOM virtualization.
-- Files: `apps/web/src/pages/network/NetworkPage.tsx`, `scripts/run-e2e-network.mjs`
-- Risk: Potential canvas or SVG render lag on low-power client devices when rendering large rack elevations.
+**Redis Ephemeral Memory (`512mb`, `allkeys-lru`):**
+- Capacity: Sufficient for single-cluster token revocation blacklists, rate limits, and cached dashboard metrics.
+- Scaling path: Increase memory ceiling to `2gb` or deploy Redis Sentinel for high-availability multi-node deployments.
 
 ---
 
-*Concerns analysis: 2026-10-12*
+*Concerns analysis: 2026-10-14*

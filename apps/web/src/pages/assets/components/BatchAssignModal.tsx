@@ -1,6 +1,5 @@
 import {
   EyeOutlined,
-  FileExcelOutlined,
   FileWordOutlined,
   IdcardOutlined,
   InboxOutlined,
@@ -12,27 +11,26 @@ import {
 import {
   Alert,
   App,
-  Badge,
   Button,
   Card,
   Descriptions,
-  Divider,
   Flex,
   Form,
-  Modal,
   Radio,
   Select,
   Space,
   Tag,
+  Tooltip,
   Typography,
   Upload,
   type UploadFile,
   theme,
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import AppDrawer from '../../../components/AppDrawer';
 import { type Asset, assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
-import { formRules } from '../../../utils/formValidators';
+import { formRules, isValidationError } from '../../../utils/formValidators';
 import { downloadBlobFile, printDocumentHtml } from '../utils/printDocument';
 import { HandoverDocumentModal } from './HandoverDocumentModal';
 
@@ -44,6 +42,23 @@ export interface BatchAssignFormValues {
   status?: string;
   signedDocUrl?: string;
 }
+
+const formatUserDisplayName = (u: DirectoryUser): string =>
+  u.fullName?.trim() ||
+  [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
+  u.displayName?.trim() ||
+  u.email;
+
+export const formatUserSelectLabel = (u: DirectoryUser): string => {
+  const name = formatUserDisplayName(u);
+  if (u.employeeCode) {
+    return `${name} (${u.employeeCode})`;
+  }
+  if (name !== u.email && u.email) {
+    return `${name} (${u.email})`;
+  }
+  return name;
+};
 
 export interface BatchAssignModalProps {
   open: boolean;
@@ -192,56 +207,55 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
       }
     };
 
-    const handleDownloadXlsx = async () => {
-      try {
-        setGeneratingDownload(true);
-        const { blob, filename } = await assetsService.downloadHandoverXlsx({
-          type: 'assignment',
-          assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
-          recipientId: selectedUserId || undefined,
-        });
-        downloadBlobFile(blob, filename);
-        message.success('Populated handover spreadsheet (.xlsx) downloaded successfully.');
-      } catch (err: unknown) {
-        message.error(
-          err instanceof Error ? err.message : 'Failed to download handover spreadsheet.',
-        );
-      } finally {
-        setGeneratingDownload(false);
-      }
-    };
-
     const handleOk = async () => {
+      let values: BatchAssignFormValues;
       try {
-        const values = await form.validateFields();
-        let uploadedUrl: string | undefined = undefined;
-
-        const fileToUpload = (fileList[0]?.originFileObj || fileList[0]) as File | undefined;
-        if (fileList.length > 0 && fileToUpload) {
-          setUploadingDoc(true);
-          try {
-            const uploadRes = await assetsService.uploadHandoverDocument(fileToUpload);
-            uploadedUrl = uploadRes.fileUrl;
-          } catch (uploadErr: unknown) {
-            message.error(
-              uploadErr instanceof Error
-                ? uploadErr.message
-                : 'Failed to upload signed handover document.',
-            );
-            return;
-          } finally {
-            setUploadingDoc(false);
-          }
+        values = await form.validateFields();
+      } catch (validationErr: unknown) {
+        if (isValidationError(validationErr)) {
+          return;
         }
+        message.error(
+          validationErr instanceof Error
+            ? validationErr.message
+            : 'Validation failed.',
+        );
+        return;
+      }
 
-        onAssign({
+      let uploadedUrl: string | undefined = undefined;
+
+      const fileToUpload = (fileList[0]?.originFileObj || fileList[0]) as File | undefined;
+      if (fileList.length > 0 && fileToUpload) {
+        setUploadingDoc(true);
+        try {
+          const uploadRes = await assetsService.uploadHandoverDocument(fileToUpload);
+          uploadedUrl = uploadRes.fileUrl;
+        } catch (uploadErr: unknown) {
+          message.error(
+            uploadErr instanceof Error
+              ? uploadErr.message
+              : 'Failed to upload signed handover document.',
+          );
+          return;
+        } finally {
+          setUploadingDoc(false);
+        }
+      }
+
+      try {
+        await onAssign({
           mode,
           assignedToId: mode === 'assign' ? values.assignedToId : null,
           status: values.status,
           signedDocUrl: uploadedUrl,
         });
-      } catch (_validationErr: unknown) {
-        // Validation errors surfaced by Ant Form
+      } catch (assignErr: unknown) {
+        message.error(
+          assignErr instanceof Error
+            ? assignErr.message
+            : 'Failed to complete batch assignment.',
+        );
       }
     };
 
@@ -249,66 +263,70 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
 
     return (
       <>
-        <Modal
-          title={
-            <Flex align="center" gap={8}>
-              <UserSwitchOutlined style={{ color: token.colorPrimary }} />
-              <span>Batch Assign Hardware Assets</span>
-            </Flex>
-          }
+        <AppDrawer
           open={open}
-          onOk={handleOk}
+          onClose={onCancel}
           onCancel={onCancel}
-          confirmLoading={submitting || uploadingDoc}
+          title="Batch Assign Hardware Assets"
+          subtitle={`${count} hardware device${count === 1 ? '' : 's'} selected`}
+          icon={<UserSwitchOutlined />}
+          tag={<Tag color="blue">{count} Asset{count === 1 ? '' : 's'}</Tag>}
+          size={600}
+          onOk={handleOk}
           okText={
             mode === 'assign'
-              ? `Assign ${count} Asset${count > 1 ? 's' : ''}`
-              : `Unassign ${count} Asset${count > 1 ? 's' : ''}`
+              ? `Assign ${count} Asset${count !== 1 ? 's' : ''}`
+              : `Unassign ${count} Asset${count !== 1 ? 's' : ''}`
           }
-          okButtonProps={{
-            disabled: count === 0 || (mode === 'assign' && !selectedUserId),
-            danger: mode === 'unassign',
-          }}
+          okLoading={submitting || uploadingDoc}
+          okDisabled={count === 0 || (mode === 'assign' && !selectedUserId)}
+          okDanger={mode === 'unassign'}
+          cancelText="Cancel"
           destroyOnHidden
-          width={600}
-          styles={{ body: { paddingTop: 12 } }}
         >
           <Flex vertical gap={14}>
-            <Flex
-              justify="space-between"
-              align="center"
-              style={{
-                padding: '10px 14px',
-                backgroundColor: token.colorFillAlter,
-                borderRadius: token.borderRadiusLG,
-                border: `1px solid ${token.colorBorderSecondary}`,
-              }}
-            >
-              <Flex align="center" gap={8}>
-                <Badge
-                  count={count}
-                  overflowCount={9999}
-                  style={{ backgroundColor: token.colorPrimary }}
-                />
-                <Text strong style={{ fontSize: 13 }}>
-                  Selected Assets for Batch Update
+            <AppDrawer.Section
+              title="Selected Assets for Batch Update"
+              extra={
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {count} hardware device{count === 1 ? '' : 's'}
                 </Text>
+              }
+            >
+              <Flex wrap gap={6} style={{ maxHeight: 84, overflowY: 'auto', padding: '2px 0' }}>
+                {assets.length === 0 ? (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    No hardware devices selected
+                  </Text>
+                ) : (
+                  <>
+                    {assets.slice(0, 15).map((a) => (
+                      <Tag
+                        key={a.id}
+                        icon={<LaptopOutlined />}
+                        color="blue"
+                        style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        title={`${a.tag}: ${a.name}`}
+                      >
+                        {a.tag}: {a.name}
+                      </Tag>
+                    ))}
+                    {assets.length > 15 && (
+                      <Tooltip
+                        title={assets
+                          .slice(15)
+                          .map((a) => `${a.tag}: ${a.name}`)
+                          .join(', ')}
+                      >
+                        <Tag color="default">
+                          +{assets.length - 15} more item{assets.length - 15 === 1 ? '' : 's'}
+                        </Tag>
+                      </Tooltip>
+                    )}
+                  </>
+                )}
               </Flex>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {count} hardware device{count > 1 ? 's' : ''}
-              </Text>
-            </Flex>
-
-            <Flex wrap gap={6} style={{ maxHeight: 84, overflowY: 'auto', padding: '2px 0' }}>
-              {assets.slice(0, 15).map((a) => (
-                <Tag key={a.id} icon={<LaptopOutlined />} color="blue">
-                  {a.tag}: {a.name}
-                </Tag>
-              ))}
-              {assets.length > 15 && <Tag color="default">+{assets.length - 15} more items</Tag>}
-            </Flex>
-
-            <Divider style={{ margin: '4px 0' }} />
+            </AppDrawer.Section>
 
             <Form
               form={form}
@@ -317,24 +335,26 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
               validateTrigger={['onChange', 'onBlur']}
               scrollToFirstError={true}
             >
-              <Form.Item name="mode" label="Batch Action Type">
-                <Radio.Group
-                  value={mode}
-                  onChange={(e) => handleModeChange(e.target.value)}
-                  buttonStyle="solid"
-                  style={{ width: '100%' }}
-                >
-                  <Radio.Button value="assign" style={{ width: '50%', textAlign: 'center' }}>
-                    <UserOutlined /> Assign to Employee
-                  </Radio.Button>
-                  <Radio.Button value="unassign" style={{ width: '50%', textAlign: 'center' }}>
-                    <InboxOutlined /> Return to Storage / Unassign
-                  </Radio.Button>
-                </Radio.Group>
-              </Form.Item>
+              <AppDrawer.Section title="Batch Action Type">
+                <Form.Item name="mode" style={{ marginBottom: 0 }}>
+                  <Radio.Group
+                    value={mode}
+                    onChange={(e) => handleModeChange(e.target.value)}
+                    buttonStyle="solid"
+                    style={{ width: '100%' }}
+                  >
+                    <Radio.Button value="assign" style={{ width: '50%', textAlign: 'center' }}>
+                      <UserOutlined /> Assign to Employee
+                    </Radio.Button>
+                    <Radio.Button value="unassign" style={{ width: '50%', textAlign: 'center' }}>
+                      <InboxOutlined /> Return to Storage / Unassign
+                    </Radio.Button>
+                  </Radio.Group>
+                </Form.Item>
+              </AppDrawer.Section>
 
               {mode === 'assign' ? (
-                <>
+                <AppDrawer.Section title="Target Directory Employee">
                   <Form.Item
                     name="assignedToId"
                     label="Target Directory Employee"
@@ -356,7 +376,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                         form.setFieldsValue({ assignedToId: val });
                       }}
                       options={employees.map((u) => ({
-                        label: `${u.fullName || `${u.firstName} ${u.lastName}`.trim()} (${u.employeeCode || u.email})`,
+                        label: formatUserSelectLabel(u),
                         value: u.id,
                       }))}
                       filterOption={(input, option) =>
@@ -377,8 +397,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                             <Flex align="center" gap={6}>
                               <UserOutlined style={{ color: token.colorPrimary }} />
                               <Text strong>
-                                {selectedUser.fullName ||
-                                  `${selectedUser.firstName} ${selectedUser.lastName}`}
+                                {formatUserDisplayName(selectedUser)}
                               </Text>
                             </Flex>
                           </Descriptions.Item>
@@ -405,17 +424,14 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                       >
                         <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
                           <div>
-                            <Text strong style={{ fontSize: 12.5 }}>
+                            <Text strong style={{ fontSize: 12.5, display: 'block' }}>
                               Handover Record Documentation
                             </Text>
-                            <div>
-                              <Text type="secondary" style={{ fontSize: 11.5 }}>
-                                Pre-filled for{' '}
-                                {selectedUser.fullName ||
-                                  `${selectedUser.firstName} ${selectedUser.lastName}`.trim()}{' '}
-                                ({count} asset{count > 1 ? 's' : ''}).
-                              </Text>
-                            </div>
+                            <Text type="secondary" style={{ fontSize: 11.5 }}>
+                              Pre-filled for{' '}
+                              {formatUserDisplayName(selectedUser)}{' '}
+                              ({count} asset{count === 1 ? '' : 's'}). Exclusively supports print and Word (.docx).
+                            </Text>
                           </div>
                           <Space size={6}>
                             <Button
@@ -442,14 +458,6 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                             >
                               Word (.docx)
                             </Button>
-                            <Button
-                              size="small"
-                              icon={<FileExcelOutlined />}
-                              loading={generatingDownload}
-                              onClick={handleDownloadXlsx}
-                            >
-                              Excel (.xlsx)
-                            </Button>
                           </Space>
                         </Flex>
                       </Card>
@@ -457,6 +465,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                       <Form.Item
                         label="Signed Handover Document"
                         extra="Supports PDF, PNG, JPG up to 10MB. If skipped, assigned assets will be flagged with a Pending Record badge."
+                        style={{ marginBottom: 0 }}
                       >
                         <Upload.Dragger
                           name="file"
@@ -511,41 +520,43 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                       showIcon
                       title="Target Employee Required"
                       description="Select an employee above to preview, print, or download pre-filled handover records and attach signed documentation."
-                      style={{ marginBottom: 14 }}
                     />
                   )}
-                </>
+                </AppDrawer.Section>
               ) : (
-                <Alert
-                  type="warning"
-                  showIcon
-                  title="Unassign Hardware Assets"
-                  description={`This will dissociate all ${count} selected assets from their current assignees and mark them available in storage.`}
-                  style={{ marginBottom: 14 }}
-                />
+                <AppDrawer.Section title="Unassign Assets">
+                  <Alert
+                    type="warning"
+                    showIcon
+                    title="Unassign Hardware Assets"
+                    description={`This will dissociate all ${count} selected assets from their current assignees and mark them available in storage.`}
+                  />
+                </AppDrawer.Section>
               )}
 
-              <Form.Item name="status" label="Asset Status">
-                <Select
-                  options={
-                    mode === 'assign'
-                      ? [
-                          { label: 'Active (In Use)', value: 'Active' },
-                          { label: 'In Storage', value: 'In Storage' },
-                          { label: 'In Repair', value: 'In Repair' },
-                        ]
-                      : [
-                          { label: 'In Storage', value: 'In Storage' },
-                          { label: 'Available', value: 'Available' },
-                          { label: 'In Repair', value: 'In Repair' },
-                          { label: 'Retired', value: 'Retired' },
-                        ]
-                  }
-                />
-              </Form.Item>
+              <AppDrawer.Section title="Asset Status Configuration">
+                <Form.Item name="status" label="Asset Status" style={{ marginBottom: 0 }}>
+                  <Select
+                    options={
+                      mode === 'assign'
+                        ? [
+                            { label: 'Active (In Use)', value: 'Active' },
+                            { label: 'In Storage', value: 'In Storage' },
+                            { label: 'In Repair', value: 'In Repair' },
+                          ]
+                        : [
+                            { label: 'In Storage', value: 'In Storage' },
+                            { label: 'Available', value: 'Available' },
+                            { label: 'In Repair', value: 'In Repair' },
+                            { label: 'Retired', value: 'Retired' },
+                          ]
+                    }
+                  />
+                </Form.Item>
+              </AppDrawer.Section>
             </Form>
           </Flex>
-        </Modal>
+        </AppDrawer>
 
         {previewDocData && (
           <HandoverDocumentModal
@@ -555,7 +566,6 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
             filename={previewDocData.filename}
             onClose={() => setPreviewDocData(null)}
             onDownloadDocx={handleDownloadDocument}
-            onDownloadXlsx={handleDownloadXlsx}
             downloadingDocx={generatingDownload}
           />
         )}

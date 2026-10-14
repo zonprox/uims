@@ -1,23 +1,21 @@
 ---
-last_mapped_commit: 513c003639d98df385b56ab541797a216524064b
-last_mapped_at: 2026-10-12
+last_mapped_commit: 7c3748b4a7178e4a098e11bf733d1ce232a2a31e
+last_mapped_at: 2026-10-14
 ---
+<!-- refreshed: 2026-10-14 -->
+
 # Testing Patterns
 
-**Analysis Date:** 2026-10-12
+**Analysis Date:** 2026-10-14
 
 ## Test Framework
 
 **Runner:**
-- Vitest 5.0.3 - Primary test runner for unit, integration, and UI component tests across monorepo packages
-  - Backend Config: `apps/api/vitest.config.mts` (Environment: `node`, timeout: `20000ms`)
-  - Frontend Config: `apps/web/vitest.config.ts` (Environment: `happy-dom`, timeout: `30000ms`, with `@vitejs/plugin-react`)
-  - Shared Packages: Vitest 5.0.3 with Happy-DOM and Node environments
-- Playwright 1.64.0 - End-to-end browser and automated network testing (`playwright.config.ts`, `scripts/run-e2e-network.mjs`)
-
-**Assertion Library:**
-- Vitest built-in assertions (`expect`, `vi`) conforming to standard Jest/Chai assertion signatures
-- Extended DOM matchers available in browser environments
+- Vitest 5.0.3 - Unified test runner for unit, integration, component, and adversarial test suites across all workspace packages
+  - Backend Config: `apps/api/vitest.config.mts` (Environment: `node`, `testTimeout: 20000`, `fileParallelism: false` to prevent database state contention during integration/seeder runs)
+  - Frontend Config: `apps/web/vitest.config.ts` (Environment: `happy-dom`, `testTimeout: 30000`, with `@vitejs/plugin-react` 6.1.2)
+  - Shared Packages: Vitest 5.0.3 in `packages/shared-utils` and `packages/shared-validators`
+- Playwright 1.64.0 - End-to-end browser and network automation (`playwright.config.ts`, `scripts/run-e2e-network.mjs`)
 
 **Run Commands:**
 
@@ -25,96 +23,33 @@ last_mapped_at: 2026-10-12
 
 # Monorepo Orchestration via Turborepo
 
-pnpm test                         # Run all test suites across all packages in parallel
-pnpm test:e2e                     # Execute Playwright end-to-end integration tests
-pnpm test:e2e:network             # Run dedicated network module end-to-end verification
+pnpm test                         # Run all Vitest suites across all workspaces
+pnpm test:e2e                     # Execute end-to-end integration tests
+pnpm test:e2e:network             # Run dedicated network module e2e verification
 
-# App-Specific Testing
+# Workspace-Specific Execution
 
-pnpm --filter @uims/api test      # Run API unit and integration test suite
-pnpm --filter @uims/web test      # Run Web SPA component and service test suite
-pnpm --filter @uims/api test:watch# Interactive watch mode during backend development
+pnpm --filter @uims/api test      # Run API unit, integration, and challenger suites
+pnpm --filter @uims/web test      # Run Web SPA component and adversarial suites
+pnpm --filter @uims/shared-utils test # Run shared utility unit tests (e.g. diff.spec.ts)
 ```
 
 ## Test File Organization
 
-**Location:**
-- API Unit & Service Tests: Co-located with source code (`apps/api/src/modules/assets/assets.service.spec.ts`, `assets.controller.spec.ts`)
-- API End-to-End & Governance: Dedicated test directory (`apps/api/test/e2e/`, `apps/api/test/governance/`)
-- Web Component & Page Tests: Co-located with components and pages (`apps/web/src/pages/assets/AssetsPage.test.tsx`, `apps/web/src/components/PageContainer.test.tsx`)
-- Specialized Adversarial Suites: `apps/web/src/AppFeedbackSafety.test.tsx`, `apps/web/src/layouts/Milestone1Adversarial.test.tsx`
+**Inventory (215 Test Files Across Monorepo):**
+- **API Unit & Service Tests (`apps/api/src/**/*.spec.ts`)**: Co-located with controllers, services, guards, filters, and builders (e.g., `assets.service.spec.ts`, `assets.controller.spec.ts`, `handover-document.builder.spec.ts`, `audit.service.spec.ts`, `directory.service.spec.ts`, `reports.service.spec.ts`, `search.service.spec.ts`, `sanitize.util.spec.ts`).
+- **API E2E, Challenger & Governance Suites (`apps/api/test/`)**:
+  - Domain & Audit E2E: `audit-history.e2e-spec.ts`, `asset-hierarchy.e2e-spec.ts`, `directory-refactor-e2e.spec.ts`, `e2e/network-modernization.e2e-spec.ts`, `e2e/demo-accounts-youngone.spec.ts`
+  - Challenger Adversarial Suites: `challenger-m1-audit-history.spec.ts`, `challenger-m1-preview-db-verification.spec.ts`, `challenger-m2-domain-audit.spec.ts`, `challenger-m2-network-users-directory.spec.ts`, `challenger-m5-backend-adversarial.spec.ts`, `e2e/m1-2-challenger-migration-relational.spec.ts`, `e2e/m1-websocket-gateway-adversarial.spec.ts`, `e2e/m3-challenger-2-adversarial.spec.ts`
+- **Web Component, Drawer & Adversarial Tests (`apps/web/src/**/*.test.tsx`)**:
+  - Core Components: `ActivityTimeline.test.tsx`, `ActivityTimeline.adversarial.test.tsx`, `FieldDiffViewer.test.tsx`, `FieldDiffViewer.adversarial.test.tsx`, `DrawersAuditHistoryAdversarial.test.tsx`, `Milestone5FrontendChallenger.adversarial.test.tsx`, `AppFeedbackSafety.test.tsx`, `PageContainer.test.tsx`
+  - Domain Modals & Drawers: `BatchAssignModal.test.tsx`, `ReturnAssetModal.test.tsx`, `HandoverDocumentModal.test.tsx`, `AssetDetailDrawerHandover.test.tsx`, `BatchAssignLicensesModal.test.tsx`, `AuditPage.test.tsx`, `AuditPage.adversarial.test.tsx`, `ReportsPage.test.tsx`
+- **Shared Package Tests (`packages/*/src/*.spec.ts`)**: `packages/shared-utils/src/diff.spec.ts`, `packages/shared-validators/src/*.test.ts`.
 
-**Naming:**
-- Unit & Service Tests: `[name].spec.ts` or `[name].test.ts`
-- UI Component Tests: `[Name].test.tsx`
-- Stress / Adversarial Tests: `[Name].stress.test.tsx` or `[Name]-adversarial.spec.ts`
-- End-to-End Tests: `[name].e2e-spec.ts`
+## Test Structure & Teardown
 
-**Structure:**
-
-```
-apps/
-├── api/
-│   ├── src/modules/assets/
-│   │   ├── assets.controller.ts
-│   │   ├── assets.controller.spec.ts
-│   │   ├── assets.service.ts
-│   │   └── assets.service.spec.ts
-│   └── test/
-│       └── e2e/
-│           ├── m1-websocket-gateway-adversarial.spec.ts
-│           └── network-modernization.e2e-spec.ts
-└── web/
-    └── src/
-        ├── AppFeedbackSafety.test.tsx
-        ├── components/
-        │   ├── PageContainer.tsx
-        │   └── PageContainer.test.tsx
-        └── pages/assets/
-            ├── AssetsPage.tsx
-            └── AssetsPage.test.tsx
-```
-
-## Test Structure
-
-**Suite Organization:**
-
-```typescript
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AssetsService } from './assets.service';
-import type { PrismaService } from '../../database/prisma.service';
-
-describe('AssetsService', () => {
-  let service: AssetsService;
-  let prismaMock: Partial<PrismaService>;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    prismaMock = {
-      asset: {
-        findMany: vi.fn().mockResolvedValue([]),
-        count: vi.fn().mockResolvedValue(0),
-        create: vi.fn(),
-      } as unknown as PrismaService['asset'],
-    };
-    service = new AssetsService(prismaMock as PrismaService);
-  });
-
-  it('enforces pagination upper bounds and deterministic ordering', async () => {
-    await service.findAll({ page: 1, limit: 200 });
-
-    expect(prismaMock.asset?.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        take: 100, // Capped to maximum safe limit
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], // Deterministic tie-breaker
-      }),
-    );
-  });
-});
-```
-
-**Clean Component Test Teardown (React 19 / Ant Design):**
-Component tests rendering Ant Design trees must unmount cleanly and remove portal root elements in `afterEach` to prevent microtask leaks:
+**Clean React 19 / Ant Design v6 Root Teardown:**
+All frontend component tests rendering React 19 roots and Ant Design v6 portals (`Modal`, `Drawer`, `Popover`, `Select`) track `currentRoot` and unmount cleanly inside `afterEach` while purging stray portal nodes to prevent Happy-DOM microtask leaks:
 
 ```typescript
 let root: Root | null = null;
@@ -129,123 +64,33 @@ afterEach(async () => {
   }
   container?.remove();
   container = null;
-  // Clean up stray Ant Design portal elements from DOM body
-  document.querySelectorAll('.ant-modal-root, .ant-drawer, .ant-popover').forEach((el) => el.remove());
+  document
+    .querySelectorAll('.ant-modal-root, .ant-drawer, .ant-popover, .ant-select-dropdown')
+    .forEach((el) => el.remove());
 });
 ```
 
-## Mocking
+**Container-Specific UI Assertions (Section 16.19):**
+When secondary attributes (such as `Cost Center`, `Handover History`, or `<ActivityTimeline />`) reside inside detail drawers (`AssetDetailDrawer`, `UserDetailDrawer`, `LicenseSeatsDrawer`, `SubnetDetailDrawer`, `InventoryDetailDrawer`) rather than primary table columns, tests click the record row/code to open the drawer and assert within the drawer container.
 
-**Framework:**
-- Vitest built-in mocking engine (`vi.fn()`, `vi.mock()`, `vi.spyOn()`, `vi.mocked()`)
-- Zero casting to `any` (`as any`) in test mocks. Mocks must use `Partial<T>`, `vi.mocked()`, or strongly typed mock factories.
+## Mocking & In-Memory Test Engines
 
-**Patterns:**
+**Typed Mocks (Zero `any`):**
+- Use `vi.fn()`, `vi.spyOn()`, `vi.mocked()`, and `Partial<T>` rather than `as any`.
+- In-memory stateful engines (`InMemoryAuditEngine` in `apps/api/test/audit-history.e2e-spec.ts`, `InMemoryAssetHierarchyEngine`, `InMemoryDirectoryEngine`, `InMemoryNetworkEngine`) simulate relational constraints, cursor pagination, and HMAC-SHA256 hash chains deterministically without external flakiness.
 
-```typescript
-// Strongly typed service client mocking
-vi.mock('../services/api', () => ({
-  api: {
-    get: vi.fn().mockResolvedValue({ data: [] }),
-    post: vi.fn().mockResolvedValue({ data: {} }),
-  },
-}));
-```
+**Dynamic Seed Credential Parity (Section 16.21):**
+- E2E tests validating seeded accounts resolve credentials dynamically via `process.env.INITIAL_DEMO_PASSWORD || 'Youngone@2026'` and `process.env.INITIAL_ADMIN_PASSWORD || demoPassword`.
 
-**What to Mock:**
-- Network transport layers (`api.ts` Axios requests, external HTTP calls)
-- Third-party external services (MeiliSearch indexing, SeaweedFS S3 uploaders)
-- Live database connections in pure unit tests (`PrismaService`)
-- Browser globals not provided by Happy-DOM (e.g. `ResizeObserver`, `window.matchMedia`)
+## Verification Gates
 
-**What NOT to Mock:**
-- Business validation schemas (`@uims/shared-validators` Zod schemas)
-- Transformation filters, pipes, and utility functions (`@uims/shared-utils`)
-- Standard React hooks and core Zustand state logic (test real state transitions)
-
-## Fixtures and Factories
-
-**Test Data:**
-
-```typescript
-export function createMockAsset(overrides?: Partial<Asset>): Asset {
-  return {
-    id: '11111111-1111-1111-1111-111111111111',
-    assetTag: 'AST-1001',
-    name: 'MacBook Pro 16',
-    modelId: '22222222-2222-2222-2222-222222222222',
-    serialNumber: 'SN-ABC-12345',
-    status: 'ACTIVE',
-    condition: 'EXCELLENT',
-    purchaseDate: new Date('2025-01-15T00:00:00Z'),
-    purchaseCost: 2499.00,
-    warrantyExpiry: new Date('2028-01-15T00:00:00Z'),
-    createdAt: new Date('2025-01-15T00:00:00Z'),
-    updatedAt: new Date('2025-01-15T00:00:00Z'),
-    ...overrides,
-  };
-}
-```
-
-**Location:**
-- Seed fixtures: `apps/api/prisma/seeders/`
-- Mock factories: Co-located with tests or declared in `test/fixtures/`
-
-## Coverage
-
-**Current Test Metrics:**
-- Total Test Suites: 85 test files
-- Total Tests: 1,062 automated tests across the monorepo (1,062 passing, 100% pass rate)
-- Typecheck Coverage: 100% clean across all 6 workspace packages (`pnpm typecheck` passed with 8/8 cached tasks)
-- Code Formatting: 100% clean across 572 files (`pnpm format:check` passed with 0 errors)
-
-**View Coverage:**
-
-```bash
-pnpm --filter @uims/api test -- --coverage
-pnpm --filter @uims/web test -- --coverage
-```
-
-## Test Types
-
-**Unit Tests:**
-- Validate isolated functions, cryptographic hashing, Zod schema validation, and pure domain services.
-- Examples: `asset.validator.test.ts`, `license-crypto.spec.ts`, `date.util.test.ts`.
-
-**Integration Tests:**
-- Test interactions between controllers, guards, exception filters, and Prisma queries.
-- Examples: `http-exception.filter.spec.ts`, `permissions.guard.spec.ts`, `directory.service.test.ts`.
-
-**Adversarial & Governance Tests:**
-- Specialized test suites verifying architectural invariants and anti-pattern elimination.
-- `apps/web/src/AppFeedbackSafety.test.tsx`: Scans all frontend files for illegal static `message.*` imports.
-- `apps/api/test/e2e/m1-websocket-gateway-adversarial.spec.ts`: Tests tamper-resistance, handshake token rejection via URL query parameters, and fail-closed disconnection.
-
-**E2E Tests:**
-- Multi-step end-to-end integration tests using Playwright and Docker containers validating network IPAM workflows, CSV import pipelines, and user authentication flows.
-
-## Common Patterns
-
-**Async Testing:**
-
-```typescript
-it('handles asynchronous token rotation seamlessly', async () => {
-  const result = await authService.rotateRefreshToken('valid-refresh-token');
-  expect(result).toHaveProperty('accessToken');
-  expect(result).toHaveProperty('refreshToken');
-});
-```
-
-**Error Testing:**
-
-```typescript
-it('fails closed when an unverified role is supplied', async () => {
-  await expect(
-    guard.canActivate(mockContextWithRole('InvalidRole')),
-  ).rejects.toThrow(ForbiddenException);
-});
-```
+Every change across the monorepo is validated against the 5-step verification loop:
+1. `pnpm run typecheck` — 0 TypeScript errors across all workspaces
+2. `pnpm run lint` — 0 ESLint violations across all workspaces
+3. `pnpm run format:check` — 100% Biome formatting compliance
+4. `pnpm run test` — 100% pass rate across all 215 test files
+5. `pnpm run build` — Clean production builds across `packages/*`, `apps/api`, and `apps/web`
 
 ---
 
-*Testing analysis: 2026-10-12*
+*Testing analysis: 2026-10-14*

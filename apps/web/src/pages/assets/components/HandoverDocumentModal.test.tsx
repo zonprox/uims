@@ -4,6 +4,10 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HandoverDocumentModal, type HandoverDocumentModalProps } from './HandoverDocumentModal';
 
+vi.mock('../utils/printDocument', () => ({
+  printDocumentHtml: vi.fn(),
+}));
+
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('HandoverDocumentModal Component', () => {
@@ -17,7 +21,6 @@ describe('HandoverDocumentModal Component', () => {
     filename: 'asset_handover_2026-10-13_hor.docx',
     onClose: vi.fn(),
     onDownloadDocx: vi.fn(),
-    onDownloadXlsx: vi.fn(),
   };
 
   const renderComponent = async (props: Partial<HandoverDocumentModalProps> = {}) => {
@@ -47,7 +50,9 @@ describe('HandoverDocumentModal Component', () => {
     if (container.parentNode) {
       container.parentNode.removeChild(container);
     }
-    document.querySelectorAll('.ant-modal-root').forEach((el) => el.remove());
+    document
+      .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover')
+      .forEach((el) => el.remove());
   });
 
   it('renders modal with title, preview iframe, and action buttons', async () => {
@@ -67,6 +72,14 @@ describe('HandoverDocumentModal Component', () => {
     expect(downloadHtmlBtn).toBeUndefined();
   });
 
+  it('does NOT contain any Excel (.xlsx) download button', async () => {
+    await renderComponent();
+
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const downloadExcelBtn = buttons.find((b) => b.textContent?.includes('Excel'));
+    expect(downloadExcelBtn).toBeUndefined();
+  });
+
   it('renders "Download Word (.docx)" and triggers onDownloadDocx when clicked', async () => {
     const onDownloadDocx = vi.fn();
     await renderComponent({ onDownloadDocx });
@@ -84,23 +97,6 @@ describe('HandoverDocumentModal Component', () => {
     expect(onDownloadDocx).toHaveBeenCalled();
   });
 
-  it('renders "Download Excel (.xlsx)" and triggers onDownloadXlsx when clicked', async () => {
-    const onDownloadXlsx = vi.fn();
-    await renderComponent({ onDownloadXlsx });
-
-    const excelButtons = Array.from(document.querySelectorAll('button')).filter((b) =>
-      b.textContent?.includes('Download Excel'),
-    );
-    expect(excelButtons.length).toBeGreaterThan(0);
-
-    await act(async () => {
-      excelButtons[0].click();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-
-    expect(onDownloadXlsx).toHaveBeenCalled();
-  });
-
   it('triggers onClose when Close button is clicked', async () => {
     const onClose = vi.fn();
     await renderComponent({ onClose });
@@ -116,5 +112,24 @@ describe('HandoverDocumentModal Component', () => {
     });
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('renders "Print Record" and triggers printDocumentHtml when clicked', async () => {
+    const { printDocumentHtml } = await import('../utils/printDocument');
+    await renderComponent();
+
+    const printButtons = Array.from(document.querySelectorAll('button')).filter((b) =>
+      b.textContent?.includes('Print Record'),
+    );
+    expect(printButtons.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      printButtons[0].click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(printDocumentHtml).toHaveBeenCalledWith(
+      '<html><body><h1>Handover Record Preview</h1></body></html>',
+    );
   });
 });

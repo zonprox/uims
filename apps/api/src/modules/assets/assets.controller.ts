@@ -60,7 +60,7 @@ export class AssetsController {
   async getHandoverTemplate(
     @Query('type') type: 'assignment' | 'return' | undefined,
     @Res() res: Response,
-    @Query('format') format?: 'docx' | 'xlsx' | 'html',
+    @Query('format') format?: 'docx' | 'html',
   ): Promise<void> {
     const targetType = type || 'assignment';
     if (format === 'html') {
@@ -71,17 +71,6 @@ export class AssetsController {
         `attachment; filename="asset_${targetType === 'return' ? 'return' : 'handover'}_template.html"`,
       );
       res.send(html);
-      return;
-    }
-
-    if (format === 'xlsx') {
-      const { buffer, filename } = await this.assetsService.getHandoverTemplateXlsx(targetType);
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.send(buffer);
       return;
     }
 
@@ -143,53 +132,6 @@ export class AssetsController {
     res.send(buffer);
   }
 
-  @Post('handover-documents/xlsx')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Download populated asset handover or return Excel document (.xlsx)' })
-  async downloadHandoverXlsx(
-    @Body() body: GenerateHandoverDocumentDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    const { buffer, filename } = await this.assetsService.generateHandoverXlsx(body);
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
-  }
-
-  @Get('handover-documents/xlsx')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Download populated asset handover or return Excel document via GET' })
-  async downloadHandoverXlsxGet(
-    @Query('type') type: 'assignment' | 'return' | undefined,
-    @Query('assetIds') assetIds: string | undefined,
-    @Query('recipientId') recipientId: string | undefined,
-    @Query('conditionNotes') conditionNotes: string | undefined,
-    @Res() res: Response,
-  ): Promise<void> {
-    const parsedAssetIds = assetIds
-      ? assetIds
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : undefined;
-    const { buffer, filename } = await this.assetsService.generateHandoverXlsx({
-      type: type || 'assignment',
-      assetIds: parsedAssetIds,
-      recipientId,
-      conditionNotes,
-    });
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
-  }
 
   @Post('handover-documents/generate')
   @UseGuards(JwtAuthGuard, RolesGuard)

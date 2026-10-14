@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildHandoverDocx,
-  buildHandoverXlsx,
   HandoverDocumentParams,
 } from './handover-document.builder';
 
@@ -60,14 +59,5 @@ describe('HandoverDocumentBuilder', () => {
     const buffer = await buildHandoverDocx(returnParams);
     expect(buffer).toBeInstanceOf(Buffer);
     expect(buffer.length).toBeGreaterThan(1000);
-  });
-
-  it('builds a valid XLSX buffer for hardware asset handover', async () => {
-    const buffer = await buildHandoverXlsx(mockParams);
-    expect(buffer).toBeInstanceOf(Buffer);
-    expect(buffer.length).toBeGreaterThan(1000);
-    // XLSX files are zip archives starting with PK (0x50, 0x4B)
-    expect(buffer[0]).toBe(0x50);
-    expect(buffer[1]).toBe(0x4b);
   });
 });

@@ -252,21 +252,6 @@ export const assetsService = {
     return { blob: res.data as Blob, filename };
   },
 
-  downloadHandoverXlsx: async (payload: {
-    type: 'assignment' | 'return';
-    assetIds?: string[];
-    recipientId?: string;
-    conditionNotes?: string;
-  }): Promise<{ blob: Blob; filename: string }> => {
-    const res = await api.post('/assets/handover-documents/xlsx', payload, {
-      responseType: 'blob',
-    });
-    const disposition = (res.headers && (res.headers['content-disposition'] as string)) || '';
-    const match = /filename="([^"]+)"/.exec(disposition);
-    const filename = match ? match[1] : `asset_${payload.type}_record.xlsx`;
-    return { blob: res.data as Blob, filename };
-  },
-
   uploadHandoverDocument: async (
     file: File | Blob,
     assetId?: string,

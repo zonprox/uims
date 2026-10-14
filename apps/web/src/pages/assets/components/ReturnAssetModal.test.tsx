@@ -19,10 +19,6 @@ vi.mock('../../../services/assets.service', () => ({
       blob: new Blob(['docx']),
       filename: 'asset_return_test.docx',
     }),
-    downloadHandoverXlsx: vi.fn().mockResolvedValue({
-      blob: new Blob(['xlsx']),
-      filename: 'asset_return_test.xlsx',
-    }),
     uploadHandoverDocument: vi.fn().mockResolvedValue({
       fileUrl: '/api/v1/assets/handover-documents/file/signed-return.pdf',
       fileName: 'signed-return.pdf',
@@ -70,7 +66,7 @@ describe('ReturnAssetModal Component', () => {
       currentRoot = null;
     }
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     });
     if (container && container.parentNode) {
       container.parentNode.removeChild(container);
@@ -108,7 +104,7 @@ describe('ReturnAssetModal Component', () => {
     });
   };
 
-  it('renders modal with asset summary and document toolbar when open', async () => {
+  it('renders drawer with asset summary and document toolbar when open', async () => {
     const onCancel = vi.fn();
 
     await renderComponent({
@@ -117,8 +113,8 @@ describe('ReturnAssetModal Component', () => {
       onCancel,
     });
 
-    const modalTitle = document.querySelector('.ant-modal-title');
-    expect(modalTitle?.textContent).toContain('Return Hardware Asset');
+    const drawerTitle = document.querySelector('.ant-drawer-title, .ant-drawer-header');
+    expect(drawerTitle?.textContent).toContain('Return Hardware Asset');
     expect(document.body.textContent).toContain('Asset & Custody Summary');
     expect(document.body.textContent).toContain('AST-RET-01');
     expect(document.body.textContent).toContain('MacBook Air M2');
@@ -126,11 +122,11 @@ describe('ReturnAssetModal Component', () => {
 
     // Document toolbar
     expect(document.body.textContent).toContain('Return Record Documentation');
-    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.ant-modal button'));
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.ant-drawer button'));
     expect(buttons.some((b) => b.textContent?.includes('Preview'))).toBe(true);
     expect(buttons.some((b) => b.textContent?.includes('Print'))).toBe(true);
     expect(buttons.some((b) => b.textContent?.includes('Word (.docx)'))).toBe(true);
-    expect(buttons.some((b) => b.textContent?.includes('Excel (.xlsx)'))).toBe(true);
+    expect(buttons.some((b) => b.textContent?.includes('Excel'))).toBe(false);
 
     // Direct upload
     expect(document.body.textContent).toContain('Signed Return Document');
@@ -147,7 +143,7 @@ describe('ReturnAssetModal Component', () => {
     });
 
     const previewBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer button'),
     ).find((b) => b.textContent?.includes('Preview'));
     expect(previewBtn).toBeDefined();
 
@@ -179,7 +175,7 @@ describe('ReturnAssetModal Component', () => {
     });
 
     const okBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal-footer button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
     ).find((b) => b.textContent?.includes('Confirm Return'));
     expect(okBtn).toBeDefined();
 
@@ -206,7 +202,7 @@ describe('ReturnAssetModal Component', () => {
     });
 
     const printBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer button'),
     ).find((b) => b.textContent?.includes('Print'));
     expect(printBtn).toBeDefined();
 
@@ -231,7 +227,7 @@ describe('ReturnAssetModal Component', () => {
     });
 
     const docxBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer button'),
     ).find((b) => b.textContent?.includes('Word (.docx)'));
     expect(docxBtn).toBeDefined();
 
@@ -254,29 +250,16 @@ describe('ReturnAssetModal Component', () => {
     );
   });
 
-  it('triggers download return spreadsheet when clicking Excel (.xlsx) button', async () => {
+  it('does NOT render Excel download button and exclusively provides Word (.docx)', async () => {
     await renderComponent({
       open: true,
       asset: mockAsset,
       onCancel: vi.fn(),
     });
 
-    const xlsxBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal button'),
-    ).find((b) => b.textContent?.includes('Excel (.xlsx)'));
-    expect(xlsxBtn).toBeDefined();
-
-    await act(async () => {
-      xlsxBtn?.click();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
-
-    expect(assetsService.downloadHandoverXlsx).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'return',
-        assetIds: ['ast-ret-1'],
-      }),
-    );
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.ant-drawer button'));
+    expect(buttons.some((b) => b.textContent?.includes('Excel'))).toBe(false);
+    expect(buttons.some((b) => b.textContent?.includes('Word (.docx)'))).toBe(true);
   });
 
   it('uploads signed return document and passes signedDocUrl to onReturn callback', async () => {
@@ -309,7 +292,7 @@ describe('ReturnAssetModal Component', () => {
     });
 
     const okBtn = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.ant-modal-footer button'),
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
     ).find((b) => b.textContent?.includes('Confirm Return'));
 
     expect(okBtn).toBeDefined();
@@ -344,5 +327,86 @@ describe('ReturnAssetModal Component', () => {
     expect(document.body.textContent).toContain('Unassigned Asset');
     expect(document.body.textContent).toContain('This asset has no current custodian');
     expect(document.body.textContent).not.toContain('Return Record Documentation');
+  });
+
+  it('renders model and manufacturer correctly without leading spaces when only model is present', async () => {
+    const modelOnlyAsset: Asset = {
+      ...mockAsset,
+      manufacturer: '',
+      model: 'ThinkPad T14',
+    };
+
+    await renderComponent({
+      open: true,
+      asset: modelOnlyAsset,
+      onCancel: vi.fn(),
+    });
+
+    expect(document.body.textContent).toContain('(ThinkPad T14)');
+    expect(document.body.textContent).not.toContain('( undefined');
+  });
+
+  it('catches and reports onReturn errors rather than swallowing them', async () => {
+    const onReturn = vi.fn().mockImplementation(() => {
+      throw new Error('Return failed due to database constraint');
+    });
+
+    await renderComponent({
+      open: true,
+      asset: mockAsset,
+      onReturn,
+      onCancel: vi.fn(),
+    });
+
+    const okBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.ant-drawer-footer button'),
+    ).find((b) => b.textContent?.includes('Confirm Return'));
+
+    await act(async () => {
+      okBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(onReturn).toHaveBeenCalled();
+  });
+
+  it('falls back to "Current Custodian" when asset has assignedToId but empty assignedTo string', async () => {
+    const partialAsset: Asset = {
+      ...mockAsset,
+      assignedTo: '',
+      assignedToId: 'usr-has-id',
+    };
+
+    await renderComponent({
+      open: true,
+      asset: partialAsset,
+      onCancel: vi.fn(),
+    });
+
+    expect(document.body.textContent).toContain('Pre-filled for Current Custodian');
+    expect(document.body.textContent).not.toContain('Pre-filled for  (');
+  });
+
+  it('falls back to "Current Custodian" and renders default tag when assignedTo is "Unassigned" with assignedToId', async () => {
+    const unassignedAssetWithId: Asset = {
+      ...mockAsset,
+      assignedTo: 'Unassigned',
+      assignedToId: 'usr-has-id',
+    };
+
+    await renderComponent({
+      open: true,
+      asset: unassignedAssetWithId,
+      onCancel: vi.fn(),
+    });
+
+    expect(document.body.textContent).toContain('Pre-filled for Current Custodian (AST-RET-01)');
+    expect(document.body.textContent).not.toContain('Pre-filled for Unassigned (');
+
+    const unassignedTag = Array.from(document.querySelectorAll('.ant-tag')).find(
+      (t) => t.textContent === 'Unassigned',
+    );
+    expect(unassignedTag).toBeDefined();
+    expect(unassignedTag?.className).not.toContain('ant-tag-blue');
   });
 });

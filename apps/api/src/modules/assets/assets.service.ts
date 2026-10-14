@@ -38,7 +38,6 @@ import type { GenerateHandoverDocumentDto } from './dto/generate-handover-docume
 import type { ReturnAssetDto } from './dto/return-asset.dto';
 import {
   buildHandoverDocx,
-  buildHandoverXlsx,
   HandoverDocumentParams,
 } from './utils/handover-document.builder';
 
@@ -1589,26 +1588,6 @@ export class AssetsService {
     return { buffer, filename };
   }
 
-  async getHandoverTemplateXlsx(
-    type: 'assignment' | 'return' = 'assignment',
-  ): Promise<{ buffer: Buffer; filename: string }> {
-    const isReturn = type === 'return';
-    const currentDate = new Date().toISOString().split('T')[0];
-    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
-    const filename = `asset_${isReturn ? 'return' : 'handover'}_template.xlsx`;
-    const buffer = await buildHandoverXlsx({
-      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
-      subtitle: isReturn
-        ? 'Equipment Return & Custody Termination'
-        : 'Equipment Assignment & Custody Transfer',
-      refId,
-      type,
-      currentDate,
-      assets: [],
-    });
-    return { buffer, filename };
-  }
-
   async generateHandoverDocument(dto: GenerateHandoverDocumentDto) {
     const params = await this.resolveHandoverParams(dto);
     const html = this.buildHandoverDocumentHtml(params);
@@ -1630,16 +1609,6 @@ export class AssetsService {
     const isReturn = dto.type === 'return';
     const filename = `asset_${isReturn ? 'return' : 'handover'}_${params.currentDate}_${params.refId.toLowerCase()}.docx`;
     const buffer = await buildHandoverDocx(params);
-    return { buffer, filename };
-  }
-
-  async generateHandoverXlsx(
-    dto: GenerateHandoverDocumentDto,
-  ): Promise<{ buffer: Buffer; filename: string }> {
-    const params = await this.resolveHandoverParams(dto);
-    const isReturn = dto.type === 'return';
-    const filename = `asset_${isReturn ? 'return' : 'handover'}_${params.currentDate}_${params.refId.toLowerCase()}.xlsx`;
-    const buffer = await buildHandoverXlsx(params);
     return { buffer, filename };
   }
 
