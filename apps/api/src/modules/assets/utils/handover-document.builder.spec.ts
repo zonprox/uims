@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildHandoverDocx,
-  HandoverDocumentParams,
-} from './handover-document.builder';
+import { buildHandoverDocx, HandoverDocumentParams } from './handover-document.builder';
 
 describe('HandoverDocumentBuilder', () => {
   const mockParams: HandoverDocumentParams = {
@@ -59,5 +56,33 @@ describe('HandoverDocumentBuilder', () => {
     const buffer = await buildHandoverDocx(returnParams);
     expect(buffer).toBeInstanceOf(Buffer);
     expect(buffer.length).toBeGreaterThan(1000);
+  });
+
+  it('builds a valid DOCX buffer for asset transfer between Custodian A and Custodian B', async () => {
+    const transferParams: HandoverDocumentParams = {
+      ...mockParams,
+      title: 'HARDWARE ASSET TRANSFER & CUSTODY REASSIGNMENT RECORD',
+      subtitle: 'Official Transfer and Custody Reassignment Protocol',
+      type: 'transfer',
+      transferor: {
+        fullName: 'Tran Van B',
+        employeeCode: 'EMP-5678',
+        department: 'Human Resources',
+        email: 'b.tran@youngonevn.com',
+        organization: 'Youngone Nam Dinh',
+      },
+      recipient: {
+        fullName: 'Le Thi C',
+        employeeCode: 'EMP-9012',
+        department: 'Finance',
+        email: 'c.le@youngonevn.com',
+        organization: 'Youngone Nam Dinh',
+      },
+    };
+    const buffer = await buildHandoverDocx(transferParams);
+    expect(buffer).toBeInstanceOf(Buffer);
+    expect(buffer.length).toBeGreaterThan(1000);
+    expect(buffer[0]).toBe(0x50);
+    expect(buffer[1]).toBe(0x4b);
   });
 });

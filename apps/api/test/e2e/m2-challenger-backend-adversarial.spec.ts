@@ -2,10 +2,11 @@ import * as dotenv from 'dotenv';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PrismaService } from '../../src/database/prisma.service';
 import { AssetsService } from '../../src/modules/assets/assets.service';
 import { CreateAssetDto } from '../../src/modules/assets/dto/create-asset.dto';
+import { RegisterPhysicalUnitDto } from '../../src/modules/assets/dto/register-physical-unit.dto';
 import { UpdateAssetDto } from '../../src/modules/assets/dto/update-asset.dto';
 import { ReportsService } from '../../src/modules/reports/reports.service';
 
@@ -17,6 +18,8 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
   let assetsService: AssetsService;
   let reportsService: ReportsService;
   let isDbAvailable = false;
+  let liveModelId: string | null = null;
+  let liveDeptId: string | null = null;
   const createdTestAssetIds: string[] = [];
 
   beforeAll(async () => {
@@ -27,8 +30,45 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
       isDbAvailable = true;
       assetsService = new AssetsService(prisma);
       reportsService = new ReportsService(prisma);
+
+      const existingModel = await prisma.deviceModel.findFirst();
+      if (existingModel) {
+        liveModelId = existingModel.id;
+      } else {
+        let category = await prisma.assetCategory.findFirst();
+        if (!category) {
+          category = await prisma.assetCategory.create({
+            data: { name: 'Challenger Hardware Category' },
+          });
+        }
+        const createdModel = await prisma.deviceModel.create({
+          data: {
+            name: 'Challenger Test Device Model',
+            modelCode: `MOD-CHALLENGE-${Date.now()}`,
+            categoryId: category.id,
+            manufacturer: 'Dell',
+            unitCost: 1500,
+            minThreshold: 5,
+          },
+        });
+        liveModelId = createdModel.id;
+      }
+
+      const existingDept = await prisma.department.findFirst();
+      if (existingDept) {
+        liveDeptId = existingDept.id;
+      }
     } catch {
       isDbAvailable = false;
+    }
+  });
+
+  afterEach(async () => {
+    if (isDbAvailable && prisma && createdTestAssetIds.length > 0) {
+      await prisma.asset.deleteMany({
+        where: { id: { in: createdTestAssetIds } },
+      });
+      createdTestAssetIds.length = 0;
     }
   });
 
@@ -167,6 +207,21 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
           update: vi.fn(),
           findUnique: vi.fn(),
           count: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+        deviceModel: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'mod-1',
+            name: 'Dell Precision 5570',
+            deletedAt: null,
+          }),
+        },
+        department: {
+          findUnique: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+        costCenter: {
+          findUnique: vi.fn(),
         },
         assetCategory: { findFirst: vi.fn(), findUnique: vi.fn() },
         location: { findFirst: vi.fn(), findUnique: vi.fn() },
@@ -177,24 +232,43 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
 
     it('2.1 normalizes serialNumber to null when empty string, null, or undefined on create', async () => {
       const payloads = [
-        { name: 'Asset 1', serialNumber: null },
-        { name: 'Asset 2', serialNumber: '' },
-        { name: 'Asset 3', serialNumber: undefined },
-        { name: 'Asset 4' },
+        { subcode: 'AST-SN-1', serialNumber: null },
+        { subcode: 'AST-SN-2', serialNumber: '' },
+        { subcode: 'AST-SN-3', serialNumber: undefined },
+        { subcode: 'AST-SN-4' },
       ];
 
       for (const payload of payloads) {
         (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-          id: `ast-${payload.name}`,
-          assetTag: 'AST-TEST',
-          name: payload.name,
+          id: `ast-${payload.subcode}`,
+          deviceModelId: 'mod-1',
+          subcode: payload.subcode,
+          assetTag: payload.subcode,
           serialNumber: null,
           status: 'AVAILABLE',
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+        (mockPrisma.asset.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+          id: `ast-${payload.subcode}`,
+          deviceModelId: 'mod-1',
+          subcode: payload.subcode,
+          assetTag: payload.subcode,
+          serialNumber: null,
+          status: 'AVAILABLE',
+          deviceModel: { id: 'mod-1', name: 'Dell Precision 5570' },
+          assignedTo: null,
+          department: null,
+          costCenter: null,
+          handoverRecords: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
 
-        await mockService.create(payload as CreateAssetDto);
+        await mockService.registerUnit({
+          deviceModelId: 'mod-1',
+          ...payload,
+        });
 
         const lastCall = (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mock.calls.at(-1);
         expect(lastCall[0].data.serialNumber).toBeNull();
@@ -204,16 +278,33 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
     it('2.2 trims valid serialNumber on create and stores string in DB', async () => {
       (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         id: 'ast-trimmed',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-TEST-2',
         assetTag: 'AST-TEST-2',
-        name: 'Trimmed Asset',
         serialNumber: 'SN-CLEAN-999',
         status: 'AVAILABLE',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      (mockPrisma.asset.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: 'ast-trimmed',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-TEST-2',
+        assetTag: 'AST-TEST-2',
+        serialNumber: 'SN-CLEAN-999',
+        status: 'AVAILABLE',
+        deviceModel: { id: 'mod-1', name: 'Dell Precision 5570' },
+        assignedTo: null,
+        department: null,
+        costCenter: null,
+        handoverRecords: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      await mockService.create({
-        name: 'Trimmed Asset',
+      await mockService.registerUnit({
+        deviceModelId: 'mod-1',
+        subcode: 'AST-TEST-2',
         serialNumber: '   SN-CLEAN-999   ',
       });
 
@@ -272,15 +363,34 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
     it('2.5 formatAsset returns null for missing or null serialNumber, strictly never "N/A"', async () => {
       (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         id: 'ast-fmt-1',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-FMT-1',
         assetTag: 'AST-FMT-1',
-        name: 'Format Test Asset',
         serialNumber: null,
         status: 'AVAILABLE',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      (mockPrisma.asset.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: 'ast-fmt-1',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-FMT-1',
+        assetTag: 'AST-FMT-1',
+        serialNumber: null,
+        status: 'AVAILABLE',
+        deviceModel: { id: 'mod-1', name: 'Dell Precision 5570' },
+        assignedTo: null,
+        department: null,
+        costCenter: null,
+        handoverRecords: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const formatted = await mockService.create({ name: 'Format Test Asset' });
+      const formatted = await mockService.registerUnit({
+        deviceModelId: 'mod-1',
+        subcode: 'AST-FMT-1',
+      });
       expect(formatted.serialNumber).toBeNull();
       expect(formatted.serialNumber).not.toBe('N/A');
 
@@ -303,23 +413,39 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
     it('2.6 evaluates whitespace-only serialNumber ("   ") during create and handles formatting', async () => {
       (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         id: 'ast-ws',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-WS',
         assetTag: 'AST-WS',
-        name: 'Whitespace Asset',
-        serialNumber: '', // trimmed
+        serialNumber: null,
         status: 'AVAILABLE',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      (mockPrisma.asset.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: 'ast-ws',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-WS',
+        assetTag: 'AST-WS',
+        serialNumber: null,
+        status: 'AVAILABLE',
+        deviceModel: { id: 'mod-1', name: 'Dell Precision 5570' },
+        assignedTo: null,
+        department: null,
+        costCenter: null,
+        handoverRecords: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const formatted = await mockService.create({
-        name: 'Whitespace Asset',
+      const formatted = await mockService.registerUnit({
+        deviceModelId: 'mod-1',
+        subcode: 'AST-WS',
         serialNumber: '   ',
       });
 
       const lastCall = (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mock.calls.at(-1);
-      // '   '.trim() produces '' which is passed to Prisma create
-      expect(lastCall[0].data.serialNumber).toBe('');
-      // In formatAsset: '' || null evaluates to null, ensuring API consumers receive null!
+      // '   '.trim() produces '' which || null evaluates to null
+      expect(lastCall[0].data.serialNumber).toBeNull();
       expect(formatted.serialNumber).toBeNull();
     });
 
@@ -331,19 +457,37 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
         'A'.repeat(500),
       ];
 
-      for (const payload of securityPayloads) {
+      for (let i = 0; i < securityPayloads.length; i++) {
+        const payload = securityPayloads[i];
         (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-          id: `ast-sec-${payload.slice(0, 5)}`,
-          assetTag: 'AST-SEC',
-          name: 'Security Test Asset',
+          id: `ast-sec-${i}`,
+          deviceModelId: 'mod-1',
+          subcode: `AST-SEC-${i}`,
+          assetTag: `AST-SEC-${i}`,
           serialNumber: payload.trim(),
           status: 'AVAILABLE',
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+        (mockPrisma.asset.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+          id: `ast-sec-${i}`,
+          deviceModelId: 'mod-1',
+          subcode: `AST-SEC-${i}`,
+          assetTag: `AST-SEC-${i}`,
+          serialNumber: payload.trim(),
+          status: 'AVAILABLE',
+          deviceModel: { id: 'mod-1', name: 'Dell Precision 5570' },
+          assignedTo: null,
+          department: null,
+          costCenter: null,
+          handoverRecords: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
 
-        const formatted = await mockService.create({
-          name: 'Security Test Asset',
+        const formatted = await mockService.registerUnit({
+          deviceModelId: 'mod-1',
+          subcode: `AST-SEC-${i}`,
           serialNumber: payload,
         });
 
@@ -368,6 +512,21 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
           create: vi.fn(),
           update: vi.fn(),
           findUnique: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+        deviceModel: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'mod-1',
+            name: 'Purged Cost Model',
+            deletedAt: null,
+          }),
+        },
+        department: {
+          findUnique: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+        costCenter: {
+          findUnique: vi.fn(),
         },
         assetCategory: { findFirst: vi.fn(), findUnique: vi.fn() },
         location: { findFirst: vi.fn(), findUnique: vi.fn() },
@@ -375,25 +534,44 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
       mockService = new AssetsService(mockPrisma as unknown as PrismaService);
     });
 
-    it('3.1 submitting { purchasePrice: 500, purchaseCost: 500 } to AssetsService.create does not crash, is not passed to DB, and is not returned', async () => {
+    it('3.1 submitting { purchasePrice: 500, purchaseCost: 500 } to AssetsService.registerUnit does not crash, is not passed to DB, and is not returned', async () => {
       (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         id: 'ast-cost-test',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-COST-1',
         assetTag: 'AST-COST-1',
-        name: 'Purged Cost Asset',
         serialNumber: 'SN-001',
         status: 'AVAILABLE',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      (mockPrisma.asset.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: 'ast-cost-test',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-COST-1',
+        assetTag: 'AST-COST-1',
+        serialNumber: 'SN-001',
+        status: 'AVAILABLE',
+        deviceModel: { id: 'mod-1', name: 'Purged Cost Model' },
+        assignedTo: null,
+        department: null,
+        costCenter: null,
+        handoverRecords: [],
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
       // Pass extraneous legacy financial fields
       const legacyPayload = {
-        name: 'Purged Cost Asset',
+        deviceModelId: 'mod-1',
+        subcode: 'AST-COST-1',
         purchasePrice: 500,
         purchaseCost: 500,
       };
 
-      const result = await mockService.create(legacyPayload as unknown as CreateAssetDto);
+      const result = await mockService.registerUnit(
+        legacyPayload as unknown as RegisterPhysicalUnitDto,
+      );
 
       // Verify Prisma create payload NEVER received purchaseCost or purchasePrice
       const createArgs = (mockPrisma.asset.create as ReturnType<typeof vi.fn>).mock.calls.at(-1)[0];
@@ -551,57 +729,87 @@ describe('Milestone 2 Challenger — Asset & Reports Backend Adversarial Verific
   // =========================================================================
   describe('5. Live Database Integration & Roundtrip Verification', () => {
     it('5.1 verifies live DB creates asset with null serialNumber and stores actual null in PostgreSQL', async () => {
-      if (!isDbAvailable) return;
+      if (!isDbAvailable || !liveModelId || !liveDeptId) return;
 
-      const created = await assetsService.create({
-        name: 'Challenger Live DB Asset Null SN',
-        serialNumber: null,
-      });
-      createdTestAssetIds.push(created.id);
+      const subcode = `LIVE-NULL-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      let createdId: string | null = null;
+      try {
+        const created = await assetsService.registerUnit({
+          deviceModelId: liveModelId,
+          departmentId: liveDeptId,
+          subcode,
+          serialNumber: null,
+        });
+        createdId = created.id;
 
-      expect(created.serialNumber).toBeNull();
+        expect(created.serialNumber).toBeNull();
 
-      // Read raw record directly from Prisma
-      const rawInDb = await prisma.asset.findUnique({
-        where: { id: created.id },
-      });
-      expect(rawInDb).not.toBeNull();
-      expect(rawInDb?.serialNumber).toBeNull();
+        // Read raw record directly from Prisma
+        const rawInDb = await prisma.asset.findUnique({
+          where: { id: created.id },
+        });
+        expect(rawInDb).not.toBeNull();
+        expect(rawInDb?.serialNumber).toBeNull();
+      } finally {
+        if (createdId) {
+          await prisma.asset.deleteMany({ where: { id: createdId } });
+        }
+      }
     });
 
     it('5.2 verifies live DB creates asset with empty string "" serialNumber and stores null in PostgreSQL', async () => {
-      if (!isDbAvailable) return;
+      if (!isDbAvailable || !liveModelId || !liveDeptId) return;
 
-      const created = await assetsService.create({
-        name: 'Challenger Live DB Asset Empty SN',
-        serialNumber: '',
-      });
-      createdTestAssetIds.push(created.id);
+      const subcode = `LIVE-EMPTY-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      let createdId: string | null = null;
+      try {
+        const created = await assetsService.registerUnit({
+          deviceModelId: liveModelId,
+          departmentId: liveDeptId,
+          subcode,
+          serialNumber: '',
+        });
+        createdId = created.id;
 
-      expect(created.serialNumber).toBeNull();
+        expect(created.serialNumber).toBeNull();
 
-      const rawInDb = await prisma.asset.findUnique({
-        where: { id: created.id },
-      });
-      expect(rawInDb?.serialNumber).toBeNull();
+        const rawInDb = await prisma.asset.findUnique({
+          where: { id: created.id },
+        });
+        expect(rawInDb?.serialNumber).toBeNull();
+      } finally {
+        if (createdId) {
+          await prisma.asset.deleteMany({ where: { id: createdId } });
+        }
+      }
     });
 
     it('5.3 verifies live DB creates asset with valid serialNumber and stores string in PostgreSQL', async () => {
-      if (!isDbAvailable) return;
+      if (!isDbAvailable || !liveModelId || !liveDeptId) return;
 
       const validSn = `LIVE-SN-${Date.now()}`;
-      const created = await assetsService.create({
-        name: 'Challenger Live DB Asset Valid SN',
-        serialNumber: validSn,
-      });
-      createdTestAssetIds.push(created.id);
+      const subcode = `LIVE-VALID-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      let createdId: string | null = null;
+      try {
+        const created = await assetsService.registerUnit({
+          deviceModelId: liveModelId,
+          departmentId: liveDeptId,
+          subcode,
+          serialNumber: validSn,
+        });
+        createdId = created.id;
 
-      expect(created.serialNumber).toBe(validSn);
+        expect(created.serialNumber).toBe(validSn);
 
-      const rawInDb = await prisma.asset.findUnique({
-        where: { id: created.id },
-      });
-      expect(rawInDb?.serialNumber).toBe(validSn);
+        const rawInDb = await prisma.asset.findUnique({
+          where: { id: created.id },
+        });
+        expect(rawInDb?.serialNumber).toBe(validSn);
+      } finally {
+        if (createdId) {
+          await prisma.asset.deleteMany({ where: { id: createdId } });
+        }
+      }
     });
 
     it('5.4 verifies live ReportsService reflects dynamic asset count in report r1', async () => {

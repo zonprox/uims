@@ -3,10 +3,14 @@ export { AccountStatus, DirectorySource, DomainJoinStatus } from '../entities/di
 export { LicenseStatus, LicenseType } from '../entities/license';
 export {
   IPStatus,
+  InfrastructureDomain,
+  LinkMediumType,
+  NetworkDomain,
   PortAdminStatus,
   PortFormFactor,
   PortMode,
   PortOperStatus,
+  PortRole,
   PortSpeed,
   RackStatus,
   SPEED_1G,
@@ -14,6 +18,11 @@ export {
   SPEED_10G,
   SwitchRole,
   SwitchStatus,
+  TopologyEdgeStatus,
+  TopologyNodeStatus,
+  TopologyNodeType,
+  TopologyPoeStatus,
+  TopologyViewMode,
   VlanStatus,
 } from '../entities/network';
 export { NotificationType } from '../entities/notification';

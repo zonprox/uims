@@ -120,7 +120,11 @@ export const BatchAssignLicensesModal: React.FC<BatchAssignLicensesModalProps> =
         title="Batch Assign Software Licenses"
         subtitle={`${count} license${count === 1 ? '' : 's'} to assign`}
         icon={<UserSwitchOutlined />}
-        tag={<Tag color="blue">{count} License{count === 1 ? '' : 's'}</Tag>}
+        tag={
+          <Tag color="blue">
+            {count} License{count === 1 ? '' : 's'}
+          </Tag>
+        }
         size={580}
         onOk={handleOk}
         okText={`Assign ${count} License${count !== 1 ? 's' : ''}`}
@@ -193,7 +197,8 @@ export const BatchAssignLicensesModal: React.FC<BatchAssignLicensesModalProps> =
           <AppDrawer.Section title="Target Directory Employee">
             <div>
               <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 12.5 }}>
-                Select an active directory employee who will be granted seats for all selected licenses.
+                Select an active directory employee who will be granted seats for all selected
+                licenses.
               </Text>
               <Select
                 showSearch
@@ -231,9 +236,7 @@ export const BatchAssignLicensesModal: React.FC<BatchAssignLicensesModalProps> =
                   <Descriptions.Item label="Full Name">
                     <Flex align="center" gap={6}>
                       <UserOutlined style={{ color: token.colorPrimary }} />
-                      <Text strong>
-                        {formatUserDisplayName(selectedUser)}
-                      </Text>
+                      <Text strong>{formatUserDisplayName(selectedUser)}</Text>
                     </Flex>
                   </Descriptions.Item>
                   <Descriptions.Item label="Email">{selectedUser.email}</Descriptions.Item>

@@ -117,6 +117,13 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
         findUnique: vi.fn(),
         findMany: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+      },
+      assetHandoverRecord: {
+        create: vi.fn(),
+        createMany: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
       },
       assetCategory: {
         findFirst: vi.fn(),
@@ -772,38 +779,35 @@ describe('Milestone 1 Adversarial Challenge: Directory Operations & Relations', 
 
       mockPrisma.directoryUser.findUnique.mockResolvedValue(mockDirectoryUser);
 
-      mockPrisma.asset.create.mockResolvedValue({
+      mockPrisma.asset.findUnique.mockResolvedValue({
         id: 'asset-uuid-1',
         assetTag: 'AST-TEST-001',
-        name: 'MacBook Pro 16',
-        manufacturer: 'Apple',
-        model: 'M3 Max',
-        serialNumber: 'SN987654321',
+        status: 'AVAILABLE',
+        assignedToId: null,
+      });
+
+      mockPrisma.asset.update.mockResolvedValue({
+        id: 'asset-uuid-1',
+        assetTag: 'AST-TEST-001',
+        subcode: 'AST-TEST-001',
         status: 'IN_USE',
         purchaseDate: new Date('2026-01-15'),
         warrantyExpiry: new Date('2029-01-15'),
-        categoryId: 'cat-1',
         assignedToId: 'dir-custodian-1',
         notes: 'Assigned to team lead',
-        category: { id: 'cat-1', name: 'Laptops' },
+        deviceModel: { id: 'cat-1', name: 'MacBook Pro 16', category: { name: 'Laptops' } },
         assignedTo: mockDirectoryUser,
       });
 
-      const result = await assetsService.create({
-        name: 'MacBook Pro 16',
-        assetTag: 'AST-TEST-001',
-        manufacturer: 'Apple',
-        model: 'M3 Max',
-        serialNumber: 'SN987654321',
-        status: 'In Use',
+      const result = await assetsService.update('asset-uuid-1', {
         assignedToId: 'dir-custodian-1',
       });
 
-      // Verify that prisma.asset.create receives the DirectoryUser ID in assignedToId
-      expect(mockPrisma.asset.create).toHaveBeenCalledWith(
+      // Verify that prisma.asset.update receives the DirectoryUser ID
+      expect(mockPrisma.asset.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            assignedToId: 'dir-custodian-1',
+            assignedTo: { connect: { id: 'dir-custodian-1' } },
           }),
         }),
       );

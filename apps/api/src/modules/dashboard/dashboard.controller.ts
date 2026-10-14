@@ -13,4 +13,10 @@ export class DashboardController {
   getOverview(@Query('period') period?: string, @Query('refresh') refresh?: string) {
     return this.dashboardService.getOverview(period, refresh === 'true');
   }
+
+  @Get('pending-handovers')
+  @ApiOperation({ summary: 'Get pending handover documents compliance summary' })
+  getPendingHandoversSummary() {
+    return this.dashboardService.getPendingHandoversSummary();
+  }
 }

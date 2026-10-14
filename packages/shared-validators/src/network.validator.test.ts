@@ -1,38 +1,56 @@
 import {
   IPStatus,
+  InfrastructureDomain,
+  LinkMediumType,
   PortAdminStatus,
   PortFormFactor,
   PortMode,
   PortOperStatus,
+  PortRole,
   RackStatus,
   SwitchRole,
   SwitchStatus,
+  TopologyNodeType,
+  TopologyViewMode,
   VlanStatus,
 } from '@uims/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
   autoDetectQuerySchema,
   calculateSubnetQuerySchema,
+  canvasNodePositionItemSchema,
   createIpAddressSchema,
   createRackSchema,
   createSubnetSchema,
   createSwitchPortSchema,
   createSwitchSchema,
+  createTopologyLinkSchema,
   createVlanSchema,
+  infrastructureDomainSchema,
   ipAddressQuerySchema,
+  linkMediumTypeSchema,
   macVendorQuerySchema,
+  patchCableLinkSchema,
+  portRoleSchema,
   rackQuerySchema,
   subnetQuerySchema,
   switchPortQuerySchema,
   switchQuerySchema,
+  topologyNodeTypeSchema,
+  topologyQuerySchema,
+  topologyViewModeSchema,
+  unpatchCableLinkSchema,
+  updateCanvasLayoutSchema,
   updateIpAddressSchema,
   updateRackSchema,
   updateSubnetSchema,
   updateSwitchPortSchema,
   updateSwitchSchema,
+  updateTopologyLayoutSchema,
   updateVlanSchema,
   vlanQuerySchema,
 } from './network.validator';
+
 
 describe('network.validator', () => {
   describe('createVlanSchema', () => {
@@ -467,4 +485,310 @@ describe('network.validator', () => {
       ).toBe(false);
     });
   });
+
+  describe('Milestone 7 Topology Schemas & Enums', () => {
+    describe('Enum Schemas', () => {
+      it('validates InfrastructureDomain values and defaults', () => {
+        expect(infrastructureDomainSchema.parse(undefined)).toBe(InfrastructureDomain.NETWORK);
+        expect(infrastructureDomainSchema.parse(InfrastructureDomain.CCTV)).toBe(InfrastructureDomain.CCTV);
+        expect(infrastructureDomainSchema.parse(InfrastructureDomain.SHARED)).toBe(InfrastructureDomain.SHARED);
+        expect(infrastructureDomainSchema.safeParse('INVALID').success).toBe(false);
+      });
+
+      it('validates TopologyViewMode values and defaults', () => {
+        expect(topologyViewModeSchema.parse(undefined)).toBe(TopologyViewMode.ALL);
+        expect(topologyViewModeSchema.parse(TopologyViewMode.NETWORK)).toBe(TopologyViewMode.NETWORK);
+        expect(topologyViewModeSchema.parse(TopologyViewMode.CCTV)).toBe(TopologyViewMode.CCTV);
+        expect(topologyViewModeSchema.safeParse('UNKNOWN').success).toBe(false);
+      });
+
+      it('validates LinkMediumType values and defaults', () => {
+        expect(linkMediumTypeSchema.parse(undefined)).toBe(LinkMediumType.COPPER);
+        expect(linkMediumTypeSchema.parse(LinkMediumType.FIBER_SINGLE)).toBe(LinkMediumType.FIBER_SINGLE);
+        expect(linkMediumTypeSchema.parse(LinkMediumType.FIBER_MULTI)).toBe(LinkMediumType.FIBER_MULTI);
+        expect(linkMediumTypeSchema.parse(LinkMediumType.DAC)).toBe(LinkMediumType.DAC);
+        expect(linkMediumTypeSchema.parse(LinkMediumType.WIRELESS)).toBe(LinkMediumType.WIRELESS);
+        expect(linkMediumTypeSchema.safeParse('COAXIAL').success).toBe(false);
+      });
+
+      it('validates PortRole values and defaults', () => {
+        expect(portRoleSchema.parse(undefined)).toBe(PortRole.ACCESS);
+        expect(portRoleSchema.parse(PortRole.TRUNK)).toBe(PortRole.TRUNK);
+        expect(portRoleSchema.parse(PortRole.UPLINK)).toBe(PortRole.UPLINK);
+        expect(portRoleSchema.parse(PortRole.STACK)).toBe(PortRole.STACK);
+        expect(portRoleSchema.parse(PortRole.ROUTED)).toBe(PortRole.ROUTED);
+      });
+
+      it('validates TopologyNodeType values', () => {
+        expect(topologyNodeTypeSchema.parse(undefined)).toBe(TopologyNodeType.SWITCH);
+        expect(topologyNodeTypeSchema.parse(TopologyNodeType.CORE_SWITCH)).toBe(TopologyNodeType.CORE_SWITCH);
+        expect(topologyNodeTypeSchema.parse(TopologyNodeType.CAMERA)).toBe(TopologyNodeType.CAMERA);
+        expect(topologyNodeTypeSchema.parse(TopologyNodeType.NVR)).toBe(TopologyNodeType.NVR);
+      });
+    });
+
+    describe('patchCableLinkSchema', () => {
+      const portA = 'a0000000-0000-4000-8000-000000000001';
+      const portB = 'a0000000-0000-4000-8000-000000000002';
+      const assetId = 'b0000000-0000-4000-8000-000000000001';
+      const ipId = 'c0000000-0000-4000-8000-000000000001';
+      const vlanId = 'd0000000-0000-4000-8000-000000000001';
+
+
+      it('validates a valid switch-to-switch trunk link', () => {
+        const payload = {
+          sourcePortId: portA,
+          targetPortId: portB,
+          medium: LinkMediumType.FIBER_MULTI,
+          portRole: PortRole.UPLINK,
+          mode: PortMode.TRUNK,
+          speedMbps: 10000,
+          speed: '10 Gbps',
+          taggedVlanIds: [10, 20, 30, 100],
+          poeDelivering: false,
+          description: '10G Core to Dist Uplink',
+        };
+        const result = patchCableLinkSchema.safeParse(payload);
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.sourcePortId).toBe(portA);
+          expect(result.data.targetPortId).toBe(portB);
+          expect(result.data.medium).toBe(LinkMediumType.FIBER_MULTI);
+        }
+      });
+
+      it('validates an endpoint asset connection', () => {
+        const payload = {
+          sourcePortId: portA,
+          targetAssetId: assetId,
+          vlanId,
+          medium: LinkMediumType.COPPER,
+          portRole: PortRole.ACCESS,
+          poeDelivering: true,
+          speedMbps: 1000,
+          description: 'Dome 4K Camera Connection',
+        };
+        const result = patchCableLinkSchema.safeParse(payload);
+        expect(result.success).toBe(true);
+      });
+
+      it('validates an IP address binding', () => {
+        const payload = {
+          sourcePortId: portA,
+          targetIpAddressId: ipId,
+          speedMbps: 1000,
+        };
+        const result = patchCableLinkSchema.safeParse(payload);
+        expect(result.success).toBe(true);
+      });
+
+      it('rejects self-loop port connections (sourcePortId === targetPortId)', () => {
+        const payload = {
+          sourcePortId: portA,
+          targetPortId: portA,
+        };
+        const result = patchCableLinkSchema.safeParse(payload);
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues[0].message).toContain('self-loop');
+        }
+      });
+
+      it('rejects payloads missing all target fields', () => {
+        const payload = {
+          sourcePortId: portA,
+        };
+        const result = patchCableLinkSchema.safeParse(payload);
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues[0].message).toContain('At least one target connection');
+        }
+      });
+
+      it('rejects invalid or non-UUID identifiers', () => {
+        expect(
+          patchCableLinkSchema.safeParse({
+            sourcePortId: 'not-a-uuid',
+            targetPortId: portB,
+          }).success,
+        ).toBe(false);
+
+        expect(
+          patchCableLinkSchema.safeParse({
+            sourcePortId: portA,
+            targetPortId: 'invalid-port-uuid',
+          }).success,
+        ).toBe(false);
+      });
+
+      it('rejects negative or zero speedMbps', () => {
+        expect(
+          patchCableLinkSchema.safeParse({
+            sourcePortId: portA,
+            targetPortId: portB,
+            speedMbps: 0,
+          }).success,
+        ).toBe(false);
+
+        expect(
+          patchCableLinkSchema.safeParse({
+            sourcePortId: portA,
+            targetPortId: portB,
+            speedMbps: -100,
+          }).success,
+        ).toBe(false);
+      });
+
+      it('works identically via createTopologyLinkSchema alias', () => {
+        const valid = {
+          sourcePortId: portA,
+          targetPortId: portB,
+        };
+        expect(createTopologyLinkSchema.safeParse(valid).success).toBe(true);
+      });
+    });
+
+    describe('unpatchCableLinkSchema', () => {
+      const portId = 'a0000000-0000-4000-8000-000000000001';
+
+
+      it('validates a correct unpatch request', () => {
+        const payload = {
+          portId,
+          reason: 'Decommissioning access switch uplink',
+          resetPortConfig: true,
+        };
+        const result = unpatchCableLinkSchema.safeParse(payload);
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.portId).toBe(portId);
+          expect(result.data.resetPortConfig).toBe(true);
+        }
+      });
+
+      it('defaults resetPortConfig to false when omitted', () => {
+        const result = unpatchCableLinkSchema.safeParse({ portId });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.resetPortConfig).toBe(false);
+        }
+      });
+
+      it('rejects invalid UUID portId', () => {
+        expect(unpatchCableLinkSchema.safeParse({ portId: 'bad-id' }).success).toBe(false);
+      });
+    });
+
+    describe('updateCanvasLayoutSchema & canvasNodePositionItemSchema', () => {
+      it('validates valid batch canvas coordinates with isPinned', () => {
+        const payload = {
+          viewMode: TopologyViewMode.NETWORK,
+          positions: [
+            {
+              nodeId: 'sw-core-1',
+              nodeType: TopologyNodeType.CORE_SWITCH,
+              x: 250.5,
+              y: 180.0,
+              isPinned: true,
+            },
+            {
+              nodeId: 'sw-dist-1',
+              nodeType: TopologyNodeType.DISTRIBUTION_SWITCH,
+              x: 600,
+              y: 350,
+              isPinned: false,
+            },
+          ],
+        };
+        const result = updateCanvasLayoutSchema.safeParse(payload);
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.positions.length).toBe(2);
+          expect(result.data.positions[0].isPinned).toBe(true);
+          expect(result.data.positions[1].isPinned).toBe(false);
+        }
+      });
+
+      it('rejects empty positions array (min 1 required)', () => {
+        const result = updateCanvasLayoutSchema.safeParse({
+          positions: [],
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('rejects batch exceeding 500 items', () => {
+        const tooMany = Array.from({ length: 501 }, (_, i) => ({
+          nodeId: `node-${i}`,
+          x: i,
+          y: i,
+        }));
+        const result = updateCanvasLayoutSchema.safeParse({
+          positions: tooMany,
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it('rejects non-finite coordinate values (NaN, Infinity)', () => {
+        expect(
+          canvasNodePositionItemSchema.safeParse({
+            nodeId: 'test',
+            x: NaN,
+            y: 100,
+          }).success,
+        ).toBe(false);
+
+        expect(
+          canvasNodePositionItemSchema.safeParse({
+            nodeId: 'test',
+            x: 100,
+            y: Infinity,
+          }).success,
+        ).toBe(false);
+      });
+
+      it('works identically via updateTopologyLayoutSchema alias', () => {
+        expect(
+          updateTopologyLayoutSchema.safeParse({
+            positions: [{ nodeId: 'n1', x: 10, y: 20 }],
+          }).success,
+        ).toBe(true);
+      });
+    });
+
+    describe('topologyQuerySchema', () => {
+      it('validates complete query filters', () => {
+        const rackId = 'e0000000-0000-4000-8000-000000000001';
+        const vlanId = 'd0000000-0000-4000-8000-000000000001';
+        const subnetId = 'f0000000-0000-4000-8000-000000000001';
+
+
+        const payload = {
+          mode: TopologyViewMode.CCTV,
+          domain: InfrastructureDomain.CCTV,
+          rackId,
+          vlanId,
+          subnetId,
+          floor: '1F Production',
+          status: 'ONLINE',
+          includeMetrics: 'true',
+        };
+
+        const result = topologyQuerySchema.safeParse(payload);
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.mode).toBe(TopologyViewMode.CCTV);
+          expect(result.data.domain).toBe(InfrastructureDomain.CCTV);
+          expect(result.data.floor).toBe('1F Production');
+          expect(result.data.includeMetrics).toBe(true);
+        }
+      });
+
+      it('coerces includeMetrics boolean properly', () => {
+        expect(topologyQuerySchema.parse({ includeMetrics: 'false' }).includeMetrics).toBe(false);
+        expect(topologyQuerySchema.parse({ includeMetrics: false }).includeMetrics).toBe(false);
+        expect(topologyQuerySchema.parse({}).includeMetrics).toBe(true);
+      });
+    });
+  });
 });
+

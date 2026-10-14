@@ -100,6 +100,8 @@ function createMockAsset(overrides: Partial<Asset> = {}): Asset {
     category: 'Laptops / Notebooks',
     categoryId: 'cat-laptop',
     status: 'Active',
+    deviceModelId: 'mod-1',
+    parentId: 'mod-1',
     assignedTo: '',
     assignedEmail: '',
     purchaseDate: '2026-01-01',
@@ -137,9 +139,14 @@ describe('PhysicalUnitModal Component', () => {
     document.body.innerHTML = '';
   });
 
-  const setInputValue = (input: HTMLInputElement, value: string) => {
-    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-    set?.call(input, value);
+  const setInputValue = (input: HTMLInputElement | null, value: string) => {
+    if (!input) return;
+    try {
+      const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      set?.call(input, value);
+    } catch {
+      input.value = value;
+    }
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     input.dispatchEvent(new Event('blur', { bubbles: true }));
@@ -161,6 +168,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -176,7 +184,7 @@ describe('PhysicalUnitModal Component', () => {
 
     // Fill in subcode
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     expect(subcodeInput).toBeDefined();
 
@@ -223,6 +231,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -232,7 +241,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -282,6 +291,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -291,7 +301,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -329,6 +339,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -338,7 +349,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -372,6 +383,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -381,7 +393,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -469,6 +481,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -478,7 +491,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
 
     await act(async () => {
@@ -516,6 +529,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -525,7 +539,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -564,6 +578,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -573,7 +588,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -629,6 +644,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -638,7 +654,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -685,6 +701,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -694,7 +711,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 
@@ -843,6 +860,7 @@ describe('PhysicalUnitModal Component', () => {
             null,
             createElement(PhysicalUnitModal, {
               open: true,
+              initialParentId: 'mod-1',
               onClose: vi.fn(),
               onSuccess: vi.fn(),
             }),
@@ -852,7 +870,7 @@ describe('PhysicalUnitModal Component', () => {
     });
 
     const subcodeInput = document.body.querySelector(
-      'input[placeholder="e.g. AST-DELL-001"]',
+      'input[placeholder*="AST-DELL-001"]',
     ) as HTMLInputElement;
     const customCcInput = document.body.querySelector('#customCostCenter') as HTMLInputElement;
 

@@ -1,6 +1,11 @@
 import { STANDARD_SWITCH_PORT_COUNTS, type StandardSwitchPortCount } from '@uims/shared-types';
 import { describe, expect, it } from 'vitest';
-import { createAssetSchema, updateAssetSchema } from './asset.validator';
+import {
+  createDeviceModelSchema,
+  registerPhysicalUnitSchema,
+  updateDeviceModelSchema,
+  updatePhysicalUnitSchema,
+} from './asset.validator';
 import {
   createIpAddressSchema,
   createSwitchSchema,
@@ -10,15 +15,28 @@ import {
 
 describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', () => {
   // =========================================================================
-  // 1. ASSET SCHEMA: serialNumber Optionality & Boundaries
+  // 1. PHYSICAL UNIT SCHEMA: serialNumber Optionality & Boundaries
   // =========================================================================
-  describe('createAssetSchema — serialNumber edge cases & boundaries', () => {
-    const baseAsset = {
-      name: 'MacBook Pro 16 M3',
+  describe('registerPhysicalUnitSchema — serialNumber edge cases & boundaries', () => {
+    const baseUnit = {
+      deviceModelId: '123e4567-e89b-12d3-a456-426614174000',
+      subcode: 'UNIT-001',
     };
 
+    it('confirms parentId is not a key on registerPhysicalUnitSchema.shape', () => {
+      expect('parentId' in registerPhysicalUnitSchema.shape).toBe(false);
+    });
+
+    it('rejects residual parentId on registerPhysicalUnitSchema under strict validation', () => {
+      const res = registerPhysicalUnitSchema.strict().safeParse({
+        ...baseUnit,
+        parentId: '123e4567-e89b-12d3-a456-426614174000',
+      });
+      expect(res.success).toBe(false);
+    });
+
     it('accepts serialNumber: null', () => {
-      const res = createAssetSchema.safeParse({ ...baseAsset, serialNumber: null });
+      const res = registerPhysicalUnitSchema.safeParse({ ...baseUnit, serialNumber: null });
       expect(res.success).toBe(true);
       if (res.success) {
         expect(res.data.serialNumber).toBeNull();
@@ -26,7 +44,7 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
     });
 
     it('accepts serialNumber: undefined', () => {
-      const res = createAssetSchema.safeParse({ ...baseAsset, serialNumber: undefined });
+      const res = registerPhysicalUnitSchema.safeParse({ ...baseUnit, serialNumber: undefined });
       expect(res.success).toBe(true);
       if (res.success) {
         expect(res.data.serialNumber).toBeUndefined();
@@ -34,7 +52,7 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
     });
 
     it('accepts omitted serialNumber', () => {
-      const res = createAssetSchema.safeParse(baseAsset);
+      const res = registerPhysicalUnitSchema.safeParse(baseUnit);
       expect(res.success).toBe(true);
       if (res.success) {
         expect(res.data.serialNumber).toBeUndefined();
@@ -42,7 +60,7 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
     });
 
     it('accepts serialNumber: empty string ("")', () => {
-      const res = createAssetSchema.safeParse({ ...baseAsset, serialNumber: '' });
+      const res = registerPhysicalUnitSchema.safeParse({ ...baseUnit, serialNumber: '' });
       expect(res.success).toBe(true);
       if (res.success) {
         expect(res.data.serialNumber).toBe('');
@@ -51,7 +69,7 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
 
     it('accepts serialNumber at max boundary (100 characters)', () => {
       const serial100 = 'A'.repeat(100);
-      const res = createAssetSchema.safeParse({ ...baseAsset, serialNumber: serial100 });
+      const res = registerPhysicalUnitSchema.safeParse({ ...baseUnit, serialNumber: serial100 });
       expect(res.success).toBe(true);
       if (res.success) {
         expect(res.data.serialNumber).toBe(serial100);
@@ -60,7 +78,7 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
 
     it('rejects serialNumber exceeding max boundary (101 characters)', () => {
       const serial101 = 'A'.repeat(101);
-      const res = createAssetSchema.safeParse({ ...baseAsset, serialNumber: serial101 });
+      const res = registerPhysicalUnitSchema.safeParse({ ...baseUnit, serialNumber: serial101 });
       expect(res.success).toBe(false);
       if (!res.success) {
         const serialError = res.error.issues.find((issue) => issue.path.includes('serialNumber'));
@@ -70,36 +88,44 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
 
     it('rejects non-string serialNumber types (e.g. number, boolean, object)', () => {
       expect(
-        createAssetSchema.safeParse({ ...baseAsset, serialNumber: 12345 as unknown as string })
-          .success,
+        registerPhysicalUnitSchema.safeParse({
+          ...baseUnit,
+          serialNumber: 12345 as unknown as string,
+        }).success,
       ).toBe(false);
       expect(
-        createAssetSchema.safeParse({ ...baseAsset, serialNumber: true as unknown as string })
-          .success,
+        registerPhysicalUnitSchema.safeParse({
+          ...baseUnit,
+          serialNumber: true as unknown as string,
+        }).success,
       ).toBe(false);
       expect(
-        createAssetSchema.safeParse({
-          ...baseAsset,
+        registerPhysicalUnitSchema.safeParse({
+          ...baseUnit,
           serialNumber: { value: 'SN123' } as unknown as string,
         }).success,
       ).toBe(false);
     });
 
-    it('verifies updateAssetSchema handles serialNumber similarly', () => {
-      expect(updateAssetSchema.safeParse({ serialNumber: null }).success).toBe(true);
-      expect(updateAssetSchema.safeParse({ serialNumber: undefined }).success).toBe(true);
-      expect(updateAssetSchema.safeParse({ serialNumber: '' }).success).toBe(true);
-      expect(updateAssetSchema.safeParse({ serialNumber: 'A'.repeat(100) }).success).toBe(true);
-      expect(updateAssetSchema.safeParse({ serialNumber: 'A'.repeat(101) }).success).toBe(false);
+    it('verifies updatePhysicalUnitSchema handles serialNumber similarly', () => {
+      expect(updatePhysicalUnitSchema.safeParse({ serialNumber: null }).success).toBe(true);
+      expect(updatePhysicalUnitSchema.safeParse({ serialNumber: undefined }).success).toBe(true);
+      expect(updatePhysicalUnitSchema.safeParse({ serialNumber: '' }).success).toBe(true);
+      expect(updatePhysicalUnitSchema.safeParse({ serialNumber: 'A'.repeat(100) }).success).toBe(
+        true,
+      );
+      expect(updatePhysicalUnitSchema.safeParse({ serialNumber: 'A'.repeat(101) }).success).toBe(
+        false,
+      );
     });
   });
 
   // =========================================================================
-  // 2. ASSET SCHEMA: Complete Purge of purchasePrice and purchaseCost
+  // 2. DEVICE MODEL SCHEMA: Complete Purge of purchasePrice and purchaseCost
   // =========================================================================
-  describe('createAssetSchema — purchasePrice & purchaseCost purge', () => {
-    it('confirms purchasePrice and purchaseCost are not keys on createAssetSchema.shape', () => {
-      const shape = createAssetSchema.shape;
+  describe('createDeviceModelSchema — purchasePrice & purchaseCost purge', () => {
+    it('confirms purchasePrice and purchaseCost are not keys on createDeviceModelSchema.shape', () => {
+      const shape = createDeviceModelSchema.shape;
       expect('purchasePrice' in shape).toBe(false);
       expect('purchaseCost' in shape).toBe(false);
     });
@@ -107,11 +133,14 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
     it('strips purchasePrice and purchaseCost from parsed output in default safeParse', () => {
       const inputWithFinancials = {
         name: 'Dell PowerEdge R750',
+        modelCode: 'MOD-R750',
+        categoryId: 'cat-server',
+        manufacturer: 'Dell',
         purchasePrice: 4500.0,
         purchaseCost: 4200.0,
         notes: 'Rackmount server',
       };
-      const res = createAssetSchema.safeParse(inputWithFinancials);
+      const res = createDeviceModelSchema.safeParse(inputWithFinancials);
       expect(res.success).toBe(true);
       if (res.success) {
         expect('purchasePrice' in res.data).toBe(false);
@@ -122,10 +151,13 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
     });
 
     it('rejects payload with purchasePrice or purchaseCost under strict validation', () => {
-      const strictSchema = createAssetSchema.strict();
+      const strictSchema = createDeviceModelSchema.strict();
 
       const resPrice = strictSchema.safeParse({
         name: 'Asset A',
+        modelCode: 'MOD-A',
+        categoryId: 'cat-server',
+        manufacturer: 'Dell',
         purchasePrice: 1500,
       });
       expect(resPrice.success).toBe(false);
@@ -140,6 +172,9 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
 
       const resCost = strictSchema.safeParse({
         name: 'Asset B',
+        modelCode: 'MOD-B',
+        categoryId: 'cat-server',
+        manufacturer: 'Dell',
         purchaseCost: 1200,
       });
       expect(resCost.success).toBe(false);
@@ -153,15 +188,15 @@ describe('Milestone 1 Empirical Challenger — Shared Layer Validation Suite', (
       }
     });
 
-    it('confirms updateAssetSchema also strips or rejects purchasePrice and purchaseCost', () => {
-      const res = updateAssetSchema.safeParse({ purchasePrice: 999, purchaseCost: 888 });
+    it('confirms updateDeviceModelSchema also strips or rejects purchasePrice and purchaseCost', () => {
+      const res = updateDeviceModelSchema.safeParse({ purchasePrice: 999, purchaseCost: 888 });
       expect(res.success).toBe(true);
       if (res.success) {
         expect('purchasePrice' in res.data).toBe(false);
         expect('purchaseCost' in res.data).toBe(false);
       }
 
-      const resStrict = updateAssetSchema.strict().safeParse({ purchasePrice: 999 });
+      const resStrict = updateDeviceModelSchema.strict().safeParse({ purchasePrice: 999 });
       expect(resStrict.success).toBe(false);
     });
   });

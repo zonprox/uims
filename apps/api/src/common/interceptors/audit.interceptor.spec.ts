@@ -9,6 +9,9 @@ describe('AuditInterceptor', () => {
     auditLog: {
       create: ReturnType<typeof vi.fn>;
     };
+    appUser: {
+      findUnique: ReturnType<typeof vi.fn>;
+    };
   };
 
   beforeEach(() => {
@@ -16,6 +19,11 @@ describe('AuditInterceptor', () => {
     mockPrisma = {
       auditLog: {
         create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+      },
+      appUser: {
+        findUnique: vi.fn().mockImplementation(({ where }: { where: { id?: string; email?: string } }) =>
+          Promise.resolve(where.id ? { id: where.id } : null),
+        ),
       },
     };
     interceptor = new AuditInterceptor(

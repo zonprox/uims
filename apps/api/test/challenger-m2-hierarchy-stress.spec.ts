@@ -46,6 +46,20 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
     });
 
     if (!user) {
+      const [pos, org, dept] = await Promise.all([
+        prisma.position.findFirst({ select: { id: true } }),
+        prisma.organization
+          .findFirst({ where: { code: 'BSL' }, select: { id: true } })
+          .then(
+            (o) =>
+              o ||
+              prisma.organization.findFirst({
+                where: { code: { not: 'HOLDING' } },
+                select: { id: true },
+              }),
+          ),
+        prisma.department.findFirst({ select: { id: true } }),
+      ]);
       user = await prisma.directoryUser.create({
         data: {
           employeeCode: `${PREFIX}_EMP`,
@@ -53,6 +67,9 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
           firstName: 'Challenger',
           lastName: 'Tester',
           status: 'ACTIVE',
+          positionId: pos?.id,
+          organizationId: org?.id,
+          departmentId: dept?.id,
         },
       });
     }
@@ -63,13 +80,21 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
   afterAll(async () => {
     // Clean up all assets created during this test suite
     try {
+      await prisma.assetHandoverRecord.deleteMany({
+        where: { notes: { startsWith: PREFIX } },
+      });
       await prisma.asset.deleteMany({
         where: {
           OR: [
-            { assetCode: { startsWith: PREFIX } },
+            { assetTag: { startsWith: PREFIX } },
             { subcode: { startsWith: PREFIX } },
-            { name: { startsWith: PREFIX } },
+            { notes: { startsWith: PREFIX } },
           ],
+        },
+      });
+      await prisma.deviceModel.deleteMany({
+        where: {
+          OR: [{ modelCode: { startsWith: PREFIX } }, { name: { startsWith: PREFIX } }],
         },
       });
     } catch (error: unknown) {
@@ -159,6 +184,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
     it('successfully registers a physical unit with a unique subcode under parent model', async () => {
       const unit = await assetsService.registerUnit({
         subcode: unitSubcode,
+        deviceModelId: parentModelId,
         parentId: parentModelId,
         serialNumber: `SN-${PREFIX}-001`,
       });
@@ -173,6 +199,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
       await expect(
         assetsService.registerUnit({
           subcode: unitSubcode,
+          deviceModelId: parentModelId,
           parentId: parentModelId,
           serialNumber: `SN-${PREFIX}-DUP`,
         }),
@@ -183,6 +210,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
       await expect(
         assetsService.registerUnit({
           subcode: unitSubcode.toLowerCase(),
+          deviceModelId: parentModelId,
           parentId: parentModelId,
         }),
       ).rejects.toThrow(ConflictException);
@@ -192,6 +220,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
       await expect(
         assetsService.registerUnit({
           subcode: '   ',
+          deviceModelId: parentModelId,
           parentId: parentModelId,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -201,6 +230,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
       const secondSubcode = `${PREFIX}_AST_002`;
       const secondUnit = await assetsService.registerUnit({
         subcode: secondSubcode,
+        deviceModelId: parentModelId,
         parentId: parentModelId,
       });
 
@@ -220,6 +250,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
       await expect(
         assetsService.registerUnit({
           subcode: `${PREFIX}_AST_NO_PARENT`,
+          deviceModelId: '',
           parentId: '',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -230,6 +261,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
       await expect(
         assetsService.registerUnit({
           subcode: `${PREFIX}_AST_ORPHAN`,
+          deviceModelId: nonExistentUuid,
           parentId: nonExistentUuid,
         }),
       ).rejects.toThrow(NotFoundException);
@@ -243,6 +275,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
 
       const childUnit = await assetsService.registerUnit({
         subcode: `${PREFIX}_AST_CHILD_1`,
+        deviceModelId: model.id,
         parentId: model.id,
       });
 
@@ -250,6 +283,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
       await expect(
         assetsService.registerUnit({
           subcode: `${PREFIX}_AST_GRANDCHILD`,
+          deviceModelId: childUnit.id,
           parentId: childUnit.id, // childUnit has parentId !== null
         }),
       ).rejects.toThrow(BadRequestException);
@@ -312,6 +346,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
 
       const unit = await assetsService.registerUnit({
         subcode,
+        deviceModelId: modelId,
         parentId: modelId,
         serialNumber: `SN-LIFE-${RUN_ID}`,
       });
@@ -392,6 +427,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
 
       await assetsService.registerUnit({
         subcode: `${PREFIX}_AST_DEL_GUARD`,
+        deviceModelId: model.id,
         parentId: model.id,
       });
 
@@ -406,6 +442,7 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
 
       const unit = await assetsService.registerUnit({
         subcode: `${PREFIX}_AST_IN_USE_DEL`,
+        deviceModelId: model.id,
         parentId: model.id,
       });
 

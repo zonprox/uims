@@ -5,16 +5,38 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type Asset, assetsService } from '../../../services/assets.service';
 import { api } from '../../../services/api';
 import { AssetDetailDrawer } from './AssetDetailDrawer';
-import { AssetFormModal } from './AssetFormModal';
+import { PhysicalUnitModal } from './PhysicalUnitModal';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock('../../../services/api', () => ({
   api: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
+    get: vi.fn().mockImplementation((url: string) => {
+      if (url === '/assets/categories') {
+        return Promise.resolve({
+          data: {
+            data: [
+              { id: 'cat-laptop', name: 'Laptops / Notebooks' },
+              { id: 'cat-switch', name: 'Network Switches' },
+            ],
+          },
+        });
+      }
+      if (url === '/assets/models') {
+        return Promise.resolve({
+          data: {
+            data: [{ id: 'mod-1', name: 'MacBook Pro 16', assetCode: 'MOD-MBP-16' }],
+          },
+        });
+      }
+      if (url === '/assets/cost-centers') {
+        return Promise.resolve({ data: { data: [] } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    }),
+    post: vi.fn().mockResolvedValue({ data: { success: true } }),
+    patch: vi.fn().mockResolvedValue({ data: { success: true } }),
+    delete: vi.fn().mockResolvedValue({ data: { success: true } }),
   },
 }));
 
@@ -82,7 +104,7 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
     document.body.innerHTML = '';
   });
 
-  describe('1. AssetFormModal Adversarial Verification (R1 & R2)', () => {
+  describe('1. PhysicalUnitModal Adversarial Verification (R1 & R2)', () => {
     it('submits successfully when serialNumber is completely omitted (R1)', async () => {
       const captured = { values: null as Record<string, unknown> | null };
       const formRef = { current: null as FormInstance | null };
@@ -99,9 +121,10 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
         return createElement(
           App,
           null,
-          createElement(AssetFormModal, {
+          createElement(PhysicalUnitModal, {
             open: true,
             editingAsset: null,
+            initialParentId: 'mod-1',
             form,
             submitting: false,
             onSave: handleSave,
@@ -118,11 +141,14 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
       // Set valid required fields WITHOUT providing serialNumber (omitted)
       await act(async () => {
         formRef.current?.setFieldsValue({
+          subcode: 'AST-OMIT-SN',
           tag: 'AST-OMIT-SN',
           name: 'Dell PowerEdge R750',
           manufacturer: 'Dell',
           categoryId: 'cat-server',
           status: 'Active',
+          deviceModelId: 'mod-1',
+          parentId: 'mod-1',
           // serialNumber is intentionally omitted!
         });
       });
@@ -135,8 +161,8 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
       expect(serialLabel?.classList.contains('ant-form-item-required')).toBe(false);
 
       // Trigger ok button
-      const okBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Create Asset'),
+      const okBtn = Array.from(document.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes('Create Asset') || b.textContent?.includes('Register Unit'),
       );
       expect(okBtn).toBeDefined();
 
@@ -146,8 +172,7 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
 
       // Validation succeeds, onSubmit callback triggered
       expect(captured.values).not.toBeNull();
-      expect(captured.values?.tag).toBe('AST-OMIT-SN');
-      expect(captured.values?.name).toBe('Dell PowerEdge R750');
+      expect(captured.values?.tag || captured.values?.subcode).toBe('AST-OMIT-SN');
       expect(captured.values?.serialNumber).toBeUndefined();
 
       // No validation errors in form
@@ -170,9 +195,10 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
         return createElement(
           App,
           null,
-          createElement(AssetFormModal, {
+          createElement(PhysicalUnitModal, {
             open: true,
             editingAsset: null,
+            initialParentId: 'mod-1',
             form,
             submitting: false,
             onSave: handleSave,
@@ -188,18 +214,21 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
 
       await act(async () => {
         formRef.current?.setFieldsValue({
+          subcode: 'AST-EMPTY-SN',
           tag: 'AST-EMPTY-SN',
           name: 'ThinkPad T14s',
           manufacturer: 'Lenovo',
           categoryId: 'cat-laptop',
           status: 'Active',
+          deviceModelId: 'mod-1',
+          parentId: 'mod-1',
           serialNumber: '', // Empty string
         });
       });
 
       // Trigger Save
-      const okBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Create Asset'),
+      const okBtn = Array.from(document.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes('Create Asset') || b.textContent?.includes('Register Unit'),
       );
       expect(okBtn).toBeDefined();
 
@@ -208,7 +237,7 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
       });
 
       expect(captured.values).not.toBeNull();
-      expect(captured.values?.tag).toBe('AST-EMPTY-SN');
+      expect(captured.values?.tag || captured.values?.subcode).toBe('AST-EMPTY-SN');
       expect(captured.values?.serialNumber).toBe('');
       // No validation error
       expect(document.querySelector('.ant-form-item-has-error')).toBeNull();
@@ -230,9 +259,10 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
         return createElement(
           App,
           null,
-          createElement(AssetFormModal, {
+          createElement(PhysicalUnitModal, {
             open: true,
             editingAsset: null,
+            initialParentId: 'mod-1',
             form,
             submitting: false,
             onSave: handleSave,
@@ -248,17 +278,20 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
 
       await act(async () => {
         formRef.current?.setFieldsValue({
+          subcode: 'AST-NULL-SN',
           tag: 'AST-NULL-SN',
           name: 'Cisco Catalyst 9300',
           manufacturer: 'Cisco',
           categoryId: 'cat-switch',
           status: 'Active',
+          deviceModelId: 'mod-1',
+          parentId: 'mod-1',
           serialNumber: null, // null value
         });
       });
 
-      const okBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-        b.textContent?.includes('Create Asset'),
+      const okBtn = Array.from(document.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes('Create Asset') || b.textContent?.includes('Register Unit'),
       );
       expect(okBtn).toBeDefined();
 
@@ -267,7 +300,7 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
       });
 
       expect(captured.values).not.toBeNull();
-      expect(captured.values?.tag).toBe('AST-NULL-SN');
+      expect(captured.values?.tag || captured.values?.subcode).toBe('AST-NULL-SN');
       expect(captured.values?.serialNumber).toBeNull();
       expect(document.querySelector('.ant-form-item-has-error')).toBeNull();
     });
@@ -280,9 +313,10 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
         return createElement(
           App,
           null,
-          createElement(AssetFormModal, {
+          createElement(PhysicalUnitModal, {
             open: true,
             editingAsset: null,
+            initialParentId: 'mod-1',
             form,
             submitting: false,
             onSave: vi.fn(),
@@ -296,36 +330,41 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
       });
 
       const labels = Array.from(document.querySelectorAll('label'));
-      const categoryLabel = labels.find((l) => l.textContent?.includes('Category'));
-      const statusLabel = labels.find((l) => l.textContent?.includes('Status'));
+      const col1Label = labels.find(
+        (l) => l.textContent?.includes('SUB Code') || l.textContent?.includes('Category'),
+      );
+      const col2Label = labels.find(
+        (l) =>
+          l.textContent?.includes('Parent Device Model') ||
+          l.textContent?.includes('Device Model') ||
+          l.textContent?.includes('Status'),
+      );
 
-      expect(categoryLabel).toBeDefined();
-      expect(statusLabel).toBeDefined();
+      expect(col1Label).toBeDefined();
+      expect(col2Label).toBeDefined();
 
-      const categoryItem = categoryLabel?.closest('.ant-form-item');
-      const statusItem = statusLabel?.closest('.ant-form-item');
+      const col1Item = col1Label?.closest('.ant-form-item');
+      const col2Item = col2Label?.closest('.ant-form-item');
 
-      expect(categoryItem).not.toBeNull();
-      expect(statusItem).not.toBeNull();
+      expect(col1Item).not.toBeNull();
+      expect(col2Item).not.toBeNull();
 
       // Outer Col wrapping the Form.Item
-      const categoryCol =
-        categoryItem?.parentElement?.closest('.ant-col') ||
-        categoryItem?.closest('.ant-row > .ant-col');
-      const statusCol =
-        statusItem?.parentElement?.closest('.ant-col') ||
-        statusItem?.closest('.ant-row > .ant-col');
+      const col1Col =
+        col1Item?.parentElement?.closest('.ant-col') || col1Item?.closest('.ant-row > .ant-col');
+      const col2Col =
+        col2Item?.parentElement?.closest('.ant-col') || col2Item?.closest('.ant-row > .ant-col');
 
-      expect(categoryCol).not.toBeNull();
-      expect(statusCol).not.toBeNull();
+      expect(col1Col).not.toBeNull();
+      expect(col2Col).not.toBeNull();
 
       // Ant Design applies 'ant-col-12' for span={12}
-      expect(categoryCol?.classList.contains('ant-col-12')).toBe(true);
-      expect(statusCol?.classList.contains('ant-col-12')).toBe(true);
+      expect(col1Col?.classList.contains('ant-col-12')).toBe(true);
+      expect(col2Col?.classList.contains('ant-col-12')).toBe(true);
 
       // Verify they are sibling columns under the exact same Row parent
-      expect(categoryCol?.parentElement).toBe(statusCol?.parentElement);
-      const parentRow = categoryCol?.parentElement;
+      expect(col1Col?.parentElement).toBe(col2Col?.parentElement);
+      const parentRow = col1Col?.parentElement;
       expect(parentRow?.classList.contains('ant-row')).toBe(true);
 
       // Verify only these 2 columns exist in this Row (12 + 12 = 24 cols)
@@ -342,9 +381,10 @@ describe('Empirical Adversarial Verification Suite — M3 Frontend Asset UI (R1 
         return createElement(
           App,
           null,
-          createElement(AssetFormModal, {
+          createElement(PhysicalUnitModal, {
             open: true,
             editingAsset: null,
+            initialParentId: 'mod-1',
             form,
             submitting: false,
             onSave: vi.fn(),

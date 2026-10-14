@@ -1,9 +1,9 @@
 import { AssetStatus, LicenseStatus } from '@uims/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
-  createAssetSchema,
   createCostCenterSchema,
   createDeviceModelSchema,
+  registerPhysicalUnitSchema,
 } from './asset.validator';
 import {
   changePasswordSchema,
@@ -120,7 +120,13 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
   // 2. ASSET ADVERSARIAL STRESS
   // =========================================================================
   describe('Asset Domain Validation', () => {
-    it('rejects assetCode regex bypass attempts (spaces, special characters, injections, emoji)', () => {
+    const baseModel = {
+      modelCode: 'MOD-01',
+      categoryId: 'cat-server',
+      manufacturer: 'Dell',
+    };
+
+    it('rejects modelCode regex bypass attempts (spaces, special characters, injections, emoji)', () => {
       const bypassAttempts = [
         'ASSET 001',
         'ASSET\t001',
@@ -134,37 +140,52 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
         'ASSET:001',
         'ASSET@001',
         'ASSET!001',
-        'ASSET.001', // dot not allowed in assetCode
+        'ASSET.001', // dot not allowed in modelCode
         'ASSET🚀',
         'TÀI_SẢN_01', // Unicode diacritics
         'Аccount_01', // Cyrillic homoglyph A
         'ASSET\0001', // Null byte
       ];
 
-      for (const assetCode of bypassAttempts) {
-        const res = createAssetSchema.safeParse({
+      for (const modelCode of bypassAttempts) {
+        const res = createDeviceModelSchema.safeParse({
           name: 'Server Node',
-          assetCode,
+          modelCode,
+          categoryId: 'cat-server',
+          manufacturer: 'Dell',
         });
-        expect(res.success, `Expected assetCode "${assetCode}" to be rejected`).toBe(false);
+        expect(res.success, `Expected modelCode "${modelCode}" to be rejected`).toBe(false);
       }
     });
 
-    it('validates assetCode length boundary (50 chars allowed, 51 rejected)', () => {
+    it('validates modelCode length boundary (50 chars allowed, 51 rejected)', () => {
       const code50 = 'A'.repeat(50);
-      expect(createAssetSchema.safeParse({ name: 'Server', assetCode: code50 }).success).toBe(true);
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Server',
+          modelCode: code50,
+          categoryId: 'cat-server',
+          manufacturer: 'Dell',
+        }).success,
+      ).toBe(true);
 
       const code51 = 'A'.repeat(51);
-      expect(createAssetSchema.safeParse({ name: 'Server', assetCode: code51 }).success).toBe(
-        false,
-      );
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Server',
+          modelCode: code51,
+          categoryId: 'cat-server',
+          manufacturer: 'Dell',
+        }).success,
+      ).toBe(false);
     });
 
     it('rejects negative unitCost and malformed currencies', () => {
       const invalidCosts = [-1, -0.01, -100, '-50', '-0.5', 'invalid-currency', NaN, Infinity];
 
       for (const unitCost of invalidCosts) {
-        const res = createAssetSchema.safeParse({
+        const res = createDeviceModelSchema.safeParse({
+          ...baseModel,
           name: 'Server Node',
           unitCost,
         });
@@ -173,18 +194,70 @@ describe('Challenger M1-2 — Adversarial Domain & Rule Adapter Stress Harness',
     });
 
     it('rejects unitCost with more than 2 decimal places and over 100M', () => {
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 10.999 }).success).toBe(false);
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 100_000_001 }).success).toBe(
-        false,
-      );
+      expect(
+        createDeviceModelSchema.safeParse({ ...baseModel, name: 'Server', unitCost: 10.999 })
+          .success,
+      ).toBe(false);
+      expect(
+        createDeviceModelSchema.safeParse({ ...baseModel, name: 'Server', unitCost: 100_000_001 })
+          .success,
+      ).toBe(false);
 
       // Valid precision cases
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 0 }).success).toBe(true);
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 0.07 }).success).toBe(true);
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: 0.29 }).success).toBe(true);
-      expect(createAssetSchema.safeParse({ name: 'Server', unitCost: '450.50' }).success).toBe(
-        true,
-      );
+      expect(
+        createDeviceModelSchema.safeParse({ ...baseModel, name: 'Server', unitCost: 0 }).success,
+      ).toBe(true);
+      expect(
+        createDeviceModelSchema.safeParse({ ...baseModel, name: 'Server', unitCost: 0.07 }).success,
+      ).toBe(true);
+      expect(
+        createDeviceModelSchema.safeParse({ ...baseModel, name: 'Server', unitCost: 0.29 }).success,
+      ).toBe(true);
+      expect(
+        createDeviceModelSchema.safeParse({ ...baseModel, name: 'Server', unitCost: '450.50' })
+          .success,
+      ).toBe(true);
+    });
+
+    it('strictly requires deviceModelId and rejects omitted, empty, or whitespace-only deviceModelId', () => {
+      expect(
+        registerPhysicalUnitSchema.safeParse({
+          subcode: 'UNIT-01',
+          serialNumber: 'SN-001',
+        }).success,
+      ).toBe(false);
+
+      expect(
+        registerPhysicalUnitSchema.safeParse({
+          deviceModelId: '',
+          subcode: 'UNIT-01',
+        }).success,
+      ).toBe(false);
+
+      expect(
+        registerPhysicalUnitSchema.safeParse({
+          deviceModelId: '   ',
+          subcode: 'UNIT-01',
+        }).success,
+      ).toBe(false);
+
+      expect(
+        registerPhysicalUnitSchema.safeParse({
+          deviceModelId: validUuid,
+          subcode: 'UNIT-01',
+        }).success,
+      ).toBe(true);
+    });
+
+    it('confirms parentId is strictly purged from registerPhysicalUnitSchema and rejected in strict parse', () => {
+      expect('parentId' in registerPhysicalUnitSchema.shape).toBe(false);
+
+      const strictRes = registerPhysicalUnitSchema.strict().safeParse({
+        deviceModelId: validUuid,
+        subcode: 'UNIT-01',
+        parentId: validUuid,
+      });
+      expect(strictRes.success).toBe(false);
     });
   });
 

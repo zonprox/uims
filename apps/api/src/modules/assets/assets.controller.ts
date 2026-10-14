@@ -20,19 +20,20 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AssetsService } from './assets.service';
+import { AllocateAssetDto } from './dto/allocate-asset.dto';
 import { AssetQueryDto } from './dto/asset-query.dto';
 import { AttachHandoverDocumentDto } from './dto/attach-handover-document.dto';
 import { BatchAssignAssetDto } from './dto/batch-assign-asset.dto';
 import { BatchDeleteAssetDto } from './dto/batch-delete-asset.dto';
+import { BatchStockIntakeDto } from './dto/batch-stock-intake.dto';
 import { CheckinPhysicalUnitDto } from './dto/checkin-physical-unit.dto';
-import { CreateAssetDto } from './dto/create-asset.dto';
 import { CreateCostCenterDto } from './dto/create-cost-center.dto';
 import { CreateDeviceModelDto } from './dto/create-device-model.dto';
 import { GenerateHandoverDocumentDto } from './dto/generate-handover-document.dto';
 import { IssueAssetUnitDto } from './dto/issue-asset-unit.dto';
 import { RegisterPhysicalUnitDto } from './dto/register-physical-unit.dto';
 import { ReturnAssetDto } from './dto/return-asset.dto';
-import { UpdateAssetDto } from './dto/update-asset.dto';
+import { TransferAssetDto } from './dto/transfer-asset.dto';
 import { UpdateCostCenterDto } from './dto/update-cost-center.dto';
 import { UpdateDeviceModelDto } from './dto/update-device-model.dto';
 import { UpdatePhysicalUnitDto } from './dto/update-physical-unit.dto';
@@ -58,17 +59,19 @@ export class AssetsController {
   @Get('handover-template')
   @ApiOperation({ summary: 'Get standardized printable asset handover or return record template' })
   async getHandoverTemplate(
-    @Query('type') type: 'assignment' | 'return' | undefined,
+    @Query('type') type: 'assignment' | 'return' | 'transfer' | undefined,
     @Res() res: Response,
     @Query('format') format?: 'docx' | 'html',
   ): Promise<void> {
     const targetType = type || 'assignment';
     if (format === 'html') {
-      const html = this.assetsService.getHandoverTemplateHtml(targetType);
+      const html = this.assetsService.getHandoverTemplateHtml(
+        targetType as 'assignment' | 'return',
+      );
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="asset_${targetType === 'return' ? 'return' : 'handover'}_template.html"`,
+        `attachment; filename="asset_${targetType}_template.html"`,
       );
       res.send(html);
       return;
@@ -87,7 +90,9 @@ export class AssetsController {
   @Post('handover-documents/docx')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Download populated asset handover or return Word document (.docx)' })
+  @ApiOperation({
+    summary: 'Download populated asset handover, return, or transfer Word document (.docx)',
+  })
   async downloadHandoverDocx(
     @Body() body: GenerateHandoverDocumentDto,
     @Res() res: Response,
@@ -104,11 +109,14 @@ export class AssetsController {
   @Get('handover-documents/docx')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Download populated asset handover or return Word document via GET' })
+  @ApiOperation({
+    summary: 'Download populated asset handover, return, or transfer Word document via GET',
+  })
   async downloadHandoverDocxGet(
-    @Query('type') type: 'assignment' | 'return' | undefined,
+    @Query('type') type: 'assignment' | 'return' | 'transfer' | undefined,
     @Query('assetIds') assetIds: string | undefined,
     @Query('recipientId') recipientId: string | undefined,
+    @Query('transferorId') transferorId: string | undefined,
     @Query('conditionNotes') conditionNotes: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
@@ -122,6 +130,7 @@ export class AssetsController {
       type: type || 'assignment',
       assetIds: parsedAssetIds,
       recipientId,
+      transferorId,
       conditionNotes,
     });
     res.setHeader(
@@ -131,7 +140,6 @@ export class AssetsController {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   }
-
 
   @Post('handover-documents/generate')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -146,13 +154,14 @@ export class AssetsController {
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Generate populated printable asset handover or return document (GET)' })
   generateHandoverDocumentGet(
-    @Query('type') type: 'assignment' | 'return' | undefined,
+    @Query('type') type: 'assignment' | 'return' | 'transfer' | undefined,
     @Query('assetIds') assetIds: string | undefined,
     @Query('recipientId') recipientId: string | undefined,
+    @Query('transferorId') transferorId: string | undefined,
     @Query('conditionNotes') conditionNotes: string | undefined,
   ) {
-    if (type && type !== 'assignment' && type !== 'return') {
-      throw new BadRequestException('type must be either "assignment" or "return"');
+    if (type && type !== 'assignment' && type !== 'return' && type !== 'transfer') {
+      throw new BadRequestException('type must be "assignment", "return", or "transfer"');
     }
     const parsedAssetIds = assetIds
       ? assetIds
@@ -164,6 +173,7 @@ export class AssetsController {
       type: type || 'assignment',
       assetIds: parsedAssetIds,
       recipientId,
+      transferorId,
       conditionNotes,
     });
   }
@@ -236,17 +246,47 @@ export class AssetsController {
   }
 
   @Get('export/xlsx')
-  @ApiOperation({ summary: 'Export assets as styled XLSX workbook (alias)' })
+  @ApiOperation({ summary: 'Export assets to Excel (.xlsx) file (alias)' })
   async exportXlsxAlias(@Query() query: AssetQueryDto, @Res() res: Response): Promise<void> {
     await this.assetsService.exportXlsx(query, res);
+  }
+
+  // --- Custody Workflows Endpoints ---
+
+  @Post('allocate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({
+    summary: 'Allocate assets to a directory user (AVAILABLE -> IN_USE) with handover record',
+  })
+  allocate(@Body() body: AllocateAssetDto) {
+    return this.assetsService.allocate(body);
   }
 
   @Post('batch-assign')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Batch assign assets to a user or location/department' })
+  @ApiOperation({ summary: 'Batch assign or unassign assets with handover/return records' })
   batchAssign(@Body() body: BatchAssignAssetDto) {
     return this.assetsService.batchAssign(body);
+  }
+
+  @Post('return')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({
+    summary: 'Batch return assets from field custody (IN_USE -> AVAILABLE | MAINTENANCE | RETIRED)',
+  })
+  returnUnits(@Body() body: ReturnAssetDto) {
+    return this.assetsService.returnUnits(body);
+  }
+
+  @Post('transfer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Transfer asset custody between two employees in 1 atomic transaction' })
+  transfer(@Body() body: TransferAssetDto) {
+    return this.assetsService.transfer(body);
   }
 
   @Post('batch-delete')
@@ -276,7 +316,7 @@ export class AssetsController {
   @Post('models')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create device model with manual assetCode' })
+  @ApiOperation({ summary: 'Create device model with manual modelCode' })
   createModel(@Body() body: CreateDeviceModelDto) {
     return this.assetsService.createModel(body);
   }
@@ -309,7 +349,31 @@ export class AssetsController {
     return this.assetsService.getModelUnits(id, query);
   }
 
+  @Post('models/:id/units')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Register a physical unit under a device model' })
+  registerModelUnit(@Param('id') id: string, @Body() body: RegisterPhysicalUnitDto) {
+    return this.assetsService.registerUnit({ ...body, deviceModelId: id });
+  }
+
+  @Post('models/:id/intake')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Batch stock intake physical units under a device model' })
+  intakeModel(@Param('id') id: string, @Body() body: BatchStockIntakeDto) {
+    return this.assetsService.batchIntake(id, body);
+  }
+
   // --- Physical Unit Endpoints ---
+
+  @Post('intake')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Batch intake physical units into warehouse stock' })
+  intake(@Body() body: BatchStockIntakeDto) {
+    return this.assetsService.batchIntakeUnits(body);
+  }
 
   @Post('units')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -395,14 +459,7 @@ export class AssetsController {
     return this.assetsService.deleteCostCenter(id);
   }
 
-  // --- Generic Asset Endpoints ---
-
-  @Post()
-  @Roles('Admin', 'Super Admin')
-  @ApiOperation({ summary: 'Create asset' })
-  create(@Body() body: CreateAssetDto) {
-    return this.assetsService.create(body);
-  }
+  // --- Generic Asset Endpoints (Physical Units) ---
 
   @Get()
   @ApiOperation({ summary: 'Get all assets' })
@@ -419,7 +476,7 @@ export class AssetsController {
   @Patch(':id')
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Update asset' })
-  update(@Param('id') id: string, @Body() body: UpdateAssetDto) {
+  update(@Param('id') id: string, @Body() body: UpdatePhysicalUnitDto) {
     return this.assetsService.update(id, body);
   }
 
@@ -443,6 +500,6 @@ export class AssetsController {
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Attach signed handover document and resolve pending record' })
   attachHandoverDocument(@Param('id') id: string, @Body() body: AttachHandoverDocumentDto) {
-    return this.assetsService.attachHandoverDocument(id, body.fileUrl, body.notes);
+    return this.assetsService.attachHandoverDocument(id, body.fileUrl, body.recordId, body.notes);
   }
 }

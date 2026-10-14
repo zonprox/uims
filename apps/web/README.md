@@ -189,7 +189,7 @@ apps/web/
 ### 2. Hardware Asset Lifecycle Management (`/assets`)
 - Comprehensive asset inventory table with advanced search, status filters, and sorting.
 - Detail drawer (`AssetDetailDrawer`) displaying technical specifications, warranty status, assigned users, and maintenance history.
-- Creation and editing modal (`AssetFormModal`) with dynamic specification schemas by asset category.
+- Creation and editing modal (`PhysicalUnitModal`) with dynamic specification schemas by asset category.
 - Integrated camera QR scanner (`AssetScannerModal`) using `jsqr` for rapid barcode check-in.
 - QR label generation and printable asset tag modal (`AssetQrModal`, `PrintableAssetLabel`).
 

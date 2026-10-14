@@ -17,7 +17,6 @@ import { useNavigate } from 'react-router';
 import PageContainer from '../../components/PageContainer';
 import { AssetDetailDrawer } from './components/AssetDetailDrawer';
 import { AssetFilterBar } from './components/AssetFilterBar';
-import { AssetFormModal } from './components/AssetFormModal';
 import { AssetQrModal } from './components/AssetQrModal';
 import { AssetScannerModal } from './components/AssetScannerModal';
 import { AssetTable } from './components/AssetTable';
@@ -25,6 +24,7 @@ import { BatchAssignModal } from './components/BatchAssignModal';
 import { BatchPrintModal } from './components/BatchPrintModal';
 import { DeviceModelDrawer } from './components/DeviceModelDrawer';
 import { DeviceModelTable } from './components/DeviceModelTable';
+import { PhysicalUnitModal } from './components/PhysicalUnitModal';
 import { useAssetManagement } from './hooks/useAssetManagement';
 
 const { Text } = Typography;
@@ -46,11 +46,21 @@ export default function AssetsPage() {
     setCategoryFilter,
     statusFilter,
     setStatusFilter,
+    modelFilter,
+    setModelFilter,
+    modelOptions,
+    custodianFilter,
+    setCustodianFilter,
+    custodianOptions,
+    departmentFilter,
+    setDepartmentFilter,
+    departmentOptions,
+    hasPendingRecordFilter,
+    setHasPendingRecordFilter,
     filterState,
     handleFilterChange,
     modalOpen,
     setModalOpen,
-    modalSubmitting,
     editingAsset,
     detailDrawerOpen,
     setDetailDrawerOpen,
@@ -66,7 +76,6 @@ export default function AssetsPage() {
     loadData,
     handleOpenCreateModal,
     handleOpenEditModal,
-    handleSaveAsset,
     handleDeleteAsset,
     handleShowDetails,
     handleShowQr,
@@ -182,6 +191,17 @@ export default function AssetsPage() {
                   onCategoryChange={setCategoryFilter}
                   statusFilter={statusFilter}
                   onStatusChange={setStatusFilter}
+                  modelFilter={modelFilter}
+                  onModelChange={setModelFilter}
+                  modelOptions={modelOptions}
+                  custodianFilter={custodianFilter}
+                  onCustodianChange={setCustodianFilter}
+                  custodianOptions={custodianOptions}
+                  departmentFilter={departmentFilter}
+                  onDepartmentChange={setDepartmentFilter}
+                  departmentOptions={departmentOptions}
+                  hasPendingRecordFilter={hasPendingRecordFilter}
+                  onPendingRecordChange={setHasPendingRecordFilter}
                   filterState={filterState}
                   onFilterChange={handleFilterChange}
                   onReset={handleResetFilters}
@@ -271,12 +291,12 @@ export default function AssetsPage() {
         ]}
       />
 
-      <AssetFormModal
+      <PhysicalUnitModal
         open={modalOpen}
         editingAsset={editingAsset}
         form={form}
-        submitting={modalSubmitting}
-        onSave={handleSaveAsset}
+        onSuccess={loadData}
+        onClose={() => setModalOpen(false)}
         onCancel={() => setModalOpen(false)}
       />
 

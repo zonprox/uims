@@ -19,3 +19,6 @@ export * from './switch-query.dto';
 export * from './create-switch-port.dto';
 export * from './update-switch-port.dto';
 export * from './switch-port-query.dto';
+export * from './topology-query.dto';
+export * from './update-topology-layout.dto';
+export * from './create-topology-link.dto';

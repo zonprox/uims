@@ -1,8 +1,4 @@
-import {
-  FileTextOutlined,
-  FileWordOutlined,
-  PrinterOutlined,
-} from '@ant-design/icons';
+import { FileTextOutlined, FileWordOutlined, PrinterOutlined } from '@ant-design/icons';
 import { App, Button, Flex, Modal, Typography, theme } from 'antd';
 import React, { useMemo } from 'react';
 import { printDocumentHtml } from '../utils/printDocument';
@@ -20,14 +16,7 @@ export interface HandoverDocumentModalProps {
 }
 
 export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React.memo(
-  ({
-    open,
-    title,
-    html,
-    onClose,
-    onDownloadDocx,
-    downloadingDocx = false,
-  }) => {
+  ({ open, title, html, onClose, onDownloadDocx, downloadingDocx = false }) => {
     const { token } = theme.useToken();
     const { message } = App.useApp();
 

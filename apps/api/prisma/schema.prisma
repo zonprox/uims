@@ -198,60 +198,66 @@ model CostCenter {
   @@index([code])
 }
 
-model Asset {
-  id             String      @id @default(uuid())
-  assetCode      String?     @unique
-  subcode        String?     @unique
-  assetTag       String?     @unique
-  parentId       String?
-  parent         Asset?      @relation("AssetHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children       Asset[]     @relation("AssetHierarchy")
-  costCenterId   String?
-  costCenter     CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+model DeviceModel {
+  id             String        @id @default(uuid())
   name           String
-  description    String?
-  categoryId     String?
-  status         AssetStatus @default(AVAILABLE)
-  serialNumber   String?
-  model          String?
-  manufacturer   String?
-  specifications String?
-  unitCost       Float?
+  modelCode      String        @unique
+  categoryId     String
+  category       AssetCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  manufacturer   String
   vendorId       String?
-  purchaseDate   DateTime?
-  warrantyExpiry DateTime?
-  assignedToId   String?
-  departmentId   String?
-  hasPendingRecord Boolean    @default(false)
-  notes          String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  vendor         Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  specifications Json?         @default("{}")
+  unitCost       Float         @default(0)
+  minThreshold   Int           @default(5)
+  binNumber      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  units          Asset[]
 
-  category       AssetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  assignedTo     DirectoryUser?     @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  department     Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  vendorRef      Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  ipAddresses    IPAddress[]
-  networkSwitch  NetworkSwitch?     @relation("SwitchAsset")
-  connectedPorts SwitchPort[]       @relation("ConnectedAssetPorts")
-  handoverRecords AssetHandoverRecord[]
-
-  @@index([parentId])
-  @@index([costCenterId])
-  @@index([assetCode])
-  @@index([subcode])
-  @@index([assetTag])
-  @@index([assignedToId])
   @@index([categoryId])
-  @@index([departmentId])
   @@index([vendorId])
+  @@index([deletedAt])
+}
+
+model Asset {
+  id               String                @id @default(uuid())
+  deviceModelId    String
+  deviceModel      DeviceModel           @relation(fields: [deviceModelId], references: [id], onDelete: Restrict)
+  assetTag         String?               @unique
+  subcode          String?               @unique
+  serialNumber     String?
+  status           AssetStatus           @default(AVAILABLE)
+  assignedToId     String?
+  departmentId     String?
+  costCenterId     String?
+  purchaseDate     DateTime?
+  warrantyExpiry   DateTime?
+  hasPendingRecord Boolean               @default(false)
+  notes            String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  assignedTo       DirectoryUser?        @relation("DirectoryAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  department       Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  costCenter       CostCenter?           @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  ipAddresses      IPAddress[]
+  networkSwitch    NetworkSwitch?        @relation("SwitchAsset")
+  connectedPorts   SwitchPort[]          @relation("ConnectedAssetPorts")
+  handoverRecords  AssetHandoverRecord[]
+
+  @@index([deviceModelId])
   @@index([status])
+  @@index([assignedToId])
+  @@index([departmentId])
+  @@index([hasPendingRecord])
+  @@index([costCenterId])
+  @@index([assetTag])
+  @@index([subcode])
+  @@index([serialNumber])
   @@index([status, updatedAt])
   @@index([warrantyExpiry])
-  @@index([name])
-  @@index([model])
-  @@index([serialNumber])
-  @@index([hasPendingRecord])
 }
 
 model AssetHandoverRecord {
@@ -271,51 +277,21 @@ model AssetHandoverRecord {
   @@index([assetId])
   @@index([recipientId])
   @@index([isPending])
+  @@index([type])
+  @@index([isPending, createdAt])
+  @@index([assetId, isPending])
 }
 
 model AssetCategory {
-  id          String          @id @default(uuid())
-  name        String
-  description String?
-  parentId    String?
-  parent      AssetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    AssetCategory[] @relation("CategoryHierarchy")
-  assets      Asset[]
+  id           String          @id @default(uuid())
+  name         String          @unique
+  description  String?
+  parentId     String?
+  parent       AssetCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children     AssetCategory[] @relation("CategoryHierarchy")
+  deviceModels DeviceModel[]
 
   @@index([parentId])
-}
-
-model InventoryCategory {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  items InventoryItem[]
-}
-
-model InventoryItem {
-  id           String   @id @default(uuid())
-  sku          String   @unique
-  name         String
-  categoryId   String
-  quantity     Int      @default(0)
-  minThreshold Int      @default(5)
-  unitCost     Float    @default(0)
-  binNumber    String?
-  supplier     String?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  category InventoryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@index([sku])
-  @@index([categoryId])
-  @@index([quantity])
-  @@index([name])
-  @@index([supplier])
 }
 
 model License {
@@ -401,13 +377,14 @@ enum VlanStatus {
 }
 
 model VLAN {
-  id          String     @id @default(uuid())
-  vlanNumber  Int        @unique
+  id          String        @id @default(uuid())
+  vlanNumber  Int           @unique
   name        String
   description String?
-  status      VlanStatus @default(ACTIVE)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  domain      NetworkDomain @default(NETWORK)
+  status      VlanStatus    @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   subnets     Subnet[]
   ipAddresses IPAddress[]
@@ -415,12 +392,14 @@ model VLAN {
 
   @@index([vlanNumber])
   @@index([name])
+  @@index([domain])
 }
 
 model Subnet {
-  id               String   @id @default(uuid())
-  cidr             String   @unique
+  id               String        @id @default(uuid())
+  cidr             String        @unique
   name             String
+  domain           NetworkDomain @default(NETWORK)
   vlanId           String?
   gateway          String?
   networkAddress   String?
@@ -428,12 +407,12 @@ model Subnet {
   broadcastAddress String?
   startIp          String?
   endIp            String?
-  totalIps         Int      @default(254)
-  usedIps          Int      @default(0)
-  reservedIps      Int      @default(0)
+  totalIps         Int           @default(254)
+  usedIps          Int           @default(0)
+  reservedIps      Int           @default(0)
   description      String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   vlan        VLAN?       @relation(fields: [vlanId], references: [id], onDelete: SetNull)
   ipAddresses IPAddress[]
@@ -441,6 +420,7 @@ model Subnet {
   @@index([vlanId])
   @@index([cidr])
   @@index([name])
+  @@index([domain])
 }
 
 model IPAddress {
@@ -487,6 +467,25 @@ model IPAddress {
 // NETWORK RACK & SWITCH MANAGEMENT ENUMS
 // ==========================================
 
+enum NetworkDomain {
+  NETWORK
+  CCTV
+  SHARED
+}
+
+enum TopologyViewMode {
+  ALL
+  NETWORK
+  CCTV
+}
+
+enum TopologyNodeType {
+  RACK
+  SWITCH
+  ASSET
+  ENDPOINT
+}
+
 enum RackStatus {
   ACTIVE
   PLANNED
@@ -499,6 +498,7 @@ enum SwitchRole {
   DISTRIBUTION
   ACCESS
   TOR
+  POE_ACCESS
 }
 
 enum SwitchStatus {
@@ -546,6 +546,8 @@ model NetworkRack {
   width       Float?     // mm (e.g. 600, 800)
   maxPowerKw  Float?     // kW capacity (e.g. 5.0, 7.5, 10.0)
   maxWeightKg Float?     // kg capacity (e.g. 1000)
+  positionX   Float?     // Canvas layout coordinate X
+  positionY   Float?     // Canvas layout coordinate Y
   status      RackStatus @default(ACTIVE)
   notes       String?
   createdAt   DateTime   @default(now())
@@ -559,26 +561,29 @@ model NetworkRack {
 }
 
 model NetworkSwitch {
-  id              String       @id @default(uuid())
+  id              String        @id @default(uuid())
   name            String
   model           String
-  vendor          String       // Cisco, Alcatel-Lucent, Juniper, Aruba, Mikrotik
-  serialNumber    String?      @unique
+  vendor          String        // Cisco, Alcatel-Lucent, Juniper, Aruba, Mikrotik
+  serialNumber    String?       @unique
   macAddress      String?
   ipAddressId     String?
   firmwareVersion String?
-  role            SwitchRole   @default(ACCESS)
-  status          SwitchStatus @default(ONLINE)
-  totalPorts      Int          @default(24) // 2..48 even
-  uplinkPorts     Int?         @default(2)  // 0-8 dedicated RJ45 uplinks
-  fiberPorts      Int?         @default(2)  // 0-8 dedicated optical SFP/SFP+ ports
+  role            SwitchRole    @default(ACCESS)
+  domain          NetworkDomain @default(NETWORK)
+  status          SwitchStatus  @default(ONLINE)
+  totalPorts      Int           @default(24) // 2..48 even
+  uplinkPorts     Int?          @default(2)  // 0-8 dedicated RJ45 uplinks
+  fiberPorts      Int?          @default(2)  // 0-8 dedicated optical SFP/SFP+ ports
   rackId          String?
-  rackPosition    Int?         // 1-48 RU starting slot
-  rackHeight      Int          @default(1)  // RU occupied (1, 2, 4)
-  assetId         String?      @unique
+  rackPosition    Int?          // 1-48 RU starting slot
+  rackHeight      Int           @default(1)  // RU occupied (1, 2, 4)
+  positionX       Float?        // Canvas layout coordinate X
+  positionY       Float?        // Canvas layout coordinate Y
+  assetId         String?       @unique
   notes           String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   rack      NetworkRack? @relation(fields: [rackId], references: [id], onDelete: SetNull)
   asset     Asset?       @relation("SwitchAsset", fields: [assetId], references: [id], onDelete: SetNull)
@@ -589,6 +594,7 @@ model NetworkSwitch {
   @@index([assetId])
   @@index([ipAddressId])
   @@index([role])
+  @@index([domain])
   @@index([status])
   @@index([vendor])
   @@index([name])
@@ -611,6 +617,7 @@ model SwitchPort {
   taggedVlanIds    Json?           // Array of VLAN numbers/IDs for trunk
   ipAddressId      String?
   connectedAssetId String?
+  connectedPortId  String?         @unique
   description      String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -619,16 +626,34 @@ model SwitchPort {
   vlan           VLAN?         @relation(fields: [vlanId], references: [id], onDelete: SetNull)
   ipAddress      IPAddress?    @relation("PortIPAddress", fields: [ipAddressId], references: [id], onDelete: SetNull)
   connectedAsset Asset?        @relation("ConnectedAssetPorts", fields: [connectedAssetId], references: [id], onDelete: SetNull)
+  connectedPort  SwitchPort?   @relation("PortPeerLink", fields: [connectedPortId], references: [id], onDelete: SetNull)
+  peerPort       SwitchPort?   @relation("PortPeerLink")
 
   @@unique([switchId, portNumber])
   @@index([switchId])
   @@index([vlanId])
   @@index([ipAddressId])
   @@index([connectedAssetId])
+  @@index([connectedPortId])
   @@index([adminStatus])
   @@index([operStatus])
   @@index([mode])
   @@index([portNumber])
+}
+
+model TopologyNodePosition {
+  id        String           @id @default(uuid())
+  nodeId    String
+  nodeType  TopologyNodeType @default(SWITCH)
+  viewMode  TopologyViewMode @default(ALL)
+  positionX Float
+  positionY Float
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([nodeId, viewMode])
+  @@index([viewMode])
+  @@index([nodeId])
 }
 
 model AuditLog {
@@ -798,8 +823,8 @@ model Vendor {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  licenses License[]
-  assets   Asset[]
+  licenses     License[]
+  deviceModels DeviceModel[]
 
   @@index([name])
 }

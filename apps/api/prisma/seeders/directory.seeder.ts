@@ -185,11 +185,15 @@ export async function seedDirectory(
           (c.isBSL
             ? deptMap.get('DEPT-BSL-MGMT') || deptMap.get('DEPT-BSL-OPS')
             : deptMap.get('DEPT-BSH-EXEC') || deptMap.get('DEPT-BSH-CORP'));
+        const fallbackPosId =
+          (c.isBSL ? posMap.get('POS-BSL-GM') : posMap.get('POS-BSH-MD')) ||
+          Array.from(posMap.values())[0];
         const positionId =
           (c.posKey ? posMap.get(c.posKey) : null) ||
           (c.isBSL
             ? posMap.get('POS-BSL-GM') || posMap.get('POS-BSL-ADMIN-LEAD')
-            : posMap.get('POS-BSH-MD') || posMap.get('POS-BSH-IT-ENG'));
+            : posMap.get('POS-BSH-MD') || posMap.get('POS-BSH-IT-ENG')) ||
+          fallbackPosId;
 
         const emailPassword = c.seedEmailPassword
           ? encryptDirectoryPassword(generateSecurePassword(16))

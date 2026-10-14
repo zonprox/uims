@@ -529,6 +529,17 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
         findUnique: ReturnType<typeof vi.fn>;
         update: ReturnType<typeof vi.fn>;
         create: ReturnType<typeof vi.fn>;
+        findFirst: ReturnType<typeof vi.fn>;
+      };
+      deviceModel: {
+        findUnique: ReturnType<typeof vi.fn>;
+      };
+      department: {
+        findUnique: ReturnType<typeof vi.fn>;
+        findFirst: ReturnType<typeof vi.fn>;
+      };
+      costCenter: {
+        findUnique: ReturnType<typeof vi.fn>;
       };
       assetCategory: {
         findUnique: ReturnType<typeof vi.fn>;
@@ -546,6 +557,17 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
           findUnique: vi.fn(),
           update: vi.fn(),
           create: vi.fn(),
+          findFirst: vi.fn(),
+        },
+        deviceModel: {
+          findUnique: vi.fn(),
+        },
+        department: {
+          findUnique: vi.fn(),
+          findFirst: vi.fn(),
+        },
+        costCenter: {
+          findUnique: vi.fn(),
         },
         assetCategory: {
           findUnique: vi.fn(),
@@ -763,80 +785,104 @@ describe('Milestone 2 - Business Automation Adversarial & Empirical Verification
       expect(updated.status).toBe('Active');
     });
 
-    it('EMPIRICAL-AST-7: creating an asset with assignedToId automatically defaults to IN_USE', async () => {
-      mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.directoryUser.findUnique.mockResolvedValue({ id: 'user-assigned' });
+    it('EMPIRICAL-AST-7: registering a physical unit with explicit active status maps correctly to IN_USE', async () => {
+      mockPrisma.deviceModel.findUnique.mockResolvedValue({
+        id: 'mod-surface-5',
+        name: 'Surface Laptop 5',
+        deletedAt: null,
+      });
+      mockPrisma.asset.findFirst.mockResolvedValue(null);
 
       mockPrisma.asset.create.mockResolvedValue({
         id: 'ast-new-1',
+        deviceModelId: 'mod-surface-5',
+        subcode: 'AST-AUTO-01',
         assetTag: 'AST-AUTO-01',
-        name: 'Surface Laptop 5',
         status: AssetStatus.IN_USE,
-        assignedToId: 'user-assigned',
-        categoryId: 'cat-1',
-        category: { name: 'Laptops' },
-        assignedTo: { firstName: 'Dave', lastName: 'Lead', email: 'dave@company.com' },
       });
 
-      const created = await assetsService.create({
-        name: 'Surface Laptop 5',
-        categoryId: 'cat-1',
-        assignedToId: 'user-assigned',
+      mockPrisma.asset.findUnique.mockResolvedValue({
+        id: 'ast-new-1',
+        deviceModelId: 'mod-surface-5',
+        subcode: 'AST-AUTO-01',
+        assetTag: 'AST-AUTO-01',
+        status: AssetStatus.IN_USE,
+        deviceModel: { id: 'mod-surface-5', name: 'Surface Laptop 5' },
+        assignedTo: { firstName: 'Dave', lastName: 'Lead', email: 'dave@company.com' },
+        handoverRecords: [],
+      });
+
+      const created = await assetsService.registerUnit({
+        deviceModelId: 'mod-surface-5',
+        subcode: 'AST-AUTO-01',
+        status: 'Active',
       });
 
       expect(mockPrisma.asset.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            deviceModelId: 'mod-surface-5',
+            subcode: 'AST-AUTO-01',
             status: AssetStatus.IN_USE,
-            assignedToId: 'user-assigned',
           }),
         }),
       );
       expect(created.status).toBe('Active');
     });
 
-    it('EMPIRICAL-AST-8: creating an asset with assignedToId but explicit status (MAINTENANCE) respects explicit status', async () => {
-      mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.directoryUser.findUnique.mockResolvedValue({ id: 'tech-user' });
+    it('EMPIRICAL-AST-8: registering a physical unit with explicit status (MAINTENANCE) respects explicit status', async () => {
+      mockPrisma.deviceModel.findUnique.mockResolvedValue({
+        id: 'mod-surface-5',
+        name: 'Defective Laptop for Diagnostics',
+        deletedAt: null,
+      });
+      mockPrisma.asset.findFirst.mockResolvedValue(null);
 
       mockPrisma.asset.create.mockResolvedValue({
         id: 'ast-new-2',
+        deviceModelId: 'mod-surface-5',
+        subcode: 'AST-AUTO-02',
         assetTag: 'AST-AUTO-02',
-        name: 'Defective Laptop for Diagnostics',
         status: AssetStatus.MAINTENANCE,
-        assignedToId: 'tech-user',
-        categoryId: 'cat-1',
-        category: { name: 'Laptops' },
-        assignedTo: { firstName: 'Tech', lastName: 'Specialist', email: 'tech@company.com' },
       });
 
-      const created = await assetsService.create({
-        name: 'Defective Laptop for Diagnostics',
-        categoryId: 'cat-1',
-        assignedToId: 'tech-user',
+      mockPrisma.asset.findUnique.mockResolvedValue({
+        id: 'ast-new-2',
+        deviceModelId: 'mod-surface-5',
+        subcode: 'AST-AUTO-02',
+        assetTag: 'AST-AUTO-02',
+        status: AssetStatus.MAINTENANCE,
+        deviceModel: { id: 'mod-surface-5', name: 'Defective Laptop for Diagnostics' },
+        assignedTo: { firstName: 'Tech', lastName: 'Specialist', email: 'tech@company.com' },
+        handoverRecords: [],
+      });
+
+      const created = await assetsService.registerUnit({
+        deviceModelId: 'mod-surface-5',
+        subcode: 'AST-AUTO-02',
         status: 'In Repair', // Explicit override on create
       });
 
       expect(mockPrisma.asset.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            deviceModelId: 'mod-surface-5',
+            subcode: 'AST-AUTO-02',
             status: AssetStatus.MAINTENANCE,
-            assignedToId: 'tech-user',
           }),
         }),
       );
       expect(created.status).toBe('In Repair');
     });
 
-    it('EMPIRICAL-AST-9: creating an asset with non-existent assignedToId throws NotFoundException', async () => {
-      mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.directoryUser.findUnique.mockResolvedValue(null); // User does not exist
+    it('EMPIRICAL-AST-9: registering a physical unit with non-existent deviceModelId throws NotFoundException', async () => {
+      mockPrisma.deviceModel.findUnique.mockResolvedValue(null); // Device model does not exist
+      mockPrisma.asset.findUnique.mockResolvedValue(null);
 
       await expect(
-        assetsService.create({
-          name: 'Orphaned Assignment Asset',
-          categoryId: 'cat-1',
-          assignedToId: 'non-existent-user-id',
+        assetsService.registerUnit({
+          deviceModelId: 'non-existent-model-id',
+          subcode: 'AST-AUTO-03',
         }),
       ).rejects.toThrow(NotFoundException);
 

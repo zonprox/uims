@@ -42,11 +42,34 @@ describe('Frontend Service Clients', () => {
       expect(res).toHaveLength(1);
     });
 
-    it('should create asset record', async () => {
+    it('should register physical unit record', async () => {
       vi.mocked(api.post).mockResolvedValue({ data: { data: { id: 'a1', tag: 'AST-001' } } });
-      const asset = await assetsService.createAsset({ name: 'MacBook Pro' });
-      expect(api.post).toHaveBeenCalledWith('/assets', { name: 'MacBook Pro' });
+      const asset = await assetsService.registerUnit({
+        deviceModelId: 'mod-1',
+        assetTag: 'AST-001',
+      });
+      expect(api.post).toHaveBeenCalledWith('/assets/units', {
+        deviceModelId: 'mod-1',
+        assetTag: 'AST-001',
+      });
       expect(asset.id).toBe('a1');
+    });
+
+    it('should transfer asset custody', async () => {
+      vi.mocked(api.post).mockResolvedValue({
+        data: { data: { count: 1, assets: [{ id: 'a1' }] } },
+      });
+      const res = await assetsService.transferAsset({
+        assetIds: ['a1'],
+        toUserId: 'usr-2',
+        transferReason: 'Department change',
+      });
+      expect(api.post).toHaveBeenCalledWith('/assets/transfer', {
+        assetIds: ['a1'],
+        toUserId: 'usr-2',
+        transferReason: 'Department change',
+      });
+      expect(res.count).toBe(1);
     });
   });
 

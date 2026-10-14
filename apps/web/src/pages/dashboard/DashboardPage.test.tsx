@@ -1,7 +1,7 @@
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DashboardOverview } from '../../services/dashboard.service';
+import { type DashboardOverview, dashboardService } from '../../services/dashboard.service';
 import DashboardPage from './DashboardPage';
 
 const mockNavigate = vi.fn();
@@ -223,6 +223,15 @@ vi.mock('antd', async () => {
 vi.mock('../../services/dashboard.service', () => ({
   dashboardService: {
     getOverview: vi.fn().mockImplementation(() => Promise.resolve(mockDashboardData)),
+    getPendingHandovers: vi.fn().mockResolvedValue({
+      totalPending: 0,
+      overdueCount: 0,
+      pendingAssignments: 0,
+      pendingReturns: 0,
+      pendingTransfers: 0,
+      breakdownByType: { assignment: 0, return: 0 },
+      records: [],
+    }),
   },
 }));
 
@@ -906,6 +915,58 @@ describe('DashboardPage', () => {
     });
     expect(container.textContent).toContain('USER_SUSPEND');
     expect(container.textContent).not.toContain('BRUTE_FORCE_DETECTED');
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('renders Pending Handover Documents compliance section when pending handovers exist', async () => {
+    vi.mocked(dashboardService.getPendingHandovers).mockResolvedValueOnce({
+      totalPending: 3,
+      overdueCount: 1,
+      pendingAssignments: 2,
+      pendingReturns: 1,
+      pendingTransfers: 0,
+      breakdownByType: { assignment: 2, return: 1 },
+      records: [
+        {
+          id: 'rec-1',
+          recordId: 'rec-1',
+          assetId: 'ast-101',
+          assetTag: 'AST-101',
+          subcode: 'AST-101',
+          modelName: 'Dell Latitude 5540',
+          serialNumber: 'SN-101',
+          type: 'ASSIGNMENT',
+          handoverType: 'ASSIGNMENT',
+          recipientId: 'usr-1',
+          recipientName: 'Alice Cooper',
+          recipientEmail: 'alice@uims.internal',
+          department: 'Engineering',
+          departmentName: 'Engineering',
+          createdAt: '2026-10-10T08:00:00Z',
+          daysPending: 4,
+          isOverdue: true,
+          timeAgo: '4d ago',
+        },
+      ],
+    });
+
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(DashboardPage));
+    });
+
+    // Check alert banner
+    expect(container.textContent).toContain('3 Pending Handover Documents Require Action');
+    expect(container.textContent).toContain('1 overdue > 3 days');
+
+    // Check compliance table card
+    expect(container.textContent).toContain('Pending Handover Documents Compliance');
+    expect(container.textContent).toContain('Dell Latitude 5540');
+    expect(container.textContent).toContain('Alice Cooper');
+    expect(container.textContent).toContain('Overdue (>3d)');
 
     act(() => {
       root.unmount();

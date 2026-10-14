@@ -35,9 +35,10 @@ export interface HandoverDocumentParams {
   title: string;
   subtitle: string;
   refId: string;
-  type: 'assignment' | 'return';
+  type: 'assignment' | 'return' | 'transfer';
   currentDate: string;
   recipient?: HandoverRecipient | null;
+  transferor?: HandoverRecipient | null;
   assets: HandoverAssetItem[];
   conditionNotes?: string;
 }
@@ -61,11 +62,13 @@ const cellBorders = {
 };
 
 /**
- * Builds a professional Microsoft Word (.docx) document for Hardware Asset Handover / Return Record.
+ * Builds a professional Microsoft Word (.docx) document for Hardware Asset Handover / Return / Transfer Record.
  */
 export async function buildHandoverDocx(params: HandoverDocumentParams): Promise<Buffer> {
   const isReturn = params.type === 'return';
-  const orgName = params.recipient?.organization || 'Youngone Corporation';
+  const isTransfer = params.type === 'transfer';
+  const orgName =
+    params.recipient?.organization || params.transferor?.organization || 'Youngone Corporation';
   const departmentName = params.recipient?.department || 'Information Technology';
 
   // 1. Organization Header & Title
@@ -138,24 +141,364 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
   ];
 
   // 2. Metadata Table (Recipient & Issuer info)
-  const metaTable = new Table({
+  let metaTable: Table;
+  if (isTransfer) {
+    metaTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: cellBorders,
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 34, type: WidthType.PERCENTAGE },
+              shading: { fill: HEADER_BG, type: ShadingType.CLEAR },
+              margins: { top: 100, bottom: 100, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'TRANSFEROR / CUSTODIAN A',
+                      bold: true,
+                      size: 18,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 33, type: WidthType.PERCENTAGE },
+              shading: { fill: HEADER_BG, type: ShadingType.CLEAR },
+              margins: { top: 100, bottom: 100, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'TRANSFEREE / CUSTODIAN B',
+                      bold: true,
+                      size: 18,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 33, type: WidthType.PERCENTAGE },
+              shading: { fill: HEADER_BG, type: ShadingType.CLEAR },
+              margins: { top: 100, bottom: 100, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'WITNESS / IT DEPT',
+                      bold: true,
+                      size: 18,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 34, type: WidthType.PERCENTAGE },
+              margins: { top: 100, bottom: 100, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Name: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.transferor?.fullName || '____________________',
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Emp ID: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.transferor?.employeeCode || '—',
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Dept: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.transferor?.department || '—',
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Email: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.transferor?.email || '—',
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 33, type: WidthType.PERCENTAGE },
+              margins: { top: 100, bottom: 100, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Name: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.recipient?.fullName || '____________________',
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Emp ID: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.recipient?.employeeCode || '—',
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Dept: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.recipient?.department || departmentName,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Email: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({
+                      text: params.recipient?.email || '—',
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 33, type: WidthType.PERCENTAGE },
+              margins: { top: 100, bottom: 100, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Org: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({ text: orgName, size: 17, font: 'Arial' }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Issuer Dept: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({ text: 'IT Asset Operations', size: 17, font: 'Arial' }),
+                  ],
+                  spacing: { after: 50 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Status: ', bold: true, size: 17, font: 'Arial' }),
+                    new TextRun({ text: 'Custody Reassigned', size: 17, font: 'Arial' }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+  } else {
+    metaTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: cellBorders,
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              shading: { fill: HEADER_BG, type: ShadingType.CLEAR },
+              margins: { top: 100, bottom: 100, left: 140, right: 140 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: isReturn ? 'RETURNER / CUSTODIAN' : 'RECIPIENT / CUSTODIAN',
+                      bold: true,
+                      size: 19,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              shading: { fill: HEADER_BG, type: ShadingType.CLEAR },
+              margins: { top: 100, bottom: 100, left: 140, right: 140 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: isReturn ? 'RECEIVER / IT DEPARTMENT' : 'ISSUER / IT DEPARTMENT',
+                      bold: true,
+                      size: 19,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              margins: { top: 120, bottom: 120, left: 140, right: 140 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Full Name: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({
+                      text: params.recipient?.fullName || '__________________________',
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Employee ID: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({
+                      text: params.recipient?.employeeCode || '—',
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Department: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({ text: departmentName, size: 18, font: 'Arial' }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Email: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({
+                      text: params.recipient?.email || '—',
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              margins: { top: 120, bottom: 120, left: 140, right: 140 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Organization: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({ text: orgName, size: 18, font: 'Arial' }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Issuer Dept: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({
+                      text: 'IT Asset Operations & Logistics',
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Location: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({
+                      text: 'IT Central Warehouse / Dispatch',
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: 'Status: ', bold: true, size: 18, font: 'Arial' }),
+                    new TextRun({
+                      text: isReturn ? 'Returned to Stock' : 'Issued to Field Custody',
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+  }
+
+  // 3. Equipment Table
+  const equipmentTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: cellBorders,
     rows: [
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            shading: { fill: HEADER_BG, type: ShadingType.CLEAR },
-            margins: { top: 100, bottom: 100, left: 140, right: 140 },
+            width: { size: 6, type: WidthType.PERCENTAGE },
+            shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
+            verticalAlign: VerticalAlign.CENTER,
+            margins: { top: 100, bottom: 100, left: 60, right: 60 },
             children: [
               new Paragraph({
+                alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: isReturn ? 'RETURNER / CUSTODIAN' : 'RECIPIENT / CUSTODIAN',
+                    text: '#',
                     bold: true,
-                    size: 19,
-                    color: PRIMARY_COLOR,
+                    size: 18,
+                    color: 'FFFFFF',
                     font: 'Arial',
                   }),
                 ],
@@ -163,66 +506,18 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
             ],
           }),
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            shading: { fill: HEADER_BG, type: ShadingType.CLEAR },
-            margins: { top: 100, bottom: 100, left: 140, right: 140 },
+            width: { size: 18, type: WidthType.PERCENTAGE },
+            shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
+            verticalAlign: VerticalAlign.CENTER,
+            margins: { top: 100, bottom: 100, left: 80, right: 80 },
             children: [
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: isReturn ? 'RECEIVER / IT DEPARTMENT' : 'ISSUER / IT DEPARTMENT',
+                    text: 'Asset Tag',
                     bold: true,
-                    size: 19,
-                    color: PRIMARY_COLOR,
-                    font: 'Arial',
-                  }),
-                ],
-              }),
-            ],
-          }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            margins: { top: 120, bottom: 120, left: 140, right: 140 },
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({ text: 'Full Name: ', bold: true, size: 18, font: 'Arial' }),
-                  new TextRun({
-                    text: params.recipient?.fullName || '__________________________',
                     size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 60 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({ text: 'Employee ID: ', bold: true, size: 18, font: 'Arial' }),
-                  new TextRun({
-                    text: params.recipient?.employeeCode || '—',
-                    size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 60 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({ text: 'Department: ', bold: true, size: 18, font: 'Arial' }),
-                  new TextRun({ text: departmentName, size: 18, font: 'Arial' }),
-                ],
-                spacing: { after: 60 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({ text: 'Email: ', bold: true, size: 18, font: 'Arial' }),
-                  new TextRun({
-                    text: params.recipient?.email || '—',
-                    size: 18,
+                    color: 'FFFFFF',
                     font: 'Arial',
                   }),
                 ],
@@ -230,150 +525,78 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
             ],
           }),
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            margins: { top: 120, bottom: 120, left: 140, right: 140 },
+            width: { size: 26, type: WidthType.PERCENTAGE },
+            shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
+            verticalAlign: VerticalAlign.CENTER,
+            margins: { top: 100, bottom: 100, left: 80, right: 80 },
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: 'Organization: ', bold: true, size: 18, font: 'Arial' }),
-                  new TextRun({ text: orgName, size: 18, font: 'Arial' }),
-                ],
-                spacing: { after: 60 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({ text: 'Issuer Dept: ', bold: true, size: 18, font: 'Arial' }),
-                  new TextRun({ text: 'IT Asset Operations & Logistics', size: 18, font: 'Arial' }),
-                ],
-                spacing: { after: 60 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({ text: 'Status: ', bold: true, size: 18, font: 'Arial' }),
                   new TextRun({
-                    text: isReturn ? 'Custody Terminated' : 'Assigned / In Use',
-                    size: 18,
+                    text: 'Equipment Name',
                     bold: true,
-                    color: isReturn ? 'B45309' : '15803D',
+                    size: 18,
+                    color: 'FFFFFF',
                     font: 'Arial',
                   }),
                 ],
               }),
             ],
           }),
-        ],
-      }),
-    ],
-  });
-
-  // 3. Equipment Specification Table
-  const tableHeaderRow = new TableRow({
-    tableHeader: true,
-    children: [
-      new TableCell({
-        width: { size: 6, type: WidthType.PERCENTAGE },
-        shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 100, bottom: 100, left: 60, right: 60 },
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
+          new TableCell({
+            width: { size: 20, type: WidthType.PERCENTAGE },
+            shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
+            verticalAlign: VerticalAlign.CENTER,
+            margins: { top: 100, bottom: 100, left: 80, right: 80 },
             children: [
-              new TextRun({ text: '#', bold: true, size: 18, color: 'FFFFFF', font: 'Arial' }),
-            ],
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: 18, type: WidthType.PERCENTAGE },
-        shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 100, bottom: 100, left: 80, right: 80 },
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Asset Tag',
-                bold: true,
-                size: 18,
-                color: 'FFFFFF',
-                font: 'Arial',
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Model & Specs',
+                    bold: true,
+                    size: 18,
+                    color: 'FFFFFF',
+                    font: 'Arial',
+                  }),
+                ],
               }),
             ],
           }),
-        ],
-      }),
-      new TableCell({
-        width: { size: 26, type: WidthType.PERCENTAGE },
-        shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 100, bottom: 100, left: 80, right: 80 },
-        children: [
-          new Paragraph({
+          new TableCell({
+            width: { size: 18, type: WidthType.PERCENTAGE },
+            shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
+            verticalAlign: VerticalAlign.CENTER,
+            margins: { top: 100, bottom: 100, left: 80, right: 80 },
             children: [
-              new TextRun({
-                text: 'Equipment Name',
-                bold: true,
-                size: 18,
-                color: 'FFFFFF',
-                font: 'Arial',
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Serial Number',
+                    bold: true,
+                    size: 18,
+                    color: 'FFFFFF',
+                    font: 'Arial',
+                  }),
+                ],
               }),
             ],
           }),
-        ],
-      }),
-      new TableCell({
-        width: { size: 20, type: WidthType.PERCENTAGE },
-        shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 100, bottom: 100, left: 80, right: 80 },
-        children: [
-          new Paragraph({
+          new TableCell({
+            width: { size: 12, type: WidthType.PERCENTAGE },
+            shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
+            verticalAlign: VerticalAlign.CENTER,
+            margins: { top: 100, bottom: 100, left: 80, right: 80 },
             children: [
-              new TextRun({
-                text: 'Model / Brand',
-                bold: true,
-                size: 18,
-                color: 'FFFFFF',
-                font: 'Arial',
-              }),
-            ],
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: 18, type: WidthType.PERCENTAGE },
-        shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 100, bottom: 100, left: 80, right: 80 },
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Serial Number',
-                bold: true,
-                size: 18,
-                color: 'FFFFFF',
-                font: 'Arial',
-              }),
-            ],
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: 12, type: WidthType.PERCENTAGE },
-        shading: { fill: PRIMARY_COLOR, type: ShadingType.CLEAR },
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 100, bottom: 100, left: 80, right: 80 },
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Condition',
-                bold: true,
-                size: 18,
-                color: 'FFFFFF',
-                font: 'Arial',
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Condition',
+                    bold: true,
+                    size: 18,
+                    color: 'FFFFFF',
+                    font: 'Arial',
+                  }),
+                ],
               }),
             ],
           }),
@@ -466,7 +689,6 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
       );
     });
   } else {
-    // 3 blank placeholder rows for manual fill-in
     for (let i = 1; i <= 3; i++) {
       assetRows.push(
         new TableRow({
@@ -500,16 +722,12 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
             new TableCell({
               width: { size: 18, type: WidthType.PERCENTAGE },
               margins: { top: 120, bottom: 120, left: 80, right: 80 },
-              children: [new Paragraph({ text: 'SN-_________________' })],
+              children: [new Paragraph({ text: 'SN-__________________' })],
             }),
             new TableCell({
               width: { size: 12, type: WidthType.PERCENTAGE },
               margins: { top: 120, bottom: 120, left: 80, right: 80 },
-              children: [
-                new Paragraph({
-                  text: isReturn ? '[ ] Normal  [ ] Damaged' : '[ ] Operational',
-                }),
-              ],
+              children: [new Paragraph({ text: 'Operational' })],
             }),
           ],
         }),
@@ -517,25 +735,21 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
     }
   }
 
-  const equipmentTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: cellBorders,
-    rows: [tableHeaderRow, ...assetRows],
-  });
+  assetRows.forEach((row) => (equipmentTable as unknown as { root: TableRow[] }).root.push(row));
 
-  // 4. Custody Terms & Conditions
+  // 4. Terms and Notes
   const termsParagraphs = [
     new Paragraph({
       children: [
         new TextRun({
-          text: 'TERMS OF CUSTODY & RESPONSIBILITY AGREEMENT',
+          text: 'TERMS & CONDITIONS OF ASSET CUSTODY',
           bold: true,
           size: 19,
           color: PRIMARY_COLOR,
           font: 'Arial',
         }),
       ],
-      spacing: { before: 240, after: 100 },
+      spacing: { before: 200, after: 100 },
     }),
   ];
 
@@ -544,7 +758,7 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
       new Paragraph({
         children: [
           new TextRun({
-            text: 'Inspection / Condition Notes: ',
+            text: 'Special Notes / Inspection Observations: ',
             bold: true,
             size: 18,
             font: 'Arial',
@@ -556,18 +770,25 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
     );
   }
 
-  const termsList = isReturn
+  const termsList = isTransfer
     ? [
-        '1. The employee confirms the physical return and custody release of all equipment listed above.',
-        '2. The IT Department has inspected the equipment and verified serial numbers and physical state.',
-        '3. All corporate data on the device will be securely archived or sanitized per Youngone Security Policy.',
+        '1. Transferor confirms relinquishing physical custody and administrative responsibility for all equipment listed above.',
+        '2. Transferee acknowledges physical receipt of the equipment in good working order and assumes all custody obligations.',
+        '3. All equipment remains corporate property and must be maintained according to Youngone IT Asset Policies.',
+        '4. The IT Department has verified the hardware state and updated the central asset custody registry effective immediately.',
       ]
-    : [
-        '1. The recipient acknowledges receipt of the hardware equipment listed above in working condition.',
-        '2. The recipient agrees to exercise reasonable care in safeguarding the equipment against damage, loss, or theft.',
-        '3. The equipment remains corporate property and must be returned upon transfer, resignation, or company request.',
-        '4. Any loss, damage, or malfunction must be reported immediately to the IT Department.',
-      ];
+    : isReturn
+      ? [
+          '1. The employee confirms the physical return and custody release of all equipment listed above.',
+          '2. The IT Department has inspected the equipment and verified serial numbers and physical state.',
+          '3. All corporate data on the device will be securely archived or sanitized per Youngone Security Policy.',
+        ]
+      : [
+          '1. The recipient acknowledges receipt of the hardware equipment listed above in working condition.',
+          '2. The recipient agrees to exercise reasonable care in safeguarding the equipment against damage, loss, or theft.',
+          '3. The equipment remains corporate property and must be returned upon transfer, resignation, or company request.',
+          '4. Any loss, damage, or malfunction must be reported immediately to the IT Department.',
+        ];
 
   termsList.forEach((term) => {
     termsParagraphs.push(
@@ -578,143 +799,340 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
     );
   });
 
-  // 5. Signature Section (2 side-by-side boxes)
-  const signatureTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: cellBorders,
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            margins: { top: 140, bottom: 140, left: 140, right: 140 },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: isReturn
-                      ? 'Employee / Custodian (Returner)'
-                      : 'Employee / Custodian (Recipient)',
-                    bold: true,
-                    size: 19,
-                    color: PRIMARY_COLOR,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 80 },
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: '(Sign and Print Full Name)',
-                    italics: true,
-                    size: 16,
-                    color: TEXT_MUTED,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 400 }, // Space for signature
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Signature: _________________________________`,
-                    size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 80 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Full Name: ${params.recipient?.fullName || '_________________________________'}`,
-                    size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 80 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Date: _____ / _____ / __________`,
-                    size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-              }),
-            ],
-          }),
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            margins: { top: 140, bottom: 140, left: 140, right: 140 },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: isReturn
-                      ? 'IT Department Representative (Receiver)'
-                      : 'IT Department Representative (Issuer)',
-                    bold: true,
-                    size: 19,
-                    color: PRIMARY_COLOR,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 80 },
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: '(Sign and Print Full Name)',
-                    italics: true,
-                    size: 16,
-                    color: TEXT_MUTED,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 400 }, // Space for signature
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Signature: _________________________________`,
-                    size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 80 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Full Name: _________________________________`,
-                    size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-                spacing: { after: 80 },
-              }),
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `Date: _____ / _____ / __________`,
-                    size: 18,
-                    font: 'Arial',
-                  }),
-                ],
-              }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
+  // 5. Signature Section
+  let signatureTable: Table;
+  if (isTransfer) {
+    signatureTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: cellBorders,
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 34, type: WidthType.PERCENTAGE },
+              margins: { top: 120, bottom: 120, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: 'Transferor (Custodian A)',
+                      bold: true,
+                      size: 18,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: '(Sign & Print Name)',
+                      italics: true,
+                      size: 15,
+                      color: TEXT_MUTED,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 360 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Sign: ____________________`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Name: ${params.transferor?.fullName || '____________________'}`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Date: _____/_____/_______`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 33, type: WidthType.PERCENTAGE },
+              margins: { top: 120, bottom: 120, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: 'Transferee (Custodian B)',
+                      bold: true,
+                      size: 18,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: '(Sign & Print Name)',
+                      italics: true,
+                      size: 15,
+                      color: TEXT_MUTED,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 360 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Sign: ____________________`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Name: ${params.recipient?.fullName || '____________________'}`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Date: _____/_____/_______`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 33, type: WidthType.PERCENTAGE },
+              margins: { top: 120, bottom: 120, left: 100, right: 100 },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: 'IT Witness / Inspector',
+                      bold: true,
+                      size: 18,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: '(Sign & Print Name)',
+                      italics: true,
+                      size: 15,
+                      color: TEXT_MUTED,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 360 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Sign: ____________________`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Name: ____________________`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 60 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Date: _____/_____/_______`,
+                      size: 17,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+  } else {
+    signatureTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: cellBorders,
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              margins: { top: 140, bottom: 140, left: 140, right: 140 },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: isReturn
+                        ? 'Employee / Custodian (Returner)'
+                        : 'Employee / Custodian (Recipient)',
+                      bold: true,
+                      size: 19,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 80 },
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: '(Sign and Print Full Name)',
+                      italics: true,
+                      size: 16,
+                      color: TEXT_MUTED,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 400 }, // Space for signature
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Signature: _________________________________`,
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 80 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Full Name: ${params.recipient?.fullName || '_________________________________'}`,
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 80 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Date: _____ / _____ / __________`,
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              margins: { top: 140, bottom: 140, left: 140, right: 140 },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: isReturn
+                        ? 'IT Department Representative (Receiver)'
+                        : 'IT Department Representative (Issuer)',
+                      bold: true,
+                      size: 19,
+                      color: PRIMARY_COLOR,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 80 },
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: '(Sign and Print Full Name)',
+                      italics: true,
+                      size: 16,
+                      color: TEXT_MUTED,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 400 }, // Space for signature
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Signature: _________________________________`,
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 80 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Full Name: _________________________________`,
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                  spacing: { after: 80 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `Date: _____ / _____ / __________`,
+                      size: 18,
+                      font: 'Arial',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+  }
 
   const doc = new Document({
     sections: [
@@ -744,4 +1162,3 @@ export async function buildHandoverDocx(params: HandoverDocumentParams): Promise
 
   return await Packer.toBuffer(doc);
 }
-

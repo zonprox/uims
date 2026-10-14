@@ -8,22 +8,25 @@ import {
   Optional,
 } from '@nestjs/common';
 import { AssetStatus, HandoverRecordType, Prisma } from '@prisma/client';
+import { AssetQueryDto } from './dto/asset-query.dto';
 import type {
-  AssetQueryDto,
   AssetStatsDto,
   BatchAssignAssetResultDto,
   BatchDeleteResultDto,
-  CreateAssetDto,
   CreateCostCenterDto,
   CreateDeviceModelDto,
   IssueAssetUnitDto,
   LogEventDto,
-  RegisterPhysicalUnitDto,
-  UpdateAssetDto,
   UpdateCostCenterDto,
   UpdateDeviceModelDto,
   UpdatePhysicalUnitDto,
 } from '@uims/shared-types';
+import type { AllocateAssetDto } from './dto/allocate-asset.dto';
+import type { BatchStockIntakeDto } from './dto/batch-stock-intake.dto';
+import type { RegisterPhysicalUnitDto } from './dto/register-physical-unit.dto';
+import type { ReturnAssetDto } from './dto/return-asset.dto';
+import type { TransferAssetDto } from './dto/transfer-asset.dto';
+import type { UpdatePhysicalUnitDto as UpdateAssetDto } from './dto/update-physical-unit.dto';
 import { computeFieldDiff, mapAssetStatus, mapAssetStatusToLabel } from '@uims/shared-utils';
 import ExcelJS from 'exceljs';
 import type { Response } from 'express';
@@ -35,18 +38,18 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { BatchAssignAssetDto } from './dto/batch-assign-asset.dto';
 import type { GenerateHandoverDocumentDto } from './dto/generate-handover-document.dto';
-import type { ReturnAssetDto } from './dto/return-asset.dto';
-import {
-  buildHandoverDocx,
-  HandoverDocumentParams,
-} from './utils/handover-document.builder';
+import { buildHandoverDocx, HandoverDocumentParams } from './utils/handover-document.builder';
 
 type AssetWithRelations = Prisma.AssetGetPayload<{
   include: {
-    category: true;
+    deviceModel: {
+      include: {
+        category: true;
+        vendor: true;
+      };
+    };
     assignedTo: { include: { organization: true } };
     department: { include: { organization: true } };
-    parent: true;
     costCenter: true;
   };
 }> & {
@@ -170,12 +173,6 @@ function getHandoverUploadDir(): string {
   return dir;
 }
 
-function generateAssetTag(): string {
-  const timeSuffix = Date.now().toString(36).toUpperCase().slice(-4);
-  const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `AST-${timeSuffix}${randSuffix}`;
-}
-
 @Injectable()
 export class AssetsService {
   private readonly logger = new Logger(AssetsService.name);
@@ -186,156 +183,6 @@ export class AssetsService {
     @Optional() private auditService?: AuditService,
   ) {}
 
-  private async resolveCategoryId(
-    tx: Prisma.TransactionClient,
-    categoryId?: string,
-    categoryName?: string,
-  ): Promise<string | undefined> {
-    if (categoryId) {
-      const cat = await tx.assetCategory.findUnique({ where: { id: categoryId } });
-      if (!cat) {
-        throw new NotFoundException(`Asset category with ID "${categoryId}" not found`);
-      }
-      return cat.id;
-    }
-    if (categoryName && categoryName !== 'all') {
-      const cat = await tx.assetCategory.findFirst({ where: { name: categoryName } });
-      if (!cat) {
-        throw new BadRequestException(
-          `Asset category "${categoryName}" does not exist. Please select an existing category.`,
-        );
-      }
-      return cat.id;
-    }
-    return undefined;
-  }
-
-  async create(data: CreateAssetDto) {
-    let status: AssetStatus;
-    if (data.status) {
-      status = mapAssetStatus(data.status);
-    } else if (data.assignedToId) {
-      status = AssetStatus.IN_USE;
-    } else {
-      status = AssetStatus.AVAILABLE;
-    }
-
-    const formatted = await this.prisma.$transaction(async (tx) => {
-      let parentModel: Prisma.AssetGetPayload<{ include: { category: true } }> | null = null;
-      if (data.parentId) {
-        parentModel = await tx.asset.findUnique({
-          where: { id: data.parentId },
-          include: { category: true },
-        });
-        if (!parentModel) {
-          throw new NotFoundException(`Parent device model with ID "${data.parentId}" not found`);
-        }
-        if (parentModel.parentId !== null) {
-          throw new BadRequestException(
-            'Cannot register unit under another physical unit. Parent must be a device model.',
-          );
-        }
-      }
-
-      const categoryId =
-        (await this.resolveCategoryId(tx, data.categoryId, data.category)) ||
-        parentModel?.categoryId ||
-        null;
-
-      if (data.assignedToId) {
-        const user = await tx.directoryUser.findUnique({ where: { id: data.assignedToId } });
-        if (!user) {
-          throw new NotFoundException(`Directory user with ID "${data.assignedToId}" not found`);
-        }
-      }
-
-      const normalizedSubcode = data.subcode
-        ? data.subcode.trim().toUpperCase()
-        : data.tag
-          ? data.tag.trim().toUpperCase()
-          : null;
-
-      const created = await tx.asset.create({
-        data: {
-          assetCode: data.assetCode ? data.assetCode.trim().toUpperCase() : null,
-          subcode: normalizedSubcode,
-          assetTag:
-            data.assetTag ||
-            data.tag ||
-            normalizedSubcode ||
-            (data.assetCode ? data.assetCode.trim().toUpperCase() : undefined) ||
-            generateAssetTag(),
-          parentId: data.parentId || null,
-          costCenterId: data.costCenterId || parentModel?.costCenterId || null,
-          name: data.name || parentModel?.name || 'Hardware Asset',
-          manufacturer: data.manufacturer || parentModel?.manufacturer || null,
-          model: data.model || parentModel?.model || null,
-          serialNumber: data.serialNumber ? data.serialNumber.trim() : null,
-          specifications: data.specifications || parentModel?.specifications || null,
-          unitCost:
-            data.unitCost !== undefined && data.unitCost !== null
-              ? Number(data.unitCost)
-              : (parentModel?.unitCost ?? null),
-          description: data.description || null,
-          status,
-          purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
-          warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
-          categoryId,
-          departmentId: data.departmentId || null,
-          assignedToId: data.assignedToId || null,
-          notes: data.notes || '',
-        },
-        include: {
-          category: true,
-          assignedTo: { include: { organization: true } },
-          department: { include: { organization: true } },
-          parent: true,
-          costCenter: true,
-        },
-      });
-
-      return this.formatAsset(created as unknown as AssetWithRelations);
-    });
-
-    if (data.assignedToId && this.notificationsService) {
-      try {
-        await this.notificationsService.notifyUser(data.assignedToId, {
-          title: 'Asset Assigned',
-          message: `Asset "${formatted.name}" (Tag: ${formatted.tag}) has been assigned to you.`,
-          type: 'INFO',
-          link: '/assets',
-        });
-      } catch (error: unknown) {
-        this.logger.error(
-          `Failed to dispatch asset assignment notification for asset "${formatted.name}" (${formatted.tag})`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
-    }
-
-    if (this.auditService) {
-      try {
-        await this.auditService.logEvent({
-          action: 'ASSET_CREATED',
-          entity: 'Asset',
-          entityType: 'Hardware',
-          entityId: formatted.id,
-          severity: 'Info',
-          status: 'Success',
-          details: `Hardware asset "${formatted.name}" (${formatted.tag}) created`,
-          newValue: formatted as unknown as Record<string, unknown>,
-        });
-      } catch (error: unknown) {
-        this.logger.error(
-          `Failed to record audit log for created asset "${formatted.name}" (${formatted.id})`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
-    }
-
-    return formatted;
-  }
-
   private async buildWhere(query?: AssetQueryDto): Promise<Prisma.AssetWhereInput> {
     const where: Prisma.AssetWhereInput = {};
     const andConditions: Prisma.AssetWhereInput[] = [];
@@ -343,11 +190,12 @@ export class AssetsService {
     if (query?.search) {
       andConditions.push({
         OR: [
-          { name: { contains: query.search, mode: 'insensitive' } },
           { assetTag: { contains: query.search, mode: 'insensitive' } },
+          { subcode: { contains: query.search, mode: 'insensitive' } },
           { serialNumber: { contains: query.search, mode: 'insensitive' } },
-          { model: { contains: query.search, mode: 'insensitive' } },
-          { manufacturer: { contains: query.search, mode: 'insensitive' } },
+          { deviceModel: { name: { contains: query.search, mode: 'insensitive' } } },
+          { deviceModel: { modelCode: { contains: query.search, mode: 'insensitive' } } },
+          { deviceModel: { manufacturer: { contains: query.search, mode: 'insensitive' } } },
         ],
       });
     }
@@ -380,10 +228,18 @@ export class AssetsService {
       where.AND = andConditions;
     }
 
+    if (query?.deviceModelId) {
+      where.deviceModelId = query.deviceModelId;
+    }
+
     if (query?.categoryId) {
-      where.categoryId = query.categoryId;
+      where.deviceModel = {
+        categoryId: query.categoryId,
+      };
     } else if (query?.category && query.category !== 'all') {
-      where.category = { name: query.category };
+      where.deviceModel = {
+        category: { name: query.category },
+      };
     }
 
     if (query?.departmentId) {
@@ -398,24 +254,19 @@ export class AssetsService {
       where.status = mapAssetStatus(query.status);
     }
 
-    if (query?.type === 'model') {
-      where.parentId = null;
-    } else if (query?.type === 'unit') {
-      where.parentId = { not: null };
-    }
-
-    if (query?.parentId) {
-      if (query.parentId === 'null') {
-        where.parentId = null;
-      } else if (query.parentId === 'not-null') {
-        where.parentId = { not: null };
-      } else {
-        where.parentId = query.parentId;
-      }
-    }
-
     if (query?.costCenterId) {
       where.costCenterId = query.costCenterId;
+    }
+
+    if (typeof query?.hasPendingRecord === 'boolean') {
+      where.hasPendingRecord = query.hasPendingRecord;
+    } else if (query?.hasPendingRecord !== undefined && query?.hasPendingRecord !== null) {
+      const parsed = String(query.hasPendingRecord).toLowerCase();
+      if (parsed === 'true' || parsed === '1') {
+        where.hasPendingRecord = true;
+      } else if (parsed === 'false' || parsed === '0') {
+        where.hasPendingRecord = false;
+      }
     }
 
     return where;
@@ -431,10 +282,14 @@ export class AssetsService {
     const assets = await this.prisma.asset.findMany({
       where,
       include: {
-        category: true,
+        deviceModel: {
+          include: {
+            category: true,
+            vendor: true,
+          },
+        },
         assignedTo: { include: { organization: true } },
         department: { include: { organization: true } },
-        parent: true,
         costCenter: true,
         handoverRecords: {
           take: 1,
@@ -518,10 +373,14 @@ export class AssetsService {
         const batch: AssetWithRelations[] = await this.prisma.asset.findMany({
           where,
           include: {
-            category: true,
+            deviceModel: {
+              include: {
+                category: true,
+                vendor: true,
+              },
+            },
             assignedTo: { include: { organization: true } },
             department: { include: { organization: true } },
-            parent: true,
             costCenter: true,
           },
           take: 100,
@@ -539,13 +398,19 @@ export class AssetsService {
             : 'Unassigned';
 
           const row = worksheet.addRow({
-            assetTag: asset.assetTag || asset.subcode || asset.assetCode || 'N/A',
-            name: asset.name,
-            category: asset.category?.name || 'Uncategorized',
+            assetTag: asset.assetTag || asset.subcode || 'N/A',
+            name: asset.deviceModel?.name || (asset as { name?: string }).name || 'Hardware Asset',
+            category:
+              asset.deviceModel?.category?.name ||
+              (asset as { category?: { name?: string } }).category?.name ||
+              'Uncategorized',
             status: statusStyle.label,
             department: asset.department?.name || 'Unassigned',
             serialNumber: asset.serialNumber || 'N/A',
-            purchaseCost: null,
+            purchaseCost:
+              asset.deviceModel?.unitCost ??
+              (asset as { purchaseCost?: number }).purchaseCost ??
+              null,
             purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate) : null,
             warrantyExpiry: asset.warrantyExpiry ? new Date(asset.warrantyExpiry) : null,
             assignedTo: assignedUser,
@@ -644,22 +509,18 @@ export class AssetsService {
     const asset = await this.prisma.asset.findUnique({
       where: { id },
       include: {
-        category: true,
+        deviceModel: {
+          include: {
+            category: true,
+            vendor: true,
+          },
+        },
         assignedTo: { include: { organization: true } },
         department: { include: { organization: true } },
-        parent: true,
         costCenter: true,
         handoverRecords: {
           take: 5,
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        },
-        children: {
-          take: 100,
-          orderBy: [{ id: 'asc' }],
-          include: {
-            assignedTo: { include: { organization: true } },
-            costCenter: true,
-          },
         },
       },
     });
@@ -667,24 +528,7 @@ export class AssetsService {
       throw new NotFoundException(`Asset with ID ${id} not found`);
     }
 
-    const formatted = this.formatAsset(asset as unknown as AssetWithRelations);
-    if (asset.parentId === null) {
-      const [totalUnits, availableUnits, inUseUnits] = await Promise.all([
-        this.prisma.asset.count({ where: { parentId: asset.id } }),
-        this.prisma.asset.count({ where: { parentId: asset.id, status: AssetStatus.AVAILABLE } }),
-        this.prisma.asset.count({ where: { parentId: asset.id, status: AssetStatus.IN_USE } }),
-      ]);
-      return {
-        ...formatted,
-        totalUnits,
-        availableUnits,
-        inUseUnits,
-        childUnits:
-          asset.children?.map((c) => this.formatAsset(c as unknown as AssetWithRelations)) || [],
-      };
-    }
-
-    return formatted;
+    return this.formatAsset(asset as unknown as AssetWithRelations);
   }
 
   async update(id: string, data: UpdateAssetDto) {
@@ -693,21 +537,14 @@ export class AssetsService {
 
     const updateData: Prisma.AssetUpdateInput = {};
 
-    if (data.name !== undefined) updateData.name = data.name;
     if (data.tag !== undefined || data.assetTag !== undefined) {
       updateData.assetTag = data.tag || data.assetTag;
     }
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.manufacturer !== undefined) updateData.manufacturer = data.manufacturer;
-    if (data.model !== undefined) updateData.model = data.model;
+    if (data.subcode !== undefined) {
+      updateData.subcode = data.subcode ? data.subcode.trim().toUpperCase() : null;
+    }
     if (data.serialNumber !== undefined) {
       updateData.serialNumber = data.serialNumber ? data.serialNumber.trim() : null;
-    }
-    if (data.specifications !== undefined) {
-      updateData.specifications = data.specifications ? data.specifications.trim() : null;
-    }
-    if (data.unitCost !== undefined) {
-      updateData.unitCost = data.unitCost !== null ? Number(data.unitCost) : null;
     }
     if (data.costCenterId !== undefined) {
       updateData.costCenter = data.costCenterId
@@ -717,16 +554,6 @@ export class AssetsService {
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.purchaseDate) updateData.purchaseDate = new Date(data.purchaseDate);
     if (data.warrantyExpiry) updateData.warrantyExpiry = new Date(data.warrantyExpiry);
-
-    if (data.categoryId !== undefined) {
-      updateData.category = data.categoryId
-        ? { connect: { id: data.categoryId } }
-        : { disconnect: true };
-    } else if (data.category && data.category !== 'all') {
-      const cat = await this.prisma.assetCategory.findFirst({ where: { name: data.category } });
-      if (!cat) throw new BadRequestException(`Asset category "${data.category}" not found`);
-      updateData.category = { connect: { id: cat.id } };
-    }
 
     if (data.departmentId !== undefined) {
       updateData.department = data.departmentId
@@ -760,11 +587,19 @@ export class AssetsService {
         where: { id },
         data: updateData,
         include: {
-          category: true,
+          deviceModel: {
+            include: {
+              category: true,
+              vendor: true,
+            },
+          },
           assignedTo: { include: { organization: true } },
           department: { include: { organization: true } },
-          parent: true,
           costCenter: true,
+          handoverRecords: {
+            take: 1,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          },
         },
       });
 
@@ -951,8 +786,8 @@ export class AssetsService {
 
     const docUrl = dto.signedDocUrl;
     const hasDoc = Boolean(docUrl && docUrl.trim().length > 0);
-    const hasPendingRecord = dto.assignedToId ? !hasDoc : false;
     const isPending = !hasDoc;
+    const hasPendingRecord = isPending;
 
     const updatePayload: Prisma.AssetUncheckedUpdateManyInput = {
       assignedToId: dto.assignedToId ? dto.assignedToId : null,
@@ -998,6 +833,22 @@ export class AssetsService {
                 : 'Batch assigned pending signed handover record',
             })),
           });
+        } else {
+          const previouslyAssigned = existing.filter((a) => Boolean(a.assignedToId));
+          if (previouslyAssigned.length > 0) {
+            await tx.assetHandoverRecord.createMany({
+              data: previouslyAssigned.map((a) => ({
+                assetId: a.id,
+                type: HandoverRecordType.RETURN,
+                recipientId: a.assignedToId,
+                signedDocUrl: hasDoc ? docUrl?.trim() : null,
+                isPending,
+                notes: hasDoc
+                  ? 'Batch unassigned (returned) with signed handover record'
+                  : 'Batch unassigned (returned) pending signed handover record',
+              })),
+            });
+          }
         }
 
         return { count: updateResult.count, assignedIds: existingIds, existingAssets: existing };
@@ -1083,7 +934,9 @@ export class AssetsService {
 
   buildHandoverDocumentHtml(params: HandoverDocumentParams): string {
     const isReturn = params.type === 'return';
+    const isTransfer = params.type === 'transfer';
     const recipient = params.recipient;
+    const transferor = params.transferor;
     const assets = params.assets;
 
     let equipmentRowsHtml = '';
@@ -1121,7 +974,7 @@ export class AssetsService {
       </tr>`;
     }
 
-    const orgName = recipient?.organization || 'Youngone Corporation';
+    const orgName = recipient?.organization || transferor?.organization || 'Youngone Corporation';
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -1255,8 +1108,8 @@ export class AssetsService {
     }
     .signatures {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 28px;
+      grid-template-columns: ${isTransfer ? '1fr 1fr 1fr' : '1fr 1fr'};
+      gap: ${isTransfer ? '16px' : '28px'};
       margin-top: 24px;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -1333,7 +1186,7 @@ export class AssetsService {
   <div class="meta-box">
     <div class="meta-item">
       <span class="meta-label">Record Type</span>
-      <span class="meta-value">${isReturn ? 'Return (To Storage)' : 'Handover (Assignment)'}</span>
+      <span class="meta-value">${isTransfer ? 'Transfer (Reassignment)' : isReturn ? 'Return (To Storage)' : 'Handover (Assignment)'}</span>
     </div>
     <div class="meta-item">
       <span class="meta-label">Execution Date</span>
@@ -1350,7 +1203,45 @@ export class AssetsService {
   </div>
 
   <div class="section-title">1. Parties Involved</div>
-  <table>
+  ${
+    isTransfer
+      ? `<table>
+    <thead>
+      <tr>
+        <th style="width: 34%;">Transferor / Custodian A</th>
+        <th style="width: 33%;">Transferee / Custodian B</th>
+        <th style="width: 33%;">Witness / IT Representative</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div><strong>Name:</strong> ${transferor ? `<strong>${escapeHtml(transferor.fullName)}</strong>` : '___________________________________'}</div>
+          <div style="margin-top: 4px;">
+            <strong>Code:</strong> ${transferor?.employeeCode ? escapeHtml(transferor.employeeCode) : '—'}
+            &nbsp;&nbsp;
+            <strong>Dept:</strong> ${transferor?.department ? escapeHtml(transferor.department) : '—'}
+          </div>
+          <div style="margin-top: 4px;"><strong>Email:</strong> ${transferor?.email ? escapeHtml(transferor.email) : '—'}</div>
+        </td>
+        <td>
+          <div><strong>Name:</strong> ${recipient ? `<strong>${escapeHtml(recipient.fullName)}</strong>` : '___________________________________'}</div>
+          <div style="margin-top: 4px;">
+            <strong>Code:</strong> ${recipient?.employeeCode ? escapeHtml(recipient.employeeCode) : '—'}
+            &nbsp;&nbsp;
+            <strong>Dept:</strong> ${recipient?.department ? escapeHtml(recipient.department) : '—'}
+          </div>
+          <div style="margin-top: 4px;"><strong>Email:</strong> ${recipient?.email ? escapeHtml(recipient.email) : '—'}</div>
+        </td>
+        <td>
+          <div><strong>Name:</strong> IT Asset Administrator</div>
+          <div style="margin-top: 4px;"><strong>Department:</strong> IT Infrastructure & Operations</div>
+          <div style="margin-top: 4px;"><strong>Status:</strong> Custody Reassigned</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>`
+      : `<table>
     <thead>
       <tr>
         <th style="width: 50%;">IT Representative (${isReturn ? 'Receiver' : 'Issuer'})</th>
@@ -1375,7 +1266,8 @@ export class AssetsService {
         </td>
       </tr>
     </tbody>
-  </table>
+  </table>`
+  }
 
   <div class="section-title">2. Hardware Equipment Specifications (${assets.length} item${assets.length === 1 ? '' : 's'})</div>
   <table>
@@ -1397,7 +1289,7 @@ export class AssetsService {
   ${
     params.conditionNotes
       ? `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 18px; font-size: 11.5px;">
-          <strong>${isReturn ? 'Return Inspection Notes' : 'Handover Notes & Remarks'}:</strong> ${escapeHtml(params.conditionNotes)}
+          <strong>${isTransfer ? 'Transfer Condition Notes' : isReturn ? 'Return Inspection Notes' : 'Handover Notes & Remarks'}:</strong> ${escapeHtml(params.conditionNotes)}
         </div>`
       : ''
   }
@@ -1406,21 +1298,64 @@ export class AssetsService {
     <strong>Terms & Custody Acknowledgement:</strong>
     <ol>
       ${
-        isReturn
-          ? `<li>The employee confirms that all assigned hardware assets listed above have been returned to IT Department custody.</li>
-             <li>All corporate data stored on local drives will be backed up or securely wiped in accordance with corporate information security standards.</li>
-             <li>Physical hardware condition and returned accessories have been inspected and documented above.</li>`
-          : `<li>The recipient acknowledges receipt of the equipment listed above in good working condition and verified specifications.</li>
-             <li>The recipient agrees to follow corporate security policies, safeguard the equipment, and use it exclusively for authorized business purposes.</li>
-             <li>The equipment remains company property and must be returned upon department transfer, role transition, or employment termination.</li>
-             <li>Any physical damage, loss, theft, or hardware malfunction must be reported immediately to IT Asset Management.</li>`
+        isTransfer
+          ? `<li>Transferor confirms relinquishing physical custody and administrative responsibility for all equipment listed above.</li>
+             <li>Transferee acknowledges physical receipt of the equipment in good working order and assumes all custody obligations.</li>
+             <li>All equipment remains corporate property and must be maintained according to Youngone IT Asset Policies.</li>
+             <li>The IT Department has verified the hardware state and updated the central asset custody registry effective immediately.</li>`
+          : isReturn
+            ? `<li>The employee confirms that all assigned hardware assets listed above have been returned to IT Department custody.</li>
+               <li>All corporate data stored on local drives will be backed up or securely wiped in accordance with corporate information security standards.</li>
+               <li>Physical hardware condition and returned accessories have been inspected and documented above.</li>`
+            : `<li>The recipient acknowledges receipt of the equipment listed above in good working condition and verified specifications.</li>
+               <li>The recipient agrees to follow corporate security policies, safeguard the equipment, and use it exclusively for authorized business purposes.</li>
+               <li>The equipment remains company property and must be returned upon department transfer, role transition, or employment termination.</li>
+               <li>Any physical damage, loss, theft, or hardware malfunction must be reported immediately to IT Asset Management.</li>`
       }
     </ol>
   </div>
 
   <div class="section-title">3. Acknowledgement & Signatures</div>
   <div class="signatures">
+    ${
+      isTransfer
+        ? `<div class="sig-card">
+      <div class="sig-title">Transferor (Custodian A)</div>
+      <div class="sig-details">
+        <div><strong>Name:</strong> ${transferor ? escapeHtml(transferor.fullName) : '__________________________'}</div>
+        <div><strong>Code:</strong> ${transferor?.employeeCode ? escapeHtml(transferor.employeeCode) : '________________'}</div>
+        <div><strong>Dept:</strong> ${transferor?.department ? escapeHtml(transferor.department) : '________________'}</div>
+      </div>
+      <div class="sig-line">
+        <span>Signature: ______________________</span>
+        <span>Date: ___/___/______</span>
+      </div>
+    </div>
     <div class="sig-card">
+      <div class="sig-title">Transferee (Custodian B)</div>
+      <div class="sig-details">
+        <div><strong>Name:</strong> ${recipient ? escapeHtml(recipient.fullName) : '__________________________'}</div>
+        <div><strong>Code:</strong> ${recipient?.employeeCode ? escapeHtml(recipient.employeeCode) : '________________'}</div>
+        <div><strong>Dept:</strong> ${recipient?.department ? escapeHtml(recipient.department) : '________________'}</div>
+      </div>
+      <div class="sig-line">
+        <span>Signature: ______________________</span>
+        <span>Date: ___/___/______</span>
+      </div>
+    </div>
+    <div class="sig-card">
+      <div class="sig-title">IT Witness / Inspector</div>
+      <div class="sig-details">
+        <div><strong>Name:</strong> IT Asset Administrator</div>
+        <div><strong>Title:</strong> IT Asset Custodian</div>
+        <div><strong>Department:</strong> IT Operations</div>
+      </div>
+      <div class="sig-line">
+        <span>Signature: ______________________</span>
+        <span>Date: ___/___/______</span>
+      </div>
+    </div>`
+        : `<div class="sig-card">
       <div class="sig-title">IT Department Representative (${isReturn ? 'Receiver' : 'Issuer'})</div>
       <div class="sig-details">
         <div><strong>Name:</strong> IT Asset Administrator</div>
@@ -1443,7 +1378,8 @@ export class AssetsService {
         <span>Signature: ______________________</span>
         <span>Date: ___/___/______</span>
       </div>
-    </div>
+    </div>`
+    }
   </div>
 </body>
 </html>`;
@@ -1451,10 +1387,19 @@ export class AssetsService {
 
   async resolveHandoverParams(dto: GenerateHandoverDocumentDto): Promise<HandoverDocumentParams> {
     const isReturn = dto.type === 'return';
+    const isTransfer = dto.type === 'transfer';
     const currentDate = new Date().toISOString().split('T')[0];
-    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+    const refId = `${isTransfer ? 'TRF' : isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
 
     let recipient: {
+      fullName: string;
+      employeeCode?: string;
+      department?: string;
+      email?: string;
+      organization?: string;
+    } | null = null;
+
+    let transferor: {
       fullName: string;
       employeeCode?: string;
       department?: string;
@@ -1488,10 +1433,26 @@ export class AssetsService {
       }
     }
 
+    if (dto.transferorId) {
+      const tUser = await this.prisma.directoryUser.findUnique({
+        where: { id: dto.transferorId },
+        include: { department: true, organization: true },
+      });
+      if (tUser) {
+        transferor = {
+          fullName: tUser.displayName || `${tUser.firstName} ${tUser.lastName}`.trim(),
+          employeeCode: tUser.employeeCode || '—',
+          department: tUser.department?.name || '—',
+          email: tUser.email || '—',
+          organization: tUser.organization?.name || 'Youngone Corporation',
+        };
+      }
+    }
+
     if (dto.assetIds && dto.assetIds.length > 0) {
       type AssetForDocument = Prisma.AssetGetPayload<{
         include: {
-          category: true;
+          deviceModel: { include: { category: true } };
           assignedTo: { include: { department: true; organization: true } };
           department: { include: { organization: true } };
         };
@@ -1503,7 +1464,7 @@ export class AssetsService {
         const chunkFound = await this.prisma.asset.findMany({
           where: { id: { in: chunk } },
           include: {
-            category: true,
+            deviceModel: { include: { category: true } },
             assignedTo: { include: { department: true, organization: true } },
             department: { include: { organization: true } },
           },
@@ -1513,15 +1474,22 @@ export class AssetsService {
         foundAssets.push(...chunkFound);
       }
 
-      assets = foundAssets.map((a) => ({
-        id: a.id,
-        tag: a.assetTag || a.subcode || a.assetCode || a.id,
-        name: a.name,
-        manufacturer: a.manufacturer || 'Generic',
-        model: a.model || 'Standard',
-        serialNumber: a.serialNumber || 'N/A',
-        condition: isReturn ? dto.conditionNotes || 'Returned / Inspected' : 'Good / Operational',
-      }));
+      assets = foundAssets.map((a) => {
+        const legacy = a as unknown as { name?: string; manufacturer?: string; model?: string };
+        return {
+          id: a.id,
+          tag: a.assetTag || a.subcode || a.id,
+          name: a.deviceModel?.name || legacy.name || 'Hardware Unit',
+          manufacturer: a.deviceModel?.manufacturer || legacy.manufacturer || 'Generic',
+          model: a.deviceModel?.modelCode || a.deviceModel?.name || legacy.model || 'Standard',
+          serialNumber: a.serialNumber || 'N/A',
+          condition: isReturn
+            ? dto.conditionNotes || 'Returned / Inspected'
+            : isTransfer
+              ? dto.conditionNotes || 'Transferred / Operational'
+              : 'Good / Operational',
+        };
+      });
 
       if (!recipient && isReturn && foundAssets.length > 0 && foundAssets[0].assignedTo) {
         const u = foundAssets[0].assignedTo;
@@ -1533,12 +1501,29 @@ export class AssetsService {
           organization: u.organization?.name || 'Youngone Corporation',
         };
       }
+
+      if (!transferor && isTransfer && foundAssets.length > 0 && foundAssets[0].assignedTo) {
+        const u = foundAssets[0].assignedTo;
+        transferor = {
+          fullName: u.displayName || `${u.firstName} ${u.lastName}`.trim(),
+          employeeCode: u.employeeCode || '—',
+          department: u.department?.name || foundAssets[0].department?.name || '—',
+          email: u.email || '—',
+          organization: u.organization?.name || 'Youngone Corporation',
+        };
+      }
     }
 
-    const title = isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD';
-    const subtitle = isReturn
-      ? 'Equipment Return & Custody Termination'
-      : 'Equipment Assignment & Custody Transfer';
+    const title = isTransfer
+      ? 'HARDWARE ASSET CUSTODY TRANSFER AGREEMENT'
+      : isReturn
+        ? 'HARDWARE ASSET RETURN RECORD'
+        : 'HARDWARE ASSET HANDOVER RECORD';
+    const subtitle = isTransfer
+      ? 'Internal Equipment Relocation & Dual Custodian Handover'
+      : isReturn
+        ? 'Equipment Return & Custody Termination'
+        : 'Equipment Assignment & Custody Transfer';
 
     return {
       title,
@@ -1547,20 +1532,28 @@ export class AssetsService {
       type: dto.type,
       currentDate,
       recipient,
+      transferor,
       assets,
       conditionNotes: dto.conditionNotes,
     };
   }
 
-  getHandoverTemplateHtml(type: 'assignment' | 'return' = 'assignment'): string {
+  getHandoverTemplateHtml(type: 'assignment' | 'return' | 'transfer' = 'assignment'): string {
     const isReturn = type === 'return';
+    const isTransfer = type === 'transfer';
     const currentDate = new Date().toISOString().split('T')[0];
-    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+    const refId = `${isTransfer ? 'TRF' : isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
     return this.buildHandoverDocumentHtml({
-      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
-      subtitle: isReturn
-        ? 'Equipment Return & Custody Termination'
-        : 'Equipment Assignment & Custody Transfer',
+      title: isTransfer
+        ? 'HARDWARE ASSET CUSTODY TRANSFER AGREEMENT'
+        : isReturn
+          ? 'HARDWARE ASSET RETURN RECORD'
+          : 'HARDWARE ASSET HANDOVER RECORD',
+      subtitle: isTransfer
+        ? 'Internal Equipment Relocation & Dual Custodian Handover'
+        : isReturn
+          ? 'Equipment Return & Custody Termination'
+          : 'Equipment Assignment & Custody Transfer',
       refId,
       type,
       currentDate,
@@ -1569,17 +1562,24 @@ export class AssetsService {
   }
 
   async getHandoverTemplateDocx(
-    type: 'assignment' | 'return' = 'assignment',
+    type: 'assignment' | 'return' | 'transfer' = 'assignment',
   ): Promise<{ buffer: Buffer; filename: string }> {
     const isReturn = type === 'return';
+    const isTransfer = type === 'transfer';
     const currentDate = new Date().toISOString().split('T')[0];
-    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
-    const filename = `asset_${isReturn ? 'return' : 'handover'}_template.docx`;
+    const refId = `${isTransfer ? 'TRF' : isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+    const filename = `asset_${isTransfer ? 'transfer' : isReturn ? 'return' : 'handover'}_template.docx`;
     const buffer = await buildHandoverDocx({
-      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
-      subtitle: isReturn
-        ? 'Equipment Return & Custody Termination'
-        : 'Equipment Assignment & Custody Transfer',
+      title: isTransfer
+        ? 'HARDWARE ASSET CUSTODY TRANSFER AGREEMENT'
+        : isReturn
+          ? 'HARDWARE ASSET RETURN RECORD'
+          : 'HARDWARE ASSET HANDOVER RECORD',
+      subtitle: isTransfer
+        ? 'Internal Equipment Relocation & Dual Custodian Handover'
+        : isReturn
+          ? 'Equipment Return & Custody Termination'
+          : 'Equipment Assignment & Custody Transfer',
       refId,
       type,
       currentDate,
@@ -1750,14 +1750,13 @@ export class AssetsService {
     stream.pipe(res);
   }
 
-  async attachHandoverDocument(id: string, fileUrl: string, notes?: string) {
+  async attachHandoverDocument(id: string, fileUrl: string, recordId?: string, notes?: string) {
     const existing = await this.prisma.asset.findUnique({
       where: { id },
       include: {
-        category: true,
+        deviceModel: { include: { category: true, vendor: true } },
         assignedTo: { include: { organization: true } },
         department: { include: { organization: true } },
-        parent: true,
         costCenter: true,
         handoverRecords: {
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -1770,46 +1769,104 @@ export class AssetsService {
       throw new NotFoundException(`Asset with ID "${id}" not found`);
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const latestPending = await tx.assetHandoverRecord.findFirst({
-        where: { assetId: id, isPending: true },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      });
+    let resolvedRecordId: string | undefined = undefined;
 
-      if (latestPending) {
-        await tx.assetHandoverRecord.update({
-          where: { id: latestPending.id },
-          data: {
-            signedDocUrl: fileUrl,
-            isPending: false,
-            notes: notes
-              ? `${latestPending.notes ? `${latestPending.notes}; ` : ''}${notes}`
-              : latestPending.notes,
-          },
+    const result = await this.prisma.$transaction(async (tx) => {
+      let targetRecord: { id: string; notes: string | null } | null = null;
+      let effectiveNotes = notes;
+      let actualRecordId = recordId;
+
+      if (recordId && notes === undefined && /\s/.test(recordId)) {
+        actualRecordId = undefined;
+        effectiveNotes = recordId;
+      }
+
+      if (actualRecordId) {
+        targetRecord = await tx.assetHandoverRecord.findFirst({
+          where: { id: actualRecordId, assetId: id },
+          select: { id: true, notes: true },
         });
+        if (!targetRecord && !notes) {
+          effectiveNotes = actualRecordId;
+        }
+      }
+      if (!targetRecord) {
+        targetRecord = await tx.assetHandoverRecord.findFirst({
+          where: { assetId: id, isPending: true },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: { id: true, notes: true },
+        });
+      }
+
+      if (targetRecord) {
+        resolvedRecordId = targetRecord.id;
+        const isTransferRecord = Boolean(
+          targetRecord.notes?.startsWith('Transfer:') ||
+            targetRecord.notes?.includes('Custody transferred'),
+        );
+
+        if (
+          isTransferRecord &&
+          !actualRecordId &&
+          typeof tx.assetHandoverRecord?.updateMany === 'function'
+        ) {
+          // Resolve both parts of the custody transfer agreement with the uploaded transfer document
+          await tx.assetHandoverRecord.updateMany({
+            where: {
+              assetId: id,
+              isPending: true,
+              OR: [
+                { notes: { startsWith: 'Transfer:' } },
+                { notes: { contains: 'Custody transferred' } },
+              ],
+            },
+            data: {
+              signedDocUrl: fileUrl,
+              isPending: false,
+            },
+          });
+        } else {
+          await tx.assetHandoverRecord.update({
+            where: { id: targetRecord.id },
+            data: {
+              signedDocUrl: fileUrl,
+              isPending: false,
+              notes: effectiveNotes
+                ? `${targetRecord.notes ? `${targetRecord.notes}; ` : ''}${effectiveNotes}`
+                : targetRecord.notes,
+            },
+          });
+        }
       } else {
-        await tx.assetHandoverRecord.create({
+        const createdRecord = await tx.assetHandoverRecord.create({
           data: {
             assetId: id,
             type: existing.assignedToId ? HandoverRecordType.ASSIGNMENT : HandoverRecordType.RETURN,
             recipientId: existing.assignedToId || null,
             signedDocUrl: fileUrl,
             isPending: false,
-            notes: notes || 'Signed handover document attached directly',
+            notes: effectiveNotes || 'Signed handover document attached directly',
           },
         });
+        resolvedRecordId = createdRecord.id;
       }
+
+      const pendingRemaining =
+        typeof tx.assetHandoverRecord?.count === 'function'
+          ? await tx.assetHandoverRecord.count({
+              where: { assetId: id, isPending: true },
+            })
+          : 0;
 
       const updated = await tx.asset.update({
         where: { id },
         data: {
-          hasPendingRecord: false,
+          hasPendingRecord: pendingRemaining > 0,
         },
         include: {
-          category: true,
+          deviceModel: { include: { category: true, vendor: true } },
           assignedTo: { include: { organization: true } },
           department: { include: { organization: true } },
-          parent: true,
           costCenter: true,
           handoverRecords: {
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -1830,9 +1887,9 @@ export class AssetsService {
           entityId: id,
           severity: 'Info',
           status: 'Success',
-          details: `Signed handover document attached to asset (${existing.assetTag || id}). Pending record resolved. File: ${fileUrl}`,
+          details: `Signed handover document attached to asset (${existing.subcode || existing.assetTag || id}). Pending record resolved. File: ${fileUrl}`,
           oldValue: { hasPendingRecord: existing.hasPendingRecord },
-          newValue: { hasPendingRecord: false, signedDocUrl: fileUrl },
+          newValue: { hasPendingRecord: result.hasPendingRecord, signedDocUrl: fileUrl },
         });
       } catch (auditErr: unknown) {
         this.logger.error(
@@ -1842,17 +1899,613 @@ export class AssetsService {
       }
     }
 
+    if (
+      this.notificationsService &&
+      typeof this.notificationsService.clearHandoverDocumentAlert === 'function'
+    ) {
+      try {
+        await this.notificationsService.clearHandoverDocumentAlert(resolvedRecordId || id, id);
+      } catch (notifyErr: unknown) {
+        this.logger.warn(
+          `Failed to clear handover alert for asset "${id}": ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
+        );
+      }
+    }
+
     return this.formatAsset(result as unknown as AssetWithRelations);
+  }
+
+  async allocate(dto: AllocateAssetDto) {
+    if (!dto.assetIds || !Array.isArray(dto.assetIds) || dto.assetIds.length === 0) {
+      throw new BadRequestException(
+        'At least one physical asset unit ID is required for allocation',
+      );
+    }
+
+    const uniqueIds = Array.from(new Set(dto.assetIds.map((id) => id.trim()).filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('Valid asset unit IDs are required for allocation');
+    }
+
+    const recipient = await this.prisma.directoryUser.findUnique({
+      where: { id: dto.assignedToId },
+      include: { department: true, organization: true },
+    });
+    if (!recipient) {
+      throw new NotFoundException(`Directory user with ID "${dto.assignedToId}" not found`);
+    }
+
+    if (recipient.status === 'SUSPENDED' || recipient.status === 'DISABLED') {
+      throw new BadRequestException(
+        `Cannot allocate assets to ${recipient.status.toLowerCase()} employee`,
+      );
+    }
+
+    const targetDepartmentId = dto.departmentId || recipient.departmentId || null;
+    const docUrl = dto.signedDocUrl?.trim();
+    const hasDoc = Boolean(docUrl && docUrl.length > 0);
+    const isPending = !hasDoc;
+
+    const allocatedUnits = await this.prisma.$transaction(async (tx) => {
+      const units = await tx.asset.findMany({
+        where: { id: { in: uniqueIds } },
+        include: { deviceModel: true },
+      });
+
+      if (units.length !== uniqueIds.length) {
+        const foundSet = new Set(units.map((u) => u.id));
+        const missing = uniqueIds.filter((id) => !foundSet.has(id));
+        throw new NotFoundException(`Physical units not found: ${missing.join(', ')}`);
+      }
+
+      const unavailable = units.filter(
+        (u) => u.status !== AssetStatus.AVAILABLE || u.assignedToId !== null,
+      );
+      if (unavailable.length > 0) {
+        throw new ConflictException(
+          `Cannot allocate unit(s) ${unavailable.map((u) => u.subcode || u.assetTag).join(', ')}: units must be AVAILABLE in inventory`,
+        );
+      }
+
+      await tx.asset.updateMany({
+        where: { id: { in: uniqueIds } },
+        data: {
+          assignedToId: recipient.id,
+          departmentId: targetDepartmentId,
+          costCenterId: dto.costCenterId || undefined,
+          status: AssetStatus.IN_USE,
+          hasPendingRecord: isPending,
+        },
+      });
+
+      await tx.assetHandoverRecord.createMany({
+        data: uniqueIds.map((assetId) => ({
+          assetId,
+          type: HandoverRecordType.ASSIGNMENT,
+          recipientId: recipient.id,
+          signedDocUrl: hasDoc ? docUrl : null,
+          isPending,
+          notes:
+            dto.conditionNotes ||
+            dto.notes ||
+            (hasDoc
+              ? 'Allocated with signed handover document'
+              : 'Allocated pending signed handover document'),
+        })),
+      });
+
+      return units;
+    });
+
+    if (this.auditService) {
+      for (const unit of allocatedUnits) {
+        try {
+          await this.auditService.logEvent({
+            action: 'ASSET_ALLOCATED',
+            entity: 'Asset',
+            entityType: 'Hardware',
+            entityId: unit.id,
+            severity: isPending ? 'Warning' : 'Info',
+            status: 'Success',
+            details: `Asset unit "${unit.subcode || unit.assetTag}" allocated to ${recipient.displayName || recipient.firstName} (${recipient.email})${isPending ? ' (pending signed record)' : ''}`,
+            oldValue: {
+              status: unit.status,
+              assignedToId: unit.assignedToId,
+              hasPendingRecord: unit.hasPendingRecord,
+            },
+            newValue: {
+              status: AssetStatus.IN_USE,
+              assignedToId: recipient.id,
+              hasPendingRecord: isPending,
+            },
+          });
+        } catch (auditErr: unknown) {
+          this.logger.error(
+            `Failed to log audit event for allocated asset "${unit.id}"`,
+            auditErr instanceof Error ? auditErr.stack : String(auditErr),
+          );
+        }
+      }
+    }
+
+    if (this.notificationsService) {
+      try {
+        const appUser =
+          typeof this.prisma.appUser?.findFirst === 'function'
+            ? await this.prisma.appUser.findFirst({
+                where: {
+                  OR: [
+                    { id: recipient.id },
+                    ...(recipient.email
+                      ? [{ email: { equals: recipient.email, mode: 'insensitive' as const } }]
+                      : []),
+                  ],
+                },
+                select: { id: true },
+              })
+            : { id: recipient.id };
+
+        if (isPending) {
+          if (appUser) {
+            await this.notificationsService.notifyUser(appUser.id, {
+              title: 'Equipment Allocated — Pending Signature',
+              message: `${uniqueIds.length} equipment unit(s) have been allocated to you. Please review and upload the signed handover document.`,
+              type: 'WARNING',
+              link: '/assets',
+            });
+          }
+          await this.notificationsService.notifyAdmins({
+            title: 'Pending Asset Handover Record',
+            message: `${uniqueIds.length} equipment unit(s) allocated to ${recipient.displayName || recipient.firstName} without uploaded signed record.`,
+            type: 'WARNING',
+            link: '/assets',
+          });
+        } else {
+          if (appUser) {
+            await this.notificationsService.notifyUser(appUser.id, {
+              title: 'Equipment Allocated',
+              message: `${uniqueIds.length} equipment unit(s) have been allocated to you with signed handover documentation attached.`,
+              type: 'INFO',
+              link: '/assets',
+            });
+          }
+        }
+      } catch (notifyErr: unknown) {
+        this.logger.error(
+          `Failed to dispatch allocation notification for recipient "${recipient.id}"`,
+          notifyErr instanceof Error ? notifyErr.stack : String(notifyErr),
+        );
+      }
+    }
+
+    return {
+      success: true,
+      count: uniqueIds.length,
+      allocatedIds: uniqueIds,
+      assignedToId: recipient.id,
+      hasPendingRecord: isPending,
+    };
+  }
+
+  async allocateUnits(dto: AllocateAssetDto) {
+    return this.allocate(dto);
+  }
+
+  async returnUnits(dto: ReturnAssetDto) {
+    const rawIds = dto.assetIds || [];
+    const uniqueIds = Array.from(new Set(rawIds.map((id) => id.trim()).filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('At least one physical asset unit ID is required for return');
+    }
+
+    const rawTarget = dto.targetStatus || dto.status || 'AVAILABLE';
+    const normalizedRaw = String(rawTarget).toUpperCase().trim();
+    const validReturnInputs = ['AVAILABLE', 'IN STORAGE', 'MAINTENANCE', 'IN REPAIR', 'RETIRED'];
+    if (!validReturnInputs.includes(normalizedRaw)) {
+      throw new BadRequestException(
+        `Invalid return target status: ${rawTarget}. Permitted statuses: AVAILABLE, MAINTENANCE, RETIRED`,
+      );
+    }
+    const targetStatus = mapAssetStatus(rawTarget);
+
+    const docUrl = dto.signedDocUrl?.trim();
+    const hasDoc = Boolean(docUrl && docUrl.length > 0);
+    const isPending = !hasDoc;
+    const returnTimestamp = new Date().toISOString().split('T')[0];
+
+    const returnedAssets = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.asset.findMany({
+        where: { id: { in: uniqueIds } },
+        include: { deviceModel: true },
+      });
+
+      if (existing.length !== uniqueIds.length) {
+        const foundSet = new Set(existing.map((u) => u.id));
+        const missing = uniqueIds.filter((id) => !foundSet.has(id));
+        throw new NotFoundException(`Physical units not found: ${missing.join(', ')}`);
+      }
+
+      const notInUse = existing.filter((u) => u.status !== AssetStatus.IN_USE);
+      if (notInUse.length > 0) {
+        throw new ConflictException(
+          `Unit(s) ${notInUse.map((u) => u.subcode || u.assetTag).join(', ')} are not currently IN_USE (status: ${notInUse.map((u) => u.status).join(', ')})`,
+        );
+      }
+
+      for (const unit of existing) {
+        const previousRecipientId = unit.assignedToId;
+        const conditionNotes = dto.conditionNotes || dto.inspectionNotes || dto.notes;
+        const updatedNotes = conditionNotes
+          ? `${unit.notes ? `${unit.notes}\n` : ''}[Return ${returnTimestamp}]: ${conditionNotes}`
+          : unit.notes;
+
+        await tx.assetHandoverRecord.create({
+          data: {
+            assetId: unit.id,
+            type: HandoverRecordType.RETURN,
+            recipientId: previousRecipientId,
+            signedDocUrl: hasDoc ? docUrl : null,
+            isPending,
+            notes:
+              conditionNotes ||
+              (hasDoc ? 'Returned with signed document' : 'Returned pending signed document'),
+          },
+        });
+
+        await tx.asset.update({
+          where: { id: unit.id },
+          data: {
+            assignedToId: null,
+            status: targetStatus,
+            hasPendingRecord: isPending,
+            notes: updatedNotes,
+          },
+        });
+      }
+
+      return existing;
+    });
+
+    if (this.auditService && returnedAssets.length > 0) {
+      for (const unit of returnedAssets) {
+        try {
+          await this.auditService.logEvent({
+            action: 'ASSET_RETURNED',
+            entity: 'Asset',
+            entityType: 'Hardware',
+            entityId: unit.id,
+            severity: isPending ? 'Warning' : 'Info',
+            status: 'Success',
+            details: `Asset unit "${unit.subcode || unit.assetTag}" returned to inventory (${targetStatus})${isPending ? ' (pending signed record)' : ''}`,
+            oldValue: { status: unit.status, assignedToId: unit.assignedToId },
+            newValue: { status: targetStatus, assignedToId: null, hasPendingRecord: isPending },
+          });
+        } catch (auditErr: unknown) {
+          this.logger.error(
+            `Failed to log audit event for returned asset "${unit.id}"`,
+            auditErr instanceof Error ? auditErr.stack : String(auditErr),
+          );
+        }
+      }
+    }
+
+    return {
+      success: true,
+      count: returnedAssets.length,
+      returnedIds: returnedAssets.map((u) => u.id),
+      status: targetStatus,
+      hasPendingRecord: isPending,
+    };
+  }
+
+  async transfer(dto: TransferAssetDto) {
+    if (!dto.assetIds || !Array.isArray(dto.assetIds) || dto.assetIds.length === 0) {
+      throw new BadRequestException('At least one physical asset unit ID is required for transfer');
+    }
+    const uniqueIds = Array.from(new Set(dto.assetIds.map((id) => id.trim()).filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('Valid asset unit IDs are required for transfer');
+    }
+
+    const toUser = await this.prisma.directoryUser.findUnique({
+      where: { id: dto.toUserId },
+      include: { department: true, organization: true },
+    });
+
+    if (!toUser) {
+      throw new NotFoundException(`Destination directory user with ID "${dto.toUserId}" not found`);
+    }
+
+    if (toUser.status === 'SUSPENDED' || toUser.status === 'DISABLED') {
+      throw new BadRequestException(
+        `Cannot transfer asset to ${toUser.status.toLowerCase()} employee`,
+      );
+    }
+
+    const docUrl = dto.signedDocUrl?.trim();
+    const hasDoc = Boolean(docUrl && docUrl.length > 0);
+    const isPending = !hasDoc;
+    const targetDeptId = dto.toDepartmentId || toUser.departmentId || null;
+    const transferTimestamp = new Date().toISOString().split('T')[0];
+
+    const transferredUnits = await this.prisma.$transaction(async (tx) => {
+      const units = await tx.asset.findMany({
+        where: { id: { in: uniqueIds } },
+        include: { deviceModel: true, assignedTo: true },
+      });
+
+      if (units.length !== uniqueIds.length) {
+        const foundSet = new Set(units.map((u) => u.id));
+        const missing = uniqueIds.filter((id) => !foundSet.has(id));
+        throw new NotFoundException(`Physical units not found: ${missing.join(', ')}`);
+      }
+
+      for (const unit of units) {
+        if (unit.status !== AssetStatus.IN_USE) {
+          throw new BadRequestException(
+            `Asset ${unit.subcode || unit.assetTag} is not IN_USE (status: ${unit.status})`,
+          );
+        }
+        if (unit.assignedToId === toUser.id) {
+          throw new BadRequestException(
+            `Asset ${unit.subcode || unit.assetTag} is already assigned to destination user "${toUser.id}"`,
+          );
+        }
+        if (dto.fromUserId && unit.assignedToId !== dto.fromUserId) {
+          throw new ConflictException(
+            `Asset ${unit.subcode || unit.assetTag} is currently assigned to user "${unit.assignedToId}", not "${dto.fromUserId}"`,
+          );
+        }
+      }
+
+      for (const unit of units) {
+        const previousCustodianId = unit.assignedToId || null;
+        const previousCustodianName = unit.assignedTo
+          ? unit.assignedTo.displayName ||
+            `${unit.assignedTo.firstName} ${unit.assignedTo.lastName}`.trim()
+          : 'Previous Custodian';
+
+        // Supersede any prior pending assignment records for releasing custodian on this asset
+        if (previousCustodianId && typeof tx.assetHandoverRecord?.updateMany === 'function') {
+          await tx.assetHandoverRecord.updateMany({
+            where: {
+              assetId: unit.id,
+              recipientId: previousCustodianId,
+              type: HandoverRecordType.ASSIGNMENT,
+              isPending: true,
+            },
+            data: {
+              isPending: false,
+              notes: 'Superseded by custody transfer',
+            },
+          });
+        }
+
+        // 1. HandoverRecordType.RETURN for releasing custodian (Custodian A)
+        await tx.assetHandoverRecord.create({
+          data: {
+            assetId: unit.id,
+            type: HandoverRecordType.RETURN,
+            recipientId: previousCustodianId,
+            signedDocUrl: hasDoc ? dto.returnSignedDocUrl || docUrl : null,
+            isPending,
+            notes:
+              dto.transferReason || dto.notes
+                ? `Transfer: ${dto.transferReason || dto.notes}`
+                : `Custody transferred to ${toUser.displayName || toUser.firstName}`,
+          },
+        });
+
+        // 2. HandoverRecordType.ASSIGNMENT for receiving custodian (Custodian B)
+        await tx.assetHandoverRecord.create({
+          data: {
+            assetId: unit.id,
+            type: HandoverRecordType.ASSIGNMENT,
+            recipientId: toUser.id,
+            signedDocUrl: hasDoc ? dto.assignmentSignedDocUrl || docUrl : null,
+            isPending,
+            notes:
+              dto.transferReason || dto.notes
+                ? `Transfer: ${dto.transferReason || dto.notes}`
+                : `Custody transferred from ${previousCustodianName}`,
+          },
+        });
+
+        const conditionNotes = dto.conditionNotes || dto.notes || dto.transferReason;
+        const updatedNotes = conditionNotes
+          ? `${unit.notes ? `${unit.notes}\n` : ''}[Transfer ${transferTimestamp}]: ${conditionNotes}`
+          : unit.notes;
+
+        await tx.asset.update({
+          where: { id: unit.id },
+          data: {
+            assignedToId: toUser.id,
+            departmentId: targetDeptId,
+            status: AssetStatus.IN_USE,
+            hasPendingRecord: isPending,
+            notes: updatedNotes,
+          },
+        });
+      }
+
+      return units;
+    });
+
+    if (this.auditService) {
+      for (const unit of transferredUnits) {
+        try {
+          await this.auditService.logEvent({
+            action: 'ASSET_TRANSFERRED',
+            entity: 'Asset',
+            entityType: 'Hardware',
+            entityId: unit.id,
+            severity: isPending ? 'Warning' : 'Info',
+            status: 'Success',
+            details: `Asset unit "${unit.subcode || unit.assetTag}" transferred to ${toUser.displayName || toUser.firstName}${isPending ? ' (pending signed record)' : ''}`,
+            oldValue: { assignedToId: unit.assignedToId, status: unit.status },
+            newValue: {
+              assignedToId: toUser.id,
+              status: AssetStatus.IN_USE,
+              hasPendingRecord: isPending,
+            },
+          });
+        } catch (auditErr: unknown) {
+          this.logger.error(
+            `Failed to log audit event for transferred asset "${unit.id}"`,
+            auditErr instanceof Error ? auditErr.stack : String(auditErr),
+          );
+        }
+      }
+    }
+
+    if (this.notificationsService) {
+      try {
+        const appUser =
+          typeof this.prisma.appUser?.findFirst === 'function'
+            ? await this.prisma.appUser.findFirst({
+                where: {
+                  OR: [
+                    { id: toUser.id },
+                    ...(toUser.email
+                      ? [{ email: { equals: toUser.email, mode: 'insensitive' as const } }]
+                      : []),
+                  ],
+                },
+                select: { id: true },
+              })
+            : { id: toUser.id };
+
+        if (appUser) {
+          await this.notificationsService.notifyUser(appUser.id, {
+            title: 'Equipment Transferred to You',
+            message: `${uniqueIds.length} equipment unit(s) transferred to your custody.${isPending ? ' Please upload the signed transfer agreement.' : ''}`,
+            type: isPending ? 'WARNING' : 'INFO',
+            link: '/assets',
+          });
+        }
+
+        if (isPending) {
+          await this.notificationsService.notifyAdmins({
+            title: 'Pending Asset Transfer Record',
+            message: `${uniqueIds.length} equipment unit(s) transferred to ${toUser.displayName || toUser.firstName} without uploaded signed transfer record.`,
+            type: 'WARNING',
+            link: '/assets',
+          });
+        }
+      } catch (notifyErr: unknown) {
+        this.logger.error(
+          `Failed to dispatch transfer notification for recipient "${toUser.id}"`,
+          notifyErr instanceof Error ? notifyErr.stack : String(notifyErr),
+        );
+      }
+    }
+
+    return {
+      success: true,
+      count: uniqueIds.length,
+      transferredIds: uniqueIds,
+      toUserId: toUser.id,
+      hasPendingRecord: isPending,
+    };
+  }
+
+  async transferUnits(dto: TransferAssetDto) {
+    return this.transfer(dto);
+  }
+
+  async batchIntakeUnits(data: BatchStockIntakeDto) {
+    if (!data.deviceModelId) {
+      throw new BadRequestException('deviceModelId is required for batch stock intake');
+    }
+
+    const model = await this.prisma.deviceModel.findUnique({
+      where: { id: data.deviceModelId },
+    });
+    if (!model || model.deletedAt !== null) {
+      throw new NotFoundException(`Device model with ID "${data.deviceModelId}" not found`);
+    }
+
+    if (data.units && Array.isArray(data.units) && data.units.length > 0) {
+      if (data.initialBinLocation && data.initialBinLocation.trim()) {
+        await this.prisma.deviceModel.update({
+          where: { id: model.id },
+          data: { binNumber: data.initialBinLocation.trim() },
+        });
+      }
+
+      const createdUnits = await this.prisma.$transaction(async (tx) => {
+        const units = [];
+        for (const item of data.units!) {
+          const rawSubcode = item.subcode || item.assetTag;
+          if (!rawSubcode || rawSubcode.trim().length === 0) {
+            throw new BadRequestException('Subcode is required for each unit in batch intake');
+          }
+          const subcode = rawSubcode.trim().toUpperCase();
+          const existing = await tx.asset.findFirst({
+            where: {
+              OR: [
+                { subcode: { equals: subcode, mode: 'insensitive' } },
+                { assetTag: { equals: subcode, mode: 'insensitive' } },
+              ],
+            },
+          });
+          if (existing) {
+            throw new ConflictException(`Unit with subcode "${subcode}" already exists.`);
+          }
+
+          const itemWithDept = item as { departmentId?: string };
+          const dataWithDept = data as { departmentId?: string };
+          let unitDeptId = itemWithDept.departmentId || dataWithDept.departmentId;
+          if (!unitDeptId && typeof this.prisma.department?.findFirst === 'function') {
+            const firstDept = await this.prisma.department.findFirst();
+            if (firstDept) {
+              unitDeptId = firstDept.id;
+            }
+          }
+
+          const created = await tx.asset.create({
+            data: {
+              deviceModelId: model.id,
+              subcode,
+              assetTag: subcode,
+              serialNumber: item.serialNumber?.trim() || null,
+              status: item.status ? mapAssetStatus(item.status) : AssetStatus.AVAILABLE,
+              costCenterId: data.costCenterId || null,
+              departmentId: unitDeptId || null,
+              purchaseDate: item.purchaseDate ? new Date(item.purchaseDate) : null,
+              warrantyExpiry: item.warrantyExpiry ? new Date(item.warrantyExpiry) : null,
+              notes: item.notes?.trim() || data.notes?.trim() || null,
+            },
+          });
+          units.push(created);
+        }
+        return units;
+      });
+
+      return {
+        success: true,
+        count: createdUnits.length,
+        modelId: model.id,
+        modelCode: model.modelCode,
+        units: createdUnits.map((u) => ({
+          id: u.id,
+          subcode: u.subcode,
+          assetTag: u.assetTag,
+          status: u.status,
+        })),
+      };
+    }
+
+    return this.batchIntake(data.deviceModelId, data);
   }
 
   async returnAsset(id: string, dto: ReturnAssetDto) {
     const existing = await this.prisma.asset.findUnique({
       where: { id },
       include: {
+        deviceModel: { include: { category: true, vendor: true } },
         assignedTo: { include: { organization: true } },
         department: { include: { organization: true } },
-        category: true,
-        parent: true,
         costCenter: true,
       },
     });
@@ -1861,16 +2514,34 @@ export class AssetsService {
       throw new NotFoundException(`Asset with ID "${id}" not found`);
     }
 
+    const displayName = existing.deviceModel?.name || existing.subcode || existing.assetTag || id;
+
+    if (existing.status !== AssetStatus.IN_USE) {
+      throw new BadRequestException(
+        `Asset "${displayName}" is not currently IN_USE (status: ${existing.status})`,
+      );
+    }
+
     const previousRecipientId = existing.assignedToId;
-    const targetStatus = dto.status ? mapAssetStatus(dto.status) : AssetStatus.AVAILABLE;
+    const rawTarget = dto.targetStatus || dto.status || 'AVAILABLE';
+    const normalizedRaw = String(rawTarget).toUpperCase().trim();
+    const validReturnInputs = ['AVAILABLE', 'IN STORAGE', 'MAINTENANCE', 'IN REPAIR', 'RETIRED'];
+    if (!validReturnInputs.includes(normalizedRaw)) {
+      throw new BadRequestException(
+        `Invalid return target status: ${rawTarget}. Permitted statuses: AVAILABLE, MAINTENANCE, RETIRED`,
+      );
+    }
+    const targetStatus = mapAssetStatus(rawTarget);
+
+    const conditionNotes = dto.conditionNotes || dto.inspectionNotes || dto.notes;
     const docUrl = dto.signedDocUrl;
     const hasDoc = Boolean(docUrl && docUrl.trim().length > 0);
     const isPending = !hasDoc;
     const hasPendingRecord = !hasDoc;
 
     const returnTimestamp = new Date().toISOString().split('T')[0];
-    const updatedNotes = dto.conditionNotes
-      ? `${existing.notes ? `${existing.notes}\n` : ''}[Return ${returnTimestamp}]: ${dto.conditionNotes}`
+    const updatedNotes = conditionNotes
+      ? `${existing.notes ? `${existing.notes}\n` : ''}[Return ${returnTimestamp}]: ${conditionNotes}`
       : existing.notes;
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -1881,7 +2552,7 @@ export class AssetsService {
           recipientId: previousRecipientId,
           signedDocUrl: hasDoc ? docUrl?.trim() : null,
           isPending,
-          notes: dto.conditionNotes || null,
+          notes: conditionNotes || null,
         },
       });
 
@@ -1894,10 +2565,9 @@ export class AssetsService {
           notes: updatedNotes,
         },
         include: {
-          category: true,
+          deviceModel: { include: { category: true, vendor: true } },
           assignedTo: { include: { organization: true } },
           department: { include: { organization: true } },
-          parent: true,
           costCenter: true,
           handoverRecords: {
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -1914,20 +2584,20 @@ export class AssetsService {
         if (previousRecipientId) {
           await this.notificationsService.notifyUser(previousRecipientId, {
             title: 'Pending Return Record',
-            message: `Asset "${existing.name}" (${existing.assetTag || id}) was returned without a signed record. Please upload the signed return document.`,
+            message: `Asset "${displayName}" (${existing.subcode || existing.assetTag || id}) was returned without a signed record. Please upload the signed return document.`,
             type: 'WARNING',
             link: `/assets?drawer=${id}`,
           });
         }
         await this.notificationsService.notifyAdmins({
           title: 'Pending Asset Return Record',
-          message: `Asset "${existing.name}" (${existing.assetTag || id}) was returned without a signed document. Marked with Pending Record badge.`,
+          message: `Asset "${displayName}" (${existing.subcode || existing.assetTag || id}) was returned without a signed document. Marked with Pending Record badge.`,
           type: 'WARNING',
           link: `/assets?drawer=${id}`,
         });
       } catch (error: unknown) {
         this.logger.error(
-          `Failed to dispatch pending return record notification for asset "${existing.name}"`,
+          `Failed to dispatch pending return record notification for asset "${displayName}"`,
           error instanceof Error ? error.stack : String(error),
         );
       }
@@ -1941,7 +2611,7 @@ export class AssetsService {
         entityId: id,
         severity: isPending ? 'Warning' : 'Info',
         status: 'Success',
-        details: `Asset "${existing.name}" (${existing.assetTag || id}) returned. Status: ${targetStatus}. Signed doc: ${hasDoc ? 'Attached' : 'Pending'}.${dto.conditionNotes ? ` Notes: ${dto.conditionNotes}` : ''}`,
+        details: `Asset "${existing.deviceModel?.name || 'Hardware'}" (${existing.assetTag || existing.subcode || id}) returned. Status: ${targetStatus}. Signed doc: ${hasDoc ? 'Attached' : 'Pending'}.${dto.conditionNotes ? ` Notes: ${dto.conditionNotes}` : ''}`,
         oldValue: {
           status: existing.status,
           assignedToId: previousRecipientId,
@@ -1987,7 +2657,13 @@ export class AssetsService {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.asset.findUnique({ where: { id } });
+    const existing = await this.prisma.asset.findUnique({
+      where: { id },
+      include: { deviceModel: true },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Asset with ID "${id}" not found`);
+    }
     const deleted = await this.prisma.asset.delete({ where: { id } });
 
     if (this.auditService) {
@@ -1999,8 +2675,8 @@ export class AssetsService {
           entityId: id,
           severity: 'Warning',
           status: 'Success',
-          details: `Hardware asset "${existing?.name || deleted.name}" (${existing?.assetTag || deleted.assetTag || id}) deleted`,
-          oldValue: (existing || deleted) as unknown as Record<string, unknown>,
+          details: `Hardware asset "${existing.deviceModel?.name || deleted.subcode || deleted.assetTag || id}" (${existing.subcode || existing.assetTag || deleted.subcode || deleted.assetTag || id}) deleted`,
+          oldValue: existing as unknown as Record<string, unknown>,
         });
       } catch (error: unknown) {
         this.logger.error(
@@ -2054,26 +2730,44 @@ export class AssetsService {
     const signedRecord = handoverRecords?.find((r) => Boolean(r.signedDocUrl));
     const signedDocUrl = signedRecord?.signedDocUrl || latestHandover?.signedDocUrl || null;
 
+    const deviceModel = asset.deviceModel;
+
     return {
       id: asset.id,
-      assetCode: asset.assetCode || null,
-      subcode: asset.subcode || null,
-      parentId: asset.parentId || null,
-      parent: asset.parent
+      deviceModelId: asset.deviceModelId,
+      parentId: asset.deviceModelId || null,
+      deviceModel: deviceModel
         ? {
-            id: asset.parent.id,
-            assetCode: asset.parent.assetCode,
-            name: asset.parent.name,
-            model: asset.parent.model,
-            manufacturer: asset.parent.manufacturer,
-            categoryId: asset.parent.categoryId,
-            specifications: asset.parent.specifications,
-            unitCost:
-              asset.parent.unitCost !== null && asset.parent.unitCost !== undefined
-                ? Number(asset.parent.unitCost)
-                : null,
+            id: deviceModel.id,
+            name: deviceModel.name,
+            modelCode: deviceModel.modelCode,
+            manufacturer: deviceModel.manufacturer,
+            categoryId: deviceModel.categoryId,
+            categoryName: deviceModel.category?.name || 'Hardware',
+            unitCost: Number(deviceModel.unitCost),
+            minThreshold: deviceModel.minThreshold,
+            binLocation: deviceModel.binNumber || null,
+            specifications: deviceModel.specifications,
           }
         : null,
+      subcode: asset.subcode || null,
+      assetTag: asset.assetTag || asset.subcode || '',
+      tag: asset.assetTag || asset.subcode || '',
+      name: deviceModel?.name || (asset as { name?: string }).name || 'Unknown Unit',
+      description: deviceModel?.name || (asset as { description?: string }).description || '',
+      manufacturer:
+        deviceModel?.manufacturer || (asset as { manufacturer?: string }).manufacturer || 'Generic',
+      model: deviceModel?.name || (asset as { model?: string }).model || 'Standard',
+      modelCode: deviceModel?.modelCode || null,
+      serialNumber: asset.serialNumber || null,
+      specifications: deviceModel?.specifications
+        ? typeof deviceModel.specifications === 'string'
+          ? deviceModel.specifications
+          : JSON.stringify(deviceModel.specifications)
+        : null,
+      unitCost: deviceModel ? Number(deviceModel.unitCost) : null,
+      categoryId: deviceModel?.categoryId || null,
+      category: deviceModel?.category?.name || 'Hardware',
       costCenterId: asset.costCenterId || null,
       costCenter: asset.costCenter
         ? {
@@ -2083,18 +2777,6 @@ export class AssetsService {
             description: asset.costCenter.description,
           }
         : null,
-      assetTag: asset.assetTag || asset.subcode || asset.assetCode || '',
-      tag: asset.assetTag || asset.subcode || asset.assetCode || '',
-      name: asset.name,
-      description: asset.description || '',
-      manufacturer: asset.manufacturer || 'Generic',
-      model: asset.model || 'Standard',
-      serialNumber: asset.serialNumber || null,
-      specifications: asset.specifications || null,
-      unitCost:
-        asset.unitCost !== null && asset.unitCost !== undefined ? Number(asset.unitCost) : null,
-      categoryId: asset.categoryId,
-      category: asset.category?.name || 'Laptop',
       status: statusLabel,
       assignedToId: asset.assignedToId,
       assignedTo: assignedUserName,
@@ -2102,7 +2784,6 @@ export class AssetsService {
       assignedEmail: asset.assignedTo?.email || '',
       departmentId: asset.departmentId,
       department: asset.department?.name || '',
-
       organizationId: asset.department?.organizationId || asset.assignedTo?.organizationId || null,
       organization:
         asset.department?.organization?.name || asset.assignedTo?.organization?.name || null,
@@ -2133,56 +2814,79 @@ export class AssetsService {
   // =========================================================================
 
   async createModel(data: CreateDeviceModelDto) {
-    if (!data.assetCode || data.assetCode.trim().length === 0) {
-      throw new BadRequestException('Asset code (model code) is required');
+    const rawModelCode = data.modelCode || data.assetCode;
+    if (!rawModelCode || rawModelCode.trim().length === 0) {
+      throw new BadRequestException('Model code is required');
     }
     if (!data.name || data.name.trim().length === 0) {
       throw new BadRequestException('Device model name is required');
     }
+
+    const normalizedModelCode = rawModelCode.trim().toUpperCase();
+
+    const existing = await this.prisma.deviceModel.findUnique({
+      where: { modelCode: normalizedModelCode },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Device model with modelCode "${normalizedModelCode}" already exists. Model codes must be unique.`,
+      );
+    }
+
+    let categoryId = data.categoryId;
+    if (!categoryId || categoryId.trim().length === 0) {
+      const defaultCat = await this.prisma.assetCategory.findFirst();
+      if (defaultCat) {
+        categoryId = defaultCat.id;
+      } else {
+        throw new BadRequestException('Category ID is required');
+      }
+    } else {
+      const cat = await this.prisma.assetCategory.findUnique({ where: { id: categoryId } });
+      if (!cat) {
+        throw new NotFoundException(`Asset category with ID "${categoryId}" not found`);
+      }
+    }
+
     if (data.unitCost !== undefined && data.unitCost < 0) {
       throw new BadRequestException('Unit cost cannot be negative');
     }
 
-    const normalizedAssetCode = data.assetCode.trim().toUpperCase();
-
-    const existing = await this.prisma.asset.findFirst({
-      where: {
-        OR: [
-          { assetCode: { equals: normalizedAssetCode, mode: 'insensitive' } },
-          { assetTag: { equals: normalizedAssetCode, mode: 'insensitive' } },
-        ],
-      },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `Device model with asset code "${normalizedAssetCode}" already exists. Model codes must be unique.`,
-      );
+    if (data.vendorId) {
+      const vendor = await this.prisma.vendor.findUnique({ where: { id: data.vendorId } });
+      if (!vendor) {
+        throw new NotFoundException(`Vendor with ID "${data.vendorId}" not found`);
+      }
     }
 
-    let categoryId: string | undefined = undefined;
-    if (data.categoryId) {
-      const cat = await this.prisma.assetCategory.findUnique({ where: { id: data.categoryId } });
-      if (cat) categoryId = cat.id;
+    let parsedSpecs: Prisma.InputJsonValue = {};
+    if (data.specifications) {
+      if (typeof data.specifications === 'string') {
+        try {
+          parsedSpecs = JSON.parse(data.specifications) as Prisma.InputJsonValue;
+        } catch {
+          parsedSpecs = { details: data.specifications };
+        }
+      } else {
+        parsedSpecs = data.specifications as Prisma.InputJsonValue;
+      }
     }
 
-    const created = await this.prisma.asset.create({
+    const created = await this.prisma.deviceModel.create({
       data: {
-        assetCode: normalizedAssetCode,
-        assetTag: normalizedAssetCode,
-        subcode: null,
-        parentId: null,
         name: data.name.trim(),
-        manufacturer: data.manufacturer?.trim() || null,
-        model: data.model?.trim() || null,
-        categoryId: categoryId || null,
-        specifications: data.specifications?.trim() || null,
-        unitCost: data.unitCost !== undefined ? Number(data.unitCost) : null,
-        notes: data.notes?.trim() || null,
-        status: AssetStatus.AVAILABLE,
+        modelCode: normalizedModelCode,
+        categoryId: categoryId,
+        manufacturer: data.manufacturer?.trim() || 'Generic',
+        vendorId: data.vendorId || null,
+        specifications: parsedSpecs,
+        unitCost: data.unitCost !== undefined ? Number(data.unitCost) : 0,
+        minThreshold: data.minThreshold !== undefined ? Number(data.minThreshold) : 5,
+        binNumber: data.binNumber?.trim() || data.binLocation?.trim() || null,
       },
       include: {
         category: true,
-        costCenter: true,
+        vendor: true,
       },
     });
 
@@ -2190,57 +2894,84 @@ export class AssetsService {
   }
 
   async getModel(id: string) {
-    const model = await this.prisma.asset.findUnique({
+    const model = await this.prisma.deviceModel.findUnique({
       where: { id },
       include: {
         category: true,
-        costCenter: true,
-        children: {
-          take: 100,
-          orderBy: [{ id: 'asc' }],
-          include: {
-            assignedTo: { include: { organization: true } },
-            costCenter: true,
-          },
-        },
+        vendor: true,
       },
     });
 
-    if (!model || model.parentId !== null) {
+    if (!model || model.deletedAt !== null) {
       throw new NotFoundException(`Device model with ID ${id} not found`);
     }
 
-    const [totalUnits, availableUnits, inUseUnits] = await Promise.all([
-      this.prisma.asset.count({ where: { parentId: model.id } }),
-      this.prisma.asset.count({ where: { parentId: model.id, status: AssetStatus.AVAILABLE } }),
-      this.prisma.asset.count({ where: { parentId: model.id, status: AssetStatus.IN_USE } }),
+    const [totalUnits, availableUnits, inUseUnits, maintenanceUnits] = await Promise.all([
+      this.prisma.asset.count({ where: { deviceModelId: id } }),
+      this.prisma.asset.count({ where: { deviceModelId: id, status: AssetStatus.AVAILABLE } }),
+      this.prisma.asset.count({ where: { deviceModelId: id, status: AssetStatus.IN_USE } }),
+      this.prisma.asset.count({ where: { deviceModelId: id, status: AssetStatus.MAINTENANCE } }),
     ]);
 
-    const formatted = this.formatAsset(model as unknown as AssetWithRelations);
+    const childUnits =
+      (await this.prisma.asset.findMany({
+        where: { deviceModelId: id },
+        include: {
+          deviceModel: { include: { category: true, vendor: true } },
+          assignedTo: { include: { organization: true } },
+          department: { include: { organization: true } },
+          costCenter: true,
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        take: 100,
+      })) || [];
 
     return {
-      ...formatted,
+      id: model.id,
+      name: model.name,
+      modelCode: model.modelCode,
+      assetCode: model.modelCode,
+      parentId: null,
+      manufacturer: model.manufacturer,
+      model: model.name,
+      categoryId: model.categoryId,
+      category: model.category?.name || 'Hardware',
+      vendorId: model.vendorId,
+      vendor: model.vendor?.name || null,
+      vendorName: model.vendor?.name || null,
+      specifications: model.specifications,
+      unitCost: Number(model.unitCost),
+      minThreshold: model.minThreshold,
+      binNumber: model.binNumber,
+      binLocation: model.binNumber,
       totalUnits,
       availableUnits,
       inUseUnits,
-      childUnits:
-        model.children?.map((c) => this.formatAsset(c as unknown as AssetWithRelations)) || [],
+      maintenanceUnits,
+      childUnits: (childUnits || []).map((c) =>
+        this.formatAsset(c as unknown as AssetWithRelations),
+      ),
+      createdAt: model.createdAt.toISOString(),
+      updatedAt: model.updatedAt.toISOString(),
     };
   }
 
   async listModels(query?: AssetQueryDto) {
-    const where: Prisma.AssetWhereInput = {
-      parentId: null,
+    const where: Prisma.DeviceModelWhereInput = {
+      deletedAt: null,
     };
 
     if (query?.search && query.search.trim().length > 0) {
       const q = query.search.trim();
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
-        { assetCode: { contains: q, mode: 'insensitive' } },
+        { modelCode: { contains: q, mode: 'insensitive' } },
         { manufacturer: { contains: q, mode: 'insensitive' } },
-        { model: { contains: q, mode: 'insensitive' } },
       ];
+    }
+
+    if (query?.categoryId) {
+      where.categoryId = query.categoryId;
     }
 
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 10));
@@ -2248,12 +2979,12 @@ export class AssetsService {
     const skip = (page - 1) * pageSize;
 
     const [total, models] = await Promise.all([
-      this.prisma.asset.count({ where }),
-      this.prisma.asset.findMany({
+      this.prisma.deviceModel.count({ where }),
+      this.prisma.deviceModel.findMany({
         where,
         include: {
           category: true,
-          costCenter: true,
+          vendor: true,
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         take: pageSize,
@@ -2262,36 +2993,63 @@ export class AssetsService {
     ]);
 
     const modelIds = models.map((m) => m.id);
-    const countsMap = new Map<string, { total: number; available: number; inUse: number }>();
+    const countsMap = new Map<
+      string,
+      { total: number; available: number; inUse: number; maintenance: number }
+    >();
 
     if (modelIds.length > 0) {
       const stats = await this.prisma.asset.groupBy({
-        by: ['parentId', 'status'],
-        where: { parentId: { in: modelIds } },
+        by: ['deviceModelId', 'status'],
+        where: { deviceModelId: { in: modelIds } },
         _count: { _all: true },
       });
 
       for (const stat of stats) {
-        if (!stat.parentId) continue;
-        const current = countsMap.get(stat.parentId) || { total: 0, available: 0, inUse: 0 };
+        if (!stat.deviceModelId) continue;
+        const current = countsMap.get(stat.deviceModelId) || {
+          total: 0,
+          available: 0,
+          inUse: 0,
+          maintenance: 0,
+        };
         current.total += stat._count._all;
         if (stat.status === AssetStatus.AVAILABLE) {
           current.available += stat._count._all;
         } else if (stat.status === AssetStatus.IN_USE) {
           current.inUse += stat._count._all;
+        } else if (stat.status === AssetStatus.MAINTENANCE) {
+          current.maintenance += stat._count._all;
         }
-        countsMap.set(stat.parentId, current);
+        countsMap.set(stat.deviceModelId, current);
       }
     }
 
     const items = models.map((m) => {
-      const counts = countsMap.get(m.id) || { total: 0, available: 0, inUse: 0 };
-      const formatted = this.formatAsset(m as unknown as AssetWithRelations);
+      const counts = countsMap.get(m.id) || { total: 0, available: 0, inUse: 0, maintenance: 0 };
       return {
-        ...formatted,
+        id: m.id,
+        name: m.name,
+        modelCode: m.modelCode,
+        assetCode: m.modelCode,
+        manufacturer: m.manufacturer,
+        model: m.name,
+        categoryId: m.categoryId,
+        category: m.category?.name || 'Hardware',
+        vendorId: m.vendorId,
+        vendor: m.vendor?.name || null,
+        vendorName: m.vendor?.name || null,
+        specifications: m.specifications,
+        unitCost: Number(m.unitCost),
+        minThreshold: m.minThreshold,
+        binNumber: m.binNumber,
+        binLocation: m.binNumber,
         totalUnits: counts.total,
         availableUnits: counts.available,
         inUseUnits: counts.inUse,
+        maintenanceUnits: counts.maintenance,
+        createdAt: m.createdAt.toISOString(),
+        updatedAt: m.updatedAt.toISOString(),
       };
     });
 
@@ -2304,34 +3062,33 @@ export class AssetsService {
   }
 
   async updateModel(id: string, data: UpdateDeviceModelDto) {
-    const model = await this.prisma.asset.findUnique({ where: { id } });
-    if (!model || model.parentId !== null) {
+    const model = await this.prisma.deviceModel.findUnique({
+      where: { id },
+    });
+    if (!model || model.deletedAt !== null) {
       throw new NotFoundException(`Device model with ID ${id} not found`);
     }
 
-    const updateData: Prisma.AssetUpdateInput = {};
+    const updateData: Prisma.DeviceModelUpdateInput = {};
 
-    if (data.assetCode !== undefined) {
-      if (data.assetCode.trim().length === 0) {
-        throw new BadRequestException('Asset code cannot be empty');
+    const rawCode = data.modelCode || data.assetCode;
+    if (rawCode !== undefined) {
+      if (rawCode.trim().length === 0) {
+        throw new BadRequestException('Model code cannot be empty');
       }
-      const normalized = data.assetCode.trim().toUpperCase();
-      const existing = await this.prisma.asset.findFirst({
+      const normalized = rawCode.trim().toUpperCase();
+      const existing = await this.prisma.deviceModel.findFirst({
         where: {
           id: { not: id },
-          OR: [
-            { assetCode: { equals: normalized, mode: 'insensitive' } },
-            { assetTag: { equals: normalized, mode: 'insensitive' } },
-          ],
+          modelCode: { equals: normalized, mode: 'insensitive' },
         },
       });
       if (existing) {
         throw new ConflictException(
-          `Device model with asset code "${normalized}" already exists. Model codes must be unique.`,
+          `Device model with modelCode "${normalized}" already exists. Model codes must be unique.`,
         );
       }
-      updateData.assetCode = normalized;
-      updateData.assetTag = normalized;
+      updateData.modelCode = normalized;
     }
 
     if (data.name !== undefined) {
@@ -2341,22 +3098,55 @@ export class AssetsService {
       updateData.name = data.name.trim();
     }
 
-    if (data.manufacturer !== undefined) updateData.manufacturer = data.manufacturer.trim() || null;
-    if (data.model !== undefined) updateData.model = data.model.trim() || null;
-    if (data.specifications !== undefined)
-      updateData.specifications = data.specifications.trim() || null;
+    if (data.manufacturer !== undefined) {
+      updateData.manufacturer = data.manufacturer.trim() || 'Generic';
+    }
+
+    if (data.specifications !== undefined) {
+      if (typeof data.specifications === 'string') {
+        try {
+          updateData.specifications = JSON.parse(data.specifications) as Prisma.InputJsonValue;
+        } catch {
+          updateData.specifications = { details: data.specifications };
+        }
+      } else {
+        updateData.specifications = data.specifications as Prisma.InputJsonValue;
+      }
+    }
+
     if (data.unitCost !== undefined) {
       if (data.unitCost < 0) throw new BadRequestException('Unit cost cannot be negative');
       updateData.unitCost = Number(data.unitCost);
     }
-    if (data.notes !== undefined) updateData.notes = data.notes.trim() || null;
-    if (data.categoryId !== undefined) {
-      updateData.category = data.categoryId
-        ? { connect: { id: data.categoryId } }
-        : { disconnect: true };
+
+    if (data.minThreshold !== undefined) {
+      if (data.minThreshold < 0)
+        throw new BadRequestException('Minimum threshold cannot be negative');
+      updateData.minThreshold = Number(data.minThreshold);
     }
 
-    await this.prisma.asset.update({
+    if (data.binNumber !== undefined || data.binLocation !== undefined) {
+      updateData.binNumber = (data.binNumber || data.binLocation)?.trim() || null;
+    }
+
+    if (data.categoryId !== undefined) {
+      const cat = await this.prisma.assetCategory.findUnique({ where: { id: data.categoryId } });
+      if (!cat)
+        throw new NotFoundException(`Asset category with ID "${data.categoryId}" not found`);
+      updateData.category = { connect: { id: data.categoryId } };
+    }
+
+    if (data.vendorId !== undefined) {
+      if (data.vendorId) {
+        const vendor = await this.prisma.vendor.findUnique({ where: { id: data.vendorId } });
+        if (!vendor) throw new NotFoundException(`Vendor with ID "${data.vendorId}" not found`);
+        updateData.vendor = { connect: { id: data.vendorId } };
+      } else {
+        updateData.vendor = { disconnect: true };
+      }
+    }
+
+    await this.prisma.deviceModel.update({
       where: { id },
       data: updateData,
     });
@@ -2365,25 +3155,25 @@ export class AssetsService {
   }
 
   async deleteModel(id: string) {
-    const model = await this.prisma.asset.findUnique({ where: { id } });
-    if (!model || model.parentId !== null) {
+    const model = await this.prisma.deviceModel.findUnique({ where: { id } });
+    if (!model || model.deletedAt !== null) {
       throw new NotFoundException(`Device model with ID ${id} not found`);
     }
 
-    const childCount = await this.prisma.asset.count({ where: { parentId: id } });
+    const childCount = await this.prisma.asset.count({ where: { deviceModelId: id } });
     if (childCount > 0) {
       throw new ConflictException(
-        `Cannot delete device model with ${childCount} active physical units. Decommission or reassign units first.`,
+        `Cannot delete device model with ${childCount} active physical units. Decommission or delete units first.`,
       );
     }
 
-    await this.prisma.asset.delete({ where: { id } });
+    await this.prisma.deviceModel.delete({ where: { id } });
     return { success: true, id };
   }
 
   async getModelUnits(modelId: string, query?: AssetQueryDto) {
-    const model = await this.prisma.asset.findUnique({ where: { id: modelId } });
-    if (!model || model.parentId !== null) {
+    const model = await this.prisma.deviceModel.findUnique({ where: { id: modelId } });
+    if (!model || model.deletedAt !== null) {
       throw new NotFoundException(`Device model with ID ${modelId} not found`);
     }
 
@@ -2391,7 +3181,7 @@ export class AssetsService {
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.AssetWhereInput = { parentId: modelId };
+    const where: Prisma.AssetWhereInput = { deviceModelId: modelId };
     if (query?.status) where.status = mapAssetStatus(query.status);
 
     const [total, units] = await Promise.all([
@@ -2399,11 +3189,10 @@ export class AssetsService {
       this.prisma.asset.findMany({
         where,
         include: {
-          parent: true,
+          deviceModel: { include: { category: true, vendor: true } },
           costCenter: true,
           assignedTo: { include: { organization: true } },
           department: { include: { organization: true } },
-          category: true,
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         take: pageSize,
@@ -2424,25 +3213,27 @@ export class AssetsService {
   // =========================================================================
 
   async registerUnit(data: RegisterPhysicalUnitDto) {
-    if (!data.subcode || data.subcode.trim().length === 0) {
+    const rawSubcode = data.subcode || data.assetTag;
+    if (!rawSubcode || rawSubcode.trim().length === 0) {
       throw new BadRequestException('Subcode is required for physical units');
     }
-    if (!data.parentId || data.parentId.trim().length === 0) {
-      throw new BadRequestException('Parent device model ID is required');
+    const modelId = data.deviceModelId;
+    if (!modelId || modelId.trim().length === 0) {
+      throw new BadRequestException('deviceModelId is required for physical units');
     }
 
-    const parentModel = await this.prisma.asset.findUnique({ where: { id: data.parentId } });
-    if (!parentModel) {
-      throw new NotFoundException(`Parent device model with ID ${data.parentId} not found`);
+    const model = await this.prisma.deviceModel.findUnique({ where: { id: modelId } });
+    if (!model || model.deletedAt !== null) {
+      const isExistingUnit = await this.prisma.asset.findUnique({ where: { id: modelId } });
+      if (isExistingUnit) {
+        throw new BadRequestException(
+          'Cannot register unit under another physical unit. Parent must be a device model.',
+        );
+      }
+      throw new NotFoundException(`Device model with ID ${modelId} not found`);
     }
 
-    if (parentModel.parentId !== null) {
-      throw new BadRequestException(
-        'Cannot register unit under another physical unit. Parent must be a device model.',
-      );
-    }
-
-    const normalizedSubcode = data.subcode.trim().toUpperCase();
+    const normalizedSubcode = rawSubcode.trim().toUpperCase();
 
     const existing = await this.prisma.asset.findFirst({
       where: {
@@ -2465,52 +3256,188 @@ export class AssetsService {
       }
     }
 
+    let resolvedDeptId = data.departmentId;
+    if (resolvedDeptId) {
+      const dept = await this.prisma.department.findUnique({ where: { id: resolvedDeptId } });
+      if (!dept) {
+        throw new NotFoundException(`Department with ID ${resolvedDeptId} not found`);
+      }
+    } else if (typeof this.prisma.department?.findFirst === 'function') {
+      const firstDept = await this.prisma.department.findFirst();
+      if (firstDept) {
+        resolvedDeptId = firstDept.id;
+      }
+    }
+
     const created = await this.prisma.asset.create({
       data: {
+        deviceModelId: model.id,
         subcode: normalizedSubcode,
         assetTag: normalizedSubcode,
-        assetCode: null,
-        name: parentModel.name,
-        manufacturer: parentModel.manufacturer,
-        model: parentModel.model,
-        categoryId: parentModel.categoryId,
-        specifications: parentModel.specifications,
-        unitCost: parentModel.unitCost,
-        status: AssetStatus.AVAILABLE,
+        status: data.status ? mapAssetStatus(data.status) : AssetStatus.AVAILABLE,
         serialNumber: data.serialNumber?.trim() || null,
-        parentId: parentModel.id,
         costCenterId: data.costCenterId || null,
-        departmentId: data.departmentId || null,
-        assignedToId: null,
+        departmentId: resolvedDeptId || null,
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
         warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
         notes: data.notes?.trim() || null,
       },
       include: {
-        parent: true,
+        deviceModel: { include: { category: true, vendor: true } },
         costCenter: true,
-        category: true,
         department: { include: { organization: true } },
         assignedTo: { include: { organization: true } },
       },
     });
 
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'ASSET_CREATED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: created.id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Physical unit "${created.subcode}" registered under model "${model.name}"`,
+          newValue: {
+            id: created.id,
+            subcode: created.subcode,
+            assetTag: created.assetTag,
+            deviceModelId: created.deviceModelId,
+            status: created.status,
+          },
+        });
+      } catch (auditErr: unknown) {
+        this.logger.error(
+          `Failed to log audit event for registered unit "${created.id}"`,
+          auditErr instanceof Error ? auditErr.stack : String(auditErr),
+        );
+      }
+    }
+
     return this.getUnit(created.id);
+  }
+
+  async batchIntake(modelId: string, data: BatchStockIntakeDto) {
+    const targetModelId = modelId || data.deviceModelId;
+    if (!targetModelId) {
+      throw new BadRequestException('deviceModelId is required for batch stock intake');
+    }
+
+    const model = await this.prisma.deviceModel.findUnique({ where: { id: targetModelId } });
+    if (!model || model.deletedAt !== null) {
+      throw new NotFoundException(`Device model with ID "${targetModelId}" not found`);
+    }
+
+    const count = Math.max(1, Math.min(500, Number(data.count) || 1));
+    const prefix = data.tagPrefix?.trim().toUpperCase() || `${model.modelCode}-`;
+    const startSequence = Math.max(1, Number(data.startSequence) || 1);
+    const serialNumbers = Array.isArray(data.serialNumbers) ? data.serialNumbers : [];
+
+    if (data.costCenterId) {
+      const cc = await this.prisma.costCenter.findUnique({ where: { id: data.costCenterId } });
+      if (!cc) {
+        throw new NotFoundException(`Cost center with ID ${data.costCenterId} not found`);
+      }
+    }
+
+    const createdUnits = await this.prisma.$transaction(async (tx) => {
+      if (data.initialBinLocation && data.initialBinLocation.trim()) {
+        await tx.deviceModel.update({
+          where: { id: model.id },
+          data: { binNumber: data.initialBinLocation.trim() },
+        });
+      }
+
+      const unitsToCreate = [];
+      for (let i = 0; i < count; i++) {
+        const seq = startSequence + i;
+        const subcode = `${prefix}${String(seq).padStart(3, '0')}`;
+        const serialNumber = serialNumbers[i]?.trim() || null;
+
+        const existing = await tx.asset.findFirst({
+          where: {
+            OR: [
+              { subcode: { equals: subcode, mode: 'insensitive' } },
+              { assetTag: { equals: subcode, mode: 'insensitive' } },
+            ],
+          },
+        });
+        if (existing) {
+          throw new ConflictException(
+            `Unit with subcode "${subcode}" already exists in the system. Collision at sequence #${seq}.`,
+          );
+        }
+
+        const unit = await tx.asset.create({
+          data: {
+            deviceModelId: model.id,
+            subcode,
+            assetTag: subcode,
+            serialNumber,
+            status: AssetStatus.AVAILABLE,
+            costCenterId: data.costCenterId || null,
+            purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
+            warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
+            notes: data.notes?.trim() || null,
+          },
+        });
+        unitsToCreate.push(unit);
+      }
+
+      return unitsToCreate;
+    });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'BATCH_STOCK_INTAKE',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: model.id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Batch stock intake of ${createdUnits.length} physical units for model "${model.name}" (${model.modelCode})`,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for batch intake on model "${model.id}"`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return {
+      success: true,
+      count: createdUnits.length,
+      modelId: model.id,
+      modelCode: model.modelCode,
+      units: createdUnits.map((u) => ({
+        id: u.id,
+        subcode: u.subcode,
+        assetTag: u.assetTag,
+        status: u.status,
+      })),
+    };
   }
 
   async getUnit(id: string) {
     const unit = await this.prisma.asset.findUnique({
       where: { id },
       include: {
-        parent: true,
+        deviceModel: { include: { category: true, vendor: true } },
         costCenter: true,
-        category: true,
         department: { include: { organization: true } },
         assignedTo: { include: { organization: true } },
+        handoverRecords: {
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 1,
+        },
       },
     });
 
-    if (!unit || unit.parentId === null) {
+    if (!unit) {
       throw new NotFoundException(`Physical unit with ID ${id} not found`);
     }
 
@@ -2519,7 +3446,7 @@ export class AssetsService {
 
   async updateUnit(id: string, data: UpdatePhysicalUnitDto) {
     const unit = await this.prisma.asset.findUnique({ where: { id } });
-    if (!unit || unit.parentId === null) {
+    if (!unit) {
       throw new NotFoundException(`Physical unit with ID ${id} not found`);
     }
 
@@ -2584,7 +3511,7 @@ export class AssetsService {
 
   async deleteUnit(id: string) {
     const unit = await this.prisma.asset.findUnique({ where: { id } });
-    if (!unit || unit.parentId === null) {
+    if (!unit) {
       throw new NotFoundException(`Physical unit with ID ${id} not found`);
     }
 
@@ -2599,14 +3526,10 @@ export class AssetsService {
   }
 
   async issueUnit(unitId: string, data: IssueAssetUnitDto) {
-    const unit = await this.prisma.asset.findUnique({ where: { id: unitId } });
-    if (!unit) {
-      throw new NotFoundException(`Asset with ID ${unitId} not found`);
-    }
-
-    if (unit.parentId === null) {
+    const isModel = await this.prisma.deviceModel.findUnique({ where: { id: unitId } });
+    if (isModel) {
       throw new BadRequestException(
-        'Cannot assign a device model to an employee. Only individual physical units can be assigned.',
+        'Cannot issue a device model blueprint. Only physical units can be issued.',
       );
     }
 
@@ -2628,70 +3551,34 @@ export class AssetsService {
       );
     }
 
-    if (unit.assignedToId !== null || unit.status === AssetStatus.IN_USE) {
-      throw new ConflictException(
-        `Physical unit ${unit.subcode || unit.assetTag} is already in use by another custodian`,
-      );
-    }
-
-    if (unit.status !== AssetStatus.AVAILABLE) {
-      throw new BadRequestException(
-        `Cannot issue unit in "${unit.status}" status. Unit must be AVAILABLE.`,
-      );
-    }
-
-    await this.prisma.asset.update({
-      where: { id: unitId },
-      data: {
-        assignedToId: user.id,
-        status: AssetStatus.IN_USE,
-        notes: data.notes?.trim() || unit.notes,
-      },
-      include: {
-        parent: true,
-        costCenter: true,
-        category: true,
-        department: { include: { organization: true } },
-        assignedTo: { include: { organization: true } },
-      },
+    await this.allocate({
+      assetIds: [unitId],
+      assignedToId: user.id,
+      departmentId: user.departmentId || undefined,
+      notes: data.notes?.trim(),
     });
-
-    if (this.notificationsService) {
-      try {
-        await this.notificationsService.notifyUser(user.id, {
-          title: 'Equipment Issued',
-          message: `Physical unit "${unit.name}" (${unit.subcode || unit.assetTag}) has been issued to you.`,
-          type: 'INFO',
-          link: '/assets',
-        });
-      } catch (error: unknown) {
-        this.logger.error(
-          `Failed to dispatch equipment issue notification for unit ${unitId}`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
-    }
 
     return this.getUnit(unitId);
   }
 
   async checkinUnit(unitId: string, notes?: string) {
+    const isModel = await this.prisma.deviceModel.findUnique({ where: { id: unitId } });
+    if (isModel) {
+      throw new BadRequestException(
+        'Cannot check in a device model blueprint. Only physical units can be checked in.',
+      );
+    }
+
     const unit = await this.prisma.asset.findUnique({ where: { id: unitId } });
     if (!unit) {
       throw new NotFoundException(`Asset with ID ${unitId} not found`);
     }
 
-    if (unit.parentId === null) {
-      throw new BadRequestException('Cannot check in a device model.');
-    }
-
-    await this.prisma.asset.update({
-      where: { id: unitId },
-      data: {
-        assignedToId: null,
-        status: AssetStatus.AVAILABLE,
-        notes: notes ? notes.trim() : unit.notes,
-      },
+    await this.returnUnits({
+      assetIds: [unitId],
+      conditionNotes: notes,
+      targetStatus: 'AVAILABLE',
+      status: 'AVAILABLE',
     });
 
     return this.getUnit(unitId);

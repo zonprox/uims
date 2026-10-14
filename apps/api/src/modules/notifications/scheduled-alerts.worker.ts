@@ -1,10 +1,51 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
-import type { Asset, License } from '@prisma/client';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import type { License } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { NotificationsService } from './notifications.service';
+import { NotificationsGateway } from './notifications.gateway';
+
+type AssetWithDeviceModel = Prisma.AssetGetPayload<{
+  include: { deviceModel: true };
+}>;
+
+type PendingHandoverRecord = Prisma.AssetHandoverRecordGetPayload<{
+  include: {
+    asset: {
+      select: {
+        id: true;
+        assetTag: true;
+        subcode: true;
+        deviceModel: {
+          select: {
+            name: true;
+            modelCode: true;
+          };
+        };
+      };
+    };
+    recipient: {
+      select: {
+        id: true;
+        firstName: true;
+        lastName: true;
+        displayName: true;
+        email: true;
+      };
+    };
+  };
+}>;
+
+type DeviceModelWithUnits = Prisma.DeviceModelGetPayload<{
+  include: {
+    units: {
+      where: { status: 'AVAILABLE' };
+      select: { id: true };
+    };
+  };
+}>;
 
 export interface ScanResult {
   scanned: number;
@@ -17,6 +58,7 @@ export interface DailyAlertScanSummary {
   warranties: ScanResult | { error: unknown };
   maintenance: ScanResult | { error: unknown };
   lowStock: ScanResult | { error: unknown };
+  pendingHandovers: ScanResult | { error: unknown };
 }
 
 @Injectable()
@@ -27,6 +69,7 @@ export class ScheduledAlertsWorker {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     @Optional() private readonly redis?: RedisService,
+    @Optional() private readonly gateway?: NotificationsGateway,
   ) {}
 
   /**
@@ -48,12 +91,14 @@ export class ScheduledAlertsWorker {
       await this.notificationsService.pruneAllOldNotifications();
     }
 
-    const [licenses, warranties, maintenance, lowStock] = await Promise.allSettled([
-      this.scanExpiringLicenses(),
-      this.scanExpiringWarranties(),
-      this.scanOverdueMaintenance(),
-      this.scanLowStock(),
-    ]);
+    const [licenses, warranties, maintenance, lowStock, pendingHandovers] =
+      await Promise.allSettled([
+        this.scanExpiringLicenses(),
+        this.scanExpiringWarranties(),
+        this.scanOverdueMaintenance(),
+        this.scanLowStock(),
+        this.scanPendingHandoverRecords(),
+      ]);
 
     const summary: DailyAlertScanSummary = {
       licenses: licenses.status === 'fulfilled' ? licenses.value : { error: licenses.reason },
@@ -62,6 +107,10 @@ export class ScheduledAlertsWorker {
       maintenance:
         maintenance.status === 'fulfilled' ? maintenance.value : { error: maintenance.reason },
       lowStock: lowStock.status === 'fulfilled' ? lowStock.value : { error: lowStock.reason },
+      pendingHandovers:
+        pendingHandovers.status === 'fulfilled'
+          ? pendingHandovers.value
+          : { error: pendingHandovers.reason },
     };
 
     this.logger.log(`Proactive scheduled alert scans completed: ${JSON.stringify(summary)}`);
@@ -214,11 +263,12 @@ export class ScheduledAlertsWorker {
     let cursor: string | undefined = undefined;
 
     while (true) {
-      const assets: Asset[] = await this.prisma.asset.findMany({
+      const assets: AssetWithDeviceModel[] = await this.prisma.asset.findMany({
         where: {
           warrantyExpiry: { not: null, lte: thirtyDaysAhead },
           status: { in: ['AVAILABLE', 'IN_USE', 'MAINTENANCE'] },
         },
+        include: { deviceModel: true },
         take: BATCH_SIZE,
         skip: cursor ? 1 : 0,
         cursor: cursor ? { id: cursor } : undefined,
@@ -231,6 +281,7 @@ export class ScheduledAlertsWorker {
       for (const asset of assets) {
         if (!asset.warrantyExpiry) continue;
 
+        const assetName = asset.deviceModel?.name || asset.subcode || asset.assetTag || 'Hardware';
         const diffMs = asset.warrantyExpiry.getTime() - now.getTime();
         const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
         const dateStr = asset.warrantyExpiry.toISOString().split('T')[0];
@@ -242,7 +293,7 @@ export class ScheduledAlertsWorker {
             86400 * 7, // 7 days cooldown
             {
               title: 'Asset Warranty Expired',
-              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) has expired on ${dateStr}.`,
+              message: `Warranty for asset "${assetName}" (${asset.subcode || asset.assetTag}) has expired on ${dateStr}.`,
               type: 'WARNING',
               link: `/assets?drawer=${asset.id}`,
             },
@@ -256,7 +307,7 @@ export class ScheduledAlertsWorker {
             86400 * 3, // 3 days cooldown
             {
               title: 'Asset Warranty Expiring in 7 Days',
-              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} day(s) (${dateStr}).`,
+              message: `Warranty for asset "${assetName}" (${asset.subcode || asset.assetTag}) expires in ${daysRemaining} day(s) (${dateStr}).`,
               type: 'WARNING',
               link: `/assets?drawer=${asset.id}`,
             },
@@ -270,7 +321,7 @@ export class ScheduledAlertsWorker {
             86400 * 7, // 7 days cooldown
             {
               title: 'Asset Warranty Expiring in 15 Days',
-              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
+              message: `Warranty for asset "${assetName}" (${asset.subcode || asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
               type: 'WARNING',
               link: `/assets?drawer=${asset.id}`,
             },
@@ -284,7 +335,7 @@ export class ScheduledAlertsWorker {
             86400 * 14, // 14 days cooldown
             {
               title: 'Asset Warranty Expiring Soon (30 Days)',
-              message: `Warranty for asset "${asset.name}" (${asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
+              message: `Warranty for asset "${assetName}" (${asset.subcode || asset.assetTag}) expires in ${daysRemaining} days (${dateStr}).`,
               type: 'WARNING',
               link: `/assets?drawer=${asset.id}`,
             },
@@ -314,11 +365,12 @@ export class ScheduledAlertsWorker {
     let cursor: string | undefined = undefined;
 
     while (true) {
-      const assets: Asset[] = await this.prisma.asset.findMany({
+      const assets: AssetWithDeviceModel[] = await this.prisma.asset.findMany({
         where: {
           status: 'MAINTENANCE',
           updatedAt: { lte: fourteenDaysAgo },
         },
+        include: { deviceModel: true },
         take: BATCH_SIZE,
         skip: cursor ? 1 : 0,
         cursor: cursor ? { id: cursor } : undefined,
@@ -329,6 +381,7 @@ export class ScheduledAlertsWorker {
       totalScanned += assets.length;
 
       for (const asset of assets) {
+        const assetName = asset.deviceModel?.name || asset.subcode || asset.assetTag || 'Hardware';
         const daysInMaintenance = Math.floor(
           (Date.now() - asset.updatedAt.getTime()) / (1000 * 60 * 60 * 24),
         );
@@ -338,7 +391,7 @@ export class ScheduledAlertsWorker {
           86400 * 3, // 3 days cooldown
           {
             title: 'Overdue Maintenance Alert',
-            message: `Asset "${asset.name}" (${asset.assetTag}) has been under maintenance for ${daysInMaintenance} days (exceeds 14-day threshold).`,
+            message: `Asset "${assetName}" (${asset.subcode || asset.assetTag}) has been under maintenance for ${daysInMaintenance} days (exceeds 14-day threshold).`,
             type: 'WARNING',
             link: `/assets?drawer=${asset.id}`,
           },
@@ -384,25 +437,72 @@ export class ScheduledAlertsWorker {
             minThreshold: number;
           }>
         >`
-          SELECT id, name, sku, quantity, "minThreshold"
-          FROM "InventoryItem"
-          WHERE quantity <= "minThreshold"
-            ${cursor ? Prisma.sql`AND id > ${cursor}` : Prisma.empty}
-          ORDER BY id ASC
-          LIMIT ${BATCH_SIZE}
+        WITH low_stock AS (
+          SELECT dm.id, dm.name, dm."modelCode" AS sku, COUNT(a.id) FILTER (WHERE a.status = 'AVAILABLE')::int AS quantity, dm."minThreshold"
+          FROM "DeviceModel" dm
+          LEFT JOIN "Asset" a ON a."deviceModelId" = dm.id
+          WHERE dm."deletedAt" IS NULL
+            ${cursor ? Prisma.sql`AND dm.id > ${cursor}` : Prisma.empty}
+          GROUP BY dm.id, dm.name, dm."modelCode", dm."minThreshold"
+          HAVING COUNT(a.id) FILTER (WHERE a.status = 'AVAILABLE') <= dm."minThreshold"
+        )
+        SELECT * FROM low_stock
+        ORDER BY id ASC
+        LIMIT ${BATCH_SIZE}
         `;
 
         if (items.length === 0) break;
         cursor = items[items.length - 1].id;
         hasMore = items.length === BATCH_SIZE;
-      } else {
-        const fetched: Array<{
-          id: string;
-          name: string;
-          sku: string;
-          quantity: number;
-          minThreshold: number;
-        }> = await this.prisma.inventoryItem.findMany({
+      } else if (typeof this.prisma.deviceModel?.findMany === 'function') {
+        const fetched: DeviceModelWithUnits[] = await this.prisma.deviceModel.findMany({
+          where: { deletedAt: null },
+          take: BATCH_SIZE,
+          skip: cursor ? 1 : 0,
+          cursor: cursor ? { id: cursor } : undefined,
+          orderBy: [{ id: 'asc' }],
+          include: {
+            units: {
+              where: { status: 'AVAILABLE' },
+              select: { id: true },
+            },
+          },
+        });
+
+        if (fetched.length === 0) break;
+        cursor = fetched[fetched.length - 1].id;
+        hasMore = fetched.length === BATCH_SIZE;
+        items = fetched
+          .filter((dm) => (dm.units?.length ?? 0) <= dm.minThreshold)
+          .map((dm) => ({
+            id: dm.id,
+            name: dm.name,
+            sku: dm.modelCode,
+            quantity: dm.units?.length ?? 0,
+            minThreshold: dm.minThreshold,
+          }));
+      } else if (
+        typeof (
+          this.prisma as unknown as {
+            inventoryItem?: { findMany: (...args: unknown[]) => unknown };
+          }
+        ).inventoryItem?.findMany === 'function'
+      ) {
+        const fetched = await (
+          this.prisma as unknown as {
+            inventoryItem: {
+              findMany: (args: unknown) => Promise<
+                Array<{
+                  id: string;
+                  name: string;
+                  sku?: string;
+                  quantity: number;
+                  minThreshold: number;
+                }>
+              >;
+            };
+          }
+        ).inventoryItem.findMany({
           take: BATCH_SIZE,
           skip: cursor ? 1 : 0,
           cursor: cursor ? { id: cursor } : undefined,
@@ -412,7 +512,17 @@ export class ScheduledAlertsWorker {
         if (fetched.length === 0) break;
         cursor = fetched[fetched.length - 1].id;
         hasMore = fetched.length === BATCH_SIZE;
-        items = fetched.filter((item) => item.quantity <= item.minThreshold);
+        items = fetched
+          .filter((item) => item.quantity <= item.minThreshold)
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            sku: item.sku ?? '',
+            quantity: item.quantity,
+            minThreshold: item.minThreshold,
+          }));
+      } else {
+        break;
       }
 
       totalScanned += items.length;
@@ -454,6 +564,151 @@ export class ScheduledAlertsWorker {
   }
 
   /**
+   * 5. Scan unresolved AssetHandoverRecord rows (isPending = true)
+   * Mandatory Bounded Query Ceiling & Cursor Pagination per AGENTS.md Section 6.3:
+   *   - Batch size bounded (take: 100, strictly NO high take ceilings)
+   *   - Cursor pagination (skip: cursor ? 1 : 0, cursor: cursor ? { id: cursor } : undefined, orderBy: [{ id: 'asc' }])
+   *   - Include asset with deviceModel (name, modelCode) and recipient (firstName, lastName, displayName, email)
+   *   - Redis Throttling: alert:handover:pending:${record.id} with 86400 TTL (24h)
+   *   - Calculate daysPending; if > 3 days, mark severity as ALERT / URGENT
+   *   - Dispatch notification to IT Admins and emit real-time WebSocket event
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async scanPendingHandoverRecords(): Promise<ScanResult> {
+    const BATCH_SIZE = 100;
+    let totalScanned = 0;
+    let notified = 0;
+    let throttled = 0;
+    let cursor: string | undefined = undefined;
+
+    if (
+      typeof (this.prisma as unknown as { assetHandoverRecord?: { findMany: unknown } })
+        .assetHandoverRecord?.findMany !== 'function'
+    ) {
+      return { scanned: 0, notified: 0, throttled: 0 };
+    }
+
+    while (true) {
+      const records: PendingHandoverRecord[] = await this.prisma.assetHandoverRecord.findMany({
+        where: { isPending: true },
+        take: BATCH_SIZE,
+        skip: cursor ? 1 : 0,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: [{ id: 'asc' }],
+        include: {
+          asset: {
+            select: {
+              id: true,
+              assetTag: true,
+              subcode: true,
+              deviceModel: {
+                select: {
+                  name: true,
+                  modelCode: true,
+                },
+              },
+            },
+          },
+          recipient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              displayName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      if (records.length === 0) break;
+      cursor = records[records.length - 1].id;
+      totalScanned += records.length;
+
+      for (const record of records) {
+        const assetIdentifier = record.asset?.assetTag || record.asset?.subcode || record.assetId;
+        const modelName = record.asset?.deviceModel?.name || 'Hardware Unit';
+        const recipient = record.recipient as {
+          id?: string;
+          displayName?: string | null;
+          fullName?: string | null;
+          firstName?: string | null;
+          lastName?: string | null;
+          email?: string | null;
+        } | null;
+
+        const recipientName =
+          recipient?.displayName ||
+          recipient?.fullName ||
+          (recipient?.firstName
+            ? `${recipient.firstName} ${recipient.lastName || ''}`.trim()
+            : null) ||
+          recipient?.email ||
+          'Unknown Custodian';
+        const recordType = record.type === 'ASSIGNMENT' ? 'Allocation' : 'Return';
+
+        const createdAt = record.createdAt ? new Date(record.createdAt) : null;
+        const diffDays =
+          createdAt && !isNaN(createdAt.getTime())
+            ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+        const daysPending = Math.max(0, diffDays);
+        const isOverdue = daysPending > 3;
+
+        const title = isOverdue
+          ? `Overdue ${recordType} Record: ${assetIdentifier}`
+          : `Pending ${recordType} Record: ${assetIdentifier}`;
+        const message = isOverdue
+          ? `Urgent: Signed document overdue by ${daysPending} days for ${modelName} (${assetIdentifier}) held by ${recipientName}. Please upload the signed form.`
+          : `Signed document pending for ${modelName} (${assetIdentifier}) held by ${recipientName}. Please upload the signed form.`;
+        const alertType: 'ALERT' | 'WARNING' = isOverdue ? 'ALERT' : 'WARNING';
+
+        if (this.gateway) {
+          try {
+            this.gateway.emitCustodyEvent('handover_document_pending', {
+              recordId: record.id,
+              assetId: record.assetId,
+              assetTag: assetIdentifier,
+              modelName,
+              recipientName,
+              type: record.type,
+              notificationType: isOverdue ? 'ASSET_RECORD_OVERDUE' : 'ASSET_HANDOVER_PENDING',
+              daysPending,
+              isOverdue,
+              severity: isOverdue ? 'HIGH' : 'WARNING',
+            });
+          } catch (error: unknown) {
+            this.logger.warn(
+              `WebSocket emission failed for pending handover record ${record.id}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+
+        const sent = await this.dispatchThrottledAlert(
+          `alert:handover:pending:${record.id}`,
+          86400, // 24-hour cooldown between recurring reminders
+          {
+            title,
+            message,
+            type: alertType,
+            link: `/assets?drawer=${record.assetId}`,
+          },
+        );
+
+        if (sent) notified++;
+        else throttled++;
+      }
+
+      if (records.length < BATCH_SIZE) break;
+    }
+
+    this.logger.log(
+      `Pending handover compliance scan completed: ${totalScanned} scanned, ${notified} notified, ${throttled} throttled.`,
+    );
+    return { scanned: totalScanned, notified, throttled };
+  }
+
+  /**
    * Helper to dispatch an alert with Redis cache-based deduplication and throttling.
    */
   private async dispatchThrottledAlert(
@@ -473,24 +728,31 @@ export class ScheduledAlertsWorker {
           this.logger.debug(`Alert throttled for cacheKey: ${cacheKey}`);
           return false;
         }
-        await this.redis.set(cacheKey, true, ttlSeconds);
       } catch (error: unknown) {
         this.logger.warn(
-          `Redis throttling check failed for ${cacheKey}`,
-          error instanceof Error ? error.stack : String(error),
+          `Redis throttling check failed for ${cacheKey}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
 
     try {
       await this.notificationsService.notifyAdmins(payload);
-      return true;
     } catch (error: unknown) {
       this.logger.error(
-        'Failed to dispatch alert',
-        error instanceof Error ? error.stack : String(error),
+        `Failed to dispatch alert for ${cacheKey}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return false;
     }
+
+    if (this.redis) {
+      try {
+        await this.redis.set(cacheKey, true, ttlSeconds);
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Redis set throttling key failed for ${cacheKey}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    return true;
   }
 }

@@ -870,12 +870,12 @@ describe('Milestone 3 Empirical Stress Test Harness', { timeout: 60000 }, () => 
       await renderNetworkPage();
 
       const tabs = container.querySelectorAll('.ant-tabs-tab-btn');
-      expect(tabs.length).toBe(5);
+      expect(tabs.length).toBe(6);
 
       // Rapidly switch tabs 10 times in tight loop
       await act(async () => {
         for (let i = 0; i < 10; i++) {
-          const tabBtn = tabs[i % 5] as HTMLElement;
+          const tabBtn = tabs[i % tabs.length] as HTMLElement;
           tabBtn.click();
         }
         await new Promise((resolve) => setTimeout(resolve, 50));

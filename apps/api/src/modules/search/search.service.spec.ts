@@ -12,7 +12,7 @@ describe('SearchService', () => {
     mockPrisma = {
       asset: { findMany: vi.fn().mockResolvedValue([]) },
       license: { findMany: vi.fn().mockResolvedValue([]) },
-      inventoryItem: { findMany: vi.fn().mockResolvedValue([]) },
+      deviceModel: { findMany: vi.fn().mockResolvedValue([]) },
       networkSwitch: { findMany: vi.fn().mockResolvedValue([]) },
       subnet: { findMany: vi.fn().mockResolvedValue([]) },
       directoryUser: { findMany: vi.fn().mockResolvedValue([]) },
@@ -38,12 +38,14 @@ describe('SearchService', () => {
       mockPrisma.asset.findMany.mockResolvedValue([
         {
           id: 'a1',
-          name: 'ThinkPad T14',
           assetTag: 'AST-1005',
-          manufacturer: 'Lenovo',
-          model: 'T14 Gen 4',
-          category: { name: 'Laptops' },
           status: 'IN_USE',
+          deviceModel: {
+            name: 'ThinkPad T14',
+            manufacturer: 'Lenovo',
+            modelNumber: 'T14 Gen 4',
+            category: { name: 'Laptops' },
+          },
         },
       ]);
       mockPrisma.license.findMany.mockResolvedValue([
@@ -56,12 +58,12 @@ describe('SearchService', () => {
           status: 'ACTIVE',
         },
       ]);
-      mockPrisma.inventoryItem.findMany.mockResolvedValue([
+      mockPrisma.deviceModel.findMany.mockResolvedValue([
         {
           id: 'i1',
           name: 'Logitech MX Master 3S',
-          sku: 'LOGI-MX3S',
-          quantity: 25,
+          modelCode: 'LOGI-MX3S',
+          manufacturer: 'Logitech',
           minThreshold: 5,
           category: { name: 'Peripherals' },
         },
@@ -121,7 +123,7 @@ describe('SearchService', () => {
       expect(response.results[0]).toEqual({
         id: 'a1',
         title: 'ThinkPad T14 (AST-1005)',
-        subtitle: 'Lenovo T14 Gen 4 • Laptops',
+        subtitle: 'Lenovo ThinkPad T14 • Laptops',
         category: 'Hardware',
         path: '/assets?drawer=a1',
         status: 'IN_USE',
@@ -141,7 +143,7 @@ describe('SearchService', () => {
       expect(response.results[2]).toEqual({
         id: 'i1',
         title: 'Logitech MX Master 3S (LOGI-MX3S)',
-        subtitle: 'Qty: 25 • Peripherals',
+        subtitle: 'Logitech • Peripherals',
         category: 'Inventory',
         path: '/inventory?sku=LOGI-MX3S',
         status: 'IN_STOCK',
@@ -215,12 +217,12 @@ describe('SearchService', () => {
     });
 
     it('should query only the targeted domain when type filter is provided', async () => {
-      mockPrisma.inventoryItem.findMany.mockResolvedValue([
+      mockPrisma.deviceModel.findMany.mockResolvedValue([
         {
           id: 'i1',
           name: 'HDMI Cable',
-          sku: 'CBL-HDMI',
-          quantity: 2,
+          modelCode: 'CBL-HDMI',
+          manufacturer: 'Generic',
           minThreshold: 5,
           category: { name: 'Cables' },
         },
@@ -229,9 +231,9 @@ describe('SearchService', () => {
       const response = await service.searchDatabaseFallback('HDMI', 10, 'inventory');
       expect(response.results).toHaveLength(1);
       expect(response.results[0].category).toBe('Inventory');
-      expect(response.results[0].status).toBe('LOW_STOCK');
+      expect(response.results[0].status).toBe('IN_STOCK');
 
-      expect(mockPrisma.inventoryItem.findMany).toHaveBeenCalled();
+      expect(mockPrisma.deviceModel.findMany).toHaveBeenCalled();
       expect(mockPrisma.asset.findMany).not.toHaveBeenCalled();
       expect(mockPrisma.license.findMany).not.toHaveBeenCalled();
       expect(mockPrisma.networkSwitch.findMany).not.toHaveBeenCalled();
@@ -345,14 +347,13 @@ describe('SearchService', () => {
       ]);
 
       // 3. Inventory
-      mockPrisma.inventoryItem.findMany.mockResolvedValueOnce([
+      mockPrisma.deviceModel.findMany.mockResolvedValueOnce([
         {
           id: 'inv-1',
           name: 'USB-C Adapter',
-          sku: 'ADPT-USBC',
-          quantity: 20,
+          modelCode: 'ADPT-USBC',
           minThreshold: 5,
-          supplier: 'Anker',
+          vendor: { name: 'Anker' },
           binNumber: 'B-12',
         },
       ]);
@@ -443,7 +444,7 @@ describe('SearchService', () => {
 
         // Verify calls to other domain models
         expect(mockPrisma.license.findMany).toHaveBeenCalled();
-        expect(mockPrisma.inventoryItem.findMany).toHaveBeenCalled();
+        expect(mockPrisma.deviceModel.findMany).toHaveBeenCalled();
         expect(mockPrisma.networkSwitch.findMany).toHaveBeenCalled();
         expect(mockPrisma.subnet.findMany).toHaveBeenCalled();
         expect(mockPrisma.directoryUser.findMany).toHaveBeenCalled();

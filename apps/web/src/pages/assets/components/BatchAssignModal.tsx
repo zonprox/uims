@@ -41,6 +41,7 @@ export interface BatchAssignFormValues {
   assignedToId?: string | null;
   status?: string;
   signedDocUrl?: string;
+  assetIds?: string[];
 }
 
 const formatUserDisplayName = (u: DirectoryUser): string =>
@@ -68,10 +69,20 @@ export interface BatchAssignModalProps {
   onCancel: () => void;
   employees?: DirectoryUser[]; // For test isolation
   initialUserId?: string;
+  availableAssets?: Asset[];
 }
 
 export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
-  ({ open, assets, submitting, onAssign, onCancel, employees: propEmployees, initialUserId }) => {
+  ({
+    open,
+    assets,
+    submitting,
+    onAssign,
+    onCancel,
+    employees: propEmployees,
+    initialUserId,
+    availableAssets,
+  }) => {
     const { token } = theme.useToken();
     const { message } = App.useApp();
     const [form] = Form.useForm<BatchAssignFormValues>();
@@ -79,6 +90,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
     const [employees, setEmployees] = useState<DirectoryUser[]>(propEmployees || []);
     const [loadingEmployees, setLoadingEmployees] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId || null);
+    const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
 
     // Document Generation & Actions State
     const [generatingPreview, setGeneratingPreview] = useState(false);
@@ -99,12 +111,18 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
         form.resetFields();
         setMode('assign');
         setSelectedUserId(null);
+        setSelectedAssetIds([]);
         setFileList([]);
         setPreviewDocData(null);
         return;
       }
 
       setSelectedUserId(initialUserId || null);
+      if (assets.length > 0) {
+        setSelectedAssetIds(assets.map((a) => a.id));
+      } else {
+        setSelectedAssetIds([]);
+      }
       form.setFieldsValue({
         mode: 'assign',
         status: 'Active',
@@ -140,6 +158,12 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
       [employees, selectedUserId],
     );
 
+    const effectiveAssets = useMemo(() => {
+      if (assets.length > 0) return assets;
+      if (!availableAssets || availableAssets.length === 0) return [];
+      return availableAssets.filter((a) => selectedAssetIds.includes(a.id));
+    }, [assets, availableAssets, selectedAssetIds]);
+
     const handleModeChange = (newMode: 'assign' | 'unassign') => {
       setMode(newMode);
       form.setFieldsValue({
@@ -154,7 +178,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
         setGeneratingPreview(true);
         const res = await assetsService.generateHandoverDocument({
           type: 'assignment',
-          assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
+          assetIds: effectiveAssets.length > 0 ? effectiveAssets.map((a) => a.id) : undefined,
           recipientId: selectedUserId || undefined,
         });
         setPreviewDocData({
@@ -174,7 +198,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
         setGeneratingPrint(true);
         const res = await assetsService.generateHandoverDocument({
           type: 'assignment',
-          assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
+          assetIds: effectiveAssets.length > 0 ? effectiveAssets.map((a) => a.id) : undefined,
           recipientId: selectedUserId || undefined,
         });
         printDocumentHtml(res.html);
@@ -190,12 +214,12 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
         setGeneratingDownload(true);
         await assetsService.generateHandoverDocument({
           type: 'assignment',
-          assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
+          assetIds: effectiveAssets.length > 0 ? effectiveAssets.map((a) => a.id) : undefined,
           recipientId: selectedUserId || undefined,
         });
         const { blob, filename } = await assetsService.downloadHandoverDocx({
           type: 'assignment',
-          assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
+          assetIds: effectiveAssets.length > 0 ? effectiveAssets.map((a) => a.id) : undefined,
           recipientId: selectedUserId || undefined,
         });
         downloadBlobFile(blob, filename);
@@ -216,9 +240,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
           return;
         }
         message.error(
-          validationErr instanceof Error
-            ? validationErr.message
-            : 'Validation failed.',
+          validationErr instanceof Error ? validationErr.message : 'Validation failed.',
         );
         return;
       }
@@ -249,17 +271,16 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
           assignedToId: mode === 'assign' ? values.assignedToId : null,
           status: values.status,
           signedDocUrl: uploadedUrl,
+          assetIds: effectiveAssets.map((a) => a.id),
         });
       } catch (assignErr: unknown) {
         message.error(
-          assignErr instanceof Error
-            ? assignErr.message
-            : 'Failed to complete batch assignment.',
+          assignErr instanceof Error ? assignErr.message : 'Failed to complete batch assignment.',
         );
       }
     };
 
-    const count = assets.length;
+    const count = effectiveAssets.length;
 
     return (
       <>
@@ -270,7 +291,11 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
           title="Batch Assign Hardware Assets"
           subtitle={`${count} hardware device${count === 1 ? '' : 's'} selected`}
           icon={<UserSwitchOutlined />}
-          tag={<Tag color="blue">{count} Asset{count === 1 ? '' : 's'}</Tag>}
+          tag={
+            <Tag color="blue">
+              {count} Asset{count === 1 ? '' : 's'}
+            </Tag>
+          }
           size={600}
           onOk={handleOk}
           okText={
@@ -285,6 +310,25 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
           destroyOnHidden
         >
           <Flex vertical gap={14}>
+            {assets.length === 0 && availableAssets && availableAssets.length > 0 && (
+              <AppDrawer.Section title="Select Hardware Equipment from Inventory">
+                <Select
+                  mode="multiple"
+                  style={{ width: '100%' }}
+                  placeholder="Select available hardware device(s) to assign"
+                  value={selectedAssetIds}
+                  onChange={setSelectedAssetIds}
+                  options={availableAssets.map((a) => ({
+                    label: `[${a.tag || a.subcode || a.id}] ${a.name}${a.model ? ` - ${a.model}` : ''}${a.serialNumber ? ` (S/N: ${a.serialNumber})` : ''}`,
+                    value: a.id,
+                  }))}
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              </AppDrawer.Section>
+            )}
+
             <AppDrawer.Section
               title="Selected Assets for Batch Update"
               extra={
@@ -294,13 +338,13 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
               }
             >
               <Flex wrap gap={6} style={{ maxHeight: 84, overflowY: 'auto', padding: '2px 0' }}>
-                {assets.length === 0 ? (
+                {effectiveAssets.length === 0 ? (
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     No hardware devices selected
                   </Text>
                 ) : (
                   <>
-                    {assets.slice(0, 15).map((a) => (
+                    {effectiveAssets.slice(0, 15).map((a) => (
                       <Tag
                         key={a.id}
                         icon={<LaptopOutlined />}
@@ -311,15 +355,16 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                         {a.tag}: {a.name}
                       </Tag>
                     ))}
-                    {assets.length > 15 && (
+                    {effectiveAssets.length > 15 && (
                       <Tooltip
-                        title={assets
+                        title={effectiveAssets
                           .slice(15)
                           .map((a) => `${a.tag}: ${a.name}`)
                           .join(', ')}
                       >
                         <Tag color="default">
-                          +{assets.length - 15} more item{assets.length - 15 === 1 ? '' : 's'}
+                          +{effectiveAssets.length - 15} more item
+                          {effectiveAssets.length - 15 === 1 ? '' : 's'}
                         </Tag>
                       </Tooltip>
                     )}
@@ -370,10 +415,8 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                       allowClear
                       loading={loadingEmployees}
                       placeholder="Search employee by name, code, or email"
-                      value={selectedUserId}
                       onChange={(val) => {
-                        setSelectedUserId(val);
-                        form.setFieldsValue({ assignedToId: val });
+                        setSelectedUserId(val || null);
                       }}
                       options={employees.map((u) => ({
                         label: formatUserSelectLabel(u),
@@ -396,9 +439,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                           <Descriptions.Item label="Full Name">
                             <Flex align="center" gap={6}>
                               <UserOutlined style={{ color: token.colorPrimary }} />
-                              <Text strong>
-                                {formatUserDisplayName(selectedUser)}
-                              </Text>
+                              <Text strong>{formatUserDisplayName(selectedUser)}</Text>
                             </Flex>
                           </Descriptions.Item>
                           <Descriptions.Item label="Email">{selectedUser.email}</Descriptions.Item>
@@ -428,9 +469,9 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                               Handover Record Documentation
                             </Text>
                             <Text type="secondary" style={{ fontSize: 11.5 }}>
-                              Pre-filled for{' '}
-                              {formatUserDisplayName(selectedUser)}{' '}
-                              ({count} asset{count === 1 ? '' : 's'}). Exclusively supports print and Word (.docx).
+                              Pre-filled for {formatUserDisplayName(selectedUser)} ({count} asset
+                              {count === 1 ? '' : 's'}). Exclusively supports print and Word
+                              (.docx).
                             </Text>
                           </div>
                           <Space size={6}>

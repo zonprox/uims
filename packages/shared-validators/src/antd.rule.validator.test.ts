@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   antdRules,
-  createAssetSchema,
+  createDeviceModelSchema,
   createDirectoryGroupSchema,
   createLicenseSchema,
   createVendorSchema,
   currencySchema,
   emailSchema,
   phoneSchema,
+  registerPhysicalUnitSchema,
   urlSchema,
   uuidSchema,
   zodToAntdRule,
@@ -186,14 +187,14 @@ describe('zodToAntdRule & antdRules Client Adapter Suite', () => {
     });
 
     it('26. handles Asset costCenterId blank and invalid UUID format', async () => {
-      const costCenterRule = zodToAntdRule(createAssetSchema.shape.costCenterId);
+      const costCenterRule = zodToAntdRule(registerPhysicalUnitSchema.shape.costCenterId);
       await expect(costCenterRule.validator({}, '')).resolves.toBeUndefined();
       await expect(costCenterRule.validator({}, '   ')).resolves.toBeUndefined();
       await expect(costCenterRule.validator({}, 'bad-uuid')).rejects.toThrow('Invalid UUID format');
     });
 
     it('27. handles Asset unitCost blank, zero, positive amounts, and negative rejection', async () => {
-      const unitCostRule = zodToAntdRule(createAssetSchema.shape.unitCost);
+      const unitCostRule = zodToAntdRule(createDeviceModelSchema.shape.unitCost);
       await expect(unitCostRule.validator({}, '')).resolves.toBeUndefined();
       await expect(unitCostRule.validator({}, 0)).resolves.toBeUndefined();
       await expect(unitCostRule.validator({}, 150.5)).resolves.toBeUndefined();

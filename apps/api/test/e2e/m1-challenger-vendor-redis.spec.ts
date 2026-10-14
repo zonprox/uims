@@ -89,18 +89,18 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
     // 1.1 Index Verification in PostgreSQL Catalog
     // -----------------------------------------------------------------------
     describe('1.1 PostgreSQL Catalog Index Verification', () => {
-      it('should verify Asset_vendorId_idx exists on Asset table with btree method', async () => {
+      it('should verify DeviceModel_vendorId_idx exists on DeviceModel table with btree method', async () => {
         if (!isDbAvailable) return;
 
         const indexes = await prisma.$queryRaw<Array<PgIndexRow>>`
           SELECT indexname, tablename, indexdef 
           FROM pg_indexes 
-          WHERE tablename = 'Asset' AND indexname = 'Asset_vendorId_idx';
+          WHERE tablename = 'DeviceModel' AND indexname = 'DeviceModel_vendorId_idx';
         `;
 
         expect(indexes.length).toBe(1);
-        expect(indexes[0].indexname).toBe('Asset_vendorId_idx');
-        expect(indexes[0].tablename).toBe('Asset');
+        expect(indexes[0].indexname).toBe('DeviceModel_vendorId_idx');
+        expect(indexes[0].tablename).toBe('DeviceModel');
         expect(indexes[0].indexdef).toContain('USING btree ("vendorId")');
       });
 
@@ -154,21 +154,21 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           JOIN information_schema.referential_constraints AS rc
             ON rc.constraint_name = tc.constraint_name
           WHERE tc.constraint_type = 'FOREIGN KEY'
-            AND tc.table_name IN ('Asset', 'License')
+            AND tc.table_name IN ('DeviceModel', 'License')
             AND kcu.column_name = 'vendorId'
           ORDER BY tc.table_name;
         `;
 
         expect(fkRows.length).toBe(2);
 
-        const assetFk = fkRows.find((r) => r.table_name === 'Asset');
-        expect(assetFk).toBeDefined();
-        expect(assetFk?.column_name).toBe('vendorId');
-        expect(assetFk?.foreign_table_name).toBe('Vendor');
-        expect(assetFk?.foreign_column_name).toBe('id');
-        expect(assetFk?.constraint_name).toBe('Asset_vendorId_fkey');
-        expect(assetFk?.delete_rule).toBe('SET NULL');
-        expect(assetFk?.update_rule).toBe('CASCADE');
+        const modelFk = fkRows.find((r) => r.table_name === 'DeviceModel');
+        expect(modelFk).toBeDefined();
+        expect(modelFk?.column_name).toBe('vendorId');
+        expect(modelFk?.foreign_table_name).toBe('Vendor');
+        expect(modelFk?.foreign_column_name).toBe('id');
+        expect(modelFk?.constraint_name).toBe('DeviceModel_vendorId_fkey');
+        expect(modelFk?.delete_rule).toBe('SET NULL');
+        expect(modelFk?.update_rule).toBe('CASCADE');
 
         const licenseFk = fkRows.find((r) => r.table_name === 'License');
         expect(licenseFk).toBeDefined();
@@ -185,17 +185,18 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
     // 1.2 Foreign Key Rejection (PostgreSQL 23503 and Prisma P2003)
     // -----------------------------------------------------------------------
     describe('1.2 Foreign Key Constraint Violation Defense', () => {
-      it('should reject Asset insertion with non-existent vendorId in PostgreSQL with SQLSTATE 23503', async () => {
+      it('should reject DeviceModel insertion with non-existent vendorId in PostgreSQL with SQLSTATE 23503', async () => {
         if (!isDbAvailable) return;
 
+        const cat = await prisma.assetCategory.findFirst();
         const nonExistentVendorId = '00000000-dead-beef-0000-000000000001';
         let caughtError: unknown = null;
 
         try {
           await pgPool.query(
-            `INSERT INTO "Asset" (id, "assetTag", name, "updatedAt", "vendorId")
-             VALUES (gen_random_uuid(), $1, 'Adversarial FK Asset', NOW(), $2)`,
-            [`TAG-FK-TEST-${Date.now()}`, nonExistentVendorId],
+            `INSERT INTO "DeviceModel" (id, name, "modelCode", "categoryId", manufacturer, "updatedAt", "vendorId")
+             VALUES (gen_random_uuid(), 'Adversarial FK Model', $1, $2, 'Dell', NOW(), $3)`,
+            [`MC-FK-${Date.now()}`, cat?.id, nonExistentVendorId],
           );
         } catch (error: unknown) {
           caughtError = error;
@@ -205,7 +206,7 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         expect(isPostgresError(caughtError)).toBe(true);
         if (isPostgresError(caughtError)) {
           expect(caughtError.code).toBe('23503'); // foreign_key_violation
-          expect(caughtError.constraint).toBe('Asset_vendorId_fkey');
+          expect(caughtError.constraint).toBe('DeviceModel_vendorId_fkey');
           expect(caughtError.detail).toContain(nonExistentVendorId);
           expect(caughtError.detail).toContain('is not present in table "Vendor"');
         }
@@ -237,17 +238,20 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         }
       });
 
-      it('should reject Asset creation via Prisma ORM when vendorId does not exist (P2003)', async () => {
+      it('should reject DeviceModel creation via Prisma ORM when vendorId does not exist (P2003)', async () => {
         if (!isDbAvailable) return;
 
+        const cat = await prisma.assetCategory.findFirst();
         const nonExistentVendorId = '00000000-dead-beef-0000-000000000003';
         let caughtError: unknown = null;
 
         try {
-          await prisma.asset.create({
+          await prisma.deviceModel.create({
             data: {
-              assetTag: `TAG-PRISMA-FK-${Date.now()}`,
-              name: 'Prisma FK Asset',
+              modelCode: `MC-PRISMA-FK-${Date.now()}`,
+              name: 'Prisma FK Model',
+              manufacturer: 'Lenovo',
+              categoryId: cat!.id,
               vendorId: nonExistentVendorId,
             },
           });
@@ -259,7 +263,7 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         if (caughtError instanceof Prisma.PrismaClientKnownRequestError) {
           expect(caughtError.code).toBe('P2003');
           expect(caughtError.message).toContain(
-            'Foreign key constraint violated on the constraint: `Asset_vendorId_fkey`',
+            'Foreign key constraint violated on the constraint: `DeviceModel_vendorId_fkey`',
           );
         }
       });
@@ -291,37 +295,38 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
         }
       });
 
-      it('should reject updating existing Asset to invalid vendorId with SQLSTATE 23503', async () => {
+      it('should reject updating existing DeviceModel to invalid vendorId with SQLSTATE 23503', async () => {
         if (!isDbAvailable) return;
 
-        const sampleDept = await prisma.department.findFirst();
+        const cat = await prisma.assetCategory.findFirst();
 
-        const testAsset = await prisma.asset.create({
+        const testModel = await prisma.deviceModel.create({
           data: {
-            assetTag: `TAG-UPDATE-ASSET-${Date.now()}`,
-            name: 'Asset For FK Update Test',
-            departmentId: sampleDept?.id,
+            modelCode: `MC-UPDATE-MODEL-${Date.now()}`,
+            name: 'Model For FK Update Test',
+            manufacturer: 'HP',
+            categoryId: cat!.id,
           },
         });
 
         const nonExistentVendorId = '00000000-dead-beef-0000-000000000005';
-        let assetUpdateError: unknown = null;
+        let modelUpdateError: unknown = null;
 
         try {
-          await pgPool.query('UPDATE "Asset" SET "vendorId" = $1 WHERE id = $2', [
+          await pgPool.query('UPDATE "DeviceModel" SET "vendorId" = $1 WHERE id = $2', [
             nonExistentVendorId,
-            testAsset.id,
+            testModel.id,
           ]);
         } catch (error: unknown) {
-          assetUpdateError = error;
+          modelUpdateError = error;
         }
 
-        expect(isPostgresError(assetUpdateError)).toBe(true);
-        if (isPostgresError(assetUpdateError)) {
-          expect(assetUpdateError.code).toBe('23503');
+        expect(isPostgresError(modelUpdateError)).toBe(true);
+        if (isPostgresError(modelUpdateError)) {
+          expect(modelUpdateError.code).toBe('23503');
         }
 
-        await prisma.asset.delete({ where: { id: testAsset.id } });
+        await prisma.deviceModel.delete({ where: { id: testModel.id } });
       });
 
       it('should reject updating existing License to invalid vendorId with SQLSTATE 23503', async () => {
@@ -359,10 +364,10 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
     // 1.3 Cascade / SetNull on Vendor Deletion
     // -----------------------------------------------------------------------
     describe('1.3 Cascade / SetNull Validation on Vendor Deletion', () => {
-      it('should set vendorId to null on both Asset and License when Vendor is deleted, preserving child rows', async () => {
+      it('should set vendorId to null on both DeviceModel and License when Vendor is deleted, preserving child rows', async () => {
         if (!isDbAvailable) return;
 
-        const sampleDept = await prisma.department.findFirst();
+        const cat = await prisma.assetCategory.findFirst();
 
         // 1. Create a dedicated vendor
         const testVendor = await prisma.vendor.create({
@@ -372,20 +377,21 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           },
         });
 
-        let testAssetId: string | null = null;
+        let testModelId: string | null = null;
         let testLicenseId: string | null = null;
 
         try {
-          // 2. Associate an Asset and a License with this Vendor
-          const testAsset = await prisma.asset.create({
+          // 2. Associate a DeviceModel and a License with this Vendor
+          const testModel = await prisma.deviceModel.create({
             data: {
-              assetTag: `TAG-SETNULL-${Date.now()}`,
-              name: 'Asset Associated With Vendor',
+              modelCode: `MC-SETNULL-${Date.now()}`,
+              name: 'Model Associated With Vendor',
+              manufacturer: 'Dell',
+              categoryId: cat!.id,
               vendorId: testVendor.id,
-              departmentId: sampleDept?.id,
             },
           });
-          testAssetId = testAsset.id;
+          testModelId = testModel.id;
 
           const testLicense = await prisma.license.create({
             data: {
@@ -397,7 +403,7 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           testLicenseId = testLicense.id;
 
           // Verify initial associations
-          expect(testAsset.vendorId).toBe(testVendor.id);
+          expect(testModel.vendorId).toBe(testVendor.id);
           expect(testLicense.vendorId).toBe(testVendor.id);
 
           // 3. Delete the Vendor
@@ -411,13 +417,13 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           });
           expect(foundVendor).toBeNull();
 
-          // 4. Verify Asset is preserved and its vendorId became null
-          const preservedAsset = await prisma.asset.findUnique({
-            where: { id: testAsset.id },
+          // 4. Verify DeviceModel is preserved and its vendorId became null
+          const preservedModel = await prisma.deviceModel.findUnique({
+            where: { id: testModel.id },
           });
-          expect(preservedAsset).not.toBeNull();
-          expect(preservedAsset?.id).toBe(testAsset.id);
-          expect(preservedAsset?.vendorId).toBeNull();
+          expect(preservedModel).not.toBeNull();
+          expect(preservedModel?.id).toBe(testModel.id);
+          expect(preservedModel?.vendorId).toBeNull();
 
           // 5. Verify License is preserved and its vendorId became null
           const preservedLicense = await prisma.license.findUnique({
@@ -428,17 +434,17 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           expect(preservedLicense?.vendorId).toBeNull();
         } finally {
           // 6. Cleanup test records
-          if (testAssetId)
-            await prisma.asset.delete({ where: { id: testAssetId } }).catch(() => {});
+          if (testModelId)
+            await prisma.deviceModel.delete({ where: { id: testModelId } }).catch(() => {});
           if (testLicenseId)
             await prisma.license.delete({ where: { id: testLicenseId } }).catch(() => {});
         }
       });
 
-      it('should set vendorId to null across multiple assets and licenses concurrently upon vendor deletion', async () => {
+      it('should set vendorId to null across multiple device models and licenses concurrently upon vendor deletion', async () => {
         if (!isDbAvailable) return;
 
-        const sampleDept = await prisma.department.findFirst();
+        const cat = await prisma.assetCategory.findFirst();
 
         const vendor = await prisma.vendor.create({
           data: {
@@ -446,21 +452,22 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           },
         });
 
-        // Create 3 assets and 3 licenses
-        const assetIds: Array<string> = [];
+        // Create 3 device models and 3 licenses
+        const modelIds: Array<string> = [];
         const licenseIds: Array<string> = [];
 
         try {
           for (let i = 0; i < 3; i++) {
-            const a = await prisma.asset.create({
+            const m = await prisma.deviceModel.create({
               data: {
-                assetTag: `TAG-MULTI-SETNULL-${Date.now()}-${i}`,
-                name: `Multi-Child Asset ${i}`,
+                modelCode: `MC-MULTI-SETNULL-${Date.now()}-${i}`,
+                name: `Multi-Child Model ${i}`,
+                manufacturer: 'Apple',
+                categoryId: cat!.id,
                 vendorId: vendor.id,
-                departmentId: sampleDept?.id,
               },
             });
-            assetIds.push(a.id);
+            modelIds.push(m.id);
 
             const l = await prisma.license.create({
               data: {
@@ -473,18 +480,18 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           }
 
           // Verify all 6 records reference the vendor
-          const preAssets = await prisma.asset.findMany({ where: { id: { in: assetIds } } });
+          const preModels = await prisma.deviceModel.findMany({ where: { id: { in: modelIds } } });
           const preLicenses = await prisma.license.findMany({ where: { id: { in: licenseIds } } });
-          expect(preAssets.every((a) => a.vendorId === vendor.id)).toBe(true);
+          expect(preModels.every((m) => m.vendorId === vendor.id)).toBe(true);
           expect(preLicenses.every((l) => l.vendorId === vendor.id)).toBe(true);
 
           // Delete the parent vendor
           await prisma.vendor.delete({ where: { id: vendor.id } });
 
-          // Verify all 3 assets still exist and have vendorId === null
-          const postAssets = await prisma.asset.findMany({ where: { id: { in: assetIds } } });
-          expect(postAssets.length).toBe(3);
-          expect(postAssets.every((a) => a.vendorId === null)).toBe(true);
+          // Verify all 3 models still exist and have vendorId === null
+          const postModels = await prisma.deviceModel.findMany({ where: { id: { in: modelIds } } });
+          expect(postModels.length).toBe(3);
+          expect(postModels.every((m) => m.vendorId === null)).toBe(true);
 
           // Verify all 3 licenses still exist and have vendorId === null
           const postLicenses = await prisma.license.findMany({ where: { id: { in: licenseIds } } });
@@ -492,8 +499,10 @@ describe('Milestone 1 Challenger M1-2 — Vendor Relational Integrity & Producti
           expect(postLicenses.every((l) => l.vendorId === null)).toBe(true);
         } finally {
           // Cleanup
-          if (assetIds.length > 0)
-            await prisma.asset.deleteMany({ where: { id: { in: assetIds } } }).catch(() => {});
+          if (modelIds.length > 0)
+            await prisma.deviceModel
+              .deleteMany({ where: { id: { in: modelIds } } })
+              .catch(() => {});
           if (licenseIds.length > 0)
             await prisma.license.deleteMany({ where: { id: { in: licenseIds } } }).catch(() => {});
         }

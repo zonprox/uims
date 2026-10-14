@@ -1,3 +1,5 @@
+import type { Asset, DeviceModel, DeviceModelSummary, PhysicalUnit } from '../assets';
+import type { Vendor } from './common';
 import type { DirectoryUser } from './directory';
 import type { IPAddress, NetworkSwitch, SwitchPort } from './network';
 import type { Department } from './organization';
@@ -10,14 +12,20 @@ export enum AssetStatus {
   LOST = 'LOST',
 }
 
+export enum HandoverRecordType {
+  ASSIGNMENT = 'ASSIGNMENT',
+  RETURN = 'RETURN',
+}
+
 export interface AssetCategory {
   id: string;
   name: string;
   code?: string;
   description?: string | null;
   parentId?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  models?: DeviceModel[];
 }
 
 export interface CostCenter {
@@ -31,65 +39,24 @@ export interface CostCenter {
   linkedAssetCount?: number;
 }
 
-export interface Asset {
+export type { DeviceModel, DeviceModelSummary, PhysicalUnit, Asset };
+
+export interface AssetHandoverRecord {
   id: string;
-  assetCode?: string | null;
-  subcode?: string | null;
-  assetTag: string;
-  parentId?: string | null;
-  parent?: Asset | null;
-  children?: Asset[];
-  costCenterId?: string | null;
-  costCenter?: CostCenter | null;
-  name: string;
-  description?: string | null;
-  categoryId?: string | null;
-  category?: AssetCategory | null;
-  status: AssetStatus | `${AssetStatus}` | string;
-  serialNumber?: string | null;
-  model?: string | null;
-  manufacturer?: string | null;
-  specifications?: string | null;
-  unitCost?: number | null;
-  vendorId?: string | null;
-  purchaseDate?: string | null;
-  warrantyExpiry?: string | null;
-  assignedToId?: string | null;
-  assignedTo?: DirectoryUser | null;
-  assignedUser?: string;
-  assignedEmail?: string;
-  departmentId?: string | null;
-  department?: Department | null;
-  organizationId?: string | null;
-  organization?: string | null;
-  ipAddresses?: IPAddress[];
-  networkSwitch?: NetworkSwitch | null;
-  connectedPorts?: SwitchPort[];
-  networkConnectivity?: {
-    upstreamSwitch: string;
-    upstreamPort: string;
-    linkStatus: string;
-    rackName?: string | null;
-    rackUnit?: number | null;
-  } | null;
+  assetId: string;
+  asset?: Asset;
+  type: HandoverRecordType | `${HandoverRecordType}` | string;
+  recipientId?: string | null;
+  recipient?: DirectoryUser | null;
+  signedDocUrl?: string | null;
+  isPending: boolean;
   notes?: string | null;
-  // UI legacy aliases
-  tag?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface AssetModel extends Asset {
-  totalUnits?: number;
-  availableUnits?: number;
-  inUseUnits?: number;
-  childUnits?: Asset[];
-}
-
-export interface AssetUnit extends Asset {
-  parent?: Asset | null;
-  costCenter?: CostCenter | null;
-}
+export type AssetModel = DeviceModel;
+export type AssetUnit = Asset;
 
 /**
  * Authoritative Standardized IT Hardware Categories (11 Pure IT Categories)

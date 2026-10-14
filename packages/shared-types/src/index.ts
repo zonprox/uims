@@ -30,3 +30,4 @@ export * from './entities/timezone';
 export * from './entities/user';
 
 export * from './enums';
+export * from './assets';

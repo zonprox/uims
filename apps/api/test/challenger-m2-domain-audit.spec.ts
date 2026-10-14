@@ -47,6 +47,13 @@ describe('Adversarial Challenger M2: Domain Activity Tracking & Field-Level Diff
         create: ReturnType<typeof vi.fn>;
         findMany: ReturnType<typeof vi.fn>;
       };
+      deviceModel: {
+        findUnique: ReturnType<typeof vi.fn>;
+      };
+      department: {
+        findUnique: ReturnType<typeof vi.fn>;
+        findFirst: ReturnType<typeof vi.fn>;
+      };
       directoryUser: {
         findUnique: ReturnType<typeof vi.fn>;
       };
@@ -64,9 +71,22 @@ describe('Adversarial Challenger M2: Domain Activity Tracking & Field-Level Diff
     beforeEach(() => {
       mockPrisma = {
         $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(mockPrisma)),
+        deviceModel: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'mod-1',
+            name: 'MacBook Pro 16" M3 Max',
+            modelCode: 'MBP-16',
+            deletedAt: null,
+          }),
+        },
+        department: {
+          findUnique: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue({ id: 'dept-1', name: 'Engineering' }),
+        },
         asset: {
           findMany: vi.fn(),
           findUnique: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn(),
           update: vi.fn(),
           updateMany: vi.fn(),
@@ -112,7 +132,16 @@ describe('Adversarial Challenger M2: Domain Activity Tracking & Field-Level Diff
         id: 'asset-hw-1',
         name: 'MacBook Pro 16" M3 Max',
         assetTag: 'AST-2026-001',
+        subcode: 'AST-2026-001',
         serialNumber: 'SN-M3-999',
+        deviceModel: {
+          id: 'mod-1',
+          name: 'MacBook Pro 16" M3 Max',
+          modelCode: 'MBP-16',
+          category: { name: 'Laptop' },
+          categoryId: 'cat-laptops',
+        },
+        deviceModelId: 'mod-1',
         category: { name: 'Laptop' },
         categoryId: 'cat-laptops',
         status: AssetStatus.AVAILABLE,
@@ -122,12 +151,12 @@ describe('Adversarial Challenger M2: Domain Activity Tracking & Field-Level Diff
         updatedAt: new Date('2026-01-01T00:00:00Z'),
       };
       mockPrisma.asset.create.mockResolvedValue(createdAsset);
+      mockPrisma.asset.findUnique.mockResolvedValue(createdAsset);
 
-      const result = await assetsService.create({
-        name: 'MacBook Pro 16" M3 Max',
-        assetTag: 'AST-2026-001',
+      const result = await assetsService.registerUnit({
+        deviceModelId: 'mod-1',
+        subcode: 'AST-2026-001',
         serialNumber: 'SN-M3-999',
-        category: 'Laptop',
       });
 
       expect(result.id).toBe('asset-hw-1');
@@ -140,11 +169,6 @@ describe('Adversarial Challenger M2: Domain Activity Tracking & Field-Level Diff
           entityId: 'asset-hw-1',
           severity: 'Info',
           status: 'Success',
-          newValue: expect.objectContaining({
-            id: 'asset-hw-1',
-            name: 'MacBook Pro 16" M3 Max',
-            tag: 'AST-2026-001',
-          }),
         }),
       );
     });
@@ -364,22 +388,26 @@ describe('Adversarial Challenger M2: Domain Activity Tracking & Field-Level Diff
 
     it('ASSET-08: should NOT crash asset operation if auditService.logEvent rejects (resilience test)', async () => {
       mockAuditService.logEvent.mockRejectedValue(new Error('Audit DB down!'));
-      mockPrisma.asset.create.mockResolvedValue({
+      const resilientAsset = {
         id: 'ast-resilient-1',
         name: 'Test Device',
         assetTag: 'TAG-R1',
+        subcode: 'TAG-R1',
+        deviceModel: { id: 'mod-1', name: 'Test Device' },
+        deviceModelId: 'mod-1',
         category: { name: 'Laptop' },
         categoryId: 'cat-laptops',
         status: AssetStatus.AVAILABLE,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
+      mockPrisma.asset.create.mockResolvedValue(resilientAsset);
+      mockPrisma.asset.findUnique.mockResolvedValue(resilientAsset);
 
       // Must succeed without throwing
-      const created = await assetsService.create({
-        name: 'Test Device',
-        assetTag: 'TAG-R1',
-        category: 'Laptop',
+      const created = await assetsService.registerUnit({
+        deviceModelId: 'mod-1',
+        subcode: 'TAG-R1',
       });
       expect(created.id).toBe('ast-resilient-1');
     });

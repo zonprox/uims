@@ -170,9 +170,9 @@ describe('AssetTable Component', () => {
       expect(onShowDetails).toHaveBeenCalledWith(mockAssets[0]);
     }
 
-    // Action buttons in the first row (Eye, Print QR, Edit, Delete)
+    // Action buttons in the first row (Eye, Print QR, Edit, Transfer, Return, Delete)
     const actionButtons = container.querySelectorAll('tr[data-row-key="ast-1"] .ant-btn');
-    expect(actionButtons.length).toBe(4);
+    expect(actionButtons.length).toBe(6);
 
     // Eye button -> onShowDetails
     await act(async () => {

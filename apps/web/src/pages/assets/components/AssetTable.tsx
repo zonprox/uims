@@ -6,13 +6,18 @@ import {
   EyeOutlined,
   PrinterOutlined,
   RollbackOutlined,
+  SwapOutlined,
   UserOutlined,
+  UserSwitchOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import { Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
+import { assetsService } from '../../../services/assets.service';
+import { BatchAssignModal } from './BatchAssignModal';
 import { ReturnAssetModal } from './ReturnAssetModal';
+import { TransferAssetDrawer } from './TransferAssetDrawer';
 
 const { Text } = Typography;
 
@@ -26,6 +31,8 @@ export interface AssetTableProps {
   onOpenEditModal: (asset: Asset) => void;
   onDeleteAsset: (id: string) => void;
   onReturnAsset?: (asset: Asset) => void;
+  onAllocateAsset?: (asset: Asset) => void;
+  onTransferAsset?: (asset: Asset) => void;
   onAssetUpdated?: () => void;
 }
 
@@ -40,15 +47,36 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
     onOpenEditModal,
     onDeleteAsset,
     onReturnAsset,
+    onAllocateAsset,
+    onTransferAsset,
     onAssetUpdated,
   }) => {
     const [returningAsset, setReturningAsset] = useState<Asset | null>(null);
+    const [transferringAsset, setTransferringAsset] = useState<Asset | null>(null);
+    const [allocatingAsset, setAllocatingAsset] = useState<Asset | null>(null);
+    const [allocatingSubmitting, setAllocatingSubmitting] = useState(false);
 
     const handleReturnClick = (asset: Asset) => {
       if (onReturnAsset) {
         onReturnAsset(asset);
       } else {
         setReturningAsset(asset);
+      }
+    };
+
+    const handleTransferClick = (asset: Asset) => {
+      if (onTransferAsset) {
+        onTransferAsset(asset);
+      } else {
+        setTransferringAsset(asset);
+      }
+    };
+
+    const handleAllocateClick = (asset: Asset) => {
+      if (onAllocateAsset) {
+        onAllocateAsset(asset);
+      } else {
+        setAllocatingAsset(asset);
       }
     };
 
@@ -215,13 +243,17 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 190,
+          width: 220,
           fixed: 'end' as const,
           render: (_: unknown, record: Asset) => {
+            const s = (record.status || '').toUpperCase();
+            const isAvailable = s === 'AVAILABLE' || s === 'IN STORAGE' || s === 'IN_STORAGE';
             const isAssigned =
-              (record.status === 'Assigned' ||
-                record.status === 'In Use' ||
-                (Boolean(onReturnAsset) && record.status !== 'In Storage')) &&
+              (s === 'IN_USE' ||
+                s === 'ASSIGNED' ||
+                s === 'IN USE' ||
+                s === 'ACTIVE' ||
+                (s !== 'IN STORAGE' && s !== 'AVAILABLE')) &&
               Boolean(
                 record.assignedToId || (record.assignedTo && record.assignedTo !== 'Unassigned'),
               );
@@ -257,16 +289,38 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                     onClick={() => onOpenEditModal(record)}
                   />
                 </Tooltip>
-                {isAssigned && (
-                  <Tooltip title="Return Asset">
+                {isAvailable && (
+                  <Tooltip title="Allocate Asset">
                     <Button
                       type="text"
                       shape="circle"
                       size="small"
-                      icon={<RollbackOutlined />}
-                      onClick={() => handleReturnClick(record)}
+                      icon={<UserSwitchOutlined />}
+                      onClick={() => handleAllocateClick(record)}
                     />
                   </Tooltip>
+                )}
+                {isAssigned && (
+                  <>
+                    <Tooltip title="Transfer Asset">
+                      <Button
+                        type="text"
+                        shape="circle"
+                        size="small"
+                        icon={<SwapOutlined />}
+                        onClick={() => handleTransferClick(record)}
+                      />
+                    </Tooltip>
+                    <Tooltip title="Return Asset">
+                      <Button
+                        type="text"
+                        shape="circle"
+                        size="small"
+                        icon={<RollbackOutlined />}
+                        onClick={() => handleReturnClick(record)}
+                      />
+                    </Tooltip>
+                  </>
                 )}
                 <Popconfirm
                   title="Delete physical unit?"
@@ -290,7 +344,15 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           },
         },
       ],
-      [onDeleteAsset, onOpenEditModal, onShowDetails, onShowQr, onReturnAsset],
+      [
+        onDeleteAsset,
+        onOpenEditModal,
+        onShowDetails,
+        onShowQr,
+        onReturnAsset,
+        onAllocateAsset,
+        onTransferAsset,
+      ],
     );
 
     const rowSelection = useMemo(() => {
@@ -327,6 +389,40 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             onSuccess={() => {
               setReturningAsset(null);
               onAssetUpdated?.();
+            }}
+          />
+        )}
+        {transferringAsset && (
+          <TransferAssetDrawer
+            open={Boolean(transferringAsset)}
+            asset={transferringAsset}
+            onClose={() => setTransferringAsset(null)}
+            onSuccess={() => {
+              setTransferringAsset(null);
+              onAssetUpdated?.();
+            }}
+          />
+        )}
+        {allocatingAsset && (
+          <BatchAssignModal
+            open={Boolean(allocatingAsset)}
+            assets={[allocatingAsset]}
+            submitting={allocatingSubmitting}
+            onCancel={() => setAllocatingAsset(null)}
+            onAssign={async (values) => {
+              try {
+                setAllocatingSubmitting(true);
+                await assetsService.batchAssignAssets({
+                  assetIds: [allocatingAsset.id],
+                  assignedToId: values.assignedToId,
+                  status: values.status,
+                  signedDocUrl: values.signedDocUrl,
+                });
+                setAllocatingAsset(null);
+                onAssetUpdated?.();
+              } finally {
+                setAllocatingSubmitting(false);
+              }
             }}
           />
         )}

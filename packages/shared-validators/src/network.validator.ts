@@ -1,16 +1,36 @@
 import {
   IPStatus,
+  InfrastructureDomain,
+  LinkMediumType,
+  NetworkDomain,
   PortAdminStatus,
   PortFormFactor,
   PortMode,
   PortOperStatus,
+  PortRole,
   RackStatus,
   SwitchRole,
   SwitchStatus,
+  TopologyNodeType,
+  TopologyViewMode,
   VlanStatus,
 } from '@uims/shared-types';
 import { z } from 'zod';
 import { uuidSchema } from './common.validator';
+
+export const infrastructureDomainSchema = z
+  .nativeEnum(InfrastructureDomain)
+  .default(InfrastructureDomain.NETWORK);
+export const networkDomainSchema = infrastructureDomainSchema;
+export const topologyViewModeSchema = z.nativeEnum(TopologyViewMode).default(TopologyViewMode.ALL);
+export const linkMediumTypeSchema = z
+  .nativeEnum(LinkMediumType)
+  .default(LinkMediumType.COPPER);
+export const portRoleSchema = z.nativeEnum(PortRole).default(PortRole.ACCESS);
+export const topologyNodeTypeSchema = z
+  .nativeEnum(TopologyNodeType)
+  .default(TopologyNodeType.SWITCH);
+
 
 // Strict IPv4: rejects octets > 255 and rejects leading zeros (e.g. 01.0.0.1)
 export const ipv4Regex =
@@ -57,6 +77,7 @@ export const createVlanSchema = z.object({
   name: z.string().trim().min(1, 'VLAN name is required').max(100),
   description: z.string().trim().max(500).nullable().optional(),
   status: z.nativeEnum(VlanStatus).default(VlanStatus.ACTIVE).optional(),
+  domain: networkDomainSchema.optional(),
 });
 
 export const updateVlanSchema = createVlanSchema.partial();
@@ -74,6 +95,7 @@ export const vlanQuerySchema = z.object({
 export const createSubnetSchema = z.object({
   cidr: cidrSchema,
   name: z.string().trim().min(1, 'Subnet name is required').max(100),
+  domain: networkDomainSchema.optional(),
   vlanId: uuidSchema.nullable().optional(),
   gateway: z.string().trim().regex(ipv4Regex, 'Invalid IPv4 gateway address').nullable().optional(),
   networkAddress: z.string().trim().regex(ipv4Regex).nullable().optional(),
@@ -148,6 +170,8 @@ export const createRackSchema = z.object({
   width: z.number().positive().nullable().optional(),
   maxPowerKw: z.number().positive().nullable().optional(),
   maxWeightKg: z.number().positive().nullable().optional(),
+  positionX: z.number().nullable().optional(),
+  positionY: z.number().nullable().optional(),
   status: z.nativeEnum(RackStatus).default(RackStatus.ACTIVE).optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
 });
@@ -173,6 +197,7 @@ export const createSwitchSchema = z.object({
   ipAddressId: uuidSchema.nullable().optional(),
   firmwareVersion: z.string().trim().max(100).nullable().optional(),
   role: z.nativeEnum(SwitchRole).default(SwitchRole.ACCESS).optional(),
+  domain: networkDomainSchema.optional(),
   status: z.nativeEnum(SwitchStatus).default(SwitchStatus.ONLINE).optional(),
   totalPorts: z
     .number()
@@ -201,6 +226,8 @@ export const createSwitchSchema = z.object({
   rackId: uuidSchema.nullable().optional(),
   rackPosition: z.number().int().min(1).max(100).nullable().optional(),
   rackHeight: z.number().int().min(1).max(10).default(1).optional(),
+  positionX: z.number().nullable().optional(),
+  positionY: z.number().nullable().optional(),
   assetId: uuidSchema.nullable().optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
   autoGeneratePorts: z.boolean().optional(),
@@ -251,6 +278,7 @@ export const createSwitchPortSchema = z.object({
   taggedVlanIds: z.array(taggedVlanItemSchema).nullable().optional(),
   ipAddressId: uuidSchema.nullable().optional(),
   connectedAssetId: uuidSchema.nullable().optional(),
+  connectedPortId: uuidSchema.nullable().optional(),
   description: z.string().trim().max(255).nullable().optional(),
 });
 
@@ -267,6 +295,7 @@ export const updateSwitchPortSchema = z.object({
   taggedVlanIds: z.array(taggedVlanItemSchema).nullable().optional(),
   ipAddressId: uuidSchema.nullable().optional(),
   connectedAssetId: uuidSchema.nullable().optional(),
+  connectedPortId: uuidSchema.nullable().optional(),
   description: z.string().trim().max(255).nullable().optional(),
 });
 
@@ -296,6 +325,79 @@ export const macVendorQuerySchema = z.object({
   mac: z.string().trim().min(6, 'MAC address must have at least 6 characters').max(50),
 });
 
+// --- Topology Schemas ---
+
+export const topologyQuerySchema = z.object({
+  mode: topologyViewModeSchema.optional(),
+  domain: infrastructureDomainSchema.optional(),
+  rackId: uuidSchema.optional(),
+  vlanId: uuidSchema.optional(),
+  subnetId: uuidSchema.optional(),
+  floor: z.string().trim().max(50).optional(),
+  status: z.string().trim().max(50).optional(),
+  includeMetrics: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'false' || val === '0') return false;
+        if (val.toLowerCase() === 'true' || val === '1') return true;
+      }
+      return val;
+    }, z.boolean())
+    .default(true)
+    .optional(),
+});
+
+export const canvasNodePositionItemSchema = z.object({
+  nodeId: z.string().trim().min(1, 'nodeId is required'),
+  nodeType: topologyNodeTypeSchema.optional(),
+  x: z.number().finite('X coordinate must be a valid finite number'),
+  y: z.number().finite('Y coordinate must be a valid finite number'),
+  isPinned: z.boolean().default(false).optional(),
+});
+
+export const updateCanvasLayoutSchema = z.object({
+  viewMode: topologyViewModeSchema.optional(),
+  positions: z
+    .array(canvasNodePositionItemSchema)
+    .min(1, 'positions array must contain at least 1 item')
+    .max(500, 'positions array cannot exceed 500 items in a single batch'),
+});
+
+export const patchCableLinkSchema = z
+  .object({
+    sourcePortId: uuidSchema,
+    targetPortId: uuidSchema.nullable().optional(),
+    targetAssetId: uuidSchema.nullable().optional(),
+    targetIpAddressId: uuidSchema.nullable().optional(),
+    medium: linkMediumTypeSchema.optional(),
+    portRole: portRoleSchema.optional(),
+    mode: z.nativeEnum(PortMode).optional(),
+    vlanId: uuidSchema.nullable().optional(),
+    taggedVlanIds: z.array(taggedVlanItemSchema).nullable().optional(),
+    speedMbps: z.number().int().positive('Link speed must be a positive integer').nullable().optional(),
+    speed: z.string().trim().max(50).nullable().optional(),
+    poeDelivering: z.boolean().default(false).optional(),
+    description: z.string().trim().max(255).nullable().optional(),
+  })
+  .refine((data) => Boolean(data.targetPortId || data.targetAssetId || data.targetIpAddressId), {
+    message:
+      'At least one target connection (targetPortId, targetAssetId, or targetIpAddressId) must be provided',
+    path: ['targetPortId'],
+  })
+  .refine((data) => !data.targetPortId || data.sourcePortId !== data.targetPortId, {
+    message: 'Cannot patch a switch port to itself (self-loop connection detected)',
+    path: ['targetPortId'],
+  });
+
+export const unpatchCableLinkSchema = z.object({
+  portId: uuidSchema,
+  reason: z.string().trim().max(255).nullable().optional(),
+  resetPortConfig: z.boolean().default(false).optional(),
+});
+
+export const updateTopologyLayoutSchema = updateCanvasLayoutSchema;
+export const createTopologyLinkSchema = patchCableLinkSchema;
+
 export type CreateVlanInput = z.infer<typeof createVlanSchema>;
 export type UpdateVlanInput = z.infer<typeof updateVlanSchema>;
 export type VlanQueryInput = z.infer<typeof vlanQuerySchema>;
@@ -317,3 +419,11 @@ export type SwitchPortQueryInput = z.infer<typeof switchPortQuerySchema>;
 export type CalculateSubnetQueryInput = z.infer<typeof calculateSubnetQuerySchema>;
 export type AutoDetectQueryInput = z.infer<typeof autoDetectQuerySchema>;
 export type MacVendorQueryInput = z.infer<typeof macVendorQuerySchema>;
+export type TopologyQueryInput = z.infer<typeof topologyQuerySchema>;
+export type CanvasNodePositionItemInput = z.infer<typeof canvasNodePositionItemSchema>;
+export type UpdateCanvasLayoutInput = z.infer<typeof updateCanvasLayoutSchema>;
+export type UpdateTopologyLayoutInput = UpdateCanvasLayoutInput;
+export type PatchCableLinkInput = z.infer<typeof patchCableLinkSchema>;
+export type CreateTopologyLinkInput = PatchCableLinkInput;
+export type UnpatchCableLinkInput = z.infer<typeof unpatchCableLinkSchema>;
+

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AssetStatus, Prisma } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service';
@@ -7,7 +7,11 @@ import { generatePdfTable, type PdfColumn } from './utils/pdf-table-generator';
 
 type AssetWithRelations = Prisma.AssetGetPayload<{
   include: {
-    category: true;
+    deviceModel: {
+      include: {
+        category: true;
+      };
+    };
     department: true;
     costCenter: true;
     assignedTo: true;
@@ -20,9 +24,10 @@ type LicenseWithRelations = Prisma.LicenseGetPayload<{
   };
 }>;
 
-type InventoryWithRelations = Prisma.InventoryItemGetPayload<{
+type InventoryWithRelations = Prisma.DeviceModelGetPayload<{
   include: {
     category: true;
+    vendor: true;
   };
 }>;
 
@@ -315,7 +320,11 @@ export class ReportsService {
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: { id: 'asc' },
         include: {
-          category: true,
+          deviceModel: {
+            include: {
+              category: true,
+            },
+          },
           department: true,
           costCenter: true,
           assignedTo: true,
@@ -329,11 +338,15 @@ export class ReportsService {
           ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`.trim()
           : 'Unassigned';
 
+        const modelName = asset.deviceModel?.name || 'Hardware';
+        const modelCode = asset.deviceModel?.modelCode || 'N/A';
+        const categoryName = asset.deviceModel?.category?.name || 'Uncategorized';
+
         rows.push([
-          asset.assetTag || asset.assetCode || asset.subcode || 'N/A',
-          asset.name,
-          asset.model || 'N/A',
-          asset.category?.name || 'Uncategorized',
+          asset.assetTag || asset.subcode || asset.id,
+          modelName,
+          modelCode,
+          categoryName,
           asset.status,
           asset.department?.name || 'Unassigned',
           asset.costCenter?.name || asset.costCenter?.code || 'N/A',
@@ -436,38 +449,46 @@ export class ReportsService {
     let cursor: string | undefined = undefined;
 
     while (true) {
-      const batch: InventoryWithRelations[] = await this.prisma.inventoryItem.findMany({
+      const batch: InventoryWithRelations[] = await this.prisma.deviceModel.findMany({
+        where: { deletedAt: null },
         take: 100,
         skip: cursor ? 1 : 0,
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: { id: 'asc' },
         include: {
           category: true,
+          vendor: true,
         },
       });
 
       if (batch.length === 0) break;
 
+      const modelIds = batch.map((m) => m.id);
+      const stockCounts = await this.prisma.asset.groupBy({
+        by: ['deviceModelId'],
+        where: { deviceModelId: { in: modelIds }, status: AssetStatus.AVAILABLE },
+        _count: { _all: true },
+      });
+      const stockMap = new Map(stockCounts.map((s) => [s.deviceModelId, s._count._all]));
+
       for (const item of batch) {
+        const quantity = stockMap.get(item.id) || 0;
         const stockStatus =
-          item.quantity <= 0
-            ? 'Out of Stock'
-            : item.quantity <= item.minThreshold
-              ? 'Low Stock'
-              : 'In Stock';
-        const valuation = (item.quantity || 0) * (item.unitCost || 0);
+          quantity <= 0 ? 'Out of Stock' : quantity <= item.minThreshold ? 'Low Stock' : 'In Stock';
+        const unitCostNum = Number(item.unitCost) || 0;
+        const valuation = quantity * unitCostNum;
 
         rows.push([
-          item.sku,
+          item.modelCode,
           item.name,
           item.category?.name || 'Uncategorized',
-          item.quantity,
+          quantity,
           item.minThreshold,
           stockStatus,
-          `$${(item.unitCost || 0).toFixed(2)}`,
+          `$${unitCostNum.toFixed(2)}`,
           `$${valuation.toFixed(2)}`,
           item.binNumber || 'N/A',
-          item.supplier || 'N/A',
+          item.vendor?.name || item.manufacturer || 'N/A',
         ]);
       }
 

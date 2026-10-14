@@ -7,6 +7,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { encryptDirectoryPassword } from '../../common/crypto/directory-crypto';
 import type { PrismaService } from '../../database/prisma.service';
+import type { AssetsService } from '../assets/assets.service';
 import { DirectoryController } from './directory.controller';
 import { DirectoryService } from './directory.service';
 
@@ -43,6 +44,10 @@ describe('Milestone M2: Directory Relational & Credential Service Unit Suite', (
       update: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    assetHandoverRecord: {
+      create: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
     },
     $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mockPrisma)),
   };
@@ -203,7 +208,7 @@ describe('Milestone M2: Directory Relational & Credential Service Unit Suite', (
       expect(mockPrisma.asset.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'ast-1' },
-          data: { assignedToId: 'u-1', status: 'IN_USE' },
+          data: expect.objectContaining({ assignedToId: 'u-1', status: 'IN_USE' }),
         }),
       );
     });
@@ -268,7 +273,7 @@ describe('Milestone M2: Directory Relational & Credential Service Unit Suite', (
       expect(mockPrisma.asset.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'ast-1' },
-          data: { assignedToId: null, status: 'AVAILABLE' },
+          data: expect.objectContaining({ assignedToId: null, status: 'AVAILABLE' }),
         }),
       );
     });
@@ -307,6 +312,99 @@ describe('Milestone M2: Directory Relational & Credential Service Unit Suite', (
           where: { status: 'AVAILABLE', assignedToId: null },
         }),
       );
+    });
+
+    it('assignAsset: delegates to assetsService.allocateUnits when assetsService is provided', async () => {
+      const mockAssetsService = {
+        allocateUnits: vi.fn().mockResolvedValue({
+          success: true,
+          count: 1,
+          allocatedIds: ['ast-1'],
+          assignedToId: 'u-1',
+          hasPendingRecord: true,
+        }),
+        returnUnits: vi.fn(),
+      };
+      const delegatingService = new DirectoryService(
+        mockPrisma as unknown as PrismaService,
+        undefined,
+        mockAssetsService as unknown as AssetsService,
+      );
+
+      mockPrisma.directoryUser.findFirst.mockResolvedValue({
+        id: 'u-1',
+        status: 'ACTIVE',
+      });
+      mockPrisma.asset.findUnique
+        .mockResolvedValueOnce({
+          id: 'ast-1',
+          assetTag: 'AST-01',
+          status: 'AVAILABLE',
+          assignedToId: null,
+        })
+        .mockResolvedValueOnce({
+          id: 'ast-1',
+          assetTag: 'AST-01',
+          status: 'IN_USE',
+          assignedToId: 'u-1',
+          deviceModel: { category: { name: 'Laptop' } },
+        });
+
+      const res = await delegatingService.assignAsset('u-1', 'ast-1');
+
+      expect(mockAssetsService.allocateUnits).toHaveBeenCalledWith({
+        assetIds: ['ast-1'],
+        assignedToId: 'u-1',
+        conditionNotes: 'Assigned via Directory User profile',
+      });
+      expect(res?.status).toBe('IN_USE');
+    });
+
+    it('unassignAsset: delegates to assetsService.returnUnits when assetsService is provided', async () => {
+      const mockAssetsService = {
+        allocateUnits: vi.fn(),
+        returnUnits: vi.fn().mockResolvedValue({
+          success: true,
+          count: 1,
+          returnedIds: ['ast-1'],
+          status: 'AVAILABLE',
+          hasPendingRecord: false,
+        }),
+      };
+      const delegatingService = new DirectoryService(
+        mockPrisma as unknown as PrismaService,
+        undefined,
+        mockAssetsService as unknown as AssetsService,
+      );
+
+      mockPrisma.directoryUser.findFirst.mockResolvedValue({
+        id: 'u-1',
+        email: 'user@corp.internal',
+        status: 'ACTIVE',
+      });
+      mockPrisma.asset.findUnique
+        .mockResolvedValueOnce({
+          id: 'ast-1',
+          assetTag: 'AST-01',
+          assignedToId: 'u-1',
+        })
+        .mockResolvedValueOnce({
+          id: 'ast-1',
+          assetTag: 'AST-01',
+          status: 'AVAILABLE',
+          assignedToId: null,
+          deviceModel: { category: { name: 'Laptop' } },
+        });
+
+      const res = await delegatingService.unassignAsset('u-1', 'ast-1');
+
+      expect(mockAssetsService.returnUnits).toHaveBeenCalledWith({
+        assetIds: ['ast-1'],
+        targetStatus: 'AVAILABLE',
+        conditionNotes: 'Unassigned (returned) via Directory User profile',
+      });
+      expect(res.success).toBe(true);
+      expect(res.asset?.status).toBe('AVAILABLE');
     });
   });
 

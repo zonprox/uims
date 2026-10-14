@@ -40,6 +40,10 @@ export interface AssetFilterState {
   categoryFilter: string;
   statusFilter: string;
   orgFilter: string;
+  modelFilter?: string;
+  custodianFilter?: string;
+  departmentFilter?: string;
+  hasPendingRecordFilter?: string;
 }
 
 export function buildAssetPayload(values: AssetFormValues): Partial<Asset> {
@@ -95,6 +99,10 @@ export function useAssetManagement(form: FormInstance) {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [orgFilter, setOrgFilter] = useState<string>('all');
+  const [modelFilter, setModelFilter] = useState<string>('all');
+  const [custodianFilter, setCustodianFilter] = useState<string>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [hasPendingRecordFilter, setHasPendingRecordFilter] = useState<string>('all');
   const [organizations, setOrganizations] = useState<Array<Organization>>([]);
 
   // Selection & Batch Action State
@@ -179,8 +187,21 @@ export function useAssetManagement(form: FormInstance) {
       categoryFilter,
       statusFilter,
       orgFilter,
+      modelFilter,
+      custodianFilter,
+      departmentFilter,
+      hasPendingRecordFilter,
     }),
-    [searchQuery, categoryFilter, statusFilter, orgFilter],
+    [
+      searchQuery,
+      categoryFilter,
+      statusFilter,
+      orgFilter,
+      modelFilter,
+      custodianFilter,
+      departmentFilter,
+      hasPendingRecordFilter,
+    ],
   );
 
   const handleFilterChange = useCallback(
@@ -189,6 +210,10 @@ export function useAssetManagement(form: FormInstance) {
       else if (key === 'categoryFilter') setCategoryFilter(val || 'all');
       else if (key === 'statusFilter') setStatusFilter(val || 'all');
       else if (key === 'orgFilter') setOrgFilter(val || 'all');
+      else if (key === 'modelFilter') setModelFilter(val || 'all');
+      else if (key === 'custodianFilter') setCustodianFilter(val || 'all');
+      else if (key === 'departmentFilter') setDepartmentFilter(val || 'all');
+      else if (key === 'hasPendingRecordFilter') setHasPendingRecordFilter(val || 'all');
     },
     [],
   );
@@ -217,6 +242,15 @@ export function useAssetManagement(form: FormInstance) {
           categoryId: isCategoryId ? categoryFilter : undefined,
           category: categoryFilter !== 'all' && !isCategoryId ? categoryFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
+          modelId: modelFilter !== 'all' ? modelFilter : undefined,
+          assignedToId: custodianFilter !== 'all' ? custodianFilter : undefined,
+          departmentId: departmentFilter !== 'all' ? departmentFilter : undefined,
+          hasPendingRecord:
+            hasPendingRecordFilter === 'pending'
+              ? true
+              : hasPendingRecordFilter === 'compliant'
+                ? false
+                : undefined,
           organizationId: orgFilter !== 'all' ? orgFilter : undefined,
         }),
         assetsService.getStats().catch((_error: unknown) => null),
@@ -238,10 +272,12 @@ export function useAssetManagement(form: FormInstance) {
       } else {
         setStats({
           total: filtered.length,
-          active: filtered.filter((a) => a.status === 'Active').length,
-          inRepair: filtered.filter((a) => a.status === 'In Repair').length,
-          inStorage: filtered.filter((a) => a.status === 'In Storage').length,
-          retired: filtered.filter((a) => a.status === 'Retired').length,
+          active: filtered.filter((a) => a.status === 'Active' || a.status === 'IN_USE').length,
+          inRepair: filtered.filter((a) => a.status === 'In Repair' || a.status === 'MAINTENANCE')
+            .length,
+          inStorage: filtered.filter((a) => a.status === 'In Storage' || a.status === 'AVAILABLE')
+            .length,
+          retired: filtered.filter((a) => a.status === 'Retired' || a.status === 'RETIRED').length,
         });
       }
     } catch (err: unknown) {
@@ -249,7 +285,18 @@ export function useAssetManagement(form: FormInstance) {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, message, orgFilter, organizations, searchQuery, statusFilter]);
+  }, [
+    categoryFilter,
+    custodianFilter,
+    departmentFilter,
+    hasPendingRecordFilter,
+    message,
+    modelFilter,
+    orgFilter,
+    organizations,
+    searchQuery,
+    statusFilter,
+  ]);
 
   const [searchParams] = useSearchParams();
   const deepLinkId =
@@ -283,14 +330,11 @@ export function useAssetManagement(form: FormInstance) {
             }
           })
           .catch((error: unknown) => {
-            console.error(
-              'Failed to resolve deep-linked entity:',
-              error instanceof Error ? error.message : String(error),
-            );
+            message.error(formatErrorMessage(error, 'resolve deep-linked asset'));
           });
       }
     }
-  }, [deepLinkId, assets]);
+  }, [deepLinkId, assets, message]);
 
   // Deep linking: auto-open scanner modal if ?scan=true
   useEffect(() => {
@@ -630,6 +674,10 @@ export function useAssetManagement(form: FormInstance) {
     setCategoryFilter('all');
     setStatusFilter('all');
     setOrgFilter('all');
+    setModelFilter('all');
+    setCustodianFilter('all');
+    setDepartmentFilter('all');
+    setHasPendingRecordFilter('all');
   }, []);
 
   // Device Models State
@@ -710,6 +758,35 @@ export function useAssetManagement(form: FormInstance) {
     [form],
   );
 
+  const modelOptions = useMemo(
+    () =>
+      models.map((m) => ({
+        label: `${m.name} (${m.model || m.assetCode || m.tag})`,
+        value: m.id,
+      })),
+    [models],
+  );
+
+  const custodianOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of assets) {
+      if (a.assignedToId && a.assignedTo && a.assignedTo !== 'Unassigned') {
+        map.set(a.assignedToId, a.assignedTo);
+      }
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ label, value }));
+  }, [assets]);
+
+  const departmentOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of assets) {
+      if (a.departmentId && a.department) {
+        map.set(a.departmentId, a.department);
+      }
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ label, value }));
+  }, [assets]);
+
   return {
     assets,
     stats,
@@ -723,6 +800,17 @@ export function useAssetManagement(form: FormInstance) {
     setCategoryFilter,
     statusFilter,
     setStatusFilter,
+    modelFilter,
+    setModelFilter,
+    modelOptions,
+    custodianFilter,
+    setCustodianFilter,
+    custodianOptions,
+    departmentFilter,
+    setDepartmentFilter,
+    departmentOptions,
+    hasPendingRecordFilter,
+    setHasPendingRecordFilter,
     filterState,
     handleFilterChange,
     modalOpen,

@@ -4,6 +4,41 @@ import type { DashboardOverviewDto } from '@uims/shared-types';
 import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 
+export interface PendingHandoverRecordItem {
+  id: string;
+  recordId: string;
+  assetId: string;
+  assetTag: string;
+  subcode: string;
+  modelName: string;
+  serialNumber: string;
+  type: 'ASSIGNMENT' | 'RETURN';
+  handoverType: 'ASSIGNMENT' | 'RETURN';
+  recipientId?: string;
+  recipientName: string;
+  recipientEmail: string;
+  department: string;
+  departmentName: string;
+  createdAt: string;
+  daysPending: number;
+  isOverdue: boolean;
+  docUrl?: string;
+  timeAgo: string;
+}
+
+export interface PendingHandoverSummaryResponse {
+  totalPending: number;
+  overdueCount: number;
+  pendingAssignments: number;
+  pendingReturns: number;
+  pendingTransfers: number;
+  breakdownByType: {
+    assignment: number;
+    return: number;
+  };
+  records: PendingHandoverRecordItem[];
+}
+
 function formatRecentLog(log: AuditLog, timeAgo: (date: Date) => string) {
   const emailLower = (log.userEmail || '').toLowerCase();
   const role = emailLower.includes('tech')
@@ -246,9 +281,48 @@ export class DashboardService {
       this.prisma.license.aggregate({ _sum: { totalSeats: true, usedSeats: true } }),
       this.prisma.license.count(),
       this.prisma.license.count({ where: { status: 'EXPIRING_SOON' } }),
-      this.prisma.inventoryItem.aggregate({ _sum: { quantity: true } }),
-      this.prisma.inventoryItem.count(),
-      this.prisma.inventoryItem.count({ where: { quantity: { lte: 5 } } }),
+      typeof (
+        this.prisma as unknown as {
+          inventoryItem?: {
+            aggregate: (args: unknown) => Promise<{ _sum: { quantity: number | null } }>;
+          };
+        }
+      ).inventoryItem?.aggregate === 'function'
+        ? (
+            this.prisma as unknown as {
+              inventoryItem: {
+                aggregate: (args: unknown) => Promise<{ _sum: { quantity: number | null } }>;
+              };
+            }
+          ).inventoryItem.aggregate({ _sum: { quantity: true } })
+        : this.prisma.asset
+            .count({ where: { status: 'AVAILABLE' } })
+            .then((count) => ({ _sum: { quantity: count } })),
+      typeof this.prisma.deviceModel?.count === 'function'
+        ? this.prisma.deviceModel.count({ where: { deletedAt: null } })
+        : (
+            this.prisma as unknown as {
+              inventoryItem: { count: (args?: unknown) => Promise<number> };
+            }
+          ).inventoryItem.count(),
+      typeof this.prisma.$queryRaw === 'function'
+        ? this.prisma.$queryRaw<Array<{ count: number | string }>>`
+              WITH model_avail AS (
+                SELECT dm.id, dm."minThreshold", COUNT(a.id) FILTER (WHERE a.status = 'AVAILABLE') AS avail_count
+                FROM "DeviceModel" dm
+                LEFT JOIN "Asset" a ON a."deviceModelId" = dm.id
+                WHERE dm."deletedAt" IS NULL
+                GROUP BY dm.id, dm."minThreshold"
+              )
+              SELECT COUNT(*)::int AS count FROM model_avail WHERE avail_count <= "minThreshold"
+            `
+            .then((res) => Number(res[0]?.count ?? 0))
+            .catch(() => 0)
+        : (
+            this.prisma as unknown as {
+              inventoryItem: { count: (args?: unknown) => Promise<number> };
+            }
+          ).inventoryItem.count(),
       this.prisma.subnet.aggregate({ _sum: { totalIps: true } }),
       this.prisma.iPAddress.count({ where: { status: 'ASSIGNED' } }),
       this.prisma.auditLog.findMany({
@@ -258,11 +332,30 @@ export class DashboardService {
         take: 20,
         orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       }),
-      this.prisma.inventoryItem.findMany({
-        where: { quantity: { lte: 5 } },
-        take: 3,
-        orderBy: [{ quantity: 'asc' }, { id: 'asc' }],
-      }),
+      typeof this.prisma.$queryRaw === 'function'
+        ? this.prisma.$queryRaw<
+            Array<{ id: string; name: string; quantity: number; minThreshold: number }>
+          >`
+              SELECT dm.id, dm.name, COUNT(a.id) FILTER (WHERE a.status = 'AVAILABLE')::int AS quantity, dm."minThreshold"
+              FROM "DeviceModel" dm
+              LEFT JOIN "Asset" a ON a."deviceModelId" = dm.id
+              WHERE dm."deletedAt" IS NULL
+              GROUP BY dm.id, dm.name, dm."minThreshold"
+              HAVING COUNT(a.id) FILTER (WHERE a.status = 'AVAILABLE') <= dm."minThreshold"
+              ORDER BY quantity ASC, dm.id ASC
+              LIMIT 3
+            `.catch(() => [])
+        : (
+            this.prisma as unknown as {
+              inventoryItem: {
+                findMany: (
+                  args?: unknown,
+                ) => Promise<
+                  Array<{ id: string; name: string; quantity: number; minThreshold: number }>
+                >;
+              };
+            }
+          ).inventoryItem.findMany(),
       this.prisma.license.findMany({
         where: { status: 'EXPIRING_SOON' },
         take: 3,
@@ -276,6 +369,7 @@ export class DashboardService {
           },
           status: { not: 'RETIRED' },
         },
+        include: { deviceModel: true },
         take: 3,
         orderBy: [{ warrantyExpiry: 'asc' }, { id: 'asc' }],
       }),
@@ -284,6 +378,7 @@ export class DashboardService {
           status: 'IN_USE',
           assignedToId: null,
         },
+        include: { deviceModel: true },
         take: 3,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
       }),
@@ -397,13 +492,15 @@ export class DashboardService {
 
     // 4. Expiring warranties (warning)
     for (const asset of expiringWarranties) {
+      const modelName =
+        (asset as { deviceModel?: { name?: string } | null }).deviceModel?.name || 'Hardware';
       actionItems.push({
         id: `war-${asset.id}`,
         type: 'warning',
         title: 'Warranty Expiration Alert',
         tag: 'Expiring Soon',
         tagColor: 'warning',
-        description: `${asset.name} (${asset.assetTag}) warranty expires soon.`,
+        description: `${modelName} (${asset.subcode || asset.assetTag || asset.id}) warranty expires soon.`,
         linkText: 'Review Assets',
         linkUrl: '/assets',
       });
@@ -411,19 +508,45 @@ export class DashboardService {
 
     // 5. Orphaned assets (warning)
     for (const asset of orphanedAssets) {
+      const modelName =
+        (asset as { deviceModel?: { name?: string } | null }).deviceModel?.name || 'Hardware';
       actionItems.push({
         id: `orph-${asset.id}`,
         type: 'warning',
         title: 'Orphaned Asset Detected',
         tag: 'Unassigned',
         tagColor: 'orange',
-        description: `${asset.name} (${asset.assetTag}) is in service without an assigned custodian.`,
+        description: `${modelName} (${asset.subcode || asset.assetTag || asset.id}) is in service without an assigned custodian.`,
         linkText: 'Assign Custodian',
         linkUrl: '/assets',
       });
     }
 
-    const result: DashboardOverviewDto = {
+    // 6. Pending handover documents compliance alerts
+    const pendingHandovers = await this.getPendingHandoversSummary();
+    if (pendingHandovers.totalPending > 0) {
+      actionItems.push({
+        id: 'compliance-pending-handovers',
+        type: pendingHandovers.overdueCount > 0 ? 'error' : 'warning',
+        title:
+          pendingHandovers.overdueCount > 0
+            ? 'Overdue Handover Documents'
+            : 'Pending Handover Documents',
+        tag: pendingHandovers.overdueCount > 0 ? 'Critical' : 'Pending Review',
+        tagColor: pendingHandovers.overdueCount > 0 ? 'error' : 'warning',
+        description:
+          pendingHandovers.overdueCount > 0
+            ? `${pendingHandovers.totalPending} handover document(s) pending signature (${pendingHandovers.overdueCount} overdue > 3 days).`
+            : `${pendingHandovers.totalPending} handover document(s) awaiting signed copies.`,
+        linkText: 'Review Documents',
+        linkUrl: '/assets',
+      });
+    }
+
+    const result: DashboardOverviewDto & {
+      pendingHandovers?: PendingHandoverRecordItem[];
+      pendingHandoversSummary?: PendingHandoverSummaryResponse;
+    } = {
       kpi: {
         managedAssets: {
           total: totalAssets,
@@ -494,6 +617,8 @@ export class DashboardService {
       },
       recentActivity,
       actionItems,
+      pendingHandovers: pendingHandovers.records,
+      pendingHandoversSummary: pendingHandovers,
     };
 
     if (this.redis) {
@@ -507,6 +632,174 @@ export class DashboardService {
     }
 
     return result;
+  }
+
+  /**
+   * Alias for getOverview adhering to uniform dashboard query interface.
+   */
+  async getDashboardData(
+    period?: string,
+    bypassCache = false,
+  ): Promise<
+    DashboardOverviewDto & {
+      pendingHandovers?: PendingHandoverRecordItem[];
+      pendingHandoversSummary?: PendingHandoverSummaryResponse;
+    }
+  > {
+    return this.getOverview(period, bypassCache);
+  }
+
+  /**
+   * Dedicated pending handover compliance metrics for the Dashboard Compliance Center.
+   * Enforces AGENTS.md §6.3 bounded queries (take: 10) and deterministic tie-breaker ordering.
+   */
+  async getPendingHandoversSummary(): Promise<PendingHandoverSummaryResponse> {
+    if (typeof this.prisma.assetHandoverRecord?.count !== 'function') {
+      return {
+        totalPending: 0,
+        overdueCount: 0,
+        pendingAssignments: 0,
+        pendingReturns: 0,
+        pendingTransfers: 0,
+        breakdownByType: {
+          assignment: 0,
+          return: 0,
+        },
+        records: [],
+      };
+    }
+
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+    const [totalPending, overdueCount, pendingAssignments, pendingReturns, records] =
+      await Promise.all([
+        this.prisma.assetHandoverRecord.count({
+          where: { isPending: true },
+        }),
+        this.prisma.assetHandoverRecord.count({
+          where: {
+            isPending: true,
+            createdAt: { lt: threeDaysAgo },
+          },
+        }),
+        this.prisma.assetHandoverRecord.count({
+          where: {
+            isPending: true,
+            type: 'ASSIGNMENT',
+          },
+        }),
+        this.prisma.assetHandoverRecord.count({
+          where: {
+            isPending: true,
+            type: 'RETURN',
+          },
+        }),
+        this.prisma.assetHandoverRecord.findMany({
+          where: { isPending: true },
+          take: 10,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          include: {
+            asset: {
+              select: {
+                id: true,
+                assetTag: true,
+                subcode: true,
+                serialNumber: true,
+                deviceModel: {
+                  select: {
+                    name: true,
+                    modelCode: true,
+                  },
+                },
+              },
+            },
+            recipient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                displayName: true,
+                email: true,
+                department: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ]);
+
+    const mappedRecords: PendingHandoverRecordItem[] = records.map((r) => {
+      const asset = r.asset;
+      const recipient = r.recipient as {
+        id?: string;
+        fullName?: string | null;
+        displayName?: string | null;
+        firstName?: string | null;
+        lastName?: string | null;
+        email?: string | null;
+        department?: { name?: string | null } | null;
+      } | null;
+
+      const recipientName =
+        recipient?.displayName ||
+        recipient?.fullName ||
+        (recipient?.firstName
+          ? `${recipient.firstName} ${recipient.lastName || ''}`.trim()
+          : null) ||
+        recipient?.email ||
+        'Unknown Custodian';
+
+      const recipientEmail = recipient?.email || '';
+      const departmentName = recipient?.department?.name || 'Unassigned';
+
+      const assetTag = asset?.assetTag || asset?.subcode || r.assetId;
+      const subcode = asset?.subcode || '';
+      const serialNumber = asset?.serialNumber || '';
+      const modelName = asset?.deviceModel?.name || 'Hardware Unit';
+
+      const createdAt = r.createdAt ? new Date(r.createdAt) : new Date();
+      const diffDays = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      const daysPending = Math.max(0, isNaN(diffDays) ? 0 : diffDays);
+      const isOverdue = daysPending > 3;
+
+      return {
+        id: r.id,
+        recordId: r.id,
+        assetId: r.assetId,
+        assetTag,
+        subcode,
+        modelName,
+        serialNumber,
+        type: r.type,
+        handoverType: r.type,
+        recipientId: recipient?.id,
+        recipientName,
+        recipientEmail,
+        department: departmentName,
+        departmentName,
+        createdAt: r.createdAt ? r.createdAt.toISOString() : new Date().toISOString(),
+        daysPending,
+        isOverdue,
+        docUrl: r.signedDocUrl || undefined,
+        timeAgo: this.timeAgo(r.createdAt || new Date()),
+      };
+    });
+
+    return {
+      totalPending,
+      overdueCount,
+      pendingAssignments,
+      pendingReturns,
+      pendingTransfers: 0,
+      breakdownByType: {
+        assignment: pendingAssignments,
+        return: pendingReturns,
+      },
+      records: mappedRecords,
+    };
   }
 
   private timeAgo(date: Date): string {

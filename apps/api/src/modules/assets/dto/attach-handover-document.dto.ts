@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class AttachHandoverDocumentDto {
   @ApiProperty({
@@ -9,6 +9,15 @@ export class AttachHandoverDocumentDto {
   @IsString()
   @IsNotEmpty({ message: 'fileUrl is required' })
   fileUrl!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional ID of the specific AssetHandoverRecord to resolve (essential when resolving specific Transfer records)',
+    example: '11111111-1111-4111-8111-111111111111',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  recordId?: string;
 
   @ApiPropertyOptional({
     description: 'Optional verification or archival notes',

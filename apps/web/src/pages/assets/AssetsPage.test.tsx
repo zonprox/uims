@@ -347,7 +347,7 @@ describe('AssetsPage QR Scanner Integration', () => {
     });
 
     expect(mockNotificationDestroy).toHaveBeenCalledWith('asset-not-found-AST-UNKNOWN-9999');
-    expect(document.body.textContent).toContain('Create Asset');
+    expect(document.body.textContent).toMatch(/Register Physical Unit|Create Asset/);
     const tagInput = document.body.querySelector(
       'input[placeholder*="AST-1042"]',
     ) as HTMLInputElement;

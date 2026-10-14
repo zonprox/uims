@@ -8,6 +8,7 @@ import type {
   NetworkRack,
   NetworkStats,
   NetworkSwitch,
+  NetworkTopologyData,
   RackElevationData,
   RackElevationSlot,
   RackQueryDto,
@@ -15,6 +16,12 @@ import type {
   SwitchPort,
   SwitchPortQueryDto,
   SwitchQueryDto,
+  TopologyEdge,
+  TopologyNode,
+  TopologyRackGroup,
+  TopologySubnetSummary,
+  TopologySummaryMetrics,
+  TopologyVlanSummary,
   UpdateRackDto,
   UpdateSwitchDto,
   UpdateSwitchPortDto,
@@ -22,6 +29,7 @@ import type {
 } from '@uims/shared-types';
 import {
   IPStatus,
+  NetworkDomain,
   PortAdminStatus,
   PortFormFactor,
   PortMode,
@@ -29,6 +37,8 @@ import {
   RackStatus,
   SwitchRole,
   SwitchStatus,
+  TopologyNodeType,
+  TopologyViewMode,
   VlanStatus,
 } from '@uims/shared-types';
 import { api } from './api';
@@ -43,6 +53,7 @@ export type {
   NetworkRack,
   NetworkStats,
   NetworkSwitch,
+  NetworkTopologyData,
   RackElevationData,
   RackElevationSlot,
   RackQueryDto,
@@ -50,6 +61,12 @@ export type {
   SwitchPort,
   SwitchPortQueryDto,
   SwitchQueryDto,
+  TopologyEdge,
+  TopologyNode,
+  TopologyRackGroup,
+  TopologySubnetSummary,
+  TopologySummaryMetrics,
+  TopologyVlanSummary,
   UpdateRackDto,
   UpdateSwitchDto,
   UpdateSwitchPortDto,
@@ -57,6 +74,7 @@ export type {
 };
 export {
   IPStatus,
+  NetworkDomain,
   PortAdminStatus,
   PortFormFactor,
   PortMode,
@@ -64,6 +82,8 @@ export {
   RackStatus,
   SwitchRole,
   SwitchStatus,
+  TopologyNodeType,
+  TopologyViewMode,
   VlanStatus,
 };
 
@@ -106,6 +126,35 @@ export interface NextAvailableIpResult {
   subnetId: string;
   cidr: string;
   nextAvailableIp: string | null;
+}
+
+export interface TopologyQueryParams {
+  mode?: 'ALL' | 'NETWORK' | 'CCTV';
+  rackId?: string;
+  vlanId?: string;
+  subnetId?: string;
+  switchRole?: string;
+  status?: string;
+}
+
+export interface SaveTopologyLayoutDto {
+  mode?: 'ALL' | 'NETWORK' | 'CCTV';
+  positions:
+    | Array<{ nodeId: string; nodeType?: string; x: number; y: number }>
+    | Record<string, { x: number; y: number }>;
+}
+
+export interface PatchTopologyLinkDto {
+  sourcePortId: string;
+  targetPortId?: string;
+  targetAssetId?: string;
+  targetIpId?: string;
+  targetIpAddressId?: string;
+  vlanId?: string;
+  mode?: PortMode | `${PortMode}`;
+  poeEnabled?: boolean;
+  speed?: string;
+  taggedVlanIds?: number[];
 }
 
 export const networkService = {
@@ -308,5 +357,44 @@ export const networkService = {
 
   deleteSwitchPort: async (portId: string): Promise<void> => {
     await api.delete(`/network/ports/${portId}`);
+  },
+
+  // ==========================================
+  // TOPOLOGY GRAPH & CANVAS ENGINE
+  // ==========================================
+  getTopology: async (params?: TopologyQueryParams): Promise<NetworkTopologyData> => {
+    const res = await api.get('/network/topology', { params });
+    return res.data.data;
+  },
+
+  saveTopologyLayout: async (
+    data: SaveTopologyLayoutDto,
+  ): Promise<{ success: boolean; updatedCount: number; viewMode?: string }> => {
+    const payloadPositions = Array.isArray(data.positions)
+      ? data.positions
+      : Object.entries(data.positions).map(([nodeId, pos]) => ({
+          nodeId,
+          x: pos.x,
+          y: pos.y,
+        }));
+    const res = await api.patch('/network/topology/layout', {
+      viewMode: data.mode,
+      positions: payloadPositions,
+    });
+    return res.data.data;
+  },
+
+  patchTopologyLink: async (data: PatchTopologyLinkDto): Promise<unknown> => {
+    const payload = {
+      ...data,
+      targetIpAddressId: data.targetIpAddressId || data.targetIpId,
+    };
+    const res = await api.post('/network/topology/links', payload);
+    return res.data.data;
+  },
+
+  unpatchTopologyLink: async (portId: string): Promise<unknown> => {
+    const res = await api.delete(`/network/topology/links/${portId}`);
+    return res.data.data;
   },
 };

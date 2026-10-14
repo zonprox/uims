@@ -11,13 +11,15 @@ import {
   LaptopOutlined,
   PlusOutlined,
   ReloadOutlined,
+  RollbackOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
+  SwapOutlined,
   UserOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import type {
   AccountStatus,
-  Asset,
   BatchImportDirectoryResponse,
   BatchImportDirectoryUserItem,
   CreateDirectoryUserDto,
@@ -55,6 +57,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router';
 import ActivityTimeline from '../../components/ActivityTimeline';
 import AppDrawer from '../../components/AppDrawer';
+import { type Asset, assetsService } from '../../services/assets.service';
 import { directoryService } from '../../services/directory.service';
 import {
   type Department,
@@ -64,6 +67,12 @@ import {
 } from '../../services/organization.service';
 import { formatErrorMessage } from '../../utils/feedback';
 import { formRules, isValidationError } from '../../utils/formValidators';
+import {
+  BatchAssignModal,
+  type BatchAssignFormValues,
+} from '../assets/components/BatchAssignModal';
+import { ReturnAssetModal } from '../assets/components/ReturnAssetModal';
+import { TransferAssetDrawer } from '../assets/components/TransferAssetDrawer';
 import { EmployeeTable } from './components/EmployeeTable';
 
 const { Text } = Typography;
@@ -150,9 +159,13 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
   // Assign Device modal state
   const [assignAssetModalOpen, setAssignAssetModalOpen] = useState(false);
   const [availableAssets, setAvailableAssets] = useState<Asset[]>([]);
-  const [loadingAvailableAssets, setLoadingAvailableAssets] = useState(false);
+  const [_loadingAvailableAssets, setLoadingAvailableAssets] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
   const [assigningAsset, setAssigningAsset] = useState(false);
+
+  // Return & Transfer state for Assigned Equipment
+  const [returnTargetAsset, setReturnTargetAsset] = useState<Asset | null>(null);
+  const [transferTargetAsset, setTransferTargetAsset] = useState<Asset | null>(null);
 
   // Assign License modal state
   const [assignLicenseModalOpen, setAssignLicenseModalOpen] = useState(false);
@@ -284,7 +297,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
           .getUserAssets(emp.id)
           .then((assets) => {
             if (currentCustodyEmpIdRef.current === emp.id) {
-              setUserAssets(assets);
+              setUserAssets(assets as unknown as Asset[]);
             }
           })
           .catch((err: unknown) => {
@@ -433,7 +446,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
           .getUserAssets(emp.id)
           .then((assets) => {
             if (currentCustodyEmpIdRef.current === emp.id) {
-              setUserAssets(assets);
+              setUserAssets(assets as unknown as Asset[]);
             }
           })
           .catch((err: unknown) => {
@@ -599,7 +612,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     setLoadingAvailableAssets(true);
     try {
       const assets = await directoryService.getAvailableAssets();
-      setAvailableAssets(assets);
+      setAvailableAssets(assets as unknown as Asset[]);
     } catch (err: unknown) {
       message.error(formatErrorMessage(err, 'load available equipment'));
       setAvailableAssets([]);
@@ -608,17 +621,31 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     }
   };
 
-  const handleAssignAsset = async () => {
+  const handleAssignAsset = async (values?: BatchAssignFormValues) => {
     const target = detailEmployee || editingEmployee;
-    if (!target || !selectedAssetId) return;
+    if (!target) return;
+    const targetUserId = values?.assignedToId || target.id;
+    const assetIds = values?.assetIds?.length
+      ? values.assetIds
+      : selectedAssetId
+        ? [selectedAssetId]
+        : [];
+    if (assetIds.length === 0) {
+      message.error('Please select at least one hardware asset to assign.');
+      return;
+    }
     setAssigningAsset(true);
     try {
-      await directoryService.assignAsset(target.id, selectedAssetId);
-      message.success('Equipment assigned successfully.');
+      await assetsService.allocateAsset({
+        assetIds,
+        assignedToId: targetUserId,
+        signedDocUrl: values?.signedDocUrl,
+      });
+      message.success('Equipment assigned to employee successfully.');
       setAssignAssetModalOpen(false);
       setSelectedAssetId(undefined);
       const updated = await directoryService.getUserAssets(target.id);
-      setUserAssets(updated);
+      setUserAssets(updated as unknown as Asset[]);
       if (detailEmployee) {
         setDetailEmployee((prev) =>
           prev ? { ...prev, assignedAssetsCount: updated.length } : null,
@@ -645,7 +672,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
       message.success('Equipment unassigned successfully.');
       try {
         const updated = await directoryService.getUserAssets(target.id);
-        setUserAssets(updated);
+        setUserAssets(updated as unknown as Asset[]);
         if (detailEmployee) {
           setDetailEmployee((prev) =>
             prev ? { ...prev, assignedAssetsCount: updated.length } : null,
@@ -656,7 +683,8 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             prev ? { ...prev, assignedAssetsCount: updated.length } : null,
           );
         }
-      } catch {
+      } catch (err: unknown) {
+        message.warning(formatErrorMessage(err, 'sync assigned equipment'));
         setUserAssets((prev) => {
           const filtered = prev.filter((a) => a.id !== assetId);
           if (detailEmployee) {
@@ -744,7 +772,8 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             prev ? { ...prev, assignedLicensesCount: updated.length } : null,
           );
         }
-      } catch {
+      } catch (err: unknown) {
+        message.warning(formatErrorMessage(err, 'sync assigned licenses'));
         setUserLicenses((prev) => {
           const filtered = prev.filter((la) => la.id !== assignmentId);
           if (detailEmployee) {
@@ -801,7 +830,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               key: 'assetTag',
               render: (tag: string, record: Asset) => (
                 <Text code strong>
-                  {record.subcode || tag || record.assetTag}
+                  {record.subcode || tag || record.tag || ''}
                 </Text>
               ),
             },
@@ -849,31 +878,56 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               title: 'Status',
               dataIndex: 'status',
               key: 'status',
-              render: (status: string) => <Tag color="success">{status}</Tag>,
+              render: (status: string, record: Asset) => (
+                <Flex align="center" gap={4} wrap="wrap">
+                  <Tag color="success">{status}</Tag>
+                  {record.hasPendingRecord && (
+                    <Tag color="warning" icon={<WarningOutlined />}>
+                      Pending Record
+                    </Tag>
+                  )}
+                </Flex>
+              ),
             },
             {
               title: 'Action',
               key: 'action',
-              width: 80,
+              width: 220,
               render: (_: unknown, record: Asset) => (
-                <Popconfirm
-                  title="Unassign Device"
-                  description={`Unassign ${record.assetTag} from this employee?`}
-                  onConfirm={() => handleUnassignAsset(record.id)}
-                  okText="Unassign"
-                  cancelText="Cancel"
-                  okButtonProps={{ danger: true }}
-                >
+                <Flex gap={4} align="center">
                   <Button
-                    type="text"
                     size="small"
-                    danger
-                    htmlType="button"
-                    icon={<DisconnectOutlined />}
+                    icon={<SwapOutlined />}
+                    onClick={() => setTransferTargetAsset(record)}
                   >
-                    Unassign
+                    Transfer
                   </Button>
-                </Popconfirm>
+                  <Button
+                    size="small"
+                    icon={<RollbackOutlined />}
+                    onClick={() => setReturnTargetAsset(record)}
+                  >
+                    Return
+                  </Button>
+                  <Popconfirm
+                    title="Unassign Device"
+                    description={`Unassign ${record.subcode || record.tag || 'this device'} from this employee?`}
+                    onConfirm={() => handleUnassignAsset(record.id)}
+                    okText="Unassign"
+                    cancelText="Cancel"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      htmlType="button"
+                      icon={<DisconnectOutlined />}
+                    >
+                      Unassign
+                    </Button>
+                  </Popconfirm>
+                </Flex>
               ),
             },
           ]}
@@ -2150,44 +2204,113 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
         </Flex>
       </Modal>
 
-      {/* Assign Equipment Modal */}
-      <Modal
-        title={`Assign Equipment to ${(detailEmployee || editingEmployee)?.fullName || (detailEmployee || editingEmployee)?.email}`}
+      {/* Canonical Batch Assign Equipment Drawer */}
+      <BatchAssignModal
         open={assignAssetModalOpen}
+        assets={[]}
+        availableAssets={availableAssets as unknown as Asset[]}
+        submitting={assigningAsset}
+        initialUserId={(detailEmployee || editingEmployee)?.id}
+        onAssign={handleAssignAsset}
         onCancel={() => {
           setAssignAssetModalOpen(false);
           setSelectedAssetId(undefined);
         }}
-        onOk={handleAssignAsset}
-        confirmLoading={assigningAsset}
-        okButtonProps={{ disabled: !selectedAssetId }}
-        okText="Assign Device"
-        cancelText="Cancel"
-        destroyOnHidden
-        width={520}
-      >
-        <Flex vertical gap={12} style={{ paddingTop: 12 }}>
-          <Text type="secondary">
-            Select an available hardware device from inventory to assign custody to this employee.
-          </Text>
-          <Select
-            placeholder="Select available device"
-            loading={loadingAvailableAssets}
-            value={selectedAssetId}
-            onChange={setSelectedAssetId}
-            showSearch
-            allowClear
-            style={{ width: '100%' }}
-            filterOption={(input, option) =>
-              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+      />
+
+      {/* Canonical Return Asset Modal */}
+      <ReturnAssetModal
+        open={Boolean(returnTargetAsset)}
+        asset={returnTargetAsset}
+        onCancel={() => setReturnTargetAsset(null)}
+        onSuccess={async () => {
+          const returnedId = returnTargetAsset?.id;
+          setReturnTargetAsset(null);
+          const target = detailEmployee || editingEmployee;
+          if (target) {
+            try {
+              const updated = await directoryService.getUserAssets(target.id);
+              setUserAssets(updated as unknown as Asset[]);
+              if (detailEmployee) {
+                setDetailEmployee((prev) =>
+                  prev ? { ...prev, assignedAssetsCount: updated.length } : null,
+                );
+              }
+              if (editingEmployee) {
+                setEditingEmployee((prev) =>
+                  prev ? { ...prev, assignedAssetsCount: updated.length } : null,
+                );
+              }
+            } catch (err: unknown) {
+              message.warning(formatErrorMessage(err, 'sync returned asset'));
+              if (returnedId) {
+                setUserAssets((prev) => {
+                  const filtered = prev.filter((a) => a.id !== returnedId);
+                  if (detailEmployee) {
+                    setDetailEmployee((curr) =>
+                      curr ? { ...curr, assignedAssetsCount: filtered.length } : null,
+                    );
+                  }
+                  if (editingEmployee) {
+                    setEditingEmployee((curr) =>
+                      curr ? { ...curr, assignedAssetsCount: filtered.length } : null,
+                    );
+                  }
+                  return filtered;
+                });
+              }
             }
-            options={availableAssets.map((asset) => ({
-              label: `[${asset.subcode || asset.assetTag}] ${asset.name}${asset.model ? ` - ${asset.model}` : ''}${asset.serialNumber ? ` (S/N: ${asset.serialNumber})` : ''}`,
-              value: asset.id,
-            }))}
-          />
-        </Flex>
-      </Modal>
+          }
+          onRefresh();
+        }}
+      />
+
+      {/* Canonical Custodian Transfer Asset Drawer */}
+      <TransferAssetDrawer
+        open={Boolean(transferTargetAsset)}
+        asset={transferTargetAsset}
+        onClose={() => setTransferTargetAsset(null)}
+        onSuccess={async () => {
+          const transferredId = transferTargetAsset?.id;
+          setTransferTargetAsset(null);
+          const target = detailEmployee || editingEmployee;
+          if (target) {
+            try {
+              const updated = await directoryService.getUserAssets(target.id);
+              setUserAssets(updated as unknown as Asset[]);
+              if (detailEmployee) {
+                setDetailEmployee((prev) =>
+                  prev ? { ...prev, assignedAssetsCount: updated.length } : null,
+                );
+              }
+              if (editingEmployee) {
+                setEditingEmployee((prev) =>
+                  prev ? { ...prev, assignedAssetsCount: updated.length } : null,
+                );
+              }
+            } catch (err: unknown) {
+              message.warning(formatErrorMessage(err, 'sync transferred asset'));
+              if (transferredId) {
+                setUserAssets((prev) => {
+                  const filtered = prev.filter((a) => a.id !== transferredId);
+                  if (detailEmployee) {
+                    setDetailEmployee((curr) =>
+                      curr ? { ...curr, assignedAssetsCount: filtered.length } : null,
+                    );
+                  }
+                  if (editingEmployee) {
+                    setEditingEmployee((curr) =>
+                      curr ? { ...curr, assignedAssetsCount: filtered.length } : null,
+                    );
+                  }
+                  return filtered;
+                });
+              }
+            }
+          }
+          onRefresh();
+        }}
+      />
 
       {/* Assign License Modal */}
       <Modal

@@ -5,9 +5,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset, AssetCategory } from '../../../services/assets.service';
 import { AssetDetailDrawer } from './AssetDetailDrawer';
 import { AssetFilterBar, CATEGORY_FILTER_OPTIONS } from './AssetFilterBar';
-import { AssetFormModal } from './AssetFormModal';
+import { PhysicalUnitModal } from './PhysicalUnitModal';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+vi.mock('../../../services/api', () => ({
+  api: {
+    get: vi.fn().mockImplementation((url: string) => {
+      if (url === '/assets/models') {
+        return Promise.resolve({
+          data: {
+            data: [{ id: 'mod-1', name: 'Dell Latitude 5420', assetCode: 'MOD-DELL-5420' }],
+          },
+        });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    }),
+  },
+}));
 
 vi.mock('../../../services/assets.service', () => ({
   assetsService: {
@@ -16,6 +31,10 @@ vi.mock('../../../services/assets.service', () => ({
       { id: 'cat-switch', name: 'Network Switches' },
       { id: 'cat-monitor', name: 'Monitors & Displays' },
     ]),
+    getCostCenters: vi.fn().mockResolvedValue([]),
+    getDeviceModels: vi
+      .fn()
+      .mockResolvedValue([{ id: 'mod-1', name: 'Dell Latitude 5420', assetCode: 'MOD-DELL-5420' }]),
   },
 }));
 
@@ -182,7 +201,7 @@ describe('Asset Specifications Removal & Simplified Notes View', () => {
     });
   });
 
-  describe('AssetFormModal Simplified Form without Specs', () => {
+  describe('PhysicalUnitModal Simplified Form without Specs', () => {
     function FormModalWrapper({
       editingAsset = null,
       categories,
@@ -194,9 +213,10 @@ describe('Asset Specifications Removal & Simplified Notes View', () => {
       return createElement(
         App,
         null,
-        createElement(AssetFormModal, {
+        createElement(PhysicalUnitModal, {
           open: true,
           editingAsset,
+          initialParentId: 'mod-1',
           form,
           submitting: false,
           onSave: vi.fn(),

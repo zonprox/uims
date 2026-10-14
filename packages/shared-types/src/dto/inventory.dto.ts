@@ -5,25 +5,6 @@ export interface CreateInventoryCategoryDto {
 
 export interface UpdateInventoryCategoryDto extends Partial<CreateInventoryCategoryDto> {}
 
-export interface CreateInventoryItemDto {
-  sku?: string;
-  name: string;
-  categoryId: string;
-  category?: string;
-  quantity?: number | string;
-  minThreshold?: number | string;
-  unitCost?: number | string;
-  binNumber?: string;
-  supplier?: string;
-  notes?: string;
-}
-
-export interface UpdateInventoryItemDto extends Partial<CreateInventoryItemDto> {}
-
-export interface RestockInventoryDto {
-  quantity: number;
-}
-
 export interface InventoryQueryDto {
   page?: number;
   pageSize?: number;

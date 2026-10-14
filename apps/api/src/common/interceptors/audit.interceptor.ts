@@ -139,9 +139,33 @@ export class AuditInterceptor implements NestInterceptor {
             ? 'Warning'
             : 'Info';
 
+      let validUserId: string | null = null;
+      const candidateUserId = user?.id || user?.sub;
+      if (candidateUserId) {
+        if (typeof this.prisma.appUser?.findUnique === 'function') {
+          const appUser = await this.prisma.appUser.findUnique({
+            where: { id: candidateUserId },
+            select: { id: true },
+          });
+          if (appUser) {
+            validUserId = appUser.id;
+          } else if (user?.email) {
+            const appUserByEmail = await this.prisma.appUser.findUnique({
+              where: { email: user.email },
+              select: { id: true },
+            });
+            if (appUserByEmail) {
+              validUserId = appUserByEmail.id;
+            }
+          }
+        } else {
+          validUserId = candidateUserId;
+        }
+      }
+
       await this.prisma.auditLog.create({
         data: {
-          userId: user?.id || user?.sub || null,
+          userId: validUserId,
           userName:
             user?.name ||
             user?.email?.split('@')[0] ||

@@ -65,6 +65,10 @@ describe('NetworkController', () => {
       updatePort: vi.fn(),
       createPort: vi.fn(),
       deletePort: vi.fn(),
+      getTopology: vi.fn(),
+      updateTopologyLayout: vi.fn(),
+      createTopologyLink: vi.fn(),
+      deleteTopologyLink: vi.fn(),
     };
 
     controller = new NetworkController(mockNetworkService as unknown as NetworkService);
@@ -477,5 +481,79 @@ describe('NetworkController', () => {
     const result = await controller.deletePort('port-1');
     expect(mockNetworkService.deletePort).toHaveBeenCalledWith('port-1');
     expect(result).toEqual({ id: 'port-1' });
+  });
+
+  // ==========================================
+  // TOPOLOGY GRAPH & CANVAS ENGINE ENDPOINTS
+  // ==========================================
+
+  it('getTopology calls networkService.getTopology with query', async () => {
+    const mockTopology = {
+      nodes: [],
+      edges: [],
+      racks: [],
+      vlans: [],
+      subnets: [],
+      summaryMetrics: {
+        totalNodes: 0,
+        totalSwitches: 0,
+        totalRacks: 0,
+        totalEndpoints: 0,
+        totalCameras: 0,
+        totalNvrs: 0,
+        totalServers: 0,
+        totalEdges: 0,
+        activeLinks: 0,
+        degradedLinks: 0,
+        downLinks: 0,
+        poePowerUsageWatts: 0,
+        onlinePercentage: 100,
+      },
+    };
+    mockNetworkService.getTopology.mockResolvedValue(mockTopology);
+
+    const result = await controller.getTopology({ mode: 'ALL' });
+    expect(mockNetworkService.getTopology).toHaveBeenCalledWith({ mode: 'ALL' });
+    expect(result).toBe(mockTopology);
+  });
+
+  it('updateTopologyLayout calls networkService.updateTopologyLayout with dto', async () => {
+    const dto = {
+      viewMode: 'ALL' as const,
+      positions: [{ nodeId: 'sw-1', x: 200, y: 150 }],
+    };
+    const mockResponse = { success: true, updatedCount: 1, viewMode: 'ALL' };
+    mockNetworkService.updateTopologyLayout.mockResolvedValue(mockResponse);
+
+    const result = await controller.updateTopologyLayout(dto);
+    expect(mockNetworkService.updateTopologyLayout).toHaveBeenCalledWith(dto);
+    expect(result).toBe(mockResponse);
+  });
+
+  it('createTopologyLink calls networkService.createTopologyLink with dto', async () => {
+    const dto = {
+      sourcePortId: 'port-1',
+      targetPortId: 'port-2',
+      speed: '10 Gbps',
+    };
+    const mockResponse = {
+      success: true,
+      message: 'Inter-switch trunk uplink successfully connected.',
+      link: { sourcePortId: 'port-1', targetPortId: 'port-2', operStatus: 'ACTIVE' },
+    };
+    mockNetworkService.createTopologyLink.mockResolvedValue(mockResponse);
+
+    const result = await controller.createTopologyLink(dto);
+    expect(mockNetworkService.createTopologyLink).toHaveBeenCalledWith(dto);
+    expect(result).toBe(mockResponse);
+  });
+
+  it('deleteTopologyLink calls networkService.deleteTopologyLink with portId', async () => {
+    const mockResponse = { success: true, message: 'Port connection successfully unpatched.' };
+    mockNetworkService.deleteTopologyLink.mockResolvedValue(mockResponse);
+
+    const result = await controller.deleteTopologyLink('port-1');
+    expect(mockNetworkService.deleteTopologyLink).toHaveBeenCalledWith('port-1');
+    expect(result).toBe(mockResponse);
   });
 });

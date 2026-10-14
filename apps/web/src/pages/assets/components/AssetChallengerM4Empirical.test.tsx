@@ -56,15 +56,19 @@ vi.mock('antd', async () => {
 });
 
 function createMockAsset(overrides: Partial<Asset> = {}): Asset {
+  const defaultTag = overrides.tag || overrides.subcode || 'AST-DEFAULT';
   return {
     id: 'ast-default',
-    tag: 'AST-DEFAULT',
+    tag: defaultTag,
+    deviceModelId: 'mod-1',
+    parentId: 'mod-1',
+    subcode: defaultTag,
     name: 'Default Device',
     manufacturer: 'Dell',
     model: 'Latitude 5420',
     category: 'Laptops / Notebooks',
     categoryId: 'cat-laptop',
-    status: 'Active',
+    status: 'AVAILABLE',
     assignedTo: '',
     assignedEmail: '',
     purchaseDate: '2026-01-01',
@@ -172,6 +176,41 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNotificationError.mockClear();
+    mockMessageError.mockClear();
+    mockMessageSuccess.mockClear();
+    mockNotificationWarning.mockClear();
+    vi.mocked(api.post).mockReset();
+    vi.mocked(api.patch).mockReset();
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === '/assets/models') {
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                id: 'mod-1',
+                name: 'Dell Latitude 5420',
+                assetCode: 'MOD-DELL-5420',
+                totalUnits: 5,
+                availableUnits: 3,
+                inUseUnits: 2,
+              },
+            ],
+          },
+        });
+      }
+      if (url === '/assets/cost-centers') {
+        return Promise.resolve({
+          data: {
+            data: [
+              { id: 'cc-it-ops', code: 'IT-OPS', name: 'IT Operations' },
+              { id: 'cc-eng-dev', code: 'ENG-DEV', name: 'Software Engineering' },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
     document.body.innerHTML = '';
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -319,6 +358,7 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
               null,
               createElement(PhysicalUnitModal, {
                 open: true,
+                initialParentId: 'mod-1',
                 onClose: vi.fn(),
                 onSuccess: vi.fn(),
               }),
@@ -328,7 +368,7 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
       });
 
       const subcodeInput = document.body.querySelector(
-        'input[placeholder="e.g. AST-DELL-001"]',
+        'input[placeholder*="AST-DELL-001"]',
       ) as HTMLInputElement;
 
       await act(async () => {
@@ -364,6 +404,8 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
 
       const existingUnit: Asset = createMockAsset({
         id: 'ast-001',
+        deviceModelId: 'mod-1',
+        parentId: 'mod-1',
         tag: 'AST-EXISTING-001',
         subcode: 'AST-EXISTING-001',
         name: 'Unit 1',
@@ -381,6 +423,7 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
               null,
               createElement(PhysicalUnitModal, {
                 open: true,
+                initialParentId: 'mod-1',
                 editingAsset: existingUnit,
                 onClose: vi.fn(),
                 onSuccess: vi.fn(),

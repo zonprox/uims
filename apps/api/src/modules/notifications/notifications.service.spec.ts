@@ -13,10 +13,27 @@ describe('NotificationsService', () => {
     $transaction: ReturnType<typeof vi.fn>;
   };
   let mockGateway: Record<string, ReturnType<typeof vi.fn>>;
+  let mockRedis: {
+    del: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     const userMock = {
       findMany: vi.fn(),
+      findUnique: vi
+        .fn()
+        .mockImplementation((args: { where: { id: string } }) =>
+          Promise.resolve({ id: args?.where?.id || 'u2' }),
+        ),
+      findFirst: vi
+        .fn()
+        .mockImplementation((_args: { where?: { email?: { equals: string } } }) =>
+          Promise.resolve({ id: 'app-user-found' }),
+        ),
+    };
+    const directoryUserMock = {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
     };
     mockPrisma = {
       notification: {
@@ -32,6 +49,7 @@ describe('NotificationsService', () => {
       },
       user: userMock,
       appUser: userMock,
+      directoryUser: directoryUserMock,
       $transaction: vi.fn((cb) => (typeof cb === 'function' ? cb(mockPrisma) : Promise.all(cb))),
     };
 
@@ -42,11 +60,17 @@ describe('NotificationsService', () => {
       sendCountToRole: vi.fn(),
       emitNotificationRead: vi.fn(),
       emitNotificationsCleared: vi.fn(),
+      emitCustodyEvent: vi.fn(),
+    };
+
+    mockRedis = {
+      del: vi.fn().mockResolvedValue(undefined),
     };
 
     service = new NotificationsService(
       mockPrisma as unknown as PrismaService,
       mockGateway as unknown as NotificationsGateway,
+      mockRedis as unknown as import('../../common/redis/redis.service').RedisService,
     );
   });
 
@@ -268,6 +292,43 @@ describe('NotificationsService', () => {
     });
   });
 
+  describe('resolveAppUserId', () => {
+    it('should resolve directly by AppUser ID', async () => {
+      mockPrisma.appUser.findUnique.mockResolvedValueOnce({ id: 'app-user-1' });
+      const id = await service.resolveAppUserId('app-user-1');
+      expect(id).toBe('app-user-1');
+    });
+
+    it('should resolve DirectoryUser ID to AppUser via email match', async () => {
+      mockPrisma.appUser.findUnique.mockResolvedValueOnce(null);
+      (mockPrisma.directoryUser.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        email: 'emp@youngonevn.com',
+      });
+      mockPrisma.appUser.findFirst.mockResolvedValueOnce({ id: 'app-user-matched' });
+
+      const id = await service.resolveAppUserId('dir-user-1');
+      expect(id).toBe('app-user-matched');
+    });
+
+    it('should resolve by corporate email directly', async () => {
+      mockPrisma.appUser.findUnique.mockResolvedValueOnce(null);
+      (mockPrisma.directoryUser.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      mockPrisma.appUser.findFirst.mockResolvedValueOnce({ id: 'app-user-email' });
+
+      const id = await service.resolveAppUserId('admin@youngonevn.com');
+      expect(id).toBe('app-user-email');
+    });
+
+    it('should return null when no matching AppUser is found', async () => {
+      mockPrisma.appUser.findUnique.mockResolvedValueOnce(null);
+      (mockPrisma.directoryUser.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      mockPrisma.appUser.findFirst.mockResolvedValueOnce(null);
+
+      const id = await service.resolveAppUserId('unknown-user');
+      expect(id).toBeNull();
+    });
+  });
+
   describe('notifyUser', () => {
     it('should delegate to create for specific user', async () => {
       const createdDb = {
@@ -279,6 +340,7 @@ describe('NotificationsService', () => {
         isRead: false,
         createdAt: new Date(),
       };
+      mockPrisma.appUser.findUnique.mockResolvedValueOnce({ id: 'u2' });
       mockPrisma.notification.create.mockResolvedValue(createdDb);
       mockPrisma.notification.count.mockResolvedValue(1);
 
@@ -288,7 +350,21 @@ describe('NotificationsService', () => {
         type: 'WARNING',
       });
 
-      expect(res.id).toBe('n-user');
+      expect(res?.id).toBe('n-user');
+    });
+
+    it('should skip notification when AppUser cannot be resolved', async () => {
+      mockPrisma.appUser.findUnique.mockResolvedValueOnce(null);
+      (mockPrisma.directoryUser.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      mockPrisma.appUser.findFirst.mockResolvedValueOnce(null);
+
+      const res = await service.notifyUser('non-existent', {
+        title: 'Alert',
+        message: 'Msg',
+      });
+
+      expect(res).toBeNull();
+      expect(mockPrisma.notification.create).not.toHaveBeenCalled();
     });
   });
 
@@ -425,6 +501,158 @@ describe('NotificationsService', () => {
       expect(mockPrisma.notification.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['old-1', 'old-2', 'old-3'] } },
       });
+    });
+  });
+
+  describe('Custody Lifecycle Events and Alert Invalidation', () => {
+    it('should emit custody lifecycle events via gateway', () => {
+      const payload = { assetId: 'ast-1', status: 'IN_USE' };
+      service.emitCustodyEvent('asset_allocated', payload);
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith('asset_allocated', payload);
+    });
+
+    it('should notify admins and emit events on notifyAssetAllocated', async () => {
+      mockPrisma.appUser.findMany.mockResolvedValue([{ id: 'admin-1' }]);
+      mockPrisma.notification.create.mockResolvedValue({
+        id: 'n-alloc',
+        userId: 'admin-1',
+        title: 'Pending Asset Handover Record',
+        message: '1 unit(s) allocated to Alice pending signed handover document.',
+        type: 'WARNING',
+        isRead: false,
+        createdAt: new Date(),
+      });
+
+      await service.notifyAssetAllocated({
+        assetIds: ['ast-1'],
+        recipientId: 'usr-1',
+        recipientName: 'Alice',
+        isPending: true,
+        count: 1,
+      });
+
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'asset_allocated',
+        expect.objectContaining({ recipientName: 'Alice' }),
+      );
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'handover_document_pending',
+        expect.objectContaining({ type: 'ASSIGNMENT' }),
+      );
+      expect(mockPrisma.appUser.findMany).toHaveBeenCalled();
+      expect(mockPrisma.notification.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            title: 'Pending Asset Handover Record',
+            type: 'WARNING',
+          }),
+        }),
+      );
+    });
+
+    it('should notify admins and emit events on notifyAssetReturned', async () => {
+      mockPrisma.appUser.findMany.mockResolvedValue([{ id: 'admin-1' }]);
+      mockPrisma.notification.create.mockResolvedValue({
+        id: 'n-ret',
+        userId: 'admin-1',
+        title: 'Pending Asset Return Record',
+        message: 'Asset TAG-1 returned (AVAILABLE) pending signed return document.',
+        type: 'WARNING',
+        isRead: false,
+        createdAt: new Date(),
+      });
+
+      await service.notifyAssetReturned({
+        assetId: 'ast-1',
+        assetTag: 'TAG-1',
+        previousCustodianId: 'usr-1',
+        isPending: true,
+        status: 'AVAILABLE',
+      });
+
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'asset_returned',
+        expect.objectContaining({ assetTag: 'TAG-1' }),
+      );
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'handover_document_pending',
+        expect.objectContaining({ type: 'RETURN' }),
+      );
+    });
+
+    it('should notify admins and emit events on notifyAssetTransferred', async () => {
+      mockPrisma.appUser.findMany.mockResolvedValue([{ id: 'admin-1' }]);
+      mockPrisma.notification.create.mockResolvedValue({
+        id: 'n-trans',
+        userId: 'admin-1',
+        title: 'Pending Asset Transfer Records',
+        message: 'Asset TAG-1 transferred pending signed handover records.',
+        type: 'WARNING',
+        isRead: false,
+        createdAt: new Date(),
+      });
+
+      await service.notifyAssetTransferred({
+        assetId: 'ast-1',
+        assetTag: 'TAG-1',
+        fromCustodianId: 'usr-1',
+        toCustodianId: 'usr-2',
+        isPending: true,
+      });
+
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'asset_transferred',
+        expect.objectContaining({ fromCustodianId: 'usr-1', toCustodianId: 'usr-2' }),
+      );
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'handover_document_pending',
+        expect.objectContaining({ type: 'ASSIGNMENT' }),
+      );
+    });
+
+    it('should notify admins and emit event on notifyHandoverDocumentPending', async () => {
+      mockPrisma.appUser.findMany.mockResolvedValue([{ id: 'admin-1' }]);
+      mockPrisma.notification.create.mockResolvedValue({
+        id: 'n-doc-pending',
+        userId: 'admin-1',
+        title: 'Pending Allocation Record: TAG-1',
+        message:
+          'Signed document pending for asset TAG-1 held by Bob. Please upload the signed form.',
+        type: 'WARNING',
+        isRead: false,
+        createdAt: new Date(),
+      });
+
+      await service.notifyHandoverDocumentPending({
+        recordId: 'rec-1',
+        assetId: 'ast-1',
+        assetTag: 'TAG-1',
+        recipientName: 'Bob',
+        type: 'ASSIGNMENT',
+      });
+
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'handover_document_pending',
+        expect.objectContaining({ recordId: 'rec-1' }),
+      );
+    });
+
+    it('should clear Redis throttle key and broadcast handover_document_resolved on clearHandoverDocumentAlert', async () => {
+      const res = await service.clearHandoverDocumentAlert('rec-123', 'ast-456');
+
+      expect(res).toBe(true);
+      expect(mockRedis.del).toHaveBeenCalledWith('alert:handover:pending:rec-123');
+      expect(mockGateway.emitCustodyEvent).toHaveBeenCalledWith(
+        'handover_document_resolved',
+        expect.objectContaining({ recordId: 'rec-123', assetId: 'ast-456' }),
+      );
+    });
+
+    it('should invoke clearHandoverDocumentAlert via clearHandoverAlert alias', async () => {
+      const res = await service.clearHandoverAlert('rec-789', 'ast-999');
+
+      expect(res).toBe(true);
+      expect(mockRedis.del).toHaveBeenCalledWith('alert:handover:pending:rec-789');
     });
   });
 });

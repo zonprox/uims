@@ -1,67 +1,34 @@
 import type { AssetStatus } from '../entities/asset';
 
-export interface CreateAssetDto {
-  name: string;
-  assetCode?: string;
-  subcode?: string;
-  assetTag?: string;
-  tag?: string;
-  description?: string | null;
-  manufacturer?: string;
-  model?: string;
-  serialNumber?: string | null;
-  specifications?: string | null;
-  unitCost?: number | null;
-  parentId?: string | null;
-  costCenterId?: string | null;
-  category?: string;
-  categoryId?: string;
-  departmentId?: string;
-  assignedToId?: string;
-  status?: string | AssetStatus;
-  purchaseDate?: string | Date;
-  warrantyExpiry?: string | Date;
-  notes?: string;
-}
-
-export interface UpdateAssetDto extends Partial<CreateAssetDto> {}
-
 export interface CreateDeviceModelDto {
-  assetCode: string;
   name: string;
-  manufacturer?: string;
+  modelCode: string;
+  assetCode?: string;
+  categoryId: string;
+  manufacturer: string;
   model?: string;
-  categoryId?: string;
-  specifications?: string;
+  vendorId?: string;
+  specifications?: Record<string, unknown> | string;
   unitCost?: number;
+  minThreshold?: number;
+  binNumber?: string;
+  binLocation?: string;
   notes?: string;
 }
 
 export interface UpdateDeviceModelDto extends Partial<CreateDeviceModelDto> {}
 
-export interface CreateAssetUnitDto {
-  subcode: string;
-  parentId: string;
-  serialNumber?: string;
-  costCenterId?: string;
-  departmentId?: string;
-  purchaseDate?: string | Date;
-  warrantyExpiry?: string | Date;
-  notes?: string;
-}
-export type RegisterPhysicalUnitDto = CreateAssetUnitDto;
-
-export interface UpdateAssetUnitDto {
-  subcode?: string;
-  serialNumber?: string;
-  costCenterId?: string;
-  departmentId?: string;
-  purchaseDate?: string | Date;
-  warrantyExpiry?: string | Date;
-  notes?: string;
-  status?: string | AssetStatus;
-}
-export type UpdatePhysicalUnitDto = UpdateAssetUnitDto;
+export type {
+  StockIntakeDto,
+  BatchStockIntakeDto,
+  AllocateAssetDto,
+  ReturnAssetDto,
+  TransferAssetDto,
+  RegisterPhysicalUnitDto,
+  CreateAssetUnitDto,
+  UpdatePhysicalUnitDto,
+  UpdateAssetUnitDto,
+} from '../assets';
 
 export interface IssueAssetUnitDto {
   assignedToId?: string;
@@ -95,7 +62,7 @@ export interface AssetQueryDto {
   limit?: number;
   search?: string;
   type?: 'model' | 'unit' | 'all';
-  parentId?: string;
+  deviceModelId?: string;
   costCenterId?: string;
   category?: string;
   categoryId?: string;
@@ -138,10 +105,22 @@ export interface BatchAssignAssetResultDto {
   assignedIds: string[];
 }
 
-export interface ReturnAssetDto {
-  status?: string;
-  conditionNotes?: string;
-  signedDocUrl?: string;
+export interface PendingHandoverSummaryDto {
+  totalPending: number;
+  pendingAssignments: number;
+  pendingReturns: number;
+  pendingTransfers: number;
+  records: Array<{
+    id: string;
+    assetId: string;
+    assetTag: string;
+    serialNumber: string;
+    modelName: string;
+    type: 'ASSIGNMENT' | 'RETURN';
+    recipientName: string;
+    recipientEmail: string;
+    createdAt: string;
+  }>;
 }
 
 export interface GenerateHandoverDocumentDto {

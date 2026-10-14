@@ -36,17 +36,9 @@ export const DeviceModelDrawer: React.FC<DeviceModelDrawerProps> = React.memo(
           .then((res) => {
             if (res.data?.data) setCostCenters(res.data.data);
           })
-          .catch(() => {
-            setCostCenters([
-              { id: 'cc-it-ops', code: 'IT-OPS', name: 'IT Operations & Infrastructure' },
-              { id: 'cc-eng-dev', code: 'ENG-DEV', name: 'Software Engineering & DevOps' },
-              { id: 'cc-fin-acc', code: 'FIN-ACC', name: 'Finance & Corporate Accounting' },
-              {
-                id: 'cc-hr-admin',
-                code: 'HR-ADMIN',
-                name: 'Human Resources & General Administration',
-              },
-            ]);
+          .catch((error: unknown) => {
+            setCostCenters([]);
+            message.warning(formatErrorMessage(error, 'load cost centers'));
           });
       }
     }, [open, message]);

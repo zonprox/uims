@@ -1,3 +1,4 @@
+import type { BatchStockIntakeDto, DeviceModel } from '@uims/shared-types';
 import { api } from './api';
 import type { Vendor } from './vendor.service';
 
@@ -9,33 +10,89 @@ export interface InventoryCategory {
   updatedAt?: string;
 }
 
-export interface InventoryItem {
+export interface InventoryItem
+  extends Omit<
+    Partial<DeviceModel>,
+    'categoryId' | 'category' | 'vendor' | 'specifications' | 'stockStatus'
+  > {
   id: string;
   sku: string;
+  modelCode?: string;
   name: string;
   categoryId?: string | null;
-  category?: InventoryCategory | string | null;
+  category?: InventoryCategory | { id: string; name: string } | string | null;
+  categoryName?: string;
+  manufacturer?: string;
   quantity: number;
+  totalUnits?: number;
+  availableUnits?: number;
+  assignedUnits?: number;
+  inUseUnits?: number;
+  maintenanceUnits?: number;
   minThreshold: number;
   unitCost: number;
   organizationId?: string | null;
   organization?: string | null;
   binNumber?: string;
+  binLocation?: string | null;
   supplier?: string;
   vendorId?: string | null;
   vendor?: Vendor | null;
   notes?: string;
+  specifications?: Record<string, unknown> | string | null;
+  stockStatus?:
+    | 'IN_STOCK'
+    | 'LOW_STOCK'
+    | 'OUT_OF_STOCK'
+    | 'in_stock'
+    | 'low_stock'
+    | 'out_of_stock'
+    | string;
+  status?: string;
 }
 
 export interface InventoryStats {
+  totalModels?: number;
   totalSkus: number;
   totalUnits: number;
   totalValuation: number;
+  availableUnits?: number;
+  assignedUnits?: number;
+  inUseUnits?: number;
+  maintenanceUnits?: number;
+  inStockCount?: number;
   lowStockCount: number;
   outOfStockCount: number;
 }
 
 export const inventoryService = {
+  getModels: async (params?: {
+    search?: string;
+    category?: string;
+    categoryId?: string;
+    stockStatus?: string;
+    organizationId?: string;
+    organization?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<Array<InventoryItem>> => {
+    try {
+      const res = await api.get('/assets/models', { params });
+      const rawList = res.data?.data ?? res.data ?? [];
+      return rawList.map(
+        (m: DeviceModel & { sku?: string; quantity?: number; binNumber?: string }) => ({
+          ...m,
+          sku: m.modelCode || m.sku || m.id,
+          quantity: m.availableUnits ?? m.quantity ?? 0,
+          binNumber: m.binLocation || m.binNumber || 'Unassigned',
+        }),
+      );
+    } catch (_err: unknown) {
+      const res = await api.get('/inventory', { params });
+      return res.data?.data ?? res.data ?? [];
+    }
+  },
+
   getItems: async (params?: {
     search?: string;
     category?: string;
@@ -43,46 +100,90 @@ export const inventoryService = {
     stockStatus?: string;
     organizationId?: string;
     organization?: string;
+    page?: number;
+    pageSize?: number;
   }): Promise<Array<InventoryItem>> => {
-    const res = await api.get('/inventory', { params });
-    return res.data.data;
-  },
-  getItem: async (id: string): Promise<InventoryItem> => {
-    const res = await api.get(`/inventory/${id}`);
-    return res.data.data;
-  },
-  getCategories: async (): Promise<Array<InventoryCategory>> => {
     try {
-      const res = await api.get('/inventory/categories');
-      return res.data.data;
-    } catch (_error: unknown) {
-      return [
-        { id: 'cat-1', name: 'Cables & Adapters', description: 'Patch cables and adapters' },
-        { id: 'cat-2', name: 'Peripherals', description: 'Mice, keyboards, headsets' },
-        { id: 'cat-3', name: 'Storage & RAM', description: 'SSDs, HDDs, RAM sticks' },
-        { id: 'cat-4', name: 'Power & Battery', description: 'Chargers, power strips, UPS' },
-        { id: 'cat-5', name: 'Tooling', description: 'Crimpers, testers, screwdrivers' },
-        { id: 'cat-6', name: 'General Supplies', description: 'Zip ties, thermal paste, cleaning' },
-      ];
+      const res = await api.get('/assets/models', { params });
+      const rawList = res.data?.data ?? res.data ?? [];
+      return rawList.map(
+        (m: DeviceModel & { sku?: string; quantity?: number; binNumber?: string }) => ({
+          ...m,
+          sku: m.modelCode || m.sku || m.id,
+          quantity: m.availableUnits ?? m.quantity ?? 0,
+          binNumber: m.binLocation || m.binNumber || 'Unassigned',
+        }),
+      );
+    } catch (_err: unknown) {
+      const res = await api.get('/inventory', { params });
+      return res.data?.data ?? res.data ?? [];
     }
   },
+
+  getItem: async (id: string): Promise<InventoryItem> => {
+    try {
+      const res = await api.get(`/assets/models/${id}`);
+      const m = res.data?.data ?? res.data;
+      return {
+        ...m,
+        sku: m.modelCode || m.sku || m.id,
+        quantity: m.availableUnits ?? m.quantity ?? 0,
+        binNumber: m.binLocation || m.binNumber || 'Unassigned',
+      };
+    } catch (_err: unknown) {
+      const res = await api.get(`/inventory/${id}`);
+      return res.data?.data ?? res.data;
+    }
+  },
+
+  getCategories: async (): Promise<Array<InventoryCategory>> => {
+    const res = await api.get('/assets/categories');
+    return res.data?.data ?? res.data ?? [];
+  },
+
+  createModel: async (data: Partial<DeviceModel>): Promise<InventoryItem> => {
+    const res = await api.post('/assets/models', data);
+    return res.data?.data ?? res.data;
+  },
+
+  updateModel: async (id: string, data: Partial<DeviceModel>): Promise<InventoryItem> => {
+    const res = await api.patch(`/assets/models/${id}`, data);
+    return res.data?.data ?? res.data;
+  },
+
+  deleteModel: async (id: string): Promise<void> => {
+    await api.delete(`/assets/models/${id}`);
+  },
+
   createItem: async (data: Partial<InventoryItem>): Promise<InventoryItem> => {
-    const res = await api.post('/inventory', data);
-    return res.data.data;
+    const res = await api.post('/assets/models', data);
+    return res.data?.data ?? res.data;
   },
+
   updateItem: async (id: string, data: Partial<InventoryItem>): Promise<InventoryItem> => {
-    const res = await api.patch(`/inventory/${id}`, data);
-    return res.data.data;
+    const res = await api.patch(`/assets/models/${id}`, data);
+    return res.data?.data ?? res.data;
   },
+
   deleteItem: async (id: string): Promise<void> => {
-    await api.delete(`/inventory/${id}`);
+    await api.delete(`/assets/models/${id}`);
   },
+
+  batchIntake: async (
+    modelId: string,
+    data: BatchStockIntakeDto,
+  ): Promise<{ count: number; assets: unknown[] }> => {
+    const res = await api.post(`/assets/models/${modelId}/intake`, data);
+    return res.data?.data ?? res.data;
+  },
+
   restockItem: async (id: string, quantity: number): Promise<InventoryItem> => {
     const res = await api.post(`/inventory/${id}/restock`, { quantity });
-    return res.data.data;
+    return res.data?.data ?? res.data;
   },
+
   getStats: async (): Promise<InventoryStats> => {
     const res = await api.get('/inventory/stats');
-    return res.data.data;
+    return res.data?.data ?? res.data;
   },
 };

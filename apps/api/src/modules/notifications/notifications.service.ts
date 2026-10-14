@@ -6,6 +6,7 @@ import type {
   NotificationListResponseDto,
 } from '@uims/shared-types';
 import { PrismaService } from '../../database/prisma.service';
+import { RedisService } from '../../common/redis/redis.service';
 import type { CreateNotificationDto, NotificationTypeEnum } from './dto/create-notification.dto';
 import type { NotificationQueryDto } from './dto/notification-query.dto';
 import { NotificationsGateway } from './notifications.gateway';
@@ -21,6 +22,7 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly gateway?: NotificationsGateway,
+    @Optional() private readonly redis?: RedisService,
   ) {}
 
   private timeAgo(date: Date): string {
@@ -373,7 +375,60 @@ export class NotificationsService {
   }
 
   /**
-   * Helper to send notification to a single user
+   * Resolves a target recipient identifier (AppUser ID, DirectoryUser ID, or corporate email)
+   * to a valid AppUser ID in PostgreSQL to guarantee foreign key constraint integrity.
+   */
+  async resolveAppUserId(identifier: string): Promise<string | null> {
+    if (!identifier || typeof identifier !== 'string') return null;
+    const trimmed = identifier.trim();
+    if (!trimmed) return null;
+
+    try {
+      // 1. Check if identifier directly matches an AppUser.id
+      if (typeof this.prisma.appUser?.findUnique === 'function') {
+        const directAppUser = await this.prisma.appUser.findUnique({
+          where: { id: trimmed },
+          select: { id: true },
+        });
+        if (directAppUser) return directAppUser.id;
+      }
+
+      // 2. Check if identifier matches a DirectoryUser.id -> look up DirectoryUser.email -> find matching AppUser by email
+      if (typeof this.prisma.directoryUser?.findUnique === 'function') {
+        const dirUser = await this.prisma.directoryUser.findUnique({
+          where: { id: trimmed },
+          select: { email: true },
+        });
+        if (dirUser?.email && typeof this.prisma.appUser?.findFirst === 'function') {
+          const appUser = await this.prisma.appUser.findFirst({
+            where: { email: { equals: dirUser.email, mode: 'insensitive' } },
+            select: { id: true },
+          });
+          if (appUser) return appUser.id;
+        }
+      }
+
+      // 3. Check if identifier contains @ -> find matching AppUser by email
+      if (trimmed.includes('@') && typeof this.prisma.appUser?.findFirst === 'function') {
+        const appUser = await this.prisma.appUser.findFirst({
+          where: { email: { equals: trimmed, mode: 'insensitive' } },
+          select: { id: true },
+        });
+        if (appUser) return appUser.id;
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to resolve AppUser ID for identifier "${trimmed}": ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+
+    return null;
+  }
+
+  /**
+   * Helper to send notification to a single user.
+   * Resolves recipient identifier to a valid AppUser ID, safely skipping if no AppUser exists.
    */
   async notifyUser(
     userId: string,
@@ -383,9 +438,17 @@ export class NotificationsService {
       type?: NotificationTypeEnum | string;
       link?: string;
     },
-  ) {
+  ): Promise<FormattedNotification | null> {
+    const appUserId = await this.resolveAppUserId(userId);
+    if (!appUserId) {
+      this.logger.log(
+        `Skipping notification for identifier "${userId}": No matching active AppUser found.`,
+      );
+      return null;
+    }
+
     return this.create({
-      userId,
+      userId: appUserId,
       title: payload.title,
       message: payload.message,
       type: (payload.type as NotificationTypeEnum) || 'INFO',
@@ -435,6 +498,202 @@ export class NotificationsService {
       );
       return [];
     }
+  }
+
+  /**
+   * Broadcast a domain/custody event to connected WebSocket clients.
+   */
+  emitCustodyEvent(
+    event:
+      | 'asset_allocated'
+      | 'asset_returned'
+      | 'asset_transferred'
+      | 'handover_document_pending'
+      | 'handover_document_resolved',
+    payload: unknown,
+  ): void {
+    if (this.gateway) {
+      this.gateway.emitCustodyEvent(event, payload);
+    }
+  }
+
+  /**
+   * Helper to emit custody lifecycle event and notify admins for an asset allocation.
+   */
+  async notifyAssetAllocated(payload: {
+    assetIds: string[];
+    recipientId: string;
+    recipientName?: string;
+    isPending: boolean;
+    count: number;
+  }): Promise<void> {
+    this.emitCustodyEvent('asset_allocated', payload);
+
+    if (payload.isPending) {
+      this.emitCustodyEvent('handover_document_pending', {
+        assetIds: payload.assetIds,
+        recipientId: payload.recipientId,
+        recipientName: payload.recipientName,
+        type: 'ASSIGNMENT',
+      });
+    }
+
+    try {
+      await this.notifyAdmins({
+        title: payload.isPending ? 'Pending Asset Handover Record' : 'Asset Allocation Complete',
+        message: `${payload.count} unit(s) allocated to ${payload.recipientName || 'employee'}${
+          payload.isPending ? ' pending signed handover document.' : '.'
+        }`,
+        type: payload.isPending ? 'WARNING' : 'INFO',
+        link: '/assets',
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to notify admins of asset allocation: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Helper to emit custody lifecycle event and notify admins for an asset return.
+   */
+  async notifyAssetReturned(payload: {
+    assetId: string;
+    assetTag?: string;
+    previousCustodianId?: string | null;
+    isPending: boolean;
+    status: string;
+  }): Promise<void> {
+    this.emitCustodyEvent('asset_returned', payload);
+
+    if (payload.isPending) {
+      this.emitCustodyEvent('handover_document_pending', {
+        assetId: payload.assetId,
+        assetTag: payload.assetTag,
+        recipientId: payload.previousCustodianId,
+        type: 'RETURN',
+      });
+    }
+
+    try {
+      await this.notifyAdmins({
+        title: payload.isPending ? 'Pending Asset Return Record' : 'Asset Return Complete',
+        message: `Asset ${payload.assetTag || payload.assetId} returned (${payload.status})${
+          payload.isPending ? ' pending signed return document.' : '.'
+        }`,
+        type: payload.isPending ? 'WARNING' : 'INFO',
+        link: `/assets?drawer=${payload.assetId}`,
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to notify admins of asset return: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Helper to emit custody lifecycle event and notify admins for an asset transfer.
+   */
+  async notifyAssetTransferred(payload: {
+    assetId: string;
+    assetTag?: string;
+    fromCustodianId: string;
+    toCustodianId: string;
+    isPending: boolean;
+  }): Promise<void> {
+    this.emitCustodyEvent('asset_transferred', payload);
+
+    if (payload.isPending) {
+      this.emitCustodyEvent('handover_document_pending', {
+        assetId: payload.assetId,
+        assetTag: payload.assetTag,
+        recipientId: payload.toCustodianId,
+        type: 'ASSIGNMENT',
+      });
+    }
+
+    try {
+      await this.notifyAdmins({
+        title: payload.isPending ? 'Pending Asset Transfer Records' : 'Asset Transfer Complete',
+        message: `Asset ${payload.assetTag || payload.assetId} transferred${
+          payload.isPending ? ' pending signed handover records.' : '.'
+        }`,
+        type: payload.isPending ? 'WARNING' : 'INFO',
+        link: `/assets?drawer=${payload.assetId}`,
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to notify admins of asset transfer: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Helper to emit custody lifecycle event and notify admins for a pending handover document.
+   */
+  async notifyHandoverDocumentPending(payload: {
+    recordId: string;
+    assetId: string;
+    assetTag?: string;
+    recipientName?: string;
+    type: 'ASSIGNMENT' | 'RETURN';
+  }): Promise<void> {
+    this.emitCustodyEvent('handover_document_pending', payload);
+
+    try {
+      const typeLabel = payload.type === 'ASSIGNMENT' ? 'Allocation' : 'Return';
+      await this.notifyAdmins({
+        title: `Pending ${typeLabel} Record: ${payload.assetTag || payload.assetId}`,
+        message: `Signed document pending for asset ${payload.assetTag || payload.assetId}${
+          payload.recipientName ? ` held by ${payload.recipientName}` : ''
+        }. Please upload the signed form.`,
+        type: 'WARNING',
+        link: `/assets?drawer=${payload.assetId}`,
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to notify admins of pending handover document: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Clear and invalidate scheduled alert throttle key in Redis when a handover document is uploaded.
+   * Also broadcasts WebSocket event 'handover_document_resolved'.
+   */
+  async clearHandoverDocumentAlert(recordId: string, assetId?: string): Promise<boolean> {
+    const cacheKey = `alert:handover:pending:${recordId}`;
+    if (this.redis) {
+      try {
+        await this.redis.del(cacheKey);
+        this.logger.log(`Cleared Redis throttle key "${cacheKey}" for resolved handover record.`);
+      } catch (error: unknown) {
+        this.logger.warn(
+          `Failed to delete Redis throttle key "${cacheKey}": ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    if (this.gateway) {
+      this.gateway.emitCustodyEvent('handover_document_resolved', {
+        recordId,
+        assetId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return true;
+  }
+
+  /**
+   * Alias for clearHandoverDocumentAlert.
+   */
+  async clearHandoverAlert(recordId: string, assetId?: string): Promise<boolean> {
+    return this.clearHandoverDocumentAlert(recordId, assetId);
   }
 
   async markAsRead(id: string): Promise<FormattedNotification> {

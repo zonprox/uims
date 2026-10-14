@@ -3,15 +3,23 @@ import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator
 export class CreateDeviceModelDto {
   @IsString()
   @IsNotEmpty()
-  assetCode!: string;
+  name!: string;
 
   @IsString()
   @IsNotEmpty()
-  name!: string;
+  modelCode!: string;
 
   @IsOptional()
   @IsString()
-  manufacturer?: string;
+  assetCode?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  categoryId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  manufacturer!: string;
 
   @IsOptional()
   @IsString()
@@ -19,16 +27,28 @@ export class CreateDeviceModelDto {
 
   @IsOptional()
   @IsString()
-  categoryId?: string;
+  vendorId?: string;
 
   @IsOptional()
-  @IsString()
-  specifications?: string;
+  specifications?: Record<string, unknown> | string;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
   unitCost?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minThreshold?: number;
+
+  @IsOptional()
+  @IsString()
+  binNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  binLocation?: string;
 
   @IsOptional()
   @IsString()

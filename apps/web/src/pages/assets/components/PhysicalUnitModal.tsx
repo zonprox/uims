@@ -96,7 +96,7 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
               propEmployees
                 ? Promise.resolve({ items: propEmployees })
                 : directoryService.getEmployees({ pageSize: 100 }),
-              api.get('/assets/models').then((res) => res.data?.data || res.data || []),
+              api.get('/assets/models').then((res) => res?.data?.data || res?.data || []),
               assetsService.getCostCenters(),
             ]);
 
@@ -111,8 +111,8 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
           if (ccResult.status === 'fulfilled' && Array.isArray(ccResult.value)) {
             setCostCenters(ccResult.value);
           }
-        } catch (_err: unknown) {
-          // Graceful degradation for auxiliary options
+        } catch (error: unknown) {
+          message.warning(formatErrorMessage(error, 'load reference options'));
         } finally {
           if (mounted) setLoadingOptions(false);
         }
@@ -130,10 +130,12 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
 
       if (editingAsset) {
         const rawSubcode = editingAsset.subcode || editingAsset.tag;
+        const resolvedModelId = editingAsset.deviceModelId || editingAsset.parentId;
         activeForm.setFieldsValue({
           subcode: rawSubcode,
           tag: rawSubcode,
-          parentId: editingAsset.parentId,
+          parentId: resolvedModelId,
+          deviceModelId: resolvedModelId,
           serialNumber: editingAsset.serialNumber,
           name: editingAsset.name,
           manufacturer: editingAsset.manufacturer,
@@ -141,7 +143,7 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
           categoryId:
             editingAsset.categoryId ||
             (typeof editingAsset.category === 'string' ? editingAsset.category : undefined),
-          status: editingAsset.status || 'Active',
+          status: editingAsset.status || 'AVAILABLE',
           costCenterId:
             editingAsset.costCenterId ||
             (typeof editingAsset.costCenter === 'object' ? editingAsset.costCenter?.id : undefined),
@@ -160,11 +162,14 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
           notes: editingAsset.notes,
         });
       } else {
-        activeForm.resetFields();
+        const existingSubcode =
+          activeForm.getFieldValue('subcode') || activeForm.getFieldValue('tag');
         activeForm.setFieldsValue({
-          subcode: `AST-${Math.floor(1000 + Math.random() * 9000)}`,
+          subcode: existingSubcode || `AST-${Math.floor(1000 + Math.random() * 9000)}`,
+          tag: existingSubcode || undefined,
           parentId: initialParentId,
-          status: 'Active',
+          deviceModelId: initialParentId,
+          status: 'AVAILABLE',
           purchaseDate: dayjs(),
           warrantyExpiry: dayjs().add(3, 'year'),
         });
@@ -192,15 +197,30 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
           customCostCenter && /^\d+$/.test(customCostCenter) ? customCostCenter : undefined;
 
         const { customCostCenter: _unusedCustomCc, ...restValues } = values;
+        const resolvedDeviceModelId =
+          values.deviceModelId ||
+          values.parentId ||
+          editingAsset?.deviceModelId ||
+          editingAsset?.parentId ||
+          initialParentId;
+
+        if (!resolvedDeviceModelId) {
+          message.error('Device model is strictly required to register a physical unit.');
+          setInternalSubmitting(false);
+          return;
+        }
+
         const payload = {
           ...restValues,
           subcode,
+          assetTag: subcode,
           tag: subcode,
-          parentId: values.parentId || undefined,
+          deviceModelId: resolvedDeviceModelId,
+          parentId: resolvedDeviceModelId,
           serialNumber: values.serialNumber ? values.serialNumber.trim() : undefined,
           costCenterId: values.costCenterId || undefined,
           costCenter: validCostCenter,
-          status: values.status || 'Active',
+          status: values.status || 'AVAILABLE',
           departmentId: values.departmentId || undefined,
           assignedToId: values.assignedToId || undefined,
           purchaseDate: values.purchaseDate
@@ -296,7 +316,8 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
                 extra="Physical unit unique inventory tag (e.g. AST-DELL-001). Uppercase."
               >
                 <Input
-                  placeholder="e.g. AST-DELL-001"
+                  id="subcode"
+                  placeholder="e.g. AST-1042 / AST-DELL-001"
                   style={{ textTransform: 'uppercase', fontFamily: 'monospace' }}
                   onChange={(e) => {
                     activeForm.setFieldsValue({
@@ -310,12 +331,12 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
             <Col span={12}>
               <Form.Item
                 label="Parent Device Model"
-                name="parentId"
+                name="deviceModelId"
+                rules={[formRules.required('Device model')]}
                 extra="Catalog model under which this physical unit is cataloged."
               >
                 <Select
                   showSearch
-                  allowClear
                   loading={loadingOptions}
                   placeholder="Select device model"
                   options={deviceModels.map((m) => ({

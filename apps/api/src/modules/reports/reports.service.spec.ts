@@ -14,8 +14,9 @@ describe('ReportsService', () => {
     license: {
       findMany: ReturnType<typeof vi.fn>;
       aggregate?: ReturnType<typeof vi.fn>;
+      groupBy?: ReturnType<typeof vi.fn>;
     };
-    inventoryItem: {
+    deviceModel: {
       findMany: ReturnType<typeof vi.fn>;
     };
     networkSwitch: {
@@ -59,9 +60,9 @@ describe('ReportsService', () => {
 
   beforeEach(() => {
     mockPrisma = {
-      asset: { aggregate: vi.fn(), count: vi.fn(), findMany: vi.fn() },
+      asset: { aggregate: vi.fn(), count: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
       license: { findMany: vi.fn() },
-      inventoryItem: { findMany: vi.fn() },
+      deviceModel: { findMany: vi.fn() },
       networkSwitch: { findMany: vi.fn() },
       subnet: { findMany: vi.fn() },
       directoryUser: { findMany: vi.fn() },
@@ -140,9 +141,6 @@ describe('ReportsService', () => {
         {
           id: 'asset-1',
           assetTag: 'AST-001',
-          name: 'MacBook Pro 16',
-          model: 'M3 Max',
-          category: { name: 'Laptops' },
           status: 'IN_USE',
           department: { name: 'Engineering' },
           costCenter: { code: 'CC-101', name: 'R&D' },
@@ -150,6 +148,11 @@ describe('ReportsService', () => {
           purchaseDate: new Date('2025-01-15T00:00:00Z'),
           warrantyExpiry: new Date('2028-01-15T00:00:00Z'),
           assignedTo: { firstName: 'Alice', lastName: 'Smith' },
+          deviceModel: {
+            name: 'MacBook Pro 16',
+            modelCode: 'M3 Max',
+            category: { name: 'Laptops' },
+          },
         },
       ]);
 
@@ -203,19 +206,19 @@ describe('ReportsService', () => {
     });
 
     it('should extract Consumable Inventory with threshold and valuation calculations', async () => {
-      mockPrisma.inventoryItem.findMany.mockResolvedValue([
+      mockPrisma.deviceModel.findMany.mockResolvedValue([
         {
           id: 'inv-1',
-          sku: 'SKU-RJ45-CAT6',
+          modelCode: 'SKU-RJ45-CAT6',
           name: 'Cat6 Patch Cable 2m',
           category: { name: 'Cables & Adapters' },
-          quantity: 4,
           minThreshold: 10,
           unitCost: 3.5,
           binNumber: 'BIN-A3',
-          supplier: 'TechSupply Co',
+          vendor: { name: 'TechSupply Co' },
         },
       ]);
+      mockPrisma.asset.groupBy.mockResolvedValue([{ deviceModelId: 'inv-1', _count: { _all: 4 } }]);
 
       const dataset = await service.getDomainDataset('inventory');
 

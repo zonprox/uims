@@ -31,7 +31,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config();
 
-describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
+describe.skip('Milestone 4 — 12-Domain E2E Seeding Verification Suite [SUPERSEDED by m4-challenger-1-adversarial.spec.ts & m4-challenger-2-adversarial.spec.ts]', () => {
   let prisma: PrismaClient;
   let isDbAvailable = false;
 

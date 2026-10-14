@@ -2,6 +2,7 @@ import {
   ApartmentOutlined,
   ApiOutlined,
   CloudServerOutlined,
+  DeploymentUnitOutlined,
   GlobalOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -16,6 +17,7 @@ import { SubnetDetailDrawer } from './components/SubnetDetailDrawer';
 import { SubnetFormModal } from './components/SubnetFormModal';
 import { SubnetManagementTab } from './components/SubnetManagementTab';
 import { SwitchManagementTab } from './components/SwitchManagementTab';
+import { TopologyMapTab } from './components/topology/TopologyMapTab';
 import { VlanDetailDrawer } from './components/VlanDetailDrawer';
 import { VlanFormModal } from './components/VlanFormModal';
 import { VlanManagementTab } from './components/VlanManagementTab';
@@ -127,6 +129,20 @@ export default function NetworkPage() {
   const tabItems = useMemo(
     () => [
       {
+        key: 'topology',
+        icon: <DeploymentUnitOutlined />,
+        label: 'Topology Map',
+        children: (
+          <TopologyMapTab
+            vlans={vlans}
+            subnets={subnets}
+            assets={assets}
+            onSelectSwitch={() => setActiveTabKey('switches')}
+            onSelectRack={() => setActiveTabKey('racks')}
+          />
+        ),
+      },
+      {
         key: 'racks',
         icon: <ApartmentOutlined />,
         label: 'Racks & Elevation',
@@ -221,6 +237,7 @@ export default function NetworkPage() {
       },
     ],
     [
+      assets,
       ips,
       subnets,
       vlans,

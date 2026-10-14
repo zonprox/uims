@@ -154,9 +154,7 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
           return;
         }
         message.error(
-          validationErr instanceof Error
-            ? validationErr.message
-            : 'Validation failed.',
+          validationErr instanceof Error ? validationErr.message : 'Validation failed.',
         );
         return;
       }
@@ -208,6 +206,8 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
       }
     };
 
+    if (!asset) return null;
+
     const isBusy = submitting || localSubmitting || uploadingDoc;
     const hasCustodian = Boolean(
       asset.assignedToId || (asset.assignedTo && asset.assignedTo !== 'Unassigned'),
@@ -224,7 +224,7 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
           onClose={onCancel}
           onCancel={onCancel}
           title="Return Hardware Asset"
-          subtitle={`${asset.tag} — ${asset.name}`}
+          subtitle={`${asset.tag || asset.subcode || ''} — ${asset.name}`}
           icon={<RollbackOutlined />}
           tag={
             asset.assignedTo ? (
@@ -275,7 +275,8 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
                       Administrative Return Record
                     </Text>
                     <Text type="secondary" style={{ fontSize: 11.5 }}>
-                      Pre-filled for {custodianName} ({asset.tag}). Exclusively supports print and Word (.docx).
+                      Pre-filled for {custodianName} ({asset.tag}). Exclusively supports print and
+                      Word (.docx).
                     </Text>
                   </div>
                   <Space size={6}>

@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { BatchStockIntakeDto } from '../assets/dto/batch-stock-intake.dto';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
 import { RestockInventoryDto } from './dto/restock-inventory.dto';
@@ -23,6 +24,13 @@ export class InventoryController {
   @ApiOperation({ summary: 'Get all inventory categories' })
   getCategories() {
     return this.inventoryService.getCategories();
+  }
+
+  @Post('intake')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Batch warehouse stock intake' })
+  batchIntake(@Body() body: BatchStockIntakeDto) {
+    return this.inventoryService.batchIntake(body);
   }
 
   @Post()

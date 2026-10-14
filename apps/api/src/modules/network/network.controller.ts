@@ -9,6 +9,7 @@ import {
   CreateSubnetDto,
   CreateSwitchDto,
   CreateSwitchPortDto,
+  CreateTopologyLinkDto,
   CreateVlanDto,
   IPAddressQueryDto,
   MacVendorQueryDto,
@@ -16,11 +17,13 @@ import {
   SubnetQueryDto,
   SwitchPortQueryDto,
   SwitchQueryDto,
+  TopologyQueryDto,
   UpdateIPAddressDto,
   UpdateRackDto,
   UpdateSubnetDto,
   UpdateSwitchDto,
   UpdateSwitchPortDto,
+  UpdateTopologyLayoutDto,
   UpdateVlanDto,
   VlanQueryDto,
 } from './dto';
@@ -58,6 +61,39 @@ export class NetworkController {
   @ApiOperation({ summary: 'Auto MAC OUI vendor lookup' })
   lookupMacVendor(@Query() query: MacVendorQueryDto) {
     return this.networkService.lookupMacVendor(query.mac);
+  }
+
+  // ==========================================
+  // TOPOLOGY GRAPH & CANVAS ENGINE ENDPOINTS
+  // ==========================================
+
+  @Get('topology')
+  @ApiOperation({ summary: 'Get complete multi-perspective network and CCTV topology graph' })
+  getTopology(@Query() query: TopologyQueryDto) {
+    return this.networkService.getTopology(query);
+  }
+
+  @Patch('topology/layout')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({
+    summary: 'Batch persist custom canvas node (x, y) coordinates for active view mode',
+  })
+  updateTopologyLayout(@Body() body: UpdateTopologyLayoutDto) {
+    return this.networkService.updateTopologyLayout(body);
+  }
+
+  @Post('topology/links')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Atomically patch (connect) two switch ports or port + endpoint' })
+  createTopologyLink(@Body() body: CreateTopologyLinkDto) {
+    return this.networkService.createTopologyLink(body);
+  }
+
+  @Delete('topology/links/:portId')
+  @Roles('Admin', 'Super Admin')
+  @ApiOperation({ summary: 'Atomically disconnect (unpatch) switch port connection' })
+  deleteTopologyLink(@Param('portId') portId: string) {
+    return this.networkService.deleteTopologyLink(portId);
   }
 
   // ==========================================

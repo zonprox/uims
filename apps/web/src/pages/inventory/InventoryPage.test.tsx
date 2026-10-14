@@ -319,7 +319,7 @@ describe('InventoryPage Integration & Teardown', () => {
       await new Promise((resolve) => setTimeout(resolve, 60));
     });
 
-    const modal = document.querySelector('.ant-modal');
+    const modal = document.querySelector('.ant-modal, .ant-drawer');
     expect(modal).not.toBeNull();
     expect(modal?.textContent).toContain('Create Item');
 
@@ -328,7 +328,9 @@ describe('InventoryPage Integration & Teardown', () => {
     expect(modal?.textContent).toContain('Supplier / Vendor');
 
     // Assert Select components exist for categoryId and vendorId
-    const modalSelects = document.querySelectorAll('.ant-modal .ant-select');
+    const modalSelects = document.querySelectorAll(
+      '.ant-modal .ant-select, .ant-drawer .ant-select',
+    );
     expect(modalSelects.length).toBeGreaterThanOrEqual(2);
 
     const categorySelect = Array.from(modalSelects).find(

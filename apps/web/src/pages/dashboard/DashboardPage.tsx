@@ -6,6 +6,8 @@ import {
   CheckCircleOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
+  FileTextOutlined,
+  FileWordOutlined,
   HistoryOutlined,
   InfoCircleOutlined,
   LaptopOutlined,
@@ -15,9 +17,11 @@ import {
   SafetyCertificateOutlined,
   TeamOutlined,
   ThunderboltOutlined,
+  UploadOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import {
+  Alert,
   App,
   Avatar,
   Badge,
@@ -34,12 +38,22 @@ import {
   Tag,
   Tooltip,
   Typography,
+  Upload,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import PageContainer from '../../components/PageContainer';
-import { type DashboardOverview, dashboardService } from '../../services/dashboard.service';
+import { assetsService } from '../../services/assets.service';
+import {
+  type DashboardOverview,
+  type PendingHandoverRecordItem,
+  type PendingHandoverSummaryResponse,
+  dashboardService,
+} from '../../services/dashboard.service';
 import { useAuthStore } from '../../stores/auth.store';
+import { HandoverDocumentModal } from '../assets/components/HandoverDocumentModal';
+import { downloadBlobFile } from '../assets/utils/printDocument';
+import { formatErrorMessage } from '../../utils/feedback';
 
 const { Title, Text } = Typography;
 
@@ -1292,7 +1306,29 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingHandovers, setPendingHandovers] = useState<PendingHandoverSummaryResponse | null>(
+    null,
+  );
+  const [loadingHandovers, setLoadingHandovers] = useState(false);
+  const [selectedRecordForPreview, setSelectedRecordForPreview] =
+    useState<PendingHandoverRecordItem | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string>('');
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [downloadingDocxId, setDownloadingDocxId] = useState<string | null>(null);
+  const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
   const activeFetchIdRef = useRef(0);
+
+  const fetchPendingHandovers = useCallback(async () => {
+    try {
+      setLoadingHandovers(true);
+      const res = await dashboardService.getPendingHandovers();
+      setPendingHandovers(res);
+    } catch (err: unknown) {
+      messageRef.current.warning(formatErrorMessage(err, 'load pending handover documents'));
+    } finally {
+      setLoadingHandovers(false);
+    }
+  }, []);
 
   const fetchDashboardData = useCallback(
     async (isManualRefresh = false) => {
@@ -1303,7 +1339,10 @@ export default function DashboardPage() {
       const fetchId = ++activeFetchIdRef.current;
 
       try {
-        const overview = await dashboardService.getOverview(period, isManualRefresh);
+        const [overview] = await Promise.all([
+          dashboardService.getOverview(period, isManualRefresh),
+          fetchPendingHandovers(),
+        ]);
         if (fetchId !== activeFetchIdRef.current) return;
         setData(overview);
         if (isManualRefresh) {
@@ -1320,12 +1359,86 @@ export default function DashboardPage() {
         }
       }
     },
-    [period],
+    [fetchPendingHandovers, period],
   );
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  // Real-time query invalidation when custody updates occur
+  useEffect(() => {
+    const handleCustodyEvent = () => {
+      fetchPendingHandovers();
+    };
+    window.addEventListener('uims:handover-update', handleCustodyEvent);
+    window.addEventListener('uims:notification', handleCustodyEvent);
+    return () => {
+      window.removeEventListener('uims:handover-update', handleCustodyEvent);
+      window.removeEventListener('uims:notification', handleCustodyEvent);
+    };
+  }, [fetchPendingHandovers]);
+
+  const handleDownloadDocx = async (record: PendingHandoverRecordItem) => {
+    try {
+      setDownloadingDocxId(record.id);
+      const { blob, filename } = await assetsService.downloadHandoverDocx({
+        assetIds: [record.assetId],
+        type: ((record.type || record.handoverType || 'ASSIGNMENT') as string).toLowerCase() as
+          | 'assignment'
+          | 'return'
+          | 'transfer',
+        recipientId: record.recipientId,
+      });
+      const targetFilename =
+        filename ||
+        `Handover_${record.subcode || record.assetTag}_${new Date().toISOString().split('T')[0]}.docx`;
+      downloadBlobFile(blob, targetFilename);
+      messageRef.current.success('Handover document (.docx) downloaded successfully.');
+    } catch (_err: unknown) {
+      messageRef.current.error('Failed to download Word document. Please try again.');
+    } finally {
+      setDownloadingDocxId(null);
+    }
+  };
+
+  const handlePreviewForm = async (record: PendingHandoverRecordItem) => {
+    try {
+      const res = await assetsService.generateHandoverDocument({
+        assetIds: [record.assetId],
+        type: ((record.type || record.handoverType || 'ASSIGNMENT') as string).toLowerCase() as
+          | 'assignment'
+          | 'return'
+          | 'transfer',
+        recipientId: record.recipientId,
+      });
+      setSelectedRecordForPreview(record);
+      setPreviewHtml(res.html);
+      setPreviewModalOpen(true);
+    } catch (_err: unknown) {
+      messageRef.current.error('Failed to generate document preview.');
+    }
+  };
+
+  const handleUploadSignedCopy = async (file: File, record: PendingHandoverRecordItem) => {
+    try {
+      setUploadingDocId(record.id);
+      const uploadRes = await assetsService.uploadHandoverDocument(file, record.assetId);
+      const signedUrl = uploadRes.fileUrl;
+      if (signedUrl && record.assetId) {
+        await assetsService.attachHandoverDocument(record.assetId, { fileUrl: signedUrl });
+      }
+      messageRef.current.success(
+        `Signed handover document uploaded for ${record.subcode || record.assetTag}.`,
+      );
+      fetchPendingHandovers();
+    } catch (_err: unknown) {
+      messageRef.current.error('Failed to upload signed handover document.');
+    } finally {
+      setUploadingDocId(null);
+    }
+    return false;
+  };
 
   return (
     <PageContainer
@@ -1374,7 +1487,225 @@ export default function DashboardPage() {
         </Card>
       ) : (
         <>
+          {pendingHandovers && pendingHandovers.totalPending > 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              icon={<WarningOutlined />}
+              title={
+                <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+                  <span>
+                    <strong>
+                      {pendingHandovers.totalPending} Pending Handover Document
+                      {pendingHandovers.totalPending > 1 ? 's' : ''} Require Action.
+                    </strong>
+                    {pendingHandovers.overdueCount > 0 && (
+                      <span style={{ marginLeft: 8, color: '#cf1322', fontWeight: 600 }}>
+                        ({pendingHandovers.overdueCount} overdue &gt; 3 days)
+                      </span>
+                    )}
+                  </span>
+                  <Button
+                    size="small"
+                    type="primary"
+                    danger={pendingHandovers.overdueCount > 0}
+                    onClick={() => navigate('/assets')}
+                  >
+                    View in Assets
+                  </Button>
+                </Flex>
+              }
+              description="Physical units were allocated, returned, or transferred without uploaded signed physical receipts. Download generated forms, acquire signatures, and upload scanned copies to achieve full compliance."
+              style={{ marginBottom: 18 }}
+            />
+          )}
+
           <TelemetryCardsGrid data={data} onNavigate={navigate} />
+
+          {pendingHandovers && pendingHandovers.totalPending > 0 && (
+            <Card
+              title={
+                <Flex align="center" justify="space-between">
+                  <Space>
+                    <SafetyCertificateOutlined style={{ color: '#faad14' }} />
+                    <span>Pending Handover Documents Compliance</span>
+                    <Badge
+                      count={pendingHandovers.totalPending}
+                      overflowCount={999}
+                      style={{
+                        backgroundColor: pendingHandovers.overdueCount > 0 ? '#ff4d4f' : '#faad14',
+                      }}
+                    />
+                  </Space>
+                  <Tooltip title="Refresh compliance records">
+                    <Button
+                      size="small"
+                      icon={<ReloadOutlined spin={loadingHandovers} />}
+                      onClick={fetchPendingHandovers}
+                    />
+                  </Tooltip>
+                </Flex>
+              }
+              size="small"
+              styles={{ body: { padding: '12px 16px' } }}
+              style={{ marginBottom: 18 }}
+            >
+              <Table
+                size="small"
+                loading={loadingHandovers}
+                dataSource={pendingHandovers.records || []}
+                rowKey={(r) => r.id || r.recordId || `${r.assetId}-${r.type}`}
+                pagination={{
+                  pageSize: 5,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['5', '10', '25'],
+                }}
+                columns={[
+                  {
+                    title: 'Record Type',
+                    dataIndex: 'type',
+                    key: 'type',
+                    width: 130,
+                    render: (type: string, record: PendingHandoverRecordItem) => {
+                      const t = (type || record.handoverType || '').toUpperCase();
+                      const color =
+                        t === 'ASSIGNMENT' ? 'blue' : t === 'RETURN' ? 'orange' : 'purple';
+                      return <Tag color={color}>{t}</Tag>;
+                    },
+                  },
+                  {
+                    title: 'Asset',
+                    key: 'asset',
+                    render: (_: unknown, record: PendingHandoverRecordItem) => (
+                      <div>
+                        <Text
+                          strong
+                          code
+                          style={{ cursor: 'pointer', color: '#1677ff' }}
+                          onClick={() => navigate(`/assets?drawer=${record.assetId}`)}
+                        >
+                          {record.subcode || record.assetTag}
+                        </Text>
+                        {record.modelName && (
+                          <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
+                            {record.modelName}
+                          </Text>
+                        )}
+                        {record.serialNumber && (
+                          <Text type="secondary" style={{ display: 'block', fontSize: 10.5 }}>
+                            SN: {record.serialNumber}
+                          </Text>
+                        )}
+                      </div>
+                    ),
+                  },
+                  {
+                    title: 'Custodian',
+                    key: 'custodian',
+                    render: (_: unknown, record: PendingHandoverRecordItem) => (
+                      <div>
+                        <Text strong style={{ fontSize: 12 }}>
+                          {record.recipientName || 'Unassigned'}
+                        </Text>
+                        {(record.department || record.departmentName) && (
+                          <Tag
+                            color="cyan"
+                            style={{
+                              display: 'inline-block',
+                              fontSize: 10,
+                              margin: '2px 0 0 0',
+                            }}
+                          >
+                            {record.department || record.departmentName}
+                          </Tag>
+                        )}
+                      </div>
+                    ),
+                  },
+                  {
+                    title: 'Date Initiated',
+                    dataIndex: 'createdAt',
+                    key: 'createdAt',
+                    width: 140,
+                    render: (_: unknown, record: PendingHandoverRecordItem) => (
+                      <div>
+                        <Text style={{ fontSize: 12 }}>
+                          {record.createdAt ? record.createdAt.split('T')[0] : '—'}
+                        </Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
+                          {record.timeAgo || `${record.daysPending || 0}d ago`}
+                        </Text>
+                      </div>
+                    ),
+                  },
+                  {
+                    title: 'Status',
+                    key: 'status',
+                    width: 170,
+                    render: (_: unknown, record: PendingHandoverRecordItem) => (
+                      <Tag
+                        color={record.isOverdue ? 'error' : 'warning'}
+                        icon={<WarningOutlined />}
+                      >
+                        {record.isOverdue ? 'Overdue (>3d)' : 'Pending Scanned Copy'}
+                      </Tag>
+                    ),
+                  },
+                  {
+                    title: 'Actions',
+                    key: 'actions',
+                    width: 220,
+                    render: (_: unknown, record: PendingHandoverRecordItem) => (
+                      <Space size="small">
+                        <Tooltip title="Preview & Print Form">
+                          <Button
+                            size="small"
+                            icon={<FileTextOutlined />}
+                            onClick={() => handlePreviewForm(record)}
+                          />
+                        </Tooltip>
+                        <Tooltip title="Download Word (.docx) Form">
+                          <Button
+                            size="small"
+                            icon={<FileWordOutlined />}
+                            loading={downloadingDocxId === record.id}
+                            onClick={() => handleDownloadDocx(record)}
+                          />
+                        </Tooltip>
+                        <Upload
+                          showUploadList={false}
+                          beforeUpload={(file) => {
+                            handleUploadSignedCopy(file, record);
+                            return false;
+                          }}
+                        >
+                          <Tooltip title="Upload Signed Physical Copy">
+                            <Button
+                              size="small"
+                              type="primary"
+                              icon={<UploadOutlined />}
+                              loading={uploadingDocId === record.id}
+                            >
+                              Upload
+                            </Button>
+                          </Tooltip>
+                        </Upload>
+                        <Tooltip title="View Asset Details">
+                          <Button
+                            size="small"
+                            type="text"
+                            shape="circle"
+                            icon={<RightOutlined />}
+                            onClick={() => navigate(`/assets?drawer=${record.assetId}`)}
+                          />
+                        </Tooltip>
+                      </Space>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          )}
 
           <Row gutter={[14, 14]} style={{ marginBottom: 18 }}>
             <Col xs={24} md={24} lg={16}>
@@ -1406,6 +1737,18 @@ export default function DashboardPage() {
             </Col>
           </Row>
         </>
+      )}
+
+      {previewModalOpen && selectedRecordForPreview && (
+        <HandoverDocumentModal
+          open={previewModalOpen}
+          title={`Handover Record Preview — ${selectedRecordForPreview.subcode || selectedRecordForPreview.assetTag}`}
+          html={previewHtml}
+          filename={`Handover_${selectedRecordForPreview.subcode || selectedRecordForPreview.assetTag}`}
+          onClose={() => setPreviewModalOpen(false)}
+          onDownloadDocx={() => handleDownloadDocx(selectedRecordForPreview)}
+          downloadingDocx={downloadingDocxId === selectedRecordForPreview.id}
+        />
       )}
     </PageContainer>
   );

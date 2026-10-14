@@ -180,7 +180,7 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                     className="label-key"
                     style={{ fontWeight: 700, fontSize: 8.5, color: '#000000' }}
                   >
-                    Sub-Asset Code:{' '}
+                    SUB Code:{' '}
                   </span>
                   <span
                     className="label-val"
@@ -248,7 +248,7 @@ export const PrintableAssetSheet: React.FC<PrintableAssetSheetProps> = React.mem
                     className="label-key"
                     style={{ fontWeight: 700, fontSize: 8.5, color: '#000000' }}
                   >
-                    Purchase Date:{' '}
+                    Date:{' '}
                   </span>
                   <span
                     className="label-val"

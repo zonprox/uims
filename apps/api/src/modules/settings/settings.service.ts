@@ -108,7 +108,7 @@ export class SettingsService {
       this.prisma.asset.count(),
       userCountPromise,
       this.prisma.license.count(),
-      this.prisma.inventoryItem.count(),
+      this.prisma.deviceModel.count(),
       this.prisma.auditLog.count(),
       this.prisma.subnet.count(),
       this.prisma.setting.count(),

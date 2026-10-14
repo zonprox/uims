@@ -313,11 +313,16 @@ export async function seedAudit(prisma: PrismaClient, ctx?: SeederContext) {
             key
           );
         }
-        if (type === 'Inventory') {
+        if (type === 'Inventory' || type === 'DeviceModel') {
           return (
-            ctx?.inventory.get(key) ||
-            (await prisma.inventoryItem.findUnique({ where: { sku: key }, select: { id: true } }))
-              ?.id ||
+            ctx?.inventory?.get(key) ||
+            ctx?.assets?.get(key) ||
+            (
+              await prisma.deviceModel.findUnique({
+                where: { modelCode: key },
+                select: { id: true },
+              })
+            )?.id ||
             key
           );
         }

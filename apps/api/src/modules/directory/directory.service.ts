@@ -16,6 +16,7 @@ import type {
 } from '@uims/shared-types';
 import {
   AccountStatus,
+  HandoverRecordType,
   type DirectoryGroup,
   type DirectoryUser,
   type Prisma,
@@ -26,6 +27,7 @@ import {
   generateSecurePassword,
 } from '../../common/crypto/directory-crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { AssetsService } from '../assets/assets.service';
 import { AuditService } from '../audit/audit.service';
 import type { CreateDirectoryGroupDto } from './dto/create-directory-group.dto';
 import type { CreateDirectoryUserDto } from './dto/create-directory-user.dto';
@@ -42,6 +44,7 @@ export class DirectoryService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly assetsService?: AssetsService,
   ) {}
 
   async findByIdentifier(identifier: string) {
@@ -282,7 +285,11 @@ export class DirectoryService {
         position: true,
         assignedAssets: {
           include: {
-            category: true,
+            deviceModel: {
+              include: {
+                category: true,
+              },
+            },
           },
         },
         licenseAssignments: {
@@ -1323,13 +1330,14 @@ export class DirectoryService {
     const assets = await this.prisma.asset.findMany({
       where: { assignedToId: userId },
       include: {
-        category: true,
-        parent: true,
+        deviceModel: {
+          include: { category: true },
+        },
         costCenter: true,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     });
-    return assets.filter((a) => a.parentId !== null);
+    return assets;
   }
 
   async assignAsset(userId: string, assetId: string) {
@@ -1346,17 +1354,21 @@ export class DirectoryService {
       );
     }
 
+    if (typeof this.prisma.deviceModel?.findUnique === 'function') {
+      const isModel = await this.prisma.deviceModel.findUnique({ where: { id: assetId } });
+      if (isModel) {
+        throw new BadRequestException(
+          'Cannot assign a device model blueprint. Only physical units can be assigned.',
+        );
+      }
+    }
+
     const asset = await this.prisma.asset.findUnique({
       where: { id: assetId },
+      include: { deviceModel: true },
     });
     if (!asset) {
       throw new NotFoundException(`Asset with ID ${assetId} not found`);
-    }
-
-    if (asset.parentId === null) {
-      throw new BadRequestException(
-        'Cannot assign a device model to an employee. Only individual physical units can be assigned.',
-      );
     }
 
     if (asset.assignedToId === user.id) {
@@ -1364,24 +1376,55 @@ export class DirectoryService {
     }
     if (asset.assignedToId !== null) {
       throw new ConflictException(
-        `Asset ${asset.assetTag} is already assigned to another user (${asset.assignedToId})`,
+        `Asset ${asset.subcode || asset.assetTag} is already assigned to another user (${asset.assignedToId})`,
       );
     }
     if (asset.status !== 'AVAILABLE') {
       throw new BadRequestException(
-        `Asset ${asset.assetTag} is not AVAILABLE for assignment (current status: ${asset.status})`,
+        `Asset ${asset.subcode || asset.assetTag} is not AVAILABLE for assignment (current status: ${asset.status})`,
       );
     }
 
-    return this.prisma.asset.update({
-      where: { id: assetId },
-      data: {
+    if (this.assetsService) {
+      await this.assetsService.allocateUnits({
+        assetIds: [assetId],
         assignedToId: user.id,
-        status: 'IN_USE',
-      },
-      include: {
-        category: true,
-      },
+        conditionNotes: 'Assigned via Directory User profile',
+      });
+
+      return this.prisma.asset.findUnique({
+        where: { id: assetId },
+        include: {
+          deviceModel: { include: { category: true } },
+        },
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (tx.assetHandoverRecord) {
+        await tx.assetHandoverRecord.create({
+          data: {
+            assetId,
+            type: HandoverRecordType.ASSIGNMENT,
+            recipientId: user.id,
+            isPending: true,
+            notes: 'Assigned via Directory User profile (pending signed record)',
+          },
+        });
+      }
+
+      return tx.asset.update({
+        where: { id: assetId },
+        data: {
+          assignedToId: user.id,
+          departmentId: user.departmentId || undefined,
+          status: 'IN_USE',
+          hasPendingRecord: true,
+        },
+        include: {
+          deviceModel: { include: { category: true } },
+        },
+      });
     });
   }
 
@@ -1393,6 +1436,15 @@ export class DirectoryService {
       throw new NotFoundException(`Directory user with ID ${userId} not found`);
     }
 
+    if (typeof this.prisma.deviceModel?.findUnique === 'function') {
+      const isModel = await this.prisma.deviceModel.findUnique({ where: { id: assetId } });
+      if (isModel) {
+        throw new BadRequestException(
+          'Cannot unassign a device model blueprint. Only physical units can be unassigned.',
+        );
+      }
+    }
+
     const asset = await this.prisma.asset.findUnique({
       where: { id: assetId },
     });
@@ -1402,24 +1454,59 @@ export class DirectoryService {
 
     if (asset.assignedToId === null) {
       throw new BadRequestException(
-        `Asset ${asset.assetTag} is not currently assigned to any user`,
+        `Asset ${asset.subcode || asset.assetTag} is not currently assigned to any user`,
       );
     }
     if (asset.assignedToId !== user.id) {
       throw new BadRequestException(
-        `Asset ${asset.assetTag} is assigned to a different user, not ${user.email}`,
+        `Asset ${asset.subcode || asset.assetTag} is assigned to a different user, not ${user.email}`,
       );
     }
 
-    const updated = await this.prisma.asset.update({
-      where: { id: assetId },
-      data: {
-        assignedToId: null,
-        status: 'AVAILABLE',
-      },
-      include: {
-        category: true,
-      },
+    if (this.assetsService) {
+      await this.assetsService.returnUnits({
+        assetIds: [assetId],
+        targetStatus: 'AVAILABLE',
+        conditionNotes: 'Unassigned (returned) via Directory User profile',
+      });
+
+      const updatedAsset = await this.prisma.asset.findUnique({
+        where: { id: assetId },
+        include: {
+          deviceModel: { include: { category: true } },
+        },
+      });
+
+      return {
+        success: true,
+        asset: updatedAsset,
+      };
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (tx.assetHandoverRecord) {
+        await tx.assetHandoverRecord.create({
+          data: {
+            assetId,
+            type: HandoverRecordType.RETURN,
+            recipientId: user.id,
+            isPending: false,
+            notes: 'Unassigned (returned) via Directory User profile',
+          },
+        });
+      }
+
+      return tx.asset.update({
+        where: { id: assetId },
+        data: {
+          assignedToId: null,
+          status: 'AVAILABLE',
+          hasPendingRecord: false,
+        },
+        include: {
+          deviceModel: { include: { category: true } },
+        },
+      });
     });
 
     return {
@@ -1435,11 +1522,11 @@ export class DirectoryService {
         assignedToId: null,
       },
       include: {
-        category: true,
+        deviceModel: { include: { category: true } },
       },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      orderBy: [{ subcode: 'asc' }, { id: 'asc' }],
     });
-    return assets.filter((a) => a.parentId !== null);
+    return assets;
   }
 
   // =========================================================================

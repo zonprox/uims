@@ -18,46 +18,46 @@ function setInputValue(input: HTMLInputElement, value: string) {
 }
 
 const mockCategories = [
-  { id: 'cat-fabric', name: 'Fabrics & Textiles', description: 'Raw materials for garment' },
-  { id: 'cat-acc', name: 'Accessories & Trims', description: 'Buttons, zippers, threads' },
+  { id: 'cat-network', name: 'Network Switches', description: 'Enterprise network hardware' },
+  { id: 'cat-server', name: 'Servers & Racks', description: 'Rackmount enterprise servers' },
 ];
 
 const mockItems: InventoryItem[] = [
   {
-    id: 'item-cotton-twill',
-    sku: 'FAB-COT-101',
-    name: '100% Cotton Twill Fabric Navy',
-    categoryId: 'cat-fabric',
+    id: 'item-cisco-switch',
+    sku: 'NET-SW-48P',
+    name: 'Cisco Catalyst 48-Port PoE Switch',
+    categoryId: 'cat-network',
     category: mockCategories[0],
-    quantity: 1500,
-    minThreshold: 200,
-    unitCost: 4.85,
+    quantity: 15,
+    minThreshold: 5,
+    unitCost: 1450.0,
     binNumber: 'Bay 4-B12',
-    supplier: 'TexChem Fabrics',
+    supplier: 'Cisco Systems Inc',
   },
   {
-    id: 'item-zipper-ykk',
-    sku: 'TRM-ZIP-005',
-    name: 'YKK #5 Metal Zipper Antique Brass',
-    categoryId: 'cat-acc',
+    id: 'item-hpe-server',
+    sku: 'SRV-DL380-G10',
+    name: 'HPE ProLiant DL380 Gen10 Server',
+    categoryId: 'cat-server',
     category: mockCategories[1],
-    quantity: 450,
-    minThreshold: 100,
-    unitCost: 0.65,
+    quantity: 8,
+    minThreshold: 2,
+    unitCost: 3200.0,
     binNumber: 'Shelf A-02',
-    supplier: 'YKK Fastening',
+    supplier: 'Hewlett Packard Enterprise',
   },
 ];
 
 const mockVendors: Vendor[] = [
   {
-    id: 'ven-texchem',
-    name: 'TexChem Fabrics Ltd',
-    contactName: 'Nguyen Van B',
-    contactEmail: 'b.nguyen@texchem.vn',
-    contactPhone: '+84 28 3822 1234',
-    website: 'https://texchem.vn',
-    notes: 'Primary fabric supplier',
+    id: 'ven-cisco',
+    name: 'Cisco Systems Inc',
+    contactName: 'Enterprise Sales',
+    contactEmail: 'sales@cisco.com',
+    contactPhone: '+1 800 553 6387',
+    website: 'https://cisco.com',
+    notes: 'Primary network infrastructure vendor',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
   },
@@ -111,9 +111,9 @@ describe('Inventory Filtering & Storage Bin Rendering', () => {
     vi.mocked(inventoryService.getCategories).mockResolvedValue(mockCategories);
     vi.mocked(organizationService.getOrganizations).mockResolvedValue([
       {
-        id: 'org-bsl',
-        name: 'BSL Garments Ltd',
-        code: 'BSL',
+        id: 'org-tech',
+        name: 'Enterprise Tech Systems Inc',
+        code: 'ETS',
         status: 'ACTIVE',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
@@ -161,11 +161,11 @@ describe('Inventory Filtering & Storage Bin Rendering', () => {
       });
 
       // Verify table text
-      expect(host.textContent).toContain('FAB-COT-101');
-      expect(host.textContent).toContain('100% Cotton Twill Fabric Navy');
+      expect(host.textContent).toContain('NET-SW-48P');
+      expect(host.textContent).toContain('Cisco Catalyst 48-Port PoE Switch');
       expect(host.textContent).toContain('Bay 4-B12');
 
-      expect(host.textContent).toContain('TRM-ZIP-005');
+      expect(host.textContent).toContain('SRV-DL380-G10');
       expect(host.textContent).toContain('Shelf A-02');
 
       // Verify cyan tags for bin numbers
@@ -208,7 +208,7 @@ describe('Inventory Filtering & Storage Bin Rendering', () => {
         await new Promise((resolve) => setTimeout(resolve, 60));
       });
 
-      const modal = document.querySelector('.ant-modal');
+      const modal = document.querySelector('.ant-modal, .ant-drawer');
       expect(modal).not.toBeNull();
       expect(modal?.textContent).toContain('Create Item');
       // Storage Location should NOT be in the modal
@@ -272,7 +272,7 @@ describe('Inventory Filtering & Storage Bin Rendering', () => {
       expect(searchInput).not.toBeNull();
 
       await act(async () => {
-        setInputValue(searchInput, 'Cotton');
+        setInputValue(searchInput, 'Catalyst');
         await new Promise((resolve) => setTimeout(resolve, 60));
       });
 

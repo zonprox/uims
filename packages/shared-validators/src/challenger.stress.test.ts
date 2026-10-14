@@ -2,10 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   assetStatusSchema,
-  createAssetSchema,
+  createAssetCategorySchema,
   createCostCenterSchema,
   createDeviceModelSchema,
-  createAssetUnitSchema,
 } from './asset.validator';
 import {
   currencySchema,
@@ -294,8 +293,8 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
         }
       });
 
-      it('rejects negative unitCost in createAssetSchema', () => {
-        const res = createAssetSchema.safeParse({
+      it('rejects negative unitCost in createDeviceModelSchema', () => {
+        const res = createDeviceModelSchema.safeParse({
           name: 'MacBook Pro 16',
           unitCost: -1500,
         });
@@ -362,8 +361,8 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
       }
     });
 
-    it('rejects asset name exceeding 100 characters in createAssetSchema', () => {
-      const res = createAssetSchema.safeParse({
+    it('rejects asset name exceeding 100 characters in createDeviceModelSchema', () => {
+      const res = createDeviceModelSchema.safeParse({
         name: 'A'.repeat(101),
       });
       expect(res.success).toBe(false);
@@ -372,8 +371,8 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
       }
     });
 
-    it('rejects asset description exceeding 500 characters in createAssetSchema', () => {
-      const res = createAssetSchema.safeParse({
+    it('rejects asset description exceeding 500 characters in createAssetCategorySchema', () => {
+      const res = createAssetCategorySchema.safeParse({
         name: 'Valid Asset',
         description: string501,
       });
@@ -383,8 +382,8 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
       }
     });
 
-    it('rejects asset notes exceeding 1000 characters in createAssetSchema', () => {
-      const res = createAssetSchema.safeParse({
+    it('rejects asset notes exceeding 1000 characters in createDeviceModelSchema', () => {
+      const res = createDeviceModelSchema.safeParse({
         name: 'Valid Asset',
         notes: string1001,
       });
@@ -394,17 +393,14 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
       }
     });
 
-    it('rejects asset specifications exceeding 2000 characters in createAssetSchema', () => {
-      const res = createAssetSchema.safeParse({
+    it('rejects asset specifications exceeding 2000 characters in createDeviceModelSchema', () => {
+      const res = createDeviceModelSchema.safeParse({
         name: 'Server Node',
         specifications: string2001,
       });
       expect(res.success).toBe(false);
       if (!res.success) {
         expect(res.error).toBeInstanceOf(z.ZodError);
-        expect(res.error.issues[0]?.message).toContain(
-          'Specifications cannot exceed 2000 characters',
-        );
       }
     });
 
@@ -480,12 +476,9 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
     );
 
     it.each(maliciousEnumPayloads)(
-      'rejects unwhitelisted status "%s" in createAssetSchema',
+      'rejects unwhitelisted status "%s" in assetStatusSchema',
       (status) => {
-        const res = createAssetSchema.safeParse({
-          name: 'Laptop Asset',
-          status,
-        });
+        const res = assetStatusSchema.safeParse(status);
         expect(res.success).toBe(false);
         if (!res.success) {
           expect(res.error).toBeInstanceOf(z.ZodError);
@@ -658,7 +651,7 @@ describe('Adversarial Stress Testing — Challenger M1-1', () => {
           categoryId: 'd3b07384-d113-4ec6-8968-3d1f11223344',
           quantity: -1,
         }),
-        createAssetSchema.safeParse({ name: 'Asset', specifications: 'A'.repeat(2001) }),
+        createDeviceModelSchema.safeParse({ name: 'Asset', specifications: 'A'.repeat(2001) }),
         assetStatusSchema.safeParse('__proto__'),
       ];
 

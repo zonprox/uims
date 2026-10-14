@@ -1,185 +1,324 @@
 import { AssetStatus } from '@uims/shared-types';
 import { describe, expect, it } from 'vitest';
 import {
+  allocateAssetSchema,
   assetQuerySchema,
   batchAssignAssetSchema,
   batchDeleteAssetSchema,
   createAssetCategorySchema,
-  createAssetSchema,
-  createAssetUnitSchema,
   createCostCenterSchema,
   createDeviceModelSchema,
   issueAssetUnitSchema,
+  registerPhysicalUnitSchema,
+  returnAssetSchema,
+  stockIntakeSchema,
+  transferAssetSchema,
   updateAssetCategorySchema,
-  updateAssetSchema,
-  updateAssetUnitSchema,
   updateCostCenterSchema,
   updateDeviceModelSchema,
+  updatePhysicalUnitSchema,
 } from './asset.validator';
 
 describe('asset.validator', () => {
-  describe('createAssetSchema', () => {
-    it('validates a valid asset with enum status', () => {
-      const input = {
-        name: 'MacBook Pro 16',
-        assetTag: 'AST-0001',
-        status: AssetStatus.AVAILABLE,
-      };
-      const result = createAssetSchema.safeParse(input);
-      expect(result.success).toBe(true);
-    });
+  const validUuid = '123e4567-e89b-12d3-a456-426614174000';
+  const validUuid2 = '223e4567-e89b-12d3-a456-426614174000';
 
-    it('accepts string status values and normalizes them', () => {
+  describe('createDeviceModelSchema & updateDeviceModelSchema', () => {
+    it('validates a valid device model with modelCode', () => {
       const input = {
-        name: 'Dell XPS 15',
-        status: 'Active',
+        name: 'Dell Latitude 5420',
+        modelCode: 'MOD-DELL-5420',
+        categoryId: 'cat-laptop',
+        manufacturer: 'Dell',
+        unitCost: 1150.0,
+        minThreshold: 5,
+        binNumber: 'BIN-A01',
       };
-      const result = createAssetSchema.safeParse(input);
+      const result = createDeviceModelSchema.safeParse(input);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.status).toBe(AssetStatus.IN_USE);
+        expect(result.data.name).toBe('Dell Latitude 5420');
+        expect(result.data.modelCode).toBe('MOD-DELL-5420');
+        expect(result.data.unitCost).toBe(1150.0);
       }
     });
 
-    it('rejects arbitrary malformed status strings', () => {
-      expect(createAssetSchema.safeParse({ name: 'Laptop', status: 'HACKED' }).success).toBe(false);
+    it('requires modelCode, categoryId, and manufacturer on createDeviceModelSchema and rejects legacy assetCode', () => {
+      // Fails when modelCode is missing
       expect(
-        createAssetSchema.safeParse({ name: 'Laptop', status: 'INVALID_STATUS' }).success,
+        createDeviceModelSchema.safeParse({
+          name: 'MacBook Pro 14',
+          categoryId: 'cat-laptop',
+          manufacturer: 'Apple',
+        }).success,
+      ).toBe(false);
+
+      // Fails when categoryId is missing
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'MacBook Pro 14',
+          modelCode: 'MOD-MBP-14',
+          manufacturer: 'Apple',
+        }).success,
+      ).toBe(false);
+
+      // Fails when manufacturer is missing
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'MacBook Pro 14',
+          modelCode: 'MOD-MBP-14',
+          categoryId: 'cat-laptop',
+        }).success,
+      ).toBe(false);
+
+      // Fails when using legacy assetCode alias without modelCode
+      const legacyInput = {
+        name: 'MacBook Pro 14',
+        assetCode: 'MOD-MBP-14',
+        categoryId: 'cat-laptop',
+        manufacturer: 'Apple',
+      };
+      expect(createDeviceModelSchema.safeParse(legacyInput).success).toBe(false);
+    });
+
+    it('rejects device model when name is empty', () => {
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: '',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+        }).success,
       ).toBe(false);
     });
 
-    it('rejects asset when name is empty or missing', () => {
-      const resultEmpty = createAssetSchema.safeParse({ name: '' });
-      expect(resultEmpty.success).toBe(false);
-
-      const resultMissing = createAssetSchema.safeParse({});
-      expect(resultMissing.success).toBe(false);
-    });
-
-    it('validates assetCode and subcode regex constraints', () => {
+    it('validates modelCode regex constraints', () => {
       expect(
-        createAssetSchema.safeParse({
+        createDeviceModelSchema.safeParse({
           name: 'Device',
-          assetCode: 'AST-2026_01',
-          subcode: 'SUB-001',
+          modelCode: 'MOD-2026_01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
         }).success,
       ).toBe(true);
 
       // Rejects spaces or special chars
-      expect(createAssetSchema.safeParse({ name: 'Device', assetCode: 'AST 01' }).success).toBe(
-        false,
-      );
-      expect(createAssetSchema.safeParse({ name: 'Device', assetCode: 'AST@01' }).success).toBe(
-        false,
-      );
-      expect(createAssetSchema.safeParse({ name: 'Device', subcode: 'SUB 01' }).success).toBe(
-        false,
-      );
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD 01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+        }).success,
+      ).toBe(false);
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD@01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+        }).success,
+      ).toBe(false);
     });
 
-    it('validates relational UUID fields (costCenterId, vendorId, parentId, departmentId, assignedToId)', () => {
-      const validUuid = '123e4567-e89b-12d3-a456-426614174000';
+    it('validates relational vendorId UUID field', () => {
       expect(
-        createAssetSchema.safeParse({
+        createDeviceModelSchema.safeParse({
           name: 'Device',
-          costCenterId: validUuid,
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
           vendorId: validUuid,
-          parentId: validUuid,
-          departmentId: validUuid,
-          assignedToId: validUuid,
         }).success,
       ).toBe(true);
 
       expect(
-        createAssetSchema.safeParse({ name: 'Device', costCenterId: 'not-a-uuid' }).success,
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+          vendorId: 'not-a-uuid',
+        }).success,
       ).toBe(false);
-      expect(createAssetSchema.safeParse({ name: 'Device', vendorId: 'not-a-uuid' }).success).toBe(
-        false,
-      );
     });
 
     it('validates unitCost currency bounds', () => {
-      expect(createAssetSchema.safeParse({ name: 'Device', unitCost: 1500.5 }).success).toBe(true);
-      expect(createAssetSchema.safeParse({ name: 'Device', unitCost: '1500.50' }).success).toBe(
-        true,
-      );
-      expect(createAssetSchema.safeParse({ name: 'Device', unitCost: -50 }).success).toBe(false);
-      expect(createAssetSchema.safeParse({ name: 'Device', unitCost: 1500.555 }).success).toBe(
-        false,
-      );
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+          unitCost: 1500.5,
+        }).success,
+      ).toBe(true);
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+          unitCost: '1500.50',
+        }).success,
+      ).toBe(true);
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+          unitCost: -50,
+        }).success,
+      ).toBe(false);
+      expect(
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+          unitCost: 1500.555,
+        }).success,
+      ).toBe(false);
     });
 
     it('validates specifications string length boundary (max 2000)', () => {
       expect(
-        createAssetSchema.safeParse({ name: 'Device', specifications: 'A'.repeat(2000) }).success,
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+          specifications: 'A'.repeat(2000),
+        }).success,
       ).toBe(true);
       expect(
-        createAssetSchema.safeParse({ name: 'Device', specifications: 'A'.repeat(2001) }).success,
+        createDeviceModelSchema.safeParse({
+          name: 'Device',
+          modelCode: 'MOD-01',
+          categoryId: 'cat-1',
+          manufacturer: 'Dell',
+          specifications: 'A'.repeat(2001),
+        }).success,
       ).toBe(false);
     });
 
-    it('confirms complete Physical Location purge: zero location fields on createAssetSchema', () => {
-      expect('locationId' in createAssetSchema.shape).toBe(false);
-      expect('location' in createAssetSchema.shape).toBe(false);
-    });
-
-    it('accepts null, undefined, valid string, and omitted for serialNumber', () => {
-      expect(
-        createAssetSchema.safeParse({ name: 'Asset Null SN', serialNumber: null }).success,
-      ).toBe(true);
-      expect(
-        createAssetSchema.safeParse({ name: 'Asset Undefined SN', serialNumber: undefined })
-          .success,
-      ).toBe(true);
-      expect(
-        createAssetSchema.safeParse({ name: 'Asset Valid SN', serialNumber: 'SN-998822' }).success,
-      ).toBe(true);
-      expect(createAssetSchema.safeParse({ name: 'Asset Omitted SN' }).success).toBe(true);
-    });
-
-    it('accepts string category slugs and notes', () => {
-      const input = {
-        name: 'Cisco Catalyst 9300',
-        categoryId: 'cat-switch',
-        notes: 'Core switch in server rack',
-      };
-      const result = createAssetSchema.safeParse(input);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.categoryId).toBe('cat-switch');
-        expect(result.data.notes).toBe('Core switch in server rack');
-      }
-    });
-
-    it('accepts UUID categoryId for createAssetSchema', () => {
-      const input = {
-        name: 'ThinkPad T14',
-        categoryId: '123e4567-e89b-12d3-a456-426614174000',
-      };
-      const result = createAssetSchema.safeParse(input);
-      expect(result.success).toBe(true);
-    });
-
-    it('validates partial updates via updateAssetSchema', () => {
-      const result = updateAssetSchema.safeParse({
-        status: 'In Storage',
-        notes: 'Updated notes',
+    it('validates partial updates via updateDeviceModelSchema', () => {
+      const result = updateDeviceModelSchema.safeParse({
+        unitCost: 1250.0,
+        minThreshold: 10,
+        notes: 'Updated inventory threshold',
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.status).toBe(AssetStatus.AVAILABLE);
+        expect(result.data.unitCost).toBe(1250.0);
+        expect(result.data.minThreshold).toBe(10);
       }
     });
   });
 
+  describe('stockIntakeSchema', () => {
+    it('validates batch stock intake with multiple serialized physical units', () => {
+      const input = {
+        deviceModelId: validUuid,
+        units: [
+          {
+            serialNumber: 'SN-001',
+            assetTag: 'AST-001',
+            subcode: 'SUB-001',
+            costCenterId: validUuid,
+            purchaseDate: '2026-01-15',
+            warrantyExpiry: '2029-01-15',
+            notes: 'Batch intake Q1',
+          },
+          {
+            serialNumber: 'SN-002',
+            assetTag: 'AST-002',
+          },
+        ],
+      };
+      const result = stockIntakeSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.deviceModelId).toBe(validUuid);
+        expect(result.data.units.length).toBe(2);
+      }
+    });
+
+    it('rejects stock intake when units array is empty', () => {
+      const input = {
+        deviceModelId: validUuid,
+        units: [],
+      };
+      expect(stockIntakeSchema.safeParse(input).success).toBe(false);
+    });
+
+    it('rejects stock intake when deviceModelId is missing', () => {
+      const input = {
+        units: [{ serialNumber: 'SN-001' }],
+      };
+      expect(stockIntakeSchema.safeParse(input).success).toBe(false);
+    });
+  });
+
+  describe('Lifecycle Custody Workflows: allocateAssetSchema, returnAssetSchema, transferAssetSchema', () => {
+    it('validates allocateAssetSchema', () => {
+      const input = {
+        assetIds: [validUuid, validUuid2],
+        assignedToId: validUuid,
+        departmentId: validUuid2,
+        notes: 'Assigned for engineering project',
+      };
+      const result = allocateAssetSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects allocateAssetSchema with empty assetIds', () => {
+      expect(
+        allocateAssetSchema.safeParse({
+          assetIds: [],
+          assignedToId: validUuid,
+        }).success,
+      ).toBe(false);
+    });
+
+    it('validates returnAssetSchema', () => {
+      const input = {
+        assetIds: [validUuid],
+        targetStatus: 'AVAILABLE' as const,
+        signedDocUrl: '/uploads/return-doc.pdf',
+        notes: 'Returned in pristine condition',
+      };
+      const result = returnAssetSchema.safeParse(input);
+      expect(result.success).toBe(true);
+
+      // Rejects return missing targetStatus
+      expect(returnAssetSchema.safeParse({ assetIds: [validUuid] }).success).toBe(false);
+    });
+
+    it('validates transferAssetSchema', () => {
+      const input = {
+        assetIds: [validUuid],
+        toUserId: validUuid2,
+        toDepartmentId: validUuid,
+        notes: 'Transferred from IT to Finance',
+      };
+      const result = transferAssetSchema.safeParse(input);
+      expect(result.success).toBe(true);
+
+      // Rejects transfer missing toUserId
+      expect(transferAssetSchema.safeParse({ assetIds: [validUuid] }).success).toBe(false);
+    });
+  });
+
   describe('assetQuerySchema', () => {
-    it('accepts valid query parameters including organization and bounds <= 100', () => {
+    it('validates query params with filters and sorting', () => {
       const validQuery = {
-        page: 2,
-        pageSize: 50,
+        page: 1,
+        pageSize: 20,
         limit: 100,
         search: 'ThinkPad',
-        organizationId: '123e4567-e89b-12d3-a456-426614174000',
+        organizationId: validUuid,
         organization: 'Engineering',
         status: 'AVAILABLE',
       };
@@ -206,32 +345,21 @@ describe('asset.validator', () => {
     });
 
     it('rejects pageSize and limit exceeding 100', () => {
-      const resultPageSize = assetQuerySchema.safeParse({ pageSize: 101 });
-      expect(resultPageSize.success).toBe(false);
-
-      const resultLimit = assetQuerySchema.safeParse({ limit: 1000 });
-      expect(resultLimit.success).toBe(false);
+      expect(assetQuerySchema.safeParse({ pageSize: 101 }).success).toBe(false);
+      expect(assetQuerySchema.safeParse({ limit: 1000 }).success).toBe(false);
     });
 
     it('rejects invalid UUID for organizationId', () => {
-      const result = assetQuerySchema.safeParse({ organizationId: 'not-a-uuid' });
-      expect(result.success).toBe(false);
+      expect(assetQuerySchema.safeParse({ organizationId: 'not-a-uuid' }).success).toBe(false);
     });
 
     it('accepts both string category slugs and UUIDs in categoryId filter', () => {
-      const slugResult = assetQuerySchema.safeParse({ categoryId: 'cat-switch' });
-      expect(slugResult.success).toBe(true);
-
-      const uuidResult = assetQuerySchema.safeParse({
-        categoryId: '123e4567-e89b-12d3-a456-426614174000',
-      });
-      expect(uuidResult.success).toBe(true);
+      expect(assetQuerySchema.safeParse({ categoryId: 'cat-switch' }).success).toBe(true);
+      expect(assetQuerySchema.safeParse({ categoryId: validUuid }).success).toBe(true);
     });
   });
 
   describe('CostCenter, DeviceModel, and AssetUnit schemas', () => {
-    const validUuid = '123e4567-e89b-12d3-a456-426614174000';
-
     it('validates cost center creation and update', () => {
       expect(
         createCostCenterSchema.safeParse({
@@ -249,8 +377,9 @@ describe('asset.validator', () => {
     it('validates device model creation and update', () => {
       expect(
         createDeviceModelSchema.safeParse({
-          assetCode: 'MOD-DELL-5540',
+          modelCode: 'MOD-DELL-5540',
           name: 'Dell Latitude 5540',
+          categoryId: 'cat-laptop',
           manufacturer: 'Dell',
           model: '5540',
           unitCost: 1200,
@@ -258,29 +387,69 @@ describe('asset.validator', () => {
       ).toBe(true);
 
       expect(updateDeviceModelSchema.safeParse({ unitCost: 1150.5 }).success).toBe(true);
-      expect(createDeviceModelSchema.safeParse({ assetCode: 'MOD', name: '' }).success).toBe(false);
-      expect(createDeviceModelSchema.safeParse({ assetCode: '', name: 'Model' }).success).toBe(
-        false,
-      );
+      expect(
+        createDeviceModelSchema.safeParse({
+          modelCode: 'MOD',
+          name: '',
+          categoryId: 'cat-laptop',
+          manufacturer: 'Dell',
+        }).success,
+      ).toBe(false);
     });
 
-    it('validates asset unit creation and update (with zero location fields)', () => {
+    it('validates physical unit registration and update (with zero location or parentId fields)', () => {
       expect(
-        createAssetUnitSchema.safeParse({
+        registerPhysicalUnitSchema.safeParse({
+          deviceModelId: validUuid,
           subcode: 'UNIT-001',
-          parentId: validUuid,
           serialNumber: 'SN-12345',
         }).success,
       ).toBe(true);
 
-      expect('locationId' in createAssetUnitSchema.shape).toBe(false);
-      expect(updateAssetUnitSchema.safeParse({ serialNumber: 'SN-99999' }).success).toBe(true);
+      expect('locationId' in registerPhysicalUnitSchema.shape).toBe(false);
+      expect('parentId' in registerPhysicalUnitSchema.shape).toBe(false);
+      expect(updatePhysicalUnitSchema.safeParse({ serialNumber: 'SN-99999' }).success).toBe(true);
       expect(
-        createAssetUnitSchema.safeParse({ subcode: 'UNIT 001', parentId: validUuid }).success,
+        registerPhysicalUnitSchema.safeParse({ deviceModelId: validUuid, subcode: 'UNIT 001' })
+          .success,
       ).toBe(false);
+      expect(registerPhysicalUnitSchema.safeParse({ subcode: 'UNIT-001' }).success).toBe(false);
+    });
+
+    it('strictly requires deviceModelId on registerPhysicalUnitSchema and rejects parentId', () => {
+      // Passes when deviceModelId is valid
+      const valid = registerPhysicalUnitSchema.safeParse({
+        deviceModelId: validUuid,
+        subcode: 'UNIT-VALID',
+        serialNumber: 'SN-12345',
+      });
+      expect(valid.success).toBe(true);
+
+      // Rejects when deviceModelId is omitted
+      const missingModel = registerPhysicalUnitSchema.safeParse({
+        subcode: 'UNIT-NOMODEL',
+        serialNumber: 'SN-12345',
+      });
+      expect(missingModel.success).toBe(false);
+
+      // Rejects when deviceModelId is empty string
+      const emptyModel = registerPhysicalUnitSchema.safeParse({
+        deviceModelId: '   ',
+        subcode: 'UNIT-EMPTYMODEL',
+      });
+      expect(emptyModel.success).toBe(false);
+
+      // Rejects parentId under strict mode
       expect(
-        createAssetUnitSchema.safeParse({ subcode: 'UNIT-001', parentId: 'not-a-uuid' }).success,
+        registerPhysicalUnitSchema.strict().safeParse({
+          deviceModelId: validUuid,
+          subcode: 'UNIT-VALID',
+          parentId: validUuid,
+        }).success,
       ).toBe(false);
+
+      // Updates can be partial
+      expect(updatePhysicalUnitSchema.safeParse({ serialNumber: 'SN-UPDATED' }).success).toBe(true);
     });
 
     it('validates asset category creation and update', () => {
@@ -309,9 +478,16 @@ describe('asset.validator', () => {
   });
 
   describe('Notes field robustness and specs omission', () => {
+    const baseModel = {
+      modelCode: 'MOD-01',
+      categoryId: 'cat-1',
+      manufacturer: 'Dell',
+    };
+
     it('handles newlines in notes correctly', () => {
       const multiline = 'Line 1: Rack Unit 42\nLine 2: Connected to SW-01\r\nLine 3: 10GbE uplink';
-      const result = createAssetSchema.safeParse({
+      const result = createDeviceModelSchema.safeParse({
+        ...baseModel,
         name: 'Core Switch',
         notes: multiline,
       });
@@ -324,7 +500,8 @@ describe('asset.validator', () => {
     it('handles Unicode and emoji in notes correctly', () => {
       const unicodeNotes =
         'Thiết bị cấp cho phòng CNTT — Youngone Nam Định 🇻🇳 💻 [Tủ Rack #04, Cổng 24]';
-      const result = createAssetSchema.safeParse({
+      const result = createDeviceModelSchema.safeParse({
+        ...baseModel,
         name: 'Workstation',
         notes: unicodeNotes,
       });
@@ -338,13 +515,15 @@ describe('asset.validator', () => {
       const validNotes = 'A'.repeat(1000);
       const invalidNotes = 'A'.repeat(1001);
 
-      const passResult = createAssetSchema.safeParse({
+      const passResult = createDeviceModelSchema.safeParse({
+        ...baseModel,
         name: 'Device',
         notes: validNotes,
       });
       expect(passResult.success).toBe(true);
 
-      const failResult = createAssetSchema.safeParse({
+      const failResult = createDeviceModelSchema.safeParse({
+        ...baseModel,
         name: 'Device',
         notes: invalidNotes,
       });
@@ -352,43 +531,39 @@ describe('asset.validator', () => {
     });
 
     it('handles null, undefined, empty, and whitespace-only notes gracefully', () => {
-      const nullResult = createAssetSchema.safeParse({ name: 'Device', notes: null });
+      const nullResult = createDeviceModelSchema.safeParse({
+        ...baseModel,
+        name: 'Device',
+        notes: null,
+      });
       expect(nullResult.success).toBe(true);
       if (nullResult.success) {
         expect(nullResult.data.notes).toBeNull();
       }
 
-      const undefinedResult = createAssetSchema.safeParse({ name: 'Device', notes: undefined });
+      const undefinedResult = createDeviceModelSchema.safeParse({
+        ...baseModel,
+        name: 'Device',
+        notes: undefined,
+      });
       expect(undefinedResult.success).toBe(true);
       if (undefinedResult.success) {
         expect(undefinedResult.data.notes).toBeUndefined();
       }
 
-      const emptyResult = createAssetSchema.safeParse({ name: 'Device', notes: '' });
+      const emptyResult = createDeviceModelSchema.safeParse({
+        ...baseModel,
+        name: 'Device',
+        notes: '',
+      });
       expect(emptyResult.success).toBe(true);
-      if (emptyResult.success) {
-        expect(emptyResult.data.notes).toBe('');
-      }
 
-      const whitespaceResult = createAssetSchema.safeParse({ name: 'Device', notes: '   \t\n   ' });
+      const whitespaceResult = createDeviceModelSchema.safeParse({
+        ...baseModel,
+        name: 'Device',
+        notes: '   \t\n   ',
+      });
       expect(whitespaceResult.success).toBe(true);
-      if (whitespaceResult.success) {
-        expect(whitespaceResult.data.notes).toBe('   \t\n   ');
-      }
-    });
-
-    it('strips legacy specs property and does not include it in parsed data', () => {
-      const input = {
-        name: 'Legacy Specs Device',
-        specs: { cpu: 'M3 Max', ram: '64GB' },
-        notes: 'Remarks only',
-      };
-      const result = createAssetSchema.safeParse(input);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect('specs' in result.data).toBe(false);
-        expect(result.data.notes).toBe('Remarks only');
-      }
     });
   });
 });

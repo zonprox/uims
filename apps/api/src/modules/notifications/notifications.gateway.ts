@@ -92,9 +92,10 @@ export class NotificationsGateway
     const query = socket.handshake.query as Record<string, unknown> | undefined;
     if (
       query &&
-      'token' in query &&
-      query.token !== undefined &&
-      (typeof query.token !== 'string' || query.token.length > 0)
+      ('token' in query ||
+        query.token !== undefined ||
+        'access_token' in query ||
+        query.access_token !== undefined)
     ) {
       throw new Error('Token transport via URL query parameters is forbidden for security');
     }
@@ -132,6 +133,17 @@ export class NotificationsGateway
 
   async handleConnection(client: Socket) {
     try {
+      const query = client.handshake?.query as Record<string, unknown> | undefined;
+      if (
+        query &&
+        ('token' in query ||
+          query.token !== undefined ||
+          'access_token' in query ||
+          query.access_token !== undefined)
+      ) {
+        throw new Error('Token transport via URL query parameters is forbidden for security');
+      }
+
       const existingData = client.data as AuthenticatedSocketData | undefined;
       let data: AuthenticatedSocketData;
 
@@ -286,6 +298,23 @@ export class NotificationsGateway
       } else {
         this.server.emit('notification:cleared', { success: true });
       }
+    }
+  }
+
+  /**
+   * Broadcast a custody lifecycle event to all connected clients.
+   */
+  emitCustodyEvent(
+    event:
+      | 'asset_allocated'
+      | 'asset_returned'
+      | 'asset_transferred'
+      | 'handover_document_pending'
+      | 'handover_document_resolved',
+    payload: unknown,
+  ): void {
+    if (this.server) {
+      this.server.emit(event, payload);
     }
   }
 

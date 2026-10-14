@@ -633,17 +633,18 @@ describe('AssetsService — Adversarial XLSX Export Challenge & Stress Tests', (
         expect.objectContaining({
           where: expect.objectContaining({
             status: AssetStatus.IN_USE,
-            categoryId: 'cat-laptop',
+            deviceModel: { categoryId: 'cat-laptop' },
             departmentId: 'dept-eng',
             assignedToId: 'usr-123',
             AND: expect.arrayContaining([
               expect.objectContaining({
                 OR: expect.arrayContaining([
-                  { name: { contains: 'MacBook', mode: 'insensitive' } },
                   { assetTag: { contains: 'MacBook', mode: 'insensitive' } },
+                  { subcode: { contains: 'MacBook', mode: 'insensitive' } },
                   { serialNumber: { contains: 'MacBook', mode: 'insensitive' } },
-                  { model: { contains: 'MacBook', mode: 'insensitive' } },
-                  { manufacturer: { contains: 'MacBook', mode: 'insensitive' } },
+                  { deviceModel: { name: { contains: 'MacBook', mode: 'insensitive' } } },
+                  { deviceModel: { modelCode: { contains: 'MacBook', mode: 'insensitive' } } },
+                  { deviceModel: { manufacturer: { contains: 'MacBook', mode: 'insensitive' } } },
                 ]),
               }),
             ]),

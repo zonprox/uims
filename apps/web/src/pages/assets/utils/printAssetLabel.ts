@@ -416,9 +416,9 @@ export function generatePrintLabelHtml(assetInput: PrintableAssetData, qrDataUrl
         <div class="label-org-title">IT ASSET TAGGING</div>
         <div class="label-meta-row">
           <div class="label-meta-item"><strong>SAP Code: </strong><span class="label-tag">${escapeHtml(asset.sapCode || asset.tag)}</span></div>
-          <div class="label-meta-item"><strong>Sub-Asset Code: </strong><span class="label-tag">${escapeHtml(asset.subcode || asset.tag)}</span></div>
+          <div class="label-meta-item"><strong>SUB Code: </strong><span class="label-tag">${escapeHtml(asset.subcode || asset.tag)}</span></div>
           <div class="label-meta-item"><strong>Model: </strong><span class="label-name">${escapeHtml(asset.model || asset.name)}</span></div>
-          <div class="label-meta-item"><strong>Purchase Date: </strong><span style="font-family: monospace;">${escapeHtml(asset.date || new Date().toISOString().slice(0, 10))}</span></div>
+          <div class="label-meta-item"><strong>Date: </strong><span style="font-family: monospace;">${escapeHtml(asset.date || new Date().toISOString().slice(0, 10))}</span></div>
           <div class="label-meta-item"><strong>Cost Center: </strong><span>${escapeHtml(typeof asset.costCenter === 'object' && asset.costCenter ? `${asset.costCenter.code || ''} ${asset.costCenter.name ? `- ${asset.costCenter.name}` : ''}`.trim() : asset.costCenter || 'IT Operations')}</span></div>
           ${categoryName ? `<div class="label-meta-item">Category: ${escapeHtml(categoryName)}</div>` : ''}
           <div style="display:none;" class="legacy-name">${escapeHtml(asset.name)}</div>

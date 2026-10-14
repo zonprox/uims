@@ -4,10 +4,12 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import ExcelJS from 'exceljs';
 import type { Response } from 'express';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { HandoverRecordType } from '@prisma/client';
 import { AssetStatus } from '@uims/shared-types';
 import { AssetsService } from './assets.service';
 import { BatchDeleteAssetDto } from './dto/batch-delete-asset.dto';
+import type { BatchStockIntakeDto } from './dto/batch-stock-intake.dto';
 
 describe('AssetsService', () => {
   let service: AssetsService;
@@ -29,6 +31,7 @@ describe('AssetsService', () => {
       $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(mockPrisma)),
       asset: {
         create: vi.fn(),
+        findFirst: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
         update: vi.fn(),
@@ -51,6 +54,23 @@ describe('AssetsService', () => {
         createMany: vi.fn(),
         findFirst: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      deviceModel: {
+        create: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      costCenter: {
+        findUnique: vi.fn(),
+      },
+      department: {
+        findUnique: vi.fn(),
       },
       auditLog: {
         create: vi.fn(),
@@ -64,69 +84,249 @@ describe('AssetsService', () => {
     );
   });
 
-  describe('create', () => {
-    it('should create an asset with atomic category lookup within transaction', async () => {
-      mockPrisma.assetCategory.findFirst.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-
-      mockPrisma.asset.create.mockResolvedValue({
+  describe('registerUnit', () => {
+    it('should register a physical unit linked to device model', async () => {
+      (
+        mockPrisma.deviceModel as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue({
+        id: 'mod-1',
+        name: 'MacBook Pro 16',
+        modelCode: 'MOD-MBP-16',
+        deletedAt: null,
+      });
+      (mockPrisma.asset as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValue(
+        null,
+      );
+      (mockPrisma.asset as { create: ReturnType<typeof vi.fn> }).create.mockResolvedValue({
         id: 'ast-1',
+        subcode: 'AST-1001',
         assetTag: 'AST-1001',
-        name: 'MacBook Pro 16',
-        manufacturer: 'Apple',
-        model: 'M3 Max',
+        deviceModelId: 'mod-1',
+        status: AssetStatus.AVAILABLE,
         serialNumber: 'C02XYZ123',
-        status: AssetStatus.IN_USE,
-        purchaseDate: new Date('2026-01-15'),
-        warrantyExpiry: new Date('2029-01-15'),
-        categoryId: 'cat-1',
-        category: { name: 'Laptops' },
-        assignedTo: { firstName: 'Alex', lastName: 'Johnson', email: 'alex@company.com' },
-        notes: 'Lead engineer laptop',
+      });
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue({
+        id: 'ast-1',
+        subcode: 'AST-1001',
+        assetTag: 'AST-1001',
+        deviceModelId: 'mod-1',
+        status: AssetStatus.AVAILABLE,
+        serialNumber: 'C02XYZ123',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deviceModel: {
+          id: 'mod-1',
+          name: 'MacBook Pro 16',
+          modelCode: 'MOD-MBP-16',
+          category: { name: 'Laptops' },
+        },
       });
 
-      const result = await service.create({
-        name: 'MacBook Pro 16',
-        category: 'Laptops',
-        status: 'Active',
+      const result = await service.registerUnit({
+        deviceModelId: 'mod-1',
+        subcode: 'AST-1001',
         serialNumber: 'C02XYZ123',
-        manufacturer: 'Apple',
-        model: 'M3 Max',
       });
 
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(result.id).toBe('ast-1');
-      expect(result.status).toBe('Active');
-      expect(result.assignedTo).toBe('Alex Johnson');
-      expect(result.categoryId).toBe('cat-1');
+      expect(result.tag).toBe('AST-1001');
+      expect(result.status).toBe('In Storage');
+      expect(mockPrisma.asset.create).toHaveBeenCalled();
     });
 
-    it('should automatically set status to IN_USE when assignedToId is provided', async () => {
-      mockPrisma.assetCategory.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
-      mockPrisma.directoryUser.findUnique.mockResolvedValue({ id: 'dir-1' });
+    it('should reject registration when deviceModelId is missing', async () => {
+      await expect(
+        service.registerUnit({
+          deviceModelId: '',
+          subcode: 'AST-1002',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 
-      mockPrisma.asset.create.mockResolvedValue({
-        id: 'ast-2',
-        assetTag: 'AST-1002',
-        name: 'ThinkPad T14',
-        status: AssetStatus.IN_USE,
-        assignedToId: 'dir-1',
-        categoryId: 'cat-1',
-        category: { id: 'cat-1', name: 'Laptops' },
-        assignedTo: { firstName: 'Alex', lastName: 'Johnson', email: 'alex@company.com' },
+  describe('batchIntake', () => {
+    const mockModel = {
+      id: 'mod-dell-5420',
+      name: 'Dell Latitude 5420',
+      modelCode: 'DELL-5420',
+      deletedAt: null,
+    };
+
+    it('should successfully batch intake physical units inside transaction with status AVAILABLE and sequence subcodes', async () => {
+      (
+        mockPrisma.deviceModel as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue(mockModel);
+      (mockPrisma.asset as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValue(
+        null,
+      );
+      (mockPrisma.asset as { create: ReturnType<typeof vi.fn> }).create.mockImplementation(
+        (args: { data: { subcode: string; status: AssetStatus } }) =>
+          Promise.resolve({
+            id: `ast-${args.data.subcode}`,
+            subcode: args.data.subcode,
+            assetTag: args.data.subcode,
+            status: args.data.status,
+          }),
+      );
+
+      const dto: BatchStockIntakeDto = {
+        deviceModelId: mockModel.id,
+        count: 3,
+        tagPrefix: 'DELL-5420-',
+        startSequence: 1,
+        serialNumbers: ['SN-001', 'SN-002', 'SN-003'],
+        initialBinLocation: 'BIN-W01',
+      };
+
+      const result = await service.batchIntake(mockModel.id, dto);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.deviceModel.update).toHaveBeenCalledWith({
+        where: { id: mockModel.id },
+        data: { binNumber: 'BIN-W01' },
+      });
+      expect(mockPrisma.asset.create).toHaveBeenCalledTimes(3);
+
+      expect(mockPrisma.asset.create).toHaveBeenNthCalledWith(1, {
+        data: expect.objectContaining({
+          deviceModelId: mockModel.id,
+          subcode: 'DELL-5420-001',
+          assetTag: 'DELL-5420-001',
+          serialNumber: 'SN-001',
+          status: AssetStatus.AVAILABLE,
+        }),
+      });
+      expect(mockPrisma.asset.create).toHaveBeenNthCalledWith(2, {
+        data: expect.objectContaining({
+          deviceModelId: mockModel.id,
+          subcode: 'DELL-5420-002',
+          assetTag: 'DELL-5420-002',
+          serialNumber: 'SN-002',
+          status: AssetStatus.AVAILABLE,
+        }),
+      });
+      expect(mockPrisma.asset.create).toHaveBeenNthCalledWith(3, {
+        data: expect.objectContaining({
+          deviceModelId: mockModel.id,
+          subcode: 'DELL-5420-003',
+          assetTag: 'DELL-5420-003',
+          serialNumber: 'SN-003',
+          status: AssetStatus.AVAILABLE,
+        }),
       });
 
-      const asset = await service.create({
-        name: 'ThinkPad T14',
-        categoryId: 'cat-1',
-        assignedToId: 'dir-1',
-      });
-
-      expect(asset.status).toBe('Active');
-      expect(mockPrisma.asset.create).toHaveBeenCalledWith(
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: AssetStatus.IN_USE, assignedToId: 'dir-1' }),
+          action: 'BATCH_STOCK_INTAKE',
+          entity: 'Asset',
+          entityId: mockModel.id,
+          severity: 'Info',
+          status: 'Success',
         }),
       );
+
+      expect(result.success).toBe(true);
+      expect(result.count).toBe(3);
+      expect(result.modelId).toBe(mockModel.id);
+      expect(result.modelCode).toBe(mockModel.modelCode);
+      expect(result.units).toHaveLength(3);
+      expect(result.units[0]).toEqual({
+        id: 'ast-DELL-5420-001',
+        subcode: 'DELL-5420-001',
+        assetTag: 'DELL-5420-001',
+        status: AssetStatus.AVAILABLE,
+      });
+    });
+
+    it('should throw ConflictException and rollback when duplicate subcode collision occurs mid-batch', async () => {
+      (
+        mockPrisma.deviceModel as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue(mockModel);
+
+      // Collision at sequence 2
+      (mockPrisma.asset as { findFirst: ReturnType<typeof vi.fn> }).findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'ast-existing', subcode: 'DELL-5420-002' });
+
+      // Transaction mock that tracks unit creations and rolls back on exception
+      const createdInTx: string[] = [];
+      const txAssetMock = {
+        findFirst: (mockPrisma.asset as { findFirst: ReturnType<typeof vi.fn> }).findFirst,
+        create: vi.fn().mockImplementation((args: { data: { subcode: string } }) => {
+          createdInTx.push(args.data.subcode);
+          return Promise.resolve({ id: `ast-${args.data.subcode}`, ...args.data });
+        }),
+      };
+      (mockPrisma.$transaction as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async (callback: (tx: unknown) => Promise<unknown>) => {
+          try {
+            return await callback({ ...mockPrisma, asset: txAssetMock });
+          } catch (err: unknown) {
+            createdInTx.length = 0; // Rollback simulation
+            throw err;
+          }
+        },
+      );
+
+      const dto: BatchStockIntakeDto = {
+        deviceModelId: mockModel.id,
+        count: 3,
+        tagPrefix: 'DELL-5420-',
+        startSequence: 1,
+      };
+
+      await expect(service.batchIntake(mockModel.id, dto)).rejects.toThrow(ConflictException);
+      expect(createdInTx).toHaveLength(0); // All writes rolled back
+    });
+
+    it('should throw NotFoundException when device model does not exist or is soft-deleted', async () => {
+      (
+        mockPrisma.deviceModel as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.batchIntake('mod-nonexistent', {
+          deviceModelId: 'mod-nonexistent',
+          count: 1,
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      (
+        mockPrisma.deviceModel as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValueOnce({
+        id: 'mod-deleted',
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.batchIntake('mod-deleted', {
+          deviceModelId: 'mod-deleted',
+          count: 1,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when deviceModelId is missing in both param and body', async () => {
+      await expect(
+        service.batchIntake('', { count: 1 } as unknown as BatchStockIntakeDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException when costCenterId is provided but not found', async () => {
+      (
+        mockPrisma.deviceModel as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue(mockModel);
+      (
+        mockPrisma.costCenter as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.batchIntake(mockModel.id, {
+          deviceModelId: mockModel.id,
+          count: 1,
+          costCenterId: 'cc-invalid-999',
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -1465,19 +1665,42 @@ describe('AssetsService', () => {
   describe('Audit Logging Integration', () => {
     it('should log ASSET_CREATED audit event with Hardware entityType', async () => {
       (
-        mockPrisma.assetCategory as { findFirst: ReturnType<typeof vi.fn> }
-      ).findFirst.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
+        mockPrisma.deviceModel as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue({
+        id: 'mod-1',
+        name: 'Audit Laptop',
+        modelCode: 'MOD-AUDIT',
+        deletedAt: null,
+      });
+      (mockPrisma.asset as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValue(
+        null,
+      );
       (mockPrisma.asset as { create: ReturnType<typeof vi.fn> }).create.mockResolvedValue({
         id: 'ast-aud-1',
+        subcode: 'AST-AUD-100',
         assetTag: 'AST-AUD-100',
-        name: 'Audit Laptop',
+        deviceModelId: 'mod-1',
         status: AssetStatus.AVAILABLE,
       });
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue({
+        id: 'ast-aud-1',
+        subcode: 'AST-AUD-100',
+        assetTag: 'AST-AUD-100',
+        deviceModelId: 'mod-1',
+        status: AssetStatus.AVAILABLE,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deviceModel: {
+          id: 'mod-1',
+          name: 'Audit Laptop',
+          modelCode: 'MOD-AUDIT',
+          category: { name: 'Laptops' },
+        },
+      });
 
-      await service.create({
-        name: 'Audit Laptop',
-        category: 'Laptops',
-        status: 'Available',
+      await service.registerUnit({
+        deviceModelId: 'mod-1',
+        subcode: 'AST-AUD-100',
       });
 
       expect(mockAuditService.logEvent).toHaveBeenCalledWith(
@@ -1486,7 +1709,7 @@ describe('AssetsService', () => {
           entity: 'Asset',
           entityType: 'Hardware',
           entityId: 'ast-aud-1',
-          newValue: expect.objectContaining({ id: 'ast-aud-1', name: 'Audit Laptop' }),
+          newValue: expect.objectContaining({ id: 'ast-aud-1', subcode: 'AST-AUD-100' }),
         }),
       );
     });
@@ -1581,6 +1804,753 @@ describe('AssetsService', () => {
           entityId: 'ast-del-1',
         }),
       );
+    });
+  });
+
+  describe('Milestone M3: Custody Workflows & Document Compliance', () => {
+    describe('allocate & allocateUnits', () => {
+      it('should allocate available physical units to active user and create pending ASSIGNMENT handover records', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-1',
+          displayName: 'Jane Doe',
+          firstName: 'Jane',
+          email: 'jane@example.com',
+          status: 'ACTIVE',
+          departmentId: 'dep-1',
+        });
+
+        const mockUnits = [
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.AVAILABLE,
+            assignedToId: null,
+            hasPendingRecord: false,
+          },
+          {
+            id: 'ast-2',
+            subcode: 'AST-002',
+            assetTag: 'AST-002',
+            status: AssetStatus.AVAILABLE,
+            assignedToId: null,
+            hasPendingRecord: false,
+          },
+        ];
+
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue(
+          mockUnits,
+        );
+        (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany.mockResolvedValue(
+          { count: 2 },
+        );
+        (
+          mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }
+        ).createMany.mockResolvedValue({ count: 2 });
+
+        const result = await service.allocate({
+          assetIds: ['ast-1', 'ast-2'],
+          assignedToId: 'usr-1',
+          conditionNotes: 'All units inspected and in good condition',
+        });
+
+        expect(result).toEqual({
+          success: true,
+          count: 2,
+          allocatedIds: ['ast-1', 'ast-2'],
+          assignedToId: 'usr-1',
+          hasPendingRecord: true,
+        });
+
+        expect(
+          (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany,
+        ).toHaveBeenCalledWith({
+          where: { id: { in: ['ast-1', 'ast-2'] } },
+          data: {
+            assignedToId: 'usr-1',
+            departmentId: 'dep-1',
+            costCenterId: undefined,
+            status: AssetStatus.IN_USE,
+            hasPendingRecord: true,
+          },
+        });
+
+        expect(
+          (mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }).createMany,
+        ).toHaveBeenCalledWith({
+          data: [
+            {
+              assetId: 'ast-1',
+              type: HandoverRecordType.ASSIGNMENT,
+              recipientId: 'usr-1',
+              signedDocUrl: null,
+              isPending: true,
+              notes: 'All units inspected and in good condition',
+            },
+            {
+              assetId: 'ast-2',
+              type: HandoverRecordType.ASSIGNMENT,
+              recipientId: 'usr-1',
+              signedDocUrl: null,
+              isPending: true,
+              notes: 'All units inspected and in good condition',
+            },
+          ],
+        });
+
+        expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'ASSET_ALLOCATED',
+            entity: 'Asset',
+            entityId: 'ast-1',
+            status: 'Success',
+            newValue: expect.objectContaining({
+              status: AssetStatus.IN_USE,
+              assignedToId: 'usr-1',
+              hasPendingRecord: true,
+            }),
+          }),
+        );
+
+        expect(mockNotificationsService.notifyUser).toHaveBeenCalledWith(
+          'usr-1',
+          expect.objectContaining({
+            type: 'WARNING',
+          }),
+        );
+      });
+
+      it('should allocate units with signed document and set hasPendingRecord to false', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-1',
+          displayName: 'Jane Doe',
+          firstName: 'Jane',
+          email: 'jane@example.com',
+          status: 'ACTIVE',
+        });
+
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.AVAILABLE,
+            assignedToId: null,
+            hasPendingRecord: false,
+          },
+        ]);
+        (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany.mockResolvedValue(
+          { count: 1 },
+        );
+        (
+          mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }
+        ).createMany.mockResolvedValue({ count: 1 });
+
+        const result = await service.allocateUnits({
+          assetIds: ['ast-1'],
+          assignedToId: 'usr-1',
+          signedDocUrl: 'https://docs.local/signed_handover.pdf',
+        });
+
+        expect(result.hasPendingRecord).toBe(false);
+        expect(
+          (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              hasPendingRecord: false,
+            }),
+          }),
+        );
+        expect(
+          (mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }).createMany,
+        ).toHaveBeenCalledWith({
+          data: [
+            expect.objectContaining({
+              assetId: 'ast-1',
+              signedDocUrl: 'https://docs.local/signed_handover.pdf',
+              isPending: false,
+            }),
+          ],
+        });
+      });
+
+      it('should reject allocation if recipient directory user does not exist', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.allocate({ assetIds: ['ast-1'], assignedToId: 'non-existent' }),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('should reject allocation if recipient directory user is SUSPENDED or DISABLED', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-suspended',
+          status: 'SUSPENDED',
+        });
+
+        await expect(
+          service.allocate({ assetIds: ['ast-1'], assignedToId: 'usr-suspended' }),
+        ).rejects.toThrow(BadRequestException);
+
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-disabled',
+          status: 'DISABLED',
+        });
+
+        await expect(
+          service.allocate({ assetIds: ['ast-1'], assignedToId: 'usr-disabled' }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should reject allocation if any requested unit does not exist', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-1',
+          status: 'ACTIVE',
+        });
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          { id: 'ast-1', status: AssetStatus.AVAILABLE, assignedToId: null },
+        ]);
+
+        await expect(
+          service.allocate({ assetIds: ['ast-1', 'ast-missing'], assignedToId: 'usr-1' }),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('should reject allocation if requested unit is not AVAILABLE or already assigned', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-1',
+          status: 'ACTIVE',
+        });
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.IN_USE,
+            assignedToId: 'other-user',
+          },
+        ]);
+
+        await expect(
+          service.allocate({ assetIds: ['ast-1'], assignedToId: 'usr-1' }),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('should reject allocation if assetIds list is empty', async () => {
+        await expect(service.allocate({ assetIds: [], assignedToId: 'usr-1' })).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+    });
+
+    describe('returnUnits', () => {
+      it('should return physical units to AVAILABLE status, create RETURN record, and clear assignedToId', async () => {
+        const mockUnits = [
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.IN_USE,
+            assignedToId: 'usr-1',
+            notes: 'Existing note',
+          },
+        ];
+
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue(
+          mockUnits,
+        );
+        (
+          mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+        ).create.mockResolvedValue({ id: 'rec-1' });
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+          id: 'ast-1',
+          status: AssetStatus.AVAILABLE,
+          assignedToId: null,
+          hasPendingRecord: true,
+        });
+
+        const result = await service.returnUnits({
+          assetIds: ['ast-1'],
+          targetStatus: 'AVAILABLE',
+          conditionNotes: 'Returned in pristine condition',
+        });
+
+        expect(result).toEqual({
+          success: true,
+          count: 1,
+          returnedIds: ['ast-1'],
+          status: 'AVAILABLE',
+          hasPendingRecord: true,
+        });
+
+        expect(
+          (mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }).create,
+        ).toHaveBeenCalledWith({
+          data: {
+            assetId: 'ast-1',
+            type: HandoverRecordType.RETURN,
+            recipientId: 'usr-1',
+            signedDocUrl: null,
+            isPending: true,
+            notes: 'Returned in pristine condition',
+          },
+        });
+
+        expect(
+          (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'ast-1' },
+            data: expect.objectContaining({
+              assignedToId: null,
+              status: 'AVAILABLE',
+              hasPendingRecord: true,
+            }),
+          }),
+        );
+
+        expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'ASSET_RETURNED',
+            entity: 'Asset',
+            entityId: 'ast-1',
+            status: 'Success',
+            newValue: expect.objectContaining({
+              status: 'AVAILABLE',
+              assignedToId: null,
+              hasPendingRecord: true,
+            }),
+          }),
+        );
+      });
+
+      it('should return units to MAINTENANCE or RETIRED when specified', async () => {
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.IN_USE,
+            assignedToId: 'usr-1',
+          },
+        ]);
+        (
+          mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+        ).create.mockResolvedValue({ id: 'rec-1' });
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+          id: 'ast-1',
+        });
+
+        const result = await service.returnUnits({
+          assetIds: ['ast-1'],
+          targetStatus: 'MAINTENANCE',
+        });
+
+        expect(result.status).toBe('MAINTENANCE');
+        expect(
+          (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              status: 'MAINTENANCE',
+              assignedToId: null,
+            }),
+          }),
+        );
+      });
+
+      it('should return units with signed document URL and clear pending record state', async () => {
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.IN_USE,
+            assignedToId: 'usr-1',
+          },
+        ]);
+        (
+          mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+        ).create.mockResolvedValue({ id: 'rec-1' });
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+          id: 'ast-1',
+        });
+
+        const result = await service.returnUnits({
+          assetIds: ['ast-1'],
+          signedDocUrl: 'https://docs.local/signed_return.pdf',
+        });
+
+        expect(result.hasPendingRecord).toBe(false);
+        expect(
+          (mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }).create,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              signedDocUrl: 'https://docs.local/signed_return.pdf',
+              isPending: false,
+            }),
+          }),
+        );
+        expect(
+          (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              hasPendingRecord: false,
+            }),
+          }),
+        );
+      });
+
+      it('should reject return if assetIds list is empty', async () => {
+        await expect(service.returnUnits({ assetIds: [] })).rejects.toThrow(BadRequestException);
+      });
+
+      it('should reject return if targetStatus is invalid', async () => {
+        await expect(
+          service.returnUnits({ assetIds: ['ast-1'], targetStatus: 'IN_USE' }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should reject return if targetStatus is an unrecognized string like GARBAGE_STATUS', async () => {
+        await expect(
+          service.returnUnits({ assetIds: ['ast-1'], targetStatus: 'GARBAGE_STATUS' }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should reject return if physical units do not exist', async () => {
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([]);
+
+        await expect(service.returnUnits({ assetIds: ['ast-missing'] })).rejects.toThrow(
+          NotFoundException,
+        );
+      });
+
+      it('should reject return if physical units are not currently IN_USE', async () => {
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.AVAILABLE,
+            assignedToId: null,
+          },
+        ]);
+
+        await expect(service.returnUnits({ assetIds: ['ast-1'] })).rejects.toThrow(
+          ConflictException,
+        );
+      });
+    });
+
+    describe('transfer & transferUnits', () => {
+      it('should transfer units between active custodians, creating dual handover records (RETURN + ASSIGNMENT)', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-2',
+          displayName: 'Bob Smith',
+          firstName: 'Bob',
+          email: 'bob@example.com',
+          status: 'ACTIVE',
+          departmentId: 'dep-engineering',
+        });
+
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.IN_USE,
+            assignedToId: 'usr-1',
+          },
+        ]);
+
+        (
+          mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+        ).create.mockResolvedValue({ id: 'rec-1' });
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+          id: 'ast-1',
+        });
+
+        const result = await service.transfer({
+          assetIds: ['ast-1'],
+          toUserId: 'usr-2',
+          conditionNotes: 'Transferred for project handover',
+        });
+
+        expect(result).toEqual({
+          success: true,
+          count: 1,
+          transferredIds: ['ast-1'],
+          toUserId: 'usr-2',
+          hasPendingRecord: true,
+        });
+
+        const handoverCreateCalls = (
+          mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+        ).create.mock.calls;
+
+        expect(handoverCreateCalls.length).toBe(2);
+        // Record 1: RETURN from previous custodian
+        expect(handoverCreateCalls[0][0].data).toEqual(
+          expect.objectContaining({
+            assetId: 'ast-1',
+            type: HandoverRecordType.RETURN,
+            recipientId: 'usr-1',
+            isPending: true,
+          }),
+        );
+        // Record 2: ASSIGNMENT to new custodian
+        expect(handoverCreateCalls[1][0].data).toEqual(
+          expect.objectContaining({
+            assetId: 'ast-1',
+            type: HandoverRecordType.ASSIGNMENT,
+            recipientId: 'usr-2',
+            isPending: true,
+          }),
+        );
+
+        expect(
+          (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'ast-1' },
+            data: expect.objectContaining({
+              assignedToId: 'usr-2',
+              departmentId: 'dep-engineering',
+              status: AssetStatus.IN_USE,
+              hasPendingRecord: true,
+            }),
+          }),
+        );
+
+        expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'ASSET_TRANSFERRED',
+            entity: 'Asset',
+            entityId: 'ast-1',
+            status: 'Success',
+            newValue: expect.objectContaining({
+              assignedToId: 'usr-2',
+              status: AssetStatus.IN_USE,
+              hasPendingRecord: true,
+            }),
+          }),
+        );
+
+        expect(mockNotificationsService.notifyUser).toHaveBeenCalledWith(
+          'usr-2',
+          expect.objectContaining({
+            type: 'WARNING',
+          }),
+        );
+      });
+
+      it('should transfer units with signed doc URL and set hasPendingRecord to false', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-2',
+          status: 'ACTIVE',
+        });
+
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.IN_USE,
+            assignedToId: 'usr-1',
+          },
+        ]);
+        (
+          mockPrisma.assetHandoverRecord as { create: ReturnType<typeof vi.fn> }
+        ).create.mockResolvedValue({ id: 'rec-1' });
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+          id: 'ast-1',
+        });
+
+        const result = await service.transferUnits({
+          assetIds: ['ast-1'],
+          toUserId: 'usr-2',
+          signedDocUrl: 'https://docs.local/signed_transfer.pdf',
+        });
+
+        expect(result.hasPendingRecord).toBe(false);
+        expect(
+          (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              hasPendingRecord: false,
+            }),
+          }),
+        );
+      });
+
+      it('should reject transfer if toUser does not exist', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.transfer({ assetIds: ['ast-1'], toUserId: 'missing-user' }),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('should reject transfer if toUser is SUSPENDED or DISABLED', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-suspended',
+          status: 'SUSPENDED',
+        });
+
+        await expect(
+          service.transfer({ assetIds: ['ast-1'], toUserId: 'usr-suspended' }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should reject transfer if assetIds list is empty', async () => {
+        await expect(service.transfer({ assetIds: [], toUserId: 'usr-2' })).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+
+      it('should reject transfer if asset is not currently IN_USE', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-2',
+          status: 'ACTIVE',
+        });
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.AVAILABLE,
+            assignedToId: null,
+          },
+        ]);
+
+        await expect(service.transfer({ assetIds: ['ast-1'], toUserId: 'usr-2' })).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+
+      it('should reject transfer if asset is already assigned to toUser', async () => {
+        (
+          mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+        ).findUnique.mockResolvedValue({
+          id: 'usr-2',
+          status: 'ACTIVE',
+        });
+        (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+          {
+            id: 'ast-1',
+            subcode: 'AST-001',
+            assetTag: 'AST-001',
+            status: AssetStatus.IN_USE,
+            assignedToId: 'usr-2',
+          },
+        ]);
+
+        await expect(service.transfer({ assetIds: ['ast-1'], toUserId: 'usr-2' })).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+    });
+
+    describe('attachHandoverDocument & Dynamic Compliance Recalculation', () => {
+      it('should update hasPendingRecord to true when pending records remain for the asset', async () => {
+        (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+          {
+            id: 'ast-1',
+            assignedToId: 'usr-1',
+            handoverRecords: [{ id: 'rec-1', isPending: true }],
+          },
+        );
+        (
+          mockPrisma.assetHandoverRecord as { findFirst: ReturnType<typeof vi.fn> }
+        ).findFirst.mockResolvedValue({ id: 'rec-1', notes: 'Initial' });
+        (
+          mockPrisma.assetHandoverRecord as { update: ReturnType<typeof vi.fn> }
+        ).update.mockResolvedValue({ id: 'rec-1' });
+        (
+          mockPrisma.assetHandoverRecord as { count: ReturnType<typeof vi.fn> }
+        ).count.mockResolvedValue(1);
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+          id: 'ast-1',
+          hasPendingRecord: true,
+        });
+
+        await service.attachHandoverDocument('ast-1', 'https://docs.local/rec1.pdf');
+
+        expect(
+          (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'ast-1' },
+            data: expect.objectContaining({
+              hasPendingRecord: true,
+            }),
+          }),
+        );
+      });
+
+      it('should update hasPendingRecord to false when 0 pending records remain for the asset', async () => {
+        (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue(
+          {
+            id: 'ast-1',
+            assignedToId: 'usr-1',
+            handoverRecords: [{ id: 'rec-1', isPending: true }],
+          },
+        );
+        (
+          mockPrisma.assetHandoverRecord as { findFirst: ReturnType<typeof vi.fn> }
+        ).findFirst.mockResolvedValue({ id: 'rec-1', notes: 'Initial' });
+        (
+          mockPrisma.assetHandoverRecord as { update: ReturnType<typeof vi.fn> }
+        ).update.mockResolvedValue({ id: 'rec-1' });
+        (
+          mockPrisma.assetHandoverRecord as { count: ReturnType<typeof vi.fn> }
+        ).count.mockResolvedValue(0);
+        (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+          id: 'ast-1',
+          hasPendingRecord: false,
+        });
+
+        await service.attachHandoverDocument('ast-1', 'https://docs.local/rec1.pdf');
+
+        expect(
+          (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'ast-1' },
+            data: expect.objectContaining({
+              hasPendingRecord: false,
+            }),
+          }),
+        );
+      });
     });
   });
 });

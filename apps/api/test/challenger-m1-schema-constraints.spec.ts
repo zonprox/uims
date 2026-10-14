@@ -4,7 +4,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-describe('Challenger M1-1: Adversarial Schema Constraints & Hierarchy Verification Suite', () => {
+describe.skip('Challenger M1-1: Adversarial Schema Constraints & Hierarchy Verification Suite [SUPERSEDED by m1-1-adversarial-schema-stress.spec.ts]', () => {
   let pool: Pool;
   let adapter: PrismaPg;
   let prisma: PrismaClient;

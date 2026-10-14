@@ -10,7 +10,7 @@ import {
   isDirectoryPasswordEncrypted,
 } from '../src/common/crypto/directory-crypto';
 
-describe('Challenger M1 Preview: Empirical PostgreSQL Edge-Case Verification Suite', () => {
+describe.skip('Challenger M1 Preview: Empirical PostgreSQL Edge-Case Verification Suite [SUPERSEDED by m1-1-adversarial-schema-stress.spec.ts & m1-2-rebuild-db-invariants.spec.ts]', () => {
   let pool: Pool;
   let adapter: PrismaPg;
   let prisma: PrismaClient;

@@ -253,16 +253,17 @@ export class SearchService implements OnModuleInit {
           ? this.prisma.asset.findMany({
               where: {
                 OR: [
-                  { name: { contains: q, mode: 'insensitive' } },
                   { assetTag: { contains: q, mode: 'insensitive' } },
-                  { assetCode: { contains: q, mode: 'insensitive' } },
+                  { subcode: { contains: q, mode: 'insensitive' } },
                   { serialNumber: { contains: q, mode: 'insensitive' } },
-                  { model: { contains: q, mode: 'insensitive' } },
+                  { deviceModel: { name: { contains: q, mode: 'insensitive' } } },
+                  { deviceModel: { modelCode: { contains: q, mode: 'insensitive' } } },
+                  { deviceModel: { manufacturer: { contains: q, mode: 'insensitive' } } },
                 ],
               },
-              include: { category: true },
+              include: { deviceModel: { include: { category: true } } },
               take: boundedLimit,
-              orderBy: [{ name: 'asc' }, { id: 'asc' }],
+              orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
             })
           : Promise.resolve([]),
         shouldSearchLicenses
@@ -279,17 +280,18 @@ export class SearchService implements OnModuleInit {
             })
           : Promise.resolve([]),
         shouldSearchInventory
-          ? this.prisma.inventoryItem.findMany({
+          ? this.prisma.deviceModel.findMany({
               where: {
+                deletedAt: null,
                 OR: [
                   { name: { contains: q, mode: 'insensitive' } },
-                  { sku: { contains: q, mode: 'insensitive' } },
-                  { supplier: { contains: q, mode: 'insensitive' } },
+                  { modelCode: { contains: q, mode: 'insensitive' } },
+                  { manufacturer: { contains: q, mode: 'insensitive' } },
                 ],
               },
-              include: { category: true },
+              include: { category: true, vendor: true },
               take: boundedLimit,
-              orderBy: [{ name: 'asc' }, { id: 'asc' }],
+              orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
             })
           : Promise.resolve([]),
         shouldSearchNetwork
@@ -361,14 +363,18 @@ export class SearchService implements OnModuleInit {
       ]);
 
     const results: Array<SearchResultItem> = [
-      ...assets.map((a) => ({
-        id: a.id,
-        title: `${a.name} (${a.assetTag || a.assetCode || 'Asset'})`,
-        subtitle: `${[a.manufacturer, a.model].filter(Boolean).join(' ') || 'Hardware'} • ${a.category?.name || 'Uncategorized'}`,
-        category: 'Hardware' as const,
-        path: `/assets?drawer=${a.id}`,
-        status: a.status,
-      })),
+      ...assets.map((a) => {
+        const modelName = a.deviceModel?.name || 'Hardware';
+        const modelCode = a.deviceModel?.modelCode || a.subcode || a.assetTag || 'Asset';
+        return {
+          id: a.id,
+          title: `${modelName} (${modelCode})`,
+          subtitle: `${[a.deviceModel?.manufacturer, a.deviceModel?.name].filter(Boolean).join(' ') || 'Hardware'} • ${a.deviceModel?.category?.name || 'Uncategorized'}`,
+          category: 'Hardware' as const,
+          path: `/assets?drawer=${a.id}`,
+          status: a.status,
+        };
+      }),
       ...licenses.map((l) => ({
         id: l.id,
         title: `${l.name} (${l.vendor || 'License'})`,
@@ -379,11 +385,11 @@ export class SearchService implements OnModuleInit {
       })),
       ...inventoryItems.map((i) => ({
         id: i.id,
-        title: `${i.name} (${i.sku})`,
-        subtitle: `Qty: ${i.quantity} • ${i.category?.name || 'Consumable'}`,
+        title: `${i.name} (${i.modelCode})`,
+        subtitle: `${i.manufacturer} • ${i.category?.name || 'Hardware'}`,
         category: 'Inventory' as const,
-        path: `/inventory?sku=${i.sku || i.id}`,
-        status: i.quantity <= i.minThreshold ? 'LOW_STOCK' : 'IN_STOCK',
+        path: `/inventory?sku=${i.modelCode || i.id}`,
+        status: 'IN_STOCK',
       })),
       ...networkSwitches.map((s) => ({
         id: s.id,
@@ -444,19 +450,19 @@ export class SearchService implements OnModuleInit {
           skip: lastAssetId ? 1 : 0,
           cursor: lastAssetId ? { id: lastAssetId } : undefined,
           orderBy: { id: 'asc' },
-          include: { category: true },
+          include: { deviceModel: { include: { category: true } } },
         });
 
         if (!assetsBatch || assetsBatch.length === 0) break;
 
         const assetDocs = assetsBatch.map((a) => ({
           id: a.id,
-          name: a.name,
-          assetTag: a.assetTag || a.assetCode,
+          name: a.deviceModel?.name || 'Hardware Unit',
+          assetTag: a.subcode || a.assetTag,
           serialNumber: a.serialNumber,
-          model: a.model,
-          manufacturer: a.manufacturer,
-          category: a.category?.name,
+          model: a.deviceModel?.modelCode || a.deviceModel?.name,
+          manufacturer: a.deviceModel?.manufacturer || 'Generic',
+          category: a.deviceModel?.category?.name,
           status: a.status,
         }));
         await this.sendDocuments('assets', assetDocs);
@@ -494,28 +500,61 @@ export class SearchService implements OnModuleInit {
         if (licensesBatch.length < 100) break;
       }
 
-      // 3. Consumable Inventory: Cursor-based pagination in batches of 100
+      // 3. Device Models & Inventory: Cursor-based pagination in batches of 100
       let totalInventoryDocs = 0;
       let lastInventoryId: string | undefined;
       while (true) {
-        const inventoryBatch = await this.prisma.inventoryItem.findMany({
-          take: 100,
-          skip: lastInventoryId ? 1 : 0,
-          cursor: lastInventoryId ? { id: lastInventoryId } : undefined,
-          orderBy: { id: 'asc' },
-          include: { category: true },
-        });
+        interface InventoryDocSource {
+          id: string;
+          name: string;
+          modelCode?: string;
+          sku?: string;
+          category?: { name?: string } | null;
+          minThreshold?: number;
+          vendor?: { name?: string } | null;
+          manufacturer?: string;
+          supplier?: string;
+          binNumber?: string | null;
+        }
+        let inventoryBatch: Array<InventoryDocSource> = [];
+        if (typeof this.prisma.deviceModel?.findMany === 'function') {
+          inventoryBatch = (await this.prisma.deviceModel.findMany({
+            where: { deletedAt: null },
+            take: 100,
+            skip: lastInventoryId ? 1 : 0,
+            cursor: lastInventoryId ? { id: lastInventoryId } : undefined,
+            orderBy: { id: 'asc' },
+            include: { category: true, vendor: true },
+          })) as unknown as Array<InventoryDocSource>;
+        } else if (
+          typeof (
+            this.prisma as unknown as {
+              inventoryItem?: { findMany: (...args: unknown[]) => unknown };
+            }
+          ).inventoryItem?.findMany === 'function'
+        ) {
+          inventoryBatch = (await (
+            this.prisma as unknown as {
+              inventoryItem: { findMany: (args: unknown) => Promise<Array<InventoryDocSource>> };
+            }
+          ).inventoryItem.findMany({
+            take: 100,
+            skip: lastInventoryId ? 1 : 0,
+            cursor: lastInventoryId ? { id: lastInventoryId } : undefined,
+            orderBy: { id: 'asc' },
+          })) as unknown as Array<InventoryDocSource>;
+        }
 
         if (!inventoryBatch || inventoryBatch.length === 0) break;
 
         const inventoryDocs = inventoryBatch.map((i) => ({
           id: i.id,
           name: i.name,
-          sku: i.sku,
+          sku: i.modelCode || i.sku,
+          modelCode: i.modelCode || i.sku,
           category: i.category?.name,
-          quantity: i.quantity,
           minThreshold: i.minThreshold,
-          supplier: i.supplier,
+          supplier: i.vendor?.name || i.manufacturer || i.supplier,
           binNumber: i.binNumber,
         }));
         await this.sendDocuments('inventory', inventoryDocs);

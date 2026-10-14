@@ -40,11 +40,6 @@ export class CreateAssetDto {
   @IsOptional()
   @ValidateIf((_obj, val) => val !== null && val !== undefined)
   @IsUUID('4')
-  parentId?: string | null;
-
-  @IsOptional()
-  @ValidateIf((_obj, val) => val !== null && val !== undefined)
-  @IsUUID('4')
   costCenterId?: string | null;
 
   @IsOptional()
@@ -74,11 +69,6 @@ export class CreateAssetDto {
   @IsString()
   @MaxLength(100)
   serialNumber?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  category?: string;
 
   @IsOptional()
   @IsUUID('4')

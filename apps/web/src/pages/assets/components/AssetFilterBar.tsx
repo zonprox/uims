@@ -15,6 +15,17 @@ export interface AssetFilterBarProps {
   onCategoryChange?: (val: string) => void;
   statusFilter?: string;
   onStatusChange?: (val: string) => void;
+  modelFilter?: string;
+  onModelChange?: (val: string) => void;
+  modelOptions?: Array<{ label: string; value: string }>;
+  custodianFilter?: string;
+  onCustodianChange?: (val: string) => void;
+  custodianOptions?: Array<{ label: string; value: string }>;
+  departmentFilter?: string;
+  onDepartmentChange?: (val: string) => void;
+  departmentOptions?: Array<{ label: string; value: string }>;
+  hasPendingRecordFilter?: string;
+  onPendingRecordChange?: (val: string) => void;
   filterState?: Partial<AssetFilterState>;
   onFilterChange?: (key: string, val: string | undefined) => void;
   onReset: () => void;
@@ -36,12 +47,22 @@ export const CATEGORY_FILTER_OPTIONS = [
   { label: 'Peripherals & Accessories', value: 'cat-peripheral' },
 ];
 
-const STATUS_FILTER_OPTIONS = [
-  { label: 'All Status', value: 'all' },
+export const STATUS_FILTER_OPTIONS = [
+  { label: 'All Statuses', value: 'all' },
+  { label: 'Available (Storage)', value: 'AVAILABLE' },
+  { label: 'In Use (Assigned)', value: 'IN_USE' },
+  { label: 'Maintenance (Repair)', value: 'MAINTENANCE' },
+  { label: 'Retired', value: 'RETIRED' },
+  { label: 'Lost', value: 'LOST' },
   { label: 'Active', value: 'Active' },
   { label: 'In Repair', value: 'In Repair' },
   { label: 'In Storage', value: 'In Storage' },
-  { label: 'Retired', value: 'Retired' },
+];
+
+export const PENDING_RECORD_FILTER_OPTIONS = [
+  { label: 'All Compliance', value: 'all' },
+  { label: 'Pending Documents', value: 'pending' },
+  { label: 'Fully Compliant', value: 'compliant' },
 ];
 
 export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
@@ -56,6 +77,17 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
     onCategoryChange,
     statusFilter = 'all',
     onStatusChange,
+    modelFilter = 'all',
+    onModelChange,
+    modelOptions = [],
+    custodianFilter = 'all',
+    onCustodianChange,
+    custodianOptions = [],
+    departmentFilter = 'all',
+    onDepartmentChange,
+    departmentOptions = [],
+    hasPendingRecordFilter = 'all',
+    onPendingRecordChange,
     onReset,
     onScanQr,
   }) => {
@@ -76,7 +108,11 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
       Boolean(searchQuery) ||
       orgFilter !== 'all' ||
       categoryFilter !== 'all' ||
-      statusFilter !== 'all';
+      statusFilter !== 'all' ||
+      modelFilter !== 'all' ||
+      custodianFilter !== 'all' ||
+      departmentFilter !== 'all' ||
+      hasPendingRecordFilter !== 'all';
 
     const handleReset = () => {
       onReset();
@@ -84,7 +120,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
 
     return (
       <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
           <Flex gap={8}>
             <Input
               placeholder="Search tag, serial, model, user..."
@@ -102,8 +138,54 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
             )}
           </Flex>
         </Col>
-        <Col xs={24} md={16}>
+        <Col xs={24} md={18}>
           <Flex gap={10} justify="flex-end" wrap>
+            {onModelChange && modelOptions.length > 0 && (
+              <Select
+                value={modelFilter}
+                onChange={onModelChange}
+                style={{ width: 160 }}
+                placeholder="Device Model"
+                showSearch
+                optionFilterProp="label"
+                options={[{ label: 'All Models', value: 'all' }, ...modelOptions]}
+              />
+            )}
+
+            {onCustodianChange && custodianOptions.length > 0 && (
+              <Select
+                value={custodianFilter}
+                onChange={onCustodianChange}
+                style={{ width: 160 }}
+                placeholder="Custodian"
+                showSearch
+                optionFilterProp="label"
+                options={[{ label: 'All Custodians', value: 'all' }, ...custodianOptions]}
+              />
+            )}
+
+            {onDepartmentChange && departmentOptions.length > 0 && (
+              <Select
+                value={departmentFilter}
+                onChange={onDepartmentChange}
+                style={{ width: 150 }}
+                placeholder="Department"
+                showSearch
+                optionFilterProp="label"
+                options={[{ label: 'All Departments', value: 'all' }, ...departmentOptions]}
+              />
+            )}
+
+            {onPendingRecordChange && (
+              <Select
+                value={hasPendingRecordFilter}
+                onChange={onPendingRecordChange}
+                style={{ width: 165 }}
+                placeholder="Compliance Status"
+                options={PENDING_RECORD_FILTER_OPTIONS}
+              />
+            )}
+
             {onOrgChange && (
               <Select
                 value={orgFilter}
@@ -118,7 +200,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
               <Select
                 value={categoryFilter}
                 onChange={onCategoryChange}
-                style={{ width: 170 }}
+                style={{ width: 160 }}
                 placeholder="Category"
                 options={categoryOptions}
               />
@@ -128,7 +210,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
               <Select
                 value={statusFilter}
                 onChange={onStatusChange}
-                style={{ width: 125 }}
+                style={{ width: 160 }}
                 placeholder="Status"
                 options={STATUS_FILTER_OPTIONS}
               />

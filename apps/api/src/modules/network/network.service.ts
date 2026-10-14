@@ -8,6 +8,7 @@ import {
 import {
   Prisma,
   type IPAddress,
+  type NetworkDomain,
   type NetworkRack,
   type NetworkSwitch,
   type PortAdminStatus,
@@ -19,6 +20,7 @@ import {
   type SwitchPort,
   type SwitchRole,
   type SwitchStatus,
+  type TopologyNodeType,
   type VLAN,
   type VlanStatus,
 } from '@prisma/client';
@@ -33,12 +35,16 @@ import type {
   IPAddressQueryDto,
   NetworkCalculation,
   NetworkStatsDto,
+  NetworkTopologyData,
   RackElevationData,
   RackElevationSlot,
   RackQueryDto,
   SubnetQueryDto,
   SwitchPortQueryDto,
   SwitchQueryDto,
+  TopologyEdge,
+  TopologyNode,
+  TopologySummaryMetrics,
   UpdateIPAddressDto,
   UpdateRackDto,
   UpdateSubnetDto,
@@ -47,6 +53,7 @@ import type {
   UpdateVlanDto,
   VlanQueryDto,
 } from '@uims/shared-types';
+import type { CreateTopologyLinkDto, TopologyQueryDto, UpdateTopologyLayoutDto } from './dto';
 import {
   calculateSubnet,
   calculateUtilization,
@@ -431,7 +438,7 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        asset: true,
+        asset: { include: { deviceModel: true } },
         assignedUser: true,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
@@ -448,7 +455,7 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        asset: true,
+        asset: { include: { deviceModel: true } },
         assignedUser: true,
       },
     });
@@ -551,7 +558,7 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        asset: true,
+        asset: { include: { deviceModel: true } },
         assignedUser: true,
       },
     });
@@ -591,7 +598,7 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        asset: true,
+        asset: { include: { deviceModel: true } },
         assignedUser: true,
       },
     });
@@ -646,7 +653,7 @@ export class NetworkService {
       include: {
         subnet: true,
         vlan: true,
-        asset: true,
+        asset: { include: { deviceModel: true } },
         assignedUser: true,
       },
     });
@@ -1086,7 +1093,7 @@ export class NetworkService {
       where,
       include: {
         rack: true,
-        asset: true,
+        asset: { include: { deviceModel: true } },
         ipAddress: true,
         ports: true,
         _count: { select: { ports: true } },
@@ -1104,13 +1111,13 @@ export class NetworkService {
       where: { OR: [{ id }, { serialNumber: id }] },
       include: {
         rack: true,
-        asset: true,
+        asset: { include: { deviceModel: true } },
         ipAddress: true,
         ports: {
           include: {
             vlan: true,
             ipAddress: true,
-            connectedAsset: true,
+            connectedAsset: { include: { deviceModel: true } },
           },
           orderBy: [{ portNumber: 'asc' }, { id: 'asc' }],
         },
@@ -1433,7 +1440,7 @@ export class NetworkService {
         switch: { include: { rack: true } },
         vlan: true,
         ipAddress: true,
-        connectedAsset: true,
+        connectedAsset: { include: { deviceModel: true } },
       },
       orderBy: [{ portNumber: 'asc' }, { id: 'asc' }],
       take: pageSize,
@@ -1454,7 +1461,7 @@ export class NetworkService {
         switch: { include: { rack: true } },
         vlan: true,
         ipAddress: true,
-        connectedAsset: true,
+        connectedAsset: { include: { deviceModel: true } },
       },
     });
 
@@ -1507,7 +1514,7 @@ export class NetworkService {
         switch: { include: { rack: true } },
         vlan: true,
         ipAddress: true,
-        connectedAsset: true,
+        connectedAsset: { include: { deviceModel: true } },
       },
     });
 
@@ -1546,7 +1553,7 @@ export class NetworkService {
         switch: { include: { rack: true } },
         vlan: true,
         ipAddress: true,
-        connectedAsset: true,
+        connectedAsset: { include: { deviceModel: true } },
       },
     });
 
@@ -1702,6 +1709,7 @@ export class NetworkService {
       vlanNumber: vlan.vlanNumber,
       name: vlan.name,
       description: vlan.description,
+      domain: vlan.domain as unknown as import('@uims/shared-types').NetworkDomain,
       status: vlan.status as unknown as import('@uims/shared-types').VlanStatus,
       createdAt: vlan.createdAt
         ? typeof vlan.createdAt === 'string'
@@ -1728,6 +1736,7 @@ export class NetworkService {
       id: subnet.id,
       cidr: subnet.cidr,
       name: subnet.name,
+      domain: subnet.domain as unknown as import('@uims/shared-types').NetworkDomain,
       vlanId: subnet.vlanId,
       gateway: subnet.gateway || calc.suggestedGateway,
       networkAddress: subnet.networkAddress || calc.networkAddress,
@@ -1805,12 +1814,24 @@ export class NetworkService {
   private formatSwitch(
     sw: NetworkSwitch & {
       rack?: NetworkRack | null;
-      asset?: { id: string; name: string; assetTag?: string | null } | null;
+      asset?: {
+        id: string;
+        name?: string;
+        assetTag?: string | null;
+        subcode?: string | null;
+        deviceModel?: { name?: string } | null;
+      } | null;
       ipAddress?: IPAddress | null;
       ports?: (SwitchPort & {
         vlan?: VLAN | null;
         ipAddress?: IPAddress | null;
-        connectedAsset?: { id: string; name: string; assetTag?: string | null } | null;
+        connectedAsset?: {
+          id: string;
+          name?: string;
+          assetTag?: string | null;
+          subcode?: string | null;
+          deviceModel?: { name?: string } | null;
+        } | null;
       })[];
       _count?: { ports: number };
     },
@@ -1845,7 +1866,12 @@ export class NetworkService {
       asset: sw.asset
         ? ({
             ...sw.asset,
-            assetTag: sw.asset.assetTag || '',
+            name:
+              (sw.asset as { name?: string }).name ||
+              (sw.asset as { deviceModel?: { name?: string } | null }).deviceModel?.name ||
+              (sw.asset as { subcode?: string | null }).subcode ||
+              'Asset',
+            assetTag: sw.asset.assetTag || (sw.asset as { subcode?: string | null }).subcode || '',
           } as unknown as import('@uims/shared-types').Asset)
         : null,
       notes: sw.notes,
@@ -1869,7 +1895,13 @@ export class NetworkService {
       switch?: (NetworkSwitch & { rack?: NetworkRack | null }) | null;
       vlan?: VLAN | null;
       ipAddress?: IPAddress | null;
-      connectedAsset?: { id: string; name: string; assetTag?: string | null } | null;
+      connectedAsset?: {
+        id: string;
+        name?: string;
+        assetTag?: string | null;
+        subcode?: string | null;
+        deviceModel?: { name?: string } | null;
+      } | null;
     },
   ) {
     return {
@@ -1898,7 +1930,12 @@ export class NetworkService {
       connectedAsset: port.connectedAsset
         ? ({
             ...port.connectedAsset,
-            assetTag: port.connectedAsset.assetTag || '',
+            name:
+              port.connectedAsset.name ||
+              port.connectedAsset.deviceModel?.name ||
+              port.connectedAsset.subcode ||
+              'Asset',
+            assetTag: port.connectedAsset.assetTag || port.connectedAsset.subcode || '',
           } as unknown as import('@uims/shared-types').Asset)
         : null,
       description: port.description,
@@ -1919,7 +1956,13 @@ export class NetworkService {
     ip: IPAddress & {
       subnet?: Subnet | null;
       vlan?: VLAN | null;
-      asset?: { id: string; name: string; assetTag?: string | null } | null;
+      asset?: {
+        id: string;
+        name?: string;
+        assetTag?: string | null;
+        subcode?: string | null;
+        deviceModel?: { name?: string } | null;
+      } | null;
       assignedUser?: { id: string; firstName: string; lastName: string; email: string } | null;
       switchPorts?: (SwitchPort & {
         switch?: (NetworkSwitch & { rack?: NetworkRack | null }) | null;
@@ -1971,8 +2014,8 @@ export class NetworkService {
       asset: ip.asset
         ? {
             id: ip.asset.id,
-            name: ip.asset.name,
-            assetTag: ip.asset.assetTag || '',
+            name: ip.asset.name || ip.asset.deviceModel?.name || 'Asset',
+            assetTag: ip.asset.assetTag || ip.asset.subcode || '',
           }
         : null,
       assignedUser: ip.assignedUser,
@@ -1994,5 +2037,552 @@ export class NetworkService {
           : ip.updatedAt.toISOString()
         : new Date().toISOString(),
     };
+  }
+
+  // ==========================================
+  // TOPOLOGY GRAPH ENGINE METHODS
+  // ==========================================
+
+  async getTopology(query: TopologyQueryDto): Promise<NetworkTopologyData> {
+    const mode = query.mode || 'ALL';
+
+    // 1. Determine switches query filter based on perspective
+    const switchesWhere: Prisma.NetworkSwitchWhereInput = {};
+    if (query.rackId) switchesWhere.rackId = query.rackId;
+    if (query.status) switchesWhere.status = query.status as SwitchStatus;
+
+    if (mode === 'NETWORK') {
+      switchesWhere.domain = { in: ['NETWORK', 'SHARED'] };
+    } else if (mode === 'CCTV') {
+      switchesWhere.OR = [
+        { domain: 'CCTV' },
+        { role: 'POE_ACCESS' },
+        { ports: { some: { vlan: { domain: 'CCTV' } } } },
+      ];
+    }
+
+    // 2. Fetch all necessary data concurrently with bounded queries
+    const [racks, switches, vlanRecords, subnetRecords, savedPositions] = await Promise.all([
+      this.prisma.networkRack.findMany({
+        orderBy: [{ code: 'asc' }, { id: 'asc' }],
+        take: 100,
+      }),
+      this.prisma.networkSwitch.findMany({
+        where: switchesWhere,
+        include: {
+          rack: true,
+          ipAddress: true,
+          ports: {
+            include: {
+              vlan: true,
+              connectedAsset: {
+                include: {
+                  deviceModel: { include: { category: true } },
+                  assignedTo: true,
+                  department: true,
+                },
+              },
+              connectedPort: {
+                include: { switch: true },
+              },
+              ipAddress: true,
+            },
+            orderBy: [{ portNumber: 'asc' }, { id: 'asc' }],
+          },
+        },
+        orderBy: [{ role: 'asc' }, { name: 'asc' }, { id: 'asc' }],
+        take: 200,
+      }),
+      this.prisma.vLAN.findMany({
+        where: mode === 'ALL' ? {} : { domain: mode === 'CCTV' ? 'CCTV' : 'NETWORK' },
+        include: { subnets: true, switchPorts: true },
+        orderBy: [{ vlanNumber: 'asc' }, { id: 'asc' }],
+        take: 100,
+      }),
+      this.prisma.subnet.findMany({
+        where: mode === 'ALL' ? {} : { domain: mode === 'CCTV' ? 'CCTV' : 'NETWORK' },
+        orderBy: [{ cidr: 'asc' }, { id: 'asc' }],
+        take: 100,
+      }),
+      this.prisma.topologyNodePosition.findMany({
+        where: { viewMode: mode },
+        take: 1000,
+      }),
+    ]);
+
+    // Fast coordinate lookup map: nodeId -> { x, y }
+    const posMap = new Map<string, { x: number; y: number }>();
+    for (const p of savedPositions) {
+      posMap.set(p.nodeId, { x: p.positionX, y: p.positionY });
+    }
+
+    const nodes: TopologyNode[] = [];
+    const edges: TopologyEdge[] = [];
+    const processedEdgeIds = new Set<string>();
+    const endpointNodeIds = new Set<string>();
+
+    // 3. Assemble Switch Nodes
+    switches.forEach((sw, idx) => {
+      const activePorts = sw.ports.filter((p) => p.operStatus === 'ACTIVE').length;
+      const poeActivePorts = sw.ports.filter(
+        (p) => p.poeEnabled && p.operStatus === 'ACTIVE',
+      ).length;
+      const estimatedPoeWatts = poeActivePorts * 15.4;
+
+      // Coordinate resolution: saved override -> direct coordinate -> auto-layout tier
+      let x = sw.positionX ?? 300 + (idx % 4) * 260;
+      let y = sw.positionY ?? (sw.role === 'CORE' ? 120 : sw.role === 'DISTRIBUTION' ? 280 : 460);
+      if (posMap.has(sw.id)) {
+        const saved = posMap.get(sw.id)!;
+        x = saved.x;
+        y = saved.y;
+      }
+
+      nodes.push({
+        id: sw.id,
+        label: sw.name,
+        type: 'SWITCH',
+        subType: sw.role,
+        domain: sw.domain as 'NETWORK' | 'CCTV' | 'SHARED',
+        status: (sw.status as 'ONLINE' | 'OFFLINE' | 'MAINTENANCE') || 'ONLINE',
+        ipAddress: sw.ipAddress?.address,
+        macAddress: sw.macAddress,
+        model: sw.model,
+        vendor: sw.vendor,
+        serialNumber: sw.serialNumber,
+        rackId: sw.rackId,
+        rackName: sw.rack?.name,
+        rackPosition: sw.rackPosition,
+        totalPorts: sw.totalPorts,
+        activePorts,
+        poeActivePorts,
+        poePowerWatts: estimatedPoeWatts,
+        x,
+        y,
+        data: {
+          role: sw.role,
+          firmwareVersion: sw.firmwareVersion,
+          uplinkPorts: sw.uplinkPorts,
+          fiberPorts: sw.fiberPorts,
+        },
+      });
+
+      // 4. Assemble Edges & Connected Endpoints
+      for (const port of sw.ports) {
+        // Inter-Switch Trunk Uplinks
+        if (port.connectedPortId && port.connectedPort) {
+          const peerSw = port.connectedPort.switch;
+          if (peerSw) {
+            const edgeKey = [port.id, port.connectedPortId].sort().join('--');
+            if (!processedEdgeIds.has(edgeKey)) {
+              processedEdgeIds.add(edgeKey);
+
+              const edgeDomain: 'NETWORK' | 'CCTV' | 'SHARED' =
+                sw.domain === 'CCTV' && peerSw.domain === 'CCTV'
+                  ? 'CCTV'
+                  : sw.domain === 'NETWORK' && peerSw.domain === 'NETWORK'
+                    ? 'NETWORK'
+                    : 'SHARED';
+
+              edges.push({
+                id: `edge-${edgeKey}`,
+                source: sw.id,
+                target: peerSw.id,
+                sourcePortId: port.id,
+                sourcePortName: port.name,
+                targetPortId: port.connectedPort.id,
+                targetPortName: port.connectedPort.name,
+                linkType: 'UPLINK',
+                mediaType: port.formFactor.includes('SFP') ? 'FIBER_SFP_PLUS' : 'COPPER',
+                speed: port.speed || '10 Gbps',
+                status: (port.operStatus as 'ACTIVE' | 'DOWN' | 'CONNECTED_NO_SIGNAL') || 'DOWN',
+                poeEnabled: port.poeEnabled,
+                vlanId: port.vlanId,
+                vlanNumber: port.vlan?.vlanNumber,
+                taggedVlanIds: (port.taggedVlanIds as number[]) || [],
+                domain: edgeDomain,
+              });
+            }
+          }
+        }
+
+        // Endpoint Connections (Cameras, Servers, NVRs, APs)
+        if (port.connectedAsset) {
+          const asset = port.connectedAsset;
+          const modelName = asset.deviceModel?.name || '';
+          const categoryKey = asset.deviceModel?.category?.id || '';
+
+          const isCamera =
+            categoryKey.includes('cctv') ||
+            categoryKey.includes('camera') ||
+            modelName.toLowerCase().includes('cam') ||
+            modelName.toLowerCase().includes('dome') ||
+            modelName.toLowerCase().includes('bullet') ||
+            modelName.toLowerCase().includes('terminal');
+
+          const isNvr =
+            modelName.toLowerCase().includes('nvr') ||
+            modelName.toLowerCase().includes('video storage');
+
+          const isServer =
+            categoryKey.includes('server') || modelName.toLowerCase().includes('poweredge');
+
+          const isAp =
+            categoryKey.includes('ap') || modelName.toLowerCase().includes('access point');
+
+          // Filter endpoints based on perspective
+          if (mode === 'NETWORK' && isCamera) continue;
+          if (mode === 'CCTV' && !isCamera && !isNvr) continue;
+
+          let nodeType: TopologyNode['type'] = 'ASSET';
+          if (isCamera) nodeType = 'CAMERA';
+          else if (isNvr) nodeType = 'NVR';
+          else if (isServer) nodeType = 'SERVER';
+          else if (isAp) nodeType = 'ACCESS_POINT';
+
+          const endpointDomain: 'NETWORK' | 'CCTV' = isCamera || isNvr ? 'CCTV' : 'NETWORK';
+
+          if (!endpointNodeIds.has(asset.id)) {
+            endpointNodeIds.add(asset.id);
+
+            let epX = x + ((port.portNumber % 8) - 4) * 80;
+            let epY = y + 160;
+            if (posMap.has(asset.id)) {
+              const saved = posMap.get(asset.id)!;
+              epX = saved.x;
+              epY = saved.y;
+            }
+
+            nodes.push({
+              id: asset.id,
+              label: asset.assetTag || modelName,
+              type: nodeType,
+              subType: asset.deviceModel?.modelCode || asset.deviceModel?.name,
+              domain: endpointDomain,
+              status:
+                port.operStatus === 'ACTIVE'
+                  ? 'ONLINE'
+                  : port.operStatus === 'CONNECTED_NO_SIGNAL'
+                    ? 'DEGRADED'
+                    : 'OFFLINE',
+              ipAddress: port.ipAddress?.address,
+              model: modelName,
+              vendor: asset.deviceModel?.manufacturer,
+              serialNumber: asset.serialNumber,
+              x: epX,
+              y: epY,
+              data: {
+                assetTag: asset.assetTag,
+                assignedUser:
+                  asset.assignedTo?.displayName ||
+                  (asset.assignedTo
+                    ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`
+                    : undefined),
+                department: asset.department?.name,
+                poeVoltage: port.poeEnabled ? '48V' : undefined,
+              },
+            });
+          }
+
+          edges.push({
+            id: `edge-${port.id}-${asset.id}`,
+            source: sw.id,
+            target: asset.id,
+            sourcePortId: port.id,
+            sourcePortName: port.name,
+            linkType: port.poeEnabled ? 'POE' : 'ENDPOINT',
+            mediaType: 'COPPER',
+            speed: port.speed || '1 Gbps',
+            status: (port.operStatus as 'ACTIVE' | 'DOWN' | 'CONNECTED_NO_SIGNAL') || 'DOWN',
+            poeEnabled: port.poeEnabled,
+            vlanId: port.vlanId,
+            vlanNumber: port.vlan?.vlanNumber,
+            domain: endpointDomain,
+          });
+        }
+      }
+    });
+
+    // 5. Summary Metrics Aggregation
+    const activeLinks = edges.filter((e) => e.status === 'ACTIVE').length;
+    const degradedLinks = edges.filter((e) => e.status === 'CONNECTED_NO_SIGNAL').length;
+    const downLinks = edges.filter((e) => e.status === 'DOWN').length;
+    const poePowerWatts = edges
+      .filter((e) => e.poeEnabled && e.status === 'ACTIVE')
+      .reduce((sum) => sum + 15.4, 0);
+
+    const summaryMetrics: TopologySummaryMetrics = {
+      totalNodes: nodes.length,
+      totalSwitches: nodes.filter((n) => n.type === 'SWITCH').length,
+      totalRacks: racks.length,
+      totalEndpoints: endpointNodeIds.size,
+      totalCameras: nodes.filter((n) => n.type === 'CAMERA').length,
+      totalNvrs: nodes.filter((n) => n.type === 'NVR').length,
+      totalServers: nodes.filter((n) => n.type === 'SERVER').length,
+      totalEdges: edges.length,
+      activeLinks,
+      degradedLinks,
+      downLinks,
+      poePowerUsageWatts: Math.round(poePowerWatts * 10) / 10,
+      onlinePercentage: edges.length > 0 ? Math.round((activeLinks / edges.length) * 100) : 100,
+    };
+
+    return {
+      nodes,
+      edges,
+      racks: racks.map((r) => ({
+        id: r.id,
+        name: r.name,
+        code: r.code,
+        status: r.status,
+        switchCount: switches.filter((s) => s.rackId === r.id).length,
+        positionX: r.positionX,
+        positionY: r.positionY,
+      })),
+      vlans: vlanRecords.map((v) => ({
+        id: v.id,
+        vlanNumber: v.vlanNumber,
+        name: v.name,
+        domain: v.domain as unknown as NetworkDomain,
+        subnetCount: v.subnets.length,
+        switchCount: new Set(v.switchPorts.map((sp) => sp.switchId)).size,
+      })),
+      subnets: subnetRecords.map((s) => ({
+        id: s.id,
+        cidr: s.cidr,
+        name: s.name,
+        domain: s.domain as unknown as NetworkDomain,
+        vlanId: s.vlanId,
+        utilization: s.totalIps > 0 ? Math.round((s.usedIps / s.totalIps) * 100) : 0,
+      })),
+      summaryMetrics,
+    };
+  }
+
+  async updateTopologyLayout(dto: UpdateTopologyLayoutDto) {
+    const viewMode = dto.viewMode || 'ALL';
+
+    await this.prisma.$transaction(
+      dto.positions.map((p) =>
+        this.prisma.topologyNodePosition.upsert({
+          where: {
+            nodeId_viewMode: {
+              nodeId: p.nodeId,
+              viewMode,
+            },
+          },
+          update: {
+            positionX: p.x,
+            positionY: p.y,
+            nodeType: (p.nodeType as TopologyNodeType) || 'SWITCH',
+          },
+          create: {
+            nodeId: p.nodeId,
+            nodeType: (p.nodeType as TopologyNodeType) || 'SWITCH',
+            viewMode,
+            positionX: p.x,
+            positionY: p.y,
+          },
+        }),
+      ),
+    );
+
+    // Synchronize default coordinates on master entities when updating ALL view
+    if (viewMode === 'ALL') {
+      const switchPositions = dto.positions.filter((p) => p.nodeType === 'SWITCH');
+      if (switchPositions.length > 0) {
+        await Promise.all(
+          switchPositions.map((p) =>
+            this.prisma.networkSwitch.updateMany({
+              where: { id: p.nodeId },
+              data: { positionX: p.x, positionY: p.y },
+            }),
+          ),
+        );
+      }
+
+      const rackPositions = dto.positions.filter((p) => p.nodeType === 'RACK');
+      if (rackPositions.length > 0) {
+        await Promise.all(
+          rackPositions.map((p) =>
+            this.prisma.networkRack.updateMany({
+              where: { id: p.nodeId },
+              data: { positionX: p.x, positionY: p.y },
+            }),
+          ),
+        );
+      }
+    }
+
+    return {
+      success: true,
+      updatedCount: dto.positions.length,
+      viewMode,
+    };
+  }
+
+  async createTopologyLink(dto: CreateTopologyLinkDto) {
+    const sourcePort = await this.prisma.switchPort.findUnique({
+      where: { id: dto.sourcePortId },
+    });
+    if (!sourcePort) {
+      throw new NotFoundException(`Source SwitchPort with ID "${dto.sourcePortId}" not found.`);
+    }
+
+    // 1. Inter-Switch Port Link
+    if (dto.targetPortId) {
+      if (dto.sourcePortId === dto.targetPortId) {
+        throw new BadRequestException('Cannot link a switch port to itself (self-loop detected).');
+      }
+
+      const targetPort = await this.prisma.switchPort.findUnique({
+        where: { id: dto.targetPortId },
+      });
+      if (!targetPort) {
+        throw new NotFoundException(`Target SwitchPort with ID "${dto.targetPortId}" not found.`);
+      }
+
+      return this.prisma.$transaction(async (tx) => {
+        // Disconnect previous peers if any
+        if (sourcePort.connectedPortId) {
+          await tx.switchPort.update({
+            where: { id: sourcePort.connectedPortId },
+            data: { connectedPortId: null, operStatus: 'DOWN' },
+          });
+        }
+        if (targetPort.connectedPortId) {
+          await tx.switchPort.update({
+            where: { id: targetPort.connectedPortId },
+            data: { connectedPortId: null, operStatus: 'DOWN' },
+          });
+        }
+
+        const linkSpeed = dto.speed || sourcePort.speed || targetPort.speed || '10 Gbps';
+        const taggedVlans = dto.taggedVlanIds
+          ? (dto.taggedVlanIds as Prisma.InputJsonValue)
+          : sourcePort.taggedVlanIds || targetPort.taggedVlanIds || Prisma.JsonNull;
+
+        const updatedSource = await tx.switchPort.update({
+          where: { id: sourcePort.id },
+          data: {
+            connectedPortId: targetPort.id,
+            connectedAssetId: null,
+            mode: dto.mode || 'TRUNK',
+            adminStatus: 'UP',
+            operStatus: 'ACTIVE',
+            speed: linkSpeed,
+            taggedVlanIds: taggedVlans,
+          },
+        });
+
+        const updatedTarget = await tx.switchPort.update({
+          where: { id: targetPort.id },
+          data: {
+            connectedPortId: sourcePort.id,
+            connectedAssetId: null,
+            mode: dto.mode || 'TRUNK',
+            adminStatus: 'UP',
+            operStatus: 'ACTIVE',
+            speed: linkSpeed,
+            taggedVlanIds: taggedVlans,
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Inter-switch trunk uplink successfully connected.',
+          link: {
+            sourcePortId: updatedSource.id,
+            targetPortId: updatedTarget.id,
+            mode: updatedSource.mode,
+            speed: linkSpeed,
+            operStatus: 'ACTIVE',
+          },
+        };
+      });
+    }
+
+    // 2. Endpoint Asset Link
+    if (dto.targetAssetId) {
+      const asset = await this.prisma.asset.findUnique({
+        where: { id: dto.targetAssetId },
+      });
+      if (!asset) {
+        throw new NotFoundException(`Target Asset with ID "${dto.targetAssetId}" not found.`);
+      }
+
+      return this.prisma.$transaction(async (tx) => {
+        if (sourcePort.connectedPortId) {
+          await tx.switchPort.update({
+            where: { id: sourcePort.connectedPortId },
+            data: { connectedPortId: null, operStatus: 'DOWN' },
+          });
+        }
+
+        const updated = await tx.switchPort.update({
+          where: { id: sourcePort.id },
+          data: {
+            connectedAssetId: asset.id,
+            connectedPortId: null,
+            ipAddressId: dto.targetIpAddressId || sourcePort.ipAddressId,
+            vlanId: dto.vlanId || sourcePort.vlanId,
+            mode: dto.mode || 'ACCESS',
+            adminStatus: 'UP',
+            operStatus: 'ACTIVE',
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Switch port endpoint successfully connected.',
+          link: {
+            sourcePortId: updated.id,
+            targetAssetId: asset.id,
+            mode: updated.mode,
+            operStatus: 'ACTIVE',
+          },
+        };
+      });
+    }
+
+    throw new BadRequestException('At least targetPortId or targetAssetId must be supplied.');
+  }
+
+  async deleteTopologyLink(portId: string) {
+    const port = await this.prisma.switchPort.findUnique({
+      where: { id: portId },
+    });
+    if (!port) {
+      throw new NotFoundException(`SwitchPort with ID "${portId}" not found.`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Disconnect peer port if inter-switch uplink
+      if (port.connectedPortId) {
+        await tx.switchPort.update({
+          where: { id: port.connectedPortId },
+          data: {
+            connectedPortId: null,
+            operStatus: 'DOWN',
+          },
+        });
+      }
+
+      // Clear connection on this port
+      await tx.switchPort.update({
+        where: { id: portId },
+        data: {
+          connectedPortId: null,
+          connectedAssetId: null,
+          ipAddressId: null,
+          operStatus: 'DOWN',
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Port connection successfully unpatched.',
+      };
+    });
   }
 }

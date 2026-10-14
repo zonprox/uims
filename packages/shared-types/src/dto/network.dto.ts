@@ -1,12 +1,17 @@
 import type {
   IPStatus,
+  InfrastructureDomain,
+  LinkMediumType,
   PortAdminStatus,
   PortFormFactor,
   PortMode,
   PortOperStatus,
+  PortRole,
   RackStatus,
   SwitchRole,
   SwitchStatus,
+  TopologyNodeType,
+  TopologyViewMode,
   VlanStatus,
 } from '../entities/network';
 
@@ -231,3 +236,89 @@ export interface NetworkStatsDto {
   totalPorts?: number;
   portUtilization?: number;
 }
+
+// ==========================================
+// TOPOLOGY DTO CONTRACTS (MILESTONE 7)
+// ==========================================
+
+export interface PatchCableLinkDto {
+  /** Source SwitchPort UUID */
+  sourcePortId: string;
+  /** Target SwitchPort UUID (for inter-switch trunk/uplink) */
+  targetPortId?: string | null;
+  /** Target Asset UUID (for endpoint connection) */
+  targetAssetId?: string | null;
+  /** Target IPAddress UUID (for IP binding) */
+  targetIpAddressId?: string | null;
+  /** Cabling medium */
+  medium?: LinkMediumType | `${LinkMediumType}`;
+  /** Port operational role */
+  portRole?: PortRole | `${PortRole}`;
+  /** Native/access VLAN UUID */
+  vlanId?: string | null;
+  /** Tagged VLAN IDs/numbers for trunk link */
+  taggedVlanIds?: number[] | null;
+  /** Link speed in Mbps (e.g. 1000, 10000) */
+  speedMbps?: number | null;
+  /** Formatted speed string (e.g. '10 Gbps') */
+  speed?: string | null;
+  /** Enable PoE power delivery */
+  poeDelivering?: boolean;
+  /** Administrative patch cable label or description */
+  description?: string | null;
+}
+
+/** Backward-compatibility alias for controller and service layers */
+export { PatchCableLinkDto as CreateTopologyLinkDto };
+
+export interface UnpatchCableLinkDto {
+  /** SwitchPort UUID to unpatch */
+  portId: string;
+  /** Optional reason for link removal */
+  reason?: string | null;
+  /** Whether to reset port configuration (mode back to ACCESS, vlanId cleared) */
+  resetPortConfig?: boolean;
+}
+
+export interface CanvasNodePositionItem {
+  /** Node ID (Switch, Rack, Asset) */
+  nodeId: string;
+  /** Node classification */
+  nodeType?: TopologyNodeType | `${TopologyNodeType}`;
+  /** Canvas X coordinate */
+  x: number;
+  /** Canvas Y coordinate */
+  y: number;
+  /** Whether the node is pinned on canvas */
+  isPinned?: boolean;
+}
+
+export interface UpdateCanvasLayoutDto {
+  /** Target view mode */
+  viewMode?: TopologyViewMode | `${TopologyViewMode}`;
+  /** Batch positions */
+  positions: CanvasNodePositionItem[];
+}
+
+/** Backward-compatibility alias for controller and service layers */
+export { UpdateCanvasLayoutDto as UpdateTopologyLayoutDto };
+
+export interface TopologyQueryDto {
+  /** Multi-perspective viewing mode: ALL | NETWORK | CCTV */
+  mode?: TopologyViewMode | `${TopologyViewMode}`;
+  /** Subsystem domain filter */
+  domain?: InfrastructureDomain | `${InfrastructureDomain}`;
+  /** Filter by Rack ID */
+  rackId?: string;
+  /** Filter by VLAN ID */
+  vlanId?: string;
+  /** Filter by Subnet ID */
+  subnetId?: string;
+  /** Filter by floor (e.g. '1F', '2F', 'Server Room') */
+  floor?: string;
+  /** Filter by operational status */
+  status?: string;
+  /** Include aggregated summary metrics */
+  includeMetrics?: boolean;
+}
+

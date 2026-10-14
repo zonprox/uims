@@ -37,7 +37,12 @@ export class AssetQueryDto {
   @IsOptional()
   type?: 'model' | 'unit' | 'all';
 
-  @ApiPropertyOptional({ description: 'Filter by parent asset model UUID' })
+  @ApiPropertyOptional({ description: 'Filter by parent DeviceModel ID' })
+  @IsString()
+  @IsOptional()
+  deviceModelId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by legacy parent asset model UUID' })
   @IsUUID('4')
   @IsOptional()
   parentId?: string;
@@ -58,8 +63,8 @@ export class AssetQueryDto {
   @IsOptional()
   categoryId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by Department UUID' })
-  @IsUUID('4')
+  @ApiPropertyOptional({ description: 'Filter by Department ID' })
+  @IsString()
   @IsOptional()
   departmentId?: string;
 
@@ -84,6 +89,10 @@ export class AssetQueryDto {
   @MaxLength(50)
   @IsOptional()
   status?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by pending handover record status' })
+  @IsOptional()
+  hasPendingRecord?: boolean | string;
 
   @ApiPropertyOptional({ description: 'Sort field' })
   @IsString()

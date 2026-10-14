@@ -175,6 +175,9 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
         'pos-bsh-hr-mgr|Talent Acquisition & HR Manager|POS-BSH-HR-MGR|DEPT-BSH-HR|Manager',
         'pos-bsl-f1-cut-int|Apparel Cutting Apprentice|POS-BSL-F1-CUT-INT|DEPT-BSL-F1-CUT|Junior',
         'pos-bsh-it-jr|Junior IT Helpdesk Technician|POS-BSH-IT-JR|DEPT-BSH-IT|Junior',
+        'pos-bsl-f1-cut-lead|Cutting Section Team Leader|POS-BSL-F1-CUT-LEAD|DEPT-BSL-F1-CUT|Lead',
+        'pos-bsl-f1-sew-sup|Sewing Assembly Line Leader|POS-BSL-F1-SEW-SUP|DEPT-BSL-F1-SEW|Lead',
+        'pos-bsl-f1-qa-lead|Inline QA/QC Inspector|POS-BSL-F1-QA-LEAD|DEPT-BSL-F1-QA|Senior',
       ];
 
       const seededPositions: Record<string, import('@prisma/client').Position> = {};

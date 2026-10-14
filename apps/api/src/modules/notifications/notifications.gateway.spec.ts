@@ -144,6 +144,48 @@ describe('NotificationsGateway', () => {
       expect(mockJwtService.verify).not.toHaveBeenCalled();
     });
 
+    it('should reject and disconnect client when empty query.token string is present', async () => {
+      const mockClient = {
+        id: 'client-empty-query-token',
+        data: {},
+        handshake: {
+          auth: { token: 'valid-auth-token' },
+          headers: {},
+          query: { token: '' },
+        },
+        join: vi.fn(),
+        emit: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      await gateway.handleConnection(mockClient);
+
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(mockClient.join).not.toHaveBeenCalled();
+      expect(mockJwtService.verify).not.toHaveBeenCalled();
+    });
+
+    it('should reject and disconnect client when access_token is present in query parameters', async () => {
+      const mockClient = {
+        id: 'client-query-access-token',
+        data: {},
+        handshake: {
+          auth: { token: 'valid-auth-token' },
+          headers: {},
+          query: { access_token: 'secret-token' },
+        },
+        join: vi.fn(),
+        emit: vi.fn(),
+        disconnect: vi.fn(),
+      } as unknown as import('socket.io').Socket;
+
+      await gateway.handleConnection(mockClient);
+
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(mockClient.join).not.toHaveBeenCalled();
+      expect(mockJwtService.verify).not.toHaveBeenCalled();
+    });
+
     it('should disconnect client when role is missing in token payload', async () => {
       const mockClient = {
         id: 'client-no-role',
@@ -478,6 +520,29 @@ describe('NotificationsGateway', () => {
     it('should emit notifications cleared to all clients when no userId provided', () => {
       gateway.emitNotificationsCleared();
       expect(mockServer.emit).toHaveBeenCalledWith('notification:cleared', { success: true });
+    });
+
+    it('should broadcast custody lifecycle events to all clients', () => {
+      const payload = {
+        assetId: 'ast-101',
+        recipientId: 'usr-202',
+        isPending: true,
+      };
+
+      gateway.emitCustodyEvent('asset_allocated', payload);
+      expect(mockServer.emit).toHaveBeenCalledWith('asset_allocated', payload);
+
+      gateway.emitCustodyEvent('handover_document_pending', payload);
+      expect(mockServer.emit).toHaveBeenCalledWith('handover_document_pending', payload);
+
+      gateway.emitCustodyEvent('handover_document_resolved', {
+        recordId: 'rec-1',
+        assetId: 'ast-101',
+      });
+      expect(mockServer.emit).toHaveBeenCalledWith('handover_document_resolved', {
+        recordId: 'rec-1',
+        assetId: 'ast-101',
+      });
     });
   });
 

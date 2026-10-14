@@ -42,6 +42,7 @@ describe('NetworkService', () => {
       update: ReturnType<typeof vi.fn>;
       delete: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
     };
     networkSwitch: {
       findMany: ReturnType<typeof vi.fn>;
@@ -67,6 +68,14 @@ describe('NetworkService', () => {
     auditLog: {
       create: ReturnType<typeof vi.fn>;
     };
+    topologyNodePosition: {
+      findMany: ReturnType<typeof vi.fn>;
+      upsert: ReturnType<typeof vi.fn>;
+    };
+    asset: {
+      findUnique: ReturnType<typeof vi.fn>;
+    };
+    $transaction: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -107,6 +116,7 @@ describe('NetworkService', () => {
         update: vi.fn(),
         delete: vi.fn(),
         count: vi.fn(),
+        updateMany: vi.fn(),
       },
       networkSwitch: {
         findMany: vi.fn(),
@@ -132,6 +142,19 @@ describe('NetworkService', () => {
       auditLog: {
         create: vi.fn(),
       },
+      topologyNodePosition: {
+        findMany: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn(),
+      },
+      asset: {
+        findUnique: vi.fn(),
+      },
+      $transaction: vi.fn((cbOrPromises) => {
+        if (typeof cbOrPromises === 'function') {
+          return cbOrPromises(mockPrisma);
+        }
+        return Promise.all(cbOrPromises);
+      }),
     };
 
     service = new NetworkService(
@@ -1359,6 +1382,194 @@ describe('NetworkService', () => {
           entity: 'IPAddress',
           entityType: 'Network',
           entityId: 'ip-aud-1',
+        }),
+      );
+    });
+  });
+
+  // ==========================================
+  // TOPOLOGY GRAPH ENGINE TESTS
+  // ==========================================
+
+  describe('Topology Graph Engine', () => {
+    it('getTopology returns complete normalized graph with summary metrics', async () => {
+      const mockRack = {
+        id: 'rack-1',
+        name: 'Core Datacenter Rack 01',
+        code: 'RACK-DC01',
+        status: 'ACTIVE',
+        positionX: 200,
+        positionY: 150,
+      };
+
+      const mockPeerPort = {
+        id: 'port-peer-1',
+        name: 'Te1/0/25',
+        switch: { id: 'sw-2', name: 'BSL-DIST-SW01' },
+      };
+
+      const mockSwitch = {
+        id: 'sw-1',
+        name: 'BSL-CORE-SW01',
+        model: 'C9300-48P',
+        vendor: 'Cisco Systems',
+        role: 'CORE',
+        domain: 'NETWORK',
+        status: 'ONLINE',
+        totalPorts: 48,
+        positionX: 200,
+        positionY: 250,
+        rackId: 'rack-1',
+        rack: mockRack,
+        ipAddress: { address: '10.232.129.10' },
+        ports: [
+          {
+            id: 'port-1',
+            portNumber: 1,
+            name: 'Gi1/0/1',
+            operStatus: 'ACTIVE',
+            poeEnabled: false,
+            speed: '1 Gbps',
+            vlanId: 'vlan-1',
+            vlan: { vlanNumber: 100 },
+            connectedAsset: {
+              id: 'ast-srv-1',
+              assetTag: 'AST-1009',
+              deviceModel: {
+                name: 'Dell PowerEdge R750 Enterprise Server',
+                manufacturer: 'Dell',
+                category: { id: 'cat-server' },
+              },
+              assignedTo: { displayName: 'Minh Nguyen' },
+              department: { name: 'IT Infrastructure' },
+            },
+          },
+          {
+            id: 'port-49',
+            portNumber: 49,
+            name: 'Te1/0/49',
+            operStatus: 'ACTIVE',
+            poeEnabled: false,
+            speed: '10 Gbps',
+            formFactor: 'SFP_PLUS_10G',
+            connectedPortId: 'port-peer-1',
+            connectedPort: mockPeerPort,
+          },
+        ],
+      };
+
+      mockPrisma.networkRack.findMany.mockResolvedValue([mockRack]);
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([mockSwitch]);
+      mockPrisma.vLAN.findMany.mockResolvedValue([
+        { id: 'vlan-1', vlanNumber: 100, name: 'Servers', domain: 'NETWORK', subnets: [], switchPorts: [] },
+      ]);
+      mockPrisma.subnet.findMany.mockResolvedValue([
+        { id: 'sub-1', cidr: '10.232.100.0/24', name: 'BSL Servers', domain: 'NETWORK', totalIps: 254, usedIps: 24 },
+      ]);
+      mockPrisma.topologyNodePosition.findMany.mockResolvedValue([]);
+
+      const result = await service.getTopology({ mode: 'ALL' });
+
+      expect(result).toHaveProperty('nodes');
+      expect(result).toHaveProperty('edges');
+      expect(result).toHaveProperty('racks');
+      expect(result).toHaveProperty('vlans');
+      expect(result).toHaveProperty('subnets');
+      expect(result).toHaveProperty('summaryMetrics');
+
+      // Verify node generation
+      expect(result.nodes.length).toBe(2); // 1 switch + 1 connected server
+      expect(result.nodes[0].type).toBe('SWITCH');
+      expect(result.nodes[0].id).toBe('sw-1');
+      expect(result.nodes[1].type).toBe('SERVER');
+      expect(result.nodes[1].id).toBe('ast-srv-1');
+
+      // Verify edge generation (1 trunk uplink edge + 1 endpoint edge)
+      expect(result.edges.length).toBe(2);
+      expect(result.summaryMetrics.activeLinks).toBe(2);
+      expect(result.summaryMetrics.totalSwitches).toBe(1);
+      expect(result.summaryMetrics.totalServers).toBe(1);
+    });
+
+    it('updateTopologyLayout persists canvas coordinates and syncs master entities for ALL view', async () => {
+      mockPrisma.topologyNodePosition.upsert.mockResolvedValue({});
+      mockPrisma.networkSwitch.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.networkRack.updateMany.mockResolvedValue({ count: 1 });
+
+      const dto = {
+        viewMode: 'ALL' as const,
+        positions: [
+          { nodeId: 'sw-1', nodeType: 'SWITCH' as const, x: 350, y: 220 },
+          { nodeId: 'rack-1', nodeType: 'RACK' as const, x: 210, y: 160 },
+        ],
+      };
+
+      const result = await service.updateTopologyLayout(dto);
+      expect(result.success).toBe(true);
+      expect(result.updatedCount).toBe(2);
+      expect(mockPrisma.networkSwitch.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'sw-1' }, data: { positionX: 350, positionY: 220 } }),
+      );
+      expect(mockPrisma.networkRack.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'rack-1' }, data: { positionX: 210, positionY: 160 } }),
+      );
+    });
+
+    it('createTopologyLink connects two switch ports atomically', async () => {
+      const sourcePort = { id: 'port-src', switchId: 'sw-1', portNumber: 49, speed: '10 Gbps' };
+      const targetPort = { id: 'port-dst', switchId: 'sw-2', portNumber: 25, speed: '10 Gbps' };
+
+      mockPrisma.switchPort.findUnique
+        .mockResolvedValueOnce(sourcePort)
+        .mockResolvedValueOnce(targetPort);
+
+      mockPrisma.switchPort.update
+        .mockResolvedValueOnce({ ...sourcePort, connectedPortId: 'port-dst', mode: 'TRUNK' })
+        .mockResolvedValueOnce({ ...targetPort, connectedPortId: 'port-src', mode: 'TRUNK' });
+
+      const result = await service.createTopologyLink({
+        sourcePortId: 'port-src',
+        targetPortId: 'port-dst',
+        speed: '10 Gbps',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.link.sourcePortId).toBe('port-src');
+      expect(result.link.targetPortId).toBe('port-dst');
+      expect(result.link.operStatus).toBe('ACTIVE');
+    });
+
+    it('createTopologyLink rejects self-loops', async () => {
+      mockPrisma.switchPort.findUnique.mockResolvedValue({ id: 'port-src' });
+
+      await expect(
+        service.createTopologyLink({
+          sourcePortId: 'port-src',
+          targetPortId: 'port-src',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('deleteTopologyLink unpatches port and resets operStatus', async () => {
+      const port = {
+        id: 'port-src',
+        connectedPortId: 'port-dst',
+      };
+      mockPrisma.switchPort.findUnique.mockResolvedValue(port);
+      mockPrisma.switchPort.update.mockResolvedValue({});
+
+      const result = await service.deleteTopologyLink('port-src');
+      expect(result.success).toBe(true);
+      expect(mockPrisma.switchPort.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'port-dst' },
+          data: { connectedPortId: null, operStatus: 'DOWN' },
+        }),
+      );
+      expect(mockPrisma.switchPort.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'port-src' },
+          data: { connectedPortId: null, connectedAssetId: null, ipAddressId: null, operStatus: 'DOWN' },
         }),
       );
     });

@@ -41,6 +41,10 @@ describe('DashboardService', () => {
       user: {
         count: vi.fn(),
       },
+      assetHandoverRecord: {
+        count: vi.fn().mockResolvedValue(0),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
     };
     mockPrisma.directoryUser = mockPrisma.user;
     mockPrisma.appUser = mockPrisma.user;
@@ -628,5 +632,209 @@ describe('DashboardService', () => {
     expect(overview.recentActivity).toHaveLength(2);
     expect(overview.recentActivity[0].key).toBe('log-dup-1');
     expect(overview.recentActivity[1].key).toBe('log-unique');
+  });
+
+  describe('getPendingHandoversSummary', () => {
+    it('should return bounded compliance metrics and top 10 records with deterministic ordering', async () => {
+      const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+
+      // totalPending: 5, overdue: 2, assignments: 3, returns: 2
+      mockPrisma.assetHandoverRecord.count
+        .mockResolvedValueOnce(5) // totalPending
+        .mockResolvedValueOnce(2) // overdueCount (>3 days)
+        .mockResolvedValueOnce(3) // pendingAssignments
+        .mockResolvedValueOnce(2); // pendingReturns
+
+      mockPrisma.assetHandoverRecord.findMany.mockResolvedValueOnce([
+        {
+          id: 'rec-001',
+          assetId: 'ast-101',
+          type: 'ASSIGNMENT',
+          signedDocUrl: null,
+          createdAt: fourDaysAgo,
+          asset: {
+            id: 'ast-101',
+            assetTag: 'TAG-101',
+            subcode: 'SUB-101',
+            serialNumber: 'SN-101',
+            deviceModel: { name: 'ThinkPad X1', modelCode: 'TP-X1' },
+          },
+          recipient: {
+            id: 'usr-1',
+            firstName: 'Alice',
+            lastName: 'Wonder',
+            displayName: 'Alice Wonder',
+            email: 'alice@company.com',
+            department: { name: 'Engineering' },
+          },
+        },
+        {
+          id: 'rec-002',
+          assetId: 'ast-102',
+          type: 'RETURN',
+          signedDocUrl: 'https://storage/doc-2.pdf',
+          createdAt: oneDayAgo,
+          asset: {
+            id: 'ast-102',
+            assetTag: 'TAG-102',
+            subcode: 'SUB-102',
+            serialNumber: 'SN-102',
+            deviceModel: { name: 'Dell Monitor', modelCode: 'U2723QE' },
+          },
+          recipient: {
+            id: 'usr-2',
+            firstName: 'Bob',
+            lastName: 'Builder',
+            displayName: null,
+            email: 'bob@company.com',
+            department: null,
+          },
+        },
+      ]);
+
+      const summary = await service.getPendingHandoversSummary();
+
+      expect(summary.totalPending).toBe(5);
+      expect(summary.overdueCount).toBe(2);
+      expect(summary.pendingAssignments).toBe(3);
+      expect(summary.pendingReturns).toBe(2);
+      expect(summary.breakdownByType).toEqual({ assignment: 3, return: 2 });
+      expect(summary.records).toHaveLength(2);
+
+      // Verify query bounds and deterministic tie-breaker sorting
+      expect(mockPrisma.assetHandoverRecord.findMany).toHaveBeenCalledWith({
+        where: { isPending: true },
+        take: 10,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        include: expect.objectContaining({
+          asset: expect.any(Object),
+          recipient: expect.any(Object),
+        }),
+      });
+
+      // Verify Record 1 (Overdue)
+      const r1 = summary.records[0];
+      expect(r1.id).toBe('rec-001');
+      expect(r1.recordId).toBe('rec-001');
+      expect(r1.assetId).toBe('ast-101');
+      expect(r1.assetTag).toBe('TAG-101');
+      expect(r1.modelName).toBe('ThinkPad X1');
+      expect(r1.serialNumber).toBe('SN-101');
+      expect(r1.type).toBe('ASSIGNMENT');
+      expect(r1.handoverType).toBe('ASSIGNMENT');
+      expect(r1.recipientName).toBe('Alice Wonder');
+      expect(r1.recipientEmail).toBe('alice@company.com');
+      expect(r1.department).toBe('Engineering');
+      expect(r1.daysPending).toBeGreaterThanOrEqual(4);
+      expect(r1.isOverdue).toBe(true);
+      expect(r1.docUrl).toBeUndefined();
+
+      // Verify Record 2 (Not overdue)
+      const r2 = summary.records[1];
+      expect(r2.id).toBe('rec-002');
+      expect(r2.assetTag).toBe('TAG-102');
+      expect(r2.recipientName).toBe('Bob Builder');
+      expect(r2.department).toBe('Unassigned');
+      expect(r2.isOverdue).toBe(false);
+      expect(r2.docUrl).toBe('https://storage/doc-2.pdf');
+    });
+
+    it('should handle missing relations and fallback to subcode/id and email gracefully', async () => {
+      mockPrisma.assetHandoverRecord.count
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(0);
+
+      mockPrisma.assetHandoverRecord.findMany.mockResolvedValueOnce([
+        {
+          id: 'rec-orphan',
+          assetId: 'ast-orphan',
+          type: 'ASSIGNMENT',
+          signedDocUrl: null,
+          createdAt: new Date(),
+          asset: null,
+          recipient: {
+            id: 'usr-email-only',
+            firstName: null,
+            lastName: null,
+            displayName: null,
+            email: 'admin.fallback@company.com',
+            department: null,
+          },
+        },
+      ]);
+
+      const summary = await service.getPendingHandoversSummary();
+
+      expect(summary.totalPending).toBe(1);
+      expect(summary.records[0].assetTag).toBe('ast-orphan');
+      expect(summary.records[0].modelName).toBe('Hardware Unit');
+      expect(summary.records[0].recipientName).toBe('admin.fallback@company.com');
+      expect(summary.records[0].department).toBe('Unassigned');
+    });
+
+    it('should return empty summary when assetHandoverRecord delegate is not defined on Prisma', async () => {
+      (mockPrisma as Record<string, unknown>).assetHandoverRecord = undefined;
+
+      const summary = await service.getPendingHandoversSummary();
+
+      expect(summary).toEqual({
+        totalPending: 0,
+        overdueCount: 0,
+        pendingAssignments: 0,
+        pendingReturns: 0,
+        pendingTransfers: 0,
+        breakdownByType: { assignment: 0, return: 0 },
+        records: [],
+      });
+    });
+
+    it('should integrate pending handovers into getDashboardData and getOverview action items', async () => {
+      mockPrisma.asset.count.mockResolvedValue(10);
+      mockPrisma.license.aggregate.mockResolvedValue({ _sum: { totalSeats: 50, usedSeats: 20 } });
+      mockPrisma.license.count.mockResolvedValue(5);
+      mockPrisma.inventoryItem.aggregate.mockResolvedValue({ _sum: { quantity: 100 } });
+      mockPrisma.inventoryItem.count.mockResolvedValue(20);
+      mockPrisma.subnet.aggregate.mockResolvedValue({ _sum: { totalIps: 256 } });
+      mockPrisma.iPAddress.count.mockResolvedValue(50);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(30);
+
+      // Pending handovers summary: 3 pending, 1 overdue
+      mockPrisma.assetHandoverRecord.count
+        .mockResolvedValueOnce(3) // totalPending
+        .mockResolvedValueOnce(1) // overdueCount
+        .mockResolvedValueOnce(2) // pendingAssignments
+        .mockResolvedValueOnce(1); // pendingReturns
+
+      mockPrisma.assetHandoverRecord.findMany.mockResolvedValueOnce([
+        {
+          id: 'rec-dash-1',
+          assetId: 'ast-1',
+          type: 'ASSIGNMENT',
+          signedDocUrl: null,
+          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          asset: { id: 'ast-1', assetTag: 'TAG-1', deviceModel: { name: 'ThinkPad' } },
+          recipient: { id: 'usr-1', email: 'user@company.com' },
+        },
+      ]);
+
+      const data = await service.getDashboardData('compliance-integration-test', true);
+
+      expect(data.pendingHandovers).toHaveLength(1);
+      expect(data.pendingHandoversSummary?.totalPending).toBe(3);
+      expect(data.pendingHandoversSummary?.overdueCount).toBe(1);
+
+      // Action items must contain the compliance alert with tag 'Critical'
+      const complianceItem = data.actionItems.find(
+        (item) => item.id === 'compliance-pending-handovers',
+      );
+      expect(complianceItem).toBeDefined();
+      expect(complianceItem?.title).toBe('Overdue Handover Documents');
+      expect(complianceItem?.tag).toBe('Critical');
+      expect(complianceItem?.type).toBe('error');
+    });
   });
 });

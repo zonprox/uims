@@ -17,7 +17,7 @@ describe('SettingsService', () => {
     asset: { count: ReturnType<typeof vi.fn> };
     user: { count: ReturnType<typeof vi.fn> };
     license: { count: ReturnType<typeof vi.fn> };
-    inventoryItem: { count: ReturnType<typeof vi.fn> };
+    deviceModel: { count: ReturnType<typeof vi.fn> };
     subnet: { count: ReturnType<typeof vi.fn> };
     $queryRaw: ReturnType<typeof vi.fn>;
   };
@@ -37,7 +37,7 @@ describe('SettingsService', () => {
       asset: { count: vi.fn().mockResolvedValue(25) },
       user: { count: vi.fn().mockResolvedValue(12) },
       license: { count: vi.fn().mockResolvedValue(8) },
-      inventoryItem: { count: vi.fn().mockResolvedValue(30) },
+      deviceModel: { count: vi.fn().mockResolvedValue(30) },
       subnet: { count: vi.fn().mockResolvedValue(4) },
       $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
     };

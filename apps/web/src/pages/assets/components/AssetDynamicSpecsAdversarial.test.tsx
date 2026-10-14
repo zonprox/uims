@@ -4,9 +4,24 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset, AssetCategory } from '../../../services/assets.service';
 import { buildAssetPayload } from '../hooks/useAssetManagement';
-import { AssetFormModal } from './AssetFormModal';
+import { PhysicalUnitModal } from './PhysicalUnitModal';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+vi.mock('../../../services/api', () => ({
+  api: {
+    get: vi.fn().mockImplementation((url: string) => {
+      if (url === '/assets/models') {
+        return Promise.resolve({
+          data: {
+            data: [{ id: 'mod-1', name: 'Dell Latitude 5420', assetCode: 'MOD-DELL-5420' }],
+          },
+        });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    }),
+  },
+}));
 
 vi.mock('../../../services/assets.service', () => ({
   assetsService: {
@@ -16,6 +31,10 @@ vi.mock('../../../services/assets.service', () => ({
       { id: 'cat-monitor', name: 'Monitors & Displays', code: 'MON' },
       { id: 'cat-server', name: 'Servers (Rackmount / Host)', code: 'SRV' },
     ]),
+    getCostCenters: vi.fn().mockResolvedValue([]),
+    getDeviceModels: vi
+      .fn()
+      .mockResolvedValue([{ id: 'mod-1', name: 'Dell Latitude 5420', assetCode: 'MOD-DELL-5420' }]),
   },
 }));
 
@@ -121,9 +140,9 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
   });
 
   // =========================================================================
-  // Section 2: AssetFormModal Category Switching & Field Isolation
+  // Section 2: PhysicalUnitModal Category Switching & Field Isolation
   // =========================================================================
-  describe('AssetFormModal Category Switching & Field Isolation', () => {
+  describe('PhysicalUnitModal Category Switching & Field Isolation', () => {
     interface TestModalHostProps {
       initialValues?: Record<string, unknown>;
       editingAsset?: Asset | null;
@@ -141,9 +160,10 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
       return createElement(
         App,
         null,
-        createElement(AssetFormModal, {
+        createElement(PhysicalUnitModal, {
           open: true,
           editingAsset,
+          initialParentId: 'mod-1',
           form,
           submitting: false,
           onSave: vi.fn(),
@@ -175,13 +195,9 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
 
       await act(async () => {
         formInstance.setFieldsValue({
+          subcode: 'AST-TEST-001',
           tag: 'AST-TEST-001',
-          name: 'Dell Precision 5570',
-          manufacturer: 'Dell',
-          model: 'P5570',
           serialNumber: 'SN-DELL-12345',
-          categoryId: 'cat-laptop',
-          status: 'Active',
           notes: 'Standard engineering workstation',
         });
       });
@@ -191,7 +207,9 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
       expect(modalText).toContain('Notes');
 
       // Verify DOM inputs for standard fields
-      const tagInput = document.querySelector('input#tag') as HTMLInputElement | null;
+      const tagInput = document.querySelector(
+        'input#subcode, input#tag',
+      ) as HTMLInputElement | null;
       const serialInput = document.querySelector('input#serialNumber') as HTMLInputElement | null;
       const notesInput = document.querySelector('textarea#notes') as HTMLTextAreaElement | null;
 
@@ -223,12 +241,9 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
       // Populate standard fields
       await act(async () => {
         formInstance.setFieldsValue({
+          subcode: 'AST-SEQ-001',
           tag: 'AST-SEQ-001',
-          name: 'Multi-Device Test',
-          manufacturer: 'Universal Enterprise',
-          model: 'UE-2026',
           serialNumber: 'SN-SEQ-9999',
-          categoryId: 'cat-laptop',
           status: 'Active',
           notes: 'Test note across category switches',
         });
@@ -259,18 +274,17 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
       expect(text).not.toContain('Technical Specifications');
 
       // Verify standard asset fields survived all transitions completely intact
-      expect(formInstance.getFieldValue('tag')).toBe('AST-SEQ-001');
-      expect(formInstance.getFieldValue('name')).toBe('Multi-Device Test');
-      expect(formInstance.getFieldValue('manufacturer')).toBe('Universal Enterprise');
-      expect(formInstance.getFieldValue('model')).toBe('UE-2026');
+      expect(formInstance.getFieldValue('subcode')).toBe('AST-SEQ-001');
       expect(formInstance.getFieldValue('serialNumber')).toBe('SN-SEQ-9999');
       expect(formInstance.getFieldValue('status')).toBe('Active');
       expect(formInstance.getFieldValue('notes')).toBe('Test note across category switches');
 
       // Verify inputs in DOM
-      expect((document.querySelector('input#tag') as HTMLInputElement)?.value).toBe('AST-SEQ-001');
-      expect((document.querySelector('input#name') as HTMLInputElement)?.value).toBe(
-        'Multi-Device Test',
+      expect((document.querySelector('input#subcode, input#tag') as HTMLInputElement)?.value).toBe(
+        'AST-SEQ-001',
+      );
+      expect((document.querySelector('input#serialNumber') as HTMLInputElement)?.value).toBe(
+        'SN-SEQ-9999',
       );
       expect((document.querySelector('textarea#notes') as HTMLTextAreaElement)?.value).toBe(
         'Test note across category switches',
@@ -281,7 +295,7 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
   // =========================================================================
   // Section 3: Edit Mode Hydration Stress Scenarios
   // =========================================================================
-  describe('AssetFormModal Edit Mode Hydration', () => {
+  describe('PhysicalUnitModal Edit Mode Hydration', () => {
     it('verifies form values and DOM inputs are hydrated accurately from editingAsset', async () => {
       let formInstance!: FormInstance;
 
@@ -306,9 +320,10 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
         return createElement(
           App,
           null,
-          createElement(AssetFormModal, {
+          createElement(PhysicalUnitModal, {
             open: true,
             editingAsset,
+            initialParentId: 'mod-1',
             form,
             submitting: false,
             onSave: vi.fn(),
@@ -334,7 +349,7 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
 
       // 2. Verify modal title indicates edit mode
       const modalHeader = document.body.querySelector('.ant-modal-title');
-      expect(modalHeader?.textContent).toContain('Edit Asset: SW-DIST-01');
+      expect(modalHeader?.textContent).toContain('SW-DIST-01');
 
       // 3. Verify no technical specifications section is rendered
       expect(document.body.textContent).not.toContain('Technical Specifications');
@@ -362,9 +377,10 @@ describe('Adversarial Stress Test: Asset Form, Payload & Hydration without Specs
         return createElement(
           App,
           null,
-          createElement(AssetFormModal, {
+          createElement(PhysicalUnitModal, {
             open: true,
             editingAsset: emptyNotesAsset,
+            initialParentId: 'mod-1',
             form,
             submitting: false,
             onSave: vi.fn(),

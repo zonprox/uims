@@ -49,6 +49,10 @@ export const router = createBrowserRouter([
             ErrorBoundary: RouteErrorBoundary,
           },
           {
+            path: 'dashboard',
+            element: <Navigate to="/" replace />,
+          },
+          {
             path: 'assets',
             element: (
               <Suspense fallback={<PageLoader tip="Loading Hardware Assets..." />}>

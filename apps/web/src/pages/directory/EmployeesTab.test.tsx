@@ -205,6 +205,7 @@ vi.mock('../../services/directory.service', () => ({
     updateEmployee: (...args: unknown[]) => mockUpdateEmployee(...args),
     deleteEmployee: (...args: unknown[]) => mockDeleteEmployee(...args),
     importEmployees: (...args: unknown[]) => mockImportEmployees(...args),
+    getEmployees: vi.fn().mockResolvedValue({ items: mockEmployees, total: mockEmployees.length }),
     getUserAssets: (...args: unknown[]) => mockGetUserAssets(...args),
     getUserLicenses: (...args: unknown[]) => mockGetUserLicenses(...args),
     getAvailableAssets: (...args: unknown[]) => mockGetAvailableAssets(...args),
@@ -213,6 +214,27 @@ vi.mock('../../services/directory.service', () => ({
     unassignAsset: (...args: unknown[]) => mockUnassignAsset(...args),
     assignLicense: (...args: unknown[]) => mockAssignLicense(...args),
     unassignLicense: (...args: unknown[]) => mockUnassignLicense(...args),
+  },
+}));
+
+vi.mock('../../services/assets.service', () => ({
+  assetsService: {
+    batchAssignAssets: vi.fn().mockResolvedValue({ success: true, count: 1 }),
+    returnAsset: vi.fn().mockResolvedValue({ success: true }),
+    transferAsset: vi.fn().mockResolvedValue({ success: true }),
+    generateHandoverDocument: vi.fn().mockResolvedValue({
+      html: '<html>Handover Record</html>',
+      title: 'HARDWARE ASSET HANDOVER RECORD',
+      filename: 'asset_handover_test.html',
+    }),
+    downloadHandoverDocx: vi.fn().mockResolvedValue({
+      blob: new Blob(['docx']),
+      filename: 'asset_handover_test.docx',
+    }),
+    uploadHandoverDocument: vi.fn().mockResolvedValue({
+      fileUrl: '/api/v1/assets/handover-documents/file/signed-test.pdf',
+      fileName: 'signed-test.pdf',
+    }),
   },
 }));
 
@@ -1298,6 +1320,116 @@ Invalid User,bad@uims.internal,1002,Staff,Production`;
       expect(modal?.textContent).toContain('Skipped: 1');
       expect(modal?.textContent).toContain('Errors: 1');
       expect(modal?.textContent).toContain('Row 2: Invalid plant assignment');
+    });
+  });
+
+  describe('4. Custody Actions & Handover Compliance (Milestone 5 F19)', () => {
+    it('renders Transfer and Return buttons and opens TransferAssetDrawer on Transfer click', async () => {
+      await renderComponent();
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const devicesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Devices'),
+      );
+      await act(async () => {
+        (devicesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const transferBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.trim() === 'Transfer',
+      ) as HTMLButtonElement | undefined;
+      expect(transferBtn).toBeDefined();
+
+      const returnBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.trim() === 'Return',
+      ) as HTMLButtonElement | undefined;
+      expect(returnBtn).toBeDefined();
+
+      await act(async () => {
+        transferBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const transferDrawer = Array.from(document.querySelectorAll('.ant-drawer')).find(
+        (d) =>
+          d.textContent?.includes('Transfer Custody') || d.textContent?.includes('Transfer Asset'),
+      );
+      expect(transferDrawer).toBeDefined();
+    });
+
+    it('renders ReturnAssetModal on Return button click', async () => {
+      await renderComponent();
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const devicesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Devices'),
+      );
+      await act(async () => {
+        (devicesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const returnBtn = Array.from(document.querySelectorAll('.ant-drawer button')).find(
+        (b) => b.textContent?.trim() === 'Return',
+      ) as HTMLButtonElement | undefined;
+      expect(returnBtn).toBeDefined();
+
+      await act(async () => {
+        returnBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const returnDrawer = Array.from(document.querySelectorAll('.ant-drawer')).find(
+        (d) =>
+          d.textContent?.includes('Return Hardware Asset') ||
+          d.textContent?.includes('Return Asset') ||
+          d.textContent?.includes('Return Equipment'),
+      );
+      expect(returnDrawer).toBeDefined();
+    });
+
+    it('displays Pending Record warning tag when asset hasPendingRecord is true', async () => {
+      mockGetUserAssets.mockResolvedValueOnce([
+        {
+          id: 'asset-pending',
+          assetTag: 'AST-PENDING-001',
+          name: 'ThinkPad With Pending Form',
+          model: 'T14 Gen 4',
+          serialNumber: 'SN-PENDING-12345',
+          status: 'IN_USE',
+          hasPendingRecord: true,
+        },
+      ]);
+
+      await renderComponent();
+
+      const editBtn = container.querySelector('button .anticon-edit')?.closest('button');
+      await act(async () => {
+        editBtn?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const devicesTab = Array.from(document.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+        tab.textContent?.includes('Devices'),
+      );
+      await act(async () => {
+        (devicesTab as HTMLElement)?.click();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+
+      const drawer = document.querySelector('.ant-drawer');
+      expect(drawer?.textContent).toContain('Pending Record');
     });
   });
 });

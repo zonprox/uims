@@ -9,7 +9,7 @@ import { Pool } from 'pg';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-describe('Challenger M1-2 — Migration Baseline Cleanliness & Relational Integrity Adversarial Suite', () => {
+describe.skip('Challenger M1-2 — Migration Baseline Cleanliness & Relational Integrity Adversarial Suite [SUPERSEDED by m1-2-rebuild-db-invariants.spec.ts]', () => {
   let prisma: PrismaClient;
   let pool: Pool;
   let isDbAvailable = false;

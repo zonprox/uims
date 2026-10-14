@@ -1,8 +1,13 @@
 import type {
+  AllocateAssetDto,
   AssetQueryDto,
   BatchAssignAssetDto,
   BatchAssignAssetResultDto,
   BatchDeleteResultDto,
+  RegisterPhysicalUnitDto,
+  ReturnAssetDto,
+  TransferAssetDto,
+  UpdatePhysicalUnitDto,
 } from '@uims/shared-types';
 import dayjs from 'dayjs';
 import { api } from './api';
@@ -32,6 +37,15 @@ export interface Asset {
   assetCode?: string | null;
   subcode?: string | null;
   parentId?: string | null;
+  deviceModelId?: string | null;
+  deviceModel?: {
+    id: string;
+    name: string;
+    modelCode: string;
+    manufacturer: string;
+    unitCost?: number;
+    binLocation?: string | null;
+  } | null;
   parent?: (Asset & { manufacturer?: string; model?: string; assetCode?: string }) | null;
   children?: Asset[];
   costCenterId?: string | null;
@@ -52,7 +66,16 @@ export interface Asset {
     available: number;
     inUse: number;
   };
-  status: 'Active' | 'In Repair' | 'In Storage' | 'Retired' | string;
+  status:
+    | 'AVAILABLE'
+    | 'IN_USE'
+    | 'MAINTENANCE'
+    | 'RETIRED'
+    | 'LOST'
+    | 'Active'
+    | 'In Repair'
+    | 'In Storage'
+    | string;
   hasPendingRecord?: boolean;
   signedDocUrl?: string | null;
   latestHandoverRecord?: {
@@ -104,9 +127,14 @@ export const assetsService = {
     category?: string;
     categoryId?: string;
     status?: string;
+    modelId?: string;
     assignedToId?: string;
+    departmentId?: string;
+    hasPendingRecord?: boolean | string;
     organizationId?: string;
     organization?: string;
+    page?: number;
+    pageSize?: number;
   }): Promise<Array<Asset>> => {
     const res = await api.get('/assets', { params });
     return res.data.data;
@@ -118,38 +146,26 @@ export const assetsService = {
   },
 
   getCategories: async (): Promise<Array<AssetCategory>> => {
-    try {
-      const res = await api.get('/assets/categories');
-      return res.data.data;
-    } catch (_error: unknown) {
-      return [
-        { id: 'cat-laptop', name: 'Laptops / Notebooks' },
-        { id: 'cat-desktop', name: 'Desktops & Workstations' },
-        { id: 'cat-server', name: 'Servers (Rackmount / Host)' },
-        { id: 'cat-switch', name: 'Network Switches' },
-        { id: 'cat-router', name: 'Routers & Firewalls' },
-        { id: 'cat-ap', name: 'Wireless Access Points (AP)' },
-        { id: 'cat-monitor', name: 'Monitors & Displays' },
-        { id: 'cat-printer', name: 'Printers & Scanners' },
-        { id: 'cat-storage', name: 'Storage (NAS / SAN)' },
-        { id: 'cat-ups', name: 'Power & UPS' },
-        { id: 'cat-peripheral', name: 'Peripherals & Accessories' },
-      ];
-    }
+    const res = await api.get('/assets/categories');
+    return res.data?.data ?? res.data ?? [];
   },
 
-  createAsset: async (data: Partial<Asset>): Promise<Asset> => {
-    const res = await api.post('/assets', data);
+  registerUnit: async (data: RegisterPhysicalUnitDto): Promise<Asset> => {
+    const res = await api.post('/assets/units', data);
     return res.data.data;
   },
 
-  updateAsset: async (id: string, data: Partial<Asset>): Promise<Asset> => {
-    const res = await api.patch(`/assets/${id}`, data);
+  createAsset: async (data: Partial<Asset> | RegisterPhysicalUnitDto): Promise<Asset> => {
+    return assetsService.registerUnit(data as RegisterPhysicalUnitDto);
+  },
+
+  updateAsset: async (id: string, data: Partial<Asset> | UpdatePhysicalUnitDto): Promise<Asset> => {
+    const res = await api.patch(`/assets/units/${id}`, data);
     return res.data.data;
   },
 
   deleteAsset: async (id: string): Promise<void> => {
-    await api.delete(`/assets/${id}`);
+    await api.delete(`/assets/units/${id}`);
   },
 
   getStats: async (): Promise<AssetStats> => {
@@ -210,27 +226,56 @@ export const assetsService = {
     return assetsService.batchDeleteAssets(ids);
   },
 
+  allocateAsset: async (payload: AllocateAssetDto): Promise<{ count: number; assets: Asset[] }> => {
+    const res = await api.post('/assets/allocate', payload);
+    return res.data?.data ?? res.data;
+  },
+
   batchAssignAssets: async (payload: BatchAssignAssetDto): Promise<BatchAssignAssetResultDto> => {
     const res = await api.post('/assets/batch-assign', payload);
     return res.data?.data ?? res.data;
   },
 
   returnAsset: async (
-    id: string,
-    data: {
+    idOrDto: string | ReturnAssetDto,
+    data?: {
       status?: string;
       conditionNotes?: string;
       signedDocUrl?: string;
     },
-  ): Promise<Asset> => {
-    const res = await api.post(`/assets/${id}/return`, data);
+  ): Promise<Asset | { count: number; assets: Asset[] }> => {
+    if (typeof idOrDto === 'string') {
+      const targetStatus = (data?.status?.toUpperCase() || 'AVAILABLE') as
+        | 'AVAILABLE'
+        | 'MAINTENANCE'
+        | 'RETIRED';
+      const res = await api.post('/assets/return', {
+        assetIds: [idOrDto],
+        targetStatus,
+        inspectionNotes: data?.conditionNotes,
+        signedDocUrl: data?.signedDocUrl,
+      });
+      return res.data?.data ?? res.data;
+    }
+    const res = await api.post('/assets/return', idOrDto);
+    return res.data?.data ?? res.data;
+  },
+
+  returnUnits: async (payload: ReturnAssetDto): Promise<{ count: number; assets: Asset[] }> => {
+    const res = await api.post('/assets/return', payload);
+    return res.data?.data ?? res.data;
+  },
+
+  transferAsset: async (payload: TransferAssetDto): Promise<{ count: number; assets: Asset[] }> => {
+    const res = await api.post('/assets/transfer', payload);
     return res.data?.data ?? res.data;
   },
 
   generateHandoverDocument: async (payload: {
-    type: 'assignment' | 'return';
+    type: 'assignment' | 'return' | 'transfer';
     assetIds?: string[];
     recipientId?: string;
+    transferorId?: string;
     conditionNotes?: string;
   }): Promise<{ html: string; title: string; filename: string; generatedAt: string }> => {
     const res = await api.post('/assets/handover-documents/generate', payload);
@@ -238,9 +283,10 @@ export const assetsService = {
   },
 
   downloadHandoverDocx: async (payload: {
-    type: 'assignment' | 'return';
+    type: 'assignment' | 'return' | 'transfer';
     assetIds?: string[];
     recipientId?: string;
+    transferorId?: string;
     conditionNotes?: string;
   }): Promise<{ blob: Blob; filename: string }> => {
     const res = await api.post('/assets/handover-documents/docx', payload, {

@@ -29,13 +29,25 @@ CREATE TYPE "NotificationType" AS ENUM ('INFO', 'WARNING', 'ALERT');
 CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
 
 -- CreateEnum
+CREATE TYPE "HandoverRecordType" AS ENUM ('ASSIGNMENT', 'RETURN');
+
+-- CreateEnum
 CREATE TYPE "VlanStatus" AS ENUM ('ACTIVE', 'RESERVED', 'DEPRECATED');
+
+-- CreateEnum
+CREATE TYPE "NetworkDomain" AS ENUM ('NETWORK', 'CCTV', 'SHARED');
+
+-- CreateEnum
+CREATE TYPE "TopologyViewMode" AS ENUM ('ALL', 'NETWORK', 'CCTV');
+
+-- CreateEnum
+CREATE TYPE "TopologyNodeType" AS ENUM ('RACK', 'SWITCH', 'ASSET', 'ENDPOINT');
 
 -- CreateEnum
 CREATE TYPE "RackStatus" AS ENUM ('ACTIVE', 'PLANNED', 'MAINTENANCE', 'RETIRED');
 
 -- CreateEnum
-CREATE TYPE "SwitchRole" AS ENUM ('CORE', 'DISTRIBUTION', 'ACCESS', 'TOR');
+CREATE TYPE "SwitchRole" AS ENUM ('CORE', 'DISTRIBUTION', 'ACCESS', 'TOR', 'POE_ACCESS');
 
 -- CreateEnum
 CREATE TYPE "SwitchStatus" AS ENUM ('ONLINE', 'OFFLINE', 'MAINTENANCE');
@@ -94,6 +106,8 @@ CREATE TABLE "DirectoryUser" (
     "domainJoinStatus" "DomainJoinStatus" NOT NULL DEFAULT 'NOT_JOINED',
     "emailPassword" TEXT,
     "emailPasswordUpdatedAt" TIMESTAMP(3),
+    "adInitialPassword" TEXT,
+    "adInitialPasswordUpdatedAt" TIMESTAMP(3),
     "departmentId" TEXT,
     "positionId" TEXT,
     "organizationId" TEXT,
@@ -143,32 +157,58 @@ CREATE TABLE "CostCenter" (
 );
 
 -- CreateTable
+CREATE TABLE "DeviceModel" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "modelCode" TEXT NOT NULL,
+    "categoryId" TEXT NOT NULL,
+    "manufacturer" TEXT NOT NULL,
+    "vendorId" TEXT,
+    "specifications" JSONB DEFAULT '{}',
+    "unitCost" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "minThreshold" INTEGER NOT NULL DEFAULT 5,
+    "binNumber" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "DeviceModel_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Asset" (
     "id" TEXT NOT NULL,
-    "assetCode" TEXT,
-    "subcode" TEXT,
+    "deviceModelId" TEXT NOT NULL,
     "assetTag" TEXT,
-    "parentId" TEXT,
-    "costCenterId" TEXT,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "categoryId" TEXT,
-    "status" "AssetStatus" NOT NULL DEFAULT 'AVAILABLE',
+    "subcode" TEXT,
     "serialNumber" TEXT,
-    "model" TEXT,
-    "manufacturer" TEXT,
-    "specifications" TEXT,
-    "unitCost" DOUBLE PRECISION,
-    "vendorId" TEXT,
-    "purchaseDate" TIMESTAMP(3),
-    "warrantyExpiry" TIMESTAMP(3),
+    "status" "AssetStatus" NOT NULL DEFAULT 'AVAILABLE',
     "assignedToId" TEXT,
     "departmentId" TEXT,
+    "costCenterId" TEXT,
+    "purchaseDate" TIMESTAMP(3),
+    "warrantyExpiry" TIMESTAMP(3),
+    "hasPendingRecord" BOOLEAN NOT NULL DEFAULT false,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Asset_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AssetHandoverRecord" (
+    "id" TEXT NOT NULL,
+    "assetId" TEXT NOT NULL,
+    "type" "HandoverRecordType" NOT NULL,
+    "recipientId" TEXT,
+    "signedDocUrl" TEXT,
+    "isPending" BOOLEAN NOT NULL DEFAULT true,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AssetHandoverRecord_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -179,35 +219,6 @@ CREATE TABLE "AssetCategory" (
     "parentId" TEXT,
 
     CONSTRAINT "AssetCategory_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "InventoryCategory" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "InventoryCategory_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "InventoryItem" (
-    "id" TEXT NOT NULL,
-    "sku" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "categoryId" TEXT NOT NULL,
-    "quantity" INTEGER NOT NULL DEFAULT 0,
-    "minThreshold" INTEGER NOT NULL DEFAULT 5,
-    "unitCost" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "binNumber" TEXT,
-    "supplier" TEXT,
-    "notes" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "InventoryItem_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -278,6 +289,7 @@ CREATE TABLE "VLAN" (
     "vlanNumber" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
+    "domain" "NetworkDomain" NOT NULL DEFAULT 'NETWORK',
     "status" "VlanStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -290,6 +302,7 @@ CREATE TABLE "Subnet" (
     "id" TEXT NOT NULL,
     "cidr" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "domain" "NetworkDomain" NOT NULL DEFAULT 'NETWORK',
     "vlanId" TEXT,
     "gateway" TEXT,
     "networkAddress" TEXT,
@@ -342,6 +355,8 @@ CREATE TABLE "NetworkRack" (
     "width" DOUBLE PRECISION,
     "maxPowerKw" DOUBLE PRECISION,
     "maxWeightKg" DOUBLE PRECISION,
+    "positionX" DOUBLE PRECISION,
+    "positionY" DOUBLE PRECISION,
     "status" "RackStatus" NOT NULL DEFAULT 'ACTIVE',
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -361,6 +376,7 @@ CREATE TABLE "NetworkSwitch" (
     "ipAddressId" TEXT,
     "firmwareVersion" TEXT,
     "role" "SwitchRole" NOT NULL DEFAULT 'ACCESS',
+    "domain" "NetworkDomain" NOT NULL DEFAULT 'NETWORK',
     "status" "SwitchStatus" NOT NULL DEFAULT 'ONLINE',
     "totalPorts" INTEGER NOT NULL DEFAULT 24,
     "uplinkPorts" INTEGER DEFAULT 2,
@@ -368,6 +384,8 @@ CREATE TABLE "NetworkSwitch" (
     "rackId" TEXT,
     "rackPosition" INTEGER,
     "rackHeight" INTEGER NOT NULL DEFAULT 1,
+    "positionX" DOUBLE PRECISION,
+    "positionY" DOUBLE PRECISION,
     "assetId" TEXT,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -393,11 +411,26 @@ CREATE TABLE "SwitchPort" (
     "taggedVlanIds" JSONB,
     "ipAddressId" TEXT,
     "connectedAssetId" TEXT,
+    "connectedPortId" TEXT,
     "description" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "SwitchPort_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TopologyNodePosition" (
+    "id" TEXT NOT NULL,
+    "nodeId" TEXT NOT NULL,
+    "nodeType" "TopologyNodeType" NOT NULL DEFAULT 'SWITCH',
+    "viewMode" "TopologyViewMode" NOT NULL DEFAULT 'ALL',
+    "positionX" DOUBLE PRECISION NOT NULL,
+    "positionY" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TopologyNodePosition_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -622,43 +655,49 @@ CREATE UNIQUE INDEX "CostCenter_code_key" ON "CostCenter"("code");
 CREATE INDEX "CostCenter_code_idx" ON "CostCenter"("code");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Asset_assetCode_key" ON "Asset"("assetCode");
+CREATE UNIQUE INDEX "DeviceModel_modelCode_key" ON "DeviceModel"("modelCode");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Asset_subcode_key" ON "Asset"("subcode");
+CREATE INDEX "DeviceModel_categoryId_idx" ON "DeviceModel"("categoryId");
+
+-- CreateIndex
+CREATE INDEX "DeviceModel_vendorId_idx" ON "DeviceModel"("vendorId");
+
+-- CreateIndex
+CREATE INDEX "DeviceModel_deletedAt_idx" ON "DeviceModel"("deletedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Asset_assetTag_key" ON "Asset"("assetTag");
 
 -- CreateIndex
-CREATE INDEX "Asset_parentId_idx" ON "Asset"("parentId");
+CREATE UNIQUE INDEX "Asset_subcode_key" ON "Asset"("subcode");
 
 -- CreateIndex
-CREATE INDEX "Asset_costCenterId_idx" ON "Asset"("costCenterId");
+CREATE INDEX "Asset_deviceModelId_idx" ON "Asset"("deviceModelId");
 
 -- CreateIndex
-CREATE INDEX "Asset_assetCode_idx" ON "Asset"("assetCode");
-
--- CreateIndex
-CREATE INDEX "Asset_subcode_idx" ON "Asset"("subcode");
-
--- CreateIndex
-CREATE INDEX "Asset_assetTag_idx" ON "Asset"("assetTag");
+CREATE INDEX "Asset_status_idx" ON "Asset"("status");
 
 -- CreateIndex
 CREATE INDEX "Asset_assignedToId_idx" ON "Asset"("assignedToId");
 
 -- CreateIndex
-CREATE INDEX "Asset_categoryId_idx" ON "Asset"("categoryId");
-
--- CreateIndex
 CREATE INDEX "Asset_departmentId_idx" ON "Asset"("departmentId");
 
 -- CreateIndex
-CREATE INDEX "Asset_vendorId_idx" ON "Asset"("vendorId");
+CREATE INDEX "Asset_hasPendingRecord_idx" ON "Asset"("hasPendingRecord");
 
 -- CreateIndex
-CREATE INDEX "Asset_status_idx" ON "Asset"("status");
+CREATE INDEX "Asset_costCenterId_idx" ON "Asset"("costCenterId");
+
+-- CreateIndex
+CREATE INDEX "Asset_assetTag_idx" ON "Asset"("assetTag");
+
+-- CreateIndex
+CREATE INDEX "Asset_subcode_idx" ON "Asset"("subcode");
+
+-- CreateIndex
+CREATE INDEX "Asset_serialNumber_idx" ON "Asset"("serialNumber");
 
 -- CreateIndex
 CREATE INDEX "Asset_status_updatedAt_idx" ON "Asset"("status", "updatedAt");
@@ -667,37 +706,28 @@ CREATE INDEX "Asset_status_updatedAt_idx" ON "Asset"("status", "updatedAt");
 CREATE INDEX "Asset_warrantyExpiry_idx" ON "Asset"("warrantyExpiry");
 
 -- CreateIndex
-CREATE INDEX "Asset_name_idx" ON "Asset"("name");
+CREATE INDEX "AssetHandoverRecord_assetId_idx" ON "AssetHandoverRecord"("assetId");
 
 -- CreateIndex
-CREATE INDEX "Asset_model_idx" ON "Asset"("model");
+CREATE INDEX "AssetHandoverRecord_recipientId_idx" ON "AssetHandoverRecord"("recipientId");
 
 -- CreateIndex
-CREATE INDEX "Asset_serialNumber_idx" ON "Asset"("serialNumber");
+CREATE INDEX "AssetHandoverRecord_isPending_idx" ON "AssetHandoverRecord"("isPending");
+
+-- CreateIndex
+CREATE INDEX "AssetHandoverRecord_type_idx" ON "AssetHandoverRecord"("type");
+
+-- CreateIndex
+CREATE INDEX "AssetHandoverRecord_isPending_createdAt_idx" ON "AssetHandoverRecord"("isPending", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AssetHandoverRecord_assetId_isPending_idx" ON "AssetHandoverRecord"("assetId", "isPending");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AssetCategory_name_key" ON "AssetCategory"("name");
 
 -- CreateIndex
 CREATE INDEX "AssetCategory_parentId_idx" ON "AssetCategory"("parentId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "InventoryCategory_name_key" ON "InventoryCategory"("name");
-
--- CreateIndex
-CREATE UNIQUE INDEX "InventoryItem_sku_key" ON "InventoryItem"("sku");
-
--- CreateIndex
-CREATE INDEX "InventoryItem_sku_idx" ON "InventoryItem"("sku");
-
--- CreateIndex
-CREATE INDEX "InventoryItem_categoryId_idx" ON "InventoryItem"("categoryId");
-
--- CreateIndex
-CREATE INDEX "InventoryItem_quantity_idx" ON "InventoryItem"("quantity");
-
--- CreateIndex
-CREATE INDEX "InventoryItem_name_idx" ON "InventoryItem"("name");
-
--- CreateIndex
-CREATE INDEX "InventoryItem_supplier_idx" ON "InventoryItem"("supplier");
 
 -- CreateIndex
 CREATE INDEX "License_status_idx" ON "License"("status");
@@ -745,6 +775,9 @@ CREATE INDEX "VLAN_vlanNumber_idx" ON "VLAN"("vlanNumber");
 CREATE INDEX "VLAN_name_idx" ON "VLAN"("name");
 
 -- CreateIndex
+CREATE INDEX "VLAN_domain_idx" ON "VLAN"("domain");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Subnet_cidr_key" ON "Subnet"("cidr");
 
 -- CreateIndex
@@ -755,6 +788,9 @@ CREATE INDEX "Subnet_cidr_idx" ON "Subnet"("cidr");
 
 -- CreateIndex
 CREATE INDEX "Subnet_name_idx" ON "Subnet"("name");
+
+-- CreateIndex
+CREATE INDEX "Subnet_domain_idx" ON "Subnet"("domain");
 
 -- CreateIndex
 CREATE INDEX "IPAddress_subnetId_idx" ON "IPAddress"("subnetId");
@@ -814,6 +850,9 @@ CREATE INDEX "NetworkSwitch_ipAddressId_idx" ON "NetworkSwitch"("ipAddressId");
 CREATE INDEX "NetworkSwitch_role_idx" ON "NetworkSwitch"("role");
 
 -- CreateIndex
+CREATE INDEX "NetworkSwitch_domain_idx" ON "NetworkSwitch"("domain");
+
+-- CreateIndex
 CREATE INDEX "NetworkSwitch_status_idx" ON "NetworkSwitch"("status");
 
 -- CreateIndex
@@ -826,6 +865,9 @@ CREATE INDEX "NetworkSwitch_name_idx" ON "NetworkSwitch"("name");
 CREATE INDEX "NetworkSwitch_model_idx" ON "NetworkSwitch"("model");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "SwitchPort_connectedPortId_key" ON "SwitchPort"("connectedPortId");
+
+-- CreateIndex
 CREATE INDEX "SwitchPort_switchId_idx" ON "SwitchPort"("switchId");
 
 -- CreateIndex
@@ -836,6 +878,9 @@ CREATE INDEX "SwitchPort_ipAddressId_idx" ON "SwitchPort"("ipAddressId");
 
 -- CreateIndex
 CREATE INDEX "SwitchPort_connectedAssetId_idx" ON "SwitchPort"("connectedAssetId");
+
+-- CreateIndex
+CREATE INDEX "SwitchPort_connectedPortId_idx" ON "SwitchPort"("connectedPortId");
 
 -- CreateIndex
 CREATE INDEX "SwitchPort_adminStatus_idx" ON "SwitchPort"("adminStatus");
@@ -851,6 +896,15 @@ CREATE INDEX "SwitchPort_portNumber_idx" ON "SwitchPort"("portNumber");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SwitchPort_switchId_portNumber_key" ON "SwitchPort"("switchId", "portNumber");
+
+-- CreateIndex
+CREATE INDEX "TopologyNodePosition_viewMode_idx" ON "TopologyNodePosition"("viewMode");
+
+-- CreateIndex
+CREATE INDEX "TopologyNodePosition_nodeId_idx" ON "TopologyNodePosition"("nodeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TopologyNodePosition_nodeId_viewMode_key" ON "TopologyNodePosition"("nodeId", "viewMode");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
@@ -869,6 +923,12 @@ CREATE INDEX "AuditLog_severity_idx" ON "AuditLog"("severity");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_ipAddress_idx" ON "AuditLog"("ipAddress");
+
+-- CreateIndex
+CREATE INDEX "AuditLog_entityType_entityId_timestamp_idx" ON "AuditLog"("entityType", "entityId", "timestamp" DESC);
+
+-- CreateIndex
+CREATE INDEX "AuditLog_entityId_idx" ON "AuditLog"("entityId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "RefreshToken_tokenHash_key" ON "RefreshToken"("tokenHash");
@@ -946,13 +1006,13 @@ ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_roleId_fkey" FOREIGN
 ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Asset" ADD CONSTRAINT "Asset_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Asset"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "DeviceModel" ADD CONSTRAINT "DeviceModel_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "AssetCategory"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Asset" ADD CONSTRAINT "Asset_costCenterId_fkey" FOREIGN KEY ("costCenterId") REFERENCES "CostCenter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "DeviceModel" ADD CONSTRAINT "DeviceModel_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "Vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Asset" ADD CONSTRAINT "Asset_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "AssetCategory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Asset" ADD CONSTRAINT "Asset_deviceModelId_fkey" FOREIGN KEY ("deviceModelId") REFERENCES "DeviceModel"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Asset" ADD CONSTRAINT "Asset_assignedToId_fkey" FOREIGN KEY ("assignedToId") REFERENCES "DirectoryUser"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -961,13 +1021,16 @@ ALTER TABLE "Asset" ADD CONSTRAINT "Asset_assignedToId_fkey" FOREIGN KEY ("assig
 ALTER TABLE "Asset" ADD CONSTRAINT "Asset_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Asset" ADD CONSTRAINT "Asset_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "Vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Asset" ADD CONSTRAINT "Asset_costCenterId_fkey" FOREIGN KEY ("costCenterId") REFERENCES "CostCenter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AssetHandoverRecord" ADD CONSTRAINT "AssetHandoverRecord_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "Asset"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AssetHandoverRecord" ADD CONSTRAINT "AssetHandoverRecord_recipientId_fkey" FOREIGN KEY ("recipientId") REFERENCES "DirectoryUser"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AssetCategory" ADD CONSTRAINT "AssetCategory_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "AssetCategory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "InventoryItem" ADD CONSTRAINT "InventoryItem_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "InventoryCategory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "License" ADD CONSTRAINT "License_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "Vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1019,6 +1082,9 @@ ALTER TABLE "SwitchPort" ADD CONSTRAINT "SwitchPort_ipAddressId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "SwitchPort" ADD CONSTRAINT "SwitchPort_connectedAssetId_fkey" FOREIGN KEY ("connectedAssetId") REFERENCES "Asset"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SwitchPort" ADD CONSTRAINT "SwitchPort_connectedPortId_fkey" FOREIGN KEY ("connectedPortId") REFERENCES "SwitchPort"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "AppUser"("id") ON DELETE SET NULL ON UPDATE CASCADE;

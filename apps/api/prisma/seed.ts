@@ -13,7 +13,6 @@ import { seedAssets } from './seeders/assets.seeder';
 import { seedAudit } from './seeders/audit.seeder';
 import { seedCostCenters } from './seeders/cost-centers.seeder';
 import { seedDirectory } from './seeders/directory.seeder';
-import { seedInventory } from './seeders/inventory.seeder';
 import { seedLicenses } from './seeders/licenses.seeder';
 import { seedNetwork } from './seeders/network.seeder';
 import { seedNotifications } from './seeders/notifications.seeder';
@@ -37,9 +36,6 @@ async function clearDatabase(client: PrismaClient) {
   logger.log('🧹 Clearing legacy records for clean enterprise seeding...');
   await client.$transaction(
     async (tx) => {
-      // Clear self-referential relations first
-      await tx.asset.updateMany({ data: { parentId: null } });
-
       await tx.reportSchedule.deleteMany();
       await tx.licenseAssignment.deleteMany();
       await tx.notification.deleteMany();
@@ -47,16 +43,16 @@ async function clearDatabase(client: PrismaClient) {
       await tx.refreshToken.deleteMany();
       await tx.directoryMembership.deleteMany();
       await tx.directoryGroup.deleteMany();
+      await tx.topologyNodePosition.deleteMany();
       await tx.switchPort.deleteMany();
       await tx.networkSwitch.deleteMany();
       await tx.networkRack.deleteMany();
       await tx.iPAddress.deleteMany();
       await tx.subnet.deleteMany();
       await tx.vLAN.deleteMany();
-      await tx.inventoryItem.deleteMany();
-      await tx.inventoryCategory.deleteMany();
       await tx.assetHandoverRecord.deleteMany();
       await tx.asset.deleteMany();
+      await tx.deviceModel.deleteMany();
       await tx.costCenter.deleteMany();
       await tx.assetCategory.deleteMany();
       await tx.license.deleteMany();
@@ -135,16 +131,6 @@ async function main() {
   // 8. Software Licenses and Assignments (Assigned to DirectoryUser)
   logger.log('📄 Seeding Software Licenses and User Assignments...');
   await seedLicenses(prisma, directoryUsersResult, vendorMap, ctx);
-
-  // 9. Inventory Items
-  logger.log('📦 Seeding Hardware Stockroom Inventory...');
-  const createdInventory = await seedInventory(prisma, ctx);
-  if (createdInventory) {
-    for (const [sku, record] of Object.entries(createdInventory)) {
-      ctx.inventory.set(sku, record.id);
-      ctx.inventory.set(record.id, record.id);
-    }
-  }
 
   // 10. Subnets and IP Allocations
   logger.log('🌐 Seeding Network Subnets & IPAM Allocations...');
