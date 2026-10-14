@@ -10,14 +10,18 @@ import type {
 export type TopologyViewMode = 'ALL' | 'NETWORK' | 'CCTV';
 
 export type TopologyNodeType =
-  | 'RACK'
-  | 'SWITCH'
-  | 'ENDPOINT'
-  | 'CAMERA'
-  | 'NVR'
+  | 'CORE_SWITCH'
+  | 'DISTRIBUTION_SWITCH'
+  | 'ACCESS_SWITCH'
   | 'ROUTER'
+  | 'FIREWALL'
   | 'SERVER'
+  | 'NVR'
+  | 'CAMERA'
   | 'AP'
+  | 'RACK'
+  | 'ENDPOINT'
+  | 'SWITCH'
   | 'ASSET'
   | 'ACCESS_POINT';
 
@@ -82,10 +86,10 @@ export interface TopologyEdge {
   id: string;
   source: string;
   target: string;
-  sourcePortId?: string;
-  targetPortId?: string;
-  sourcePortName?: string;
-  targetPortName?: string;
+  sourcePortId?: string | null;
+  targetPortId?: string | null;
+  sourcePortName?: string | null;
+  targetPortName?: string | null;
   type?: TopologyEdgeType;
   linkType?: TopologyEdgeType;
   speed?: string | null;

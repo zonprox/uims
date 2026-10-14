@@ -51,7 +51,7 @@ export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
     const handleClick = useCallback(
       (e: React.MouseEvent) => {
         e.stopPropagation();
-        onOpenPortConfig?.(edge.sourcePortId);
+        onOpenPortConfig?.(edge.sourcePortId ?? undefined);
       },
       [edge.sourcePortId, onOpenPortConfig],
     );

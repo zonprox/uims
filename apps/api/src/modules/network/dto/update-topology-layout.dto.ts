@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -34,6 +35,11 @@ export class TopologyNodePositionItemDto {
   @ApiProperty({ description: 'Canvas Y coordinate' })
   @IsNumber()
   y!: number;
+
+  @ApiPropertyOptional({ description: 'Pin node position on canvas', default: false })
+  @IsOptional()
+  @IsBoolean()
+  isPinned?: boolean;
 }
 
 export class UpdateTopologyLayoutDto {

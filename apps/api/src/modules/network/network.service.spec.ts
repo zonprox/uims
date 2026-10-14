@@ -68,7 +68,7 @@ describe('NetworkService', () => {
     auditLog: {
       create: ReturnType<typeof vi.fn>;
     };
-    topologyNodePosition: {
+    canvasNodePosition: {
       findMany: ReturnType<typeof vi.fn>;
       upsert: ReturnType<typeof vi.fn>;
     };
@@ -142,7 +142,7 @@ describe('NetworkService', () => {
       auditLog: {
         create: vi.fn(),
       },
-      topologyNodePosition: {
+      canvasNodePosition: {
         findMany: vi.fn().mockResolvedValue([]),
         upsert: vi.fn(),
       },
@@ -1466,7 +1466,7 @@ describe('NetworkService', () => {
       mockPrisma.subnet.findMany.mockResolvedValue([
         { id: 'sub-1', cidr: '10.232.100.0/24', name: 'BSL Servers', domain: 'NETWORK', totalIps: 254, usedIps: 24 },
       ]);
-      mockPrisma.topologyNodePosition.findMany.mockResolvedValue([]);
+      mockPrisma.canvasNodePosition.findMany.mockResolvedValue([]);
 
       const result = await service.getTopology({ mode: 'ALL' });
 
@@ -1492,7 +1492,7 @@ describe('NetworkService', () => {
     });
 
     it('updateTopologyLayout persists canvas coordinates and syncs master entities for ALL view', async () => {
-      mockPrisma.topologyNodePosition.upsert.mockResolvedValue({});
+      mockPrisma.canvasNodePosition.upsert.mockResolvedValue({});
       mockPrisma.networkSwitch.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.networkRack.updateMany.mockResolvedValue({ count: 1 });
 
@@ -1563,13 +1563,13 @@ describe('NetworkService', () => {
       expect(mockPrisma.switchPort.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'port-dst' },
-          data: { connectedPortId: null, operStatus: 'DOWN' },
+          data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
         }),
       );
       expect(mockPrisma.switchPort.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'port-src' },
-          data: { connectedPortId: null, connectedAssetId: null, ipAddressId: null, operStatus: 'DOWN' },
+          data: { connectedPortId: null, connectedSwitchId: null, connectedAssetId: null, ipAddressId: null, operStatus: 'DOWN' },
         }),
       );
     });

@@ -8,7 +8,7 @@ import {
 import {
   Prisma,
   type IPAddress,
-  type NetworkDomain,
+  type InfrastructureDomain,
   type NetworkRack,
   type NetworkSwitch,
   type PortAdminStatus,
@@ -2104,16 +2104,16 @@ export class NetworkService {
         orderBy: [{ cidr: 'asc' }, { id: 'asc' }],
         take: 100,
       }),
-      this.prisma.topologyNodePosition.findMany({
+      this.prisma.canvasNodePosition.findMany({
         where: { viewMode: mode },
         take: 1000,
       }),
     ]);
 
-    // Fast coordinate lookup map: nodeId -> { x, y }
-    const posMap = new Map<string, { x: number; y: number }>();
+    // Fast coordinate lookup map: nodeId -> { x, y, isPinned }
+    const posMap = new Map<string, { x: number; y: number; isPinned?: boolean }>();
     for (const p of savedPositions) {
-      posMap.set(p.nodeId, { x: p.positionX, y: p.positionY });
+      posMap.set(p.nodeId, { x: p.x, y: p.y, isPinned: p.isPinned });
     }
 
     const nodes: TopologyNode[] = [];
@@ -2157,6 +2157,8 @@ export class NetworkService {
         activePorts,
         poeActivePorts,
         poePowerWatts: estimatedPoeWatts,
+        position: { x, y, isPinned: posMap.get(sw.id)?.isPinned },
+        isPinned: posMap.get(sw.id)?.isPinned,
         x,
         y,
         data: {
@@ -2269,6 +2271,8 @@ export class NetworkService {
               model: modelName,
               vendor: asset.deviceModel?.manufacturer,
               serialNumber: asset.serialNumber,
+              position: { x: epX, y: epY, isPinned: posMap.get(asset.id)?.isPinned },
+              isPinned: posMap.get(asset.id)?.isPinned,
               x: epX,
               y: epY,
               data: {
@@ -2343,7 +2347,7 @@ export class NetworkService {
         id: v.id,
         vlanNumber: v.vlanNumber,
         name: v.name,
-        domain: v.domain as unknown as NetworkDomain,
+        domain: v.domain as unknown as InfrastructureDomain,
         subnetCount: v.subnets.length,
         switchCount: new Set(v.switchPorts.map((sp) => sp.switchId)).size,
       })),
@@ -2351,10 +2355,11 @@ export class NetworkService {
         id: s.id,
         cidr: s.cidr,
         name: s.name,
-        domain: s.domain as unknown as NetworkDomain,
+        domain: s.domain as unknown as InfrastructureDomain,
         vlanId: s.vlanId,
         utilization: s.totalIps > 0 ? Math.round((s.usedIps / s.totalIps) * 100) : 0,
       })),
+      metrics: summaryMetrics,
       summaryMetrics,
     };
   }
@@ -2364,7 +2369,7 @@ export class NetworkService {
 
     await this.prisma.$transaction(
       dto.positions.map((p) =>
-        this.prisma.topologyNodePosition.upsert({
+        this.prisma.canvasNodePosition.upsert({
           where: {
             nodeId_viewMode: {
               nodeId: p.nodeId,
@@ -2372,16 +2377,18 @@ export class NetworkService {
             },
           },
           update: {
-            positionX: p.x,
-            positionY: p.y,
+            x: p.x,
+            y: p.y,
+            ...(p.isPinned !== undefined ? { isPinned: p.isPinned } : {}),
             nodeType: (p.nodeType as TopologyNodeType) || 'SWITCH',
           },
           create: {
             nodeId: p.nodeId,
             nodeType: (p.nodeType as TopologyNodeType) || 'SWITCH',
             viewMode,
-            positionX: p.x,
-            positionY: p.y,
+            x: p.x,
+            y: p.y,
+            isPinned: p.isPinned ?? false,
           },
         }),
       ),
@@ -2447,13 +2454,13 @@ export class NetworkService {
         if (sourcePort.connectedPortId) {
           await tx.switchPort.update({
             where: { id: sourcePort.connectedPortId },
-            data: { connectedPortId: null, operStatus: 'DOWN' },
+            data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
           });
         }
         if (targetPort.connectedPortId) {
           await tx.switchPort.update({
             where: { id: targetPort.connectedPortId },
-            data: { connectedPortId: null, operStatus: 'DOWN' },
+            data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
           });
         }
 
@@ -2466,6 +2473,7 @@ export class NetworkService {
           where: { id: sourcePort.id },
           data: {
             connectedPortId: targetPort.id,
+            connectedSwitchId: targetPort.switchId,
             connectedAssetId: null,
             mode: dto.mode || 'TRUNK',
             adminStatus: 'UP',
@@ -2479,6 +2487,7 @@ export class NetworkService {
           where: { id: targetPort.id },
           data: {
             connectedPortId: sourcePort.id,
+            connectedSwitchId: sourcePort.switchId,
             connectedAssetId: null,
             mode: dto.mode || 'TRUNK',
             adminStatus: 'UP',
@@ -2515,7 +2524,7 @@ export class NetworkService {
         if (sourcePort.connectedPortId) {
           await tx.switchPort.update({
             where: { id: sourcePort.connectedPortId },
-            data: { connectedPortId: null, operStatus: 'DOWN' },
+            data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
           });
         }
 
@@ -2524,6 +2533,7 @@ export class NetworkService {
           data: {
             connectedAssetId: asset.id,
             connectedPortId: null,
+            connectedSwitchId: null,
             ipAddressId: dto.targetIpAddressId || sourcePort.ipAddressId,
             vlanId: dto.vlanId || sourcePort.vlanId,
             mode: dto.mode || 'ACCESS',
@@ -2563,6 +2573,7 @@ export class NetworkService {
           where: { id: port.connectedPortId },
           data: {
             connectedPortId: null,
+            connectedSwitchId: null,
             operStatus: 'DOWN',
           },
         });
@@ -2573,6 +2584,7 @@ export class NetworkService {
         where: { id: portId },
         data: {
           connectedPortId: null,
+          connectedSwitchId: null,
           connectedAssetId: null,
           ipAddressId: null,
           operStatus: 'DOWN',

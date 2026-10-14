@@ -269,7 +269,7 @@ export interface PatchCableLinkDto {
 }
 
 /** Backward-compatibility alias for controller and service layers */
-export { PatchCableLinkDto as CreateTopologyLinkDto };
+export type { PatchCableLinkDto as CreateTopologyLinkDto };
 
 export interface UnpatchCableLinkDto {
   /** SwitchPort UUID to unpatch */
@@ -301,7 +301,7 @@ export interface UpdateCanvasLayoutDto {
 }
 
 /** Backward-compatibility alias for controller and service layers */
-export { UpdateCanvasLayoutDto as UpdateTopologyLayoutDto };
+export type { UpdateCanvasLayoutDto as UpdateTopologyLayoutDto };
 
 export interface TopologyQueryDto {
   /** Multi-perspective viewing mode: ALL | NETWORK | CCTV */

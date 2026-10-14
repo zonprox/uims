@@ -43,7 +43,9 @@ async function clearDatabase(client: PrismaClient) {
       await tx.refreshToken.deleteMany();
       await tx.directoryMembership.deleteMany();
       await tx.directoryGroup.deleteMany();
-      await tx.topologyNodePosition.deleteMany();
+      await tx.canvasNodePosition.deleteMany();
+      // Clear self-referential peer links on SwitchPort before table deletion
+      await tx.switchPort.updateMany({ data: { connectedPortId: null, connectedSwitchId: null } });
       await tx.switchPort.deleteMany();
       await tx.networkSwitch.deleteMany();
       await tx.networkRack.deleteMany();

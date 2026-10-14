@@ -35,7 +35,7 @@ CREATE TYPE "HandoverRecordType" AS ENUM ('ASSIGNMENT', 'RETURN');
 CREATE TYPE "VlanStatus" AS ENUM ('ACTIVE', 'RESERVED', 'DEPRECATED');
 
 -- CreateEnum
-CREATE TYPE "NetworkDomain" AS ENUM ('NETWORK', 'CCTV', 'SHARED');
+CREATE TYPE "InfrastructureDomain" AS ENUM ('NETWORK', 'CCTV', 'SHARED');
 
 -- CreateEnum
 CREATE TYPE "TopologyViewMode" AS ENUM ('ALL', 'NETWORK', 'CCTV');
@@ -182,6 +182,7 @@ CREATE TABLE "Asset" (
     "assetTag" TEXT,
     "subcode" TEXT,
     "serialNumber" TEXT,
+    "domain" "InfrastructureDomain" NOT NULL DEFAULT 'NETWORK',
     "status" "AssetStatus" NOT NULL DEFAULT 'AVAILABLE',
     "assignedToId" TEXT,
     "departmentId" TEXT,
@@ -289,7 +290,7 @@ CREATE TABLE "VLAN" (
     "vlanNumber" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "domain" "NetworkDomain" NOT NULL DEFAULT 'NETWORK',
+    "domain" "InfrastructureDomain" NOT NULL DEFAULT 'NETWORK',
     "status" "VlanStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -302,7 +303,7 @@ CREATE TABLE "Subnet" (
     "id" TEXT NOT NULL,
     "cidr" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "domain" "NetworkDomain" NOT NULL DEFAULT 'NETWORK',
+    "domain" "InfrastructureDomain" NOT NULL DEFAULT 'NETWORK',
     "vlanId" TEXT,
     "gateway" TEXT,
     "networkAddress" TEXT,
@@ -335,6 +336,7 @@ CREATE TABLE "IPAddress" (
     "vlanId" TEXT,
     "assetId" TEXT,
     "assignedUserId" TEXT,
+    "domain" "InfrastructureDomain" NOT NULL DEFAULT 'NETWORK',
     "status" "IPStatus" NOT NULL DEFAULT 'AVAILABLE',
     "pingStatus" TEXT DEFAULT 'online',
     "responseTimeMs" DOUBLE PRECISION,
@@ -376,7 +378,7 @@ CREATE TABLE "NetworkSwitch" (
     "ipAddressId" TEXT,
     "firmwareVersion" TEXT,
     "role" "SwitchRole" NOT NULL DEFAULT 'ACCESS',
-    "domain" "NetworkDomain" NOT NULL DEFAULT 'NETWORK',
+    "domain" "InfrastructureDomain" NOT NULL DEFAULT 'NETWORK',
     "status" "SwitchStatus" NOT NULL DEFAULT 'ONLINE',
     "totalPorts" INTEGER NOT NULL DEFAULT 24,
     "uplinkPorts" INTEGER DEFAULT 2,
@@ -401,6 +403,7 @@ CREATE TABLE "SwitchPort" (
     "portNumber" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "formFactor" "PortFormFactor" NOT NULL DEFAULT 'RJ45_1G',
+    "domain" "InfrastructureDomain" NOT NULL DEFAULT 'NETWORK',
     "poeEnabled" BOOLEAN NOT NULL DEFAULT false,
     "adminStatus" "PortAdminStatus" NOT NULL DEFAULT 'UP',
     "operStatus" "PortOperStatus" NOT NULL DEFAULT 'DOWN',
@@ -412,6 +415,7 @@ CREATE TABLE "SwitchPort" (
     "ipAddressId" TEXT,
     "connectedAssetId" TEXT,
     "connectedPortId" TEXT,
+    "connectedSwitchId" TEXT,
     "description" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -420,17 +424,18 @@ CREATE TABLE "SwitchPort" (
 );
 
 -- CreateTable
-CREATE TABLE "TopologyNodePosition" (
+CREATE TABLE "CanvasNodePosition" (
     "id" TEXT NOT NULL,
     "nodeId" TEXT NOT NULL,
     "nodeType" "TopologyNodeType" NOT NULL DEFAULT 'SWITCH',
     "viewMode" "TopologyViewMode" NOT NULL DEFAULT 'ALL',
-    "positionX" DOUBLE PRECISION NOT NULL,
-    "positionY" DOUBLE PRECISION NOT NULL,
+    "x" DOUBLE PRECISION NOT NULL,
+    "y" DOUBLE PRECISION NOT NULL,
+    "isPinned" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "TopologyNodePosition_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "CanvasNodePosition_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -676,6 +681,9 @@ CREATE UNIQUE INDEX "Asset_subcode_key" ON "Asset"("subcode");
 CREATE INDEX "Asset_deviceModelId_idx" ON "Asset"("deviceModelId");
 
 -- CreateIndex
+CREATE INDEX "Asset_domain_idx" ON "Asset"("domain");
+
+-- CreateIndex
 CREATE INDEX "Asset_status_idx" ON "Asset"("status");
 
 -- CreateIndex
@@ -805,6 +813,9 @@ CREATE INDEX "IPAddress_assetId_idx" ON "IPAddress"("assetId");
 CREATE INDEX "IPAddress_assignedUserId_idx" ON "IPAddress"("assignedUserId");
 
 -- CreateIndex
+CREATE INDEX "IPAddress_domain_idx" ON "IPAddress"("domain");
+
+-- CreateIndex
 CREATE INDEX "IPAddress_status_idx" ON "IPAddress"("status");
 
 -- CreateIndex
@@ -883,6 +894,12 @@ CREATE INDEX "SwitchPort_connectedAssetId_idx" ON "SwitchPort"("connectedAssetId
 CREATE INDEX "SwitchPort_connectedPortId_idx" ON "SwitchPort"("connectedPortId");
 
 -- CreateIndex
+CREATE INDEX "SwitchPort_connectedSwitchId_idx" ON "SwitchPort"("connectedSwitchId");
+
+-- CreateIndex
+CREATE INDEX "SwitchPort_domain_idx" ON "SwitchPort"("domain");
+
+-- CreateIndex
 CREATE INDEX "SwitchPort_adminStatus_idx" ON "SwitchPort"("adminStatus");
 
 -- CreateIndex
@@ -898,13 +915,13 @@ CREATE INDEX "SwitchPort_portNumber_idx" ON "SwitchPort"("portNumber");
 CREATE UNIQUE INDEX "SwitchPort_switchId_portNumber_key" ON "SwitchPort"("switchId", "portNumber");
 
 -- CreateIndex
-CREATE INDEX "TopologyNodePosition_viewMode_idx" ON "TopologyNodePosition"("viewMode");
+CREATE INDEX "CanvasNodePosition_viewMode_idx" ON "CanvasNodePosition"("viewMode");
 
 -- CreateIndex
-CREATE INDEX "TopologyNodePosition_nodeId_idx" ON "TopologyNodePosition"("nodeId");
+CREATE INDEX "CanvasNodePosition_nodeId_idx" ON "CanvasNodePosition"("nodeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TopologyNodePosition_nodeId_viewMode_key" ON "TopologyNodePosition"("nodeId", "viewMode");
+CREATE UNIQUE INDEX "CanvasNodePosition_nodeId_viewMode_key" ON "CanvasNodePosition"("nodeId", "viewMode");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
@@ -1085,6 +1102,9 @@ ALTER TABLE "SwitchPort" ADD CONSTRAINT "SwitchPort_connectedAssetId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "SwitchPort" ADD CONSTRAINT "SwitchPort_connectedPortId_fkey" FOREIGN KEY ("connectedPortId") REFERENCES "SwitchPort"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SwitchPort" ADD CONSTRAINT "SwitchPort_connectedSwitchId_fkey" FOREIGN KEY ("connectedSwitchId") REFERENCES "NetworkSwitch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "AppUser"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -539,7 +539,7 @@ export interface TopologyMetrics {
   onlinePercentage: number;
 }
 
-export { TopologyMetrics as TopologySummaryMetrics };
+export type { TopologyMetrics as TopologySummaryMetrics };
 
 export interface TopologyGraphResponse {
   nodes: TopologyNode[];
@@ -551,5 +551,5 @@ export interface TopologyGraphResponse {
   summaryMetrics?: TopologyMetrics;
 }
 
-export { TopologyGraphResponse as NetworkTopologyData };
+export type { TopologyGraphResponse as NetworkTopologyData };
 
