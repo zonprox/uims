@@ -4,9 +4,10 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NetworkRack } from '../../../../services/network.service';
 import { NetworkTopologyCanvas } from './NetworkTopologyCanvas';
+import { TopologyEdgeItem } from './TopologyEdgeItem';
 import { TopologyMinimap } from './TopologyMinimap';
 import { TopologyNodeItem } from './TopologyNodeItem';
-import { TopologyEdgeItem } from './TopologyEdgeItem';
+import { TopologySummaryBar } from './TopologySummaryBar';
 import { TopologyToolbar } from './TopologyToolbar';
 import {
   calculateHierarchicalLayout,
@@ -80,6 +81,33 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       status: 'ACTIVE',
       domain: 'CCTV',
       x: 600,
+      y: 350,
+    },
+    {
+      id: 'srv-001',
+      label: 'SRV-PROD-01',
+      type: 'SERVER',
+      status: 'ONLINE',
+      domain: 'NETWORK',
+      x: 750,
+      y: 100,
+    },
+    {
+      id: 'nvr-001',
+      label: 'NVR-CCTV-01',
+      type: 'NVR',
+      status: 'ONLINE',
+      domain: 'CCTV',
+      x: 600,
+      y: 200,
+    },
+    {
+      id: 'ap-001',
+      label: 'AP-FL01-01',
+      type: 'ACCESS_POINT',
+      status: 'ONLINE',
+      domain: 'NETWORK',
+      x: 750,
       y: 350,
     },
   ];
@@ -169,6 +197,74 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       expect(onSelect).toHaveBeenCalledWith(mockNodes[1]);
     });
 
+    it('renders specialized node cards for Rack, Server, Camera, NVR, and AP', async () => {
+      const onSelect = vi.fn();
+      const onDragStart = vi.fn();
+
+      const root = createRoot(container);
+      currentRoot = root;
+
+      await act(async () => {
+        root.render(
+          createElement(
+            'svg',
+            null,
+            createElement(TopologyNodeItem, {
+              node: mockNodes[0], // Rack
+              onSelect,
+              onDragStart,
+            }),
+            createElement(TopologyNodeItem, {
+              node: mockNodes[3], // Camera
+              onSelect,
+              onDragStart,
+            }),
+            createElement(TopologyNodeItem, {
+              node: mockNodes[4], // Server
+              onSelect,
+              onDragStart,
+            }),
+            createElement(TopologyNodeItem, {
+              node: mockNodes[5], // NVR
+              onSelect,
+              onDragStart,
+            }),
+            createElement(TopologyNodeItem, {
+              node: mockNodes[6], // AP
+              onSelect,
+              onDragStart,
+            }),
+          ),
+        );
+      });
+
+      // Rack check
+      const rackNode = container.querySelector('[data-testid="topology-node-rack-rack-dc01"]');
+      expect(rackNode).toBeTruthy();
+      expect(rackNode?.textContent).toContain('42U Standard');
+
+      // Camera check
+      const cameraNode = container.querySelector('[data-testid="topology-node-camera-cam-001"]');
+      expect(cameraNode).toBeTruthy();
+      expect(cameraNode?.textContent).toContain('4K Ultra HD');
+      expect(cameraNode?.textContent).toContain('● Active');
+
+      // Server check
+      const serverNode = container.querySelector('[data-testid="topology-node-server-srv-001"]');
+      expect(serverNode).toBeTruthy();
+      expect(serverNode?.textContent).toContain('Dual NIC (LACP Bond)');
+
+      // NVR check
+      const nvrNode = container.querySelector('[data-testid="topology-node-nvr-nvr-001"]');
+      expect(nvrNode).toBeTruthy();
+      expect(nvrNode?.textContent).toContain('32/64 Channels');
+
+      // AP check
+      const apNode = container.querySelector('[data-testid="topology-node-access_point-ap-001"]');
+      expect(apNode).toBeTruthy();
+      expect(apNode?.textContent).toContain('SSID: Corp-Secure');
+    });
+
     it('renders color-coded bezier edge paths with speed telemetry pill', async () => {
       const onOpenPortConfig = vi.fn();
 
@@ -245,7 +341,7 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
                 searchQuery: '',
                 onSearchChange,
                 onOpenPatchModal,
-                totalNodes: 4,
+                totalNodes: 7,
                 totalEdges: 2,
               }),
             ),
@@ -263,6 +359,121 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
         (patchBtn as HTMLElement)?.click();
       });
       expect(onOpenPatchModal).toHaveBeenCalled();
+    });
+  });
+
+  describe('TopologySummaryBar Telemetry Deck', () => {
+    const mockMetrics = {
+      totalNodes: 45,
+      totalSwitches: 8,
+      totalRacks: 3,
+      totalEndpoints: 34,
+      totalCameras: 22,
+      totalNvrs: 2,
+      totalServers: 10,
+      totalEdges: 52,
+      activeLinks: 48,
+      degradedLinks: 2,
+      downLinks: 2,
+      poePowerUsageWatts: 338.8,
+      onlinePercentage: 92,
+    };
+
+    it('renders all 4 metric cards adapting to ALL perspective', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(TopologySummaryBar, {
+                metrics: mockMetrics,
+                viewMode: 'ALL',
+              }),
+            ),
+          ),
+        );
+      });
+
+      const bar = container.querySelector('[data-testid="topology-summary-bar"]');
+      expect(bar).toBeTruthy();
+
+      // Fleet nodes card
+      const fleetCard = container.querySelector('[data-testid="summary-card-fleet-nodes"]');
+      expect(fleetCard?.textContent).toContain('45');
+      expect(fleetCard?.textContent).toContain('8 Sw · 22 Cam · 3 Racks');
+
+      // Active links card
+      const linksCard = container.querySelector('[data-testid="summary-card-active-links"]');
+      expect(linksCard?.textContent).toContain('48 / 52');
+      expect(linksCard?.textContent).toContain('48 Up');
+      expect(linksCard?.textContent).toContain('2 Flapping');
+      expect(linksCard?.textContent).toContain('2 Down');
+
+      // PoE Power Draw card
+      const poeCard = container.querySelector('[data-testid="summary-card-poe-power"]');
+      expect(poeCard?.textContent).toContain('338.8');
+      expect(poeCard?.textContent).toContain('W');
+
+      // Health index card
+      const healthCard = container.querySelector('[data-testid="summary-card-health-index"]');
+      expect(healthCard?.textContent).toContain('Network Availability');
+      expect(healthCard?.textContent).toContain('92%');
+    });
+
+    it('adapts summary labels to NETWORK and CCTV perspectives', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+
+      // NETWORK view
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(TopologySummaryBar, {
+                metrics: mockMetrics,
+                viewMode: 'NETWORK',
+              }),
+            ),
+          ),
+        );
+      });
+
+      const fleetCardNet = container.querySelector('[data-testid="summary-card-fleet-nodes"]');
+      expect(fleetCardNet?.textContent).toContain('8 Switches · 10 Servers');
+
+      // CCTV view
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(TopologySummaryBar, {
+                metrics: mockMetrics,
+                viewMode: 'CCTV',
+              }),
+            ),
+          ),
+        );
+      });
+
+      const fleetCardCctv = container.querySelector('[data-testid="summary-card-fleet-nodes"]');
+      expect(fleetCardCctv?.textContent).toContain('22 Cams · 2 NVRs');
+
+      const healthCardCctv = container.querySelector('[data-testid="summary-card-health-index"]');
+      expect(healthCardCctv?.textContent).toContain('Stream Health');
     });
   });
 

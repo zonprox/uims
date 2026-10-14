@@ -5,7 +5,8 @@ import {
   PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { App, Button, Card, Flex, Input, Segmented, Space, Spin, Typography } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { App, Button, Card, Flex, Input, Select, Segmented, Space, Spin, Typography } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import type { Asset } from '../../../../services/assets.service';
 import type {
@@ -16,6 +17,7 @@ import type {
   VLAN,
 } from '../../../../services/network.service';
 import { networkService } from '../../../../services/network.service';
+import { useTopologyStore } from '../../../../stores/topology.store';
 import { formatErrorMessage } from '../../../../utils/feedback';
 import { AssetDetailDrawer } from '../../../assets/components/AssetDetailDrawer';
 import { PortConfigDrawer } from '../PortConfigDrawer';
@@ -23,14 +25,15 @@ import { RackElevationDrawer } from '../RackElevationDrawer';
 import { SwitchFaceplateDrawer } from '../SwitchFaceplateDrawer';
 import { CablePatchModal } from './CablePatchModal';
 import { NetworkTopologyCanvas } from './NetworkTopologyCanvas';
+import { TopologySummaryBar } from './TopologySummaryBar';
 import { calculateHierarchicalLayout, calculateRackGroupLayout } from './topologyLayout.util';
 import type {
   NetworkTopologyGraph,
   TopologyEdge,
   TopologyNode,
-  TopologyNodeStatus,
   TopologyViewMode,
 } from './types';
+import { useSaveTopologyLayoutMutation, useTopologyGraph } from './useTopologyQuery';
 
 const { Text } = Typography;
 
@@ -45,13 +48,83 @@ export interface TopologyMapTabProps {
 export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
   ({ vlans, subnets, assets, onSelectSwitch, onSelectRack }) => {
     const { message } = App.useApp();
-    const [viewMode, setViewMode] = useState<TopologyViewMode>('ALL');
+
+    // Zustand global topology store
+    const {
+      viewMode,
+      setViewMode,
+      filters,
+      setFilter,
+      searchQuery,
+      setSearchQuery,
+    } = useTopologyStore();
+
+    // TanStack Query for authoritative backend topology data
+    const {
+      data: topologyData,
+      isLoading,
+      refetch,
+    } = useTopologyGraph(viewMode as TopologyViewMode, filters as Record<string, string | undefined>);
+
+    // Layout mutation
+    const saveLayoutMutation = useSaveTopologyLayoutMutation();
+
+    // Query switches on demand for CablePatchModal and fallback lookups
+    const { data: allSwitches = [] } = useQuery({
+      queryKey: ['network', 'switches', 'fleet'],
+      queryFn: () => networkService.getSwitches({ limit: 100 }),
+      staleTime: 60_000,
+    });
+
+    // Local mutable graph data to support instant drag-and-drop & auto-layout before saving
     const [graphData, setGraphData] = useState<NetworkTopologyGraph | null>(null);
-    const [allRacks, setAllRacks] = useState<NetworkRack[]>([]);
-    const [allSwitches, setAllSwitches] = useState<NetworkSwitch[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const [hasUnsavedLayout, setHasUnsavedLayout] = useState(false);
+
+    // Synchronize local graph state when topology query resolves
+    useEffect(() => {
+      if (topologyData) {
+        const nodes: TopologyNode[] = (topologyData.nodes || []).map((n) => ({
+          ...n,
+          type: n.type as TopologyNode['type'],
+          status: n.status as TopologyNode['status'],
+          domain: n.domain as TopologyNode['domain'],
+        }));
+
+        const edges: TopologyEdge[] = (topologyData.edges || []).map((e) => ({
+          ...e,
+          status: e.status as TopologyEdge['status'],
+          domain: e.domain as TopologyEdge['domain'],
+        }));
+
+        const racks: NetworkRack[] = (topologyData.racks || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          code: r.code,
+          status: r.status,
+          positionX: r.positionX,
+          positionY: r.positionY,
+        } as NetworkRack));
+
+        setGraphData({
+          nodes,
+          edges,
+          racks,
+          vlans,
+          subnets,
+          summaryMetrics: {
+            totalNodes: topologyData.metrics?.totalNodes ?? nodes.length,
+            totalEdges: topologyData.metrics?.totalEdges ?? edges.length,
+            activeLinks: topologyData.metrics?.activeLinks ?? edges.length,
+            downLinks: topologyData.metrics?.downLinks ?? 0,
+            poePowerLinks: topologyData.metrics?.poePowerUsageWatts ?? 0,
+            poePowerUsageWatts: topologyData.metrics?.poePowerUsageWatts ?? 0,
+            cameraCount: topologyData.metrics?.totalCameras ?? 0,
+            switchCount: topologyData.metrics?.totalSwitches ?? 0,
+          },
+        });
+        setHasUnsavedLayout(false);
+      }
+    }, [topologyData, vlans, subnets]);
 
     // Contextual Drawer States
     const [selectedRack, setSelectedRack] = useState<NetworkRack | null>(null);
@@ -68,108 +141,6 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
 
     // Cable Patch Modal State
     const [patchModalOpen, setPatchModalOpen] = useState(false);
-
-    // Load graph data & supporting entity fleet from backend
-    const loadTopology = useCallback(async () => {
-      setLoading(true);
-      try {
-        const [topologyData, fetchedRacks, fetchedSwitches] = await Promise.all([
-          networkService.getTopology({ mode: viewMode }),
-          networkService.getRacks({ limit: 100 }),
-          networkService.getSwitches({ limit: 100 }),
-        ]);
-
-        setAllRacks(fetchedRacks || []);
-        setAllSwitches(fetchedSwitches || []);
-
-        // Merge racks into canvas node list if not already present
-        const mergedNodes: TopologyNode[] = [...(topologyData.nodes || [])];
-        const existingNodeIds = new Set(mergedNodes.map((n) => n.id));
-
-        let rackIdx = 0;
-        for (const rack of fetchedRacks) {
-          if (!existingNodeIds.has(rack.id)) {
-            const isCctvRack =
-              rack.name.toLowerCase().includes('cctv') ||
-              rack.code.toLowerCase().includes('cctv');
-
-            // In CCTV mode, show only CCTV racks; in other modes show all racks
-            if (viewMode === 'CCTV' && !isCctvRack) {
-              continue;
-            }
-
-            mergedNodes.push({
-              id: rack.id,
-              label: rack.code || rack.name,
-              sublabel: rack.name,
-              type: 'RACK',
-              status: (rack.status as TopologyNodeStatus) || 'ONLINE',
-              domain: isCctvRack ? 'CCTV' : 'NETWORK',
-              rackId: rack.id,
-              rackName: rack.name,
-              x: rack.positionX ?? 120 + rackIdx * 260,
-              y: rack.positionY ?? 100,
-              totalPorts: 42,
-              data: {
-                rackCode: rack.code,
-                maxPowerKw: rack.maxPowerKw,
-              },
-            });
-            existingNodeIds.add(rack.id);
-            rackIdx++;
-          }
-        }
-
-        // Connect edges from Rack to mounted Switches if not already linked
-        const mergedEdges: TopologyEdge[] = [...(topologyData.edges || [])];
-        const existingEdgeKeys = new Set(mergedEdges.map((e) => `${e.source}-->${e.target}`));
-
-        for (const sw of fetchedSwitches) {
-          if (sw.rackId && existingNodeIds.has(sw.rackId) && existingNodeIds.has(sw.id)) {
-            const edgeKey = `${sw.rackId}-->${sw.id}`;
-            if (!existingEdgeKeys.has(edgeKey)) {
-              mergedEdges.push({
-                id: `edge-rack-${sw.rackId}-${sw.id}`,
-                source: sw.rackId,
-                target: sw.id,
-                type: 'UPLINK',
-                media: 'COPPER',
-                speed: 'Rack Mount',
-                status: 'ACTIVE',
-                domain: sw.domain === 'CCTV' ? 'CCTV' : 'NETWORK',
-              });
-              existingEdgeKeys.add(edgeKey);
-            }
-          }
-        }
-
-        setGraphData({
-          nodes: mergedNodes,
-          edges: mergedEdges,
-          racks: fetchedRacks,
-          vlans,
-          subnets,
-          summaryMetrics: {
-            totalNodes: mergedNodes.length,
-            totalEdges: mergedEdges.length,
-            activeLinks: topologyData.summaryMetrics?.activeLinks ?? mergedEdges.length,
-            downLinks: topologyData.summaryMetrics?.downLinks ?? 0,
-            poePowerLinks: topologyData.summaryMetrics?.poePowerUsageWatts ?? 0,
-            cameraCount: topologyData.summaryMetrics?.totalCameras ?? 0,
-            switchCount: topologyData.summaryMetrics?.totalSwitches ?? fetchedSwitches.length,
-          },
-        });
-        setHasUnsavedLayout(false);
-      } catch (err: unknown) {
-        message.error(formatErrorMessage(err, 'load network topology graph'));
-      } finally {
-        setLoading(false);
-      }
-    }, [viewMode, vlans, subnets, message]);
-
-    useEffect(() => {
-      loadTopology();
-    }, [loadTopology]);
 
     // Node position mutation
     const handleNodePositionChange = useCallback((nodeId: string, x: number, y: number) => {
@@ -189,13 +160,16 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
         for (const n of graphData.nodes) {
           positions[n.id] = { x: n.x, y: n.y };
         }
-        await networkService.saveTopologyLayout({ mode: viewMode, positions });
+        await saveLayoutMutation.mutateAsync({
+          mode: viewMode as TopologyViewMode,
+          positions,
+        });
         message.success('Topology layout saved successfully');
         setHasUnsavedLayout(false);
       } catch (err: unknown) {
         message.error(formatErrorMessage(err, 'save topology layout coordinates'));
       }
-    }, [graphData, viewMode, message]);
+    }, [graphData, viewMode, saveLayoutMutation, message]);
 
     // Auto-Layout: Hierarchical
     const handleAutoLayoutHierarchical = useCallback(() => {
@@ -216,7 +190,7 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
       const positions = calculateRackGroupLayout(
         graphData.nodes,
         graphData.edges,
-        allRacks.length > 0 ? allRacks : graphData.racks,
+        graphData.racks,
       );
       setGraphData((prev) => {
         if (!prev) return prev;
@@ -225,36 +199,35 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
       });
       setHasUnsavedLayout(true);
       message.info('Applied Rack-Grouped auto-layout');
-    }, [graphData, allRacks, message]);
+    }, [graphData, message]);
 
     // Contextual Drill-Down Handler
     const handleSelectNode = useCallback(
       async (node: TopologyNode) => {
         if (node.type === 'RACK') {
-          const rack =
-            allRacks.find(
-              (r) =>
-                r.id === node.id ||
-                r.id === node.rackId ||
-                r.code === node.label ||
-                r.name === node.label,
-            ) ||
-            graphData?.racks.find((r) => r.id === (node.rackId || node.id));
-          if (rack) {
-            setSelectedRack(rack);
-            setRackDrawerOpen(true);
+          try {
+            const rack =
+              graphData?.racks.find((r) => r.id === node.id || r.id === node.rackId) ||
+              (await networkService.getRack(node.rackId || node.id));
+            if (rack) {
+              setSelectedRack(rack);
+              setRackDrawerOpen(true);
+            }
+          } catch (err: unknown) {
+            message.error(formatErrorMessage(err, 'load rack elevation details'));
           }
         } else if (node.type === 'SWITCH') {
           try {
             const sw = await networkService.getSwitch(node.id);
             setSelectedSwitch(sw);
             setSwitchDrawerOpen(true);
-          } catch {
-            // Fallback to local switch entity if available
+          } catch (err: unknown) {
             const localSw = allSwitches.find((s) => s.id === node.id);
             if (localSw) {
               setSelectedSwitch(localSw);
               setSwitchDrawerOpen(true);
+            } else {
+              message.error(formatErrorMessage(err, 'load switch details'));
             }
           }
         } else if (
@@ -262,7 +235,8 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
           node.type === 'ENDPOINT' ||
           node.type === 'ASSET' ||
           node.type === 'SERVER' ||
-          node.type === 'ACCESS_POINT'
+          node.type === 'ACCESS_POINT' ||
+          node.type === 'AP'
         ) {
           const matched = assets.find(
             (a) => a.id === node.id || a.tag === node.label || a.assetCode === node.label,
@@ -273,27 +247,30 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
           }
         }
       },
-      [allRacks, allSwitches, graphData, assets],
+      [graphData, allSwitches, assets, message],
     );
 
-    const handleOpenPortConfig = useCallback(async (sourcePortId?: string) => {
-      if (!sourcePortId) return;
-      try {
-        const port = await networkService.getPort(sourcePortId);
-        setSelectedPort(port);
-        setPortDrawerOpen(true);
-      } catch {
-        // Safe fallback
-      }
-    }, []);
+    const handleOpenPortConfig = useCallback(
+      async (sourcePortId?: string) => {
+        if (!sourcePortId) return;
+        try {
+          const port = await networkService.getPort(sourcePortId);
+          setSelectedPort(port);
+          setPortDrawerOpen(true);
+        } catch (err: unknown) {
+          message.error(formatErrorMessage(err, 'load port configuration'));
+        }
+      },
+      [message],
+    );
 
     return (
       <Card
         styles={{ body: { padding: '16px' } }}
         title={
           <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
-            {/* View Perspective Switcher */}
-            <Space size={12}>
+            {/* View Perspective Switcher & Sub-Filters */}
+            <Space size={12} wrap>
               <Segmented
                 value={viewMode}
                 onChange={(val) => setViewMode(val as TopologyViewMode)}
@@ -304,7 +281,91 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
                 ]}
                 data-testid="topology-view-switcher"
               />
-              {/* Telemetry metrics */}
+
+              {/* Contextual Sub-Filters for CCTV perspective */}
+              {viewMode === 'CCTV' && (
+                <Space size={8}>
+                  <Select
+                    placeholder="All Floors"
+                    allowClear
+                    value={filters.floor}
+                    onChange={(val) => setFilter('floor', val)}
+                    style={{ width: 130 }}
+                    options={[
+                      { label: '1F', value: '1F' },
+                      { label: '2F', value: '2F' },
+                      { label: '3F', value: '3F' },
+                      { label: 'Server Room', value: 'Server Room' },
+                    ]}
+                    data-testid="topology-floor-filter"
+                  />
+                  <Select
+                    placeholder="All Status"
+                    allowClear
+                    value={filters.status}
+                    onChange={(val) => setFilter('status', val)}
+                    style={{ width: 140 }}
+                    options={[
+                      { label: 'Active', value: 'ACTIVE' },
+                      { label: 'Flapping / Degraded', value: 'CONNECTED_NO_SIGNAL' },
+                      { label: 'Offline / Down', value: 'DOWN' },
+                    ]}
+                    data-testid="topology-status-filter"
+                  />
+                </Space>
+              )}
+
+              {/* Contextual Sub-Filters for NETWORK perspective */}
+              {viewMode === 'NETWORK' && (
+                <Space size={8}>
+                  <Select
+                    placeholder="All Roles"
+                    allowClear
+                    value={filters.status}
+                    onChange={(val) => setFilter('status', val)}
+                    style={{ width: 130 }}
+                    options={[
+                      { label: 'Core', value: 'CORE' },
+                      { label: 'Distribution', value: 'DISTRIBUTION' },
+                      { label: 'Access', value: 'ACCESS' },
+                      { label: 'PoE Access', value: 'POE_ACCESS' },
+                    ]}
+                    data-testid="topology-role-filter"
+                  />
+                  <Select
+                    placeholder="All VLANs"
+                    allowClear
+                    value={filters.vlanId}
+                    onChange={(val) => setFilter('vlanId', val)}
+                    style={{ width: 150 }}
+                    options={vlans.map((v) => ({
+                      label: `VLAN ${v.vlanNumber} (${v.name})`,
+                      value: v.id,
+                    }))}
+                    data-testid="topology-vlan-filter"
+                  />
+                </Space>
+              )}
+
+              {/* Contextual Sub-Filters for ALL perspective */}
+              {viewMode === 'ALL' && (
+                <Select
+                  placeholder="All Racks"
+                  allowClear
+                  value={filters.rackId}
+                  onChange={(val) => setFilter('rackId', val)}
+                  style={{ width: 140 }}
+                  options={
+                    topologyData?.racks?.map((r) => ({
+                      label: r.code || r.name,
+                      value: r.id,
+                    })) ?? []
+                  }
+                  data-testid="topology-rack-filter"
+                />
+              )}
+
+              {/* Node count text */}
               {graphData && (
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   {graphData.nodes.length} Nodes · {graphData.edges.length} Links
@@ -316,7 +377,7 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
             </Space>
 
             {/* Actions: Search, Auto-Layout, Patch Cable, Refresh */}
-            <Space size={8}>
+            <Space size={8} wrap>
               <Input.Search
                 placeholder="Search node, IP, MAC, camera..."
                 value={searchQuery}
@@ -336,17 +397,24 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
                 Patch Cable
               </Button>
               <Button
-                icon={<ReloadOutlined spin={loading} />}
-                onClick={loadTopology}
+                icon={<ReloadOutlined spin={isLoading} />}
+                onClick={() => refetch()}
                 aria-label="Reload"
               />
             </Space>
           </Flex>
         }
       >
-        {loading && !graphData ? (
+        {/* Telemetry Summary Bar */}
+        <TopologySummaryBar
+          metrics={topologyData?.metrics || topologyData?.summaryMetrics}
+          viewMode={viewMode as TopologyViewMode}
+          loading={isLoading}
+        />
+
+        {isLoading && !graphData ? (
           <div style={{ textAlign: 'center', padding: '100px 0' }}>
-            <Spin size="large" tip="Loading network & CCTV topology canvas..." />
+            <Spin size="large" description="Loading network & CCTV topology canvas..." />
           </div>
         ) : (
           graphData && (
@@ -388,7 +456,7 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
           vlans={vlans}
           subnets={subnets}
           assets={assets}
-          onPortUpdated={() => loadTopology()}
+          onPortUpdated={() => refetch()}
         />
 
         <AssetDetailDrawer
@@ -405,7 +473,7 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
           vlans={vlans}
           assets={assets}
           onClose={() => setPatchModalOpen(false)}
-          onSuccess={() => loadTopology()}
+          onSuccess={() => refetch()}
         />
       </Card>
     );

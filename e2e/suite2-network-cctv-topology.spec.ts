@@ -88,7 +88,7 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
       if (nodeBox) {
         await page.mouse.move(nodeBox.x + 20, nodeBox.y + 20);
         await page.mouse.down();
-        await page.mouse.move(nodeBox.x + 80, nodeBox.y + 80, { steps: 5 });
+        await page.mouse.move(nodeBox.x + 35, nodeBox.y + 35, { steps: 5 });
         await page.mouse.up();
       }
 
@@ -119,7 +119,10 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
       await page.waitForTimeout(400);
 
       // Contextual Drill-down: Click a switch node on Canvas to open SwitchFaceplateDrawer
-      const switchNode = canvas.locator('[data-testid^="topology-node-switch-"]').first();
+      const switchNode = canvas
+        .locator('[data-testid^="topology-node-switch-"]')
+        .filter({ hasText: /SW-CORE-02|SW-DIST-01/i })
+        .first();
       await expect(switchNode).toBeVisible({ timeout: 10000 });
       await switchNode.click();
       const faceplateDrawer = page
@@ -134,8 +137,12 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
       await expect(faceplateDrawer).not.toBeVisible();
 
       // Contextual Drill-down: Click a rack node on Canvas to open RackElevationDrawer
-      const rackNode = canvas.locator('[data-testid^="topology-node-rack-"]').first();
+      const rackNode = canvas
+        .locator('[data-testid^="topology-node-rack-"]')
+        .filter({ hasText: 'RCK-MDF-02' })
+        .first();
       await expect(rackNode).toBeVisible({ timeout: 10000 });
+      await rackNode.scrollIntoViewIfNeeded();
       await rackNode.click();
       const elevationDrawer = page
         .locator('.ant-drawer:visible, [role="dialog"]')

@@ -32,4 +32,21 @@ export class TopologyQueryDto {
   @IsString()
   @MaxLength(50)
   status?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by Floor (e.g. 1F, 2F, Server Room)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  floor?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by Subsystem Domain' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  domain?: string;
+
+  @ApiPropertyOptional({ description: 'Include summary metrics in response', default: true })
+  @IsOptional()
+  includeMetrics?: boolean;
 }
+

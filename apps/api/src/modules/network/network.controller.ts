@@ -1,5 +1,22 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import {
   AutoDetectQueryDto,
@@ -18,6 +35,7 @@ import {
   SwitchPortQueryDto,
   SwitchQueryDto,
   TopologyQueryDto,
+  UnpatchTopologyLinkDto,
   UpdateIPAddressDto,
   UpdateRackDto,
   UpdateSubnetDto,
@@ -27,6 +45,7 @@ import {
   UpdateVlanDto,
   VlanQueryDto,
 } from './dto';
+
 import { NetworkService } from './network.service';
 
 @ApiTags('network')
@@ -92,9 +111,34 @@ export class NetworkController {
   @Delete('topology/links/:portId')
   @Roles('Admin', 'Super Admin')
   @ApiOperation({ summary: 'Atomically disconnect (unpatch) switch port connection' })
-  deleteTopologyLink(@Param('portId') portId: string) {
-    return this.networkService.deleteTopologyLink(portId);
+  @ApiParam({
+    name: 'portId',
+    description: 'SwitchPort UUID to unpatch',
+    type: String,
+    format: 'uuid',
+  })
+  @ApiQuery({
+    name: 'reason',
+    required: false,
+    type: String,
+    description: 'Administrative reason for unpatching the cable link',
+  })
+  @ApiQuery({
+    name: 'resetPortConfig',
+    required: false,
+    type: Boolean,
+    description: 'Reset port configuration to default ACCESS mode, clear VLAN, and disable PoE',
+  })
+  @ApiResponse({ status: 200, description: 'Port connection successfully unpatched' })
+  @ApiResponse({ status: 400, description: 'Invalid port UUID or request query' })
+  @ApiResponse({ status: 404, description: 'SwitchPort not found' })
+  deleteTopologyLink(
+    @Param('portId', new ParseUUIDPipe()) portId: string,
+    @Query() query?: UnpatchTopologyLinkDto,
+  ) {
+    return this.networkService.deleteTopologyLink(portId, query);
   }
+
 
   // ==========================================
   // VLAN ENDPOINTS

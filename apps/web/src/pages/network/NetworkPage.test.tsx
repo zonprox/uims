@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App, ConfigProvider } from 'antd';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -266,6 +267,51 @@ vi.mock('../../services/network.service', async (importOriginal) => {
       ),
       updateIp: vi.fn().mockResolvedValue(mockIps[0]),
       deleteIp: vi.fn().mockResolvedValue(undefined),
+      getTopology: vi.fn().mockResolvedValue({
+        nodes: [
+          {
+            id: 'rack-1',
+            label: 'RCK-MDF-01',
+            type: 'RACK',
+            status: 'ONLINE',
+            domain: 'NETWORK',
+            x: 100,
+            y: 100,
+          },
+          {
+            id: 'sw-1',
+            label: 'BSL-CORE-SW01',
+            type: 'SWITCH',
+            status: 'ONLINE',
+            domain: 'NETWORK',
+            x: 300,
+            y: 100,
+          },
+        ],
+        edges: [],
+        racks: [{ id: 'rack-1', name: 'RCK-MDF-01', code: 'RCK-01', status: 'ACTIVE', switchCount: 1 }],
+        vlans: [],
+        subnets: [],
+        metrics: {
+          totalNodes: 2,
+          totalSwitches: 1,
+          totalRacks: 1,
+          totalEndpoints: 0,
+          totalCameras: 0,
+          totalNvrs: 0,
+          totalServers: 0,
+          totalEdges: 0,
+          activeLinks: 0,
+          degradedLinks: 0,
+          downLinks: 0,
+          poePowerUsageWatts: 0,
+          onlinePercentage: 100,
+        },
+      }),
+      saveTopologyLayout: vi.fn().mockResolvedValue({ success: true, updatedCount: 2 }),
+      updateTopologyLayout: vi.fn().mockResolvedValue({ success: true, updatedCount: 2 }),
+      getSwitches: vi.fn().mockResolvedValue([]),
+      getRacks: vi.fn().mockResolvedValue([]),
     },
   };
 });
@@ -321,15 +367,22 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
   const renderComponent = async () => {
     const root = createRoot(container);
     currentRoot = root;
+    const testQueryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     await act(async () => {
       root.render(
         createElement(
-          MemoryRouter,
-          null,
+          QueryClientProvider,
+          { client: testQueryClient },
           createElement(
-            ConfigProvider,
+            MemoryRouter,
             null,
-            createElement(App, null, createElement(NetworkPage, null)),
+            createElement(
+              ConfigProvider,
+              null,
+              createElement(App, null, createElement(NetworkPage, null)),
+            ),
           ),
         ),
       );
@@ -623,5 +676,25 @@ describe('NetworkPage & Enterprise IPAM Experience', () => {
 
     expect(networkService.lookupMacVendor).toHaveBeenCalledWith('00:1B:44:22:33:44');
     expect(document.body.textContent).toContain('OUI Vendor: Cisco Systems');
+  });
+
+  it('switches to Topology Map tab and renders multi-perspective interactive canvas', async () => {
+    await renderComponent();
+
+    const topologyTab = Array.from(container.querySelectorAll('.ant-tabs-tab')).find((tab) =>
+      tab.textContent?.includes('Topology Map'),
+    );
+    expect(topologyTab).toBeTruthy();
+
+    await act(async () => {
+      (topologyTab?.querySelector('.ant-tabs-tab-btn') as HTMLElement)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    const switcher = container.querySelector('[data-testid="topology-view-switcher"]');
+    expect(switcher).toBeTruthy();
+    expect(switcher?.textContent).toContain('All Infrastructure');
+    expect(switcher?.textContent).toContain('Network Only');
+    expect(switcher?.textContent).toContain('CCTV System');
   });
 });

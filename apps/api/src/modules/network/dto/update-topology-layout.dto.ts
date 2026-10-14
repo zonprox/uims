@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TopologyNodeType, TopologyViewMode } from '@uims/shared-types';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -12,6 +13,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
+
 
 export class TopologyNodePositionItemDto {
   @ApiProperty({ description: 'Node ID (Rack ID, Switch ID, Asset ID)' })
@@ -53,12 +55,14 @@ export class UpdateTopologyLayoutDto {
   viewMode?: TopologyViewMode;
 
   @ApiProperty({
-    description: 'Array of node positions to persist',
+    description: 'Array of node positions to persist (1 to 500 items)',
     type: [TopologyNodePositionItemDto],
   })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(500)
   @ValidateNested({ each: true })
   @Type(() => TopologyNodePositionItemDto)
   positions!: TopologyNodePositionItemDto[];
+
 }

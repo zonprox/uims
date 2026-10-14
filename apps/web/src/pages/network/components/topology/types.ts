@@ -50,6 +50,12 @@ export type TopologyEdgeType =
   | 'ENDPOINT'
   | 'DOWNLINK';
 
+export function getNodeDimensions(type: string): { width: number; height: number } {
+  if (type === 'RACK') return { width: 200, height: 96 };
+  if (type === 'SWITCH') return { width: 210, height: 98 };
+  return { width: 185, height: 86 };
+}
+
 export interface TopologyNode {
   id: string;
   type: TopologyNodeType;
@@ -95,8 +101,10 @@ export interface TopologyEdge {
   speed?: string | null;
   media?: 'COPPER' | 'FIBER';
   mediaType?: string;
+  speedMbps?: number;
   status: TopologyEdgeStatus;
   poeEnabled?: boolean;
+  poeDelivering?: boolean;
   vlanId?: string | null;
   vlanName?: string | null;
   vlanNumber?: number | null;

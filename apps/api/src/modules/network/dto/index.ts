@@ -22,3 +22,5 @@ export * from './switch-port-query.dto';
 export * from './topology-query.dto';
 export * from './update-topology-layout.dto';
 export * from './create-topology-link.dto';
+export * from './unpatch-topology-link.dto';
+

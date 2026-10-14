@@ -19,6 +19,7 @@ import type {
   UpdateSwitchDto,
   UpdateSwitchPortDto,
   UpdateVlanDto,
+  UnpatchTopologyLinkDto,
 } from './dto';
 import { NetworkController } from './network.controller';
 import type { NetworkService } from './network.service';
@@ -553,7 +554,17 @@ describe('NetworkController', () => {
     mockNetworkService.deleteTopologyLink.mockResolvedValue(mockResponse);
 
     const result = await controller.deleteTopologyLink('port-1');
-    expect(mockNetworkService.deleteTopologyLink).toHaveBeenCalledWith('port-1');
+    expect(mockNetworkService.deleteTopologyLink).toHaveBeenCalledWith('port-1', undefined);
+    expect(result).toBe(mockResponse);
+  });
+
+  it('deleteTopologyLink forwards optional query to networkService.deleteTopologyLink', async () => {
+    const mockResponse = { success: true, message: 'Port connection successfully unpatched.' };
+    mockNetworkService.deleteTopologyLink.mockResolvedValue(mockResponse);
+    const query: UnpatchTopologyLinkDto = { resetPortConfig: true, reason: 'Maintenance' };
+
+    const result = await controller.deleteTopologyLink('port-1', query);
+    expect(mockNetworkService.deleteTopologyLink).toHaveBeenCalledWith('port-1', query);
     expect(result).toBe(mockResponse);
   });
 });

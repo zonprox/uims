@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import type { TopologyEdge, TopologyNode } from './types';
+import { getNodeDimensions } from './types';
 
 export interface TopologyEdgeItemProps {
   edge: TopologyEdge;
@@ -13,25 +14,33 @@ export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
   ({ edge, sourceNode, targetNode, isHighlighted, onOpenPortConfig }) => {
     if (!sourceNode || !targetNode) return null;
 
-    const sWidth = sourceNode.type === 'RACK' ? 180 : sourceNode.type === 'SWITCH' ? 175 : 160;
-    const sHeight = sourceNode.type === 'RACK' ? 85 : sourceNode.type === 'SWITCH' ? 80 : 72;
-    const tWidth = targetNode.type === 'RACK' ? 180 : targetNode.type === 'SWITCH' ? 175 : 160;
+    const sDim = getNodeDimensions(sourceNode.type);
+    const tDim = getNodeDimensions(targetNode.type);
 
-    const sx = sourceNode.x + sWidth / 2;
-    const sy = sourceNode.y + sHeight;
-    const tx = targetNode.x + tWidth / 2;
+    const sx = sourceNode.x + sDim.width / 2;
+    const sy = sourceNode.y + sDim.height;
+    const tx = targetNode.x + tDim.width / 2;
     const ty = targetNode.y;
 
     const midY = (sy + ty) / 2;
-    const pathD = `M ${sx} ${sy} C ${sx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
     const midX = (sx + tx) / 2;
+    const pathD = `M ${sx} ${sy} C ${sx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
 
     const isFiber =
       edge.media === 'FIBER' ||
       edge.mediaType?.includes('FIBER') ||
       edge.speed?.includes('10G') ||
-      edge.speed?.includes('40G');
+      edge.speed?.includes('40G') ||
+      (edge.speedMbps !== undefined && edge.speedMbps >= 10000);
 
+    const isTrunk =
+      edge.type === 'UPLINK' ||
+      edge.type === 'TRUNK' ||
+      edge.linkType === 'UPLINK' ||
+      edge.linkType === 'TRUNK' ||
+      (sourceNode.type === 'SWITCH' && targetNode.type === 'SWITCH');
+
+    // Stroke coloring based on media & signaling health
     const strokeColor = isHighlighted
       ? '#06b6d4'
       : edge.status === 'DOWN'
@@ -42,11 +51,17 @@ export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
             ? '#3b82f6'
             : '#10b981';
 
-    const strokeWidth = isHighlighted ? 3.5 : isFiber ? 3 : 2;
+    const strokeWidth = isHighlighted ? 3.5 : isTrunk ? (isFiber ? 3.5 : 2.5) : 2.0;
+
     const isDashed =
       edge.status === 'DOWN' ||
       edge.status === 'CONNECTED_NO_SIGNAL' ||
       edge.status === 'DEGRADED';
+
+    const dashArray =
+      edge.status === 'DOWN' ? '6,4' : isDashed ? '8,5' : undefined;
+
+    const isPoe = Boolean(edge.poeEnabled || edge.poeDelivering);
 
     const handleClick = useCallback(
       (e: React.MouseEvent) => {
@@ -56,6 +71,15 @@ export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
       [edge.sourcePortId, onOpenPortConfig],
     );
 
+    // Pill styling
+    const pillWidth = isPoe ? 82 : isTrunk ? 88 : 74;
+    const pillHeight = 22;
+    const pillBg = isPoe ? '#fefce8' : '#ffffff';
+    const pillBorderColor = isPoe ? '#eab308' : strokeColor;
+    const pillTextColor = isPoe ? '#a16207' : '#1e293b';
+
+    const speedLabel = edge.speed || (edge.speedMbps ? `${edge.speedMbps / 1000} Gbps` : '1 Gbps');
+
     return (
       <g
         className="topology-edge-group"
@@ -63,7 +87,7 @@ export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
         style={{ cursor: 'pointer' }}
         data-testid={`topology-edge-${edge.id}`}
       >
-        {/* Invisible wider hit target for easy clicking */}
+        {/* Invisible 14px click hit target for effortless port config opening */}
         <path d={pathD} fill="none" stroke="transparent" strokeWidth={14} />
 
         {/* Visible link path */}
@@ -72,34 +96,34 @@ export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
           fill="none"
           stroke={strokeColor}
           strokeWidth={strokeWidth}
-          strokeDasharray={isDashed ? '6,4' : undefined}
+          strokeDasharray={dashArray}
           strokeLinecap="round"
         />
 
         {/* Center Pill / Telemetry Badge */}
-        <g transform={`translate(${midX - 35}, ${midY - 11})`}>
+        <g transform={`translate(${midX - pillWidth / 2}, ${midY - pillHeight / 2})`}>
           <rect
             x={0}
             y={0}
-            width={70}
-            height={20}
-            rx={10}
-            fill="#ffffff"
-            stroke={strokeColor}
-            strokeWidth={1}
-            filter="drop-shadow(0 1px 2px rgba(0,0,0,0.1))"
+            width={pillWidth}
+            height={pillHeight}
+            rx={11}
+            fill={pillBg}
+            stroke={pillBorderColor}
+            strokeWidth={1.5}
+            filter="drop-shadow(0 1px 3px rgba(0,0,0,0.12))"
           />
           <text
-            x={35}
-            y={13.5}
+            x={pillWidth / 2}
+            y={15}
             textAnchor="middle"
-            fill="#1e293b"
-            fontSize={9.5}
+            fill={pillTextColor}
+            fontSize={10}
             fontWeight={600}
             fontFamily="system-ui, sans-serif"
           >
-            {edge.poeEnabled ? '⚡ ' : ''}
-            {edge.speed || '1G'}
+            {isPoe ? '⚡ ' : ''}
+            {speedLabel}
           </text>
         </g>
       </g>

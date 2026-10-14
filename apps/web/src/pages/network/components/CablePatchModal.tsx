@@ -36,11 +36,14 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
         networkService
           .getSwitchPorts(sourceSwitchId)
           .then(setSourcePorts)
-          .catch(() => setSourcePorts([]));
+          .catch((err: unknown) => {
+            setSourcePorts([]);
+            message.error(formatErrorMessage(err, 'load source switch ports'));
+          });
       } else {
         setSourcePorts([]);
       }
-    }, [sourceSwitchId]);
+    }, [sourceSwitchId, message]);
 
     // Load ports for target switch (uplink mode)
     useEffect(() => {
@@ -48,11 +51,14 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
         networkService
           .getSwitchPorts(targetSwitchId)
           .then(setTargetPorts)
-          .catch(() => setTargetPorts([]));
+          .catch((err: unknown) => {
+            setTargetPorts([]);
+            message.error(formatErrorMessage(err, 'load target switch ports'));
+          });
       } else {
         setTargetPorts([]);
       }
-    }, [targetSwitchId]);
+    }, [targetSwitchId, message]);
 
     const handleSubmit = async () => {
       try {

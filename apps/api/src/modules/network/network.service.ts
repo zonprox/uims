@@ -53,7 +53,12 @@ import type {
   UpdateVlanDto,
   VlanQueryDto,
 } from '@uims/shared-types';
-import type { CreateTopologyLinkDto, TopologyQueryDto, UpdateTopologyLayoutDto } from './dto';
+import type {
+  CreateTopologyLinkDto,
+  TopologyQueryDto,
+  UnpatchTopologyLinkDto,
+  UpdateTopologyLayoutDto,
+} from './dto';
 import {
   calculateSubnet,
   calculateUtilization,
@@ -71,6 +76,18 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
 export const STANDARD_RACK_HEIGHT = 42;
+
+export function parseSpeedMbps(speedStr?: string | null): number {
+  if (!speedStr) return 1000;
+  const lower = speedStr.toLowerCase().trim();
+  const match = lower.match(/(-?\d+(?:\.\d+)?)/);
+  if (!match) return 1000;
+  const num = parseFloat(match[1]);
+  if (isNaN(num) || num <= 0) return 1000;
+  if (lower.includes('g')) return Math.round(num * 1000);
+  if (lower.includes('m')) return Math.round(num);
+  return Math.round(num);
+}
 
 @Injectable()
 export class NetworkService {
@@ -2043,13 +2060,23 @@ export class NetworkService {
   // TOPOLOGY GRAPH ENGINE METHODS
   // ==========================================
 
-  async getTopology(query: TopologyQueryDto): Promise<NetworkTopologyData> {
+  async getTopologyGraph(query: TopologyQueryDto): Promise<NetworkTopologyData> {
     const mode = query.mode || 'ALL';
 
-    // 1. Determine switches query filter based on perspective
+    // 1. Determine query filters based on perspective and query parameters
+    const racksWhere: Prisma.NetworkRackWhereInput = {};
+    if (query.rackId) racksWhere.id = query.rackId;
+
     const switchesWhere: Prisma.NetworkSwitchWhereInput = {};
     if (query.rackId) switchesWhere.rackId = query.rackId;
     if (query.status) switchesWhere.status = query.status as SwitchStatus;
+    if (query.vlanId) {
+      switchesWhere.ports = {
+        some: {
+          OR: [{ vlanId: query.vlanId }, { vlan: { id: query.vlanId } }],
+        },
+      };
+    }
 
     if (mode === 'NETWORK') {
       switchesWhere.domain = { in: ['NETWORK', 'SHARED'] };
@@ -2058,12 +2085,24 @@ export class NetworkService {
         { domain: 'CCTV' },
         { role: 'POE_ACCESS' },
         { ports: { some: { vlan: { domain: 'CCTV' } } } },
+        { ports: { some: { connectedSwitch: { domain: 'CCTV' } } } },
+        { ports: { some: { connectedPort: { switch: { domain: 'CCTV' } } } } },
       ];
     }
+
+    const vlanWhere: Prisma.VLANWhereInput = {};
+    if (query.vlanId) vlanWhere.id = query.vlanId;
+    if (mode !== 'ALL') vlanWhere.domain = mode === 'CCTV' ? 'CCTV' : 'NETWORK';
+
+    const subnetWhere: Prisma.SubnetWhereInput = {};
+    if (query.subnetId) subnetWhere.id = query.subnetId;
+    if (query.vlanId) subnetWhere.vlanId = query.vlanId;
+    if (mode !== 'ALL') subnetWhere.domain = mode === 'CCTV' ? 'CCTV' : 'NETWORK';
 
     // 2. Fetch all necessary data concurrently with bounded queries
     const [racks, switches, vlanRecords, subnetRecords, savedPositions] = await Promise.all([
       this.prisma.networkRack.findMany({
+        where: racksWhere,
         orderBy: [{ code: 'asc' }, { id: 'asc' }],
         take: 100,
       }),
@@ -2094,18 +2133,19 @@ export class NetworkService {
         take: 200,
       }),
       this.prisma.vLAN.findMany({
-        where: mode === 'ALL' ? {} : { domain: mode === 'CCTV' ? 'CCTV' : 'NETWORK' },
+        where: vlanWhere,
         include: { subnets: true, switchPorts: true },
         orderBy: [{ vlanNumber: 'asc' }, { id: 'asc' }],
         take: 100,
       }),
       this.prisma.subnet.findMany({
-        where: mode === 'ALL' ? {} : { domain: mode === 'CCTV' ? 'CCTV' : 'NETWORK' },
+        where: subnetWhere,
         orderBy: [{ cidr: 'asc' }, { id: 'asc' }],
         take: 100,
       }),
       this.prisma.canvasNodePosition.findMany({
         where: { viewMode: mode },
+        orderBy: [{ id: 'asc' }],
         take: 1000,
       }),
     ]);
@@ -2120,8 +2160,59 @@ export class NetworkService {
     const edges: TopologyEdge[] = [];
     const processedEdgeIds = new Set<string>();
     const endpointNodeIds = new Set<string>();
+    const switchIdSet = new Set(switches.map((s) => s.id));
 
-    // 3. Assemble Switch Nodes
+    // 3. Assemble Rack Nodes
+    for (let rIdx = 0; rIdx < racks.length; rIdx++) {
+      const rack = racks[rIdx];
+      const isCctvRack =
+        rack.name.toLowerCase().includes('cctv') || rack.code.toLowerCase().includes('cctv');
+      if (
+        mode === 'CCTV' &&
+        !isCctvRack &&
+        !switches.some((s) => s.rackId === rack.id && s.domain === 'CCTV')
+      )
+        continue;
+      if (
+        mode === 'NETWORK' &&
+        isCctvRack &&
+        !switches.some((s) => s.rackId === rack.id && s.domain === 'NETWORK')
+      )
+        continue;
+
+      const savedPos = posMap.get(rack.id);
+      let rx = savedPos ? savedPos.x : (rack.positionX ?? 120 + rIdx * 280);
+      let ry = savedPos ? savedPos.y : (rack.positionY ?? 80);
+      if (rx === 550 && ry === 550) {
+        rx = 1250;
+        ry = 150;
+      }
+
+      nodes.push({
+        id: rack.id,
+        label: rack.code || rack.name,
+        type: 'RACK',
+        subType: 'CABINET_42U',
+        domain: isCctvRack ? 'CCTV' : 'NETWORK',
+        status: (rack.status === 'ACTIVE' ? 'ONLINE' : 'MAINTENANCE') as unknown as TopologyNode['status'],
+        rackId: rack.id,
+        rackName: rack.name,
+        x: rx,
+        y: ry,
+        position: { x: rx, y: ry, isPinned: savedPos?.isPinned },
+        isPinned: savedPos?.isPinned,
+        totalPorts: 42,
+        data: {
+          rackCode: rack.code,
+          maxPowerKw: rack.maxPowerKw,
+          maxWeightKg: rack.maxWeightKg,
+          depth: rack.depth,
+          width: rack.width,
+        },
+      });
+    }
+
+    // 4. Assemble Switch Nodes
     switches.forEach((sw, idx) => {
       const activePorts = sw.ports.filter((p) => p.operStatus === 'ACTIVE').length;
       const poeActivePorts = sw.ports.filter(
@@ -2169,12 +2260,12 @@ export class NetworkService {
         },
       });
 
-      // 4. Assemble Edges & Connected Endpoints
+      // 5. Assemble Edges & Connected Endpoints
       for (const port of sw.ports) {
         // Inter-Switch Trunk Uplinks
         if (port.connectedPortId && port.connectedPort) {
           const peerSw = port.connectedPort.switch;
-          if (peerSw) {
+          if (peerSw && switchIdSet.has(peerSw.id)) {
             const edgeKey = [port.id, port.connectedPortId].sort().join('--');
             if (!processedEdgeIds.has(edgeKey)) {
               processedEdgeIds.add(edgeKey);
@@ -2186,8 +2277,14 @@ export class NetworkService {
                     ? 'NETWORK'
                     : 'SHARED';
 
+              const speedStr = port.speed || '10 Gbps';
+              const speedMbps = parseSpeedMbps(speedStr);
+              const isFiber = Boolean(port.formFactor && port.formFactor.includes('SFP'));
+
               edges.push({
                 id: `edge-${edgeKey}`,
+                sourceNodeId: sw.id,
+                targetNodeId: peerSw.id,
                 source: sw.id,
                 target: peerSw.id,
                 sourcePortId: port.id,
@@ -2195,10 +2292,14 @@ export class NetworkService {
                 targetPortId: port.connectedPort.id,
                 targetPortName: port.connectedPort.name,
                 linkType: 'UPLINK',
-                mediaType: port.formFactor.includes('SFP') ? 'FIBER_SFP_PLUS' : 'COPPER',
-                speed: port.speed || '10 Gbps',
+                portRole: 'UPLINK',
+                medium: isFiber ? 'FIBER_MULTI' : 'COPPER',
+                mediaType: isFiber ? 'FIBER_SFP_PLUS' : 'COPPER',
+                speed: speedStr,
+                speedMbps,
                 status: (port.operStatus as 'ACTIVE' | 'DOWN' | 'CONNECTED_NO_SIGNAL') || 'DOWN',
                 poeEnabled: port.poeEnabled,
+                poeDelivering: port.poeEnabled && port.operStatus === 'ACTIVE',
                 vlanId: port.vlanId,
                 vlanNumber: port.vlan?.vlanNumber,
                 taggedVlanIds: (port.taggedVlanIds as number[]) || [],
@@ -2233,8 +2334,16 @@ export class NetworkService {
             categoryKey.includes('ap') || modelName.toLowerCase().includes('access point');
 
           // Filter endpoints based on perspective
-          if (mode === 'NETWORK' && isCamera) continue;
+          if (mode === 'NETWORK' && (isCamera || isNvr)) continue;
           if (mode === 'CCTV' && !isCamera && !isNvr) continue;
+
+          // Apply query.floor filter on endpoint IP addresses
+          if (query.floor) {
+            const epFloor = port.ipAddress?.floor;
+            if (epFloor && epFloor.toLowerCase() !== query.floor.toLowerCase().trim()) {
+              continue;
+            }
+          }
 
           let nodeType: TopologyNode['type'] = 'ASSET';
           if (isCamera) nodeType = 'CAMERA';
@@ -2288,17 +2397,26 @@ export class NetworkService {
             });
           }
 
+          const epSpeedStr = port.speed || '1 Gbps';
+          const epSpeedMbps = parseSpeedMbps(epSpeedStr);
+
           edges.push({
             id: `edge-${port.id}-${asset.id}`,
+            sourceNodeId: sw.id,
+            targetNodeId: asset.id,
             source: sw.id,
             target: asset.id,
             sourcePortId: port.id,
             sourcePortName: port.name,
             linkType: port.poeEnabled ? 'POE' : 'ENDPOINT',
+            portRole: 'ACCESS',
+            medium: 'COPPER',
             mediaType: 'COPPER',
-            speed: port.speed || '1 Gbps',
+            speed: epSpeedStr,
+            speedMbps: epSpeedMbps,
             status: (port.operStatus as 'ACTIVE' | 'DOWN' | 'CONNECTED_NO_SIGNAL') || 'DOWN',
             poeEnabled: port.poeEnabled,
+            poeDelivering: port.poeEnabled && port.operStatus === 'ACTIVE',
             vlanId: port.vlanId,
             vlanNumber: port.vlan?.vlanNumber,
             domain: endpointDomain,
@@ -2307,7 +2425,7 @@ export class NetworkService {
       }
     });
 
-    // 5. Summary Metrics Aggregation
+    // 6. Summary Metrics Aggregation
     const activeLinks = edges.filter((e) => e.status === 'ACTIVE').length;
     const degradedLinks = edges.filter((e) => e.status === 'CONNECTED_NO_SIGNAL').length;
     const downLinks = edges.filter((e) => e.status === 'DOWN').length;
@@ -2318,11 +2436,12 @@ export class NetworkService {
     const summaryMetrics: TopologySummaryMetrics = {
       totalNodes: nodes.length,
       totalSwitches: nodes.filter((n) => n.type === 'SWITCH').length,
-      totalRacks: racks.length,
+      totalRacks: nodes.filter((n) => n.type === 'RACK').length,
       totalEndpoints: endpointNodeIds.size,
       totalCameras: nodes.filter((n) => n.type === 'CAMERA').length,
       totalNvrs: nodes.filter((n) => n.type === 'NVR').length,
       totalServers: nodes.filter((n) => n.type === 'SERVER').length,
+      totalAccessPoints: nodes.filter((n) => n.type === 'ACCESS_POINT' || n.type === 'AP').length,
       totalEdges: edges.length,
       activeLinks,
       degradedLinks,
@@ -2364,12 +2483,21 @@ export class NetworkService {
     };
   }
 
+  async getTopology(query: TopologyQueryDto): Promise<NetworkTopologyData> {
+    return this.getTopologyGraph(query);
+  }
+
+  async getTopologyData(query: TopologyQueryDto): Promise<NetworkTopologyData> {
+    return this.getTopologyGraph(query);
+  }
+
   async updateTopologyLayout(dto: UpdateTopologyLayoutDto) {
     const viewMode = dto.viewMode || 'ALL';
 
-    await this.prisma.$transaction(
-      dto.positions.map((p) =>
-        this.prisma.canvasNodePosition.upsert({
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Batch upsert CanvasNodePosition records
+      for (const p of dto.positions) {
+        await tx.canvasNodePosition.upsert({
           where: {
             nodeId_viewMode: {
               nodeId: p.nodeId,
@@ -2390,36 +2518,28 @@ export class NetworkService {
             y: p.y,
             isPinned: p.isPinned ?? false,
           },
-        }),
-      ),
-    );
-
-    // Synchronize default coordinates on master entities when updating ALL view
-    if (viewMode === 'ALL') {
-      const switchPositions = dto.positions.filter((p) => p.nodeType === 'SWITCH');
-      if (switchPositions.length > 0) {
-        await Promise.all(
-          switchPositions.map((p) =>
-            this.prisma.networkSwitch.updateMany({
-              where: { id: p.nodeId },
-              data: { positionX: p.x, positionY: p.y },
-            }),
-          ),
-        );
+        });
       }
 
-      const rackPositions = dto.positions.filter((p) => p.nodeType === 'RACK');
-      if (rackPositions.length > 0) {
-        await Promise.all(
-          rackPositions.map((p) =>
-            this.prisma.networkRack.updateMany({
-              where: { id: p.nodeId },
-              data: { positionX: p.x, positionY: p.y },
-            }),
-          ),
-        );
+      // 2. Synchronize master coordinates if active view is ALL
+      if (viewMode === 'ALL') {
+        const switchPositions = dto.positions.filter((p) => p.nodeType === 'SWITCH');
+        for (const p of switchPositions) {
+          await tx.networkSwitch.updateMany({
+            where: { id: p.nodeId },
+            data: { positionX: p.x, positionY: p.y },
+          });
+        }
+
+        const rackPositions = dto.positions.filter((p) => p.nodeType === 'RACK');
+        for (const p of rackPositions) {
+          await tx.networkRack.updateMany({
+            where: { id: p.nodeId },
+            data: { positionX: p.x, positionY: p.y },
+          });
+        }
       }
-    }
+    });
 
     return {
       success: true,
@@ -2431,12 +2551,23 @@ export class NetworkService {
   async createTopologyLink(dto: CreateTopologyLinkDto) {
     const sourcePort = await this.prisma.switchPort.findUnique({
       where: { id: dto.sourcePortId },
+      include: { switch: true },
     });
     if (!sourcePort) {
       throw new NotFoundException(`Source SwitchPort with ID "${dto.sourcePortId}" not found.`);
     }
 
-    // 1. Inter-Switch Port Link
+    // Resolve unified PoE setting
+    const targetPoe = dto.poeEnabled ?? dto.poeDelivering;
+
+    // Check mutual exclusivity: cannot link to both inter-switch targetPortId and endpoint
+    if (dto.targetPortId && (dto.targetAssetId || dto.targetIpAddressId)) {
+      throw new BadRequestException(
+        'Cannot link to both an inter-switch targetPortId and an endpoint asset/IP in the same request.',
+      );
+    }
+
+    // 1. Inter-Switch Port Trunk Link
     if (dto.targetPortId) {
       if (dto.sourcePortId === dto.targetPortId) {
         throw new BadRequestException('Cannot link a switch port to itself (self-loop detected).');
@@ -2444,27 +2575,45 @@ export class NetworkService {
 
       const targetPort = await this.prisma.switchPort.findUnique({
         where: { id: dto.targetPortId },
+        include: { switch: true },
       });
       if (!targetPort) {
         throw new NotFoundException(`Target SwitchPort with ID "${dto.targetPortId}" not found.`);
       }
 
-      return this.prisma.$transaction(async (tx) => {
-        // Disconnect previous peers if any
-        if (sourcePort.connectedPortId) {
-          await tx.switchPort.update({
-            where: { id: sourcePort.connectedPortId },
-            data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
-          });
-        }
-        if (targetPort.connectedPortId) {
-          await tx.switchPort.update({
-            where: { id: targetPort.connectedPortId },
+      if (sourcePort.switchId === targetPort.switchId) {
+        throw new BadRequestException(
+          `Cannot create an inter-switch trunk link between two ports on the same switch "${sourcePort.switch?.name || sourcePort.switchId}".`,
+        );
+      }
+
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Step A: Evict any reverse links pointing to sourcePort or targetPort from other ports
+        await tx.switchPort.updateMany({
+          where: {
+            connectedPortId: { in: [sourcePort.id, targetPort.id] },
+            id: { notIn: [sourcePort.id, targetPort.id] },
+          },
+          data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
+        });
+
+        // Step B: Evict previous forward links from sourcePort and targetPort
+        const previousPeerIds = [sourcePort.connectedPortId, targetPort.connectedPortId].filter(
+          (id): id is string => Boolean(id) && id !== sourcePort.id && id !== targetPort.id,
+        );
+        if (previousPeerIds.length > 0) {
+          await tx.switchPort.updateMany({
+            where: { id: { in: previousPeerIds } },
             data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
           });
         }
 
-        const linkSpeed = dto.speed || sourcePort.speed || targetPort.speed || '10 Gbps';
+        const linkSpeed =
+          dto.speed ||
+          (dto.speedMbps ? `${dto.speedMbps} Mbps` : null) ||
+          sourcePort.speed ||
+          targetPort.speed ||
+          '10 Gbps';
         const taggedVlans = dto.taggedVlanIds
           ? (dto.taggedVlanIds as Prisma.InputJsonValue)
           : sourcePort.taggedVlanIds || targetPort.taggedVlanIds || Prisma.JsonNull;
@@ -2475,11 +2624,14 @@ export class NetworkService {
             connectedPortId: targetPort.id,
             connectedSwitchId: targetPort.switchId,
             connectedAssetId: null,
+            ipAddressId: null,
             mode: dto.mode || 'TRUNK',
             adminStatus: 'UP',
             operStatus: 'ACTIVE',
             speed: linkSpeed,
             taggedVlanIds: taggedVlans,
+            poeEnabled: targetPoe !== undefined ? targetPoe : sourcePort.poeEnabled,
+            description: dto.description !== undefined ? dto.description : sourcePort.description,
           },
         });
 
@@ -2489,11 +2641,14 @@ export class NetworkService {
             connectedPortId: sourcePort.id,
             connectedSwitchId: sourcePort.switchId,
             connectedAssetId: null,
+            ipAddressId: null,
             mode: dto.mode || 'TRUNK',
             adminStatus: 'UP',
             operStatus: 'ACTIVE',
             speed: linkSpeed,
             taggedVlanIds: taggedVlans,
+            poeEnabled: targetPoe !== undefined ? targetPoe : targetPort.poeEnabled,
+            description: dto.description !== undefined ? dto.description : targetPort.description,
           },
         });
 
@@ -2503,24 +2658,81 @@ export class NetworkService {
           link: {
             sourcePortId: updatedSource.id,
             targetPortId: updatedTarget.id,
+            sourceSwitchId: sourcePort.switchId,
+            targetSwitchId: targetPort.switchId,
             mode: updatedSource.mode,
             speed: linkSpeed,
             operStatus: 'ACTIVE',
+            taggedVlanIds: updatedSource.taggedVlanIds,
           },
         };
       });
-    }
 
-    // 2. Endpoint Asset Link
-    if (dto.targetAssetId) {
-      const asset = await this.prisma.asset.findUnique({
-        where: { id: dto.targetAssetId },
-      });
-      if (!asset) {
-        throw new NotFoundException(`Target Asset with ID "${dto.targetAssetId}" not found.`);
+      // Structured Audit Logging
+      if (this.auditService) {
+        try {
+          await this.auditService.logEvent({
+            action: 'CABLE_PATCH_CONNECTED',
+            entity: 'SwitchPort',
+            entityType: 'Network',
+            entityId: sourcePort.id,
+            severity: 'Info',
+            status: 'Success',
+            details: `Connected trunk uplink between Switch "${sourcePort.switch?.name || sourcePort.switchId}" [Port ${sourcePort.name}] and Switch "${targetPort.switch?.name || targetPort.switchId}" [Port ${targetPort.name}] (${result.link.speed})`,
+            newValue: result.link as unknown as Record<string, unknown>,
+          });
+        } catch (error: unknown) {
+          this.logger.error(
+            `Failed to record audit log for trunk uplink patch on port "${sourcePort.id}"`,
+            error instanceof Error ? error.stack : undefined,
+          );
+        }
       }
 
-      return this.prisma.$transaction(async (tx) => {
+      return result;
+    }
+
+    // 2. Endpoint Link (Asset and/or IP Address)
+    if (dto.targetAssetId || dto.targetIpAddressId) {
+      let targetAsset = null;
+      if (dto.targetAssetId) {
+        targetAsset = await this.prisma.asset.findUnique({
+          where: { id: dto.targetAssetId },
+        });
+        if (!targetAsset) {
+          throw new NotFoundException(`Target Asset with ID "${dto.targetAssetId}" not found.`);
+        }
+      }
+
+      let targetIp = null;
+      if (dto.targetIpAddressId) {
+        targetIp = await this.prisma.iPAddress.findUnique({
+          where: { id: dto.targetIpAddressId },
+        });
+        if (!targetIp) {
+          throw new NotFoundException(`Target IPAddress with ID "${dto.targetIpAddressId}" not found.`);
+        }
+        // Auto-resolve asset from IP if targetAssetId wasn't given
+        if (!targetAsset && targetIp.assetId) {
+          targetAsset = await this.prisma.asset.findUnique({
+            where: { id: targetIp.assetId },
+          });
+        }
+      } else if (targetAsset) {
+        // Auto-resolve IP from asset if targetIpAddressId wasn't given
+        targetIp = await this.prisma.iPAddress.findFirst({
+          where: { assetId: targetAsset.id },
+        });
+      }
+
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Step A: Evict reverse peer link pointing to sourcePort
+        await tx.switchPort.updateMany({
+          where: { connectedPortId: sourcePort.id },
+          data: { connectedPortId: null, connectedSwitchId: null, operStatus: 'DOWN' },
+        });
+
+        // Step B: Evict forward peer link if sourcePort had one
         if (sourcePort.connectedPortId) {
           await tx.switchPort.update({
             where: { id: sourcePort.connectedPortId },
@@ -2528,17 +2740,38 @@ export class NetworkService {
           });
         }
 
+        // Step C: Evict any other switch port previously connected to targetAsset
+        if (targetAsset) {
+          await tx.switchPort.updateMany({
+            where: {
+              connectedAssetId: targetAsset.id,
+              id: { not: sourcePort.id },
+            },
+            data: { connectedAssetId: null, operStatus: 'DOWN' },
+          });
+        }
+
+        const linkSpeed =
+          dto.speed ||
+          (dto.speedMbps ? `${dto.speedMbps} Mbps` : null) ||
+          sourcePort.speed ||
+          '1 Gbps';
+        const resolvedVlanId = dto.vlanId || sourcePort.vlanId || targetIp?.vlanId || null;
+
         const updated = await tx.switchPort.update({
           where: { id: sourcePort.id },
           data: {
-            connectedAssetId: asset.id,
+            connectedAssetId: targetAsset?.id || null,
+            ipAddressId: targetIp?.id || null,
             connectedPortId: null,
             connectedSwitchId: null,
-            ipAddressId: dto.targetIpAddressId || sourcePort.ipAddressId,
-            vlanId: dto.vlanId || sourcePort.vlanId,
+            vlanId: resolvedVlanId,
             mode: dto.mode || 'ACCESS',
             adminStatus: 'UP',
             operStatus: 'ACTIVE',
+            speed: linkSpeed,
+            poeEnabled: targetPoe !== undefined ? targetPoe : sourcePort.poeEnabled,
+            description: dto.description !== undefined ? dto.description : sourcePort.description,
           },
         });
 
@@ -2547,27 +2780,68 @@ export class NetworkService {
           message: 'Switch port endpoint successfully connected.',
           link: {
             sourcePortId: updated.id,
-            targetAssetId: asset.id,
+            targetAssetId: updated.connectedAssetId,
+            targetIpAddressId: updated.ipAddressId,
             mode: updated.mode,
+            speed: linkSpeed,
             operStatus: 'ACTIVE',
+            vlanId: updated.vlanId,
+            poeEnabled: updated.poeEnabled,
           },
         };
       });
+
+      // Structured Audit Logging
+      if (this.auditService) {
+        try {
+          await this.auditService.logEvent({
+            action: 'CABLE_PATCH_CONNECTED',
+            entity: 'SwitchPort',
+            entityType: 'Network',
+            entityId: sourcePort.id,
+            severity: 'Info',
+            status: 'Success',
+            details: `Connected endpoint link on Switch "${sourcePort.switch?.name || sourcePort.switchId}" [Port ${sourcePort.name}] to Asset "${targetAsset?.assetTag || targetAsset?.id || 'N/A'}" (IP: ${targetIp?.address || 'None'})`,
+            newValue: result.link as unknown as Record<string, unknown>,
+          });
+        } catch (error: unknown) {
+          this.logger.error(
+            `Failed to record audit log for endpoint cable patch on port "${sourcePort.id}"`,
+            error instanceof Error ? error.stack : undefined,
+          );
+        }
+      }
+
+      return result;
     }
 
-    throw new BadRequestException('At least targetPortId or targetAssetId must be supplied.');
+    throw new BadRequestException('At least targetPortId, targetAssetId, or targetIpAddressId must be supplied.');
   }
 
-  async deleteTopologyLink(portId: string) {
+  async deleteTopologyLink(portId: string, dto?: UnpatchTopologyLinkDto) {
     const port = await this.prisma.switchPort.findUnique({
       where: { id: portId },
+      include: { switch: true },
     });
     if (!port) {
       throw new NotFoundException(`SwitchPort with ID "${portId}" not found.`);
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // Disconnect peer port if inter-switch uplink
+    const previousPeerId = port.connectedPortId;
+    const shouldResetConfig = Boolean(dto?.resetPortConfig);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Step A: Disconnect any port that pointed to portId in reverse
+      await tx.switchPort.updateMany({
+        where: { connectedPortId: portId },
+        data: {
+          connectedPortId: null,
+          connectedSwitchId: null,
+          operStatus: 'DOWN',
+        },
+      });
+
+      // Step B: Disconnect forward peer port if inter-switch uplink
       if (port.connectedPortId) {
         await tx.switchPort.update({
           where: { id: port.connectedPortId },
@@ -2579,22 +2853,88 @@ export class NetworkService {
         });
       }
 
-      // Clear connection on this port
+      // Step C: Clear connection on target port (and reset config if requested)
+      const targetUpdateData: Prisma.SwitchPortUncheckedUpdateInput = {
+        connectedPortId: null,
+        connectedSwitchId: null,
+        connectedAssetId: null,
+        ipAddressId: null,
+        operStatus: 'DOWN',
+        ...(shouldResetConfig
+          ? {
+              mode: 'ACCESS',
+              vlanId: null,
+              taggedVlanIds: Prisma.JsonNull,
+              poeEnabled: false,
+            }
+          : {}),
+      };
+
       await tx.switchPort.update({
         where: { id: portId },
-        data: {
-          connectedPortId: null,
-          connectedSwitchId: null,
-          connectedAssetId: null,
-          ipAddressId: null,
-          operStatus: 'DOWN',
-        },
+        data: targetUpdateData,
       });
 
       return {
         success: true,
-        message: 'Port connection successfully unpatched.',
+        message: shouldResetConfig
+          ? 'Port connection successfully unpatched and configuration reset.'
+          : 'Port connection successfully unpatched.',
+        unpatchedPortId: portId,
+        peerPortId: previousPeerId || null,
+        resetPortConfig: shouldResetConfig,
       };
     });
+
+    // Structured Audit Logging
+    if (this.auditService) {
+      try {
+        const resetDesc = shouldResetConfig
+          ? ' (configuration reset to ACCESS default, VLAN cleared, PoE disabled)'
+          : '';
+        const reasonDesc = dto?.reason ? ` Reason: "${dto.reason}".` : '';
+        await this.auditService.logEvent({
+          action: 'CABLE_PATCH_DISCONNECTED',
+          entity: 'SwitchPort',
+          entityType: 'Network',
+          entityId: portId,
+          severity: 'Info',
+          status: 'Success',
+          details: `Unpatched cable connection on Switch "${port.switch?.name || port.switchId}" [Port ${port.name}]${resetDesc}.${reasonDesc}`,
+          oldValue: {
+            connectedPortId: port.connectedPortId,
+            connectedSwitchId: port.connectedSwitchId,
+            connectedAssetId: port.connectedAssetId,
+            ipAddressId: port.ipAddressId,
+            mode: port.mode,
+            vlanId: port.vlanId,
+            poeEnabled: port.poeEnabled,
+            operStatus: port.operStatus,
+          },
+          newValue: {
+            connectedPortId: null,
+            connectedSwitchId: null,
+            connectedAssetId: null,
+            ipAddressId: null,
+            operStatus: 'DOWN',
+            ...(shouldResetConfig
+              ? {
+                  mode: 'ACCESS',
+                  vlanId: null,
+                  poeEnabled: false,
+                }
+              : {}),
+          },
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for cable unpatch on port "${portId}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return result;
   }
 }
+

@@ -260,10 +260,14 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
     const toggleFullscreen = () => {
       if (!containerRef.current) return;
       if (!document.fullscreenElement) {
-        containerRef.current.requestFullscreen().catch(() => {});
+        containerRef.current.requestFullscreen().catch((_err: unknown) => {
+          // Gracefully handle browser fullscreen policy rejection
+        });
         setIsFullscreen(true);
       } else {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch((_err: unknown) => {
+          // Gracefully handle exit fullscreen rejection
+        });
         setIsFullscreen(false);
       }
     };
@@ -279,9 +283,10 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
         style={{
           position: 'relative',
           width: '100%',
-          height: isFullscreen ? '100vh' : 680,
+          height: isFullscreen ? '100vh' : 'calc(100vh - 320px)',
+          minHeight: 640,
           backgroundColor: token.colorBgLayout,
-          borderRadius: 8,
+          borderRadius: token.borderRadiusLG,
           border: `1px solid ${token.colorBorderSecondary}`,
           overflow: 'hidden',
           userSelect: 'none',
@@ -294,11 +299,12 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
             top: 16,
             right: 16,
             zIndex: 10,
-            background: 'rgba(255, 255, 255, 0.95)',
+            background: token.colorBgElevated,
             padding: '6px 10px',
-            borderRadius: 8,
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #e2e8f0',
+            borderRadius: token.borderRadiusLG,
+            boxShadow: token.boxShadowSecondary,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            color: token.colorText,
           }}
         >
           <Space size={6}>
@@ -358,12 +364,13 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
             bottom: 16,
             left: 16,
             zIndex: 10,
-            background: 'rgba(255, 255, 255, 0.92)',
+            background: token.colorBgElevated,
             padding: '6px 12px',
-            borderRadius: 6,
+            borderRadius: token.borderRadiusSM,
             fontSize: 11,
-            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
-            border: '1px solid #e2e8f0',
+            boxShadow: token.boxShadowSecondary,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            color: token.colorText,
           }}
         >
           <Flex gap={12} align="center">

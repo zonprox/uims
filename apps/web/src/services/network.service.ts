@@ -384,6 +384,12 @@ export const networkService = {
     return res.data.data;
   },
 
+  updateTopologyLayout: async (
+    data: SaveTopologyLayoutDto,
+  ): Promise<{ success: boolean; updatedCount: number; viewMode?: string }> => {
+    return networkService.saveTopologyLayout(data);
+  },
+
   patchTopologyLink: async (data: PatchTopologyLinkDto): Promise<unknown> => {
     const payload = {
       ...data,

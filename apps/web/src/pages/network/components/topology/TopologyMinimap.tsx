@@ -1,3 +1,4 @@
+import { theme } from 'antd';
 import React, { useCallback, useMemo, useRef } from 'react';
 import type { TopologyNode } from './types';
 
@@ -13,6 +14,7 @@ export interface TopologyMinimapProps {
 
 export const TopologyMinimap: React.FC<TopologyMinimapProps> = React.memo(
   ({ nodes, panX, panY, zoom, containerWidth, containerHeight, onJumpTo }) => {
+    const { token } = theme.useToken();
     const minimapWidth = 180;
     const minimapHeight = 120;
     const svgRef = useRef<SVGSVGElement>(null);
@@ -73,10 +75,10 @@ export const TopologyMinimap: React.FC<TopologyMinimapProps> = React.memo(
           right: 16,
           width: minimapWidth,
           height: minimapHeight,
-          background: 'rgba(255, 255, 255, 0.92)',
-          borderRadius: 8,
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
-          border: '1px solid #e2e8f0',
+          background: token.colorBgElevated,
+          borderRadius: token.borderRadiusLG,
+          boxShadow: token.boxShadowSecondary,
+          border: `1px solid ${token.colorBorderSecondary}`,
           overflow: 'hidden',
           zIndex: 10,
         }}
