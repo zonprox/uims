@@ -814,6 +814,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | --- | --- | --- | --- | --- |
 | afterClose | Called when close animation is finished | function | - | - |
 | closeIcon | Custom close icon | ReactNode | - | - |
+| disabled | Whether the close button is disabled | boolean | false | - |
 | onClose | Callback when Alert is closed | (e: MouseEvent) => void | - | - |
 
 ### Alert.ErrorBoundary
@@ -856,6 +857,7 @@ https://ant.design/components/alert/semantic.md
 | colorSuccessBg | Light background color of success color, used for Tag and Alert success state background color | string |  |
 | colorSuccessBorder | Border color of success color, used for Tag and Alert success state border color | string |  |
 | colorText | Default text color which comply with W3C standards, and this color is also the darkest neutral color. | string |  |
+| colorTextDisabled | Control the color of text in disabled state. | string |  |
 | colorTextHeading | Control the font color of heading. | string |  |
 | colorWarning | Used to represent the warning map token, such as Notification, Alert, etc. Alert or Control component(like Input) will use these map tokens. | string |  |
 | colorWarningBg | The background color of the warning state. | string |  |
@@ -2479,13 +2481,13 @@ https://ant.design/components/auto-complete/semantic.md
 
 ## FAQ
 
-### Why doesn't the text composition system work well with onSearch in controlled mode? {#faq-controlled-onsearch-composition}
+### Why doesn't the text composition system work well with onSearch in controlled mode? {#faq-onsearch-composition}
 
 Please use `onChange` to manage control state. `onSearch` is used for searching input which is not the same as `onChange`. Besides, clicking on the option will not trigger the `onSearch` event.
 
 Related issue: [#18230](https://github.com/ant-design/ant-design/issues/18230) [#17916](https://github.com/ant-design/ant-design/issues/17916)
 
-### Why won't a controlled open AutoComplete display a drop-down menu when options are empty? {#faq-empty-options-controlled-open}
+### Why won't a controlled open AutoComplete display a drop-down menu when options are empty? {#faq-empty-options-open}
 
 The AutoComplete component is essentially an extension of the Input form element. When the `options` property is empty, displaying empty text could mislead the user into believing the component is not operational, when in fact they are still able to input text. To avoid confusion, the `open` property will not display the drop-down menu when set to `true` and in combination with an empty `options` property. The `open` property must be used in conjunction with the `options` property.
 
@@ -2727,7 +2729,9 @@ Wrap `Avatar.Group` with HOC to add `overflowInFinal` prop. When enabled, `max.c
 import React, { useState } from 'react';
 import { toArray } from '@rc-component/util';
 import { Avatar, Flex, InputNumber, Switch } from 'antd';
-import type { AvatarGroupProps } from '../AvatarGroup';
+import type { GetProps } from 'antd';
+
+type AvatarGroupProps = GetProps<typeof Avatar.Group>;
 
 const AvatarGroupOverflow: React.FC<AvatarGroupProps & { overflowInFinal?: boolean }> = (props) => {
   const { overflowInFinal, ...restProps } = props;
@@ -3272,9 +3276,10 @@ You can customize the [semantic dom](#semantic-dom) style of Badge by passing ob
 ```tsx
 import React from 'react';
 import { Avatar, Badge, Card, Flex, Space } from 'antd';
-import type { BadgeProps, GetProp } from 'antd';
+import type { BadgeProps, GetProp, GetProps } from 'antd';
 import { createStaticStyles } from 'antd-style';
-import type { RibbonProps } from 'antd/es/badge/Ribbon';
+
+type RibbonProps = GetProps<typeof Badge.Ribbon>;
 
 const badgeClassNames = createStaticStyles(({ css }) => ({
   indicator: css`
@@ -3318,7 +3323,7 @@ const ribbonStylesFn: RibbonProps['styles'] = (info): GetProp<RibbonProps, 'styl
   if (info.props.color === '#696FC7') {
     return {
       content: {
-        fontWeight: 'bold',
+        fontWeight: 700,
       },
       indicator: {
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -6495,7 +6500,7 @@ See [How to set locale for date-related components](/components/date-picker/#loc
 
 ### Date-related components locale is not working? {#faq-locale-not-working}
 
-See FAQ [Date-related-components-locale-is-not-working?](/docs/react/faq#date-related-components-locale-is-not-working)
+See FAQ [Date-related-components-locale-is-not-working?](/docs/react/faq#date-locale-not-working)
 
 ### How to get date from panel click? {#faq-get-date-panel-click}
 
@@ -7421,7 +7426,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | autoplaySpeed | Delay between each auto scroll (in milliseconds) | number | 3000 |  | × |
 | adaptiveHeight | Adjust the slide's height automatically | boolean | false |  | × |
 | dotPlacement | The position of the dots, which can be one of `top` `bottom` `start` `end` | string | `bottom` |  | × |
-| ~~dotPosition~~ | The position of the dots, which can be one of `top` `bottom` `left` `right` `start` `end`, Please use `dotPlacement` instead | string | `bottom` |  | × |
+| ~~dotPosition~~ | The position of the dots, which can be one of `top` `bottom` `left` `right` `start` `end`, please use `dotPlacement` instead | string | `bottom` |  | × |
 | dots | Whether to show the dots at the bottom of the gallery, `object` for `dotsClass` | boolean \| { className?: string } | true |  | × |
 | draggable | Enable scrollable via dragging on desktop | boolean | false |  | × |
 | fade | Whether to use fade transition | boolean | false |  | × |
@@ -7510,13 +7515,14 @@ Cascade selection box for selecting province/city/district.
 import React from 'react';
 import type { CascaderProps } from 'antd';
 import { Cascader } from 'antd';
-import type { HTMLAriaDataAttributes } from 'antd/es/_util/aria-data-attrs';
 
 type Option = {
   value: string;
   label: string;
   children?: Option[];
-} & HTMLAriaDataAttributes;
+  'aria-label'?: string;
+  'data-title'?: string;
+};
 
 const options: Option[] = [
   {
@@ -7848,7 +7854,7 @@ const options: Option[] = [
     children: [
       {
         value: 'hangzhou',
-        label: 'Hanzhou',
+        label: 'Hangzhou',
         children: [
           {
             value: 'xihu',
@@ -8869,8 +8875,8 @@ const App: React.FC = () => {
     <Flex vertical gap="small" align="flex-start">
       <Switch
         checked={disabled}
-        checkedChildren="Enabled"
-        unCheckedChildren="Disabled"
+        checkedChildren="Disabled"
+        unCheckedChildren="Enabled"
         onChange={setDisabled}
         aria-label="disabled switch"
       />
@@ -8907,7 +8913,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | defaultValue | Initial selected value | string\[] \| number\[] | \[] |  | × |
 | disabled | Whether disabled select | boolean | false |  | × |
 | displayRender | The render function of displaying selected options | (label, selectedOptions) => ReactNode | label => label.join(`/`) | `multiple`: 4.18.0 | × |
-| tagRender | Custom render function for tags in `multiple` mode | (label: string, onClose: function, value: string) => ReactNode | - |  | × |
+| tagRender | Custom render function for tags in `multiple` mode | ({ label: string, onClose: function, value: string }) => ReactNode | - |  | × |
 | ~~popupClassName~~ | The additional className of popup overlay, use `classNames.popup.root` instead | string | - | 4.23.0 | × |
 | ~~dropdownClassName~~ | The additional className of popup overlay, please use `classNames.popup.root` instead | string | - | - | × |
 | ~~dropdownRender~~ | Customize dropdown content, use `popupRender` instead | (menus: ReactElement) => ReactNode | - | 4.4.0 | × |
@@ -8929,7 +8935,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | placement | Use preset popup align config from builtinPlacements | `bottomLeft` `bottomRight` `topLeft` `topRight` | `bottomLeft` | 4.17.0 | × |
 | prefix | The custom prefix | ReactNode | - | 5.22.0 | × |
 | ~~showArrow~~ | Whether to show the arrow icon, please use `suffixIcon={null}` instead | boolean | true | - | × |
-| showSearch | Whether show search input in single mode | boolean \| [Object](#showsearch) | false |  | `searchIcon`: 6.4.0 |
+| showSearch | Whether show search input | boolean \| [Object](#showsearch) | false |  | `searchIcon`: 6.4.0 |
 | size | The input size | `large` \| `medium` \| `small` | `medium` |  | × |
 | status | Set validation status | 'error' \| 'warning' | - | 4.19.0 | × |
 | styles | Customize inline style for each semantic structure inside the component. Supports object or function. | Record<[SemanticDOM](#semantic-dom), CSSProperties> \| (info: { props })=> Record<[SemanticDOM](#semantic-dom), CSSProperties> | - |  | 5.25.0 |
@@ -9064,6 +9070,87 @@ tag: vVERSION
 - Major version release is not included in this schedule for breaking changes and new features.
 
 ---
+
+## 6.6.6
+
+`2026-10-12`
+
+- Table
+  - 🐞 Fix Table selection menu's "Select all data" option missing descendant rows in tree data. [#59342](https://github.com/ant-design/ant-design/pull/59342) [@QDyanbing](https://github.com/QDyanbing)
+  - 🐞 Fix Table `rowSelection` `onSelect` returning `undefined` for preserved keys when `preserveSelectedRowKeys` is enabled. [#59449](https://github.com/ant-design/ant-design/pull/59449) [@Chaoqi31](https://github.com/Chaoqi31)
+  - 🐞 Fix Table `column.filterDropdownProps.popupRender` not working. [#59393](https://github.com/ant-design/ant-design/pull/59393) [@ramen2020](https://github.com/ramen2020)
+  - 🐞 Fix Table not scrolling to the first row when `scroll` is configured only in ConfigProvider. [#59394](https://github.com/ant-design/ant-design/pull/59394) [@ramen2020](https://github.com/ramen2020)
+  - 🐞 Fix Table selection column `z-index` not applying with fixed columns after the v6 logical property migration. [#58609](https://github.com/ant-design/ant-design/pull/58609) [@leshalv](https://github.com/leshalv)
+- Transfer
+  - 🐞 Fix Transfer `selectAllLabels` falling back to default counts when set to numeric `0`. [#59487](https://github.com/ant-design/ant-design/pull/59487) [@QDyanbing](https://github.com/QDyanbing)
+  - 🐞 Fix controlled Transfer selection remaining checked after one-way removal. [#59428](https://github.com/ant-design/ant-design/pull/59428) [@yunfeizhu](https://github.com/yunfeizhu)
+  - 🐞 Fix Transfer Shift selection affecting filtered-out items and selecting incorrect ranges after search results change. [#59348](https://github.com/ant-design/ant-design/pull/59348) [@QDyanbing](https://github.com/QDyanbing)
+- Tree
+  - 🐞 Fix Tree.DirectoryTree Shift range selection with numeric keys and `defaultExpandAll`. [#59375](https://github.com/ant-design/ant-design/pull/59375) [@QDyanbing](https://github.com/QDyanbing)
+  - 🐞 Fix Tree.DirectoryTree incorrectly selecting nodes with `selectable: false` or `disabled: true` during Shift range selection. [#59341](https://github.com/ant-design/ant-design/pull/59341) [@QDyanbing](https://github.com/QDyanbing)
+- Carousel
+  - 🐞 Fix Carousel reversing vertical slide order in RTL when `dotPlacement` makes the carousel vertical. [#59436](https://github.com/ant-design/ant-design/pull/59436) [@Chaoqi31](https://github.com/Chaoqi31)
+  - 🤖 Fix Carousel types exposing the ignored `verticalSwiping` prop. [#59366](https://github.com/ant-design/ant-design/pull/59366) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix numeric `0` content rendering across List, Divider, and Drawer. [#59118](https://github.com/ant-design/ant-design/pull/59118) [#59517](https://github.com/ant-design/ant-design/pull/59517) [#59437](https://github.com/ant-design/ant-design/pull/59437) [@nrps9909](https://github.com/nrps9909) [@Ye-YiChen](https://github.com/Ye-YiChen) [@Chaoqi31](https://github.com/Chaoqi31)
+- 🐞 Fix Notification timers not resuming after closing hovered notices. [#59435](https://github.com/ant-design/ant-design/pull/59435) [@zombieJ](https://github.com/zombieJ)
+- 🐞 Fix DatePicker and TimePicker RangePicker not applying ConfigProvider `locale.DatePicker`. [#59356](https://github.com/ant-design/ant-design/pull/59356) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix TreeSelect and Mentions calling `renderEmpty` with `Select` instead of their component names. [#59364](https://github.com/ant-design/ant-design/pull/59364) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix AutoComplete incorrectly inheriting `allowClear` from ConfigProvider `select`. [#59358](https://github.com/ant-design/ant-design/pull/59358) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Upload ignoring `linkProps.onClick` when clicking a file name link. [#59324](https://github.com/ant-design/ant-design/pull/59324) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Input.OTP focus landing on the wrong cell after paste. [#59479](https://github.com/ant-design/ant-design/pull/59479) [@dogledogle](https://github.com/dogledogle)
+- 🐞 Fix Typography text editing not working when `onClick` is provided. [#59325](https://github.com/ant-design/ant-design/pull/59325) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Alert close button remaining clickable when `closable.disabled` is true. [#59432](https://github.com/ant-design/ant-design/pull/59432) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Card ignoring `tabProps.defaultActiveKey` when selecting the initial tab. [#59414](https://github.com/ant-design/ant-design/pull/59414) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Breadcrumb dropdown menu links starting with `undefined` when the parent item has no `href` or `path`. [#59423](https://github.com/ant-design/ant-design/pull/59423) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Avatar falling back to its default size when a larger breakpoint matches without a configured size. [#59446](https://github.com/ant-design/ant-design/pull/59446) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Badge truncating fractional horizontal `offset` values. [#59314](https://github.com/ant-design/ant-design/pull/59314) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Button custom loading icons appearing before the loading delay ends. [#59353](https://github.com/ant-design/ant-design/pull/59353) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Tour `nextButtonProps.onClick` and `prevButtonProps.onClick` not receiving mouse events. [#59332](https://github.com/ant-design/ant-design/pull/59332) [@QDyanbing](https://github.com/QDyanbing)
+- 🤖 Fix Form.Item, Rate, and QRCode TypeScript definitions to exclude unsupported props. [#59373](https://github.com/ant-design/ant-design/pull/59373) [#59379](https://github.com/ant-design/ant-design/pull/59379) [#59408](https://github.com/ant-design/ant-design/pull/59408) [@QDyanbing](https://github.com/QDyanbing)
+- 🤖 Fix Upload custom request types to expose `abort` handles. [#59382](https://github.com/ant-design/ant-design/pull/59382) [@QDyanbing](https://github.com/QDyanbing)
+- 🌐 Add missing DatePicker placeholders and Carousel arrow labels in remaining locales. [#59351](https://github.com/ant-design/ant-design/pull/59351) [@shoutoutuoadi325](https://github.com/shoutoutuoadi325)
+- 🌐 Improve Romanian (ro_RO) locale translations. [#59528](https://github.com/ant-design/ant-design/pull/59528) [@vicuts](https://github.com/vicuts)
+
+## 6.6.5
+
+`2026-09-20`
+
+- 🐞 Fix numeric `0` content rendering across Result, message, notification, Avatar, Modal, Descriptions, and Form.Item. [#59153](https://github.com/ant-design/ant-design/pull/59153) [#59125](https://github.com/ant-design/ant-design/pull/59125) [#59289](https://github.com/ant-design/ant-design/pull/59289) [@bhumin18](https://github.com/bhumin18) [@nrps9909](https://github.com/nrps9909) [@QDyanbing](https://github.com/QDyanbing)
+- Upload
+  - 🐞 Fix Upload.Dragger custom `style.height` being overridden when the `height` prop is not set. [#59319](https://github.com/ant-design/ant-design/pull/59319) [@dogledogle](https://github.com/dogledogle)
+  - ♿ Fix Upload file names being focusable as buttons when no preview action is available. [#59295](https://github.com/ant-design/ant-design/pull/59295) [@QDyanbing](https://github.com/QDyanbing)
+- Transfer
+  - 🐞 Fix Transfer calling a stale `onSelectChange` callback after it is replaced or removed. [#59307](https://github.com/ant-design/ant-design/pull/59307) [@yunfeizhu](https://github.com/yunfeizhu)
+  - 🐞 Fix Transfer `footer` callbacks not receiving `direction` when using rest parameters. [#59303](https://github.com/ant-design/ant-design/pull/59303) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Avatar not retrying image loading after `srcSet` changes. [#59297](https://github.com/ant-design/ant-design/pull/59297) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Anchor scrolling and Table and Transfer range selection using stale values after updates. [#59308](https://github.com/ant-design/ant-design/pull/59308) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Select inconsistent single and multiple heights after customizing global `fontSize` or `lineHeight`. [#59298](https://github.com/ant-design/ant-design/pull/59298) [@zombieJ](https://github.com/zombieJ)
+- 🤖 Fix Tooltip, Popover, Popconfirm, and Slider TypeScript definitions accepting unsupported rc Tooltip props. [#59288](https://github.com/ant-design/ant-design/pull/59288) [@QDyanbing](https://github.com/QDyanbing)
+- 🛎 Fix Drawer not warning that `destroyOnClose` is deprecated. [#59299](https://github.com/ant-design/ant-design/pull/59299) [@dogledogle](https://github.com/dogledogle)
+
+## 6.6.4
+
+`2026-09-14`
+
+- 🗑 Deprecate legacy Avatar `GroupProps`, BackTop and FloatButton `BackTopProps`, Input `GroupProps`, Mentions `OptionProps`, and Select `OptionProps` types in favor of `GetProps` or option-derived types. [#58949](https://github.com/ant-design/ant-design/pull/58949) [@li-jia-nan](https://github.com/li-jia-nan)
+- 🐞 Fix AutoComplete missing `classNames.clear` and `styles.clear` semantic customizations for the clear button. [#59245](https://github.com/ant-design/ant-design/pull/59245) [@lazerg](https://github.com/lazerg)
+- Table
+  - 🐞 Fix Table `filteredValue` being ignored when responsive columns are hidden. [#59198](https://github.com/ant-design/ant-design/pull/59198) [@QDyanbing](https://github.com/QDyanbing)
+  - 🐞 Fix Table ignoring `pagination.classNames` and `pagination.styles` semantic customizations. [#59267](https://github.com/ant-design/ant-design/pull/59267) [@QDyanbing](https://github.com/QDyanbing)
+  - 🐞 Fix Table virtual cell content not being vertically centered. [#59260](https://github.com/ant-design/ant-design/pull/59260) [@QDyanbing](https://github.com/QDyanbing)
+- Modal
+  - 🐞 Fix Modal `okText` and `cancelText` falling back to default text for falsy `ReactNode` values. [#59254](https://github.com/ant-design/ant-design/pull/59254) [@QDyanbing](https://github.com/QDyanbing)
+  - 🐞 Fix Modal not triggering `onCancel` when `cancelButtonProps.onClick` is provided. [#59255](https://github.com/ant-design/ant-design/pull/59255) [@QDyanbing](https://github.com/QDyanbing)
+- ColorPicker
+  - 🐞 Fix ColorPicker clear control remaining interactive and showing hover styles when disabled. [#59164](https://github.com/ant-design/ant-design/pull/59164) [@dogledogle](https://github.com/dogledogle)
+  - 🐞 Fix ColorPicker modifying `presets` and crashing when preset items are frozen. [#59272](https://github.com/ant-design/ant-design/pull/59272) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Splitter panel sizes exceeding their `min` and `max` constraints when the container resizes. [#59084](https://github.com/ant-design/ant-design/pull/59084) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Segmented selected item text color lagging behind the thumb animation when custom `itemSelectedBg` and `itemSelectedColor` tokens are used. [#59046](https://github.com/ant-design/ant-design/pull/59046) [@EmilyyyLiu](https://github.com/EmilyyyLiu)
+- 🐞 Fix Transfer restoring stale selections after `dataSource` item `key` types change. [#59166](https://github.com/ant-design/ant-design/pull/59166) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix FloatButton.Group menu flickering when moving the pointer from the trigger to the menu with `trigger="hover"`. [#59246](https://github.com/ant-design/ant-design/pull/59246) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Form vertical Form.Item controls shrinking inside horizontal layouts. [#59263](https://github.com/ant-design/ant-design/pull/59263) [@QDyanbing](https://github.com/QDyanbing)
+- 🐞 Fix Tabs more dropdown ignoring `styles.popup.root`. [#59221](https://github.com/ant-design/ant-design/pull/59221) [@giaBaoJS](https://github.com/giaBaoJS)
+- 🐞 Fix ConfigProvider failing to inherit `zeroRuntime` in nested themes when `inherit` is `false`. [#59250](https://github.com/ant-design/ant-design/pull/59250) [@QDyanbing](https://github.com/QDyanbing)
 
 ## 6.6.3
 
@@ -13455,7 +13542,7 @@ See [&lt;Adding new language&gt;](/docs/react/i18n#adding-new-language).
 
 ### Date-related components locale is not working? {#faq-locale-not-work}
 
-See FAQ [Date-related-components-locale-is-not-working?](/docs/react/faq#date-related-components-locale-is-not-working)
+See FAQ [Date-related-components-locale-is-not-working?](/docs/react/faq#date-locale-not-working)
 
 ### Modal throw error when setting `getPopupContainer`? {#faq-get-popup-container}
 
@@ -14833,7 +14920,7 @@ The following APIs are shared by DatePicker, RangePicker.
 | locale | Localization configuration | object | [default](https://github.com/ant-design/ant-design/blob/master/components/date-picker/locale/example.json) |  | × |
 | minDate | The minimum date, which also limits the range of panel switching | dayjs | - | 5.14.0 | × |
 | maxDate | The maximum date, which also limits the range of panel switching | dayjs | - | 5.14.0 | × |
-| mode | The picker panel mode（ [Cannot select year or month anymore?](/docs/react/faq#when-set-mode-to-datepickerrangepicker-cannot-select-year-or-month-anymore) ) | `time` \| `date` \| `month` \| `year` \| `decade` | - |  | × |
+| mode | The picker panel mode（ [Cannot select year or month anymore?](/docs/react/faq#mode-cannot-select-year-month) ) | `time` \| `date` \| `month` \| `year` \| `decade` | - |  | × |
 | needConfirm | Need click confirm button to trigger value change. Default `false` when `multiple` | boolean | - | 5.14.0 | × |
 | nextIcon | The custom next icon | ReactNode | - | 4.17.0 | × |
 | open | The open state of picker | boolean | - |  | × |
@@ -15110,13 +15197,13 @@ https://ant.design/components/date-picker/semantic.md
 
 ### When set mode to DatePicker/RangePicker, cannot select year or month anymore? {#faq-mode-cannot-select}
 
-Please refer [FAQ](/docs/react/faq#when-set-mode-to-datepickerrangepicker-cannot-select-year-or-month-anymore)
+Please refer [FAQ](/docs/react/faq#mode-cannot-select-year-month)
 
 ### Why does the date picker switch to the date panel after selecting the year instead of the month panel? {#faq-year-to-date-panel}
 
 After selecting the year, the system directly switches to the date panel instead of month panel. This design is intended to reduce the user's operational burden by allowing them to complete the year modification with just one click, without having to enter the month selection interface again. At the same time, it also avoids additional cognitive burden of remembering the month.
 
-### How to use DatePicker with customize date library like dayjs? {#faq-custom-date-library}
+### How to use DatePicker with customize date library like Moment.js? {#faq-custom-date-library}
 
 Please refer [Use custom date library](/docs/react/use-custom-date-library#datepicker)
 
@@ -15124,9 +15211,8 @@ Please refer [Use custom date library](/docs/react/use-custom-date-library#datep
 
 DatePicker default set `locale` as `en` in v4. You can config DatePicker `locale` prop or [ConfigProvider `locale`](/components/config-provider) prop instead.
 
-#### Date-related components locale is not working?
 
-See FAQ [Date-related-components-locale-is-not-working?](/docs/react/faq#date-related-components-locale-is-not-working)
+See FAQ [Date-related-components-locale-is-not-working?](/docs/react/faq#date-locale-not-working)
 
 ### How to modify start day of week? {#faq-week-start-day}
 
@@ -15816,7 +15902,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | bordered | Whether to display the border | boolean | false |  | × |
 | classNames | Customize class for each semantic structure inside the component. Supports object or function. | Record<[SemanticDOM](#semantic-dom), string> \| (info: { props })=> Record<[SemanticDOM](#semantic-dom), string> | - |  | 5.23.0 |
 | colon | Change default props `colon` value of Descriptions.Item. Indicates whether the colon after the label is displayed | boolean | true |  | × |
-| column | The number of `DescriptionItems` in a row, could be an object (like `{ xs: 8, sm: 16, md: 24}`, but must have `bordered={true}`) or a number | number \| [Record<Breakpoint, number>](https://github.com/ant-design/ant-design/blob/84ca0d23ae52e4f0940f20b0e22eabe743f90dca/components/descriptions/index.tsx#L111C21-L111C56) | 3 |  | × |
+| column | The number of `DescriptionItems` in a row, could be an object (like `{ xs: 8, sm: 16, md: 24}`) or a number | number \| [Partial<Record<Breakpoint, number>>](https://github.com/ant-design/ant-design/blob/84ca0d23ae52e4f0940f20b0e22eabe743f90dca/components/descriptions/index.tsx#L111C21-L111C56) | 3 |  | × |
 | ~~contentStyle~~ | Customize content style, Please use `styles.content` instead | CSSProperties | - | 4.10.0 | × |
 | extra | The action area of the description list, placed at the top-right | ReactNode | - | 4.5.0 | × |
 | items | Describe the contents of the list item | [DescriptionsItem](#descriptionitem)[] | - | 5.8.0 | × |
@@ -16761,12 +16847,20 @@ Use Drawer to quickly preview details of an object, such as those in a list.
 
 ```tsx
 import React, { useState } from 'react';
-import { Avatar, Col, Divider, Drawer, List, Row } from 'antd';
+import { Avatar, Col, Divider, Drawer, Flex, Listy, Row, Typography } from 'antd';
 import { createStyles } from 'antd-style';
 
 const useStyles = createStyles((props) => {
-  const { css, cssVar } = props;
+  const { css, cssVar, prefixCls } = props;
   return {
+    list: css`
+      border: ${cssVar.lineWidth} ${cssVar.lineType} ${cssVar.colorBorder};
+      border-radius: ${cssVar.borderRadiusLG};
+      overflow: hidden;
+      .${prefixCls}-listy-item:last-child {
+        border-bottom: none;
+      }
+    `,
     descriptionItem: css`
       margin-bottom: ${cssVar.marginXS};
       color: ${cssVar.colorTextLabel};
@@ -16818,29 +16912,22 @@ const App: React.FC = () => {
 
   return (
     <>
-      <List
-        bordered
-        dataSource={[
+      <Listy
+        items={[
           { id: 1, name: 'Lily' },
           { id: 2, name: 'Lily' },
         ]}
-        renderItem={(item) => (
-          <List.Item
-            key={item.id}
-            actions={[
-              <a onClick={showDrawer} key={`a-${item.id}`}>
-                View Profile
-              </a>,
-            ]}
-          >
-            <List.Item.Meta
-              avatar={
-                <Avatar src="https://gw.alipayobjects.com/zos/rmsportal/BiazfanxmamNRoxxVxka.png" />
-              }
-              title={<a href="https://ant.design/index-cn">{item.name}</a>}
-              description="Progresser XTech"
-            />
-          </List.Item>
+        rowKey="id"
+        className={styles.list}
+        itemRender={(item) => (
+          <Flex gap="middle" align="center">
+            <Avatar src="https://gw.alipayobjects.com/zos/rmsportal/BiazfanxmamNRoxxVxka.png" />
+            <Flex vertical flex="auto">
+              <a href="https://ant.design/index-cn">{item.name}</a>
+              <Typography.Text type="secondary">Progresser XTech</Typography.Text>
+            </Flex>
+            <a onClick={showDrawer}>View Profile</a>
+          </Flex>
         )}
       />
       <Drawer size={640} placement="right" closable={false} onClose={onClose} open={open}>
@@ -17299,8 +17386,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | classNames | Customize class for each semantic structure inside the Drawer component. Supports object or function. | Record<[SemanticDOM](#semantic-dom), string> \| (info: { props })=> Record<[SemanticDOM](#semantic-dom), string> | - |  | 5.10.0 |
 | closable | Whether to show a close button. The position can be configured with `placement` | boolean \| { closeIcon?: React.ReactNode; disabled?: boolean; placement?: 'start' \| 'end' } | true | placement: 5.28.0 | 5.15.0, placement: 6.1.1 |
 | ~~contentWrapperStyle~~ | Style of the drawer wrapper, please use `styles.wrapper` instead | CSSProperties | - | - | × |
-| ~~destroyOnClose~~ | Whether to unmount child components on closing drawer or not | boolean | false |  | × |
-| ~~destroyInactivePanel~~ | Whether to unmount child components on closing drawer or not, please use `destroyOnHidden` instead | boolean | false | - | × |
+| ~~destroyOnClose~~ | Whether to unmount child components on closing drawer or not, please use `destroyOnHidden` instead | boolean | false |  | × |
 | destroyOnHidden | Whether to unmount child components on closing drawer or not | boolean | false | 5.25.0 | × |
 | ~~drawerStyle~~ | Style of the drawer panel, please use `styles.section` instead | CSSProperties | - | - | × |
 | extra | Extra actions area at corner | ReactNode | - | 4.17.0 | × |
@@ -18817,7 +18903,6 @@ import {
   Cascader,
   ConfigProvider,
   Divider,
-  List,
   Select,
   Space,
   Switch,
@@ -18864,8 +18949,6 @@ const App: React.FC = () => {
               { title: 'Age', dataIndex: 'age', key: 'age' },
             ]}
           />
-          <h4>List</h4>
-          <List />
         </Space>
       </ConfigProvider>
     </>
@@ -18900,7 +18983,7 @@ const classNames = createStaticStyles(({ css }) => ({
 const stylesObject: EmptyProps['styles'] = {
   root: { backgroundColor: '#f5f5f5', borderRadius: '8px' },
   image: { filter: 'grayscale(100%)' },
-  description: { color: '#1890ff', fontWeight: 'bold' },
+  description: { color: '#1890ff', fontWeight: 700 },
   footer: { marginTop: '16px' },
 };
 
@@ -18908,7 +18991,7 @@ const stylesFn: EmptyProps['styles'] = ({ props }): GetProp<EmptyProps, 'styles'
   if (props.description) {
     return {
       root: { backgroundColor: '#e6f7ff', border: '1px solid #91d5ff' },
-      description: { color: '#1890ff', fontWeight: 'bold' },
+      description: { color: '#1890ff', fontWeight: 700 },
       image: { filter: 'hue-rotate(180deg)' },
     };
   }
@@ -20097,6 +20180,8 @@ export default App;
 ### Form Layout
 
 There are three layout for form: `horizontal`, `vertical`, `inline`.
+
+By default, the `horizontal` layout stacks labels above controls when the viewport width is `575px` or less to accommodate narrow screens. Use the `xs` settings in `labelCol` and `wrapperCol` to customize column widths on narrow screens.
 
 ```tsx
 import React, { useState } from 'react';
@@ -23571,7 +23656,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | labelAlign | The text align of label of all items | `left` \| `right` | `right` |  | 6.4.0 |
 | labelWrap | whether label can be wrap | boolean | false | 4.18.0 | × |
 | labelCol | Label layout, like `<Col>` component. Set `span` `offset` value like `{span: 3, offset: 12}` or `sm: {span: 3, offset: 12}` | [object](/components/grid/#col) | - |  | × |
-| layout | Form layout | `horizontal` \| `vertical` \| `inline` | `horizontal` |  | × |
+| layout | Form layout. By default, `horizontal` stacks labels above controls when the viewport width is `575px` or less. Use the `xs` settings in `labelCol` and `wrapperCol` to customize column widths on narrow screens | `horizontal` \| `vertical` \| `inline` | `horizontal` |  | × |
 | name | Form name. Will be the prefix of Field `id` | string | - |  | × |
 | preserve | Keep field value even when field removed. You can get the preserve field value by `getFieldsValue(true)` | boolean | true | 4.4.0 | × |
 | requiredMark | Required mark style. Can use required mark or optional mark. You can not config to single Form.Item since this is a Form level config | boolean \| `optional` \| ((label: ReactNode, info: { required: boolean }) => ReactNode) | true | `renderProps`: 5.9.0 | 4.8.0 |
@@ -23819,7 +23904,7 @@ Provide linkage between forms. If a sub form with `name` prop update, it will au
 | setFields | Set fields status | (fields: [FieldData](#fielddata)\[]) => void |  |
 | setFieldValue | Set fields value(Will directly pass to form store and **reset validation message**. If you do not want to modify passed object, please clone first) | (name: [NamePath](#namepath), value: any) => void | 4.22.0 |
 | setFieldsValue | Set fields value(Will directly pass to form store and **reset validation message**. If you do not want to modify passed object, please clone first). Use `setFieldValue` instead if you want to only config single value in Form.List | (values) => void |  |
-| submit | Submit the form. It's same as click `submit` button | () => void |  |
+| submit | Submit the form. It's the same as clicking the `submit` button | () => void |  |
 | validateFields | Validate fields. Use `recursive` to validate all the field in the path | (nameList?: [NamePath](#namepath)\[], config?: [ValidateConfig](#validatefields)) => Promise |  |
 
 #### validateFields
@@ -24321,7 +24406,7 @@ In most business situations, Ant Design needs to solve a lot of information stor
 
 We name the divided area 'box'. We suggest four boxes for horizontal arrangement at most, one at least. Boxes are proportional to the entire screen as shown in the picture above. To ensure a high level of visual comfort, we customize the typography inside of the box based on the box unit.
 
-## Outline
+## Outline {#overview}
 
 In the grid system, we define the frame outside the information area based on `row` and `column`, to ensure that every area can have stable arrangement.
 
@@ -25331,7 +25416,7 @@ All the icons will render to `<svg>`. You can still set `style` and `className` 
 <Icon type="message" style={{ fontSize: '16px', color: '#08c' }} theme="outlined" />
 ```
 
-### Set TwoTone Color
+### Set TwoTone Color {#set-two-tone-color}
 
 When using the two-tone icons, you can use the static methods `getTwoToneColor()` and `setTwoToneColor(colorString)` to specify the primary color.
 
@@ -26548,7 +26633,6 @@ const App: React.FC = () => (
 
 export default App;
 ```
-
 
 ### Search box
 
@@ -28116,7 +28200,7 @@ The first level navigation is left aligned near a logo, and the secondary menu i
 - When the current navigation item is collapsed, the style of the current navigation item is applied to its parent level;
 - The left side navigation bar has support for both the accordion and expanding styles; you can choose the one that fits your case the best.
 
-## Visualization rules
+### Visualization rules
 
 Style of a navigation should conform to its level.
 
@@ -31062,7 +31146,6 @@ import React from 'react';
 import { Card, Divider, Flex, Masonry, Typography } from 'antd';
 import type { GetProp, MasonryProps } from 'antd';
 import { createStaticStyles } from 'antd-style';
-import type { MasonryItemType } from 'antd/es/masonry/MasonryItem';
 
 const { Title } = Typography;
 
@@ -31083,7 +31166,7 @@ const classNames = createStaticStyles(({ css }) => ({
   `,
 }));
 
-const items = [120, 80, 100, 60, 140, 90, 110, 70].map<MasonryItemType<number>>(
+const items: MasonryProps<number>['items'] = [120, 80, 100, 60, 140, 90, 110, 70].map(
   (height, index) => ({
     key: `item-${index}`,
     data: height,
@@ -31159,7 +31242,7 @@ export default App;
 
 Common props ref：[Common props](/docs/react/common-props)
 
-## Masonry
+### Masonry
 
 | Property | Description | Type | Default | Version | [Global Config](/components/config-provider#component-config) |
 | --- | --- | --- | --- | --- | --- |
@@ -31861,6 +31944,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | defaultValue | Default value | string | - |  | × |
 | filterOption | Customize filter option logic | false \| (input: string, option: OptionProps) => boolean | - |  | × |
 | getPopupContainer | Set the mount HTML node for suggestions | () => HTMLElement | - |  | × |
+| loading | Indicate loading state | boolean | false |  | × |
 | notFoundContent | Set mentions content when not match | ReactNode | `No data` |  | × |
 | placement | Set popup placement | `top` \| `bottom` | `bottom` |  | × |
 | popupRender | Customize the dropdown menu rendering | (menu: React.ReactElement) => ReactNode | - | 6.6.0 | × |
@@ -31868,7 +31952,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | split | Set split string before and after selected mention | string | ` ` |  | × |
 | size | The size of the input box | `large` \| `medium` \| `small` | - |  | × |
 | status | Set validation status | 'error' \| 'warning' \| 'success' \| 'validating' | - | 4.19.0 | × |
-| validateSearch | Customize trigger search logic | (text: string, props: MentionsProps) => void | - |  | × |
+| validateSearch | Custom validation for search text. Return false to hide suggestions. | (text: string, split?: string) => boolean | - |  | × |
 | value | Set value of mentions | string | - |  | × |
 | variant | Variants of Input | `outlined` \| `borderless` \| `filled` \| `underlined` | `outlined` | 5.13.0 \| `underlined`: 5.24.0 | 5.19.0 |
 | onBlur | Trigger when mentions lose focus | () => void | - |  | × |
@@ -40004,7 +40088,7 @@ const classNamesFn: ResultProps['classNames'] = (
 const stylesObject: ResultProps['styles'] = {
   root: { borderWidth: 2, borderStyle: 'dashed', padding: 16 },
   title: { fontStyle: 'italic', color: '#1890ff' },
-  subTitle: { fontWeight: 'bold' },
+  subTitle: { fontWeight: 700 },
   icon: { opacity: 0.8 },
   extra: { backgroundColor: '#f0f0f0', padding: 8 },
   body: { backgroundColor: '#fafafa', padding: 12 },
@@ -42579,14 +42663,22 @@ Use skeleton in list component.
 import React, { useState } from 'react';
 import type Icon from '@ant-design/icons';
 import { LikeOutlined, MessageOutlined, StarOutlined } from '@ant-design/icons';
-import { Avatar, List, Skeleton, Switch } from 'antd';
+import { Avatar, Flex, Listy, Skeleton, Space, Switch, Typography } from 'antd';
 
 interface IconTextProps {
   icon: typeof Icon;
   text: React.ReactNode;
 }
 
-const listData = Array.from({ length: 3 }).map((_, i) => ({
+interface DataType {
+  href: string;
+  title: string;
+  avatar: string;
+  description: string;
+  content: string;
+}
+
+const listData = Array.from<any, DataType>({ length: 3 }, (_, i) => ({
   href: 'https://ant.design',
   title: `ant design part ${i + 1}`,
   avatar: `https://api.dicebear.com/10.x/lorelei/svg?seed=${i}`,
@@ -42613,42 +42705,40 @@ const App: React.FC = () => {
   return (
     <>
       <Switch checked={!loading} onChange={onChange} style={{ marginBottom: 16 }} />
-      <List
-        itemLayout="vertical"
-        size="large"
-        dataSource={listData}
-        renderItem={(item) => (
-          <List.Item
-            key={item.title}
-            actions={
-              !loading
-                ? [
-                    <IconText icon={StarOutlined} text="156" key="list-vertical-star-o" />,
-                    <IconText icon={LikeOutlined} text="156" key="list-vertical-like-o" />,
-                    <IconText icon={MessageOutlined} text="2" key="list-vertical-message" />,
-                  ]
-                : undefined
-            }
-            extra={
-              !loading && (
-                <img
-                  draggable={false}
-                  width={272}
-                  alt="logo"
-                  src="https://gw.alipayobjects.com/zos/rmsportal/mqaQswcyDLcXyDKnZfES.png"
-                />
-              )
-            }
-          >
-            <Skeleton loading={loading} active avatar>
-              <List.Item.Meta
-                avatar={<Avatar src={item.avatar} />}
-                title={<a href={item.href}>{item.title}</a>}
-                description={item.description}
+      <Listy<DataType>
+        items={listData}
+        rowKey="title"
+        styles={{ item: { padding: '16px 24px' } }}
+        itemRender={(item) => (
+          <Flex gap="large">
+            <Flex vertical flex="auto" gap="middle" style={{ minWidth: 0 }}>
+              <Skeleton loading={loading} active avatar>
+                <Flex gap="middle" align="flex-start">
+                  <Avatar src={item.avatar} />
+                  <Flex vertical>
+                    <a href={item.href}>{item.title}</a>
+                    <Typography.Text type="secondary">{item.description}</Typography.Text>
+                  </Flex>
+                </Flex>
+                {item.content}
+              </Skeleton>
+              {!loading && (
+                <Space separator={<Typography.Text type="secondary">|</Typography.Text>}>
+                  <IconText icon={StarOutlined} text="156" />
+                  <IconText icon={LikeOutlined} text="156" />
+                  <IconText icon={MessageOutlined} text="2" />
+                </Space>
+              )}
+            </Flex>
+            {!loading && (
+              <img
+                draggable={false}
+                width={272}
+                alt="logo"
+                src="https://gw.alipayobjects.com/zos/rmsportal/mqaQswcyDLcXyDKnZfES.png"
               />
-              {item.content}
-            </Skeleton>
-          </List.Item>
+            )}
+          </Flex>
         )}
       />
     </>
@@ -44186,7 +44276,7 @@ const classNamesFn: SpaceProps['classNames'] = (
 const stylesObject: SpaceProps['styles'] = {
   root: { borderWidth: 2, borderStyle: 'dashed', padding: 8, marginBottom: 10 },
   item: { backgroundColor: '#f0f0f0', padding: 4 },
-  separator: { color: 'red', fontWeight: 'bold' },
+  separator: { color: 'red', fontWeight: 700 },
 };
 
 const stylesFn: SpaceProps['styles'] = (info): GetProp<SpaceProps, 'styles', 'Return'> => {
@@ -46305,9 +46395,15 @@ Inline type steps, suitable for displaying the process and current state of the 
 ```tsx
 import React from 'react';
 import type { StepsProps } from 'antd';
-import { Avatar, List, Steps } from 'antd';
+import { Avatar, Flex, Listy, Steps, Typography } from 'antd';
 
-const data = [
+interface DataType {
+  title: string;
+  current: number;
+  status?: StepsProps['status'];
+}
+
+const data: DataType[] = [
   {
     title: 'Ant Design Title 1',
     current: 0,
@@ -46343,24 +46439,26 @@ const items = [
 ];
 
 const App: React.FC = () => (
-  <List
-    itemLayout="horizontal"
-    dataSource={data}
-    renderItem={(item, index) => (
-      <List.Item>
-        <List.Item.Meta
-          avatar={<Avatar src={`https://api.dicebear.com/10.x/lorelei/svg?seed=${index}`} />}
-          title={<a href="https://ant.design">{item.title}</a>}
-          description="Ant Design, a design language for background applications, is refined by Ant UED Team"
-        />
-        <Steps
-          style={{ marginTop: 8 }}
-          type="inline"
-          current={item.current}
-          status={item.status as StepsProps['status']}
-          items={items}
-        />
-      </List.Item>
+  <Listy<DataType>
+    items={data}
+    rowKey="title"
+    itemRender={(item, index) => (
+      <Flex gap="middle" align="flex-start">
+        <Avatar src={`https://api.dicebear.com/10.x/lorelei/svg?seed=${index}`} />
+        <Flex vertical flex="auto" style={{ minWidth: 0 }}>
+          <a href="https://ant.design">{item.title}</a>
+          <Typography.Text type="secondary">
+            Ant Design, a design language for background applications, is refined by Ant UED Team
+          </Typography.Text>
+          <Steps
+            style={{ marginTop: 8 }}
+            type="inline"
+            current={item.current}
+            status={item.status}
+            items={items}
+          />
+        </Flex>
+      </Flex>
     )}
   />
 );
@@ -48910,8 +49008,8 @@ import { Table } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { createStyles } from 'antd-style';
 
-const useStyle = createStyles(({ css, token }) => {
-  const { antCls } = token;
+const useStyle = createStyles(({ css, prefixCls }) => {
+  const antCls = `.${prefixCls}`;
   return {
     customTable: css`
       ${antCls}-table {
@@ -49155,8 +49253,8 @@ import { Table } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { createStyles } from 'antd-style';
 
-const useStyle = createStyles(({ css, token }) => {
-  const { antCls } = token;
+const useStyle = createStyles(({ css, prefixCls }) => {
+  const antCls = `.${prefixCls}`;
   return {
     customTable: css`
       ${antCls}-table {
@@ -49255,8 +49353,8 @@ import { Table } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { createStyles } from 'antd-style';
 
-const useStyle = createStyles(({ css, token }) => {
-  const { antCls } = token;
+const useStyle = createStyles(({ css, prefixCls }) => {
+  const antCls = `.${prefixCls}`;
   return {
     customTable: css`
       ${antCls}-table {
@@ -49366,8 +49464,8 @@ import { Table } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { createStyles } from 'antd-style';
 
-const useStyle = createStyles(({ css, token }) => {
-  const { antCls } = token;
+const useStyle = createStyles(({ css, prefixCls }) => {
+  const antCls = `.${prefixCls}`;
   return {
     customTable: css`
       ${antCls}-table {
@@ -49576,8 +49674,8 @@ import { Table } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { createStyles } from 'antd-style';
 
-const useStyle = createStyles(({ css, token }) => {
-  const { antCls } = token;
+const useStyle = createStyles(({ css, prefixCls }) => {
+  const antCls = `.${prefixCls}`;
   return {
     customTable: css`
       ${antCls}-table {
@@ -51066,8 +51164,8 @@ import { Flex, Table, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { createStyles } from 'antd-style';
 
-const useStyle = createStyles(({ css, token }) => {
-  const { antCls } = token;
+const useStyle = createStyles(({ css, prefixCls }) => {
+  const antCls = `.${prefixCls}`;
   return {
     customTable: css`
       ${antCls}-table {
@@ -52381,11 +52479,11 @@ Properties for row selection.
 
 ### scroll
 
-| Property | Description | Type | Default |
-| --- | --- | --- | --- |
-| scrollToFirstRowOnChange | Whether to scroll to the top of the table when paging, sorting, filtering changes | boolean | - |
-| x | Set horizontal scrolling, can also be used to specify the width of the scroll area, could be number, percent value, true and ['max-content'](https://developer.mozilla.org/en-US/docs/Web/CSS/width#max-content) | string \| number \| true | - |
-| y | Set vertical scrolling, can also be used to specify the height of the scroll area, could be string or number | string \| number | - |
+| Property | Description | Type | Default | Version | [Global Config](/components/config-provider#component-config) |
+| --- | --- | --- | --- | --- | --- |
+| scrollToFirstRowOnChange | Whether to scroll to the top of the table when paging, sorting, filtering changes | boolean | - | - | 6.3.0 |
+| x | Set horizontal scrolling, can also be used to specify the width of the scroll area, could be number, percent value, true and ['max-content'](https://developer.mozilla.org/en-US/docs/Web/CSS/width#max-content) | string \| number \| true | - | - | 6.3.0 |
+| y | Set vertical scrolling, can also be used to specify the height of the scroll area, could be string or number | string \| number | - | - | 6.3.0 |
 
 ### selection
 
@@ -52615,7 +52713,7 @@ cover: https://mdn.alipayobjects.com/huamei_7uahnr/afts/img/A*72NDQqXkyOEAAAAAAA
 coverDark: https://mdn.alipayobjects.com/huamei_7uahnr/afts/img/A*8HMoTZUoSGoAAAAAAAAAAAAADrJ8AQ/original
 ---
 
-### When To Use
+## When To Use
 
 Ant Design has 3 types of Tabs for different situations.
 
@@ -53554,7 +53652,7 @@ const classNames = createStaticStyles(({ css }) => ({
 const stylesObject: TabsProps['styles'] = {
   root: { borderWidth: 2, borderStyle: 'dashed', padding: 16, marginBottom: 10 },
   header: { backgroundColor: 'rgba(245,245,245,0.5)' },
-  item: { fontWeight: 'bold', color: '#1890ff', padding: `6px 10px` },
+  item: { fontWeight: 700, color: '#1890ff', padding: `6px 10px` },
   indicator: { backgroundColor: 'rgba(255,77,79, 0.3)', height: 4 },
   body: { backgroundColor: 'rgba(230,247,255,0.8)' },
   content: { padding: 16 },
@@ -55254,7 +55352,7 @@ https://ant.design/components/time-picker/semantic.md
 
 ## FAQ
 
-- [How to use TimePicker with customize date library like dayjs](/docs/react/use-custom-date-library#timepicker)
+- [How to use TimePicker with customize date library like Moment.js](/docs/react/use-custom-date-library#timepicker)
 
 ---
 
@@ -55860,7 +55958,7 @@ demo:
 ## When To Use
 
 - The tip is shown on mouse enter, and is hidden on mouse leave. The Tooltip doesn't support complex text or operations.
-- To provide an explanation of a `button/text/operation`. It's often used instead of the html `title` attribute.
+- To provide an explanation of a `button/text/operation`. It's often used instead of the HTML `title` attribute.
 
 ## Examples
 
@@ -56113,6 +56211,46 @@ const App: React.FC = () => {
 export default App;
 ```
 
+
+### Realign after layout changes
+
+
+
+```tsx
+import React from 'react';
+import type { TooltipRef } from 'antd';
+import { Button, Tooltip } from 'antd';
+
+const App: React.FC = () => {
+  const [loaded, setLoaded] = React.useState(false);
+  const tooltipRef = React.useRef<TooltipRef>(null);
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setLoaded(true);
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  React.useLayoutEffect(() => {
+    if (loaded) {
+      tooltipRef.current?.forceAlign();
+    }
+  }, [loaded]);
+
+  return (
+    <div style={{ minHeight: 160, paddingTop: 16 }}>
+      {loaded && <div style={{ height: 80, marginBottom: 16 }}>Async content loaded.</div>}
+      <Tooltip ref={tooltipRef} title="Tooltip stays aligned" open placement="top">
+        <Button>Trigger</Button>
+      </Tooltip>
+    </div>
+  );
+};
+
+export default App;
+```
 
 
 ### Colorful Tooltip
@@ -56377,6 +56515,10 @@ If need update content when close, you can set `fresh` property ([#44830](https:
 <div>
 <img alt="no blink" height="50" src="https://mdn.alipayobjects.com/huamei_7uahnr/afts/img/A*rUbsR4xWpMsAAAAAAAAAAAAADrJ8AQ/original" />
 </div>
+
+### Why doesn't Tooltip realign after a layout change? {#faq-force-align}
+
+Tooltip does not continuously monitor all external layout changes by default, avoiding extra overhead for every open Tooltip. When async data loading, list refreshes, or expanding and collapsing regions changes the trigger element's position, get the `TooltipRef` through `ref` and call `forceAlign` after the layout update (see [#57809](https://github.com/ant-design/ant-design/issues/57809)). See the “Realign after layout changes” demo above for a complete example.
 
 ---
 
@@ -58075,14 +58217,14 @@ const mockData = Array.from({ length: 20 }).map<any>((_, i) => ({
 const initialTargetKeys = mockData.filter((item) => Number(item.key) > 10).map((item) => item.key);
 
 const stylesObject: TransferProps['styles'] = {
-  header: { fontWeight: 'bold' },
+  header: { fontWeight: 700 },
 };
 
 const stylesFn: TransferProps['styles'] = (info): GetProp<TransferProps, 'styles', 'Return'> => {
   if (info.props.status === 'warning') {
     return {
       section: { backgroundColor: 'rgba(246,255,237, 0.6)', borderColor: '#b7eb8f' },
-      header: { color: '#8DBCC7', fontWeight: 'normal' },
+      header: { color: '#8DBCC7', fontWeight: 400 },
     };
   }
   return {};
@@ -62832,7 +62974,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | accept | File types that can be accepted. See [input accept Attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file#accept) | string \| [AcceptObject](#acceptobject) | - |  | 6.4.0 |
 | action | Uploading URL | string \| (file) => Promise&lt;string> | - |  | × |
 | beforeUpload | Hook function which will be executed before uploading. Uploading will be stopped with `false` or a rejected Promise returned. When returned value is `Upload.LIST_IGNORE`, the list of files that have been uploaded will ignore it. **Warning：this function is not supported in IE9** | (file: [RcFile](#rcfile), fileList: [RcFile[]](#rcfile)) => boolean \| Promise&lt;File> \| `Upload.LIST_IGNORE` | - |  | × |
-| customRequest | Override for the default xhr behavior allowing for additional customization and the ability to implement your own XMLHttpRequest | ( options: [RequestOptions](#request-options), info: { defaultRequest: (option: [RequestOptions](#request-options)) => void; } ) => void | - | defaultRequest: 5.28.0 | 5.27.0 |
+| customRequest | Override for the default xhr behavior allowing for additional customization and the ability to implement your own XMLHttpRequest | ( options: [RequestOptions](#request-options), info: { defaultRequest: (option: [RequestOptions](#request-options)) => void \| { abort: () => void }; } ) => void \| { abort: () => void } | - | defaultRequest: 5.28.0 | 5.27.0 |
 | classNames | Customize class for each semantic structure inside the component. Supports object or function. | Record<[SemanticDOM](#semantic-dom), string> \| (info: { props })=> Record<[SemanticDOM](#semantic-dom), string> | - |  | 6.0.0 |
 | data | Uploading extra params or function which can return uploading extra params | object \| (file) => object \| Promise&lt;object> | - |  | × |
 | defaultFileList | Default list of files that have been uploaded | object\[] | - |  | × |
@@ -63372,7 +63514,7 @@ Common props ref：[Common props](/docs/react/common-props)
 | --- | --- | --- | --- | --- |
 | color | font color | [CanvasFillStrokeStyles.fillStyle](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/fillStyle) | rgba(0,0,0,.15) |  |
 | fontSize | font size | number | 16 |  |
-| fontWeight | font weight | `normal` \| `lighter` \| `bold` \| `bolder` \| number | normal |  |
+| fontWeight | font weight | `normal` \| `lighter` \| `bold` \| `bolder` \| number | 400 |  |
 | fontFamily | font family | string | sans-serif |  |
 | fontStyle | font style  | `none` \| `normal` \| `italic` \| `oblique` | normal |  |
 | textAlign | specify the text alignment direction  | [CanvasTextAlign](https://developer.mozilla.org/docs/Web/API/CanvasRenderingContext2D/textAlign) | `center` | 5.10.0 |

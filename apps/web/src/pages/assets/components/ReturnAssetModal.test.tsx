@@ -15,6 +15,14 @@ vi.mock('../../../services/assets.service', () => ({
       filename: 'asset_return_test.html',
       generatedAt: '2026-10-13T00:00:00.000Z',
     }),
+    downloadHandoverDocx: vi.fn().mockResolvedValue({
+      blob: new Blob(['docx']),
+      filename: 'asset_return_test.docx',
+    }),
+    downloadHandoverXlsx: vi.fn().mockResolvedValue({
+      blob: new Blob(['xlsx']),
+      filename: 'asset_return_test.xlsx',
+    }),
     uploadHandoverDocument: vi.fn().mockResolvedValue({
       fileUrl: '/api/v1/assets/handover-documents/file/signed-return.pdf',
       fileName: 'signed-return.pdf',
@@ -121,7 +129,8 @@ describe('ReturnAssetModal Component', () => {
     const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.ant-modal button'));
     expect(buttons.some((b) => b.textContent?.includes('Preview'))).toBe(true);
     expect(buttons.some((b) => b.textContent?.includes('Print'))).toBe(true);
-    expect(buttons.some((b) => b.textContent?.includes('Download'))).toBe(true);
+    expect(buttons.some((b) => b.textContent?.includes('Word (.docx)'))).toBe(true);
+    expect(buttons.some((b) => b.textContent?.includes('Excel (.xlsx)'))).toBe(true);
 
     // Direct upload
     expect(document.body.textContent).toContain('Signed Return Document');
@@ -214,24 +223,55 @@ describe('ReturnAssetModal Component', () => {
     );
   });
 
-  it('triggers download return document when clicking download button', async () => {
+  it('triggers download return document when clicking Word (.docx) button', async () => {
     await renderComponent({
       open: true,
       asset: mockAsset,
       onCancel: vi.fn(),
     });
 
-    const downloadBtn = Array.from(
+    const docxBtn = Array.from(
       document.querySelectorAll<HTMLButtonElement>('.ant-modal button'),
-    ).find((b) => b.textContent?.includes('Download'));
-    expect(downloadBtn).toBeDefined();
+    ).find((b) => b.textContent?.includes('Word (.docx)'));
+    expect(docxBtn).toBeDefined();
 
     await act(async () => {
-      downloadBtn?.click();
+      docxBtn?.click();
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     expect(assetsService.generateHandoverDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'return',
+        assetIds: ['ast-ret-1'],
+      }),
+    );
+    expect(assetsService.downloadHandoverDocx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'return',
+        assetIds: ['ast-ret-1'],
+      }),
+    );
+  });
+
+  it('triggers download return spreadsheet when clicking Excel (.xlsx) button', async () => {
+    await renderComponent({
+      open: true,
+      asset: mockAsset,
+      onCancel: vi.fn(),
+    });
+
+    const xlsxBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.ant-modal button'),
+    ).find((b) => b.textContent?.includes('Excel (.xlsx)'));
+    expect(xlsxBtn).toBeDefined();
+
+    await act(async () => {
+      xlsxBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(assetsService.downloadHandoverXlsx).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'return',
         assetIds: ['ast-ret-1'],
@@ -285,5 +325,24 @@ describe('ReturnAssetModal Component', () => {
         signedDocUrl: '/api/v1/assets/handover-documents/file/signed-return.pdf',
       }),
     );
+  });
+
+  it('hides return record documentation and shows unassigned alert when asset has no custodian', async () => {
+    const unassignedAsset: Asset = {
+      ...mockAsset,
+      assignedTo: '',
+      assignedToId: null,
+      assignedEmail: '',
+    };
+
+    await renderComponent({
+      open: true,
+      asset: unassignedAsset,
+      onCancel: vi.fn(),
+    });
+
+    expect(document.body.textContent).toContain('Unassigned Asset');
+    expect(document.body.textContent).toContain('This asset has no current custodian');
+    expect(document.body.textContent).not.toContain('Return Record Documentation');
   });
 });

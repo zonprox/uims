@@ -20,6 +20,7 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-win32-x64@2.5.13'
   - vite@8.3.0
   - zod@4.6.4
+  - antd@6.6.6
 peerDependencyRules:
   allowedVersions:
     antd: "^6.0.0"

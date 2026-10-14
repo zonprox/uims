@@ -17,6 +17,7 @@ import {
   Button,
   Card,
   Descriptions,
+  Divider,
   Flex,
   Space,
   Tag,
@@ -24,6 +25,7 @@ import {
   theme,
 } from 'antd';
 import React from 'react';
+import ActivityTimeline from '../../components/ActivityTimeline';
 import AppDrawer from '../../components/AppDrawer';
 import { FormattedDateTime } from '../../components/FormattedDate';
 
@@ -243,6 +245,8 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
               )}
             </Descriptions.Item>
           </Descriptions>
+          <Divider style={{ margin: '16px 0' }} />
+          <ActivityTimeline entityType="User" entityId={user.id} />
         </AppDrawer.Section>
       </div>
     </AppDrawer>

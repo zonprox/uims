@@ -1,4 +1,13 @@
-import { AccountStatus, DirectorySource, type PrismaClient } from '@prisma/client';
+import {
+  AccountStatus,
+  DirectorySource,
+  DomainJoinStatus,
+  type PrismaClient,
+} from '@prisma/client';
+import {
+  encryptDirectoryPassword,
+  generateSecurePassword,
+} from '../../src/common/crypto/directory-crypto';
 import { enterpriseAdMasterData } from './ad-directory-data';
 import type { StaffProfile } from './roles-users.seeder';
 import {
@@ -79,6 +88,13 @@ export async function seedDirectory(
         posKey?: string;
         locKey?: string;
         adGroup?: string;
+        computerName?: string;
+        adDomain?: string;
+        domainJoined: boolean;
+        domainJoinStatus: DomainJoinStatus;
+        accountExpiresAt?: Date | null;
+        seedEmailPassword?: boolean;
+        seedAdInitialPassword?: boolean;
       }
       const candidates: Candidate[] = [];
 
@@ -86,6 +102,16 @@ export async function seedDirectory(
         for (const s of staffProfiles) {
           const isBSL =
             s.organizationCode === 'BSL' || (s.locationId ? s.locationId.includes('bsl') : false);
+          let accountStatus: AccountStatus = AccountStatus.ACTIVE;
+          if (s.status === 'SUSPENDED') accountStatus = AccountStatus.SUSPENDED;
+          else if (s.status === 'DISABLED') accountStatus = AccountStatus.DISABLED;
+          else if (s.status === 'LOCKED') accountStatus = AccountStatus.LOCKED;
+          else if (s.status === 'INACTIVE') accountStatus = AccountStatus.ACTIVE;
+
+          const joinStatus =
+            (s.domainJoinStatus as DomainJoinStatus) ||
+            (s.status === 'INACTIVE' ? DomainJoinStatus.PENDING : DomainJoinStatus.JOINED);
+
           candidates.push({
             email: s.email,
             employeeCode: s.employeeCode,
@@ -93,7 +119,7 @@ export async function seedDirectory(
             lastName: s.lastName,
             displayName: s.displayName,
             phone: s.phone,
-            status: s.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
+            status: accountStatus,
             source: s.source === 'LOCAL' ? DirectorySource.LOCAL : DirectorySource.AZURE_AD,
             isBSL,
             orgKey: s.organizationCode,
@@ -101,6 +127,13 @@ export async function seedDirectory(
             posKey: s.positionCode || s.jobTitle,
             locKey: s.locationId || s.locationName,
             adGroup: s.adGroup,
+            computerName: s.computerName,
+            adDomain: s.adDomain || 'youngone.internal',
+            domainJoined: s.domainJoined ?? joinStatus === DomainJoinStatus.JOINED,
+            domainJoinStatus: joinStatus,
+            accountExpiresAt: s.accountExpiresAt || null,
+            seedEmailPassword: s.seedEmailPassword ?? true,
+            seedAdInitialPassword: s.seedAdInitialPassword ?? true,
           });
         }
       }
@@ -108,6 +141,13 @@ export async function seedDirectory(
       for (const r of enterpriseAdMasterData) {
         const isBSL = r.company.includes('BSL') || r.employeeCode.startsWith('BSL');
         const parts = r.displayName.split(' ');
+        let accountStatus: AccountStatus = AccountStatus.ACTIVE;
+        if (r.status === 'DISABLED') accountStatus = AccountStatus.DISABLED;
+        else if (r.status === 'LOCKED') accountStatus = AccountStatus.LOCKED;
+        else if (r.status === 'SUSPENDED') accountStatus = AccountStatus.SUSPENDED;
+
+        const joinStatus = (r.domainJoinStatus as DomainJoinStatus) || DomainJoinStatus.JOINED;
+
         candidates.push({
           email: r.email,
           employeeCode: r.employeeCode,
@@ -115,7 +155,7 @@ export async function seedDirectory(
           lastName: parts.slice(0, -1).join(' ') || 'Broadpeak',
           displayName: r.displayName,
           phone: r.telephone,
-          status: r.status === 'ACTIVE' ? AccountStatus.ACTIVE : AccountStatus.DISABLED,
+          status: accountStatus,
           source: DirectorySource.AZURE_AD,
           isBSL,
           orgKey: isBSL ? 'BSL' : 'BSH',
@@ -123,6 +163,13 @@ export async function seedDirectory(
           posKey: r.positionCode || r.jobTitle,
           locKey: r.locationCode,
           adGroup: r.adGroup,
+          computerName: r.computerName,
+          adDomain: 'youngone.internal',
+          domainJoined: joinStatus === DomainJoinStatus.JOINED,
+          domainJoinStatus: joinStatus,
+          accountExpiresAt: r.accountExpiresAt || null,
+          seedEmailPassword: accountStatus === AccountStatus.ACTIVE,
+          seedAdInitialPassword: accountStatus === AccountStatus.ACTIVE,
         });
       }
 
@@ -144,6 +191,16 @@ export async function seedDirectory(
             ? posMap.get('POS-BSL-GM') || posMap.get('POS-BSL-ADMIN-LEAD')
             : posMap.get('POS-BSH-MD') || posMap.get('POS-BSH-IT-ENG'));
 
+        const emailPassword = c.seedEmailPassword
+          ? encryptDirectoryPassword(generateSecurePassword(16))
+          : null;
+        const emailPasswordUpdatedAt = emailPassword ? new Date() : null;
+
+        const adInitialPassword = c.seedAdInitialPassword
+          ? encryptDirectoryPassword(generateSecurePassword(16))
+          : null;
+        const adInitialPasswordUpdatedAt = adInitialPassword ? new Date() : null;
+
         return tx.directoryUser.upsert({
           where: { email: c.email },
           update: {
@@ -157,6 +214,13 @@ export async function seedDirectory(
             organizationId: organizationId || null,
             departmentId: departmentId || null,
             positionId: positionId || null,
+            computerName: c.computerName || null,
+            adDomain: c.adDomain || 'youngone.internal',
+            domainJoined: c.domainJoined,
+            domainJoinStatus: c.domainJoinStatus,
+            accountExpiresAt: c.accountExpiresAt || null,
+            ...(emailPassword ? { emailPassword, emailPasswordUpdatedAt } : {}),
+            ...(adInitialPassword ? { adInitialPassword, adInitialPasswordUpdatedAt } : {}),
           },
           create: {
             employeeCode: c.employeeCode || null,
@@ -170,6 +234,15 @@ export async function seedDirectory(
             organizationId: organizationId || null,
             departmentId: departmentId || null,
             positionId: positionId || null,
+            computerName: c.computerName || null,
+            adDomain: c.adDomain || 'youngone.internal',
+            domainJoined: c.domainJoined,
+            domainJoinStatus: c.domainJoinStatus,
+            accountExpiresAt: c.accountExpiresAt || null,
+            emailPassword,
+            emailPasswordUpdatedAt,
+            adInitialPassword,
+            adInitialPasswordUpdatedAt,
           },
         });
       });

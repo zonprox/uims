@@ -28,12 +28,12 @@ export const itemRows: string[] = [
   'NDL-ORG-DPX5-11018|Organ DPx5 Size 110/18 Overlock Needles (Box of 100)|inv-cat-spares|loc-bsl-wh-sp-bin01|Bin SP-01|120|30|16.8|Organ Needle Vietnam|Heavy-duty industrial needles for denim and multi-layer seam serging.',
   'MTR-HOH-550W-SERVO|Ho Hsing 550W AC Direct Drive Servomotor Assembly|inv-cat-spares|loc-bsl-wh-sp-bin02|Bin SP-02|18|5|220.0|Ho Hsing Machinery Co.|Energy-saving direct drive replacement motor with synchronized needle positioner.',
   'HK-JK-DDL9000-ROTARY|Juki Hirose Full Rotary Hook for DDL-9000C|inv-cat-spares|loc-bsl-wh-sp-bin03|Bin SP-03|35|10|42.0|Juki Vietnam|Original Japanese rotary hook replacement for Juki lockstitch machines.',
-  'BLD-GB-CUT-8IN|Gerber 8-Inch High-Speed Steel Auto-Cutter Blades (Pack of 12)|inv-cat-spares|loc-bsl-wh-sp-bin05|Bin SP-05|25|6|85.0|Gerber Technology Vietnam|Replacement straight knives for Gerber Paragon automated cutting tables.',
+  'BLD-GB-CUT-8IN|Gerber 8-Inch High-Speed Steel Auto-Cutter Blades (Pack of 12)|inv-cat-spares|loc-bsl-wh-sp-bin05|Bin SP-05|3|6|85.0|Gerber Technology Vietnam|Replacement straight knives for Gerber Paragon automated cutting tables. Stock low (3 remaining of 6 min threshold).',
   // General IT & Shopfloor Consumables
-  'LBL-ZBR-100X150|Zebra Thermal Transfer Barcode Labels (100mm x 150mm, 1000/roll)|inv-cat-it-consumables|loc-bsl-wh-sp-bin08|Bin SP-08|120|30|14.5|Zebra Technologies Vietnam|Standard carton shipping and tracking labels for export garments.',
-  'RBN-ZBR-110X300|Zebra 5095 Resin Thermal Ribbon (110mm x 300m, Black)|inv-cat-it-consumables|loc-bsl-wh-sp-bin08|Bin SP-08|45|15|18.0|Zebra Technologies Vietnam|High durability resin ribbons for garment wash-care barcode labels.',
+  'LBL-ZBR-100X150|Zebra Thermal Transfer Barcode Labels (100mm x 150mm, 1000/roll)|inv-cat-it-consumables|loc-bsl-wh-sp-bin08|Bin SP-08|30|30|14.5|Zebra Technologies Vietnam|Standard carton shipping and tracking labels for export garments. Reached reorder threshold (30 rolls remaining).',
+  'RBN-ZBR-110X300|Zebra 5095 Resin Thermal Ribbon (110mm x 300m, Black)|inv-cat-it-consumables|loc-bsl-wh-sp-bin08|Bin SP-08|8|15|18.0|Zebra Technologies Vietnam|High durability resin ribbons for garment wash-care barcode labels. Below minimum threshold (8 of 15 min).',
   'CBL-CAT6-UTP-3M|Cat6 UTP RJ45 Factory Patch Cable (3m, Blue, Molded Boot)|inv-cat-it-consumables|loc-bsl-wh-sp-bin09|Bin SP-09|150|40|3.2|CommScope Vietnam|Cat6 patch cords for shopfloor network switches and inspection terminals.',
-  'BAT-HW-EDA51-LI|Honeywell ScanPal EDA51 Li-Ion Battery Pack (4000mAh)|inv-cat-it-consumables|loc-bsl-wh-sp-bin10|Bin SP-10|12|4|65.0|Honeywell Scanning & Mobility|Replacement Li-Ion battery pack for shopfloor stocktaking PDAs.',
+  'BAT-HW-EDA51-LI|Honeywell ScanPal EDA51 Li-Ion Battery Pack (4000mAh)|inv-cat-it-consumables|loc-bsl-wh-sp-bin10|Bin SP-10|0|4|65.0|Honeywell Scanning & Mobility|Replacement Li-Ion battery pack for shopfloor stocktaking PDAs. Stock exhausted. Urgent replenishment purchase order issued.',
 ];
 
 export async function seedInventory(

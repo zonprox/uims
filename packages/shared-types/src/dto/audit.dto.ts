@@ -27,6 +27,8 @@ export interface AuditQueryDto {
   severity?: string;
   status?: string;
   entity?: string;
+  entityType?: string;
+  entityId?: string;
   startDate?: string;
   endDate?: string;
 }

@@ -26,6 +26,10 @@ describe('AssetsController', () => {
       batchDelete: vi.fn(),
       getCategories: vi.fn(),
       getHandoverTemplateHtml: vi.fn(),
+      getHandoverTemplateDocx: vi.fn(),
+      getHandoverTemplateXlsx: vi.fn(),
+      generateHandoverDocx: vi.fn(),
+      generateHandoverXlsx: vi.fn(),
       returnAsset: vi.fn(),
       generateHandoverDocument: vi.fn(),
       saveHandoverDocumentFile: vi.fn(),
@@ -163,7 +167,32 @@ describe('AssetsController', () => {
   });
 
   describe('handover-template & return', () => {
-    it('should set response headers and stream handover template HTML', () => {
+    it('should set response headers and stream handover template DOCX by default', async () => {
+      const mockRes = {
+        setHeader: vi.fn(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      mockAssetsService.getHandoverTemplateDocx.mockResolvedValue({
+        buffer: Buffer.from('mock-docx-data'),
+        filename: 'asset_handover_template.docx',
+      });
+
+      await controller.getHandoverTemplate('assignment', mockRes);
+
+      expect(mockAssetsService.getHandoverTemplateDocx).toHaveBeenCalledWith('assignment');
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        'attachment; filename="asset_handover_template.docx"',
+      );
+      expect(mockRes.send).toHaveBeenCalledWith(Buffer.from('mock-docx-data'));
+    });
+
+    it('should set response headers and stream handover template HTML when requested', async () => {
       const mockRes = {
         setHeader: vi.fn(),
         send: vi.fn(),
@@ -173,7 +202,7 @@ describe('AssetsController', () => {
         '<!DOCTYPE html><html>Template</html>',
       );
 
-      controller.getHandoverTemplate('assignment', mockRes);
+      await controller.getHandoverTemplate('assignment', mockRes, 'html');
 
       expect(mockAssetsService.getHandoverTemplateHtml).toHaveBeenCalledWith('assignment');
       expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html; charset=utf-8');

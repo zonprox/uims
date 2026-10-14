@@ -15,15 +15,6 @@ export class ResetEmailPasswordDto implements IResetEmailPasswordDto {
   newPassword?: string;
 
   @ApiPropertyOptional({
-    description: 'Legacy password property alias',
-  })
-  @IsOptional()
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
-  password?: string;
-
-  @ApiPropertyOptional({
     description: 'Explicitly request generating a secure random password',
     default: true,
   })

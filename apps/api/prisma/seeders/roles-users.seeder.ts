@@ -18,6 +18,13 @@ export interface StaffProfile {
   locationName?: string;
   jobTitle?: string;
   adGroup?: string;
+  domainJoinStatus?: string;
+  domainJoined?: boolean;
+  adDomain?: string;
+  computerName?: string;
+  accountExpiresAt?: Date | null;
+  seedEmailPassword?: boolean;
+  seedAdInitialPassword?: boolean;
 }
 
 export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContext) {
@@ -159,6 +166,9 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
         'tuan.hoang|tuan.hoang@youngonevn.com|BSH-005|Tuan|Hoang Anh|Hoang Anh Tuan|Apparel Merchandiser|User|BSH|DEPT-BSH-MERCH|POS-BSH-MERCH-SPEC|loc-bsh-d3|GR_BSH_Merchandising|+84 (28) 3997-8014|OU=Merchandising,OU=BSH,DC=youngone,DC=internal|AZURE_AD',
         'ngoc.vu|ngoc.vu@youngonevn.com|BSH-006|Ngoc|Vu Bich|Vu Bich Ngoc|Chief Accountant & Controller|Viewer|BSH|DEPT-BSH-FIN|POS-BSH-FIN-CTRL|loc-bsh-d7|GR_BSH_CorporateOffice|+84 (28) 3997-8015|OU=Finance,OU=BSH,DC=youngone,DC=internal|LOCAL',
         'phuong.bui|phuong.bui@youngonevn.com|BSH-007|Phuong|Bui Mai|Bui Mai Phuong|Talent Acquisition & HR Manager|Manager|BSH|DEPT-BSH-HR|POS-BSH-HR-MGR|loc-bsh-d7|GR_BSH_CorporateOffice|+84 (28) 3997-8016|OU=HR,OU=BSH,DC=youngone,DC=internal|AZURE_AD',
+        'quang.tran|quang.tran@youngonevn.com|BSL-008|Quang|Tran Nhat|Tran Nhat Quang|Industrial Automation Specialist|User|BSL|DEPT-BSL-IT|POS-BSL-IT-SPEC|loc-bsl-st|GR_BSL_IT_Support|+84 (299) 387-9008|OU=IT,OU=BSL,DC=youngone,DC=internal|AZURE_AD|SUSPENDED|false|false',
+        'thao.pham|thao.pham@youngonevn.com|BSH-008|Thao|Pham Thi|Pham Thi Thao|Finance Specialist|User|BSH|DEPT-BSH-FIN|POS-BSH-FIN-CTRL|loc-bsh-d7|GR_BSH_CorporateOffice|+84 (28) 3997-8017|OU=Finance,OU=BSH,DC=youngone,DC=internal|LOCAL|ACTIVE|true|false',
+        'huong.le|huong.le@youngonevn.com|BSH-009|Huong|Le Thu|Le Thu Huong|Junior Systems & Cloud Engineer|User|BSH|DEPT-BSH-IT|POS-BSH-IT-ENG|loc-bsh-d7|GR_BSH_CorporateOffice|+84 (28) 3997-8018|OU=IT,OU=BSL,DC=youngone,DC=internal|LOCAL|INACTIVE|false|true',
       ];
 
       const seededUsers: Record<string, import('@prisma/client').AppUser> = {};
@@ -182,10 +192,26 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
           phone,
           ouPath,
           source,
+          rawStatus,
+          rawIsLocked,
+          rawMustChangePassword,
         ] = row.split('|');
         const role = seededRoles[roleName];
         if (!role) throw new Error(`Role ${roleName} not found for user ${email}`);
         const passwordHash = username === 'admin' ? adminPasswordHash : defaultPasswordHash;
+
+        const status = (rawStatus as import('@prisma/client').UserStatus) || 'ACTIVE';
+        const isLocked = rawIsLocked === 'true';
+        const mustChangePassword = rawMustChangePassword === 'true';
+
+        let lastLoginAt: Date | null = null;
+        if (username === 'admin') {
+          lastLoginAt = new Date(Date.now() - 3600 * 1000);
+        } else if (username === 'manager') {
+          lastLoginAt = new Date(Date.now() - 86400 * 1000 * 2);
+        } else if (username === 'user') {
+          lastLoginAt = new Date(Date.now() - 86400 * 1000 * 5);
+        }
 
         const userRecord = await prisma.appUser.upsert({
           where: { email },
@@ -195,7 +221,10 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
             lastName,
             displayName,
             roleId: role.id,
-            status: 'ACTIVE',
+            status,
+            isLocked,
+            mustChangePassword,
+            lastLoginAt,
             phone,
             passwordHash,
           },
@@ -206,7 +235,10 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
             lastName,
             displayName,
             roleId: role.id,
-            status: 'ACTIVE',
+            status,
+            isLocked,
+            mustChangePassword,
+            lastLoginAt,
             phone,
             passwordHash,
           },
@@ -226,7 +258,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
           lastName,
           displayName,
           phone,
-          status: 'ACTIVE',
+          status,
           source,
           organizationCode: orgCode,
           departmentCode: deptCode,
@@ -234,6 +266,12 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
           locationId: locId,
           jobTitle,
           adGroup,
+          domainJoinStatus: status === 'INACTIVE' ? 'PENDING' : 'JOINED',
+          domainJoined: status === 'ACTIVE',
+          adDomain: 'youngone.internal',
+          computerName: `${orgCode}-${username.replace('.', '-').toUpperCase()}`,
+          seedEmailPassword: true,
+          seedAdInitialPassword: true,
         });
       }
 

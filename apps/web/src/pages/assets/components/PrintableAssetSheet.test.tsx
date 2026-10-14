@@ -125,21 +125,10 @@ describe('PrintableAssetSheet Component', () => {
     expect(svgs.length).toBe(3);
   });
 
-  it('applies 3-column and 4-column layout classes appropriately', async () => {
-    await renderComponent({ assets: mockAssets, columns: 3 });
-    const grid3 = container.querySelector('.printable-asset-sheet');
-    expect(grid3?.classList.contains('cols-3')).toBe(true);
-
-    if (currentRoot) {
-      await act(async () => {
-        currentRoot?.unmount();
-      });
-      currentRoot = null;
-    }
-
-    await renderComponent({ assets: mockAssets, columns: 4 });
-    const grid4 = container.querySelector('.printable-asset-sheet');
-    expect(grid4?.classList.contains('cols-4')).toBe(true);
+  it('applies standardized 4-column layout class cols-4', async () => {
+    await renderComponent({ assets: mockAssets });
+    const grid = container.querySelector('.printable-asset-sheet');
+    expect(grid?.classList.contains('cols-4')).toBe(true);
   });
 
   it('includes dashed cut-guide border and break-inside avoidance on each card', async () => {

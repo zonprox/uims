@@ -18,7 +18,7 @@ export interface PhysicalUnitSeedDef {
   modelCode: string;
   name?: string;
   serialNumber: string;
-  status: 'IN_USE' | 'AVAILABLE';
+  status: 'IN_USE' | 'AVAILABLE' | 'MAINTENANCE' | 'RETIRED' | 'LOST';
   userEmail?: string;
   locationKey?: string;
   departmentCode: string;
@@ -28,6 +28,11 @@ export interface PhysicalUnitSeedDef {
   hasPendingRecord?: boolean;
   notes?: string;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const nowMs = Date.now();
+export const relativeDateStr = (days: number): string =>
+  new Date(nowMs + days * DAY_MS).toISOString().split('T')[0];
 
 // ============================================================================
 // 1. Realistic Enterprise Device Models (Parent Assets, parentId = null)
@@ -335,8 +340,8 @@ export const physicalUnitRows: PhysicalUnitSeedDef[] = [
     locationKey: 'loc-bsl-f1-cut',
     departmentCode: 'DEPT-BSL-F1-CUT',
     costCenterCode: 'IT-OPS',
-    purchaseDate: '2024-03-01',
-    warrantyExpiry: '2027-03-01',
+    purchaseDate: relativeDateStr(-730),
+    warrantyExpiry: relativeDateStr(365), // Active warranty (1 year remaining)
     notes: 'Assigned to Cutting Section Team Leader (BSL Factory 1).',
   },
   {
@@ -372,9 +377,9 @@ export const physicalUnitRows: PhysicalUnitSeedDef[] = [
     locationKey: 'loc-bsl-bc-datacenter',
     departmentCode: 'DEPT-BSL-IT',
     costCenterCode: 'IT-OPS',
-    purchaseDate: '2024-03-01',
-    warrantyExpiry: '2027-03-01',
-    notes: 'Ready for employee onboarding deployment.',
+    purchaseDate: relativeDateStr(-730),
+    warrantyExpiry: relativeDateStr(18), // Expiring in 18 days (triggers <=30d alert)
+    notes: 'Ready for employee onboarding deployment. OEM warranty expiring soon.',
   },
   {
     subcode: 'AST-DELL-005',
@@ -384,9 +389,34 @@ export const physicalUnitRows: PhysicalUnitSeedDef[] = [
     locationKey: 'loc-bsl-bc-datacenter',
     departmentCode: 'DEPT-BSL-IT',
     costCenterCode: 'IT-OPS',
-    purchaseDate: '2024-03-01',
-    warrantyExpiry: '2027-03-01',
-    notes: 'Operational reserve unit at BSL IT inventory.',
+    purchaseDate: relativeDateStr(-1095),
+    warrantyExpiry: relativeDateStr(-90), // Expired 90 days ago
+    notes: 'Operational reserve unit at BSL IT inventory. Factory warranty expired.',
+  },
+  {
+    subcode: 'AST-DELL-MAINT-01',
+    modelCode: 'MOD-DELL-5420',
+    serialNumber: '7N881M2-MNT01',
+    status: 'MAINTENANCE',
+    locationKey: 'loc-bsl-bc-datacenter',
+    departmentCode: 'DEPT-BSL-IT',
+    costCenterCode: 'IT-OPS',
+    purchaseDate: relativeDateStr(-500),
+    warrantyExpiry: relativeDateStr(365),
+    notes: 'Cracked IPS panel under warranty repair with Dell ProSupport (Ticket #DEL-882194).',
+  },
+  {
+    subcode: 'AST-DELL-RET-01',
+    modelCode: 'MOD-DELL-5420',
+    serialNumber: '7N881M2-RET01',
+    status: 'RETIRED',
+    locationKey: 'loc-bsl-bc-datacenter',
+    departmentCode: 'DEPT-BSL-IT',
+    costCenterCode: 'IT-OPS',
+    purchaseDate: relativeDateStr(-1460),
+    warrantyExpiry: relativeDateStr(-180), // Expired 6 months ago
+    notes:
+      'Decommissioned 48-month lifecycle unit. Degaussed storage, pending certified e-waste pickup.',
   },
   // Preserved canonical units under MOD-DELL-5420
   {
@@ -518,6 +548,19 @@ export const physicalUnitRows: PhysicalUnitSeedDef[] = [
     purchaseDate: '2024-02-15',
     warrantyExpiry: '2027-02-15',
     notes: 'Available developer workstation at BSH IT equipment pool.',
+  },
+  {
+    subcode: 'AST-MBP-LOST-01',
+    modelCode: 'MOD-MBP-14',
+    serialNumber: 'MBP14-LOST01',
+    status: 'LOST',
+    locationKey: 'loc-bsh-d7',
+    departmentCode: 'DEPT-BSH-MERCH',
+    costCenterCode: 'SALES-MKT',
+    purchaseDate: relativeDateStr(-400),
+    warrantyExpiry: relativeDateStr(330),
+    notes:
+      'Reported stolen during international flight transit. Remote wipe command issued via Intune.',
   },
 
   // Units under MOD-MBP-16 (Apple MacBook Pro 16" M3 Max)
@@ -673,6 +716,18 @@ export const physicalUnitRows: PhysicalUnitSeedDef[] = [
     warrantyExpiry: '2027-01-20',
     notes: 'Corporate pool laptop at BSH office.',
   },
+  {
+    subcode: 'AST-TP-LOST-01',
+    modelCode: 'MOD-THINKPAD-T14',
+    serialNumber: 'TP14-LOST01',
+    status: 'LOST',
+    locationKey: 'loc-bsl-f1-sew',
+    departmentCode: 'DEPT-BSL-LOG-FG',
+    costCenterCode: 'IT-OPS',
+    purchaseDate: relativeDateStr(-600),
+    warrantyExpiry: relativeDateStr(-60),
+    notes: 'Reported missing during annual warehouse physical asset inventory audit.',
+  },
 
   // Units under MOD-PRECISION-3660 (Dell Precision 3660 Tower)
   {
@@ -724,6 +779,18 @@ export const physicalUnitRows: PhysicalUnitSeedDef[] = [
     purchaseDate: '2023-11-01',
     warrantyExpiry: '2026-11-01',
     notes: 'Reserve CAD workstation unit.',
+  },
+  {
+    subcode: 'AST-PREC-MAINT-01',
+    modelCode: 'MOD-PRECISION-3660',
+    serialNumber: 'D3660-MNT01',
+    status: 'MAINTENANCE',
+    locationKey: 'loc-bsl-bc-datacenter',
+    departmentCode: 'DEPT-BSL-IT',
+    costCenterCode: 'ENG-DEV',
+    purchaseDate: relativeDateStr(-730),
+    warrantyExpiry: relativeDateStr(25), // Expiring in 25 days
+    notes: 'Workstation GPU fan replacement in progress in BSL hardware maintenance lab.',
   },
 
   // Units under MOD-DELL-U2723QE (Dell UltraSharp 27 4K Monitor)
@@ -988,6 +1055,18 @@ export const physicalUnitRows: PhysicalUnitSeedDef[] = [
     purchaseDate: '2023-10-15',
     warrantyExpiry: '2026-10-15',
     notes: 'Quality Assurance Lab test reporting and inspection terminal.',
+  },
+  {
+    subcode: 'AST-OPT-RET-01',
+    modelCode: 'MOD-DELL-OPT7010',
+    serialNumber: 'OPT7010-RET01',
+    status: 'RETIRED',
+    locationKey: 'loc-bsl-bc-datacenter',
+    departmentCode: 'DEPT-BSL-IT',
+    costCenterCode: 'IT-OPS',
+    purchaseDate: relativeDateStr(-1825),
+    warrantyExpiry: relativeDateStr(-365), // Expired 1 year ago
+    notes: 'Decommissioned shopfloor desktop terminal. Sanitized and awaiting scrap disposal.',
   },
   {
     subcode: 'AST-1007',
@@ -1505,7 +1584,12 @@ export async function seedAssets(
               : 'Signed handover documentation verified and archived in electronic repository.',
             createdAt: purchaseDate,
           });
-        } else if (uRow.status === 'AVAILABLE' && i % 6 === 0) {
+        } else if (
+          (uRow.status === 'AVAILABLE' ||
+            uRow.status === 'RETIRED' ||
+            uRow.status === 'MAINTENANCE') &&
+          i % 5 === 0
+        ) {
           const previousUser =
             getUser('tri.doan@youngonevn.com') || getUser('nam.pham@youngonevn.com');
           handoverRows.push({
@@ -1514,7 +1598,12 @@ export async function seedAssets(
             recipientId: previousUser || null,
             signedDocUrl: '/api/v1/assets/handover-documents/file/sample-signed-handover.pdf',
             isPending: false,
-            notes: 'Returned in good working condition during hardware refresh.',
+            notes:
+              uRow.status === 'RETIRED'
+                ? 'Returned for lifecycle decommissioning and certified recycling.'
+                : uRow.status === 'MAINTENANCE'
+                  ? 'Returned to IT hardware workshop for diagnostic analysis and repair.'
+                  : 'Returned in good working condition during hardware refresh.',
             createdAt: new Date(),
           });
         }

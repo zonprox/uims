@@ -416,10 +416,10 @@ export function generatePrintLabelHtml(assetInput: PrintableAssetData, qrDataUrl
         <div class="label-org-title">IT ASSET TAGGING</div>
         <div class="label-meta-row">
           <div class="label-meta-item"><strong>SAP Code: </strong><span class="label-tag">${escapeHtml(asset.sapCode || asset.tag)}</span></div>
-          <div class="label-meta-item"><strong>SUB Code: </strong><span class="label-tag">${escapeHtml(asset.subcode || asset.tag)}</span></div>
+          <div class="label-meta-item"><strong>Sub-Asset Code: </strong><span class="label-tag">${escapeHtml(asset.subcode || asset.tag)}</span></div>
           <div class="label-meta-item"><strong>Model: </strong><span class="label-name">${escapeHtml(asset.model || asset.name)}</span></div>
-          <div class="label-meta-item"><strong>Date: </strong><span style="font-family: monospace;">${escapeHtml(asset.date || new Date().toISOString().slice(0, 10))}</span></div>
-          <div class="label-meta-item"><strong>Cost Center: </strong><span>${escapeHtml(typeof asset.costCenter === 'object' && asset.costCenter ? `${asset.costCenter.code || ''} ${asset.costCenter.name ? `- ${asset.costCenter.name}` : ''}`.trim() : asset.costCenter || 'IT-OPS')}</span></div>
+          <div class="label-meta-item"><strong>Purchase Date: </strong><span style="font-family: monospace;">${escapeHtml(asset.date || new Date().toISOString().slice(0, 10))}</span></div>
+          <div class="label-meta-item"><strong>Cost Center: </strong><span>${escapeHtml(typeof asset.costCenter === 'object' && asset.costCenter ? `${asset.costCenter.code || ''} ${asset.costCenter.name ? `- ${asset.costCenter.name}` : ''}`.trim() : asset.costCenter || 'IT Operations')}</span></div>
           ${categoryName ? `<div class="label-meta-item">Category: ${escapeHtml(categoryName)}</div>` : ''}
           <div style="display:none;" class="legacy-name">${escapeHtml(asset.name)}</div>
         </div>
@@ -536,7 +536,10 @@ export function printAssetLabel(
  * Builds self-contained HTML for batch printing multiple asset QR label sheets.
  * Standardized on 4 cards per row (A4 sheet decal format).
  */
-export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: number = 4): string {
+export function generateBatchPrintSheetHtml(
+  sheetContentHtml: string,
+  _columns: number = 4,
+): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -567,8 +570,8 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: n
     }
     .printable-asset-sheet {
       display: grid !important;
-      grid-template-columns: repeat(${columns}, 1fr) !important;
-      gap: 2.5mm !important;
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 1mm !important;
       width: 100% !important;
       box-sizing: border-box !important;
       background: #ffffff !important;
@@ -579,7 +582,7 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: n
     .printable-sheet-card {
       position: relative !important;
       border: 1.5px dashed #777777 !important;
-      border-radius: 3px !important;
+      border-radius: 2px !important;
       background: #ffffff !important;
       background-color: #ffffff !important;
       color: #000000 !important;
@@ -592,7 +595,6 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: n
       gap: 5px !important;
       break-inside: avoid !important;
       page-break-inside: avoid !important;
-      overflow: hidden !important;
       min-width: 0 !important;
     }
     .printable-sheet-qr {
@@ -619,9 +621,9 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: n
       padding-bottom: 2px !important;
       margin-bottom: 3px !important;
       line-height: 1.1 !important;
-      white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
     }
     .printable-sheet-meta-rows {
       font-size: 8.5px !important;
@@ -633,29 +635,28 @@ export function generateBatchPrintSheetHtml(sheetContentHtml: string, columns: n
       min-width: 0 !important;
     }
     .printable-sheet-meta-row {
-      display: flex !important;
-      align-items: baseline !important;
-      gap: 3px !important;
-      white-space: nowrap !important;
-      min-width: 0 !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
+      display: block !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
       line-height: 1.25 !important;
+      min-width: 0 !important;
+      font-size: 8.5px !important;
     }
     .printable-sheet-meta-row .label-key,
     .printable-sheet-meta-row strong {
       font-weight: 700 !important;
       flex-shrink: 0 !important;
       color: #000000 !important;
-      white-space: nowrap !important;
+      white-space: normal !important;
       font-size: 8.5px !important;
     }
     .printable-sheet-meta-row .label-val,
     .printable-sheet-meta-row span:not(.label-key) {
       color: #000000 !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
-      white-space: nowrap !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
       min-width: 0 !important;
       font-size: 8.5px !important;
     }

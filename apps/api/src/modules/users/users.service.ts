@@ -2,9 +2,11 @@ import * as crypto from 'node:crypto';
 import { ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma, UserStatus } from '@prisma/client';
 import type { AppUserSummaryStats, CreateAppUserDto, UpdateAppUserDto } from '@uims/shared-types';
+import { computeFieldDiff } from '@uims/shared-utils';
 import * as bcrypt from 'bcrypt';
 import { RedisService } from '../../common/redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 import type { UserQueryDto } from './dto/user-query.dto';
@@ -41,6 +43,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly redis?: RedisService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async findByIdentifier(identifier: string) {
@@ -128,6 +131,26 @@ export class UsersService {
     });
 
     const { passwordHash: _hash, ...safeUser } = created;
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'USER_CREATED',
+          entity: 'User',
+          entityType: 'User',
+          entityId: safeUser.id,
+          severity: 'Info',
+          status: 'Success',
+          newValue: safeUser as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit event for user creation: ${safeUser.id}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
     return safeUser;
   }
 
@@ -223,7 +246,7 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto | UpdateAppUserDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
 
     const updateData: {
       email?: string;
@@ -272,11 +295,44 @@ export class UsersService {
     });
 
     const { passwordHash: _hash, ...safe } = updated;
+
+    if (this.auditService) {
+      try {
+        const diff = computeFieldDiff(
+          existing as unknown as Record<string, unknown>,
+          safe as unknown as Record<string, unknown>,
+          { sensitiveKeys: ['password', 'passwordHash'] },
+        );
+        if (diff.hasChanges) {
+          await this.auditService.logEvent({
+            action: 'USER_UPDATED',
+            entity: 'User',
+            entityType: 'User',
+            entityId: id,
+            severity: 'Info',
+            status: 'Success',
+            oldValue: diff.oldValue ?? undefined,
+            newValue: diff.newValue ?? undefined,
+            diffPayload: {
+              changedKeys: diff.changedKeys,
+              old: diff.oldValue ?? undefined,
+              new: diff.newValue ?? undefined,
+            },
+          });
+        }
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit event for user update: ${id}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
     return safe;
   }
 
   async toggleStatus(id: string, status: UserStatus) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     const updated = await this.prisma.appUser.update({
       where: { id },
       data: {
@@ -289,12 +345,56 @@ export class UsersService {
     });
 
     const { passwordHash: _hash, ...safe } = updated;
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'USER_STATUS_CHANGED',
+          entity: 'User',
+          entityType: 'User',
+          entityId: id,
+          severity: 'Info',
+          status: 'Success',
+          oldValue: { status: existing.status, isLocked: existing.isLocked },
+          newValue: { status: safe.status, isLocked: safe.isLocked },
+          details: `User status changed from ${existing.status} to ${status}`,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit event for user status change: ${id}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
     return safe;
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.appUser.delete({ where: { id } });
+    const existing = await this.findOne(id);
+    const deleted = await this.prisma.appUser.delete({ where: { id } });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'USER_DELETED',
+          entity: 'User',
+          entityType: 'User',
+          entityId: id,
+          severity: 'Info',
+          status: 'Success',
+          oldValue: existing as unknown as Record<string, unknown>,
+          details: `User ${existing.email} (ID: ${id}) deleted`,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit event for user deletion: ${id}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return deleted;
   }
 
   async getStats(): Promise<AppUserSummaryStats> {

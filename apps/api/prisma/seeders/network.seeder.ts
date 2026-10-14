@@ -59,6 +59,13 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
 
       const vlanMap = new Map<number, string>();
 
+      const subnetUtilizationMap: Record<string, { usedIps: number; reservedIps: number }> = {
+        '10.233.100.0/23': { usedIps: 418, reservedIps: 12 }, // 82.0% utilization (matches notif-003)
+        '10.232.130.0/24': { usedIps: 235, reservedIps: 5 }, // 92.5% utilization (>90% critical access pool)
+        '10.232.100.0/24': { usedIps: 24, reservedIps: 10 }, // 9.4% server infrastructure
+        '10.232.129.0/24': { usedIps: 4, reservedIps: 6 }, // 1.6% switch management pool
+      };
+
       // 1. Seed VLANs & Subnets via bitwise calcSubnetDetails
       for (const row of standardSubnetRows) {
         const [cidr, vlanNumStr, vlanName, _locKey, gw, name, desc] = row.split('|');
@@ -72,7 +79,8 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
         vlanMap.set(vlanNumber, vlan.id);
 
         const details = calcSubnetDetails(cidr, gw);
-        await prisma.subnet.upsert({
+        const util = subnetUtilizationMap[cidr] || { usedIps: 0, reservedIps: 0 };
+        const subnetRecord = await prisma.subnet.upsert({
           where: { cidr },
           update: {
             name,
@@ -84,6 +92,8 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
             startIp: details.startIp,
             endIp: details.endIp,
             totalIps: details.totalIps,
+            usedIps: util.usedIps,
+            reservedIps: util.reservedIps,
             description: desc,
           },
           create: {
@@ -97,9 +107,15 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
             startIp: details.startIp,
             endIp: details.endIp,
             totalIps: details.totalIps,
+            usedIps: util.usedIps,
+            reservedIps: util.reservedIps,
             description: desc,
           },
         });
+        if (ctx?.subnets) {
+          ctx.subnets.set(cidr, subnetRecord.id);
+          ctx.subnets.set(subnetRecord.id, subnetRecord.id);
+        }
       }
       logger.log(`Seeded ${standardSubnetRows.length} subnets with bitwise IPAM calculation.`);
 
@@ -128,6 +144,47 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           });
         }
         mgmtIps.push(ipRecord.id);
+      }
+
+      // 2b. Seed Allocated IP Addresses for High-Utilization Subnets
+      const hcmSubnet = await prisma.subnet.findUnique({ where: { cidr: '10.233.100.0/23' } });
+      const vlan233Id = vlanMap.get(233) || null;
+      if (hcmSubnet) {
+        const hcmIps: Prisma.IPAddressCreateManyInput[] = [];
+        for (let i = 2; i <= 419; i++) {
+          const thirdOctet = 100 + Math.floor(i / 256);
+          const fourthOctet = i % 256;
+          const address = `10.233.${thirdOctet}.${fourthOctet}`;
+          hcmIps.push({
+            address,
+            subnetId: hcmSubnet.id,
+            vlanId: vlan233Id,
+            status: 'ASSIGNED',
+            deviceType: i < 50 ? 'Workstation' : i < 350 ? 'Laptop' : 'Office Device',
+            description: `HCM Office D7 Active Device (Host ${i})`,
+            pingStatus: 'online',
+          });
+        }
+        await prisma.iPAddress.createMany({ data: hcmIps, skipDuplicates: true });
+      }
+
+      const accessSubnet = await prisma.subnet.findUnique({ where: { cidr: '10.232.130.0/24' } });
+      const vlan130Id = vlanMap.get(130) || null;
+      if (accessSubnet) {
+        const accessIps: Prisma.IPAddressCreateManyInput[] = [];
+        for (let i = 1; i <= 235; i++) {
+          const address = `10.232.130.${i}`;
+          accessIps.push({
+            address,
+            subnetId: accessSubnet.id,
+            vlanId: vlan130Id,
+            status: 'ASSIGNED',
+            deviceType: i < 180 ? 'Biometric Terminal' : 'Wireless AP',
+            description: `BSL Access Control Terminal MCC-${i.toString().padStart(3, '0')}`,
+            pingStatus: 'online',
+          });
+        }
+        await prisma.iPAddress.createMany({ data: accessIps, skipDuplicates: true });
       }
 
       // 3. Seed 3 Network Racks

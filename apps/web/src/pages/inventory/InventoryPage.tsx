@@ -6,6 +6,7 @@ import {
   DeleteOutlined,
   DollarOutlined,
   EditOutlined,
+  EyeOutlined,
   FilterOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -35,6 +36,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
+import InventoryDetailDrawer from './components/InventoryDetailDrawer';
 import { formatErrorMessage } from '../../utils/feedback';
 import { formRules, isValidationError } from '../../utils/formValidators';
 import {
@@ -119,10 +121,12 @@ export default function InventoryPage() {
     [organizations],
   );
 
-  // Modals
+  // Modals & Drawers
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [restockItem, setRestockItem] = useState<InventoryItem | null>(null);
   const [restockQty, setRestockQty] = useState<number>(10);
@@ -270,17 +274,10 @@ export default function InventoryPage() {
       const selectedVendor = vendors.find((v) => v.id === values.vendorId);
       const supplierName = selectedVendor ? selectedVendor.name : values.supplier || 'Direct Order';
 
-      // Resolve category name for backward compatibility
-      const selectedCategory = categories.find((c) => c.id === values.categoryId);
-      const categoryName = selectedCategory
-        ? selectedCategory.name
-        : values.category || 'General Supplies';
-
       const payload = {
         sku: values.sku,
         name: values.name,
         categoryId: values.categoryId,
-        category: categoryName,
         quantity: Number(values.quantity),
         minThreshold: Number(values.minThreshold),
         unitCost: Number(values.unitCost || 0),
@@ -354,7 +351,10 @@ export default function InventoryPage() {
             <Text
               strong
               style={{ fontSize: 13, display: 'block', cursor: 'pointer' }}
-              onClick={() => handleOpenEditModal(record)}
+              onClick={() => {
+                setDetailItem(record);
+                setDetailDrawerOpen(true);
+              }}
             >
               {record.name}
             </Text>
@@ -439,10 +439,22 @@ export default function InventoryPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 170,
+      width: 200,
       fixed: 'right' as const,
       render: (_: unknown, record: InventoryItem) => (
         <Space size="small">
+          <Tooltip title="View Details & History">
+            <Button
+              type="text"
+              shape="circle"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setDetailItem(record);
+                setDetailDrawerOpen(true);
+              }}
+            />
+          </Tooltip>
           <Button
             size="small"
             type="primary"
@@ -773,6 +785,17 @@ export default function InventoryPage() {
           </div>
         </Modal>
       )}
+
+      <InventoryDetailDrawer
+        open={detailDrawerOpen}
+        item={detailItem}
+        onClose={() => {
+          setDetailDrawerOpen(false);
+          setDetailItem(null);
+        }}
+        onEdit={(item) => handleOpenEditModal(item)}
+        onRestock={(item) => handleOpenRestock(item)}
+      />
     </PageContainer>
   );
 }

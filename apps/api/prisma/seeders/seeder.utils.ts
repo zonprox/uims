@@ -28,6 +28,7 @@ export interface SeederContext {
   assets: Map<string, string>;
   licenses: Map<string, string>;
   inventory: Map<string, string>;
+  subnets: Map<string, string>;
 }
 
 export function createSeederContext(): SeederContext {
@@ -44,6 +45,7 @@ export function createSeederContext(): SeederContext {
     assets: new Map(),
     licenses: new Map(),
     inventory: new Map(),
+    subnets: new Map(),
   };
 }
 

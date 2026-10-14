@@ -7,6 +7,7 @@ describe('AuditController', () => {
   let controller: AuditController;
   let mockService: {
     findAll: ReturnType<typeof vi.fn>;
+    findByEntity: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
     getStats: ReturnType<typeof vi.fn>;
     exportCsv: ReturnType<typeof vi.fn>;
@@ -16,6 +17,7 @@ describe('AuditController', () => {
   beforeEach(() => {
     mockService = {
       findAll: vi.fn(),
+      findByEntity: vi.fn(),
       findOne: vi.fn(),
       getStats: vi.fn(),
       exportCsv: vi.fn(),
@@ -38,6 +40,22 @@ describe('AuditController', () => {
     const result = await controller.findOne('log-123');
     expect(mockService.findOne).toHaveBeenCalledWith('log-123');
     expect(result).toEqual({ id: 'log-123', action: 'CREATE' });
+  });
+
+  it('delegates findByEntity with type, id, and query to auditService', async () => {
+    const query = { page: 1, pageSize: 20, action: 'UPDATE' };
+    const expectedResponse = {
+      items: [{ id: 'log-ent-1', entityType: 'Asset', entityId: 'ast-99' }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      totalPages: 1,
+    };
+    mockService.findByEntity.mockResolvedValue(expectedResponse);
+
+    const result = await controller.findByEntity('Asset', 'ast-99', query);
+    expect(mockService.findByEntity).toHaveBeenCalledWith('Asset', 'ast-99', query);
+    expect(result).toEqual(expectedResponse);
   });
 
   it('delegates getStats to auditService', async () => {

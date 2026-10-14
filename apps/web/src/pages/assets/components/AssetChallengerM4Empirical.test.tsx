@@ -788,11 +788,9 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
         printBtn?.click();
       });
 
-      // Verify BatchPrintModal opens with correct count
+      // Verify BatchPrintModal opens with correct count and standardized 4-column layout
       expect(document.body.textContent).toContain('Batch Print QR Labels (2 Selected)');
-      expect(document.body.textContent).toContain('Layout Density:');
-      expect(document.body.textContent).toContain('3 Columns (Standard)');
-      expect(document.body.textContent).toContain('4 Columns (Compact)');
+      expect(document.body.querySelector('.ant-segmented')).toBeNull();
 
       // Verify Print Sheet button is active (not disabled)
       const modalPrintBtn = Array.from(
@@ -826,7 +824,7 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
       expect(document.body.textContent).not.toContain('Selected 2 assets');
     });
 
-    it('4.2: BatchPrintModal density segmented toggles between 3 and 4 column grid layouts', async () => {
+    it('4.2: BatchPrintModal renders standardized 4-column A4 grid layout without 3-column switcher', async () => {
       const mockUnits: Asset[] = [
         createMockAsset({ id: 'u-1', tag: 'AST-001', name: 'Unit 1' }),
         createMockAsset({ id: 'u-2', tag: 'AST-002', name: 'Unit 2' }),
@@ -853,22 +851,15 @@ describe('Empirical Adversarial Stress Suite — Milestone M4 Challenger', () =>
 
       expect(document.body.textContent).toContain('Batch Print QR Labels (2 Selected)');
 
-      // Initial density is 3 cols
+      // Standardized layout is 4 cols
       const sheet = document.body.querySelector('.printable-asset-sheet') as HTMLDivElement;
       expect(sheet).toBeDefined();
-      expect(sheet.classList.contains('cols-3')).toBe(true);
-
-      // Switch to 4 cols compact
-      const compactOption = Array.from(
-        document.body.querySelectorAll('.ant-segmented-item-label'),
-      ).find((el) => el.textContent?.includes('4 Columns'));
-      expect(compactOption).toBeDefined();
-
-      await act(async () => {
-        (compactOption?.closest('.ant-segmented-item') as HTMLElement)?.click();
-      });
-
       expect(sheet.classList.contains('cols-4')).toBe(true);
+      expect(sheet.classList.contains('cols-3')).toBe(false);
+
+      // Verify layout switcher is completely removed
+      const segmented = document.body.querySelector('.ant-segmented');
+      expect(segmented).toBeNull();
     });
   });
 });

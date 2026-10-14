@@ -243,6 +243,17 @@ describe('LicensesService', () => {
   describe('update', () => {
     it('should encrypt licenseKey on update when provided', async () => {
       const newKey = 'UPDATED-KEY-9999';
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-update-1',
+        name: 'Updated Name',
+        type: LicenseType.SUBSCRIPTION,
+        totalSeats: 20,
+        usedSeats: 5,
+        costPerSeat: 50,
+        status: LicenseStatus.ACTIVE,
+        licenseKey: 'N/A',
+        assignments: [],
+      });
       mockPrisma.license.update.mockImplementation(async ({ data }) => ({
         id: 'lic-update-1',
         name: 'Updated Name',
@@ -281,6 +292,17 @@ describe('LicensesService', () => {
         mockNotificationsService as unknown as import('../notifications/notifications.service').NotificationsService,
       );
 
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-exp',
+        name: 'Expiring License',
+        type: LicenseType.SUBSCRIPTION,
+        totalSeats: 10,
+        usedSeats: 5,
+        status: LicenseStatus.ACTIVE,
+        licenseKey: 'N/A',
+        assignments: [],
+      });
+
       mockPrisma.license.update.mockResolvedValue({
         id: 'lic-exp',
         name: 'Expiring License',
@@ -307,14 +329,15 @@ describe('LicensesService', () => {
 
   describe('remove', () => {
     it('should delete license from database', async () => {
-      mockPrisma.license.delete.mockResolvedValue({ id: 'lic-del-1' });
+      mockPrisma.license.findUnique.mockResolvedValue({ id: 'lic-del-1', name: 'Deleted Lic' });
+      mockPrisma.license.delete.mockResolvedValue({ id: 'lic-del-1', name: 'Deleted Lic' });
 
       const result = await service.remove('lic-del-1');
 
       expect(mockPrisma.license.delete).toHaveBeenCalledWith({
         where: { id: 'lic-del-1' },
       });
-      expect(result).toEqual({ id: 'lic-del-1' });
+      expect(result).toEqual({ id: 'lic-del-1', name: 'Deleted Lic' });
     });
   });
 
@@ -552,6 +575,192 @@ describe('LicensesService', () => {
       expect(stats.utilization).toBe(75);
       expect(stats.expiringCount).toBe(2);
       expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    });
+  });
+
+  describe('Audit Logging Integration', () => {
+    let mockAuditService: { logEvent: ReturnType<typeof vi.fn> };
+    let serviceWithAudit: LicensesService;
+
+    beforeEach(() => {
+      mockAuditService = {
+        logEvent: vi.fn().mockResolvedValue({ id: 'aud-1' }),
+      };
+      serviceWithAudit = new LicensesService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        undefined,
+        mockAuditService as unknown as import('../audit/audit.service').AuditService,
+      );
+    });
+
+    it('should log LICENSE_CREATED audit event with masked license key', async () => {
+      mockPrisma.license.create.mockResolvedValue({
+        id: 'lic-aud-1',
+        name: 'Figma Enterprise',
+        vendor: 'Figma',
+        type: LicenseType.SUBSCRIPTION,
+        totalSeats: 50,
+        usedSeats: 0,
+        costPerSeat: 15,
+        licenseKey: encryptLicenseKey('FIGMA-SECRET-KEY-1234'),
+        status: LicenseStatus.ACTIVE,
+        assignments: [],
+      });
+
+      await serviceWithAudit.create({
+        name: 'Figma Enterprise',
+        vendor: 'Figma',
+        type: 'Subscription',
+        totalSeats: 50,
+        licenseKey: 'FIGMA-SECRET-KEY-1234',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LICENSE_CREATED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: 'lic-aud-1',
+          newValue: expect.objectContaining({
+            licenseKey: '••••-••••-1234',
+          }),
+        }),
+      );
+    });
+
+    it('should log LICENSE_UPDATED audit event with field diff and masked license key', async () => {
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-aud-1',
+        name: 'Figma Enterprise',
+        vendor: 'Figma',
+        totalSeats: 50,
+        usedSeats: 10,
+        licenseKey: encryptLicenseKey('OLD-KEY-1111'),
+        assignments: [],
+      });
+      mockPrisma.license.update.mockResolvedValue({
+        id: 'lic-aud-1',
+        name: 'Figma Enterprise Pro',
+        vendor: 'Figma',
+        totalSeats: 60,
+        usedSeats: 10,
+        licenseKey: encryptLicenseKey('NEW-KEY-2222'),
+        assignments: [],
+      });
+
+      await serviceWithAudit.update('lic-aud-1', {
+        name: 'Figma Enterprise Pro',
+        totalSeats: 60,
+        licenseKey: 'NEW-KEY-2222',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LICENSE_UPDATED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: 'lic-aud-1',
+          oldValue: expect.objectContaining({ name: 'Figma Enterprise', totalSeats: 50 }),
+          newValue: expect.objectContaining({ name: 'Figma Enterprise Pro', totalSeats: 60 }),
+        }),
+      );
+    });
+
+    it('should log LICENSE_SEAT_ASSIGNED audit event on user allocation', async () => {
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-aud-1',
+        name: 'Figma Enterprise',
+        totalSeats: 50,
+        usedSeats: 5,
+        type: LicenseType.SUBSCRIPTION,
+      });
+      mockPrisma.licenseAssignment.count.mockResolvedValue(6);
+      mockPrisma.licenseAssignment.create.mockResolvedValue({
+        id: 'asg-aud-1',
+        licenseId: 'lic-aud-1',
+        assignedName: 'Alice Designer',
+        assignedEmail: 'alice@company.com',
+        department: 'Design',
+      });
+      mockPrisma.license.update.mockResolvedValue({
+        id: 'lic-aud-1',
+        name: 'Figma Enterprise',
+        totalSeats: 50,
+        usedSeats: 6,
+        assignments: [],
+      });
+
+      await serviceWithAudit.assignUser('lic-aud-1', {
+        name: 'Alice Designer',
+        email: 'alice@company.com',
+        department: 'Design',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LICENSE_SEAT_ASSIGNED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: 'lic-aud-1',
+          newValue: expect.objectContaining({
+            usedSeats: 6,
+            assignmentId: 'asg-aud-1',
+            assignedName: 'Alice Designer',
+          }),
+        }),
+      );
+    });
+
+    it('should log LICENSE_SEAT_REVOKED audit event on seat revocation', async () => {
+      mockPrisma.licenseAssignment.findFirst.mockResolvedValue({
+        id: 'asg-aud-1',
+        licenseId: 'lic-aud-1',
+      });
+      mockPrisma.licenseAssignment.update.mockResolvedValue({
+        id: 'asg-aud-1',
+        unassignedAt: new Date(),
+      });
+      mockPrisma.licenseAssignment.count.mockResolvedValue(5);
+      mockPrisma.license.update.mockResolvedValue({
+        id: 'lic-aud-1',
+        usedSeats: 5,
+      });
+
+      await serviceWithAudit.revokeUser('lic-aud-1', 'asg-aud-1');
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LICENSE_SEAT_REVOKED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: 'lic-aud-1',
+          newValue: expect.objectContaining({
+            usedSeats: 5,
+          }),
+        }),
+      );
+    });
+
+    it('should log LICENSE_DELETED audit event on license removal', async () => {
+      mockPrisma.license.findUnique.mockResolvedValue({
+        id: 'lic-aud-1',
+        name: 'Decommissioned License',
+      });
+      mockPrisma.license.delete.mockResolvedValue({
+        id: 'lic-aud-1',
+        name: 'Decommissioned License',
+      });
+
+      await serviceWithAudit.remove('lic-aud-1');
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LICENSE_DELETED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: 'lic-aud-1',
+        }),
+      );
     });
   });
 });

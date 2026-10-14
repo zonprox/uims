@@ -661,6 +661,8 @@ model AuditLog {
   @@index([action])
   @@index([severity])
   @@index([ipAddress])
+  @@index([entityType, entityId, timestamp(sort: Desc)])
+  @@index([entityId])
 }
 
 model RefreshToken {

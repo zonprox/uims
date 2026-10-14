@@ -1461,4 +1461,126 @@ describe('AssetsService', () => {
       );
     });
   });
+
+  describe('Audit Logging Integration', () => {
+    it('should log ASSET_CREATED audit event with Hardware entityType', async () => {
+      (
+        mockPrisma.assetCategory as { findFirst: ReturnType<typeof vi.fn> }
+      ).findFirst.mockResolvedValue({ id: 'cat-1', name: 'Laptops' });
+      (mockPrisma.asset as { create: ReturnType<typeof vi.fn> }).create.mockResolvedValue({
+        id: 'ast-aud-1',
+        assetTag: 'AST-AUD-100',
+        name: 'Audit Laptop',
+        status: AssetStatus.AVAILABLE,
+      });
+
+      await service.create({
+        name: 'Audit Laptop',
+        category: 'Laptops',
+        status: 'Available',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ASSET_CREATED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: 'ast-aud-1',
+          newValue: expect.objectContaining({ id: 'ast-aud-1', name: 'Audit Laptop' }),
+        }),
+      );
+    });
+
+    it('should log ASSET_UPDATED audit event with field-level diff', async () => {
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue({
+        id: 'ast-aud-1',
+        name: 'Old Name',
+        assetTag: 'TAG-1',
+        status: AssetStatus.AVAILABLE,
+        unitCost: 1000,
+      });
+      (mockPrisma.asset as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValue({
+        id: 'ast-aud-1',
+        name: 'New Name',
+        assetTag: 'TAG-1',
+        status: AssetStatus.AVAILABLE,
+        unitCost: 1200,
+      });
+
+      await service.update('ast-aud-1', {
+        name: 'New Name',
+        unitCost: 1200,
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ASSET_UPDATED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: 'ast-aud-1',
+          oldValue: expect.objectContaining({ name: 'Old Name', unitCost: 1000 }),
+          newValue: expect.objectContaining({ name: 'New Name', unitCost: 1200 }),
+        }),
+      );
+    });
+
+    it('should log ASSET_ASSIGNED audit event in batchAssign', async () => {
+      (
+        mockPrisma.directoryUser as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValue({
+        id: 'usr-1',
+        displayName: 'John User',
+        email: 'john@example.com',
+      });
+      (mockPrisma.asset as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+        { id: 'ast-batch-1', assignedToId: null, hasPendingRecord: false, status: 'AVAILABLE' },
+      ]);
+      (mockPrisma.asset as { updateMany: ReturnType<typeof vi.fn> }).updateMany.mockResolvedValue({
+        count: 1,
+      });
+      (
+        mockPrisma.assetHandoverRecord as { createMany: ReturnType<typeof vi.fn> }
+      ).createMany.mockResolvedValue({ count: 1 });
+
+      await service.batchAssign({
+        assetIds: ['ast-batch-1'],
+        assignedToId: 'usr-1',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ASSET_ASSIGNED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: 'ast-batch-1',
+          oldValue: expect.objectContaining({ assignedToId: null }),
+          newValue: expect.objectContaining({ assignedToId: 'usr-1' }),
+        }),
+      );
+    });
+
+    it('should log ASSET_DELETED audit event in remove', async () => {
+      (mockPrisma.asset as { findUnique: ReturnType<typeof vi.fn> }).findUnique.mockResolvedValue({
+        id: 'ast-del-1',
+        name: 'Deleted Asset',
+        assetTag: 'DEL-101',
+      });
+      (mockPrisma.asset as { delete: ReturnType<typeof vi.fn> }).delete.mockResolvedValue({
+        id: 'ast-del-1',
+        name: 'Deleted Asset',
+        assetTag: 'DEL-101',
+      });
+
+      await service.remove('ast-del-1');
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ASSET_DELETED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: 'ast-del-1',
+        }),
+      );
+    });
+  });
 });

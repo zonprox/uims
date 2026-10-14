@@ -267,4 +267,177 @@ describe('UsersService', () => {
       expect(s.importBatch).toBeUndefined();
     });
   });
+
+  describe('Audit Logging Integration', () => {
+    let mockAuditService: {
+      logEvent: ReturnType<typeof vi.fn>;
+    };
+    let auditedService: UsersService;
+
+    beforeEach(() => {
+      mockAuditService = {
+        logEvent: vi.fn().mockResolvedValue({ id: 'audit-log-1' }),
+      };
+      auditedService = new UsersService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        undefined,
+        mockAuditService as unknown as import('../audit/audit.service').AuditService,
+      );
+    });
+
+    it('should record USER_CREATED on user creation redacting sensitive passwords', async () => {
+      (mockPrisma.user as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValueOnce(
+        null,
+      );
+      (mockPrisma.role as { findFirst: ReturnType<typeof vi.fn> }).findFirst.mockResolvedValueOnce({
+        id: 'role-1',
+        name: 'Employee',
+      });
+      (mockPrisma.user as { create: ReturnType<typeof vi.fn> }).create.mockResolvedValueOnce({
+        id: 'user-new',
+        email: 'audited@example.com',
+        username: 'audited',
+        displayName: 'Audited User',
+        passwordHash: '$2b$12$hashedstring',
+        status: 'ACTIVE',
+        isLocked: false,
+        mustChangePassword: true,
+        roleId: 'role-1',
+        role: { id: 'role-1', name: 'Employee' },
+      });
+
+      const res = await auditedService.create({
+        email: 'audited@example.com',
+        username: 'audited',
+        password: 'PlainPassword123!',
+      });
+
+      expect(res.id).toBe('user-new');
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'USER_CREATED',
+          entityType: 'User',
+          entityId: 'user-new',
+          severity: 'Info',
+          status: 'Success',
+          newValue: expect.objectContaining({
+            id: 'user-new',
+            email: 'audited@example.com',
+          }),
+        }),
+      );
+      const loggedNewValue = mockAuditService.logEvent.mock.calls[0][0].newValue as Record<
+        string,
+        unknown
+      >;
+      expect(loggedNewValue.password).toBeUndefined();
+      expect(loggedNewValue.passwordHash).toBeUndefined();
+    });
+
+    it('should record USER_UPDATED with field-level diff on update', async () => {
+      (
+        mockPrisma.user as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValueOnce({
+        id: 'usr-1',
+        email: 'john@example.com',
+        username: 'john',
+        displayName: 'John Doe',
+        phone: '123456789',
+        status: 'ACTIVE',
+        isLocked: false,
+        passwordHash: 'old-hash',
+        role: { id: 'r-1', name: 'Employee' },
+      });
+      (mockPrisma.user as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValueOnce({
+        id: 'usr-1',
+        email: 'john@example.com',
+        username: 'john',
+        displayName: 'John Updated',
+        phone: '987654321',
+        status: 'ACTIVE',
+        isLocked: false,
+        passwordHash: 'new-hash',
+        role: { id: 'r-1', name: 'Employee' },
+      });
+
+      const res = await auditedService.update('usr-1', {
+        displayName: 'John Updated',
+        phone: '987654321',
+      });
+
+      expect(res.displayName).toBe('John Updated');
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'USER_UPDATED',
+          entityType: 'User',
+          entityId: 'usr-1',
+          severity: 'Info',
+          status: 'Success',
+          oldValue: expect.objectContaining({
+            displayName: 'John Doe',
+            phone: '123456789',
+          }),
+          newValue: expect.objectContaining({
+            displayName: 'John Updated',
+            phone: '987654321',
+          }),
+        }),
+      );
+    });
+
+    it('should record USER_STATUS_CHANGED on toggleStatus', async () => {
+      (
+        mockPrisma.user as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValueOnce({
+        id: 'usr-1',
+        email: 'john@example.com',
+        status: 'ACTIVE',
+        isLocked: false,
+      });
+      (mockPrisma.user as { update: ReturnType<typeof vi.fn> }).update.mockResolvedValueOnce({
+        id: 'usr-1',
+        email: 'john@example.com',
+        status: 'SUSPENDED',
+        isLocked: true,
+      });
+
+      await auditedService.toggleStatus(
+        'usr-1',
+        'SUSPENDED' as import('@prisma/client').UserStatus,
+      );
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'USER_STATUS_CHANGED',
+          entityType: 'User',
+          entityId: 'usr-1',
+          oldValue: { status: 'ACTIVE', isLocked: false },
+          newValue: { status: 'SUSPENDED', isLocked: true },
+        }),
+      );
+    });
+
+    it('should record USER_DELETED on remove', async () => {
+      (
+        mockPrisma.user as { findUnique: ReturnType<typeof vi.fn> }
+      ).findUnique.mockResolvedValueOnce({
+        id: 'usr-1',
+        email: 'john@example.com',
+        status: 'ACTIVE',
+      });
+      (mockPrisma.user as { delete: ReturnType<typeof vi.fn> }).delete.mockResolvedValueOnce({
+        id: 'usr-1',
+      });
+
+      await auditedService.remove('usr-1');
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'USER_DELETED',
+          entityType: 'User',
+          entityId: 'usr-1',
+        }),
+      );
+    });
+  });
 });

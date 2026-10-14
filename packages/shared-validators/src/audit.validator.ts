@@ -47,6 +47,8 @@ export const auditQuerySchema = z.object({
   severity: z.string().trim().optional(),
   status: z.string().trim().optional(),
   entity: z.string().trim().optional(),
+  entityType: z.string().trim().optional(),
+  entityId: z.string().trim().optional(),
   userId: uuidSchema.optional(),
   startDate: dateSchema.optional(),
   endDate: dateSchema.optional(),

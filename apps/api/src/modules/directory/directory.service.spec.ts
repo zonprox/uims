@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { encryptDirectoryPassword } from '../../common/crypto/directory-crypto';
 import { DirectoryService } from './directory.service';
 
 describe('DirectoryService', () => {
@@ -739,6 +740,126 @@ describe('DirectoryService', () => {
       mockPrisma.directoryGroup.findUnique.mockResolvedValue(null);
 
       await expect(service.removeGroup('grp-nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('Audit Logging - Credential Access', () => {
+    let mockAuditService: {
+      logEvent: ReturnType<typeof vi.fn>;
+    };
+    let auditedService: DirectoryService;
+
+    beforeEach(() => {
+      mockAuditService = {
+        logEvent: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+      };
+      auditedService = new DirectoryService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        mockAuditService as unknown as import('../audit/audit.service').AuditService,
+      );
+    });
+
+    it('should record DIRECTORY_CREDENTIALS_ACCESSED on revealEmailPassword without logging plaintext password', async () => {
+      const plaintext = 'SecretP@ssword123!';
+      const encrypted = encryptDirectoryPassword(plaintext);
+      mockPrisma.directoryUser.findFirst.mockResolvedValue({
+        id: 'dir-1',
+        email: 'user@company.com',
+        emailPassword: encrypted,
+      });
+
+      const res = await auditedService.revealEmailPassword('dir-1', {
+        id: 'admin-1',
+        email: 'admin@company.com',
+        role: 'Admin',
+        ipAddress: '192.168.1.10',
+      });
+
+      expect(res.password).toBe(plaintext);
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DIRECTORY_CREDENTIALS_ACCESSED',
+          entity: 'DirectoryUser',
+          entityType: 'User',
+          entityId: 'dir-1',
+          userId: 'admin-1',
+          userEmail: 'admin@company.com',
+          ipAddress: '192.168.1.10',
+          severity: 'Warning',
+          status: 'Success',
+        }),
+      );
+      const auditPayload = mockAuditService.logEvent.mock.calls[0][0];
+      expect(JSON.stringify(auditPayload)).not.toContain(plaintext);
+    });
+
+    it('should record DIRECTORY_CREDENTIALS_ACCESSED on copyEmailPassword', async () => {
+      const encrypted = encryptDirectoryPassword('AnySecret123!');
+      mockPrisma.directoryUser.findFirst.mockResolvedValue({
+        id: 'dir-1',
+        email: 'user@company.com',
+        emailPassword: encrypted,
+      });
+
+      const res = await auditedService.copyEmailPassword('dir-1', {
+        id: 'admin-1',
+        email: 'admin@company.com',
+        role: 'Admin',
+        ipAddress: '192.168.1.10',
+      });
+
+      expect(res.success).toBe(true);
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DIRECTORY_CREDENTIALS_ACCESSED',
+          entity: 'DirectoryUser',
+          entityType: 'User',
+          entityId: 'dir-1',
+          userId: 'admin-1',
+          userEmail: 'admin@company.com',
+          ipAddress: '192.168.1.10',
+          severity: 'Warning',
+          status: 'Success',
+        }),
+      );
+    });
+
+    it('should record DIRECTORY_CREDENTIALS_ACCESSED on resetEmailPassword without logging plaintext password', async () => {
+      mockPrisma.directoryUser.findFirst.mockResolvedValue({
+        id: 'dir-1',
+        email: 'user@company.com',
+      });
+      mockPrisma.directoryUser.update.mockResolvedValue({
+        id: 'dir-1',
+      });
+
+      const res = await auditedService.resetEmailPassword(
+        'dir-1',
+        { newPassword: 'BrandNewPassword123!' },
+        {
+          id: 'admin-1',
+          email: 'admin@company.com',
+          role: 'Admin',
+          ipAddress: '192.168.1.10',
+        },
+      );
+
+      expect(res.success).toBe(true);
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DIRECTORY_CREDENTIALS_ACCESSED',
+          entity: 'DirectoryUser',
+          entityType: 'User',
+          entityId: 'dir-1',
+          userId: 'admin-1',
+          userEmail: 'admin@company.com',
+          ipAddress: '192.168.1.10',
+          severity: 'Warning',
+          status: 'Success',
+        }),
+      );
+      const auditPayload = mockAuditService.logEvent.mock.calls[0][0];
+      expect(JSON.stringify(auditPayload)).not.toContain('BrandNewPassword123!');
     });
   });
 });

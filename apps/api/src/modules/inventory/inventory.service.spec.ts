@@ -235,4 +235,184 @@ describe('InventoryService', () => {
       );
     });
   });
+
+  describe('update', () => {
+    it('should update inventory item and return formatted record', async () => {
+      mockPrisma.inventoryItem.findUnique.mockResolvedValue({
+        id: 'itm-1',
+        name: 'USB-C Cable',
+        quantity: 10,
+        minThreshold: 5,
+      });
+      mockPrisma.inventoryItem.update.mockResolvedValue({
+        id: 'itm-1',
+        name: 'USB-C Cable Pro',
+        quantity: 15,
+        minThreshold: 5,
+      });
+
+      const result = await service.update('itm-1', {
+        name: 'USB-C Cable Pro',
+        quantity: 15,
+      });
+
+      expect(result.id).toBe('itm-1');
+      expect(result.name).toBe('USB-C Cable Pro');
+      expect(result.quantity).toBe(15);
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete inventory item from database', async () => {
+      mockPrisma.inventoryItem.findUnique.mockResolvedValue({
+        id: 'itm-del-1',
+        name: 'Item to delete',
+      });
+      mockPrisma.inventoryItem.delete.mockResolvedValue({
+        id: 'itm-del-1',
+        name: 'Item to delete',
+      });
+
+      const result = await service.remove('itm-del-1');
+
+      expect(mockPrisma.inventoryItem.delete).toHaveBeenCalledWith({
+        where: { id: 'itm-del-1' },
+      });
+      expect(result).toEqual({ id: 'itm-del-1', name: 'Item to delete' });
+    });
+  });
+
+  describe('Audit Logging Integration', () => {
+    let mockAuditService: { logEvent: ReturnType<typeof vi.fn> };
+    let serviceWithAudit: InventoryService;
+
+    beforeEach(() => {
+      mockAuditService = {
+        logEvent: vi.fn().mockResolvedValue({ id: 'aud-inv-1' }),
+      };
+      serviceWithAudit = new InventoryService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        undefined,
+        mockAuditService as unknown as import('../audit/audit.service').AuditService,
+      );
+    });
+
+    it('should log INVENTORY_ITEM_CREATED on create', async () => {
+      mockPrisma.inventoryItem.create.mockResolvedValue({
+        id: 'itm-aud-1',
+        sku: 'SKU-AUD-100',
+        name: 'Cat6 Cable',
+        quantity: 100,
+        minThreshold: 20,
+      });
+
+      await serviceWithAudit.create({
+        name: 'Cat6 Cable',
+        quantity: 100,
+        minThreshold: 20,
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_ITEM_CREATED',
+          entity: 'Inventory',
+          entityType: 'Inventory',
+          entityId: 'itm-aud-1',
+          newValue: expect.objectContaining({ id: 'itm-aud-1', name: 'Cat6 Cable' }),
+        }),
+      );
+    });
+
+    it('should log INVENTORY_ITEM_UPDATED with field diff on update', async () => {
+      mockPrisma.inventoryItem.findUnique.mockResolvedValue({
+        id: 'itm-aud-1',
+        name: 'Cat6 Cable',
+        quantity: 100,
+        minThreshold: 20,
+        unitCost: 5,
+      });
+      mockPrisma.inventoryItem.update.mockResolvedValue({
+        id: 'itm-aud-1',
+        name: 'Cat6 Cable 3m',
+        quantity: 100,
+        minThreshold: 30,
+        unitCost: 6,
+      });
+
+      await serviceWithAudit.update('itm-aud-1', {
+        name: 'Cat6 Cable 3m',
+        minThreshold: 30,
+        unitCost: 6,
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_ITEM_UPDATED',
+          entity: 'Inventory',
+          entityType: 'Inventory',
+          entityId: 'itm-aud-1',
+          oldValue: expect.objectContaining({ name: 'Cat6 Cable', minThreshold: 20, unitCost: 5 }),
+          newValue: expect.objectContaining({
+            name: 'Cat6 Cable 3m',
+            minThreshold: 30,
+            unitCost: 6,
+          }),
+        }),
+      );
+    });
+
+    it('should log INVENTORY_RESTOCKED with quantity diff on restock', async () => {
+      mockPrisma.inventoryItem.findUnique.mockResolvedValue({
+        id: 'itm-aud-1',
+        sku: 'SKU-100',
+        name: 'Cat6 Cable',
+        quantity: 50,
+        minThreshold: 20,
+      });
+      mockPrisma.inventoryItem.update.mockResolvedValue({
+        id: 'itm-aud-1',
+        sku: 'SKU-100',
+        name: 'Cat6 Cable',
+        quantity: 150,
+        minThreshold: 20,
+      });
+
+      await serviceWithAudit.restock('itm-aud-1', 100);
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_RESTOCKED',
+          entity: 'Inventory',
+          entityType: 'Inventory',
+          entityId: 'itm-aud-1',
+          oldValue: { quantity: 50 },
+          newValue: { quantity: 150 },
+        }),
+      );
+    });
+
+    it('should log INVENTORY_ITEM_DELETED on remove', async () => {
+      mockPrisma.inventoryItem.findUnique.mockResolvedValue({
+        id: 'itm-aud-1',
+        sku: 'SKU-DEL',
+        name: 'Old Cable',
+      });
+      mockPrisma.inventoryItem.delete.mockResolvedValue({
+        id: 'itm-aud-1',
+        sku: 'SKU-DEL',
+        name: 'Old Cable',
+      });
+
+      await serviceWithAudit.remove('itm-aud-1');
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'INVENTORY_ITEM_DELETED',
+          entity: 'Inventory',
+          entityType: 'Inventory',
+          entityId: 'itm-aud-1',
+        }),
+      );
+    });
+  });
 });

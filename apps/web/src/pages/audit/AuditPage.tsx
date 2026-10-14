@@ -10,6 +10,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import {
+  Alert,
   App,
   Avatar,
   Button,
@@ -26,10 +27,13 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import type dayjs from 'dayjs';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import PageContainer from '../../components/PageContainer';
+import FieldDiffViewer, { safeJsonStringify } from '../../components/FieldDiffViewer';
 import { FormattedDateTime } from '../../components/FormattedDate';
 import { type AuditLog, type AuditStats, auditService } from '../../services/audit.service';
 import { formatErrorMessage } from '../../utils/feedback';
@@ -84,7 +88,14 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
 }
 
 export default function AuditPage() {
+  const { token } = theme.useToken();
   const { message } = App.useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const entityType = searchParams.get('entityType') || undefined;
+  const entityId = searchParams.get('entityId') || undefined;
+  const inspectId = searchParams.get('inspectId') || undefined;
+
   const [logs, setLogs] = useState<Array<AuditLog>>([]);
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -98,9 +109,26 @@ export default function AuditPage() {
   // Inspector Drawer
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const inFlightInspectIdRef = useRef<string | null>(null);
+  const activeInspectIdRef = useRef<string | undefined>(inspectId);
+  activeInspectIdRef.current = inspectId;
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const handleClearEntityFilter = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('entityType');
+    nextParams.delete('entityId');
+    setSearchParams(nextParams);
+  };
 
   const handleCopyPayload = async (payload: unknown) => {
-    const text = JSON.stringify(payload, null, 2);
+    const text = safeJsonStringify(payload, 2);
     const copied = await copyTextToClipboard(text);
     if (copied) {
       message.success('Payload copied to clipboard.');
@@ -126,6 +154,8 @@ export default function AuditPage() {
           action: actionFilter !== 'all' ? actionFilter : undefined,
           severity: severityFilter !== 'all' ? severityFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
+          entityType,
+          entityId,
           startDate,
           endDate,
         }),
@@ -150,11 +180,64 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, dateRange, message, searchQuery, severityFilter, statusFilter]);
+  }, [
+    actionFilter,
+    dateRange,
+    entityId,
+    entityType,
+    message,
+    searchQuery,
+    severityFilter,
+    statusFilter,
+  ]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Auto-open inspector drawer if inspectId is provided in URL params
+  useEffect(() => {
+    if (!inspectId) {
+      inFlightInspectIdRef.current = null;
+      return;
+    }
+    if (selectedLog?.id === inspectId && drawerOpen) return;
+
+    const existing = logs.find((l) => l.id === inspectId);
+    if (existing) {
+      setSelectedLog(existing);
+      setDrawerOpen(true);
+      inFlightInspectIdRef.current = null;
+      return;
+    }
+
+    if (inFlightInspectIdRef.current === inspectId) {
+      return;
+    }
+
+    inFlightInspectIdRef.current = inspectId;
+    const targetId = inspectId;
+
+    void auditService
+      .getLog(targetId)
+      .then((log) => {
+        if (inFlightInspectIdRef.current === targetId) {
+          inFlightInspectIdRef.current = null;
+        }
+        if (isMountedRef.current && activeInspectIdRef.current === targetId && log) {
+          setSelectedLog(log);
+          setDrawerOpen(true);
+        }
+      })
+      .catch((err: unknown) => {
+        if (inFlightInspectIdRef.current === targetId) {
+          inFlightInspectIdRef.current = null;
+        }
+        if (isMountedRef.current && activeInspectIdRef.current === targetId) {
+          message.error(formatErrorMessage(err, 'load audit log details'));
+        }
+      });
+  }, [drawerOpen, inspectId, logs, message, selectedLog?.id]);
 
   const handleExportCSV = async () => {
     setExporting(true);
@@ -172,6 +255,8 @@ export default function AuditPage() {
         action: actionFilter !== 'all' ? actionFilter : undefined,
         severity: severityFilter !== 'all' ? severityFilter : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
+        entityType,
+        entityId,
         startDate,
         endDate,
       });
@@ -200,6 +285,22 @@ export default function AuditPage() {
   const handleInspectLog = (log: AuditLog) => {
     setSelectedLog(log);
     setDrawerOpen(true);
+    inFlightInspectIdRef.current = null;
+    if (searchParams.get('inspectId') !== log.id) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('inspectId', log.id);
+      setSearchParams(nextParams);
+    }
+  };
+
+  const handleCloseDrawer = () => {
+    setDrawerOpen(false);
+    inFlightInspectIdRef.current = null;
+    if (searchParams.has('inspectId')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('inspectId');
+      setSearchParams(nextParams);
+    }
   };
 
   const columns = [
@@ -395,6 +496,27 @@ export default function AuditPage() {
       }
     >
       <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+        {/* Active Entity Filter Banner */}
+        {(entityType || entityId) && (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+            title={
+              <Flex align="center" gap={8} wrap="wrap">
+                <Text strong>Filtered by Entity:</Text>
+                {entityType && <Tag color="blue">{entityType}</Tag>}
+                {entityId && <Text code>{entityId}</Text>}
+              </Flex>
+            }
+            action={
+              <Button size="small" type="primary" ghost onClick={handleClearEntityFilter}>
+                Clear Entity Filter
+              </Button>
+            }
+          />
+        )}
+
         {/* Search & Filter Toolbar */}
         <Row gutter={[14, 14]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} lg={8}>
@@ -521,7 +643,7 @@ export default function AuditPage() {
           open={drawerOpen}
           destroyOnHidden
           styles={{ body: { padding: '20px' } }}
-          onClose={() => setDrawerOpen(false)}
+          onClose={handleCloseDrawer}
         >
           <Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
             <Descriptions.Item label="Event ID">{selectedLog.id}</Descriptions.Item>
@@ -560,6 +682,20 @@ export default function AuditPage() {
             <Descriptions.Item label="Details Summary">{selectedLog.details}</Descriptions.Item>
           </Descriptions>
 
+          {/* Visual Field Diff Viewer */}
+          <Card
+            size="small"
+            title="Field-Level Changes & Visual Diff"
+            styles={{ body: { padding: 12 } }}
+            style={{ marginBottom: 16 }}
+          >
+            <FieldDiffViewer
+              oldValue={selectedLog.oldValue}
+              newValue={selectedLog.newValue}
+              diffPayload={selectedLog.diffPayload}
+            />
+          </Card>
+
           {/* Previous State (Before Mutation) if present */}
           {selectedLog.oldValue && (
             <Card
@@ -570,17 +706,20 @@ export default function AuditPage() {
             >
               <pre
                 style={{
-                  background: '#090d16',
-                  color: '#f87171',
+                  background: token.colorFillAlter,
+                  color: token.colorError,
+                  border: `1px solid ${token.colorBorderSecondary}`,
                   padding: 12,
-                  borderRadius: 6,
+                  borderRadius: token.borderRadiusSM,
                   fontSize: 12,
-                  fontFamily: 'monospace',
+                  fontFamily: token.fontFamilyCode || 'monospace',
                   overflowX: 'auto',
                   margin: 0,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
                 }}
               >
-                {JSON.stringify(selectedLog.oldValue, null, 2)}
+                {safeJsonStringify(selectedLog.oldValue, 2)}
               </pre>
             </Card>
           )}
@@ -595,17 +734,20 @@ export default function AuditPage() {
             >
               <pre
                 style={{
-                  background: '#090d16',
-                  color: '#4ade80',
+                  background: token.colorFillAlter,
+                  color: token.colorSuccess,
+                  border: `1px solid ${token.colorBorderSecondary}`,
                   padding: 12,
-                  borderRadius: 6,
+                  borderRadius: token.borderRadiusSM,
                   fontSize: 12,
-                  fontFamily: 'monospace',
+                  fontFamily: token.fontFamilyCode || 'monospace',
                   overflowX: 'auto',
                   margin: 0,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
                 }}
               >
-                {JSON.stringify(selectedLog.newValue, null, 2)}
+                {safeJsonStringify(selectedLog.newValue, 2)}
               </pre>
             </Card>
           )}
@@ -632,21 +774,23 @@ export default function AuditPage() {
           >
             <pre
               style={{
-                background: '#090d16',
-                color: '#38bdf8',
+                background: token.colorFillAlter,
+                color: token.colorInfo,
+                border: `1px solid ${token.colorBorderSecondary}`,
                 padding: 12,
-                borderRadius: 6,
+                borderRadius: token.borderRadiusSM,
                 fontSize: 12,
-                fontFamily: 'monospace',
+                fontFamily: token.fontFamilyCode || 'monospace',
                 overflowX: 'auto',
                 margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
               }}
             >
-              {JSON.stringify(
+              {safeJsonStringify(
                 selectedLog.diffPayload ||
                   selectedLog.newValue ||
                   selectedLog.oldValue || { details: selectedLog.details },
-                null,
                 2,
               )}
             </pre>

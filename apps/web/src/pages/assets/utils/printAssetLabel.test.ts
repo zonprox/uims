@@ -203,15 +203,15 @@ describe('printAssetLabel utility', () => {
 
   describe('generateBatchPrintSheetHtml', () => {
     it('generates HTML document with isolated light color-scheme and white background', () => {
-      const html = generateBatchPrintSheetHtml('<div class="printable-sheet-card">Card 1</div>', 3);
+      const html = generateBatchPrintSheetHtml('<div class="printable-sheet-card">Card 1</div>');
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain('color-scheme: light !important');
       expect(html).toContain('background: #ffffff !important');
-      expect(html).toContain('grid-template-columns: repeat(3, 1fr)');
+      expect(html).toContain('grid-template-columns: repeat(4, 1fr)');
       expect(html).toContain('Card 1');
     });
 
-    it('generates 4-column layout when columns is 4', () => {
+    it('generates standardized 4-column layout by default and when columns is 4', () => {
       const html = generateBatchPrintSheetHtml('<div>Cards</div>', 4);
       expect(html).toContain('grid-template-columns: repeat(4, 1fr)');
       expect(html).toContain('cols-4');

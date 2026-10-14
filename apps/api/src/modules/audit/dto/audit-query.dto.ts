@@ -66,6 +66,20 @@ export class AuditQueryDto implements IAuditQueryDto {
   @IsOptional()
   entity?: string;
 
+  @ApiPropertyOptional({
+    description: 'Filter by entity type (e.g. Asset, License, Inventory, Network, User)',
+  })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  entityType?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by entity ID' })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  entityId?: string;
+
   @ApiPropertyOptional({ description: 'Filter by User UUID' })
   @IsUUID('4')
   @IsOptional()

@@ -14,7 +14,9 @@ export interface AdDirectoryRecord {
   isClosed: boolean;
   computerName: string;
   adGroup: string;
-  status: 'ACTIVE' | 'DISABLED';
+  status: 'ACTIVE' | 'DISABLED' | 'LOCKED' | 'SUSPENDED';
+  domainJoinStatus?: 'JOINED' | 'NOT_JOINED' | 'PENDING';
+  accountExpiresAt?: Date | null;
 }
 
 // Format: employeeCode|displayName|jobTitle|company|department|departmentCode|positionCode|locationCode|section|email|telephone|computerName|adGroup
@@ -33,6 +35,9 @@ const adRows: string[] = [
   'BSH-2004|Vu Hoang Long|Enterprise IT Systems Architect|Broadpeak Ho Chi Minh (BSH)|Enterprise IT & Cloud Systems|DEPT-BSH-IT|POS-BSH-IT-ARCH|loc-bsh-d7|Business Applications|long.vu@youngonevn.com|+84 (28) 3997-8204|BSH-LT-2004|GR_BSH_CorporateOffice',
   'BSH-2005|Tran Ngoc Anh|Talent Acquisition & HR Manager|Broadpeak Ho Chi Minh (BSH)|People Operations & Talent Acquisition|DEPT-BSH-HR|POS-BSH-HR-MGR|loc-bsh-d7|Recruitment & Employer Branding|anh.tran@youngonevn.com|+84 (28) 3997-8205|BSH-LT-2005|GR_BSH_CorporateOffice',
   'BSH-2006|Le Thi Kim Ngan|Commercial & Sourcing Director|Broadpeak Ho Chi Minh (BSH)|Commercial & Sourcing Division|DEPT-BSH-COMM|POS-BSH-COMM-DIR|loc-bsh-d7|Executive Office|ngan.le@youngonevn.com|+84 (28) 3997-8206|BSH-LT-2006|GR_Youngone_Executive',
+  'BSL-9001|Nguyen Van Hoang|Senior Pattern Engineer (Resigned)|Broadpeak Soc Trang (BSL)|Technical CAD/CAM & Sample Development|DEPT-BSL-QA-SMP|POS-BSL-CAD-SPEC|loc-bsl-st|Pattern Prototyping|hoang.nguyen@youngonevn.com|+84 (299) 387-9901|BSL-WS-9001|GR_BSL_FactoryOperations|DISABLED|NOT_JOINED|EXPIRED',
+  'BSH-2009|Vu Dinh Tuan|External SAP S/4HANA Consultant|Broadpeak Ho Chi Minh (BSH)|Enterprise IT & Cloud Systems|DEPT-BSH-IT|POS-BSH-IT-ENG|loc-bsh-d7|ERP Advisory|tuan.vu@youngonevn.com|+84 (28) 3997-8209|BSH-LT-2009|GR_BSH_CorporateOffice|ACTIVE|JOINED|FUTURE_45',
+  'BSH-2010|Do Thi Mai Huong|Junior Merchandiser (Onboarding)|Broadpeak Ho Chi Minh (BSH)|Apparel Merchandising & Buyer Accounts|DEPT-BSH-MERCH|POS-BSH-MERCH-SPEC|loc-bsh-d7|Apparel Sourcing|huong.do@youngonevn.com|+84 (28) 3997-8210|BSH-LT-2010|GR_BSH_Merchandising|ACTIVE|PENDING|',
 ];
 
 export const enterpriseAdMasterData: Array<AdDirectoryRecord> = adRows.map((row) => {
@@ -50,7 +55,20 @@ export const enterpriseAdMasterData: Array<AdDirectoryRecord> = adRows.map((row)
     telephone,
     computerName,
     adGroup,
+    rawStatus,
+    rawJoinStatus,
+    rawExpiry,
   ] = row.split('|');
+
+  const status = (rawStatus as 'ACTIVE' | 'DISABLED' | 'LOCKED' | 'SUSPENDED') || 'ACTIVE';
+  const domainJoinStatus = (rawJoinStatus as 'JOINED' | 'NOT_JOINED' | 'PENDING') || 'JOINED';
+  let accountExpiresAt: Date | null = null;
+  if (rawExpiry === 'EXPIRED') {
+    accountExpiresAt = new Date(Date.now() - 30 * 86400000);
+  } else if (rawExpiry === 'FUTURE_45') {
+    accountExpiresAt = new Date(Date.now() + 45 * 86400000);
+  }
+
   return {
     employeeCode,
     displayName,
@@ -64,9 +82,11 @@ export const enterpriseAdMasterData: Array<AdDirectoryRecord> = adRows.map((row)
     section,
     email,
     telephone,
-    isClosed: false,
+    isClosed: status === 'DISABLED' || status === 'SUSPENDED',
     computerName,
     adGroup,
-    status: 'ACTIVE',
+    status,
+    domainJoinStatus,
+    accountExpiresAt,
   };
 });

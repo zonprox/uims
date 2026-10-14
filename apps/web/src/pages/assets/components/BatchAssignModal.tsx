@@ -1,6 +1,7 @@
 import {
-  DownloadOutlined,
   EyeOutlined,
+  FileExcelOutlined,
+  FileWordOutlined,
   IdcardOutlined,
   InboxOutlined,
   LaptopOutlined,
@@ -32,7 +33,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { type Asset, assetsService } from '../../../services/assets.service';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
 import { formRules } from '../../../utils/formValidators';
-import { downloadDocumentHtml, printDocumentHtml } from '../utils/printDocument';
+import { downloadBlobFile, printDocumentHtml } from '../utils/printDocument';
 import { HandoverDocumentModal } from './HandoverDocumentModal';
 
 const { Text } = Typography;
@@ -51,17 +52,18 @@ export interface BatchAssignModalProps {
   onAssign: (values: BatchAssignFormValues) => void;
   onCancel: () => void;
   employees?: DirectoryUser[]; // For test isolation
+  initialUserId?: string;
 }
 
 export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
-  ({ open, assets, submitting, onAssign, onCancel, employees: propEmployees }) => {
+  ({ open, assets, submitting, onAssign, onCancel, employees: propEmployees, initialUserId }) => {
     const { token } = theme.useToken();
     const { message } = App.useApp();
     const [form] = Form.useForm<BatchAssignFormValues>();
     const [mode, setMode] = useState<'assign' | 'unassign'>('assign');
     const [employees, setEmployees] = useState<DirectoryUser[]>(propEmployees || []);
     const [loadingEmployees, setLoadingEmployees] = useState(false);
-    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId || null);
 
     // Document Generation & Actions State
     const [generatingPreview, setGeneratingPreview] = useState(false);
@@ -87,9 +89,11 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
         return;
       }
 
+      setSelectedUserId(initialUserId || null);
       form.setFieldsValue({
         mode: 'assign',
         status: 'Active',
+        assignedToId: initialUserId || undefined,
       });
 
       let mounted = true;
@@ -114,7 +118,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
       return () => {
         mounted = false;
       };
-    }, [open, propEmployees, form, message]);
+    }, [open, propEmployees, form, message, initialUserId]);
 
     const selectedUser = useMemo(
       () => employees.find((u) => u.id === selectedUserId) || null,
@@ -169,15 +173,39 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
     const handleDownloadDocument = async () => {
       try {
         setGeneratingDownload(true);
-        const res = await assetsService.generateHandoverDocument({
+        await assetsService.generateHandoverDocument({
           type: 'assignment',
           assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
           recipientId: selectedUserId || undefined,
         });
-        downloadDocumentHtml(res.html, res.filename);
-        message.success('Populated handover record downloaded successfully.');
+        const { blob, filename } = await assetsService.downloadHandoverDocx({
+          type: 'assignment',
+          assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
+          recipientId: selectedUserId || undefined,
+        });
+        downloadBlobFile(blob, filename);
+        message.success('Populated handover record (.docx) downloaded successfully.');
       } catch (err: unknown) {
         message.error(err instanceof Error ? err.message : 'Failed to download handover document.');
+      } finally {
+        setGeneratingDownload(false);
+      }
+    };
+
+    const handleDownloadXlsx = async () => {
+      try {
+        setGeneratingDownload(true);
+        const { blob, filename } = await assetsService.downloadHandoverXlsx({
+          type: 'assignment',
+          assetIds: assets.length > 0 ? assets.map((a) => a.id) : undefined,
+          recipientId: selectedUserId || undefined,
+        });
+        downloadBlobFile(blob, filename);
+        message.success('Populated handover spreadsheet (.xlsx) downloaded successfully.');
+      } catch (err: unknown) {
+        message.error(
+          err instanceof Error ? err.message : 'Failed to download handover spreadsheet.',
+        );
       } finally {
         setGeneratingDownload(false);
       }
@@ -337,134 +365,155 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                     />
                   </Form.Item>
 
-                  {selectedUser && (
-                    <Card
-                      size="small"
-                      styles={{ body: { backgroundColor: token.colorFillAlter } }}
-                      style={{ marginBottom: 14, borderColor: token.colorBorderSecondary }}
-                    >
-                      <Descriptions title="Recipient Details" size="small" column={1}>
-                        <Descriptions.Item label="Full Name">
-                          <Flex align="center" gap={6}>
-                            <UserOutlined style={{ color: token.colorPrimary }} />
-                            <Text strong>
-                              {selectedUser.fullName ||
-                                `${selectedUser.firstName} ${selectedUser.lastName}`}
-                            </Text>
-                          </Flex>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Email">{selectedUser.email}</Descriptions.Item>
-                        {selectedUser.employeeCode && (
-                          <Descriptions.Item label="Employee Code">
-                            <Tag icon={<IdcardOutlined />} color="purple">
-                              {selectedUser.employeeCode}
-                            </Tag>
-                          </Descriptions.Item>
-                        )}
-                        {selectedUser.department?.name && (
-                          <Descriptions.Item label="Department">
-                            {selectedUser.department.name}
-                          </Descriptions.Item>
-                        )}
-                      </Descriptions>
-                    </Card>
-                  )}
-
-                  <Card
-                    size="small"
-                    style={{ marginBottom: 14, borderColor: token.colorBorderSecondary }}
-                    styles={{ body: { padding: '12px 14px' } }}
-                  >
-                    <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-                      <div>
-                        <Text strong style={{ fontSize: 12.5 }}>
-                          Handover Record Documentation
-                        </Text>
-                        <div>
-                          <Text type="secondary" style={{ fontSize: 11.5 }}>
-                            Populate pre-filled handover document for print or digital signing.
-                          </Text>
-                        </div>
-                      </div>
-                      <Space size={6}>
-                        <Button
-                          size="small"
-                          icon={<EyeOutlined />}
-                          loading={generatingPreview}
-                          onClick={handlePreviewDocument}
-                        >
-                          Preview
-                        </Button>
-                        <Button
-                          size="small"
-                          icon={<PrinterOutlined />}
-                          loading={generatingPrint}
-                          onClick={handlePrintDocument}
-                        >
-                          Print
-                        </Button>
-                        <Button
-                          size="small"
-                          icon={<DownloadOutlined />}
-                          loading={generatingDownload}
-                          onClick={handleDownloadDocument}
-                        >
-                          Download
-                        </Button>
-                      </Space>
-                    </Flex>
-                  </Card>
-
-                  <Form.Item
-                    label="Signed Handover Document"
-                    extra="Supports PDF, PNG, JPG up to 10MB. If skipped, assigned assets will be flagged with a Pending Record badge."
-                  >
-                    <Upload.Dragger
-                      name="file"
-                      multiple={false}
-                      maxCount={1}
-                      fileList={fileList}
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      beforeUpload={(file) => {
-                        const isValidType =
-                          ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'].includes(
-                            file.type.toLowerCase(),
-                          ) || /\.(pdf|png|jpe?g)$/i.test(file.name);
-                        if (!isValidType) {
-                          message.error(
-                            'Invalid file format. Only PDF, PNG, JPG, and JPEG documents are permitted.',
-                          );
-                          return Upload.LIST_IGNORE;
-                        }
-                        if (file.size === 0) {
-                          message.error(
-                            'The selected file is empty (0 bytes). Please select a valid document.',
-                          );
-                          return Upload.LIST_IGNORE;
-                        }
-                        const isUnder10MB = file.size / 1024 / 1024 <= 10;
-                        if (!isUnder10MB) {
-                          message.error('File size exceeds the 10MB limit.');
-                          return Upload.LIST_IGNORE;
-                        }
-                        setFileList([file]);
-                        return false;
-                      }}
-                      onRemove={() => {
-                        setFileList([]);
-                      }}
-                    >
-                      <p className="ant-upload-drag-icon" style={{ marginBottom: 4 }}>
-                        <InboxOutlined style={{ color: token.colorPrimary, fontSize: 26 }} />
-                      </p>
-                      <p
-                        className="ant-upload-text"
-                        style={{ fontSize: 12.5, fontWeight: 500, margin: 0 }}
+                  {selectedUser ? (
+                    <>
+                      <Card
+                        size="small"
+                        styles={{ body: { backgroundColor: token.colorFillAlter } }}
+                        style={{ marginBottom: 14, borderColor: token.colorBorderSecondary }}
                       >
-                        Click or drag signed document here to upload
-                      </p>
-                    </Upload.Dragger>
-                  </Form.Item>
+                        <Descriptions title="Recipient Details" size="small" column={1}>
+                          <Descriptions.Item label="Full Name">
+                            <Flex align="center" gap={6}>
+                              <UserOutlined style={{ color: token.colorPrimary }} />
+                              <Text strong>
+                                {selectedUser.fullName ||
+                                  `${selectedUser.firstName} ${selectedUser.lastName}`}
+                              </Text>
+                            </Flex>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Email">{selectedUser.email}</Descriptions.Item>
+                          {selectedUser.employeeCode && (
+                            <Descriptions.Item label="Employee Code">
+                              <Tag icon={<IdcardOutlined />} color="purple">
+                                {selectedUser.employeeCode}
+                              </Tag>
+                            </Descriptions.Item>
+                          )}
+                          {selectedUser.department?.name && (
+                            <Descriptions.Item label="Department">
+                              {selectedUser.department.name}
+                            </Descriptions.Item>
+                          )}
+                        </Descriptions>
+                      </Card>
+
+                      <Card
+                        size="small"
+                        style={{ marginBottom: 14, borderColor: token.colorBorderSecondary }}
+                        styles={{ body: { padding: '12px 14px' } }}
+                      >
+                        <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+                          <div>
+                            <Text strong style={{ fontSize: 12.5 }}>
+                              Handover Record Documentation
+                            </Text>
+                            <div>
+                              <Text type="secondary" style={{ fontSize: 11.5 }}>
+                                Pre-filled for{' '}
+                                {selectedUser.fullName ||
+                                  `${selectedUser.firstName} ${selectedUser.lastName}`.trim()}{' '}
+                                ({count} asset{count > 1 ? 's' : ''}).
+                              </Text>
+                            </div>
+                          </div>
+                          <Space size={6}>
+                            <Button
+                              size="small"
+                              icon={<EyeOutlined />}
+                              loading={generatingPreview}
+                              onClick={handlePreviewDocument}
+                            >
+                              Preview
+                            </Button>
+                            <Button
+                              size="small"
+                              icon={<PrinterOutlined />}
+                              loading={generatingPrint}
+                              onClick={handlePrintDocument}
+                            >
+                              Print
+                            </Button>
+                            <Button
+                              size="small"
+                              icon={<FileWordOutlined />}
+                              loading={generatingDownload}
+                              onClick={handleDownloadDocument}
+                            >
+                              Word (.docx)
+                            </Button>
+                            <Button
+                              size="small"
+                              icon={<FileExcelOutlined />}
+                              loading={generatingDownload}
+                              onClick={handleDownloadXlsx}
+                            >
+                              Excel (.xlsx)
+                            </Button>
+                          </Space>
+                        </Flex>
+                      </Card>
+
+                      <Form.Item
+                        label="Signed Handover Document"
+                        extra="Supports PDF, PNG, JPG up to 10MB. If skipped, assigned assets will be flagged with a Pending Record badge."
+                      >
+                        <Upload.Dragger
+                          name="file"
+                          multiple={false}
+                          maxCount={1}
+                          fileList={fileList}
+                          accept=".pdf,.png,.jpg,.jpeg"
+                          beforeUpload={(file) => {
+                            const isValidType =
+                              ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'].includes(
+                                file.type.toLowerCase(),
+                              ) || /\.(pdf|png|jpe?g)$/i.test(file.name);
+                            if (!isValidType) {
+                              message.error(
+                                'Invalid file format. Only PDF, PNG, JPG, and JPEG documents are permitted.',
+                              );
+                              return Upload.LIST_IGNORE;
+                            }
+                            if (file.size === 0) {
+                              message.error(
+                                'The selected file is empty (0 bytes). Please select a valid document.',
+                              );
+                              return Upload.LIST_IGNORE;
+                            }
+                            const isUnder10MB = file.size / 1024 / 1024 <= 10;
+                            if (!isUnder10MB) {
+                              message.error('File size exceeds the 10MB limit.');
+                              return Upload.LIST_IGNORE;
+                            }
+                            setFileList([file]);
+                            return false;
+                          }}
+                          onRemove={() => {
+                            setFileList([]);
+                          }}
+                        >
+                          <p className="ant-upload-drag-icon" style={{ marginBottom: 4 }}>
+                            <InboxOutlined style={{ color: token.colorPrimary, fontSize: 26 }} />
+                          </p>
+                          <p
+                            className="ant-upload-text"
+                            style={{ fontSize: 12.5, fontWeight: 500, margin: 0 }}
+                          >
+                            Click or drag signed document here to upload
+                          </p>
+                        </Upload.Dragger>
+                      </Form.Item>
+                    </>
+                  ) : (
+                    <Alert
+                      type="info"
+                      showIcon
+                      title="Target Employee Required"
+                      description="Select an employee above to preview, print, or download pre-filled handover records and attach signed documentation."
+                      style={{ marginBottom: 14 }}
+                    />
+                  )}
                 </>
               ) : (
                 <Alert
@@ -505,6 +554,9 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
             html={previewDocData.html}
             filename={previewDocData.filename}
             onClose={() => setPreviewDocData(null)}
+            onDownloadDocx={handleDownloadDocument}
+            onDownloadXlsx={handleDownloadXlsx}
+            downloadingDocx={generatingDownload}
           />
         )}
       </>

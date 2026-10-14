@@ -11,11 +11,13 @@ import {
   Progress,
   Row,
   Table,
+  Tabs,
   Tag,
   Typography,
   theme,
 } from 'antd';
 import React, { useMemo } from 'react';
+import ActivityTimeline from '../../../components/ActivityTimeline';
 import AppDrawer from '../../../components/AppDrawer';
 import type { IPAddress, Subnet } from '../../../services/network.service';
 
@@ -121,169 +123,204 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
           )
         }
       >
-        {/* Technical CIDR Specifications Card */}
-        <Card
-          size="small"
-          title={
-            <Flex align="center" gap={6}>
-              <ThunderboltOutlined style={{ color: '#fa8c16' }} />
-              <span>Technical CIDR Parameters</span>
-            </Flex>
-          }
-          styles={{ body: { padding: '16px 20px' } }}
-          style={{ marginBottom: 16 }}
-        >
-          <Descriptions
-            column={2}
-            size="small"
-            bordered
-            styles={{ label: { whiteSpace: 'nowrap' } }}
-          >
-            <Descriptions.Item label="CIDR Block">
-              <Text code strong style={{ color: '#1677ff', fontSize: 13, whiteSpace: 'nowrap' }}>
-                {subnet.cidr}
-              </Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Subnet Mask">
-              <Text code style={{ whiteSpace: 'nowrap' }}>
-                {subnet.netmask || '255.255.255.0'}
-              </Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Network Address">
-              <Text code style={{ whiteSpace: 'nowrap' }}>
-                {subnet.networkAddress || '—'}
-              </Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Broadcast Address">
-              <Text code style={{ whiteSpace: 'nowrap' }}>
-                {subnet.broadcastAddress || '—'}
-              </Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Usable IP Range" span={2}>
-              <Text code style={{ whiteSpace: 'nowrap' }}>
-                {subnet.startIp && subnet.endIp
-                  ? `${subnet.startIp} — ${subnet.endIp}`
-                  : 'Derived from CIDR block'}
-              </Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Default Gateway">
-              <Text code strong style={{ whiteSpace: 'nowrap' }}>
-                {subnet.gateway || '—'}
-              </Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="VLAN Mapping">
-              {subnet.vlan ? (
-                <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
-                  VLAN {subnet.vlan.vlanNumber} ({subnet.vlan.name})
-                </Tag>
-              ) : subnet.vlanName ? (
-                <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
-                  {subnet.vlanName}
-                </Tag>
-              ) : (
-                <Text type="secondary">—</Text>
-              )}
-            </Descriptions.Item>
-          </Descriptions>
-        </Card>
+        <Tabs
+          defaultActiveKey="overview"
+          items={[
+            {
+              key: 'overview',
+              label: 'Configuration & IP Pool',
+              children: (
+                <div>
+                  {/* Technical CIDR Specifications Card */}
+                  <Card
+                    size="small"
+                    title={
+                      <Flex align="center" gap={6}>
+                        <ThunderboltOutlined style={{ color: '#fa8c16' }} />
+                        <span>Technical CIDR Parameters</span>
+                      </Flex>
+                    }
+                    styles={{ body: { padding: '16px 20px' } }}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <Descriptions
+                      column={2}
+                      size="small"
+                      bordered
+                      styles={{ label: { whiteSpace: 'nowrap' } }}
+                    >
+                      <Descriptions.Item label="CIDR Block">
+                        <Text
+                          code
+                          strong
+                          style={{ color: '#1677ff', fontSize: 13, whiteSpace: 'nowrap' }}
+                        >
+                          {subnet.cidr}
+                        </Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Subnet Mask">
+                        <Text code style={{ whiteSpace: 'nowrap' }}>
+                          {subnet.netmask || '255.255.255.0'}
+                        </Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Network Address">
+                        <Text code style={{ whiteSpace: 'nowrap' }}>
+                          {subnet.networkAddress || '—'}
+                        </Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Broadcast Address">
+                        <Text code style={{ whiteSpace: 'nowrap' }}>
+                          {subnet.broadcastAddress || '—'}
+                        </Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Usable IP Range" span={2}>
+                        <Text code style={{ whiteSpace: 'nowrap' }}>
+                          {subnet.startIp && subnet.endIp
+                            ? `${subnet.startIp} — ${subnet.endIp}`
+                            : 'Derived from CIDR block'}
+                        </Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Default Gateway">
+                        <Text code strong style={{ whiteSpace: 'nowrap' }}>
+                          {subnet.gateway || '—'}
+                        </Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="VLAN Mapping">
+                        {subnet.vlan ? (
+                          <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
+                            VLAN {subnet.vlan.vlanNumber} ({subnet.vlan.name})
+                          </Tag>
+                        ) : subnet.vlanName ? (
+                          <Tag color="purple" style={{ whiteSpace: 'nowrap', margin: 0 }}>
+                            {subnet.vlanName}
+                          </Tag>
+                        ) : (
+                          <Text type="secondary">—</Text>
+                        )}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Card>
 
-        {/* IP Pool Allocation Card */}
-        <Card
-          size="small"
-          title="IP Pool Allocation"
-          styles={{ body: { padding: '16px 20px' } }}
-          style={{ marginBottom: 16 }}
-        >
-          <Row gutter={16} style={{ marginBottom: 12 }}>
-            <Col span={8}>
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '8px 0',
-                  background: token.colorSuccessBg,
-                  borderRadius: token.borderRadiusSM,
-                }}
-              >
-                <Text strong style={{ fontSize: 16, color: token.colorSuccess, display: 'block' }}>
-                  {used}
-                </Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Allocated IPs
-                </Text>
-              </div>
-            </Col>
-            <Col span={8}>
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '8px 0',
-                  background: token.colorWarningBg,
-                  borderRadius: token.borderRadiusSM,
-                }}
-              >
-                <Text strong style={{ fontSize: 16, color: token.colorWarning, display: 'block' }}>
-                  {reserved}
-                </Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Reserved IPs
-                </Text>
-              </div>
-            </Col>
-            <Col span={8}>
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '8px 0',
-                  background: token.colorInfoBg,
-                  borderRadius: token.borderRadiusSM,
-                }}
-              >
-                <Text strong style={{ fontSize: 16, color: token.colorInfo, display: 'block' }}>
-                  {available}
-                </Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Available IPs
-                </Text>
-              </div>
-            </Col>
-          </Row>
+                  {/* IP Pool Allocation Card */}
+                  <Card
+                    size="small"
+                    title="IP Pool Allocation"
+                    styles={{ body: { padding: '16px 20px' } }}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <Row gutter={16} style={{ marginBottom: 12 }}>
+                      <Col span={8}>
+                        <div
+                          style={{
+                            textAlign: 'center',
+                            padding: '8px 0',
+                            background: token.colorSuccessBg,
+                            borderRadius: token.borderRadiusSM,
+                          }}
+                        >
+                          <Text
+                            strong
+                            style={{ fontSize: 16, color: token.colorSuccess, display: 'block' }}
+                          >
+                            {used}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            Allocated IPs
+                          </Text>
+                        </div>
+                      </Col>
+                      <Col span={8}>
+                        <div
+                          style={{
+                            textAlign: 'center',
+                            padding: '8px 0',
+                            background: token.colorWarningBg,
+                            borderRadius: token.borderRadiusSM,
+                          }}
+                        >
+                          <Text
+                            strong
+                            style={{ fontSize: 16, color: token.colorWarning, display: 'block' }}
+                          >
+                            {reserved}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            Reserved IPs
+                          </Text>
+                        </div>
+                      </Col>
+                      <Col span={8}>
+                        <div
+                          style={{
+                            textAlign: 'center',
+                            padding: '8px 0',
+                            background: token.colorInfoBg,
+                            borderRadius: token.borderRadiusSM,
+                          }}
+                        >
+                          <Text
+                            strong
+                            style={{ fontSize: 16, color: token.colorInfo, display: 'block' }}
+                          >
+                            {available}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            Available IPs
+                          </Text>
+                        </div>
+                      </Col>
+                    </Row>
 
-          <Flex justify="space-between" style={{ fontSize: 12, marginBottom: 4 }}>
-            <Text strong>Overall Pool Utilization</Text>
-            <Text>
-              {utilizationPct}% ({used} / {total} Total Hosts)
-            </Text>
-          </Flex>
-          <Progress
-            percent={utilizationPct}
-            strokeColor={
-              utilizationPct > 85 ? '#ef4444' : utilizationPct > 60 ? '#f59e0b' : '#10b981'
-            }
-          />
-        </Card>
+                    <Flex justify="space-between" style={{ fontSize: 12, marginBottom: 4 }}>
+                      <Text strong>Overall Pool Utilization</Text>
+                      <Text>
+                        {utilizationPct}% ({used} / {total} Total Hosts)
+                      </Text>
+                    </Flex>
+                    <Progress
+                      percent={utilizationPct}
+                      strokeColor={
+                        utilizationPct > 85
+                          ? '#ef4444'
+                          : utilizationPct > 60
+                            ? '#f59e0b'
+                            : '#10b981'
+                      }
+                    />
+                  </Card>
 
-        <Divider style={{ margin: '16px 0' }} />
+                  <Divider style={{ margin: '16px 0' }} />
 
-        <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
-          <Title level={5} style={{ margin: 0 }}>
-            Allocated IPs in this Subnet ({subnetIps.length})
-          </Title>
-        </Flex>
+                  <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
+                    <Title level={5} style={{ margin: 0 }}>
+                      Allocated IPs in this Subnet ({subnetIps.length})
+                    </Title>
+                  </Flex>
 
-        {subnetIps.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="No active IP address allocations recorded in this subnet."
-          />
-        ) : (
-          <Table
-            columns={ipColumns}
-            dataSource={subnetIps}
-            rowKey="id"
-            size="small"
-            pagination={{ pageSize: 5, size: 'small' }}
-          />
-        )}
+                  {subnetIps.length === 0 ? (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="No active IP address allocations recorded in this subnet."
+                    />
+                  ) : (
+                    <Table
+                      columns={ipColumns}
+                      dataSource={subnetIps}
+                      rowKey="id"
+                      size="small"
+                      pagination={{ pageSize: 5, size: 'small' }}
+                    />
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'history',
+              label: 'Configuration & IP Allocation History',
+              children: <ActivityTimeline entityType="Network" entityId={subnet.id} />,
+            },
+          ]}
+        />
       </AppDrawer>
     );
   },

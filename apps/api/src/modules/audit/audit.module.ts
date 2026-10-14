@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
 
+@Global()
 @Module({
   imports: [NotificationsModule],
   controllers: [AuditController],

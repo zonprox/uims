@@ -13,8 +13,8 @@ export const PrintableAssetLabel: React.FC<PrintableAssetLabelProps> = React.mem
   ({ asset, containerRef, maxWidth = 380 }) => {
     const { token } = theme.useToken();
 
-    const sapCode = asset.assetCode || asset.parent?.assetCode || asset.tag || 'N/A';
-    const subcode = asset.subcode || asset.tag || 'N/A';
+    const sapCode = asset.assetCode || asset.parent?.assetCode || asset.tag || '—';
+    const subcode = asset.subcode || asset.tag || '—';
     const modelInfo = [asset.manufacturer, asset.model].filter(Boolean).join(' ');
     const modelName =
       asset.name ||
@@ -27,7 +27,7 @@ export const PrintableAssetLabel: React.FC<PrintableAssetLabelProps> = React.mem
       ? typeof asset.costCenter === 'object'
         ? `${asset.costCenter.code || ''} ${asset.costCenter.name ? `- ${asset.costCenter.name}` : ''}`.trim()
         : String(asset.costCenter)
-      : 'IT-OPS';
+      : 'IT Operations';
 
     return (
       <div

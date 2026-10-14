@@ -24,7 +24,7 @@ import type {
   UpdateDeviceModelDto,
   UpdatePhysicalUnitDto,
 } from '@uims/shared-types';
-import { mapAssetStatus, mapAssetStatusToLabel } from '@uims/shared-utils';
+import { computeFieldDiff, mapAssetStatus, mapAssetStatusToLabel } from '@uims/shared-utils';
 import ExcelJS from 'exceljs';
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service';
@@ -36,6 +36,11 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { BatchAssignAssetDto } from './dto/batch-assign-asset.dto';
 import type { GenerateHandoverDocumentDto } from './dto/generate-handover-document.dto';
 import type { ReturnAssetDto } from './dto/return-asset.dto';
+import {
+  buildHandoverDocx,
+  buildHandoverXlsx,
+  HandoverDocumentParams,
+} from './utils/handover-document.builder';
 
 type AssetWithRelations = Prisma.AssetGetPayload<{
   include: {
@@ -304,6 +309,26 @@ export class AssetsService {
       } catch (error: unknown) {
         this.logger.error(
           `Failed to dispatch asset assignment notification for asset "${formatted.name}" (${formatted.tag})`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'ASSET_CREATED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: formatted.id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Hardware asset "${formatted.name}" (${formatted.tag}) created`,
+          newValue: formatted as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for created asset "${formatted.name}" (${formatted.id})`,
           error instanceof Error ? error.stack : String(error),
         );
       }
@@ -779,6 +804,34 @@ export class AssetsService {
       }
     }
 
+    if (this.auditService) {
+      try {
+        const diff = computeFieldDiff(
+          existing as unknown as Record<string, unknown>,
+          updated as unknown as Record<string, unknown>,
+        );
+        if (diff.hasChanges) {
+          await this.auditService.logEvent({
+            action: 'ASSET_UPDATED',
+            entity: 'Asset',
+            entityType: 'Hardware',
+            entityId: id,
+            severity: 'Info',
+            status: 'Success',
+            details: `Asset "${formatted.name}" (${formatted.tag}) updated (${diff.changedKeys.join(', ')})`,
+            diffPayload: diff as unknown as Record<string, unknown>,
+            oldValue: diff.oldValue ?? undefined,
+            newValue: diff.newValue ?? undefined,
+          });
+        }
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for updated asset "${id}"`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
     return formatted;
   }
 
@@ -832,6 +885,27 @@ export class AssetsService {
     }
 
     this.logger.log(`Batch deleted ${totalDeleted} assets (${uniqueIds.length} requested)`);
+
+    if (this.auditService && deletedIds.length > 0) {
+      for (const id of deletedIds) {
+        try {
+          await this.auditService.logEvent({
+            action: 'ASSET_DELETED',
+            entity: 'Asset',
+            entityType: 'Hardware',
+            entityId: id,
+            severity: 'Warning',
+            status: 'Success',
+            details: `Hardware asset "${id}" deleted in batch operation`,
+          });
+        } catch (error: unknown) {
+          this.logger.error(
+            `Failed to record audit log for batch deleted asset "${id}"`,
+            error instanceof Error ? error.stack : String(error),
+          );
+        }
+      }
+    }
 
     return {
       count: totalDeleted,
@@ -897,14 +971,14 @@ export class AssetsService {
       const chunkResult = await this.prisma.$transaction(async (tx) => {
         const existing = await tx.asset.findMany({
           where: { id: { in: chunk } },
-          select: { id: true },
+          select: { id: true, assignedToId: true, hasPendingRecord: true, status: true },
           take: chunk.length,
           orderBy: [{ id: 'asc' }],
         });
 
         const existingIds = existing.map((a) => a.id);
         if (existingIds.length === 0) {
-          return { count: 0, assignedIds: [] };
+          return { count: 0, assignedIds: [], existingAssets: [] };
         }
 
         const updateResult = await tx.asset.updateMany({
@@ -927,11 +1001,46 @@ export class AssetsService {
           });
         }
 
-        return { count: updateResult.count, assignedIds: existingIds };
+        return { count: updateResult.count, assignedIds: existingIds, existingAssets: existing };
       });
 
       totalAssigned += chunkResult.count;
       assignedIds.push(...chunkResult.assignedIds);
+
+      if (
+        this.auditService &&
+        chunkResult.existingAssets &&
+        chunkResult.existingAssets.length > 0
+      ) {
+        for (const asset of chunkResult.existingAssets) {
+          try {
+            await this.auditService.logEvent({
+              action: 'ASSET_ASSIGNED',
+              entity: 'Asset',
+              entityType: 'Hardware',
+              entityId: asset.id,
+              severity: isPending ? 'Warning' : 'Info',
+              status: 'Success',
+              details: `Asset assigned to recipient "${dto.assignedToId || 'Storage'}"${isPending ? ' (pending handover record)' : ''}`,
+              oldValue: {
+                assignedToId: asset.assignedToId,
+                hasPendingRecord: asset.hasPendingRecord,
+                status: asset.status,
+              },
+              newValue: {
+                assignedToId: dto.assignedToId || null,
+                hasPendingRecord,
+                status: targetStatus,
+              },
+            });
+          } catch (error: unknown) {
+            this.logger.error(
+              `Failed to record audit log for batch assigned asset "${asset.id}"`,
+              error instanceof Error ? error.stack : String(error),
+            );
+          }
+        }
+      }
     }
 
     this.logger.log(`Batch assigned ${totalAssigned} assets (${uniqueIds.length} requested)`);
@@ -973,30 +1082,7 @@ export class AssetsService {
     };
   }
 
-  buildHandoverDocumentHtml(params: {
-    title: string;
-    subtitle: string;
-    refId: string;
-    type: 'assignment' | 'return';
-    currentDate: string;
-    recipient?: {
-      fullName: string;
-      employeeCode: string;
-      department: string;
-      email: string;
-      organization: string;
-    } | null;
-    assets: Array<{
-      id?: string;
-      tag: string;
-      name: string;
-      manufacturer: string;
-      model: string;
-      serialNumber: string | null;
-      condition: string;
-    }>;
-    conditionNotes?: string;
-  }): string {
+  buildHandoverDocumentHtml(params: HandoverDocumentParams): string {
     const isReturn = params.type === 'return';
     const recipient = params.recipient;
     const assets = params.assets;
@@ -1364,42 +1450,26 @@ export class AssetsService {
 </html>`;
   }
 
-  getHandoverTemplateHtml(type: 'assignment' | 'return' = 'assignment'): string {
-    const isReturn = type === 'return';
-    const currentDate = new Date().toISOString().split('T')[0];
-    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
-    return this.buildHandoverDocumentHtml({
-      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
-      subtitle: isReturn
-        ? 'Equipment Return & Custody Termination'
-        : 'Equipment Assignment & Custody Transfer',
-      refId,
-      type,
-      currentDate,
-      assets: [],
-    });
-  }
-
-  async generateHandoverDocument(dto: GenerateHandoverDocumentDto) {
+  async resolveHandoverParams(dto: GenerateHandoverDocumentDto): Promise<HandoverDocumentParams> {
     const isReturn = dto.type === 'return';
     const currentDate = new Date().toISOString().split('T')[0];
     const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
 
     let recipient: {
       fullName: string;
-      employeeCode: string;
-      department: string;
-      email: string;
-      organization: string;
+      employeeCode?: string;
+      department?: string;
+      email?: string;
+      organization?: string;
     } | null = null;
 
     let assets: Array<{
-      id: string;
+      id?: string;
       tag: string;
       name: string;
-      manufacturer: string;
-      model: string;
-      serialNumber: string | null;
+      manufacturer?: string;
+      model?: string;
+      serialNumber?: string | null;
       condition: string;
     }> = [];
 
@@ -1471,7 +1541,7 @@ export class AssetsService {
       ? 'Equipment Return & Custody Termination'
       : 'Equipment Assignment & Custody Transfer';
 
-    const html = this.buildHandoverDocumentHtml({
+    return {
       title,
       subtitle,
       refId,
@@ -1480,16 +1550,97 @@ export class AssetsService {
       recipient,
       assets,
       conditionNotes: dto.conditionNotes,
-    });
+    };
+  }
 
-    const filename = `asset_${isReturn ? 'return' : 'handover'}_${currentDate}_${refId.toLowerCase()}.html`;
+  getHandoverTemplateHtml(type: 'assignment' | 'return' = 'assignment'): string {
+    const isReturn = type === 'return';
+    const currentDate = new Date().toISOString().split('T')[0];
+    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+    return this.buildHandoverDocumentHtml({
+      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
+      subtitle: isReturn
+        ? 'Equipment Return & Custody Termination'
+        : 'Equipment Assignment & Custody Transfer',
+      refId,
+      type,
+      currentDate,
+      assets: [],
+    });
+  }
+
+  async getHandoverTemplateDocx(
+    type: 'assignment' | 'return' = 'assignment',
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const isReturn = type === 'return';
+    const currentDate = new Date().toISOString().split('T')[0];
+    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+    const filename = `asset_${isReturn ? 'return' : 'handover'}_template.docx`;
+    const buffer = await buildHandoverDocx({
+      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
+      subtitle: isReturn
+        ? 'Equipment Return & Custody Termination'
+        : 'Equipment Assignment & Custody Transfer',
+      refId,
+      type,
+      currentDate,
+      assets: [],
+    });
+    return { buffer, filename };
+  }
+
+  async getHandoverTemplateXlsx(
+    type: 'assignment' | 'return' = 'assignment',
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const isReturn = type === 'return';
+    const currentDate = new Date().toISOString().split('T')[0];
+    const refId = `${isReturn ? 'RET' : 'HOR'}-${Date.now().toString(36).toUpperCase()}`;
+    const filename = `asset_${isReturn ? 'return' : 'handover'}_template.xlsx`;
+    const buffer = await buildHandoverXlsx({
+      title: isReturn ? 'HARDWARE ASSET RETURN RECORD' : 'HARDWARE ASSET HANDOVER RECORD',
+      subtitle: isReturn
+        ? 'Equipment Return & Custody Termination'
+        : 'Equipment Assignment & Custody Transfer',
+      refId,
+      type,
+      currentDate,
+      assets: [],
+    });
+    return { buffer, filename };
+  }
+
+  async generateHandoverDocument(dto: GenerateHandoverDocumentDto) {
+    const params = await this.resolveHandoverParams(dto);
+    const html = this.buildHandoverDocumentHtml(params);
+    const isReturn = dto.type === 'return';
+    const filename = `asset_${isReturn ? 'return' : 'handover'}_${params.currentDate}_${params.refId.toLowerCase()}.docx`;
 
     return {
       html,
-      title,
+      title: params.title,
       filename,
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  async generateHandoverDocx(
+    dto: GenerateHandoverDocumentDto,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const params = await this.resolveHandoverParams(dto);
+    const isReturn = dto.type === 'return';
+    const filename = `asset_${isReturn ? 'return' : 'handover'}_${params.currentDate}_${params.refId.toLowerCase()}.docx`;
+    const buffer = await buildHandoverDocx(params);
+    return { buffer, filename };
+  }
+
+  async generateHandoverXlsx(
+    dto: GenerateHandoverDocumentDto,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const params = await this.resolveHandoverParams(dto);
+    const isReturn = dto.type === 'return';
+    const filename = `asset_${isReturn ? 'return' : 'handover'}_${params.currentDate}_${params.refId.toLowerCase()}.xlsx`;
+    const buffer = await buildHandoverXlsx(params);
+    return { buffer, filename };
   }
 
   async saveHandoverDocumentFile(
@@ -1867,7 +2018,30 @@ export class AssetsService {
   }
 
   async remove(id: string) {
-    return this.prisma.asset.delete({ where: { id } });
+    const existing = await this.prisma.asset.findUnique({ where: { id } });
+    const deleted = await this.prisma.asset.delete({ where: { id } });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'ASSET_DELETED',
+          entity: 'Asset',
+          entityType: 'Hardware',
+          entityId: id,
+          severity: 'Warning',
+          status: 'Success',
+          details: `Hardware asset "${existing?.name || deleted.name}" (${existing?.assetTag || deleted.assetTag || id}) deleted`,
+          oldValue: (existing || deleted) as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for deleted asset "${id}"`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return deleted;
   }
 
   async getStats(): Promise<AssetStatsDto> {

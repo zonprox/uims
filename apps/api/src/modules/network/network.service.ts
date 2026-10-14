@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import {
   Prisma,
   type IPAddress,
@@ -44,6 +50,7 @@ import type {
 import {
   calculateSubnet,
   calculateUtilization,
+  computeFieldDiff,
   findMatchingSubnet,
   findNextAvailableIp,
   isValidCidr,
@@ -54,6 +61,7 @@ import {
   normalizeMac,
 } from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 export const STANDARD_RACK_HEIGHT = 42;
 
@@ -61,7 +69,10 @@ export const STANDARD_RACK_HEIGHT = 42;
 export class NetworkService {
   private readonly logger = new Logger(NetworkService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly auditService?: AuditService,
+  ) {}
 
   // ==========================================
   // VLAN MANAGEMENT
@@ -235,10 +246,37 @@ export class NetworkService {
       include: { vlan: true },
     });
 
-    return this.formatSubnet(created);
+    const formatted = this.formatSubnet(created);
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'SUBNET_CREATED',
+          entity: 'NetworkSubnet',
+          entityType: 'Network',
+          entityId: formatted.id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Subnet "${formatted.name}" (${formatted.cidr}) created`,
+          newValue: formatted as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for created subnet "${formatted.name}" (${formatted.id})`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async updateSubnet(id: string, data: UpdateSubnetDto) {
+    const existing = await this.prisma.subnet.findUnique({
+      where: { id },
+      include: { vlan: true },
+    });
+
     const updateData: Prisma.SubnetUpdateInput = {
       name: data.name,
       gateway: data.gateway,
@@ -269,11 +307,64 @@ export class NetworkService {
       include: { vlan: true },
     });
 
-    return this.formatSubnet(updated);
+    const formatted = this.formatSubnet(updated);
+
+    if (this.auditService) {
+      try {
+        const diff = computeFieldDiff(
+          existing as unknown as Record<string, unknown>,
+          updated as unknown as Record<string, unknown>,
+        );
+        if (diff.hasChanges) {
+          await this.auditService.logEvent({
+            action: 'SUBNET_UPDATED',
+            entity: 'NetworkSubnet',
+            entityType: 'Network',
+            entityId: id,
+            severity: 'Info',
+            status: 'Success',
+            details: `Subnet "${formatted.name}" (${formatted.cidr}) updated (${diff.changedKeys.join(', ')})`,
+            diffPayload: diff as unknown as Record<string, unknown>,
+            oldValue: diff.oldValue ?? undefined,
+            newValue: diff.newValue ?? undefined,
+          });
+        }
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for updated subnet "${id}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async deleteSubnet(id: string) {
-    return this.prisma.subnet.delete({ where: { id } });
+    const existing = await this.prisma.subnet.findUnique({ where: { id } });
+    const deleted = await this.prisma.subnet.delete({ where: { id } });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'SUBNET_DELETED',
+          entity: 'NetworkSubnet',
+          entityType: 'Network',
+          entityId: id,
+          severity: 'Warning',
+          status: 'Success',
+          details: `Subnet "${existing?.name || deleted.name}" (${existing?.cidr || deleted.cidr}) deleted`,
+          oldValue: (existing || deleted) as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for deleted subnet "${id}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return deleted;
   }
 
   async getNextAvailableIp(subnetId: string): Promise<{
@@ -469,17 +560,39 @@ export class NetworkService {
       await this.syncSubnetStats(subnetId);
     }
 
-    return this.formatIp(created);
+    const formatted = this.formatIp(created);
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'IP_ALLOCATED',
+          entity: 'IPAddress',
+          entityType: 'Network',
+          entityId: formatted.id,
+          severity: 'Info',
+          status: 'Success',
+          details: `IP address "${formatted.address}" allocated (${formatted.deviceType || 'Device'})`,
+          newValue: formatted as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for allocated IP "${formatted.address}" (${formatted.id})`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async updateIp(id: string, data: UpdateIPAddressDto) {
     const existing = await this.prisma.iPAddress.findUnique({
       where: { id },
-      select: {
-        id: true,
-        address: true,
-        subnetId: true,
-        status: true,
+      include: {
+        subnet: true,
+        vlan: true,
+        asset: true,
+        assignedUser: true,
       },
     });
 
@@ -551,19 +664,68 @@ export class NetworkService {
       await this.syncSubnetStats(oldSubnetId);
     }
 
-    return this.formatIp(updated);
+    const formatted = this.formatIp(updated);
+
+    if (this.auditService) {
+      try {
+        const diff = computeFieldDiff(
+          existing as unknown as Record<string, unknown>,
+          updated as unknown as Record<string, unknown>,
+        );
+        if (diff.hasChanges) {
+          await this.auditService.logEvent({
+            action: 'IP_UPDATED',
+            entity: 'IPAddress',
+            entityType: 'Network',
+            entityId: id,
+            severity: 'Info',
+            status: 'Success',
+            details: `IP address "${formatted.address}" updated (${diff.changedKeys.join(', ')})`,
+            diffPayload: diff as unknown as Record<string, unknown>,
+            oldValue: diff.oldValue ?? undefined,
+            newValue: diff.newValue ?? undefined,
+          });
+        }
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for updated IP "${id}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async deleteIp(id: string) {
     const existing = await this.prisma.iPAddress.findUnique({
       where: { id },
-      select: { subnetId: true },
     });
 
     const deleted = await this.prisma.iPAddress.delete({ where: { id } });
 
     if (existing?.subnetId) {
       await this.syncSubnetStats(existing.subnetId);
+    }
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'IP_RELEASED',
+          entity: 'IPAddress',
+          entityType: 'Network',
+          entityId: id,
+          severity: 'Info',
+          status: 'Success',
+          details: `IP address "${existing?.address || id}" released`,
+          oldValue: (existing || deleted) as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for released IP "${id}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
     }
 
     return { success: true, id: deleted.id };

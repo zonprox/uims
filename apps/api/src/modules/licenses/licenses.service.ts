@@ -18,6 +18,7 @@ import type {
   UpdateLicenseDto,
 } from '@uims/shared-types';
 import {
+  computeFieldDiff,
   mapLicenseStatus,
   mapLicenseStatusToLabel,
   mapLicenseType,
@@ -29,6 +30,7 @@ import {
   maskLicenseKey,
 } from '../../common/crypto/license-crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 type LicenseWithAssignments = Prisma.LicenseGetPayload<{
@@ -42,6 +44,7 @@ export class LicensesService {
   constructor(
     private prisma: PrismaService,
     @Optional() private notificationsService?: NotificationsService,
+    @Optional() private auditService?: AuditService,
   ) {}
 
   async create(data: CreateLicenseDto) {
@@ -65,7 +68,32 @@ export class LicensesService {
       include: { assignments: true },
     });
 
-    return this.formatLicense(created);
+    const formatted = this.formatLicense(created);
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'LICENSE_CREATED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: formatted.id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Software license "${formatted.name}" created`,
+          newValue: {
+            ...formatted,
+            licenseKey: data.licenseKey ? maskLicenseKey(data.licenseKey) : 'N/A',
+          } as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for created license "${formatted.name}" (${formatted.id})`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async findAll(query?: LicenseQueryDto) {
@@ -118,6 +146,14 @@ export class LicensesService {
   }
 
   async update(id: string, data: UpdateLicenseDto) {
+    const existing = await this.prisma.license.findUnique({
+      where: { id },
+      include: { assignments: true },
+    });
+    if (!existing) {
+      throw new NotFoundException(`License with ID ${id} not found`);
+    }
+
     const updateData: Prisma.LicenseUpdateInput = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.vendor !== undefined) updateData.vendor = data.vendor;
@@ -164,11 +200,69 @@ export class LicensesService {
       }
     }
 
-    return this.formatLicense(updated);
+    const formatted = this.formatLicense(updated);
+
+    if (this.auditService) {
+      try {
+        const diff = computeFieldDiff(
+          existing as unknown as Record<string, unknown>,
+          updated as unknown as Record<string, unknown>,
+          { sensitiveKeys: ['licenseKey'] },
+        );
+        if (diff.hasChanges) {
+          await this.auditService.logEvent({
+            action: 'LICENSE_UPDATED',
+            entity: 'License',
+            entityType: 'License',
+            entityId: id,
+            severity: 'Info',
+            status: 'Success',
+            details: `Software license "${updated.name}" updated (${diff.changedKeys.join(', ')})`,
+            diffPayload: diff as unknown as Record<string, unknown>,
+            oldValue: diff.oldValue ?? undefined,
+            newValue: diff.newValue ?? undefined,
+          });
+        }
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for updated license "${id}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async remove(id: string) {
-    return this.prisma.license.delete({ where: { id } });
+    const existing = await this.prisma.license.findUnique({ where: { id } });
+    const deleted = await this.prisma.license.delete({ where: { id } });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'LICENSE_DELETED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: id,
+          severity: 'Warning',
+          status: 'Success',
+          details: `Software license "${existing?.name || deleted.name}" deleted`,
+          oldValue: {
+            name: existing?.name || deleted.name,
+            vendor: existing?.vendor || deleted.vendor,
+            totalSeats: existing?.totalSeats || deleted.totalSeats,
+          },
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for deleted license "${id}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return deleted;
   }
 
   async assignUser(licenseId: string, payload: AssignUserLicenseDto) {
@@ -341,11 +435,40 @@ export class LicensesService {
       }
     }
 
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'LICENSE_SEAT_ASSIGNED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: licenseId,
+          severity: 'Info',
+          status: 'Success',
+          details: `Seat assigned to ${result.newAssignment.assignedName} (${result.newAssignment.assignedEmail}) on license "${result.license.name}"`,
+          oldValue: {
+            usedSeats: result.dynamicUsedSeats - 1 >= 0 ? result.dynamicUsedSeats - 1 : 0,
+          },
+          newValue: {
+            usedSeats: result.dynamicUsedSeats,
+            assignmentId: result.newAssignment.id,
+            userId: result.userId || null,
+            assignedName: result.newAssignment.assignedName,
+            assignedEmail: result.newAssignment.assignedEmail,
+          },
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for seat assignment on license "${licenseId}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
     return result.newAssignment;
   }
 
   async revokeUser(licenseId: string, assignmentId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const assignment = await tx.licenseAssignment.findFirst({
         where: { id: assignmentId, licenseId },
       });
@@ -381,6 +504,34 @@ export class LicensesService {
         usedSeats: dynamicUsedSeats,
       };
     });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'LICENSE_SEAT_REVOKED',
+          entity: 'License',
+          entityType: 'License',
+          entityId: licenseId,
+          severity: 'Info',
+          status: 'Success',
+          details: `Seat assignment "${assignmentId}" revoked for license "${licenseId}"`,
+          oldValue: {
+            assignmentId,
+            usedSeats: result.usedSeats + 1,
+          },
+          newValue: {
+            usedSeats: result.usedSeats,
+          },
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for seat revocation on license "${licenseId}"`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return result;
   }
 
   async batchAssignUsers(

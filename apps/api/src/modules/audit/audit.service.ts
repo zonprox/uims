@@ -1,8 +1,31 @@
 import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { AuditLog, Prisma } from '@prisma/client';
 import type { AuditQueryDto, AuditStatsDto, LogEventDto } from '@uims/shared-types';
+import { computeFieldDiff } from '@uims/shared-utils';
+import { sanitizePayload } from '../../common/utils/sanitize.util';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+
+const CANONICAL_ENTITY_TYPES: Record<string, string> = {
+  hardware: 'Hardware',
+  asset: 'Asset',
+  assets: 'Asset',
+  license: 'License',
+  licenses: 'License',
+  software: 'License',
+  inventory: 'Inventory',
+  network: 'Network',
+  user: 'User',
+  users: 'User',
+  security: 'Security',
+  peripheral: 'Peripheral',
+};
+
+export function normalizeEntityType(entityType: string): string {
+  const trimmed = entityType.trim();
+  const lower = trimmed.toLowerCase();
+  return CANONICAL_ENTITY_TYPES[lower] || trimmed;
+}
 
 @Injectable()
 export class AuditService {
@@ -44,6 +67,14 @@ export class AuditService {
       where.entity = { contains: query.entity.trim(), mode: 'insensitive' };
     }
 
+    if (query?.entityType && query.entityType.trim() && query.entityType !== 'all') {
+      where.entityType = normalizeEntityType(query.entityType);
+    }
+
+    if (query?.entityId && query.entityId.trim() && query.entityId !== 'all') {
+      where.entityId = query.entityId.trim();
+    }
+
     if (query?.startDate || query?.endDate) {
       const timestampFilter: Prisma.DateTimeFilter = {};
       if (query.startDate && query.startDate.trim()) {
@@ -82,6 +113,34 @@ export class AuditService {
     return logs.map((l) => this.formatLog(l));
   }
 
+  async findByEntity(entityType: string, entityId: string, query?: AuditQueryDto) {
+    const where = this.buildWhere(query);
+    where.entityType = normalizeEntityType(entityType);
+    where.entityId = entityId.trim();
+
+    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 20));
+    const page = Math.max(1, Number(query?.page) || 1);
+    const skip = (page - 1) * pageSize;
+
+    const [total, logs] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+        take: pageSize,
+        skip,
+      }),
+    ]);
+
+    return {
+      items: logs.map((l) => this.formatLog(l)),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize) || 1,
+    };
+  }
+
   async findOne(id: string) {
     const log = await this.prisma.auditLog.findUnique({ where: { id } });
     if (!log) throw new NotFoundException(`Audit log with ID ${id} not found`);
@@ -89,6 +148,16 @@ export class AuditService {
   }
 
   async logEvent(data: LogEventDto) {
+    const sanitizedDiff = data.diffPayload
+      ? (sanitizePayload(data.diffPayload) as Prisma.InputJsonValue)
+      : undefined;
+    const sanitizedOld = data.oldValue
+      ? (sanitizePayload(data.oldValue) as Prisma.InputJsonValue)
+      : undefined;
+    const sanitizedNew = data.newValue
+      ? (sanitizePayload(data.newValue) as Prisma.InputJsonValue)
+      : undefined;
+
     const log = await this.prisma.auditLog.create({
       data: {
         userId: data.userId,
@@ -104,9 +173,9 @@ export class AuditService {
         statusCode: data.statusCode || (data.status === 'Failed' ? 400 : 200),
         durationMs: data.durationMs,
         details: data.details || '',
-        diffPayload: (data.diffPayload as Prisma.InputJsonValue) ?? undefined,
-        oldValue: (data.oldValue as Prisma.InputJsonValue) ?? undefined,
-        newValue: (data.newValue as Prisma.InputJsonValue) ?? undefined,
+        diffPayload: sanitizedDiff,
+        oldValue: sanitizedOld,
+        newValue: sanitizedNew,
         userAgent: data.userAgent || null,
       },
     });
@@ -206,6 +275,46 @@ export class AuditService {
       totalEventRecords: totalEvents.toLocaleString(),
       securityAnomalies: `${criticalEvents} Alerts`,
     };
+  }
+
+  async recordEntityDiff(params: {
+    entityType: string;
+    entityId: string;
+    entityName?: string;
+    action: string;
+    actor?: { id?: string; name?: string; email?: string };
+    oldState?: Record<string, unknown> | null;
+    newState?: Record<string, unknown> | null;
+    details?: string;
+    ipAddress?: string;
+    severity?: string;
+    statusCode?: number;
+    durationMs?: number;
+    options?: {
+      excludeKeys?: string[];
+      sensitiveKeys?: string[];
+    };
+  }) {
+    const diff = computeFieldDiff(params.oldState, params.newState, params.options);
+    return this.logEvent({
+      userId: params.actor?.id,
+      userName: params.actor?.name,
+      userEmail: params.actor?.email,
+      action: params.action,
+      severity: params.severity || 'Info',
+      entity: params.entityName || params.entityType,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      ipAddress: params.ipAddress,
+      status: 'Success',
+      statusCode: params.statusCode ?? 200,
+      durationMs: params.durationMs,
+      details:
+        params.details || `${params.action} performed on ${params.entityType} ${params.entityId}`,
+      diffPayload: diff.hasChanges ? (diff as unknown as Record<string, unknown>) : undefined,
+      oldValue: diff.oldValue ?? undefined,
+      newValue: diff.newValue ?? undefined,
+    });
   }
 
   private formatLog(log: AuditLog) {

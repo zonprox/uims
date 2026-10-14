@@ -73,20 +73,22 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   // DOMAIN 1: ORGANIZATIONS
   // =========================================================================
   describe('Domain 1: Corporate Hierarchy & Organizations', () => {
-    it('1.1 should verify exactly 3 organizations with correct hierarchy and tax IDs', async () => {
+    it('1.1 should verify exactly 4 organizations with correct hierarchy and tax IDs', async () => {
       const orgs = await prisma.organization.findMany({
         orderBy: [{ code: 'asc' }, { id: 'asc' }],
       });
 
-      expect(orgs.length).toBe(3);
+      expect(orgs.length).toBe(4);
 
       const holding = orgs.find((o) => o.code === 'HOLDING');
       const bsl = orgs.find((o) => o.code === 'BSL');
       const bsh = orgs.find((o) => o.code === 'BSH');
+      const bsd = orgs.find((o) => o.code === 'BSD');
 
       expect(holding).toBeDefined();
       expect(bsl).toBeDefined();
       expect(bsh).toBeDefined();
+      expect(bsd).toBeDefined();
 
       // Holding Invariants
       expect(holding!.id).toBe('org-holding');
@@ -107,6 +109,12 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       expect(bsh!.name).toBe('Broadpeak Ho Chi Minh');
       expect(bsh!.taxId).toBe('0314892019');
       expect(bsh!.status).toBe('ACTIVE');
+
+      expect(bsd!.id).toBe('org-bsd');
+      expect(bsd!.parentId).toBe(holding!.id);
+      expect(bsd!.name).toBe('Broadpeak Da Nang');
+      expect(bsd!.taxId).toBe('0401928374');
+      expect(bsd!.status).toBe('INACTIVE');
     });
   });
 
@@ -179,19 +187,19 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   // DOMAIN 3: DEPARTMENTS
   // =========================================================================
   describe('Domain 3: Departments & Organizational Mapping', () => {
-    it('3.1 should verify 93 departments linked to organizations with 0 orphaned parents', async () => {
+    it('3.1 should verify 94 departments linked to organizations with 0 orphaned parents', async () => {
       const departments = await prisma.department.findMany({
         orderBy: [{ code: 'asc' }, { id: 'asc' }],
       });
 
-      expect(departments.length).toBe(93);
+      expect(departments.length).toBe(94);
 
       const deptIdSet = new Set(departments.map((d) => d.id));
       let bslCount = 0;
       let bshCount = 0;
 
       for (const dept of departments) {
-        expect(['org-bsl', 'org-bsh']).toContain(dept.organizationId);
+        expect(['org-bsl', 'org-bsh', 'org-bsd']).toContain(dept.organizationId);
         if (dept.organizationId === 'org-bsl') bslCount++;
         if (dept.organizationId === 'org-bsh') bshCount++;
 
@@ -203,7 +211,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
         }
       }
 
-      expect(bslCount).toBe(85);
+      expect(bslCount).toBe(86);
       expect(bshCount).toBe(8);
 
       // Verify core leadership departments exist
@@ -219,15 +227,15 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   // DOMAIN 4: POSITIONS
   // =========================================================================
   describe('Domain 4: Standardized Corporate Positions', () => {
-    it('4.1 should verify exactly 24 positions linked to valid departments with valid levels', async () => {
+    it('4.1 should verify exactly 26 positions linked to valid departments with valid levels', async () => {
       const positions = await prisma.position.findMany({
         include: { department: true },
         orderBy: [{ code: 'asc' }, { id: 'asc' }],
       });
 
-      expect(positions.length).toBe(24);
+      expect(positions.length).toBe(26);
 
-      const validLevels = ['Executive', 'Director', 'Manager', 'Lead', 'Senior', 'Mid'];
+      const validLevels = ['Executive', 'Director', 'Manager', 'Lead', 'Senior', 'Mid', 'Junior'];
       for (const pos of positions) {
         expect(pos.departmentId).not.toBeNull();
         expect(pos.department).toBeDefined();
@@ -274,18 +282,18 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       expect(totalRolePerms).toBe(117);
     });
 
-    it('5.2 should verify 18 AppUsers with 100% 12-round bcrypt password hashes and 0 plaintext secrets', async () => {
+    it('5.2 should verify 21 AppUsers with 100% 12-round bcrypt password hashes and 0 plaintext secrets', async () => {
       const appUsers = await prisma.appUser.findMany({
         include: { role: true },
         orderBy: [{ email: 'asc' }],
       });
 
-      expect(appUsers.length).toBe(18);
+      expect(appUsers.length).toBe(21);
 
       for (const user of appUsers) {
         expect(user.roleId).not.toBeNull();
         expect(user.role).toBeDefined();
-        expect(user.status).toBe('ACTIVE');
+        expect(['ACTIVE', 'SUSPENDED', 'INACTIVE']).toContain(user.status);
 
         // Verify salted bcrypt with 12 rounds ($2a$12$ or $2b$12$)
         expect(
@@ -311,12 +319,12 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   // DOMAIN 6: DIRECTORY USERS & GROUPS
   // =========================================================================
   describe('Domain 6: Active Directory Users, Groups & Memberships', () => {
-    it('6.1 should verify 32 DirectoryUsers with 100% non-null relational foreign keys', async () => {
+    it('6.1 should verify 38 DirectoryUsers with 100% non-null relational foreign keys', async () => {
       const directoryUsers = await prisma.directoryUser.findMany({
         orderBy: [{ email: 'asc' }],
       });
 
-      expect(directoryUsers.length).toBe(32);
+      expect(directoryUsers.length).toBe(38);
 
       for (const du of directoryUsers) {
         expect(du.organizationId).not.toBeNull();
@@ -327,7 +335,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       }
     });
 
-    it('6.2 should verify 6 DirectoryGroups and 64 DirectoryMemberships adhering to dual-group policy', async () => {
+    it('6.2 should verify 6 DirectoryGroups and DirectoryMemberships adhering to dual-group policy', async () => {
       const groups = await prisma.directoryGroup.findMany({
         include: { memberships: true },
         orderBy: [{ id: 'asc' }],
@@ -337,10 +345,10 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
 
       const allWorkforce = groups.find((g) => g.id === 'grp-all-broadpeak');
       expect(allWorkforce).toBeDefined();
-      expect(allWorkforce!.memberships.length).toBe(32);
+      expect(allWorkforce!.memberships.length).toBe(38);
 
       const totalMemberships = await prisma.directoryMembership.count();
-      expect(totalMemberships).toBe(64);
+      expect(totalMemberships).toBe(76);
 
       // Verify each DirectoryUser has exactly 2 memberships: All-Workforce + Functional Security Group
       const userMembershipCounts = await prisma.directoryMembership.groupBy({
@@ -348,7 +356,7 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
         _count: { groupId: true },
       });
 
-      expect(userMembershipCounts.length).toBe(32);
+      expect(userMembershipCounts.length).toBe(38);
       for (const um of userMembershipCounts) {
         expect(um._count.groupId).toBe(2);
       }
@@ -584,12 +592,12 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
   // DOMAIN 12: LICENSES, GOVERNANCE & OPS
   // =========================================================================
   describe('Domain 12: Software Licenses Cryptography & Operational Governance', () => {
-    it('12.1 should verify 7 licenses with AES-256-GCM encryption decrypting cleanly', async () => {
+    it('12.1 should verify 10 licenses with AES-256-GCM encryption decrypting cleanly', async () => {
       const licenses = await prisma.license.findMany({
         orderBy: [{ id: 'asc' }],
       });
 
-      expect(licenses.length).toBe(7);
+      expect(licenses.length).toBe(10);
 
       for (const lic of licenses) {
         expect(lic.licenseKey.startsWith('enc:v1:')).toBe(true);
@@ -601,16 +609,19 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
       const licIds = licenses.map((l) => l.id);
       expect(licIds).toEqual([
         'lic-adobe',
+        'lic-autodesk',
         'lic-cisco',
         'lic-fastreact',
+        'lic-figma',
         'lic-gerber',
+        'lic-jetbrains',
         'lic-lectra',
         'lic-m365',
         'lic-sap',
       ]);
     });
 
-    it('12.2 should verify 34 license assignments with 100% seat synchronization', async () => {
+    it('12.2 should verify 55 license assignments with 100% seat synchronization', async () => {
       const licenses = await prisma.license.findMany({
         include: { assignments: true },
         orderBy: [{ id: 'asc' }],
@@ -623,19 +634,31 @@ describe('Milestone 4 — 12-Domain E2E Seeding Verification Suite', () => {
         totalActiveAssignments += activeAssignments.length;
       }
 
-      expect(totalActiveAssignments).toBe(34);
+      expect(totalActiveAssignments).toBe(55);
     });
 
     it('12.3 should verify seeded audit logs, notifications, report schedules, and system settings', async () => {
-      // Seeded audit logs (aud-001 through aud-006)
+      // Seeded audit logs (aud-001 through aud-011)
       const seededAudits = await prisma.auditLog.findMany({
         where: { id: { startsWith: 'aud-' } },
         orderBy: [{ id: 'asc' }],
       });
 
-      expect(seededAudits.length).toBe(6);
+      expect(seededAudits.length).toBe(11);
       const auditIds = seededAudits.map((a) => a.id);
-      expect(auditIds).toEqual(['aud-001', 'aud-002', 'aud-003', 'aud-004', 'aud-005', 'aud-006']);
+      expect(auditIds).toEqual([
+        'aud-001',
+        'aud-002',
+        'aud-003',
+        'aud-004',
+        'aud-005',
+        'aud-006',
+        'aud-007',
+        'aud-008',
+        'aud-009',
+        'aud-010',
+        'aud-011',
+      ]);
 
       const aud006 = seededAudits.find((a) => a.id === 'aud-006');
       expect(aud006!.entityType).toBe('Inventory');

@@ -1,7 +1,12 @@
-import { DownloadOutlined, FileTextOutlined, PrinterOutlined } from '@ant-design/icons';
+import {
+  FileExcelOutlined,
+  FileTextOutlined,
+  FileWordOutlined,
+  PrinterOutlined,
+} from '@ant-design/icons';
 import { Button, Flex, Modal, Typography, theme } from 'antd';
 import React, { useMemo } from 'react';
-import { downloadDocumentHtml, printDocumentHtml } from '../utils/printDocument';
+import { printDocumentHtml } from '../utils/printDocument';
 
 const { Text } = Typography;
 
@@ -11,18 +16,27 @@ export interface HandoverDocumentModalProps {
   html: string;
   filename: string;
   onClose: () => void;
+  onDownloadDocx?: () => Promise<void> | void;
+  onDownloadXlsx?: () => Promise<void> | void;
+  downloadingDocx?: boolean;
+  downloadingXlsx?: boolean;
 }
 
 export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React.memo(
-  ({ open, title, html, filename, onClose }) => {
+  ({
+    open,
+    title,
+    html,
+    onClose,
+    onDownloadDocx,
+    onDownloadXlsx,
+    downloadingDocx = false,
+    downloadingXlsx = false,
+  }) => {
     const { token } = theme.useToken();
 
     const handlePrint = () => {
       printDocumentHtml(html);
-    };
-
-    const handleDownload = () => {
-      downloadDocumentHtml(html, filename);
     };
 
     const srcDoc = useMemo(() => html, [html]);
@@ -37,11 +51,29 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
             </Flex>
             <Flex align="center" gap={8}>
               <Button size="small" icon={<PrinterOutlined />} onClick={handlePrint}>
-                Print Document
+                Print Record
               </Button>
-              <Button size="small" icon={<DownloadOutlined />} onClick={handleDownload}>
-                Download HTML
-              </Button>
+              {onDownloadXlsx && (
+                <Button
+                  size="small"
+                  icon={<FileExcelOutlined style={{ color: '#10b981' }} />}
+                  loading={downloadingXlsx}
+                  onClick={onDownloadXlsx}
+                >
+                  Download Excel
+                </Button>
+              )}
+              {onDownloadDocx && (
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<FileWordOutlined />}
+                  loading={downloadingDocx}
+                  onClick={onDownloadDocx}
+                >
+                  Download Word (.docx)
+                </Button>
+              )}
             </Flex>
           </Flex>
         }
@@ -52,13 +84,31 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
           <Button key="close" onClick={onClose}>
             Close
           </Button>,
-          <Button key="download" icon={<DownloadOutlined />} onClick={handleDownload}>
-            Download HTML
-          </Button>,
-          <Button key="print" type="primary" icon={<PrinterOutlined />} onClick={handlePrint}>
+          onDownloadXlsx && (
+            <Button
+              key="download-xlsx"
+              icon={<FileExcelOutlined style={{ color: '#10b981' }} />}
+              loading={downloadingXlsx}
+              onClick={onDownloadXlsx}
+            >
+              Download Excel (.xlsx)
+            </Button>
+          ),
+          onDownloadDocx && (
+            <Button
+              key="download-docx"
+              type="primary"
+              icon={<FileWordOutlined />}
+              loading={downloadingDocx}
+              onClick={onDownloadDocx}
+            >
+              Download Word (.docx)
+            </Button>
+          ),
+          <Button key="print" icon={<PrinterOutlined />} onClick={handlePrint}>
             Print Record (A4)
           </Button>,
-        ]}
+        ].filter(Boolean)}
         destroyOnHidden
         styles={{
           body: {
@@ -88,7 +138,8 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
               srcDoc={srcDoc}
               style={{
                 width: '100%',
-                height: '100%',
+                height: 100,
+                minHeight: '100%',
                 border: 'none',
               }}
               sandbox="allow-same-origin"

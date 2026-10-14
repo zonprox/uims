@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuditService } from './audit.service';
+import { AuditService, normalizeEntityType } from './audit.service';
 
 describe('AuditService', () => {
   let service: AuditService;
@@ -334,6 +334,215 @@ describe('AuditService', () => {
 
       const single = await service.findOne('log-invalid-date');
       expect(single.timestamp).toBe('');
+    });
+  });
+
+  describe('findByEntity', () => {
+    it('queries audit logs by entityType and entityId with bounded pagination and deterministic sorting', async () => {
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+      mockPrisma.auditLog.findMany.mockResolvedValue([
+        {
+          id: 'log-entity-1',
+          userId: 'u-1',
+          userName: 'Admin',
+          userEmail: 'admin@company.com',
+          action: 'UPDATE',
+          severity: 'Info',
+          entity: 'MacBook Pro 16',
+          entityType: 'Asset',
+          entityId: 'ast-101',
+          ipAddress: '10.0.0.1',
+          status: 'Success',
+          statusCode: 200,
+          durationMs: 15,
+          details: 'Updated status to InUse',
+          oldValue: { status: 'InStorage' },
+          newValue: { status: 'InUse' },
+          timestamp: new Date('2026-08-25T10:00:00Z'),
+        },
+      ]);
+
+      const result = await service.findByEntity('Asset', 'ast-101', { page: 1, pageSize: 20 });
+
+      expect(mockPrisma.auditLog.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          entityType: 'Asset',
+          entityId: 'ast-101',
+        }),
+      });
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          entityType: 'Asset',
+          entityId: 'ast-101',
+        }),
+        orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+        take: 20,
+        skip: 0,
+      });
+
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(20);
+      expect(result.totalPages).toBe(1);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].entityId).toBe('ast-101');
+    });
+
+    it('normalizes entityType to canonical name and uses exact match for index scan', async () => {
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+
+      await service.findByEntity('  hardware  ', 'hw-1');
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            entityType: 'Hardware',
+            entityId: 'hw-1',
+          }),
+        }),
+      );
+
+      await service.findByEntity('license', 'lic-1');
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            entityType: 'License',
+            entityId: 'lic-1',
+          }),
+        }),
+      );
+    });
+
+    it('enforces maximum take ceiling of 100 on findByEntity', async () => {
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+
+      await service.findByEntity('Asset', 'ast-101', { pageSize: 500 });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 100,
+        }),
+      );
+    });
+  });
+
+  describe('normalizeEntityType', () => {
+    it('maps known lowercase or plural entity types to canonical names', () => {
+      expect(normalizeEntityType('hardware')).toBe('Hardware');
+      expect(normalizeEntityType('asset')).toBe('Asset');
+      expect(normalizeEntityType('assets')).toBe('Asset');
+      expect(normalizeEntityType('license')).toBe('License');
+      expect(normalizeEntityType('licenses')).toBe('License');
+      expect(normalizeEntityType('software')).toBe('License');
+      expect(normalizeEntityType('inventory')).toBe('Inventory');
+      expect(normalizeEntityType('network')).toBe('Network');
+      expect(normalizeEntityType('user')).toBe('User');
+      expect(normalizeEntityType('users')).toBe('User');
+      expect(normalizeEntityType('security')).toBe('Security');
+      expect(normalizeEntityType('peripheral')).toBe('Peripheral');
+    });
+
+    it('preserves unknown entity types with trimming', () => {
+      expect(normalizeEntityType('  CustomEntity  ')).toBe('CustomEntity');
+    });
+  });
+
+  describe('logEvent sanitization', () => {
+    it('automatically sanitizes sensitive keys in diffPayload, oldValue, and newValue before persisting', async () => {
+      mockPrisma.auditLog.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ id: 'log-created', ...data }),
+      );
+
+      await service.logEvent({
+        action: 'UPDATE_CREDENTIALS',
+        entity: 'User',
+        entityType: 'User',
+        entityId: 'u-123',
+        oldValue: {
+          username: 'jdoe',
+          password: 'plainOldPassword1!',
+          licenseKey: 'OLD-LICENSE-KEY',
+        },
+        newValue: {
+          username: 'jdoe',
+          password: 'plainNewPassword2!',
+          licenseKey: 'NEW-LICENSE-KEY',
+          apiToken: 'tok-secret-123',
+        },
+        diffPayload: {
+          password: 'plainNewPassword2!',
+          secret: 'topSecretValue',
+        },
+      });
+
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          oldValue: {
+            username: 'jdoe',
+            password: '[REDACTED]',
+            licenseKey: '[REDACTED]',
+          },
+          newValue: {
+            username: 'jdoe',
+            password: '[REDACTED]',
+            licenseKey: '[REDACTED]',
+            apiToken: '[REDACTED]',
+          },
+          diffPayload: {
+            password: '[REDACTED]',
+            secret: '[REDACTED]',
+          },
+        }),
+      });
+    });
+  });
+
+  describe('recordEntityDiff', () => {
+    it('computes field-level diff and persists sanitized audit record', async () => {
+      mockPrisma.auditLog.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ id: 'log-diff', ...data }),
+      );
+
+      const oldState = {
+        name: 'Server 1',
+        status: 'Active',
+        secretKey: 'key-1',
+      };
+      const newState = {
+        name: 'Server 1 Renamed',
+        status: 'Active',
+        secretKey: 'key-2',
+      };
+
+      await service.recordEntityDiff({
+        entityType: 'Asset',
+        entityId: 'ast-55',
+        action: 'UPDATE',
+        actor: { id: 'usr-1', name: 'John Admin', email: 'john@example.com' },
+        oldState,
+        newState,
+      });
+
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'UPDATE',
+          entityType: 'Asset',
+          entityId: 'ast-55',
+          oldValue: {
+            name: 'Server 1',
+            secretKey: '[REDACTED]',
+          },
+          newValue: {
+            name: 'Server 1 Renamed',
+            secretKey: '[REDACTED]',
+          },
+          diffPayload: expect.objectContaining({
+            hasChanges: true,
+            changedKeys: ['name', 'secretKey'],
+          }),
+        }),
+      });
     });
   });
 });

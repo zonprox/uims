@@ -98,6 +98,11 @@ vi.mock('../../services/audit.service', () => ({
   auditService: {
     getLogs: vi.fn().mockImplementation(() => Promise.resolve(mockLogs)),
     getStats: vi.fn().mockImplementation(() => Promise.resolve(mockStats)),
+    getLog: vi
+      .fn()
+      .mockImplementation((id: string) =>
+        Promise.resolve(mockLogs.find((l) => l.id === id) ?? null),
+      ),
     exportCsv: vi.fn().mockImplementation(() => Promise.resolve('ID,Timestamp\naud-001,2026')),
   },
 }));
@@ -138,13 +143,13 @@ describe('AuditPage Component Tests', () => {
     vi.clearAllMocks();
   });
 
-  const renderComponent = async () => {
+  const renderComponent = async (initialEntries: string[] = ['/']) => {
     currentRoot = createRoot(container);
     await act(async () => {
       currentRoot?.render(
         createElement(
           MemoryRouter,
-          null,
+          { initialEntries },
           createElement(ConfigProvider, null, createElement(App, null, createElement(AuditPage))),
         ),
       );
@@ -489,5 +494,108 @@ describe('AuditPage Component Tests', () => {
         writable: true,
       });
     }
+  });
+
+  it('renders Active Entity Filter Banner and filters logs when entityType and entityId are in URL', async () => {
+    await renderComponent(['/audit?entityType=Asset&entityId=ast-900']);
+
+    // Active Entity Filter Banner must be rendered
+    expect(container.textContent).toContain('Filtered by Entity:');
+    expect(container.textContent).toContain('Asset');
+    expect(container.textContent).toContain('ast-900');
+    expect(container.textContent).toContain('Clear Entity Filter');
+
+    // auditService.getLogs called with entityType and entityId
+    expect(auditService.getLogs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'Asset',
+        entityId: 'ast-900',
+      }),
+    );
+  });
+
+  it('clears entity filter when Clear Entity Filter button is clicked', async () => {
+    await renderComponent(['/audit?entityType=Asset&entityId=ast-900']);
+
+    expect(container.textContent).toContain('Filtered by Entity:');
+
+    const clearBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Clear Entity Filter'),
+    );
+    expect(clearBtn).toBeTruthy();
+
+    await act(async () => {
+      clearBtn?.click();
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+
+    expect(container.textContent).not.toContain('Filtered by Entity:');
+  });
+
+  it('passes entityType and entityId to exportCsv when entity filter is active', async () => {
+    await renderComponent(['/audit?entityType=License&entityId=lic-55']);
+
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const exportBtn = buttons.find((b) => b.textContent?.includes('Export CSV'));
+    expect(exportBtn).toBeTruthy();
+
+    await act(async () => {
+      exportBtn?.click();
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    expect(auditService.exportCsv).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'License',
+        entityId: 'lic-55',
+      }),
+    );
+  });
+
+  it('automatically opens inspector drawer when inspectId is provided in URL params', async () => {
+    await renderComponent(['/audit?inspectId=aud-001']);
+
+    const drawer = document.querySelector('.ant-drawer');
+    expect(drawer).toBeTruthy();
+    expect(drawer?.textContent).toContain('aud-001');
+    expect(drawer?.textContent).toContain('Alex Vance');
+    expect(drawer?.textContent).toContain('Field-Level Changes & Visual Diff');
+  });
+
+  it('fetches specific log via auditService.getLog when inspectId is not in initial logs list', async () => {
+    const specialLog: AuditLog = {
+      id: 'aud-999',
+      timestamp: '2026-10-01T12:00:00Z',
+      user: 'External System',
+      userName: 'External System',
+      userEmail: 'ext@uims.internal',
+      action: 'UPDATE',
+      severity: 'Info',
+      entity: 'Switch SW-01',
+      entityType: 'Network',
+      ipAddress: '10.10.1.1',
+      status: 'Success',
+      oldValue: { firmware: '1.0.0' },
+      newValue: { firmware: '1.1.0' },
+    };
+
+    (auditService.getLog as ReturnType<typeof vi.fn>).mockResolvedValueOnce(specialLog);
+
+    await renderComponent(['/audit?inspectId=aud-999']);
+
+    expect(auditService.getLog).toHaveBeenCalledWith('aud-999');
+    const drawer = document.querySelector('.ant-drawer');
+    expect(drawer).toBeTruthy();
+    expect(drawer?.textContent).toContain('aud-999');
+    expect(drawer?.textContent).toContain('Switch SW-01');
+    expect(drawer?.textContent).toContain('firmware:');
+    expect(drawer?.textContent).toContain('-1.0.0');
+    expect(drawer?.textContent).toContain('+1.1.0');
   });
 });

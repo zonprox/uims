@@ -146,20 +146,20 @@ describe('BatchPrintModal Component', () => {
     const onClose = vi.fn();
     await renderComponent({ open: true, assets: mockAssets, onClose, defaultColumns: 4 });
 
-    expect(document.body.textContent).toContain('Standard 4-Column A4 Layout');
+    expect(document.body.textContent).toContain('Batch Print QR Labels');
     const grid = document.body.querySelector('.printable-asset-sheet');
     expect(grid?.classList.contains('cols-4')).toBe(true);
   });
 
-  it('generates A4 portrait print HTML with nowrap and balanced margins', async () => {
+  it('generates A4 portrait print HTML with normal wrapping and balanced margins', async () => {
     const { generateBatchPrintSheetHtml } = await import('../utils/printAssetLabel');
     const html = generateBatchPrintSheetHtml('<div class="card">Item</div>');
     expect(html).toContain('size: A4 portrait;');
     expect(html).toContain('margin: 6mm 5mm;');
     expect(html).toContain('grid-template-columns: repeat(4, 1fr)');
-    expect(html).toContain('white-space: nowrap !important;');
-    expect(html).toContain('text-overflow: ellipsis !important;');
-    expect(html).toContain('gap: 2.5mm !important;');
+    expect(html).toContain('white-space: normal !important;');
+    expect(html).toContain('word-break: break-word !important;');
+    expect(html).toContain('gap: 1mm !important;');
   });
 
   it('unwraps nested printable-asset-sheet when printing container', async () => {

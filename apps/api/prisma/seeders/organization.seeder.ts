@@ -17,13 +17,16 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
         'org-holding|HOLDING|Youngone / Broadpeak Group||0100100100|contact@youngonevn.com|+84 (28) 3997-8888|Broadpeak Tower, Ho Chi Minh City / Seoul|https://youngonevn.com',
         'org-bsl|BSL|Broadpeak Soc Trang|org-holding|2200194820|contact.bsl@youngonevn.com|+84 (299) 387-9000|An Nghiep Industrial Zone, Soc Trang Province, Vietnam|https://youngonevn.com',
         'org-bsh|BSH|Broadpeak Ho Chi Minh|org-holding|0314892019|contact.bsh@youngonevn.com|+84 (28) 3997-8000|District 7, Ho Chi Minh City, Vietnam|https://youngonevn.com',
+        'org-bsd|BSD|Broadpeak Da Nang|org-holding|0401928374|contact.bsd@youngonevn.com|+84 (236) 388-9000|Da Nang Hi-Tech Park, Da Nang City, Vietnam|https://youngonevn.com|INACTIVE',
       ];
       const orgMap: Record<string, import('@prisma/client').Organization> = {};
       for (const row of orgRows) {
-        const [id, code, name, parentId, taxId, email, phone, address, website] = row.split('|');
+        const [id, code, name, parentId, taxId, email, phone, address, website, rawStatus] =
+          row.split('|');
+        const status = rawStatus || 'ACTIVE';
         const record = await prisma.organization.upsert({
           where: { code },
-          update: { name, parentId: parentId || null },
+          update: { name, parentId: parentId || null, status },
           create: {
             id,
             code,
@@ -34,7 +37,7 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
             phone,
             address,
             website,
-            status: 'ACTIVE',
+            status,
           },
         });
         orgMap[code] = record;
@@ -91,12 +94,22 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
         'dept-bsh-it|Enterprise IT & Cloud Systems|DEPT-BSH-IT|Enterprise ERP systems, cloud security, SD-WAN, data platforms & regional corporate infrastructure|BSH|dept-bsh-corp|Dang Thanh Phong|phong.dang@youngonevn.com',
         'dept-bsh-fin|Finance, Treasury & Cost Accounting|DEPT-BSH-FIN|Corporate accounting, financial audit, banking facilities, customs tariffs & cash flow treasury|BSH|dept-bsh-corp|Vu Bich Ngoc|ngoc.vu@youngonevn.com',
         'dept-bsh-hr|People Operations & Talent Acquisition|DEPT-BSH-HR|Executive headhunting, employer branding, organizational development & professional corporate training|BSH|dept-bsh-corp|Bui Mai Phuong|phuong.bui@youngonevn.com',
+        'dept-bsl-legacy|Legacy Manual Cutting Unit|DEPT-BSL-LEGACY-CUT|Archived manual fabric cutting section, replaced by automated CAD spreading lines|BSL|dept-bsl-prod|Tran Van Phuc|phuc.tran@youngonevn.com|INACTIVE',
       ];
 
       const departmentsData = [
         ...corporateDeptRows.map((row) => {
-          const [id, name, code, description, orgCode, parentId, managerName, managerEmail] =
-            row.split('|');
+          const [
+            id,
+            name,
+            code,
+            description,
+            orgCode,
+            parentId,
+            managerName,
+            managerEmail,
+            rawStatus,
+          ] = row.split('|');
           return {
             id,
             name,
@@ -106,7 +119,7 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
             parentId: parentId || null,
             managerName,
             managerEmail,
-            status: 'ACTIVE',
+            status: rawStatus || 'ACTIVE',
           };
         }),
         ...factorySections,
@@ -160,6 +173,8 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
         'pos-bsh-src-spec|Global Fabric Sourcing Specialist|POS-BSH-SRC-SPEC|DEPT-BSH-SRC|Senior',
         'pos-bsh-fin-ctrl|Chief Accountant & Financial Controller|POS-BSH-FIN-CTRL|DEPT-BSH-FIN|Director',
         'pos-bsh-hr-mgr|Talent Acquisition & HR Manager|POS-BSH-HR-MGR|DEPT-BSH-HR|Manager',
+        'pos-bsl-f1-cut-int|Apparel Cutting Apprentice|POS-BSL-F1-CUT-INT|DEPT-BSL-F1-CUT|Junior',
+        'pos-bsh-it-jr|Junior IT Helpdesk Technician|POS-BSH-IT-JR|DEPT-BSH-IT|Junior',
       ];
 
       const seededPositions: Record<string, import('@prisma/client').Position> = {};

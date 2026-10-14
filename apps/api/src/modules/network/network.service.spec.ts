@@ -1186,4 +1186,181 @@ describe('NetworkService', () => {
       );
     });
   });
+
+  describe('Audit Logging Integration', () => {
+    let mockAuditService: { logEvent: ReturnType<typeof vi.fn> };
+    let serviceWithAudit: NetworkService;
+
+    beforeEach(() => {
+      mockAuditService = {
+        logEvent: vi.fn().mockResolvedValue({ id: 'aud-net-1' }),
+      };
+      serviceWithAudit = new NetworkService(
+        mockPrisma as unknown as import('../../database/prisma.service').PrismaService,
+        mockAuditService as unknown as import('../audit/audit.service').AuditService,
+      );
+    });
+
+    it('should log SUBNET_CREATED on createSubnet', async () => {
+      mockPrisma.subnet.create.mockResolvedValue({
+        id: 'sub-aud-1',
+        cidr: '192.168.10.0/24',
+        name: 'Office LAN',
+        gateway: '192.168.10.1',
+        vlanId: null,
+      });
+
+      await serviceWithAudit.createSubnet({
+        cidr: '192.168.10.0/24',
+        name: 'Office LAN',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'SUBNET_CREATED',
+          entity: 'NetworkSubnet',
+          entityType: 'Network',
+          entityId: 'sub-aud-1',
+          newValue: expect.objectContaining({ id: 'sub-aud-1', cidr: '192.168.10.0/24' }),
+        }),
+      );
+    });
+
+    it('should log SUBNET_UPDATED on updateSubnet with diff', async () => {
+      mockPrisma.subnet.findUnique.mockResolvedValue({
+        id: 'sub-aud-1',
+        cidr: '192.168.10.0/24',
+        name: 'Office LAN Old',
+        gateway: '192.168.10.1',
+      });
+      mockPrisma.subnet.update.mockResolvedValue({
+        id: 'sub-aud-1',
+        cidr: '192.168.10.0/24',
+        name: 'Office LAN New',
+        gateway: '192.168.10.254',
+      });
+
+      await serviceWithAudit.updateSubnet('sub-aud-1', {
+        name: 'Office LAN New',
+        gateway: '192.168.10.254',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'SUBNET_UPDATED',
+          entity: 'NetworkSubnet',
+          entityType: 'Network',
+          entityId: 'sub-aud-1',
+          oldValue: expect.objectContaining({ name: 'Office LAN Old', gateway: '192.168.10.1' }),
+          newValue: expect.objectContaining({ name: 'Office LAN New', gateway: '192.168.10.254' }),
+        }),
+      );
+    });
+
+    it('should log SUBNET_DELETED on deleteSubnet', async () => {
+      mockPrisma.subnet.findUnique.mockResolvedValue({
+        id: 'sub-aud-1',
+        name: 'Office LAN',
+        cidr: '192.168.10.0/24',
+      });
+      mockPrisma.subnet.delete.mockResolvedValue({
+        id: 'sub-aud-1',
+        name: 'Office LAN',
+        cidr: '192.168.10.0/24',
+      });
+
+      await serviceWithAudit.deleteSubnet('sub-aud-1');
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'SUBNET_DELETED',
+          entity: 'NetworkSubnet',
+          entityType: 'Network',
+          entityId: 'sub-aud-1',
+        }),
+      );
+    });
+
+    it('should log IP_ALLOCATED on createIp', async () => {
+      mockPrisma.iPAddress.findFirst.mockResolvedValue(null);
+      mockPrisma.iPAddress.create.mockResolvedValue({
+        id: 'ip-aud-1',
+        address: '192.168.10.50',
+        deviceType: 'Workstation',
+        status: 'IN_USE',
+        pingStatus: 'online',
+      });
+
+      await serviceWithAudit.createIp({
+        address: '192.168.10.50',
+        deviceType: 'Workstation',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'IP_ALLOCATED',
+          entity: 'IPAddress',
+          entityType: 'Network',
+          entityId: 'ip-aud-1',
+          newValue: expect.objectContaining({ id: 'ip-aud-1', address: '192.168.10.50' }),
+        }),
+      );
+    });
+
+    it('should log IP_UPDATED on updateIp with field diff', async () => {
+      mockPrisma.iPAddress.findUnique.mockResolvedValue({
+        id: 'ip-aud-1',
+        address: '192.168.10.50',
+        deviceType: 'Workstation',
+        status: 'AVAILABLE',
+      });
+      mockPrisma.iPAddress.update.mockResolvedValue({
+        id: 'ip-aud-1',
+        address: '192.168.10.50',
+        deviceType: 'Server',
+        status: 'IN_USE',
+      });
+
+      await serviceWithAudit.updateIp('ip-aud-1', {
+        deviceType: 'Server',
+        status: 'IN_USE',
+      });
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'IP_UPDATED',
+          entity: 'IPAddress',
+          entityType: 'Network',
+          entityId: 'ip-aud-1',
+          oldValue: expect.objectContaining({ deviceType: 'Workstation', status: 'AVAILABLE' }),
+          newValue: expect.objectContaining({ deviceType: 'Server', status: 'IN_USE' }),
+        }),
+      );
+    });
+
+    it('should log IP_RELEASED on deleteIp', async () => {
+      mockPrisma.iPAddress.findUnique.mockResolvedValue({
+        id: 'ip-aud-1',
+        address: '192.168.10.50',
+        subnetId: 'sub-1',
+      });
+      mockPrisma.iPAddress.delete.mockResolvedValue({
+        id: 'ip-aud-1',
+        address: '192.168.10.50',
+      });
+      mockPrisma.subnet.findUnique.mockResolvedValue({ id: 'sub-1', totalIps: 254 });
+      mockPrisma.iPAddress.count.mockResolvedValue(10);
+
+      await serviceWithAudit.deleteIp('ip-aud-1');
+
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'IP_RELEASED',
+          entity: 'IPAddress',
+          entityType: 'Network',
+          entityId: 'ip-aud-1',
+        }),
+      );
+    });
+  });
 });

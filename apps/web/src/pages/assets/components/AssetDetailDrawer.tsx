@@ -30,6 +30,7 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import AppDrawer from '../../../components/AppDrawer';
 import { FormattedDate } from '../../../components/FormattedDate';
+import ActivityTimeline from '../../../components/ActivityTimeline';
 import { type Asset, assetsService } from '../../../services/assets.service';
 import { printAssetLabel } from '../utils/printAssetLabel';
 import { PrintableAssetLabel } from './PrintableAssetLabel';
@@ -683,6 +684,11 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                     </Button>
                   </Flex>
                 ),
+              },
+              {
+                key: 'history',
+                label: 'Asset History',
+                children: <ActivityTimeline entityType="Hardware" entityId={assetData.id} />,
               },
             ]}
           />

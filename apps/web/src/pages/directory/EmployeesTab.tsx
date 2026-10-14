@@ -6,6 +6,7 @@ import {
   EditOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  HistoryOutlined,
   KeyOutlined,
   LaptopOutlined,
   PlusOutlined,
@@ -52,6 +53,7 @@ import {
 } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
+import ActivityTimeline from '../../components/ActivityTimeline';
 import AppDrawer from '../../components/AppDrawer';
 import { directoryService } from '../../services/directory.service';
 import {
@@ -2091,6 +2093,12 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                 label: `Licenses (${userLicenses.length})`,
                 icon: <SafetyCertificateOutlined />,
                 children: renderLicensesTabContent(detailEmployee),
+              },
+              {
+                key: 'history',
+                label: 'User Lifecycle & History',
+                icon: <HistoryOutlined />,
+                children: <ActivityTimeline entityType="User" entityId={detailEmployee.id} />,
               },
             ]}
           />

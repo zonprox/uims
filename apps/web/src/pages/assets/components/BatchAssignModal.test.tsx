@@ -16,6 +16,14 @@ vi.mock('../../../services/assets.service', () => ({
       filename: 'asset_handover_test.html',
       generatedAt: '2026-10-13T00:00:00.000Z',
     }),
+    downloadHandoverDocx: vi.fn().mockResolvedValue({
+      blob: new Blob(['docx']),
+      filename: 'asset_handover_test.docx',
+    }),
+    downloadHandoverXlsx: vi.fn().mockResolvedValue({
+      blob: new Blob(['xlsx']),
+      filename: 'asset_handover_test.xlsx',
+    }),
     uploadHandoverDocument: vi.fn().mockResolvedValue({
       fileUrl: '/api/v1/assets/handover-documents/file/signed-test.pdf',
       fileName: 'signed-test.pdf',
@@ -117,8 +125,11 @@ describe('BatchAssignModal Component', () => {
     submitting: boolean;
     onAssign: (values: BatchAssignFormValues) => void;
     onCancel: () => void;
+    initialUserId?: string;
   }) => {
-    currentRoot = createRoot(container);
+    if (!currentRoot) {
+      currentRoot = createRoot(container);
+    }
     await act(async () => {
       currentRoot?.render(
         createElement(
@@ -227,10 +238,11 @@ describe('BatchAssignModal Component', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('renders document generation toolbar with Preview, Print, and Download buttons and direct upload dragger', async () => {
+  it('hides handover record documentation and upload when no target employee is selected, and reveals them once selected', async () => {
     const onAssign = vi.fn();
     const onCancel = vi.fn();
 
+    // 1. Initial state without selected employee
     await renderComponent({
       open: true,
       assets: mockAssets,
@@ -239,17 +251,37 @@ describe('BatchAssignModal Component', () => {
       onCancel,
     });
 
+    expect(document.body.textContent).toContain('Target Employee Required');
+    expect(document.body.textContent).not.toContain('Handover Record Documentation');
+    expect(document.body.textContent).not.toContain('Signed Handover Document');
+
+    // 2. State with selected employee (Sarah Connor)
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel,
+      initialUserId: 'usr-1',
+    });
+
+    // Check recipient details card
+    expect(document.body.textContent).toContain('Recipient Details');
+    expect(document.body.textContent).toContain('Sarah Connor');
+    expect(document.body.textContent).toContain('EMP-001');
+    expect(document.body.textContent).toContain('Engineering');
+
     // Check handover documentation card
     expect(document.body.textContent).toContain('Handover Record Documentation');
-    expect(document.body.textContent).toContain('Populate pre-filled handover document');
+    expect(document.body.textContent).toContain('Pre-filled for Sarah Connor (2 assets)');
     expect(document.body.textContent).toContain('Preview');
     expect(document.body.textContent).toContain('Print');
-    expect(document.body.textContent).toContain('Download');
+    expect(document.body.textContent).toContain('Word (.docx)');
+    expect(document.body.textContent).toContain('Excel (.xlsx)');
 
     // Check direct upload dragger
     expect(document.body.textContent).toContain('Signed Handover Document');
     expect(document.body.textContent).toContain('Click or drag signed document here to upload');
-    expect(document.body.textContent).toContain('Supports PDF, PNG, JPG up to 10MB');
 
     const dragger = document.querySelector('.ant-upload-drag');
     expect(dragger).toBeDefined();
@@ -265,6 +297,7 @@ describe('BatchAssignModal Component', () => {
       submitting: false,
       onAssign,
       onCancel,
+      initialUserId: 'usr-1',
     });
 
     const previewBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
@@ -281,6 +314,7 @@ describe('BatchAssignModal Component', () => {
       expect.objectContaining({
         type: 'assignment',
         assetIds: ['ast-1', 'ast-2'],
+        recipientId: 'usr-1',
       }),
     );
   });
@@ -295,6 +329,7 @@ describe('BatchAssignModal Component', () => {
       submitting: false,
       onAssign,
       onCancel,
+      initialUserId: 'usr-1',
     });
 
     const printBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
@@ -311,6 +346,7 @@ describe('BatchAssignModal Component', () => {
       expect.objectContaining({
         type: 'assignment',
         assetIds: ['ast-1', 'ast-2'],
+        recipientId: 'usr-1',
       }),
     );
   });
@@ -325,10 +361,11 @@ describe('BatchAssignModal Component', () => {
       submitting: false,
       onAssign,
       onCancel,
+      initialUserId: 'usr-1',
     });
 
     const downloadBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (b) => b.textContent?.includes('Download'),
+      (b) => b.textContent?.includes('Word (.docx)'),
     );
     expect(downloadBtn).toBeDefined();
 
@@ -337,10 +374,43 @@ describe('BatchAssignModal Component', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
-    expect(assetsService.generateHandoverDocument).toHaveBeenCalledWith(
+    expect(assetsService.downloadHandoverDocx).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'assignment',
         assetIds: ['ast-1', 'ast-2'],
+        recipientId: 'usr-1',
+      }),
+    );
+  });
+
+  it('triggers download handover spreadsheet when clicking Excel button', async () => {
+    const onAssign = vi.fn();
+    const onCancel = vi.fn();
+
+    await renderComponent({
+      open: true,
+      assets: mockAssets,
+      submitting: false,
+      onAssign,
+      onCancel,
+      initialUserId: 'usr-1',
+    });
+
+    const excelBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+      b.textContent?.includes('Excel (.xlsx)'),
+    );
+    expect(excelBtn).toBeDefined();
+
+    await act(async () => {
+      excelBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(assetsService.downloadHandoverXlsx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'assignment',
+        assetIds: ['ast-1', 'ast-2'],
+        recipientId: 'usr-1',
       }),
     );
   });
@@ -355,23 +425,8 @@ describe('BatchAssignModal Component', () => {
       submitting: false,
       onAssign,
       onCancel,
+      initialUserId: 'usr-1',
     });
-
-    // Select employee
-    const select = document.querySelector('.ant-select-selection-search-input');
-    expect(select).toBeDefined();
-    await act(async () => {
-      select?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    });
-
-    const option = document.querySelector('.ant-select-item-option');
-    if (option) {
-      await act(async () => {
-        option.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      });
-    }
 
     // Attach file via input
     const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');

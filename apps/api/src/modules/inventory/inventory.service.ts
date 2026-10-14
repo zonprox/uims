@@ -6,7 +6,9 @@ import type {
   InventoryStatsDto,
   UpdateInventoryItemDto,
 } from '@uims/shared-types';
+import { computeFieldDiff } from '@uims/shared-utils';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 function generateSku(): string {
@@ -42,6 +44,7 @@ export class InventoryService {
   constructor(
     private prisma: PrismaService,
     @Optional() private notificationsService?: NotificationsService,
+    @Optional() private auditService?: AuditService,
   ) {}
 
   private async checkStockThreshold(item: {
@@ -76,27 +79,11 @@ export class InventoryService {
   }
 
   async create(data: CreateInventoryItemDto) {
-    let categoryId = data.categoryId;
-    if (!categoryId && data.category && this.prisma.inventoryCategory) {
-      const cat = await this.prisma.inventoryCategory.findFirst({ where: { name: data.category } });
-      if (cat) categoryId = cat.id;
-    }
-    if (!categoryId && this.prisma.inventoryCategory) {
-      const defaultCat = await this.prisma.inventoryCategory.findFirst();
-      if (defaultCat) categoryId = defaultCat.id;
-    }
-    if (!categoryId && this.prisma.inventoryCategory) {
-      const createdCat = await this.prisma.inventoryCategory.create({
-        data: { name: data.category || 'General Supplies' },
-      });
-      if (createdCat) categoryId = createdCat.id;
-    }
-
     const item = await this.prisma.inventoryItem.create({
       data: {
         sku: data.sku || generateSku(),
         name: data.name,
-        categoryId,
+        categoryId: data.categoryId,
         quantity: data.quantity !== undefined ? Number(data.quantity) : 10,
         minThreshold: data.minThreshold !== undefined ? Number(data.minThreshold) : 5,
         unitCost: data.unitCost !== undefined ? Number(data.unitCost) : 0,
@@ -113,7 +100,29 @@ export class InventoryService {
       await this.checkStockThreshold(item);
     }
 
-    return formatInventoryItem(item);
+    const formatted = formatInventoryItem(item);
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'INVENTORY_ITEM_CREATED',
+          entity: 'Inventory',
+          entityType: 'Inventory',
+          entityId: formatted.id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Inventory item "${formatted.name}" (${formatted.sku}) created`,
+          newValue: formatted as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for created inventory item "${formatted.name}" (${formatted.id})`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async findAll(query?: InventoryQueryDto) {
@@ -172,6 +181,12 @@ export class InventoryService {
   }
 
   async update(id: string, data: UpdateInventoryItemDto) {
+    const existing = await this.prisma.inventoryItem.findUnique({
+      where: { id },
+      include: { category: true },
+    });
+    if (!existing) throw new NotFoundException(`Inventory item with ID ${id} not found`);
+
     const updateData: Prisma.InventoryItemUpdateInput = {};
     if (data.sku !== undefined) updateData.sku = data.sku;
     if (data.name !== undefined) updateData.name = data.name;
@@ -184,9 +199,6 @@ export class InventoryService {
 
     if (data.categoryId !== undefined) {
       updateData.category = { connect: { id: data.categoryId } };
-    } else if (data.category) {
-      const cat = await this.prisma.inventoryCategory.findFirst({ where: { name: data.category } });
-      if (cat) updateData.category = { connect: { id: cat.id } };
     }
 
     const item = await this.prisma.inventoryItem.update({
@@ -201,11 +213,64 @@ export class InventoryService {
       await this.checkStockThreshold(item);
     }
 
-    return formatInventoryItem(item);
+    const formatted = formatInventoryItem(item);
+
+    if (this.auditService) {
+      try {
+        const diff = computeFieldDiff(
+          existing as unknown as Record<string, unknown>,
+          item as unknown as Record<string, unknown>,
+        );
+        if (diff.hasChanges) {
+          await this.auditService.logEvent({
+            action: 'INVENTORY_ITEM_UPDATED',
+            entity: 'Inventory',
+            entityType: 'Inventory',
+            entityId: id,
+            severity: 'Info',
+            status: 'Success',
+            details: `Inventory item "${formatted.name}" (${formatted.sku}) updated (${diff.changedKeys.join(', ')})`,
+            diffPayload: diff as unknown as Record<string, unknown>,
+            oldValue: diff.oldValue ?? undefined,
+            newValue: diff.newValue ?? undefined,
+          });
+        }
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for updated inventory item "${id}"`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async remove(id: string) {
-    return this.prisma.inventoryItem.delete({ where: { id } });
+    const existing = await this.prisma.inventoryItem.findUnique({ where: { id } });
+    const deleted = await this.prisma.inventoryItem.delete({ where: { id } });
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'INVENTORY_ITEM_DELETED',
+          entity: 'Inventory',
+          entityType: 'Inventory',
+          entityId: id,
+          severity: 'Warning',
+          status: 'Success',
+          details: `Inventory item "${existing?.name || deleted.name}" (${existing?.sku || deleted.sku}) deleted`,
+          oldValue: (existing || deleted) as unknown as Record<string, unknown>,
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for deleted inventory item "${id}"`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return deleted;
   }
 
   async restock(id: string, quantityToAdd: number) {
@@ -226,7 +291,30 @@ export class InventoryService {
       await this.checkStockThreshold(updated);
     }
 
-    return formatInventoryItem(updated);
+    const formatted = formatInventoryItem(updated);
+
+    if (this.auditService) {
+      try {
+        await this.auditService.logEvent({
+          action: 'INVENTORY_RESTOCKED',
+          entity: 'Inventory',
+          entityType: 'Inventory',
+          entityId: id,
+          severity: 'Info',
+          status: 'Success',
+          details: `Inventory item "${formatted.name}" (${formatted.sku}) restocked (+${quantityToAdd} units)`,
+          oldValue: { quantity: item.quantity },
+          newValue: { quantity: updated.quantity },
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to record audit log for restocked inventory item "${id}"`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+
+    return formatted;
   }
 
   async getStats(): Promise<InventoryStatsDto> {

@@ -31,6 +31,14 @@ export interface AuditStats {
   securityAnomalies?: string;
 }
 
+export interface AuditHistoryResponse {
+  items: Array<AuditLog>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export const auditService = {
   getLogs: async (params?: {
     search?: string;
@@ -38,17 +46,37 @@ export const auditService = {
     severity?: string;
     status?: string;
     entity?: string;
+    entityType?: string;
+    entityId?: string;
     startDate?: string;
     endDate?: string;
     page?: number;
     pageSize?: number;
   }): Promise<Array<AuditLog>> => {
     const res = await api.get('/audit', { params });
-    return res.data.data;
+    return res.data?.data ?? res.data;
+  },
+  getEntityHistory: async (
+    entityType: string,
+    entityId: string,
+    params?: {
+      page?: number;
+      pageSize?: number;
+      action?: string;
+      severity?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<AuditHistoryResponse> => {
+    const res = await api.get(
+      `/audit/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
+      { params },
+    );
+    return res.data?.data ?? res.data;
   },
   getLog: async (id: string): Promise<AuditLog> => {
     const res = await api.get(`/audit/${id}`);
-    return res.data.data;
+    return res.data?.data ?? res.data;
   },
   exportCsv: async (params?: {
     search?: string;
@@ -56,6 +84,8 @@ export const auditService = {
     severity?: string;
     status?: string;
     entity?: string;
+    entityType?: string;
+    entityId?: string;
     startDate?: string;
     endDate?: string;
   }): Promise<string> => {
@@ -64,6 +94,6 @@ export const auditService = {
   },
   getStats: async (): Promise<AuditStats> => {
     const res = await api.get('/audit/stats');
-    return res.data.data;
+    return res.data?.data ?? res.data;
   },
 };

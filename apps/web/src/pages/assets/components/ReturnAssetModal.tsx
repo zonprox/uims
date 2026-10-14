@@ -1,6 +1,7 @@
 import {
-  DownloadOutlined,
   EyeOutlined,
+  FileExcelOutlined,
+  FileWordOutlined,
   InboxOutlined,
   LaptopOutlined,
   PrinterOutlined,
@@ -8,6 +9,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -27,7 +29,7 @@ import {
 } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { type Asset, assetsService } from '../../../services/assets.service';
-import { downloadDocumentHtml, printDocumentHtml } from '../utils/printDocument';
+import { downloadBlobFile, printDocumentHtml } from '../utils/printDocument';
 import { HandoverDocumentModal } from './HandoverDocumentModal';
 
 const { Text } = Typography;
@@ -128,16 +130,40 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
       try {
         setGeneratingDownload(true);
         const conditionNotes = form.getFieldValue('conditionNotes');
-        const res = await assetsService.generateHandoverDocument({
-          type: 'return',
+        const payload = {
+          type: 'return' as const,
           assetIds: [asset.id],
           recipientId: asset.assignedToId || undefined,
           conditionNotes: conditionNotes ? String(conditionNotes).trim() : undefined,
-        });
-        downloadDocumentHtml(res.html, res.filename);
-        message.success('Populated return record downloaded successfully.');
+        };
+        await assetsService.generateHandoverDocument(payload);
+        const { blob, filename } = await assetsService.downloadHandoverDocx(payload);
+        downloadBlobFile(blob, filename);
+        message.success('Populated return record (.docx) downloaded successfully.');
       } catch (err: unknown) {
         message.error(err instanceof Error ? err.message : 'Failed to download return document.');
+      } finally {
+        setGeneratingDownload(false);
+      }
+    };
+
+    const handleDownloadXlsx = async () => {
+      try {
+        setGeneratingDownload(true);
+        const conditionNotes = form.getFieldValue('conditionNotes');
+        const payload = {
+          type: 'return' as const,
+          assetIds: [asset.id],
+          recipientId: asset.assignedToId || undefined,
+          conditionNotes: conditionNotes ? String(conditionNotes).trim() : undefined,
+        };
+        const { blob, filename } = await assetsService.downloadHandoverXlsx(payload);
+        downloadBlobFile(blob, filename);
+        message.success('Populated return spreadsheet (.xlsx) downloaded successfully.');
+      } catch (err: unknown) {
+        message.error(
+          err instanceof Error ? err.message : 'Failed to download return spreadsheet.',
+        );
       } finally {
         setGeneratingDownload(false);
       }
@@ -193,6 +219,9 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
     };
 
     const isBusy = submitting || localSubmitting || uploadingDoc;
+    const hasCustodian = Boolean(
+      asset.assignedToId || (asset.assignedTo && asset.assignedTo !== 'Unassigned'),
+    );
 
     return (
       <>
@@ -243,50 +272,67 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
               </Descriptions>
             </Card>
 
-            <Card
-              size="small"
-              style={{ borderColor: token.colorBorderSecondary }}
-              styles={{ body: { padding: '12px 14px' } }}
-            >
-              <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-                <div>
-                  <Text strong style={{ fontSize: 12.5 }}>
-                    Return Record Documentation
-                  </Text>
+            {hasCustodian ? (
+              <Card
+                size="small"
+                style={{ borderColor: token.colorBorderSecondary }}
+                styles={{ body: { padding: '12px 14px' } }}
+              >
+                <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
                   <div>
-                    <Text type="secondary" style={{ fontSize: 11.5 }}>
-                      Populate return record with asset & employee details.
+                    <Text strong style={{ fontSize: 12.5 }}>
+                      Return Record Documentation
                     </Text>
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 11.5 }}>
+                        Pre-filled for {asset.assignedTo} ({asset.tag}).
+                      </Text>
+                    </div>
                   </div>
-                </div>
-                <Space size={6}>
-                  <Button
-                    size="small"
-                    icon={<EyeOutlined />}
-                    loading={generatingPreview}
-                    onClick={handlePreviewDocument}
-                  >
-                    Preview
-                  </Button>
-                  <Button
-                    size="small"
-                    icon={<PrinterOutlined />}
-                    loading={generatingPrint}
-                    onClick={handlePrintDocument}
-                  >
-                    Print
-                  </Button>
-                  <Button
-                    size="small"
-                    icon={<DownloadOutlined />}
-                    loading={generatingDownload}
-                    onClick={handleDownloadDocument}
-                  >
-                    Download
-                  </Button>
-                </Space>
-              </Flex>
-            </Card>
+                  <Space size={6}>
+                    <Button
+                      size="small"
+                      icon={<EyeOutlined />}
+                      loading={generatingPreview}
+                      onClick={handlePreviewDocument}
+                    >
+                      Preview
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<PrinterOutlined />}
+                      loading={generatingPrint}
+                      onClick={handlePrintDocument}
+                    >
+                      Print
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<FileWordOutlined />}
+                      loading={generatingDownload}
+                      onClick={handleDownloadDocument}
+                    >
+                      Word (.docx)
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<FileExcelOutlined />}
+                      loading={generatingDownload}
+                      onClick={handleDownloadXlsx}
+                    >
+                      Excel (.xlsx)
+                    </Button>
+                  </Space>
+                </Flex>
+              </Card>
+            ) : (
+              <Alert
+                type="info"
+                showIcon
+                title="Unassigned Asset"
+                description="This asset has no current custodian. Return record documentation is only applicable for assigned assets."
+              />
+            )}
 
             <Divider style={{ margin: '4px 0' }} />
 
@@ -378,6 +424,9 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
             html={previewDocData.html}
             filename={previewDocData.filename}
             onClose={() => setPreviewDocData(null)}
+            onDownloadDocx={handleDownloadDocument}
+            onDownloadXlsx={handleDownloadXlsx}
+            downloadingDocx={generatingDownload}
           />
         )}
       </>

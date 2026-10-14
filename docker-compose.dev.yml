@@ -11,8 +11,8 @@ services:
       NODE_ENV: development
       CI: "true"
       PORT: 3000
-      DATABASE_URL: postgresql://${DATABASE_USER:-uims}:${DATABASE_PASSWORD:-uims_secret_2026}@postgres:5432/${DATABASE_NAME:-uims_db}?schema=public&connection_limit=20&pool_timeout=30
-      REDIS_URL: redis://:${REDIS_PASSWORD:-uims_redis_2026}@redis:6379
+      DATABASE_URL: postgresql://${DATABASE_USER:-uims}:${DATABASE_PASSWORD}@postgres:5432/${DATABASE_NAME:-uims_db}?schema=public&connection_limit=20&pool_timeout=30
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-15m}

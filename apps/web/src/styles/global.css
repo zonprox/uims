@@ -231,8 +231,8 @@ code,
   /* Multi-asset A4 print sheet grid layout */
   .printable-asset-sheet {
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 8px !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1mm !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -244,7 +244,7 @@ code,
 
   .printable-asset-sheet.cols-4 {
     grid-template-columns: repeat(4, 1fr) !important;
-    gap: 6px !important;
+    gap: 1mm !important;
   }
 
   /* Multi-asset individual label card with cut guides */
@@ -254,18 +254,19 @@ code,
     break-inside: avoid !important;
     page-break-inside: avoid !important;
     border: 1.5px dashed #777777 !important;
+    border-radius: 2px !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
     box-sizing: border-box !important;
-    padding: 8px 10px !important;
+    padding: 4px 6px !important;
     margin: 0 !important;
     height: auto !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     text-align: left !important;
-    gap: 8px !important;
+    gap: 5px !important;
     visibility: visible !important;
   }
 

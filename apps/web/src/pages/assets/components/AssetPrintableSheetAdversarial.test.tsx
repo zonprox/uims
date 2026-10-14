@@ -1,7 +1,7 @@
 import { App, ConfigProvider } from 'antd';
 import * as fs from 'fs';
 import * as path from 'path';
-import { act, createElement, useState } from 'react';
+import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset } from '../../../services/assets.service';
@@ -98,17 +98,17 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
     });
   };
 
-  describe('1. High-Density A4 Grid Layout (3-Column vs 4-Column)', () => {
-    it('defaults to 3-column layout when columns prop is omitted', async () => {
+  describe('1. High-Density A4 Grid Layout (Standardized 4-Column Layout)', () => {
+    it('defaults to 4-column layout when columns prop is omitted', async () => {
       const asset = createAdversarialAsset({ tag: 'AST-COL-DEF' });
       await renderSheet({ assets: [asset] });
 
       const grid = container.querySelector('.printable-asset-sheet') as HTMLElement;
       expect(grid).not.toBeNull();
-      expect(grid.classList.contains('cols-3')).toBe(true);
-      expect(grid.classList.contains('cols-4')).toBe(false);
-      expect(grid.style.gridTemplateColumns).toBe('repeat(3, 1fr)');
-      expect(grid.style.gap).toBe('8px');
+      expect(grid.classList.contains('cols-4')).toBe(true);
+      expect(grid.classList.contains('cols-3')).toBe(false);
+      expect(grid.style.gridTemplateColumns).toBe('repeat(4, 1fr)');
+      expect(grid.style.gap).toBe('3px');
     });
 
     it('renders 4-column compact layout when columns={4}', async () => {
@@ -120,61 +120,19 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       expect(grid.classList.contains('cols-4')).toBe(true);
       expect(grid.classList.contains('cols-3')).toBe(false);
       expect(grid.style.gridTemplateColumns).toBe('repeat(4, 1fr)');
-      expect(grid.style.gap).toBe('6px');
+      expect(grid.style.gap).toBe('3px');
     });
 
-    it('dynamically adapts grid template and gap when columns prop changes', async () => {
-      const asset = createAdversarialAsset({ tag: 'AST-COL-TOGGLE' });
-
-      const DynamicWrapper: React.FC = () => {
-        const [cols, setCols] = useState<3 | 4>(3);
-        return createElement(
-          'div',
-          null,
-          createElement(
-            'button',
-            {
-              id: 'toggle-btn',
-              onClick: () => setCols((prev) => (prev === 3 ? 4 : 3)),
-            },
-            'Toggle',
-          ),
-          createElement(PrintableAssetSheet, { assets: [asset], columns: cols }),
-        );
-      };
-
-      currentRoot = createRoot(container);
-      await act(async () => {
-        currentRoot?.render(
-          createElement(
-            ConfigProvider,
-            null,
-            createElement(App, null, createElement(DynamicWrapper)),
-          ),
-        );
-      });
+    it('consistently enforces standardized 4-column layout without 3-column variations', async () => {
+      const asset = createAdversarialAsset({ tag: 'AST-COL-STANDARDIZED' });
+      await renderSheet({ assets: [asset] });
 
       const grid = container.querySelector('.printable-asset-sheet') as HTMLElement;
-      expect(grid.classList.contains('cols-3')).toBe(true);
-      expect(grid.style.gridTemplateColumns).toBe('repeat(3, 1fr)');
-      expect(grid.style.gap).toBe('8px');
-
-      const button = container.querySelector('#toggle-btn') as HTMLButtonElement;
-      await act(async () => {
-        button.click();
-      });
-
+      expect(grid).not.toBeNull();
       expect(grid.classList.contains('cols-4')).toBe(true);
+      expect(grid.classList.contains('cols-3')).toBe(false);
       expect(grid.style.gridTemplateColumns).toBe('repeat(4, 1fr)');
-      expect(grid.style.gap).toBe('6px');
-
-      await act(async () => {
-        button.click();
-      });
-
-      expect(grid.classList.contains('cols-3')).toBe(true);
-      expect(grid.style.gridTemplateColumns).toBe('repeat(3, 1fr)');
-      expect(grid.style.gap).toBe('8px');
+      expect(grid.style.gap).toBe('3px');
     });
   });
 
@@ -196,7 +154,7 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
 
     it('renders prominent bold monospace asset tag on each card', async () => {
       const asset = createAdversarialAsset({ tag: 'AST-PROMINENT-TAG' });
-      await renderSheet({ assets: [asset], columns: 3 });
+      await renderSheet({ assets: [asset], columns: 4 });
 
       const card = container.querySelector('.printable-sheet-card') as HTMLElement;
       const tagText = Array.from(card.querySelectorAll('span')).find(
@@ -205,23 +163,19 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
 
       expect(tagText).toBeDefined();
       expect(tagText?.style.fontFamily).toContain('ui-monospace');
-      expect(tagText?.classList.contains('ant-typography')).toBe(true);
-      // font-weight check or strong styling
-      expect(tagText?.tagName.toLowerCase()).toBe('span');
-      expect(tagText?.style.fontSize).toBe('13px');
+      expect(tagText?.style.fontSize).toBe('8.5px');
     });
 
-    it('adjusts font size for compact 4-column layout', async () => {
+    it('standardizes text size uniformly across all metadata rows', async () => {
       const asset = createAdversarialAsset({ tag: 'AST-COMPACT-FONT' });
       await renderSheet({ assets: [asset], columns: 4 });
 
       const card = container.querySelector('.printable-sheet-card') as HTMLElement;
-      const tagText = Array.from(card.querySelectorAll('span')).find(
-        (span) => span.textContent === 'AST-COMPACT-FONT',
-      );
-
-      expect(tagText).toBeDefined();
-      expect(tagText?.style.fontSize).toBe('11px');
+      const rows = card.querySelectorAll('.printable-sheet-meta-row');
+      expect(rows.length).toBeGreaterThanOrEqual(4);
+      rows.forEach((row) => {
+        expect((row as HTMLElement).style.fontSize).toBe('8.5px');
+      });
     });
 
     it('renders display name with robust fallback hierarchy', async () => {
@@ -298,10 +252,10 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       // Border cut guides
       expect(card.style.border).toContain('dashed');
       expect(card.style.border).toContain('#777777');
-      expect(card.style.borderRadius).toBe('4px');
+      expect(card.style.borderRadius).toBe('2px');
 
       // Scissor margins / padding
-      expect(card.style.padding).toBe('8px 10px');
+      expect(card.style.padding).toBe('4px 6px');
       expect(card.style.boxSizing).toBe('border-box');
 
       // Page break prevention
@@ -341,7 +295,7 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       // 5. Multi-column A4 grid rules
       expect(cssContent).toMatch(/\.printable-asset-sheet[\s\S]*?display:\s*grid\s*!important/);
       expect(cssContent).toMatch(
-        /\.printable-asset-sheet[\s\S]*?grid-template-columns:\s*repeat\(3,\s*1fr\)\s*!important/,
+        /\.printable-asset-sheet[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)\s*!important/,
       );
       expect(cssContent).toMatch(
         /\.printable-asset-sheet\.cols-4[\s\S]*?grid-template-columns:\s*repeat\(4,\s*1fr\)\s*!important/,
@@ -358,14 +312,12 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
       expect(cssContent).toMatch(
         /\.printable-sheet-card[\s\S]*?border:\s*1\.5px\s*dashed\s*#777777\s*!important/,
       );
-      expect(cssContent).toMatch(
-        /\.printable-sheet-card[\s\S]*?padding:\s*8px\s*10px\s*!important/,
-      );
+      expect(cssContent).toMatch(/\.printable-sheet-card[\s\S]*?padding:\s*4px\s*6px\s*!important/);
     });
   });
 
   describe('5. BatchPrintModal Lifecycle, Density Switcher & window.print Resilience', () => {
-    it('renders modal with exact count and responds to column switcher', async () => {
+    it('renders modal with exact count and enforces standardized 4-column layout', async () => {
       const onClose = vi.fn();
       const assets = [
         createAdversarialAsset({ id: 'a1', tag: 'AST-M1' }),
@@ -379,32 +331,11 @@ describe('Empirical Adversarial Verification Suite — Printable QR Sheet & Cut 
 
       const sheet = document.body.querySelector('.printable-asset-sheet') as HTMLElement;
       expect(sheet).not.toBeNull();
-      expect(sheet.classList.contains('cols-3')).toBe(true);
-
-      // Click 4 Columns in Segmented control
-      const segmentedItems = document.body.querySelectorAll('.ant-segmented-item');
-      const fourColItem = Array.from(segmentedItems).find((item) =>
-        item.textContent?.includes('4 Columns'),
-      ) as HTMLElement | undefined;
-
-      expect(fourColItem).toBeDefined();
-
-      await act(async () => {
-        fourColItem?.click();
-      });
-
       expect(sheet.classList.contains('cols-4')).toBe(true);
 
-      // Click 3 Columns
-      const threeColItem = Array.from(segmentedItems).find((item) =>
-        item.textContent?.includes('3 Columns'),
-      ) as HTMLElement | undefined;
-
-      await act(async () => {
-        threeColItem?.click();
-      });
-
-      expect(sheet.classList.contains('cols-3')).toBe(true);
+      // Verify layout switcher is completely removed
+      const segmented = document.body.querySelector('.ant-segmented');
+      expect(segmented).toBeNull();
     });
 
     it('invokes window.print when Print Sheet button is clicked', async () => {

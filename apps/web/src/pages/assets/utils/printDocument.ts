@@ -51,13 +51,12 @@ export function printDocumentHtml(html: string): void {
   }
 }
 
-export function downloadDocumentHtml(html: string, filename: string): void {
+export function downloadBlobFile(blob: Blob, filename: string): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return;
   }
 
   try {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const createObjectURL = window.URL?.createObjectURL || URL?.createObjectURL;
     if (typeof createObjectURL === 'function') {
       const url = createObjectURL(blob);
@@ -77,4 +76,9 @@ export function downloadDocumentHtml(html: string, filename: string): void {
     // Fallback in tests or non-browser environments
     void downloadErr;
   }
+}
+
+export function downloadDocumentHtml(html: string, filename: string): void {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  downloadBlobFile(blob, filename);
 }
