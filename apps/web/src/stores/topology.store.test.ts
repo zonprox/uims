@@ -96,4 +96,14 @@ describe('useTopologyStore', () => {
     expect(useTopologyStore.getState().hasUnsavedLayout).toBe(false);
     expect(useTopologyStore.getState().dirtyPositions).toEqual({});
   });
+
+  it('should reset filters when switching perspective modes to isolate views', () => {
+    useTopologyStore.getState().setFilter('switchRole', 'CORE');
+    useTopologyStore.getState().setFilter('floor', '2F');
+    expect(useTopologyStore.getState().filters).toEqual({ switchRole: 'CORE', floor: '2F' });
+
+    useTopologyStore.getState().setViewMode('CCTV');
+    expect(useTopologyStore.getState().viewMode).toBe('CCTV');
+    expect(useTopologyStore.getState().filters).toEqual({});
+  });
 });

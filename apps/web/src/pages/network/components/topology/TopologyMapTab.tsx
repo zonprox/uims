@@ -321,8 +321,8 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
                   <Select
                     placeholder="All Roles"
                     allowClear
-                    value={filters.status}
-                    onChange={(val) => setFilter('status', val)}
+                    value={filters.switchRole}
+                    onChange={(val) => setFilter('switchRole', val)}
                     style={{ width: 130 }}
                     options={[
                       { label: 'Core', value: 'CORE' },
@@ -386,8 +386,18 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
                 allowClear
                 data-testid="topology-search-input"
               />
-              <Button onClick={handleAutoLayoutHierarchical}>Auto Layout</Button>
-              <Button onClick={handleAutoLayoutRackGrouped}>Rack Group</Button>
+              <Button
+                onClick={handleAutoLayoutHierarchical}
+                data-testid="auto-layout-hierarchical-button"
+              >
+                Auto Layout
+              </Button>
+              <Button
+                onClick={handleAutoLayoutRackGrouped}
+                data-testid="auto-layout-rack-button"
+              >
+                Rack Group
+              </Button>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}

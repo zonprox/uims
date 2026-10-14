@@ -98,6 +98,7 @@ export interface TopologyEdge {
   targetPortName?: string | null;
   type?: TopologyEdgeType;
   linkType?: TopologyEdgeType;
+  subType?: string | null;
   speed?: string | null;
   media?: 'COPPER' | 'FIBER';
   mediaType?: string;

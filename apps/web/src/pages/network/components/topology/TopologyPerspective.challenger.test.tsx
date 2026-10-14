@@ -1,4 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { NetworkTopologyData } from '@uims/shared-types';
+import { InfrastructureDomain } from '@uims/shared-types';
 import { App, ConfigProvider } from 'antd';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -53,33 +55,33 @@ const mockSubnets: Subnet[] = [
 
 const mockAssets: Asset[] = [];
 
-const mockTopologyResponse = {
+const mockTopologyResponse: NetworkTopologyData = {
   nodes: [
     {
       id: 'rack-01',
       label: 'RCK-MDF-01',
-      type: 'RACK' as const,
-      status: 'ONLINE' as const,
-      domain: 'NETWORK' as const,
+      type: 'RACK',
+      status: 'ONLINE',
+      domain: InfrastructureDomain.NETWORK,
       x: 100,
       y: 100,
     },
     {
       id: 'sw-01',
       label: 'SW-CORE-01',
-      type: 'SWITCH' as const,
-      role: 'CORE',
-      status: 'ONLINE' as const,
-      domain: 'NETWORK' as const,
+      type: 'SWITCH',
+      subType: 'CORE',
+      status: 'ONLINE',
+      domain: InfrastructureDomain.NETWORK,
       x: 300,
       y: 100,
     },
     {
       id: 'cam-01',
       label: 'CAM-FL1-01',
-      type: 'CAMERA' as const,
-      status: 'ONLINE' as const,
-      domain: 'CCTV' as const,
+      type: 'CAMERA',
+      status: 'ONLINE',
+      domain: InfrastructureDomain.CCTV,
       x: 500,
       y: 200,
     },
@@ -89,8 +91,8 @@ const mockTopologyResponse = {
       id: 'edge-01',
       source: 'sw-01',
       target: 'cam-01',
-      status: 'ACTIVE' as const,
-      domain: 'CCTV' as const,
+      status: 'ACTIVE',
+      domain: InfrastructureDomain.CCTV,
       speed: '1 Gbps',
       poeEnabled: true,
     },
@@ -106,8 +108,34 @@ const mockTopologyResponse = {
       positionY: 100,
     },
   ],
-  vlans: mockVlans,
-  subnets: mockSubnets,
+  vlans: [
+    {
+      id: 'vlan-10',
+      vlanNumber: 10,
+      name: 'Core Servers',
+      domain: InfrastructureDomain.NETWORK,
+      subnetCount: 1,
+      switchCount: 1,
+    },
+    {
+      id: 'vlan-105',
+      vlanNumber: 105,
+      name: 'CCTV Surveillance',
+      domain: InfrastructureDomain.CCTV,
+      subnetCount: 1,
+      switchCount: 1,
+    },
+  ],
+  subnets: [
+    {
+      id: 'sub-10',
+      cidr: '10.0.10.0/24',
+      name: 'Core Server Subnet',
+      domain: InfrastructureDomain.NETWORK,
+      vlanId: 'vlan-10',
+      utilization: 15,
+    },
+  ],
   metrics: {
     totalNodes: 3,
     totalSwitches: 1,
@@ -146,7 +174,7 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
 
     getTopologySpy = vi
       .spyOn(networkService, 'getTopology')
-      .mockResolvedValue(mockTopologyResponse as unknown as import('@uims/shared-types').NetworkTopologyData);
+      .mockResolvedValue(mockTopologyResponse);
     vi.spyOn(networkService, 'getSwitches').mockResolvedValue([]);
   });
 
@@ -247,7 +275,7 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
     expect(container.querySelector('[data-testid="topology-vlan-filter"]')).toBeNull();
   });
 
-  it('detects defect: NETWORK perspective role filter binds to "status" instead of "switchRole"', async () => {
+  it('binds NETWORK perspective role filter correctly to switchRole parameter', async () => {
     await renderTopologyMapTab();
 
     // Switch to NETWORK view
@@ -262,14 +290,13 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
 
     // Directly invoke setFilter to simulate role selection
     await act(async () => {
-      useTopologyStore.getState().setFilter('status', 'CORE');
+      useTopologyStore.getState().setFilter('switchRole', 'CORE');
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     // Check query params sent to networkService.getTopology
     const lastCall = getTopologySpy.mock.calls[getTopologySpy.mock.calls.length - 1][0];
-    // Notice that it sends status: 'CORE' which is invalid for Prisma SwitchStatus (ONLINE, OFFLINE, MAINTENANCE)
-    expect(lastCall).toEqual(expect.objectContaining({ mode: 'NETWORK', status: 'CORE' }));
+    expect(lastCall).toEqual(expect.objectContaining({ mode: 'NETWORK', switchRole: 'CORE' }));
   });
 
   it('detects defect: CCTV perspective status filter binds non-SwitchStatus values ("ACTIVE", "CONNECTED_NO_SIGNAL", "DOWN")', async () => {
@@ -295,7 +322,7 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
     expect(lastCall).toEqual(expect.objectContaining({ mode: 'CCTV', status: 'ACTIVE' }));
   });
 
-  it('detects defect: switching perspectives retains stale filters across incompatible views', async () => {
+  it('isolates perspective views by resetting filters when switching perspectives', async () => {
     await renderTopologyMapTab();
 
     // Set floor in CCTV
@@ -311,9 +338,10 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
-    // Verify whether floor is still present in filters
+    // Verify whether floor is reset and filters are empty
     const currentFilters = useTopologyStore.getState().filters;
-    expect(currentFilters.floor).toBe('2F'); // Leaked filter across perspective
+    expect(currentFilters.floor).toBeUndefined();
+    expect(currentFilters).toEqual({});
   });
 
   describe('TopologySummaryBar Edge Case Stress Tests', () => {

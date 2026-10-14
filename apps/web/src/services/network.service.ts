@@ -134,6 +134,7 @@ export interface TopologyQueryParams {
   vlanId?: string;
   subnetId?: string;
   switchRole?: string;
+  floor?: string;
   status?: string;
 }
 

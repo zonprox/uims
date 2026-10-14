@@ -8,6 +8,7 @@ export interface TopologyFilters {
   vlanId?: string;
   subnetId?: string;
   floor?: string;
+  switchRole?: string;
   status?: string;
 }
 
@@ -52,6 +53,7 @@ export const useTopologyStore = create<TopologyStoreState>((set) => ({
   setViewMode: (mode) =>
     set({
       viewMode: mode,
+      filters: {},
       hasUnsavedLayout: false,
       dirtyPositions: {},
       selectedNodeId: null,

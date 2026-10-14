@@ -33,6 +33,12 @@ export class TopologyQueryDto {
   @MaxLength(50)
   status?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by Switch Role (e.g. CORE, DISTRIBUTION, ACCESS, POE_ACCESS)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  switchRole?: string;
+
   @ApiPropertyOptional({ description: 'Filter by Floor (e.g. 1F, 2F, Server Room)' })
   @IsOptional()
   @IsString()

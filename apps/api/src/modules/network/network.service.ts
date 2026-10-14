@@ -2069,7 +2069,12 @@ export class NetworkService {
 
     const switchesWhere: Prisma.NetworkSwitchWhereInput = {};
     if (query.rackId) switchesWhere.rackId = query.rackId;
-    if (query.status) switchesWhere.status = query.status as SwitchStatus;
+    if (query.status && ['ONLINE', 'OFFLINE', 'MAINTENANCE'].includes(query.status)) {
+      switchesWhere.status = query.status as SwitchStatus;
+    }
+    if (query.switchRole) {
+      switchesWhere.role = query.switchRole as SwitchRole;
+    }
     if (query.vlanId) {
       switchesWhere.ports = {
         some: {

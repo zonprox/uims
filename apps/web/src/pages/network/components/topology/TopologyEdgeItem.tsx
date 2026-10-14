@@ -7,11 +7,12 @@ export interface TopologyEdgeItemProps {
   sourceNode?: TopologyNode;
   targetNode?: TopologyNode;
   isHighlighted?: boolean;
+  hasHighlightedPath?: boolean;
   onOpenPortConfig?: (sourcePortId?: string) => void;
 }
 
 export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
-  ({ edge, sourceNode, targetNode, isHighlighted, onOpenPortConfig }) => {
+  ({ edge, sourceNode, targetNode, isHighlighted, hasHighlightedPath, onOpenPortConfig }) => {
     if (!sourceNode || !targetNode) return null;
 
     const sDim = getNodeDimensions(sourceNode.type);
@@ -84,7 +85,8 @@ export const TopologyEdgeItem: React.FC<TopologyEdgeItemProps> = React.memo(
       <g
         className="topology-edge-group"
         onClick={handleClick}
-        style={{ cursor: 'pointer' }}
+        opacity={hasHighlightedPath && !isHighlighted ? 0.25 : 1.0}
+        style={{ cursor: 'pointer', transition: 'opacity 0.25s ease' }}
         data-testid={`topology-edge-${edge.id}`}
       >
         {/* Invisible 14px click hit target for effortless port config opening */}

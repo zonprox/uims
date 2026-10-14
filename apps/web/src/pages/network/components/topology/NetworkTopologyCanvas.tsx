@@ -6,7 +6,7 @@ import {
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons';
-import { Button, Flex, Space, Tooltip, theme } from 'antd';
+import { App, Button, Flex, Space, Tooltip, theme } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TopologyEdge, TopologyNode } from './types';
 import { TopologyEdgeItem } from './TopologyEdgeItem';
@@ -37,6 +37,7 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
     onOpenPortConfig,
   }) => {
     const { token } = theme.useToken();
+    const { message } = App.useApp();
     const containerRef = useRef<HTMLDivElement>(null);
     const [pan, setPan] = useState({ x: 50, y: 30 });
     const [zoom, setZoom] = useState(1);
@@ -74,6 +75,26 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
       return () => window.removeEventListener('resize', updateSize);
     }, []);
 
+    // Synchronize fullscreen state and container dimensions on native fullscreen changes (e.g. Escape key)
+    useEffect(() => {
+      const handleFullscreenChange = () => {
+        setIsFullscreen(Boolean(document.fullscreenElement));
+        if (containerRef.current) {
+          const sz = {
+            width: containerRef.current.clientWidth || 1200,
+            height: containerRef.current.clientHeight || 700,
+          };
+          containerSizeRef.current = sz;
+          setContainerSize(sz);
+        }
+      };
+
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      return () => {
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      };
+    }, []);
+
     // Upstream Path Traversal
     const highlightedPath = useMemo(() => {
       if (!selectedNodeId) return { nodeIds: new Set<string>(), edgeIds: new Set<string>() };
@@ -89,6 +110,14 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
             nodeIds.add(edge.source);
             edgeIds.add(edge.id);
             queue.push(edge.source);
+          } else if (
+            edge.source === current &&
+            !nodeIds.has(edge.target) &&
+            (edge.subType === 'TRUNK' || edge.type === 'TRUNK' || edge.linkType === 'TRUNK')
+          ) {
+            nodeIds.add(edge.target);
+            edgeIds.add(edge.id);
+            queue.push(edge.target);
           }
         }
       }
@@ -257,18 +286,23 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
       onSelectNode(node);
     };
 
-    const toggleFullscreen = () => {
+    const toggleFullscreen = async () => {
       if (!containerRef.current) return;
-      if (!document.fullscreenElement) {
-        containerRef.current.requestFullscreen().catch((_err: unknown) => {
-          // Gracefully handle browser fullscreen policy rejection
-        });
-        setIsFullscreen(true);
-      } else {
-        document.exitFullscreen().catch((_err: unknown) => {
-          // Gracefully handle exit fullscreen rejection
-        });
-        setIsFullscreen(false);
+      try {
+        if (!document.fullscreenElement) {
+          if (typeof containerRef.current.requestFullscreen === 'function') {
+            await containerRef.current.requestFullscreen();
+          }
+          setIsFullscreen(true);
+        } else {
+          if (typeof document.exitFullscreen === 'function') {
+            await document.exitFullscreen();
+          }
+          setIsFullscreen(false);
+        }
+      } catch (_err: unknown) {
+        setIsFullscreen(Boolean(document.fullscreenElement));
+        message.warning('Fullscreen mode is not permitted by your browser.');
       }
     };
 
@@ -332,7 +366,7 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
                 data-testid="fit-to-screen-button"
               />
             </Tooltip>
-            <Button size="small" onClick={handleResetZoom}>
+            <Button size="small" onClick={handleResetZoom} data-testid="zoom-reset-button">
               {Math.round(zoom * 100)}%
             </Button>
             <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
@@ -416,6 +450,7 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
                   sourceNode={nodeMap.get(edge.source)}
                   targetNode={nodeMap.get(edge.target)}
                   isHighlighted={highlightedPath.edgeIds.has(edge.id)}
+                  hasHighlightedPath={highlightedPath.nodeIds.size > 0}
                   onOpenPortConfig={onOpenPortConfig}
                 />
               ))}
@@ -429,6 +464,7 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
                   node={node}
                   isSelected={selectedNodeId === node.id}
                   isHighlighted={highlightedPath.nodeIds.has(node.id)}
+                  hasHighlightedPath={highlightedPath.nodeIds.size > 0}
                   isSearchMatch={searchMatchIds.has(node.id)}
                   onSelect={handleNodeSelect}
                   onDragStart={handleNodeDragStart}

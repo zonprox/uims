@@ -490,6 +490,7 @@ export interface TopologyEdge {
   target: string;
   speed?: string | null;
   linkType?: 'UPLINK' | 'DOWNLINK' | 'ENDPOINT' | 'TRUNK' | 'POE';
+  subType?: string | null;
   mediaType?: 'COPPER' | 'FIBER_SFP' | 'FIBER_SFP_PLUS' | 'FIBER_QSFP';
   poeEnabled?: boolean;
 }

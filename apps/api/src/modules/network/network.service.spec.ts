@@ -1597,6 +1597,25 @@ describe('NetworkService', () => {
       expect(result.edges.length).toBe(2); // Only server + AP endpoint edges
     });
 
+    it('getTopologyGraph filters switches by switchRole properly', async () => {
+      mockPrisma.networkRack.findMany.mockResolvedValue([]);
+      mockPrisma.networkSwitch.findMany.mockResolvedValue([]);
+      mockPrisma.vLAN.findMany.mockResolvedValue([]);
+      mockPrisma.subnet.findMany.mockResolvedValue([]);
+      mockPrisma.canvasNodePosition.findMany.mockResolvedValue([]);
+
+      await service.getTopologyGraph({ mode: 'NETWORK', switchRole: 'CORE' });
+
+      expect(mockPrisma.networkSwitch.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            domain: { in: ['NETWORK', 'SHARED'] },
+            role: 'CORE',
+          }),
+        }),
+      );
+    });
+
     it('updateTopologyLayout executes upsert and master coordinate sync in transaction for ALL view', async () => {
       mockPrisma.canvasNodePosition.upsert.mockResolvedValue({});
       mockPrisma.networkSwitch.updateMany.mockResolvedValue({ count: 1 });

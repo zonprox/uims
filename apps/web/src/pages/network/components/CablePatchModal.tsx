@@ -30,6 +30,17 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
     const [targetPorts, setTargetPorts] = useState<SwitchPort[]>([]);
     const [linkCategory, setLinkCategory] = useState<'UPLINK' | 'ENDPOINT'>('UPLINK');
 
+    // Reset dependent selections and form state whenever modal closes
+    useEffect(() => {
+      if (!open) {
+        setSourceSwitchId(null);
+        setTargetSwitchId(null);
+        setSourcePorts([]);
+        setTargetPorts([]);
+        form.resetFields();
+      }
+    }, [open, form]);
+
     // Load ports for source switch
     useEffect(() => {
       if (sourceSwitchId) {
@@ -96,12 +107,13 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
         confirmLoading={submitting}
         okText="Patch Cable"
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
         width={580}
       >
         <Form
           form={form}
           layout="vertical"
+          preserve={false}
           initialValues={{ mode: 'ACCESS', poeEnabled: false, speed: '1 Gbps' }}
         >
           <Form.Item label="Link Type">
@@ -122,7 +134,15 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
           >
             <Select
               placeholder="Select Source Switch"
-              onChange={(val) => setSourceSwitchId(val)}
+              onChange={(val: string) => {
+                setSourceSwitchId(val);
+                form.setFieldValue('sourcePortId', undefined);
+                if (targetSwitchId === val) {
+                  setTargetSwitchId(null);
+                  form.setFieldValue('targetSwitchId', undefined);
+                  form.setFieldValue('targetPortId', undefined);
+                }
+              }}
               options={switches.map((s) => ({ label: `${s.name} (${s.model})`, value: s.id }))}
             />
           </Form.Item>
@@ -151,7 +171,10 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
               >
                 <Select
                   placeholder="Select Target Switch"
-                  onChange={(val) => setTargetSwitchId(val)}
+                  onChange={(val: string) => {
+                    setTargetSwitchId(val);
+                    form.setFieldValue('targetPortId', undefined);
+                  }}
                   options={switches
                     .filter((s) => s.id !== sourceSwitchId)
                     .map((s) => ({ label: `${s.name} (${s.model})`, value: s.id }))}

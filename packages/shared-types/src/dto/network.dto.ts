@@ -316,6 +316,8 @@ export interface TopologyQueryDto {
   subnetId?: string;
   /** Filter by floor (e.g. '1F', '2F', 'Server Room') */
   floor?: string;
+  /** Filter by switch role (e.g. 'CORE', 'DISTRIBUTION', 'ACCESS', 'POE_ACCESS') */
+  switchRole?: string;
   /** Filter by operational status */
   status?: string;
   /** Include aggregated summary metrics */

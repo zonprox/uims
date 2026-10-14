@@ -568,7 +568,7 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
                 null,
                 createElement(NetworkTopologyCanvas, {
                   nodes: [
-                    { id: `node-${i}`, label: `Node ${i}`, type: 'SWITCH', status: 'ONLINE', domain: 'NETWORK', x: 0, y: 0 },
+                    { id: `node-${i}`, label: `Node ${i}`, type: 'SWITCH' as const, status: 'ONLINE' as const, domain: 'NETWORK' as const, x: 0, y: 0 },
                   ],
                   edges: [],
                   onSelectNode: vi.fn(),
@@ -588,4 +588,113 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
       }
     });
   });
+
+  describe('Invariant 7: Native Fullscreen Synchronization & Error Resilience', () => {
+    it('synchronizes isFullscreen state and container dimensions on native fullscreenchange', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+
+      let fullscreenElementMock: Element | null = null;
+      Object.defineProperty(document, 'fullscreenElement', {
+        configurable: true,
+        get: () => fullscreenElementMock,
+      });
+
+      const requestFullscreenSpy = vi.fn().mockImplementation(() => {
+        fullscreenElementMock = container;
+        document.dispatchEvent(new Event('fullscreenchange'));
+        return Promise.resolve();
+      });
+
+      const exitFullscreenSpy = vi.fn().mockImplementation(() => {
+        fullscreenElementMock = null;
+        document.dispatchEvent(new Event('fullscreenchange'));
+        return Promise.resolve();
+      });
+
+      HTMLElement.prototype.requestFullscreen = requestFullscreenSpy;
+      document.exitFullscreen = exitFullscreenSpy;
+
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(NetworkTopologyCanvas, {
+                nodes: [
+                  { id: 'node-sw1', label: 'SW1', type: 'SWITCH' as const, status: 'ONLINE' as const, domain: 'NETWORK' as const, x: 0, y: 0 },
+                ],
+                edges: [],
+                onSelectNode: vi.fn(),
+              }),
+            ),
+          ),
+        );
+      });
+
+      const canvasContainer = container.querySelector('[data-testid="topology-canvas"]')?.parentElement;
+      expect(canvasContainer?.style.height).toBe('calc(100vh - 320px)');
+      const fsBtn = container.querySelector('.anticon-fullscreen')?.closest('button');
+      expect(fsBtn).toBeTruthy();
+
+      // Enter fullscreen
+      await act(async () => {
+        fsBtn?.click();
+      });
+      expect(requestFullscreenSpy).toHaveBeenCalled();
+      expect(canvasContainer?.style.height).toBe('100vh');
+      expect(container.querySelector('.anticon-fullscreen-exit')).toBeTruthy();
+
+      // Native exit (e.g. Escape key dispatched by browser)
+      await act(async () => {
+        fullscreenElementMock = null;
+        document.dispatchEvent(new Event('fullscreenchange'));
+      });
+      expect(canvasContainer?.style.height).toBe('calc(100vh - 320px)');
+      expect(container.querySelector('.anticon-fullscreen')).toBeTruthy();
+    });
+
+    it('gracefully handles fullscreen policy rejection with user feedback and 0 crashes', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+
+      HTMLElement.prototype.requestFullscreen = vi.fn().mockRejectedValue(new Error('Fullscreen denied'));
+
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(NetworkTopologyCanvas, {
+                nodes: [
+                  { id: 'node-sw1', label: 'SW1', type: 'SWITCH' as const, status: 'ONLINE' as const, domain: 'NETWORK' as const, x: 0, y: 0 },
+                ],
+                edges: [],
+                onSelectNode: vi.fn(),
+              }),
+            ),
+          ),
+        );
+      });
+
+      const canvasContainer = container.querySelector('[data-testid="topology-canvas"]')?.parentElement;
+      const fsBtn = container.querySelector('.anticon-fullscreen')?.closest('button');
+
+      await act(async () => {
+        fsBtn?.click();
+      });
+
+      // Canvas remains at default height and does not crash or desync
+      expect(canvasContainer?.style.height).toBe('calc(100vh - 320px)');
+      expect(container.querySelector('.anticon-fullscreen')).toBeTruthy();
+      expect(container.querySelector('.anticon-fullscreen-exit')).toBeNull();
+    });
+  });
 });
+

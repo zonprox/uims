@@ -6,13 +6,14 @@ export interface TopologyNodeItemProps {
   node: TopologyNode;
   isSelected?: boolean;
   isHighlighted?: boolean;
+  hasHighlightedPath?: boolean;
   isSearchMatch?: boolean;
   onSelect: (node: TopologyNode) => void;
   onDragStart: (nodeId: string, startX: number, startY: number, e: React.PointerEvent) => void;
 }
 
 export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
-  ({ node, isSelected, isHighlighted, isSearchMatch, onSelect, onDragStart }) => {
+  ({ node, isSelected, isHighlighted, hasHighlightedPath, isSearchMatch, onSelect, onDragStart }) => {
     const { width, height } = getNodeDimensions(node.type);
     const startPosRef = React.useRef({ x: 0, y: 0 });
 
@@ -105,7 +106,8 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
         onPointerDown={handlePointerDown}
         onMouseDown={handlePointerDown}
         onClick={handleClick}
-        style={{ cursor: 'move', userSelect: 'none' }}
+        opacity={hasHighlightedPath && !isHighlighted && !isSelected ? 0.35 : 1.0}
+        style={{ cursor: 'move', userSelect: 'none', transition: 'opacity 0.25s ease' }}
         data-testid={`topology-node-${node.type.toLowerCase()}-${node.id}`}
       >
         {/* Glowing aura for upstream path highlighting */}

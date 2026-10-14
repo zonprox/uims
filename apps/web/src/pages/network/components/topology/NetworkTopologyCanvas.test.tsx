@@ -142,9 +142,16 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
     });
 
     it('calculates rack-grouped layout clustering switches by rackId', () => {
-      const racks = [
-        { id: 'rack-dc01', name: 'RACK-DC01', code: 'RCK-01' },
-      ] as unknown as NetworkRack[];
+      const racks: NetworkRack[] = [
+        {
+          id: 'rack-dc01',
+          name: 'RACK-DC01',
+          code: 'RCK-01',
+          status: 'ACTIVE',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      ];
       const positions = calculateRackGroupLayout(mockNodes, mockEdges, racks);
 
       expect(positions['rack-dc01']).toBeDefined();
@@ -290,6 +297,108 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       expect(edgeEl).toBeTruthy();
       expect(edgeEl?.textContent).toContain('⚡');
       expect(edgeEl?.textContent).toContain('1 Gbps');
+    });
+
+    it('dims non-path nodes with opacity 0.35 and transition when hasHighlightedPath is true', async () => {
+      const onSelect = vi.fn();
+      const onDragStart = vi.fn();
+
+      const root = createRoot(container);
+      currentRoot = root;
+
+      await act(async () => {
+        root.render(
+          createElement(
+            'svg',
+            null,
+            // Non-path node (should be dimmed)
+            createElement(TopologyNodeItem, {
+              node: mockNodes[4], // Server
+              hasHighlightedPath: true,
+              isHighlighted: false,
+              isSelected: false,
+              onSelect,
+              onDragStart,
+            }),
+            // Highlighted path node (should NOT be dimmed)
+            createElement(TopologyNodeItem, {
+              node: mockNodes[1], // Switch
+              hasHighlightedPath: true,
+              isHighlighted: true,
+              isSelected: false,
+              onSelect,
+              onDragStart,
+            }),
+            // Selected node (should NOT be dimmed)
+            createElement(TopologyNodeItem, {
+              node: mockNodes[3], // Camera
+              hasHighlightedPath: true,
+              isHighlighted: false,
+              isSelected: true,
+              onSelect,
+              onDragStart,
+            }),
+            // Normal state (hasHighlightedPath = false)
+            createElement(TopologyNodeItem, {
+              node: mockNodes[0], // Rack
+              hasHighlightedPath: false,
+              isHighlighted: false,
+              isSelected: false,
+              onSelect,
+              onDragStart,
+            }),
+          ),
+        );
+      });
+
+      const serverNode = container.querySelector('[data-testid="topology-node-server-srv-001"]');
+      const switchNode = container.querySelector('[data-testid="topology-node-switch-sw-core-01"]');
+      const cameraNode = container.querySelector('[data-testid="topology-node-camera-cam-001"]');
+      const rackNode = container.querySelector('[data-testid="topology-node-rack-rack-dc01"]');
+
+      expect(serverNode?.getAttribute('opacity')).toBe('0.35');
+      expect((serverNode as SVGElement | null)?.style.transition).toContain('opacity 0.25s ease');
+
+      expect(switchNode?.getAttribute('opacity')).toBe('1');
+      expect(cameraNode?.getAttribute('opacity')).toBe('1');
+      expect(rackNode?.getAttribute('opacity')).toBe('1');
+    });
+
+    it('dims non-path edges with opacity 0.25 and transition when hasHighlightedPath is true', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+
+      await act(async () => {
+        root.render(
+          createElement(
+            'svg',
+            null,
+            // Dimmed non-path edge
+            createElement(TopologyEdgeItem, {
+              edge: mockEdges[0],
+              sourceNode: mockNodes[1],
+              targetNode: mockNodes[2],
+              hasHighlightedPath: true,
+              isHighlighted: false,
+            }),
+            // Highlighted path edge
+            createElement(TopologyEdgeItem, {
+              edge: mockEdges[1],
+              sourceNode: mockNodes[2],
+              targetNode: mockNodes[3],
+              hasHighlightedPath: true,
+              isHighlighted: true,
+            }),
+          ),
+        );
+      });
+
+      const dimmedEdge = container.querySelector('[data-testid="topology-edge-edge-core-cctv"]');
+      const highlightedEdge = container.querySelector('[data-testid="topology-edge-edge-cctv-cam1"]');
+
+      expect(dimmedEdge?.getAttribute('opacity')).toBe('0.25');
+      expect((dimmedEdge as SVGElement | null)?.style.transition).toContain('opacity 0.25s ease');
+      expect(highlightedEdge?.getAttribute('opacity')).toBe('1');
     });
   });
 
@@ -517,6 +626,181 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
 
       const fitBtn = container.querySelector('[data-testid="fit-to-screen-button"]');
       expect(fitBtn).toBeTruthy();
+
+      const zoomResetBtn = container.querySelector('[data-testid="zoom-reset-button"]');
+      expect(zoomResetBtn).toBeTruthy();
+      expect(zoomResetBtn?.textContent).toContain('100%');
+    });
+
+    it('highlights upstream path and traverses bidirectional trunk links while dimming non-path elements', async () => {
+      const onSelectNode = vi.fn();
+
+      const extendedEdges: TopologyEdge[] = [
+        ...mockEdges,
+        // Reverse-direction trunk link (source is core switch, target is dist switch)
+        {
+          id: 'edge-trunk-core-dist',
+          source: 'sw-core-01',
+          target: 'sw-dist-01',
+          subType: 'TRUNK',
+          type: 'TRUNK',
+          status: 'ACTIVE',
+        },
+      ];
+
+      const extendedNodes: TopologyNode[] = [
+        ...mockNodes,
+        {
+          id: 'sw-dist-01',
+          label: 'BSL-DIST-SW01',
+          type: 'SWITCH',
+          role: 'DISTRIBUTION',
+          status: 'ONLINE',
+          domain: 'NETWORK',
+          x: 500,
+          y: 200,
+        },
+      ];
+
+      const root = createRoot(container);
+      currentRoot = root;
+
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(NetworkTopologyCanvas, {
+                nodes: extendedNodes,
+                edges: extendedEdges,
+                onSelectNode,
+              }),
+            ),
+          ),
+        );
+      });
+
+      // Click cam-001 node to trigger path highlighting
+      const camNode = container.querySelector('[data-testid="topology-node-camera-cam-001"]');
+      expect(camNode).toBeTruthy();
+
+      await act(async () => {
+        camNode?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      expect(onSelectNode).toHaveBeenCalled();
+
+      // Non-path server node should be dimmed (opacity 0.35)
+      const serverNode = container.querySelector('[data-testid="topology-node-server-srv-001"]');
+      expect(serverNode?.getAttribute('opacity')).toBe('0.35');
+
+      // Connected CCTV switch in path should NOT be dimmed (opacity 1.0)
+      const cctvSwitchNode = container.querySelector('[data-testid="topology-node-switch-sw-cctv-01"]');
+      expect(cctvSwitchNode?.getAttribute('opacity')).toBe('1');
+
+      // Upstream core switch in path should NOT be dimmed (opacity 1.0)
+      const coreSwitchNode = container.querySelector('[data-testid="topology-node-switch-sw-core-01"]');
+      expect(coreSwitchNode?.getAttribute('opacity')).toBe('1');
+
+      // Dist switch connected via bidirectional trunk should also be traversed (opacity 1.0)
+      const distSwitchNode = container.querySelector('[data-testid="topology-node-switch-sw-dist-01"]');
+      expect(distSwitchNode?.getAttribute('opacity')).toBe('1');
+    });
+  });
+
+  describe('Fullscreen State Invariants & Event Synchronization', () => {
+    it('toggles fullscreen asynchronously and synchronizes on native fullscreenchange', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+
+      let fullscreenElementMock: Element | null = null;
+      Object.defineProperty(document, 'fullscreenElement', {
+        configurable: true,
+        get: () => fullscreenElementMock,
+      });
+
+      const requestFullscreenSpy = vi.fn().mockImplementation(() => {
+        fullscreenElementMock = container;
+        document.dispatchEvent(new Event('fullscreenchange'));
+        return Promise.resolve();
+      });
+
+      const exitFullscreenSpy = vi.fn().mockImplementation(() => {
+        fullscreenElementMock = null;
+        document.dispatchEvent(new Event('fullscreenchange'));
+        return Promise.resolve();
+      });
+
+      HTMLElement.prototype.requestFullscreen = requestFullscreenSpy;
+      document.exitFullscreen = exitFullscreenSpy;
+
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(NetworkTopologyCanvas, {
+                nodes: mockNodes,
+                edges: mockEdges,
+                onSelectNode: vi.fn(),
+              }),
+            ),
+          ),
+        );
+      });
+
+      const fsButton = container.querySelector('.anticon-fullscreen')?.closest('button');
+      expect(fsButton).toBeTruthy();
+
+      await act(async () => {
+        fsButton?.click();
+      });
+      expect(requestFullscreenSpy).toHaveBeenCalled();
+      expect(container.querySelector('.anticon-fullscreen-exit')).toBeTruthy();
+
+      await act(async () => {
+        fullscreenElementMock = null;
+        document.dispatchEvent(new Event('fullscreenchange'));
+      });
+      expect(container.querySelector('.anticon-fullscreen')).toBeTruthy();
+    });
+
+    it('gracefully handles fullscreen policy rejection without unhandled rejections', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+
+      HTMLElement.prototype.requestFullscreen = vi.fn().mockRejectedValue(new Error('Permission denied'));
+
+      await act(async () => {
+        root.render(
+          createElement(
+            ConfigProvider,
+            null,
+            createElement(
+              App,
+              null,
+              createElement(NetworkTopologyCanvas, {
+                nodes: mockNodes,
+                edges: mockEdges,
+                onSelectNode: vi.fn(),
+              }),
+            ),
+          ),
+        );
+      });
+
+      const fsButton = container.querySelector('.anticon-fullscreen')?.closest('button');
+      await act(async () => {
+        fsButton?.click();
+      });
+
+      expect(container.querySelector('.anticon-fullscreen')).toBeTruthy();
     });
   });
 });
