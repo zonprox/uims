@@ -13,7 +13,6 @@ import {
   Flex,
   Input,
   Popconfirm,
-  Progress,
   Row,
   Select,
   Space,
@@ -59,7 +58,6 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
   }) => {
     const isFiltered = searchQuery || statusFilter !== 'all';
 
-    // Map subnets per VLAN for quick count and tags
     const subnetsByVlanId = useMemo(() => {
       const map = new Map<string, Subnet[]>();
       for (const subnet of subnets) {
@@ -89,13 +87,14 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
       });
     }, [vlans, searchQuery, statusFilter]);
 
+    // 5 High-Signal Columns: VLAN ID, VLAN Name, Associated Subnets, Status, Actions
     const columns = useMemo(
       () => [
         {
           title: 'VLAN ID',
           dataIndex: 'vlanNumber',
           key: 'vlanNumber',
-          width: 110,
+          width: 120,
           sorter: (a: VLAN, b: VLAN) => a.vlanNumber - b.vlanNumber,
           render: (vlanNumber: number) => (
             <Tag color="purple" style={{ fontWeight: 600, fontSize: 12 }}>
@@ -133,44 +132,28 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
             if (associated.length === 0) {
               return <Text type="secondary">None</Text>;
             }
-            return (
-              <Flex wrap gap={4} align="center">
-                {associated.slice(0, 3).map((s) => (
-                  <Tag key={s.id} color="blue" style={{ fontSize: 11 }}>
-                    {s.cidr}
-                  </Tag>
-                ))}
-                {associated.length > 3 && (
-                  <Tag style={{ fontSize: 11 }}>+{associated.length - 3} more</Tag>
-                )}
-              </Flex>
-            );
-          },
-        },
-        {
-          title: 'IP Utilization',
-          key: 'utilization',
-          width: 170,
-          render: (_: unknown, record: VLAN) => {
-            const associated = subnetsByVlanId.get(record.id) || record.subnets || [];
             const total = associated.reduce((acc, s) => acc + (s.totalIps || 0), 0);
             const used = associated.reduce((acc, s) => acc + (s.usedIps || 0), 0);
             const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+
             return (
-              <div style={{ minWidth: 120 }}>
-                <Flex justify="space-between" style={{ fontSize: 11, marginBottom: 2 }}>
-                  <Text>
-                    {used} / {total} IPs
-                  </Text>
-                  <Text type="secondary">{pct}%</Text>
+              <Flex vertical gap={2}>
+                <Flex wrap gap={4} align="center">
+                  {associated.slice(0, 3).map((s) => (
+                    <Tag key={s.id} color="blue" style={{ fontSize: 11, margin: 0 }}>
+                      {s.cidr}
+                    </Tag>
+                  ))}
+                  {associated.length > 3 && (
+                    <Tag style={{ fontSize: 11, margin: 0 }}>+{associated.length - 3} more</Tag>
+                  )}
                 </Flex>
-                <Progress
-                  percent={pct}
-                  size="small"
-                  showInfo={false}
-                  strokeColor={pct > 85 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#10b981'}
-                />
-              </div>
+                {total > 0 && (
+                  <Text type="secondary" style={{ fontSize: 10.5 }}>
+                    {used} / {total} IPs allocated ({pct}%)
+                  </Text>
+                )}
+              </Flex>
             );
           },
         },
@@ -178,7 +161,7 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
           title: 'Status',
           dataIndex: 'status',
           key: 'status',
-          width: 120,
+          width: 130,
           sorter: (a: VLAN, b: VLAN) => a.status.localeCompare(b.status),
           render: (status: string) => {
             let badgeStatus: 'success' | 'warning' | 'default' = 'default';
@@ -193,7 +176,6 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
           title: 'Actions',
           key: 'actions',
           width: 120,
-          fixed: 'right' as const,
           render: (_: unknown, record: VLAN) => (
             <Space size="small">
               <Tooltip title="View Details">
@@ -280,7 +262,6 @@ export const VlanTable: React.FC<VlanTableProps> = React.memo(
           dataSource={filteredVlans}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,

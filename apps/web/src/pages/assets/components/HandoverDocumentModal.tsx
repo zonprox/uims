@@ -38,27 +38,9 @@ export const HandoverDocumentModal: React.FC<HandoverDocumentModalProps> = React
     return (
       <Modal
         title={
-          <Flex align="center" justify="space-between" style={{ paddingRight: 32 }}>
-            <Flex align="center" gap={8}>
-              <FileTextOutlined style={{ color: token.colorPrimary }} />
-              <span>{title}</span>
-            </Flex>
-            <Flex align="center" gap={8}>
-              <Button size="small" icon={<PrinterOutlined />} onClick={handlePrint}>
-                Print Record
-              </Button>
-              {onDownloadDocx && (
-                <Button
-                  size="small"
-                  type="primary"
-                  icon={<FileWordOutlined />}
-                  loading={downloadingDocx}
-                  onClick={handleDownload}
-                >
-                  Download Word (.docx)
-                </Button>
-              )}
-            </Flex>
+          <Flex align="center" gap={8}>
+            <FileTextOutlined style={{ color: token.colorPrimary }} />
+            <span>{title}</span>
           </Flex>
         }
         open={open}

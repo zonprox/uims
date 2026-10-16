@@ -30,9 +30,9 @@ describe('menuConfig', () => {
     firstItem?.onClick?.();
     expect(navigate).toHaveBeenCalledWith('/users');
 
-    // Second item: Add Employee -> /directory
+    // Second item: Create Employee -> /directory
     const secondItem = items?.[1] as { onClick?: () => void; label?: string };
-    expect(secondItem?.label).toBe('Add Employee');
+    expect(secondItem?.label).toBe('Create Employee');
     secondItem?.onClick?.();
     expect(navigate).toHaveBeenCalledWith('/directory');
   });

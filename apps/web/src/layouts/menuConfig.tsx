@@ -89,7 +89,7 @@ export function getQuickCreateMenu(
     items.push({
       key: 'new-employee',
       icon: <TeamOutlined />,
-      label: 'Add Employee',
+      label: 'Create Employee',
       onClick: () => navigate('/directory'),
     });
   }
@@ -166,7 +166,7 @@ export function getUserMenuItems(
     {
       key: 'directory',
       icon: <TeamOutlined />,
-      label: 'Employee Directory',
+      label: 'Directory',
       onClick: () => navigate('/directory'),
     },
     {
@@ -178,7 +178,7 @@ export function getUserMenuItems(
     {
       key: 'org-structure',
       icon: <ApartmentOutlined />,
-      label: 'Organization Structure',
+      label: 'Organization',
       onClick: () => navigate('/organization'),
     },
     {
@@ -190,7 +190,7 @@ export function getUserMenuItems(
     {
       key: 'audit-logs',
       icon: <AuditOutlined />,
-      label: 'Audit Trail',
+      label: 'Audit',
       onClick: () => navigate('/audit'),
     },
     { type: 'divider' },
@@ -244,8 +244,8 @@ export function getNavMenuItems(
     assetChildren.push({
       key: '/assets',
       icon: <NavIconWithBadge icon={<LaptopOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Hardware Assets'),
-      title: 'Hardware Assets',
+      label: renderNavLabel('Assets'),
+      title: 'Assets',
     });
   }
   if (allow('read', 'License')) {
@@ -260,10 +260,9 @@ export function getNavMenuItems(
           isCollapsed={isCollapsedDesktop}
         />
       ),
-      title:
-        expiringCount > 0 ? `Software Licenses (${expiringCount} Expiring)` : 'Software Licenses',
+      title: expiringCount > 0 ? `Licenses (${expiringCount} Expiring)` : 'Licenses',
       label: renderNavLabel(
-        'Software Licenses',
+        'Licenses',
         showLabels && expiringCount > 0 ? (
           <Tag
             color="warning"
@@ -343,16 +342,16 @@ export function getNavMenuItems(
     orgChildren.push({
       key: '/directory',
       icon: <NavIconWithBadge icon={<TeamOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Employee Directory'),
-      title: 'Employee Directory',
+      label: renderNavLabel('Directory'),
+      title: 'Directory',
     });
   }
   if (allow('read', 'Organization')) {
     orgChildren.push({
       key: '/organization',
       icon: <NavIconWithBadge icon={<ApartmentOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Organization Structure'),
-      title: 'Organization Structure',
+      label: renderNavLabel('Organization'),
+      title: 'Organization',
     });
   }
   if (allow('read', 'User') || allow('read', 'Role')) {
@@ -392,16 +391,16 @@ export function getNavMenuItems(
     govChildren.push({
       key: '/reports',
       icon: <NavIconWithBadge icon={<BarChartOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Reports & Analytics'),
-      title: 'Reports & Analytics',
+      label: renderNavLabel('Reports'),
+      title: 'Reports',
     });
   }
   if (allow('read', 'Audit')) {
     govChildren.push({
       key: '/audit',
       icon: <NavIconWithBadge icon={<AuditOutlined />} isCollapsed={isCollapsedDesktop} />,
-      label: renderNavLabel('Audit Trail'),
-      title: 'Audit Trail',
+      label: renderNavLabel('Audit'),
+      title: 'Audit',
     });
   }
   if (allow('read', 'Setting')) {

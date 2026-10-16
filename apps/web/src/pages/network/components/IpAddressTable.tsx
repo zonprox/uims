@@ -4,6 +4,7 @@ import {
   ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   FilterOutlined,
   HddOutlined,
   IdcardOutlined,
@@ -53,6 +54,7 @@ export interface IpAddressTableProps {
   onDeleteIp: (id: string) => void;
   onSelectSwitchPort?: (switchId?: string, portId?: string) => void;
   onNavigateToSwitch?: (switchId?: string, portId?: string) => void;
+  onOpenDetailDrawer?: (ip: IPAddress) => void;
 }
 
 export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
@@ -76,6 +78,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
     onDeleteIp,
     onSelectSwitchPort,
     onNavigateToSwitch,
+    onOpenDetailDrawer,
   }) => {
     const isFiltered =
       searchQuery ||
@@ -130,6 +133,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
       });
     }, [ips, searchQuery, vlanFilter, subnetFilter, deviceTypeFilter, statusFilter]);
 
+    // 5 High-Signal Columns: IP Address, Subnet & VLAN, Upstream Switch & Port, Status, Actions
     const columns = useMemo(
       () => [
         {
@@ -141,67 +145,25 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
             }),
           render: (_: unknown, record: IPAddress) => {
             const ipStr = record.address;
+            const macStr = record.macAddress;
             return (
-              <div>
+              <Flex vertical gap={2}>
                 <Text code strong style={{ fontSize: 13, color: '#1677ff' }} copyable>
                   {ipStr}
                 </Text>
-              </div>
-            );
-          },
-        },
-        {
-          title: 'MAC Address & Vendor',
-          key: 'hardware',
-          render: (_: unknown, record: IPAddress) => {
-            const macStr = record.macAddress;
-            return (
-              <div>
-                {macStr ? (
-                  <Text code style={{ fontSize: 11.5 }}>
-                    {macStr}
-                  </Text>
-                ) : (
-                  <Text type="secondary">—</Text>
+                {macStr && (
+                  <Flex align="center" gap={4}>
+                    <Text code style={{ fontSize: 11 }}>
+                      {macStr}
+                    </Text>
+                    {record.vendor && (
+                      <Tag color="geekblue" style={{ fontSize: 10, margin: 0 }}>
+                        {record.vendor}
+                      </Tag>
+                    )}
+                  </Flex>
                 )}
-                {record.vendor && (
-                  <div>
-                    <Tag color="geekblue" style={{ fontSize: 10.5, marginTop: 2 }}>
-                      {record.vendor}
-                    </Tag>
-                  </div>
-                )}
-              </div>
-            );
-          },
-        },
-        {
-          title: 'Device Type & Model',
-          key: 'device',
-          sorter: (a: IPAddress, b: IPAddress) =>
-            (a.deviceType || '').localeCompare(b.deviceType || ''),
-          render: (_: unknown, record: IPAddress) => {
-            const type = record.deviceType || 'Workstation';
-            let icon = <LaptopOutlined />;
-            if (type === 'Server') icon = <HddOutlined />;
-            if (type === 'Switch' || type === 'Router') icon = <CloudServerOutlined />;
-            if (type === 'Access Point') icon = <WifiOutlined />;
-            if (type === 'Printer') icon = <PrinterOutlined />;
-            if (type === 'Camera' || type === 'NVR') icon = <CameraOutlined />;
-            if (type === 'Time Attendance' || type === 'Access Control') icon = <IdcardOutlined />;
-
-            return (
-              <div>
-                <Flex align="center" gap={4}>
-                  {icon}
-                  <Text style={{ fontSize: 12 }}>{type}</Text>
-                </Flex>
-                {record.model && (
-                  <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                    {record.model}
-                  </Text>
-                )}
-              </div>
+              </Flex>
             );
           },
         },
@@ -213,19 +175,38 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
             const vlanDisplay = record.vlan
               ? `VLAN ${record.vlan.vlanNumber}`
               : record.vlanName || '';
+            const type = record.deviceType;
+            let icon = <LaptopOutlined />;
+            if (type === 'Server') icon = <HddOutlined />;
+            if (type === 'Switch' || type === 'Router') icon = <CloudServerOutlined />;
+            if (type === 'Access Point') icon = <WifiOutlined />;
+            if (type === 'Printer') icon = <PrinterOutlined />;
+            if (type === 'Camera' || type === 'NVR') icon = <CameraOutlined />;
+            if (type === 'Time Attendance' || type === 'Access Control') icon = <IdcardOutlined />;
+
             return (
-              <div>
-                {subnetDisplay && (
-                  <Tag color="blue" style={{ fontSize: 11, marginBottom: 2 }}>
-                    {subnetDisplay}
-                  </Tag>
+              <Flex vertical gap={2}>
+                <Flex align="center" gap={4} wrap="wrap">
+                  {subnetDisplay && (
+                    <Tag color="blue" style={{ fontSize: 11, margin: 0 }}>
+                      {subnetDisplay}
+                    </Tag>
+                  )}
+                  {vlanDisplay && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {vlanDisplay}
+                    </Text>
+                  )}
+                </Flex>
+                {type && (
+                  <Flex align="center" gap={4}>
+                    {icon}
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {type} {record.model ? `• ${record.model}` : ''}
+                    </Text>
+                  </Flex>
                 )}
-                {vlanDisplay && (
-                  <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                    {vlanDisplay}
-                  </Text>
-                )}
-              </div>
+              </Flex>
             );
           },
         },
@@ -260,7 +241,12 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
             const rackPos =
               record.switchPort?.switch?.rackPosition || record.upstreamSwitch?.rackPosition;
 
-            if (!switchName && !portName) {
+            const asset = record.asset;
+            const user = record.assignedUser;
+            const tagStr =
+              asset?.assetTag || (asset as unknown as { tag?: string } | undefined)?.tag;
+
+            if (!switchName && !portName && !asset && !user) {
               return <Text type="secondary">—</Text>;
             }
 
@@ -279,48 +265,38 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
 
             return (
               <Flex vertical gap={2}>
-                <Tag
-                  icon={<ClusterOutlined />}
-                  color="geekblue"
-                  style={{ cursor: 'pointer', width: 'fit-content' }}
-                  onClick={() => {
-                    onSelectSwitchPort?.(switchId, portId);
-                    onNavigateToSwitch?.(switchId, portId);
-                  }}
-                >
-                  {switchName || 'Switch'}
-                </Tag>
-                <Flex align="center" gap={4}>
-                  <Badge status={getStatusBadge(linkStatus)} />
-                  <Text code style={{ fontSize: 11 }}>
-                    {portName || 'Port'}
-                  </Text>
-                  {rackDisplay && (
-                    <Text type="secondary" style={{ fontSize: 10.5 }}>
-                      [{rackDisplay}]
-                    </Text>
-                  )}
-                </Flex>
-              </Flex>
-            );
-          },
-        },
-        {
-          title: 'Linked Asset & Custodian',
-          key: 'assetCustodian',
-          render: (_: unknown, record: IPAddress) => {
-            const asset = record.asset;
-            const user = record.assignedUser;
-            const tagStr =
-              asset?.assetTag || (asset as unknown as { tag?: string } | undefined)?.tag;
-            return (
-              <Flex vertical gap={2} style={{ width: '100%' }}>
+                {(switchName || portName) && (
+                  <>
+                    <Tag
+                      icon={<ClusterOutlined />}
+                      color="geekblue"
+                      style={{ cursor: 'pointer', width: 'fit-content', margin: 0 }}
+                      onClick={() => {
+                        onSelectSwitchPort?.(switchId, portId);
+                        onNavigateToSwitch?.(switchId, portId);
+                      }}
+                    >
+                      {switchName || 'Switch'}
+                    </Tag>
+                    <Flex align="center" gap={4}>
+                      <Badge status={getStatusBadge(linkStatus)} />
+                      <Text code style={{ fontSize: 11 }}>
+                        {portName || 'Port'}
+                      </Text>
+                      {rackDisplay && (
+                        <Text type="secondary" style={{ fontSize: 10.5 }}>
+                          [{rackDisplay}]
+                        </Text>
+                      )}
+                    </Flex>
+                  </>
+                )}
                 {asset && (
                   <Tooltip title={`Hardware Asset: ${asset.name} (${tagStr || asset.id})`}>
                     <Tag
                       icon={<LaptopOutlined />}
                       color="cyan"
-                      style={{ fontSize: 11, cursor: 'pointer' }}
+                      style={{ fontSize: 11, cursor: 'pointer', width: 'fit-content', margin: 0 }}
                     >
                       {tagStr ? `[${tagStr}] ` : ''}
                       {asset.name}
@@ -329,13 +305,16 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
                 )}
                 {user && (
                   <Tooltip title={`Assigned Employee: ${user.email}`}>
-                    <Tag icon={<UserOutlined />} color="purple" style={{ fontSize: 11 }}>
+                    <Tag
+                      icon={<UserOutlined />}
+                      color="purple"
+                      style={{ fontSize: 11, width: 'fit-content', margin: 0 }}
+                    >
                       {user.firstName} {user.lastName}
                       {user.employeeCode ? ` (${user.employeeCode})` : ''}
                     </Tag>
                   </Tooltip>
                 )}
-                {!asset && !user && <Text type="secondary">—</Text>}
               </Flex>
             );
           },
@@ -343,6 +322,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
         {
           title: 'Status',
           key: 'status',
+          width: 140,
           sorter: (a: IPAddress, b: IPAddress) => String(a.status).localeCompare(String(b.status)),
           render: (_: unknown, record: IPAddress) => {
             const statusStr = String(record.status).toUpperCase();
@@ -373,12 +353,22 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 100,
-          fixed: 'right' as const,
+          width: 120,
           render: (_: unknown, record: IPAddress) => {
             const ipVal = record.address || '';
             return (
               <Space size="small">
+                {onOpenDetailDrawer && (
+                  <Tooltip title="View Details">
+                    <Button
+                      type="text"
+                      shape="circle"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => onOpenDetailDrawer(record)}
+                    />
+                  </Tooltip>
+                )}
                 <Tooltip title="Edit Allocation">
                   <Button
                     type="text"
@@ -410,7 +400,7 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           },
         },
       ],
-      [onOpenEditModal, onDeleteIp, onSelectSwitchPort, onNavigateToSwitch],
+      [onOpenEditModal, onDeleteIp, onSelectSwitchPort, onNavigateToSwitch, onOpenDetailDrawer],
     );
 
     return (
@@ -496,7 +486,6 @@ export const IpAddressTable: React.FC<IpAddressTableProps> = React.memo(
           dataSource={filteredIps}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,

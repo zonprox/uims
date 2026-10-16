@@ -1,5 +1,4 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ProConfigProvider, enUSIntl } from '@ant-design/pro-components';
 import { App as AntApp, ConfigProvider } from 'antd';
 import enUS from 'antd/locale/en_US';
 import { dayjs } from '@uims/shared-utils';
@@ -37,13 +36,11 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ConfigProvider locale={enUS} theme={themeConfig}>
-          <ProConfigProvider intl={enUSIntl}>
-            <AntApp>
-              <ErrorBoundary>
-                <RouterProvider router={router} />
-              </ErrorBoundary>
-            </AntApp>
-          </ProConfigProvider>
+          <AntApp>
+            <ErrorBoundary>
+              <RouterProvider router={router} />
+            </ErrorBoundary>
+          </AntApp>
         </ConfigProvider>
       </QueryClientProvider>
     </ErrorBoundary>

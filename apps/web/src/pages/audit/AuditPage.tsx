@@ -3,7 +3,6 @@ import {
   CloseCircleOutlined,
   CopyOutlined,
   DownloadOutlined,
-  EyeOutlined,
   FilterOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
@@ -12,7 +11,6 @@ import {
 import {
   Alert,
   App,
-  Avatar,
   Button,
   Card,
   Col,
@@ -23,7 +21,6 @@ import {
   Input,
   Row,
   Select,
-  Table,
   Tag,
   Tooltip,
   Typography,
@@ -37,6 +34,7 @@ import FieldDiffViewer, { safeJsonStringify } from '../../components/FieldDiffVi
 import { FormattedDateTime } from '../../components/FormattedDate';
 import { type AuditLog, type AuditStats, auditService } from '../../services/audit.service';
 import { formatErrorMessage } from '../../utils/feedback';
+import { AuditTable } from './components/AuditTable';
 
 const { Text, Title } = Typography;
 
@@ -303,152 +301,6 @@ export default function AuditPage() {
     }
   };
 
-  const columns = [
-    {
-      title: 'Timestamp',
-      dataIndex: 'timestamp',
-      key: 'timestamp',
-      sorter: (a: AuditLog, b: AuditLog) => (a.timestamp || '').localeCompare(b.timestamp || ''),
-      render: (ts: string) => <FormattedDateTime date={ts} showOffset monospace />,
-    },
-    {
-      title: 'Actor',
-      key: 'user',
-      sorter: (a: AuditLog, b: AuditLog) =>
-        (a.userName || a.user || '').localeCompare(b.userName || b.user || ''),
-      render: (_: unknown, record: AuditLog) => {
-        const actorName = record.userName || record.user || 'System Engine';
-        return (
-          <Flex align="center" gap={8}>
-            <Avatar size="small" style={{ backgroundColor: '#1890ff', fontSize: 11 }}>
-              {actorName[0] || 'S'}
-            </Avatar>
-            <div>
-              <Text strong style={{ fontSize: 12.5, display: 'block' }}>
-                {actorName}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {record.userEmail || 'system@youngonevn.com'}
-              </Text>
-            </div>
-          </Flex>
-        );
-      },
-    },
-    {
-      title: 'Action',
-      dataIndex: 'action',
-      key: 'action',
-      sorter: (a: AuditLog, b: AuditLog) => (a.action || '').localeCompare(b.action || ''),
-      render: (action: string) => {
-        if (!action) return <Tag color="default">-</Tag>;
-        let color = 'default';
-        if (action.includes('DELETE') || action.includes('REVOKE') || action.includes('FAILED')) {
-          color = 'error';
-        } else if (action.includes('CREATE') || action.includes('GRANT')) {
-          color = 'processing';
-        } else if (action.includes('UPDATE') || action.includes('ROTATE')) {
-          color = 'warning';
-        } else if (action === 'LOGIN_SUCCESS') {
-          color = 'success';
-        }
-        return <Tag color={color}>{action}</Tag>;
-      },
-    },
-    {
-      title: 'Target Entity & Details',
-      key: 'details',
-      render: (_: unknown, record: AuditLog) => (
-        <div>
-          <Flex align="center" gap={6}>
-            <Tag color="geekblue" style={{ fontSize: 11 }}>
-              {record.entityType || 'General'}
-            </Tag>
-            <Text strong style={{ fontSize: 12.5 }}>
-              {record.entity}
-            </Text>
-          </Flex>
-          {record.details && (
-            <Text type="secondary" style={{ display: 'block', fontSize: 11.5, marginTop: 2 }}>
-              {record.details}
-            </Text>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'IP Address',
-      dataIndex: 'ipAddress',
-      key: 'ipAddress',
-      render: (ip: string) => (
-        <Text code style={{ fontSize: 11.5 }}>
-          {ip || '127.0.0.1'}
-        </Text>
-      ),
-    },
-    {
-      title: 'Severity',
-      dataIndex: 'severity',
-      key: 'severity',
-      sorter: (a: AuditLog, b: AuditLog) => (a.severity || '').localeCompare(b.severity || ''),
-      render: (sev: string) => {
-        let color = 'default';
-        if (sev === 'Critical') color = 'error';
-        if (sev === 'Warning') color = 'warning';
-        if (sev === 'Info') color = 'blue';
-        return <Tag color={color}>{sev || 'Info'}</Tag>;
-      },
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      sorter: (a: AuditLog, b: AuditLog) => (a.status || '').localeCompare(b.status || ''),
-      render: (status: string, record: AuditLog) => (
-        <Flex align="center" gap={4}>
-          <Tag color={status === 'Success' ? 'success' : status === 'Blocked' ? 'error' : 'error'}>
-            {status || 'Success'}
-          </Tag>
-          {record.statusCode && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              ({record.statusCode})
-            </Text>
-          )}
-        </Flex>
-      ),
-    },
-    {
-      title: 'Duration',
-      dataIndex: 'durationMs',
-      key: 'durationMs',
-      sorter: (a: AuditLog, b: AuditLog) => (a.durationMs || 0) - (b.durationMs || 0),
-      render: (durationMs: number | null | undefined) =>
-        durationMs != null ? (
-          <Text style={{ fontSize: 11.5, fontFamily: 'monospace' }}>
-            {durationMs.toFixed(1)} ms
-          </Text>
-        ) : (
-          <Text type="secondary" style={{ fontSize: 11.5 }}>
-            -
-          </Text>
-        ),
-    },
-    {
-      title: 'Inspect',
-      key: 'inspect',
-      render: (_: unknown, record: AuditLog) => (
-        <Button
-          size="small"
-          type="text"
-          shape="circle"
-          icon={<EyeOutlined />}
-          aria-label={`Inspect event ${record.id}`}
-          onClick={() => handleInspectLog(record)}
-        />
-      ),
-    },
-  ];
-
   return (
     <PageContainer
       title="System Activity Logs"
@@ -606,19 +458,7 @@ export default function AuditPage() {
           </Col>
         </Row>
 
-        <Table
-          columns={columns}
-          dataSource={logs}
-          rowKey="id"
-          loading={loading}
-          scroll={{ x: 'max-content' }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '25', '50', '100'],
-            showTotal: (total) => `Total ${total} activity records`,
-          }}
-        />
+        <AuditTable logs={logs} loading={loading} onInspectLog={handleInspectLog} />
       </Card>
 
       {/* JSON Payload Inspector Drawer */}

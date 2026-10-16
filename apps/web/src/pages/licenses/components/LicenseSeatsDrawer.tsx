@@ -42,7 +42,7 @@ export const LicenseSeatsDrawer: React.FC<LicenseSeatsDrawerProps> = React.memo(
             Assign User
           </Button>
         }
-        cancelText="Close"
+        hideFooter={true}
       >
         <Tabs
           defaultActiveKey="seats"

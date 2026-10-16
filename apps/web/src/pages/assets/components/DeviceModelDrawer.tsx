@@ -1,4 +1,4 @@
-import { App, Button, Drawer, Flex, Form, Input, InputNumber, Select, Space, theme } from 'antd';
+import { App, Button, Drawer, Flex, Form, Input, InputNumber, Select, theme } from 'antd';
 import React, { useEffect, useState } from 'react';
 import type { Asset, AssetCategory, CostCenter } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
@@ -131,13 +131,13 @@ export const DeviceModelDrawer: React.FC<DeviceModelDrawerProps> = React.memo(
             backgroundColor: token.colorBgContainer,
           },
         }}
-        extra={
-          <Space>
+        footer={
+          <Flex justify="flex-end" gap={8}>
             <Button onClick={onClose}>Cancel</Button>
             <Button type="primary" loading={submitting} onClick={handleSubmit}>
               {editingModel ? 'Save Changes' : 'Create Model'}
             </Button>
-          </Space>
+          </Flex>
         }
       >
         <Form

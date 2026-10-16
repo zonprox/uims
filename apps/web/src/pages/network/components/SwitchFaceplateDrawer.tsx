@@ -345,7 +345,7 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
         open={open}
         onClose={onClose}
         size={980}
-        cancelText="Close"
+        hideFooter={true}
         extra={
           <Space>
             <Button icon={<ReloadOutlined />} onClick={loadPorts} loading={loading}>

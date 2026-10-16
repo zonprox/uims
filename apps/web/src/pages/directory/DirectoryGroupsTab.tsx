@@ -1,6 +1,7 @@
 import {
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -37,6 +38,7 @@ import React, { useMemo, useState } from 'react';
 import { directoryService } from '../../services/directory.service';
 import { formatErrorMessage } from '../../utils/feedback';
 import { formRules, isValidationError } from '../../utils/formValidators';
+import { GroupDetailDrawer } from './components/GroupDetailDrawer';
 
 const { Text } = Typography;
 
@@ -62,6 +64,15 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
   const [typeFilter, setTypeFilter] = useState('all');
   const [scopeFilter, setScopeFilter] = useState('all');
   const [submitting, setSubmitting] = useState(false);
+
+  // Detail Drawer State
+  const [selectedGroup, setSelectedGroup] = useState<DirectoryGroup | null>(null);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+
+  const handleOpenDetail = (group: DirectoryGroup) => {
+    setSelectedGroup(group);
+    setDetailDrawerOpen(true);
+  };
 
   // Edit Modal State
   const [editingGroup, setEditingGroup] = useState<DirectoryGroup | null>(null);
@@ -233,10 +244,17 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
     {
       title: 'Actions',
       key: 'actions',
-      width: 110,
-      fixed: 'right',
+      width: 120,
       render: (_: unknown, record: DirectoryGroup) => (
         <Space size={2}>
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleOpenDetail(record)}
+            />
+          </Tooltip>
           <Tooltip title="Edit Group">
             <Button
               type="text"
@@ -324,12 +342,25 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
         dataSource={filteredGroups}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,
           showSizeChanger: true,
           pageSizeOptions: ['10', '25', '50', '100'],
           showTotal: (total) => `Total ${total} groups`,
+        }}
+      />
+
+      {/* Group Detail Drawer */}
+      <GroupDetailDrawer
+        group={selectedGroup}
+        open={detailDrawerOpen}
+        onClose={() => {
+          setDetailDrawerOpen(false);
+          setSelectedGroup(null);
+        }}
+        onEdit={(grp) => {
+          setDetailDrawerOpen(false);
+          handleOpenEdit(grp);
         }}
       />
 

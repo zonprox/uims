@@ -51,7 +51,7 @@ export function formatDiffValue(val: unknown): string {
   if (typeof val === 'object') {
     try {
       return JSON.stringify(val);
-    } catch {
+    } catch (_err: unknown) {
       return '[Object]';
     }
   }

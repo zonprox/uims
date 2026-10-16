@@ -80,14 +80,14 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
           Edit
         </Button>
       }
-      cancelText="Close"
+      hideFooter={true}
       styles={{
         body: { padding: '16px 20px', background: token.colorBgLayout },
       }}
     >
       {/* Role KPI Cards */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col span={8}>
+        <Col span={12}>
           <Card
             size="small"
             style={{ borderRadius: 8, textAlign: 'center' }}
@@ -104,7 +104,7 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
             </Text>
           </Card>
         </Col>
-        <Col span={8}>
+        <Col span={12}>
           <Card
             size="small"
             style={{ borderRadius: 8, textAlign: 'center' }}
@@ -123,23 +123,6 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
             </Text>
           </Card>
         </Col>
-        <Col span={8}>
-          <Card
-            size="small"
-            style={{ borderRadius: 8, textAlign: 'center' }}
-            styles={{ body: { padding: '10px 8px' } }}
-          >
-            <Text
-              type="secondary"
-              style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
-            >
-              Governance Tier
-            </Text>
-            <Text strong style={{ fontSize: 14, color: '#7c3aed', display: 'block', marginTop: 4 }}>
-              {roleDetail?.isSystem ? 'System' : 'Custom'}
-            </Text>
-          </Card>
-        </Col>
       </Row>
 
       {/* Role Metadata */}
@@ -150,9 +133,6 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
         styles={{ body: { padding: '12px 16px' } }}
       >
         <Descriptions column={1} size="small">
-          <Descriptions.Item label="Role Name">
-            <Text strong>{roleDetail?.name}</Text>
-          </Descriptions.Item>
           <Descriptions.Item label="Description">
             <Text type="secondary">{roleDetail?.description || 'No description provided.'}</Text>
           </Descriptions.Item>

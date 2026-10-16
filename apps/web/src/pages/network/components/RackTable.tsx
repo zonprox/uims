@@ -45,6 +45,7 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
   ({ racks, loading = false, onViewElevation, onEdit, onDelete }) => {
     const { token } = theme.useToken();
 
+    // 5 High-Signal Columns: Rack Code & Name, Space Utilization, Switches, Status, Actions
     const columns: ColumnsType<NetworkRack> = useMemo(
       () => [
         {
@@ -90,7 +91,7 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
         {
           title: 'Space Utilization',
           key: 'occupancy',
-          width: 180,
+          width: 220,
           sorter: (a, b) => {
             const utilA =
               a.occupancyRate ?? (a.usedUnits !== undefined ? (a.usedUnits / 42) * 100 : 0);
@@ -111,10 +112,10 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
             return (
               <Flex vertical gap={2} style={{ width: '100%' }}>
                 <Flex justify="space-between" style={{ fontSize: 11 }}>
-                  <Text>
+                  <Text strong>
                     {occupied} / {total} U
                   </Text>
-                  <Text strong>{percent}%</Text>
+                  <Text type="secondary">{percent}%</Text>
                 </Flex>
                 <Progress
                   percent={percent}
@@ -135,17 +136,26 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
         {
           title: 'Switches',
           key: 'switchCount',
-          width: 100,
+          width: 140,
           sorter: (a, b) =>
             (a.switches?.length || 0) - (b.switches?.length || 0) || a.id.localeCompare(b.id),
           render: (_: unknown, record: NetworkRack) => (
-            <Tag color="cyan">{record.switches?.length ?? 0} devices</Tag>
+            <Flex vertical gap={2}>
+              <Tag color="cyan" style={{ width: 'fit-content', margin: 0 }}>
+                {record.switches?.length ?? 0} devices
+              </Tag>
+              {record.maxPowerKw ? (
+                <Text type="secondary" style={{ fontSize: 10.5 }}>
+                  {record.maxPowerKw} kW cap
+                </Text>
+              ) : null}
+            </Flex>
           ),
         },
         {
           title: 'Status',
           key: 'status',
-          width: 100,
+          width: 120,
           sorter: (a, b) =>
             (a.status || '').localeCompare(b.status || '') || a.id.localeCompare(b.id),
           render: (_: unknown, record: NetworkRack) => getStatusTag(record.status),
@@ -153,8 +163,7 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 170,
-          fixed: 'right',
+          width: 160,
           render: (_: unknown, record: NetworkRack) => (
             <Space size={4}>
               {onViewElevation && (
@@ -224,7 +233,6 @@ export const RackTable: React.FC<RackTableProps> = React.memo(
             pageSizeOptions: ['10', '25', '50', '100'],
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} racks`,
           }}
-          scroll={{ x: 780 }}
           locale={{
             emptyText: 'No equipment racks found matching your search criteria.',
           }}

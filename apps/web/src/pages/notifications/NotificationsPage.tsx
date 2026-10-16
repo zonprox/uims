@@ -5,6 +5,7 @@ import {
   CheckOutlined,
   ClearOutlined,
   DeleteOutlined,
+  EyeOutlined,
   FilterOutlined,
   LinkOutlined,
   ReloadOutlined,
@@ -19,6 +20,7 @@ import {
   Button,
   Card,
   DatePicker,
+  Descriptions,
   Empty,
   Flex,
   Input,
@@ -30,12 +32,14 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { TimeAgo } from '../../components/FormattedDate';
+import AppDrawer from '../../components/AppDrawer';
+import { FormattedDateTime, TimeAgo } from '../../components/FormattedDate';
 import PageContainer from '../../components/PageContainer';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { type NotificationItem } from '../../services/notifications.service';
@@ -43,10 +47,11 @@ import { formatErrorMessage } from '../../utils/feedback';
 
 dayjs.extend(isBetween);
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
 export default function NotificationsPage() {
+  const { token } = theme.useToken();
   const { message } = App.useApp();
   const navigate = useNavigate();
 
@@ -73,6 +78,7 @@ export default function NotificationsPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [batchLoading, setBatchLoading] = useState<boolean>(false);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
 
   // Safe notification list
   const safeNotifications = useMemo(() => {
@@ -233,52 +239,45 @@ export default function NotificationsPage() {
 
   const columns: TableProps<NotificationItem>['columns'] = [
     {
-      title: 'Status',
-      key: 'status',
-      width: 80,
-      align: 'center',
+      title: 'Status & Severity',
+      key: 'severity',
+      width: 170,
       render: (_, record) => (
-        <Tooltip title={record.read ? 'Read' : 'Unread'}>
-          <Badge
-            status={record.read ? 'default' : 'processing'}
-            color={record.read ? '#cbd5e1' : '#1677ff'}
-          />
-        </Tooltip>
+        <Flex align="center" gap={6} wrap="wrap">
+          <Tooltip title={record.read ? 'Read' : 'Unread'}>
+            <Badge
+              status={record.read ? 'default' : 'processing'}
+              color={record.read ? '#cbd5e1' : '#1677ff'}
+            />
+          </Tooltip>
+          {renderSeverityTag(record.type)}
+          {renderCategoryTag(record.category)}
+        </Flex>
       ),
-    },
-    {
-      title: 'Severity',
-      dataIndex: 'type',
-      key: 'type',
-      width: 100,
-      render: (type: NotificationItem['type']) => renderSeverityTag(type),
-    },
-    {
-      title: 'Category',
-      dataIndex: 'category',
-      key: 'category',
-      width: 110,
-      render: (category: NotificationItem['category']) => renderCategoryTag(category),
     },
     {
       title: 'Notification',
       key: 'title',
       render: (_, record) => (
-        <div style={{ maxWidth: 460 }}>
+        <div style={{ maxWidth: 440 }}>
           <Text strong={!record.read} style={{ fontSize: 13, display: 'block', marginBottom: 2 }}>
             {record.title}
           </Text>
-          <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.4 }}>
+          <Paragraph
+            type="secondary"
+            style={{ fontSize: 12, lineHeight: 1.4, margin: 0 }}
+            ellipsis={{ rows: 2 }}
+          >
             {record.description}
-          </Text>
+          </Paragraph>
         </div>
       ),
     },
     {
-      title: 'Target Link',
+      title: 'Target',
       dataIndex: 'link',
-      key: 'link',
-      width: 150,
+      key: 'target',
+      width: 140,
       render: (link?: string, record?: NotificationItem) =>
         link ? (
           <Button
@@ -304,7 +303,7 @@ export default function NotificationsPage() {
     {
       title: 'Time',
       key: 'time',
-      width: 160,
+      width: 150,
       render: (_, record) =>
         record.createdAt ? (
           <TimeAgo date={record.createdAt} showIcon style={{ fontSize: 12 }} />
@@ -319,7 +318,6 @@ export default function NotificationsPage() {
       key: 'actions',
       width: 120,
       align: 'right',
-      fixed: 'right' as const,
       render: (_, record) => (
         <Space size={4}>
           <Tooltip title={record.read ? 'Mark as unread' : 'Mark as read'}>
@@ -328,6 +326,14 @@ export default function NotificationsPage() {
               size="small"
               icon={record.read ? <UndoOutlined /> : <CheckOutlined />}
               onClick={() => markAsRead(record.id)}
+            />
+          </Tooltip>
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => setSelectedNotification(record)}
             />
           </Tooltip>
           <Popconfirm
@@ -508,7 +514,6 @@ export default function NotificationsPage() {
           loading={loading}
           columns={columns}
           dataSource={filteredNotifications}
-          scroll={{ x: 'max-content' }}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,
@@ -526,6 +531,21 @@ export default function NotificationsPage() {
             showTotal: (total, range) =>
               `Showing ${range[0]}-${range[1]} of ${total} notifications`,
           }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('.ant-btn') ||
+                target.closest('.ant-popover') ||
+                target.closest('.ant-popconfirm')
+              ) {
+                return;
+              }
+              setSelectedNotification(record);
+            },
+            style: { cursor: 'pointer' },
+          })}
           locale={{
             emptyText: (
               <Empty
@@ -542,6 +562,114 @@ export default function NotificationsPage() {
           rowClassName={(record) => (record.read ? '' : 'ant-table-row-unread')}
         />
       </Card>
+
+      {/* Notification Detail Drawer */}
+      <AppDrawer
+        title="Notification Details"
+        subtitle={
+          selectedNotification
+            ? selectedNotification.createdAt
+              ? `Received on ${dayjs(selectedNotification.createdAt).format('YYYY-MM-DD HH:mm')}`
+              : selectedNotification.time
+            : ''
+        }
+        icon={<BellOutlined />}
+        open={Boolean(selectedNotification)}
+        onClose={() => setSelectedNotification(null)}
+        size={460}
+        extra={
+          selectedNotification && (
+            <Space size={6}>
+              {renderSeverityTag(selectedNotification.type)}
+              {renderCategoryTag(selectedNotification.category)}
+            </Space>
+          )
+        }
+        footerActions={
+          selectedNotification && (
+            <Flex justify="space-between" style={{ width: '100%' }}>
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => {
+                  deleteNotification(selectedNotification.id);
+                  setSelectedNotification(null);
+                }}
+              >
+                Delete
+              </Button>
+              <Space size={8}>
+                <Button
+                  icon={selectedNotification.read ? <UndoOutlined /> : <CheckOutlined />}
+                  onClick={() => {
+                    markAsRead(selectedNotification.id);
+                    setSelectedNotification({
+                      ...selectedNotification,
+                      read: !selectedNotification.read,
+                    });
+                  }}
+                >
+                  {selectedNotification.read ? 'Mark as Unread' : 'Mark as Read'}
+                </Button>
+                {selectedNotification.link && (
+                  <Button
+                    type="primary"
+                    icon={<LinkOutlined />}
+                    onClick={() => {
+                      if (!selectedNotification.read) {
+                        markAsRead(selectedNotification.id);
+                      }
+                      navigate(selectedNotification.link!);
+                    }}
+                  >
+                    View Resource
+                  </Button>
+                )}
+              </Space>
+            </Flex>
+          )
+        }
+      >
+        {selectedNotification && (
+          <Flex vertical gap={16}>
+            <div>
+              <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 8 }}>
+                {selectedNotification.title}
+              </Text>
+              <Paragraph style={{ fontSize: 13, color: token.colorTextSecondary, lineHeight: 1.6 }}>
+                {selectedNotification.description}
+              </Paragraph>
+            </div>
+
+            <Descriptions bordered size="small" column={1}>
+              <Descriptions.Item label="Read State">
+                <Badge
+                  status={selectedNotification.read ? 'default' : 'processing'}
+                  text={selectedNotification.read ? 'Read' : 'Unread'}
+                />
+              </Descriptions.Item>
+              <Descriptions.Item label="Category">
+                {selectedNotification.category}
+              </Descriptions.Item>
+              <Descriptions.Item label="Severity Level">
+                {selectedNotification.type}
+              </Descriptions.Item>
+              <Descriptions.Item label="Timestamp">
+                {selectedNotification.createdAt ? (
+                  <FormattedDateTime date={selectedNotification.createdAt} />
+                ) : (
+                  selectedNotification.time
+                )}
+              </Descriptions.Item>
+              {selectedNotification.link && (
+                <Descriptions.Item label="Target Resource">
+                  <Text code>{selectedNotification.link}</Text>
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+          </Flex>
+        )}
+      </AppDrawer>
     </PageContainer>
   );
 }

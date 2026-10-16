@@ -150,7 +150,10 @@ export default function NotificationDrawer({
       }
       placement="right"
       size={440}
-      styles={{ wrapper: { width: 440 } }}
+      styles={{
+        wrapper: { width: 440 },
+        body: { padding: '16px 20px' },
+      }}
       open={open}
       destroyOnHidden
       onClose={onClose}
@@ -177,7 +180,7 @@ export default function NotificationDrawer({
               onClose();
             }}
           >
-            View All in Notification Center
+            View All Notifications
           </Button>
         </Flex>
       }

@@ -356,14 +356,11 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             }
           })
           .catch((error: unknown) => {
-            console.error(
-              'Failed to resolve deep-linked entity:',
-              error instanceof Error ? error.message : String(error),
-            );
+            message.error(formatErrorMessage(error, 'resolve deep-linked employee'));
           });
       }
     }
-  }, [deepLinkEmpId, employees, handleOpenDetail]);
+  }, [deepLinkEmpId, employees, handleOpenDetail, message]);
 
   const handleCreateEmployee = async (values: CreateDirectoryUserDto) => {
     setModalSubmitting(true);

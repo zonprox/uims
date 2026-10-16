@@ -42,7 +42,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'assets',
-    title: 'Hardware Assets',
+    title: 'Assets',
     category: 'Assets',
     path: '/assets',
     icon: <LaptopOutlined />,
@@ -51,7 +51,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'licenses',
-    title: 'Software Licenses',
+    title: 'Licenses',
     category: 'Software',
     path: '/licenses',
     icon: <SafetyCertificateOutlined />,
@@ -78,7 +78,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'organization',
-    title: 'Organization Structure',
+    title: 'Organization',
     category: 'Organization',
     path: '/organization',
     icon: <ApartmentOutlined />,
@@ -96,7 +96,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'directory',
-    title: 'Employee Directory',
+    title: 'Directory',
     category: 'Directory',
     path: '/directory',
     icon: <TeamOutlined />,
@@ -106,7 +106,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'reports',
-    title: 'Reports & Analytics',
+    title: 'Reports',
     category: 'Analytics',
     path: '/reports',
     icon: <BarChartOutlined />,
@@ -115,7 +115,7 @@ const COMMAND_ITEMS: Array<CommandItem> = [
   },
   {
     key: 'audit',
-    title: 'Audit Trail',
+    title: 'Audit',
     category: 'Governance',
     path: '/audit',
     icon: <AuditOutlined />,

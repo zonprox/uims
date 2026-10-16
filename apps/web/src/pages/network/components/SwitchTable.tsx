@@ -74,6 +74,7 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
       return <Tag color="default">{vendor || 'Other'}</Tag>;
     };
 
+    // 5 High-Signal Columns: Switch Name & Role, Vendor & Model, Port Summary, Status, Actions
     const columns: ColumnsType<NetworkSwitch> = useMemo(
       () => [
         {
@@ -84,8 +85,8 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
             (a.role || '').localeCompare(b.role || '') ||
             a.id.localeCompare(b.id),
           render: (_: unknown, record: NetworkSwitch) => (
-            <Flex vertical gap={2}>
-              <Flex align="center" gap={6}>
+            <Flex vertical gap={3}>
+              <Flex align="center" gap={6} wrap="wrap">
                 <Text
                   strong
                   style={{
@@ -100,6 +101,20 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
                 </Text>
                 {getRoleTag(record.role)}
               </Flex>
+              {record.ipAddress ? (
+                <Tag
+                  icon={<ApiOutlined />}
+                  color="geekblue"
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    width: 'fit-content',
+                    margin: 0,
+                  }}
+                >
+                  {record.ipAddress.address}
+                </Tag>
+              ) : null}
               {record.notes && (
                 <Text type="secondary" ellipsis style={{ fontSize: 11, maxWidth: 220 }}>
                   {record.notes}
@@ -116,59 +131,13 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
             a.model.localeCompare(b.model) ||
             a.id.localeCompare(b.id),
           render: (_: unknown, record: NetworkSwitch) => (
-            <Flex vertical gap={1}>
+            <Flex vertical gap={2}>
               <Flex align="center" gap={4}>
                 {getVendorTag(record.vendor)}
+                <Text strong style={{ fontSize: 12, fontFamily: 'monospace' }}>
+                  {record.model}
+                </Text>
               </Flex>
-              <Text strong style={{ fontSize: 12, fontFamily: 'monospace' }}>
-                {record.model}
-              </Text>
-            </Flex>
-          ),
-        },
-        {
-          title: 'Management IP',
-          key: 'mgmtIp',
-          width: 145,
-          sorter: (a, b) => {
-            const ipA = a.ipAddress?.address || '';
-            const ipB = b.ipAddress?.address || '';
-            return ipA.localeCompare(ipB) || a.id.localeCompare(b.id);
-          },
-          render: (_: unknown, record: NetworkSwitch) =>
-            record.ipAddress ? (
-              <Tag
-                icon={<ApiOutlined />}
-                color="geekblue"
-                style={{
-                  fontFamily: 'monospace',
-                  fontSize: 11.5,
-                  width: 'fit-content',
-                  margin: 0,
-                }}
-              >
-                {record.ipAddress.address}
-              </Tag>
-            ) : (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                —
-              </Text>
-            ),
-        },
-        {
-          title: 'Rack & Position',
-          key: 'rackPosition',
-          sorter: (a, b) => {
-            const rackA = a.rack?.name || '';
-            const rackB = b.rack?.name || '';
-            return (
-              rackA.localeCompare(rackB) ||
-              (a.rackPosition ?? 0) - (b.rackPosition ?? 0) ||
-              a.id.localeCompare(b.id)
-            );
-          },
-          render: (_: unknown, record: NetworkSwitch) => (
-            <Flex vertical gap={2}>
               {record.rack ? (
                 <Flex align="center" gap={4}>
                   <Tag
@@ -194,7 +163,7 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
                   )}
                 </Flex>
               ) : (
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
                   Unmounted
                 </Text>
               )}
@@ -204,7 +173,7 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
         {
           title: 'Port Summary',
           key: 'portSummary',
-          width: 170,
+          width: 220,
           sorter: (a, b) =>
             (a.activePortsCount ?? 0) - (b.activePortsCount ?? 0) ||
             a.totalPorts - b.totalPorts ||
@@ -281,31 +250,24 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
         {
           title: 'Status',
           key: 'status',
-          width: 105,
+          width: 140,
           sorter: (a, b) =>
             (a.status || '').localeCompare(b.status || '') || a.id.localeCompare(b.id),
-          render: (_: unknown, record: NetworkSwitch) => getStatusTag(record.status),
-        },
-        {
-          title: 'MAC & Firmware',
-          key: 'hardwareDetails',
-          width: 150,
           render: (_: unknown, record: NetworkSwitch) => (
-            <Flex vertical gap={1}>
-              <Text code style={{ fontSize: 11 }}>
-                {record.macAddress || '—'}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 10.5 }}>
-                FW: {record.firmwareVersion || '—'}
-              </Text>
+            <Flex vertical gap={2}>
+              {getStatusTag(record.status)}
+              {record.firmwareVersion && (
+                <Text type="secondary" style={{ fontSize: 10.5 }}>
+                  FW: {record.firmwareVersion}
+                </Text>
+              )}
             </Flex>
           ),
         },
         {
           title: 'Actions',
           key: 'actions',
-          width: 150,
-          fixed: 'right' as const,
+          width: 170,
           render: (_: unknown, record: NetworkSwitch) => (
             <Space size="small">
               <Tooltip title="View Interactive Port Faceplate">
@@ -368,7 +330,6 @@ export const SwitchTable: React.FC<SwitchTableProps> = React.memo(
         rowKey="id"
         loading={loading}
         size="middle"
-        scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,
           showSizeChanger: true,

@@ -59,7 +59,7 @@ export const RackElevationDrawer: React.FC<RackElevationDrawerProps> = React.mem
         open={open}
         onClose={onClose}
         size={820}
-        cancelText="Close"
+        hideFooter={true}
         extra={
           <Space>
             {onRefresh && (

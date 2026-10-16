@@ -410,7 +410,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
               </Button>
             </Flex>
           }
-          cancelText="Close"
+          hideFooter={true}
         >
           {assetData.hasPendingRecord && (
             <Alert
@@ -509,7 +509,6 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                       styles={{ label: { whiteSpace: 'nowrap' } }}
                       style={{ marginBottom: 16 }}
                     >
-                      <Descriptions.Item label="Asset Tag">{assetData.tag}</Descriptions.Item>
                       <Descriptions.Item label="Serial Number">
                         {assetData.serialNumber ? (
                           <Text code copyable={{ text: assetData.serialNumber }}>
@@ -519,10 +518,6 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                           <Text type="secondary">—</Text>
                         )}
                       </Descriptions.Item>
-                      <Descriptions.Item label="Manufacturer">
-                        {assetData.manufacturer}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Model">{assetData.model}</Descriptions.Item>
                       <Descriptions.Item label="Category">{assetData.category}</Descriptions.Item>
                       <Descriptions.Item label="Status">
                         <Tag color={assetData.status === 'Active' ? 'success' : 'warning'}>
@@ -582,6 +577,49 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = React.memo(
                               Download
                             </Button>
                           </Flex>
+                        </Descriptions.Item>
+                      )}
+                      <Descriptions.Item label="Unit Cost">
+                        {assetData.unitCost != null ? (
+                          <Text style={{ fontFamily: 'monospace' }}>
+                            $
+                            {assetData.unitCost.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </Text>
+                        ) : (
+                          <Text type="secondary">—</Text>
+                        )}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Supplier / Vendor">
+                        {(assetData as unknown as { vendor?: { name?: string }; supplier?: string })
+                          .vendor?.name ||
+                          (assetData as unknown as { supplier?: string }).supplier ||
+                          assetData.manufacturer || <Text type="secondary">—</Text>}
+                      </Descriptions.Item>
+                      {(assetData as unknown as { macAddress?: string }).macAddress && (
+                        <Descriptions.Item label="MAC Address">
+                          <Text
+                            code
+                            copyable={{
+                              text: (assetData as unknown as { macAddress?: string }).macAddress,
+                            }}
+                          >
+                            {(assetData as unknown as { macAddress?: string }).macAddress}
+                          </Text>
+                        </Descriptions.Item>
+                      )}
+                      {(assetData as unknown as { ipAddress?: string }).ipAddress && (
+                        <Descriptions.Item label="Direct IP Address">
+                          <Text
+                            code
+                            copyable={{
+                              text: (assetData as unknown as { ipAddress?: string }).ipAddress,
+                            }}
+                          >
+                            {(assetData as unknown as { ipAddress?: string }).ipAddress}
+                          </Text>
                         </Descriptions.Item>
                       )}
                       <Descriptions.Item label="Notes">

@@ -5,6 +5,7 @@ import {
   ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   IdcardOutlined,
   MinusSquareOutlined,
   PlusOutlined,
@@ -47,6 +48,7 @@ import {
 } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import AppDrawer from '../../components/AppDrawer';
 import PageContainer from '../../components/PageContainer';
 import { organizationService } from '../../services/organization.service';
 import { formatErrorMessage } from '../../utils/feedback';
@@ -191,6 +193,12 @@ export default function OrganizationPage() {
 
   const [posModalOpen, setPosModalOpen] = useState(false);
   const [editingPos, setEditingPos] = useState<Position | null>(null);
+
+  const [selectedDept, setSelectedDept] = useState<Department | null>(null);
+  const [deptDrawerOpen, setDeptDrawerOpen] = useState(false);
+
+  const [selectedPos, setSelectedPos] = useState<Position | null>(null);
+  const [posDrawerOpen, setPosDrawerOpen] = useState(false);
 
   const [modalSubmitting, setModalSubmitting] = useState(false);
 
@@ -539,7 +547,7 @@ export default function OrganizationPage() {
   // Table columns
   const deptColumns = [
     {
-      title: 'Department Name & Code',
+      title: 'Department',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: DepartmentTreeNode | Department) => {
@@ -566,6 +574,8 @@ export default function OrganizationPage() {
           iconColor = '#ea580c';
         }
 
+        const path = 'hierarchyPath' in record ? record.hierarchyPath : record.parent?.name || '';
+
         return (
           <Flex align="center" gap={10}>
             <div
@@ -589,59 +599,35 @@ export default function OrganizationPage() {
               <Text strong style={{ fontSize: 13, display: 'block' }}>
                 {name}
               </Text>
-              <Tag
-                color={tier === 1 ? 'purple' : tier === 2 ? 'blue' : tier === 3 ? 'cyan' : 'orange'}
-                style={{ fontSize: 10, margin: 0 }}
-              >
-                {record.code}
-              </Tag>
+              {path && record.parent && (
+                <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
+                  {record.parent.name}
+                </Text>
+              )}
             </div>
           </Flex>
         );
       },
     },
     {
-      title: 'Hierarchy Tier',
-      key: 'tier',
-      render: (_: unknown, record: DepartmentTreeNode | Department) => {
+      title: 'Code',
+      dataIndex: 'code',
+      key: 'code',
+      width: 140,
+      render: (code: string, record: DepartmentTreeNode | Department) => {
         const tier = 'tierLevel' in record ? record.tierLevel : 1;
-        if (tier === 1) {
-          return <Tag color="purple">Level 1 • Executive</Tag>;
-        }
-        if (tier === 2) {
-          return <Tag color="blue">Level 2 • Division</Tag>;
-        }
-        if (tier === 3) {
-          return <Tag color="cyan">Level 3 • Dept / Factory</Tag>;
-        }
-        return <Tag color="orange">Level 4 • Section / Line</Tag>;
-      },
-    },
-    {
-      title: 'Organization',
-      key: 'org',
-      render: (_: unknown, record: Department) => (
-        <Text style={{ fontSize: 12.5 }}>{record.organization?.name || 'Broadpeak Soc Trang'}</Text>
-      ),
-    },
-    {
-      title: 'Parent & Hierarchy Path',
-      key: 'parent',
-      render: (_: unknown, record: DepartmentTreeNode | Department) => {
-        const path = 'hierarchyPath' in record ? record.hierarchyPath : record.parent?.name || '';
-        return record.parent ? (
-          <Tooltip title={`Full Path: ${path}`}>
-            <Tag color="cyan" style={{ cursor: 'help' }}>
-              {record.parent.name}
-            </Tag>
-          </Tooltip>
-        ) : (
-          <Tag color="purple">Executive Root</Tag>
+        return (
+          <Tag
+            color={tier === 1 ? 'purple' : tier === 2 ? 'blue' : tier === 3 ? 'cyan' : 'orange'}
+            style={{ fontSize: 11, margin: 0 }}
+          >
+            {code}
+          </Tag>
         );
       },
     },
     {
-      title: 'Manager',
+      title: 'Head of Dept',
       key: 'manager',
       render: (_: unknown, record: Department) => (
         <div>
@@ -657,34 +643,37 @@ export default function OrganizationPage() {
       ),
     },
     {
-      title: 'Headcount & Roles',
-      key: 'stats',
-      render: (_: unknown, record: Department) => (
+      title: 'Members',
+      dataIndex: 'memberCount',
+      key: 'memberCount',
+      width: 170,
+      render: (count: number, record: Department) => (
         <Space size={6}>
           <Tag icon={<TeamOutlined />} color="processing">
-            {record.memberCount || 0} Members
+            {count || 0} Members
           </Tag>
-          <Tag icon={<IdcardOutlined />} color="default">
-            {record.positionsCount || 0} Titles
-          </Tag>
+          <Tag color={record.status === 'ACTIVE' ? 'success' : 'default'}>{record.status}</Tag>
         </Space>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={status === 'ACTIVE' ? 'success' : 'default'}>{status}</Tag>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
-      fixed: 'right' as const,
+      width: 160,
       render: (_: unknown, record: Department) => (
         <Space size="small">
+          <Tooltip title="View Unit Details">
+            <Button
+              type="text"
+              shape="circle"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setSelectedDept(record);
+                setDeptDrawerOpen(true);
+              }}
+            />
+          </Tooltip>
           <Tooltip title="Create Sub-Department">
             <Button
               type="text"
@@ -737,8 +726,8 @@ export default function OrganizationPage() {
         <Flex align="center" gap={10}>
           <div
             style={{
-              width: 32,
-              height: 32,
+              width: 30,
+              height: 30,
               borderRadius: token.borderRadiusSM,
               background: token.colorWarningBg,
               color: token.colorWarning,
@@ -746,7 +735,7 @@ export default function OrganizationPage() {
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: 13,
             }}
           >
             <IdcardOutlined />
@@ -764,15 +753,16 @@ export default function OrganizationPage() {
     },
     {
       title: 'Department',
-      key: 'dept',
+      key: 'department',
       render: (_: unknown, record: Position) => (
         <Text style={{ fontSize: 12.5 }}>{record.department?.name || 'General Operations'}</Text>
       ),
     },
     {
-      title: 'Seniority Level',
+      title: 'Level',
       dataIndex: 'level',
       key: 'level',
+      width: 130,
       render: (level: string) => {
         let color = 'blue';
         if (level === 'Executive') color = 'magenta';
@@ -783,30 +773,37 @@ export default function OrganizationPage() {
       },
     },
     {
-      title: 'Headcount',
+      title: 'Active Users',
       dataIndex: 'headcount',
-      key: 'headcount',
-      render: (count: number) => (
-        <Tag icon={<UserOutlined />} color="default">
-          {count || 0} Staff Active
-        </Tag>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={status === 'ACTIVE' ? 'success' : 'default'}>{status}</Tag>
+      key: 'usersCount',
+      width: 170,
+      render: (count: number, record: Position) => (
+        <Space size={6}>
+          <Tag icon={<UserOutlined />} color="default">
+            {count || 0} Staff Active
+          </Tag>
+          <Tag color={record.status === 'ACTIVE' ? 'success' : 'default'}>{record.status}</Tag>
+        </Space>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
-      fixed: 'right' as const,
+      width: 110,
       render: (_: unknown, record: Position) => (
         <Space size="small">
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              shape="circle"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setSelectedPos(record);
+                setPosDrawerOpen(true);
+              }}
+            />
+          </Tooltip>
           <Tooltip title="Edit Job Position">
             <Button
               type="text"
@@ -1407,7 +1404,23 @@ export default function OrganizationPage() {
                   dataSource={deptTableView === 'tree' ? treeDepartments : filteredDepts}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 'max-content' }}
+                  onRow={(record) => ({
+                    onClick: (e) => {
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.closest('button') ||
+                        target.closest('.ant-btn') ||
+                        target.closest('.ant-table-row-expand-icon') ||
+                        target.closest('.ant-popover') ||
+                        target.closest('.ant-popconfirm')
+                      ) {
+                        return;
+                      }
+                      setSelectedDept(record);
+                      setDeptDrawerOpen(true);
+                    },
+                    style: { cursor: 'pointer' },
+                  })}
                   expandable={
                     deptTableView === 'tree'
                       ? {
@@ -1561,7 +1574,22 @@ export default function OrganizationPage() {
                   dataSource={filteredPositions}
                   rowKey="id"
                   loading={loading}
-                  scroll={{ x: 'max-content' }}
+                  onRow={(record) => ({
+                    onClick: (e) => {
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.closest('button') ||
+                        target.closest('.ant-btn') ||
+                        target.closest('.ant-popover') ||
+                        target.closest('.ant-popconfirm')
+                      ) {
+                        return;
+                      }
+                      setSelectedPos(record);
+                      setPosDrawerOpen(true);
+                    },
+                    style: { cursor: 'pointer' },
+                  })}
                   pagination={{
                     pageSize: 10,
                     showSizeChanger: true,
@@ -1882,6 +1910,114 @@ export default function OrganizationPage() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Department Detail Drawer */}
+      <AppDrawer
+        title={selectedDept?.name || 'Department Details'}
+        subtitle={`Code: ${selectedDept?.code || ''}`}
+        icon={<ApartmentOutlined />}
+        open={deptDrawerOpen}
+        onClose={() => {
+          setDeptDrawerOpen(false);
+          setSelectedDept(null);
+        }}
+        size={520}
+        extra={
+          selectedDept && (
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setDeptDrawerOpen(false);
+                handleOpenEditDept(selectedDept);
+              }}
+            >
+              Edit Department
+            </Button>
+          )
+        }
+      >
+        {selectedDept && (
+          <Flex vertical gap={16}>
+            <Descriptions bordered size="small" column={1}>
+              <Descriptions.Item label="Department Name">{selectedDept.name}</Descriptions.Item>
+              <Descriptions.Item label="Code">
+                <Tag color="blue">{selectedDept.code}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={selectedDept.status === 'ACTIVE' ? 'success' : 'default'}>
+                  {selectedDept.status}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Organization">
+                {selectedDept.organization?.name || 'Broadpeak Soc Trang'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Manager">
+                {selectedDept.managerName || 'Unassigned'} (
+                {selectedDept.managerEmail || 'No email'})
+              </Descriptions.Item>
+              <Descriptions.Item label="Active Members">
+                <Tag color="processing">{selectedDept.memberCount || 0} Staff</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Job Titles">
+                {selectedDept.positionsCount || 0} Configured Positions
+              </Descriptions.Item>
+            </Descriptions>
+          </Flex>
+        )}
+      </AppDrawer>
+
+      {/* Position Detail Drawer */}
+      <AppDrawer
+        title={selectedPos?.title || 'Position Details'}
+        subtitle={`Code: ${selectedPos?.code || ''}`}
+        icon={<IdcardOutlined />}
+        open={posDrawerOpen}
+        onClose={() => {
+          setPosDrawerOpen(false);
+          setSelectedPos(null);
+        }}
+        size={480}
+        extra={
+          selectedPos && (
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setPosDrawerOpen(false);
+                handleOpenEditPos(selectedPos);
+              }}
+            >
+              Edit Position
+            </Button>
+          )
+        }
+      >
+        {selectedPos && (
+          <Flex vertical gap={16}>
+            <Descriptions bordered size="small" column={1}>
+              <Descriptions.Item label="Job Title">{selectedPos.title}</Descriptions.Item>
+              <Descriptions.Item label="Code">
+                <Tag color="orange">{selectedPos.code}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Department">
+                {selectedPos.department?.name || 'General Operations'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Seniority Level">
+                <Tag color="blue">{selectedPos.level}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Active Headcount">
+                <Tag color="processing">{selectedPos.headcount || 0} Staff Assigned</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={selectedPos.status === 'ACTIVE' ? 'success' : 'default'}>
+                  {selectedPos.status}
+                </Tag>
+              </Descriptions.Item>
+            </Descriptions>
+          </Flex>
+        )}
+      </AppDrawer>
     </PageContainer>
   );
 }

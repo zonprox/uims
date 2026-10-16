@@ -73,7 +73,7 @@ export const InventoryDetailDrawer: React.FC<InventoryDetailDrawerProps> = React
             )}
           </Flex>
         }
-        cancelText="Close"
+        hideFooter={true}
       >
         <Tabs
           defaultActiveKey="overview"
@@ -91,17 +91,6 @@ export const InventoryDetailDrawer: React.FC<InventoryDetailDrawerProps> = React
                     styles={{ label: { whiteSpace: 'nowrap' } }}
                     style={{ marginBottom: 16 }}
                   >
-                    <Descriptions.Item label="SKU">
-                      <Text code strong style={{ color: token.colorPrimary }}>
-                        {item.sku}
-                      </Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Item Name">
-                      <Text strong>{item.name}</Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Category">
-                      <Tag color="geekblue">{categoryName}</Tag>
-                    </Descriptions.Item>
                     <Descriptions.Item label="Storage Bin">
                       {item.binNumber ? (
                         <Tag color="cyan">{item.binNumber}</Tag>
@@ -164,6 +153,32 @@ export const InventoryDetailDrawer: React.FC<InventoryDetailDrawerProps> = React
                           minimumFractionDigits: 2,
                         })}
                       </Text>
+                    </Descriptions.Item>
+                  </Descriptions>
+
+                  <Descriptions
+                    title="Stock Unit Distribution"
+                    bordered
+                    size="small"
+                    column={1}
+                    styles={{ label: { whiteSpace: 'nowrap' } }}
+                    style={{ marginTop: 16 }}
+                  >
+                    <Descriptions.Item label="Total Units Cataloged">
+                      <Text strong>{item.totalUnits ?? item.quantity ?? 0} units</Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Warehouse Available">
+                      <Tag color="success">{item.availableUnits ?? item.quantity ?? 0} units</Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Deployed / In Use">
+                      <Tag color="processing">
+                        {item.assignedUnits ?? item.inUseUnits ?? 0} units
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="In Maintenance / Repair">
+                      <Tag color={item.maintenanceUnits ? 'warning' : 'default'}>
+                        {item.maintenanceUnits ?? 0} units
+                      </Tag>
                     </Descriptions.Item>
                   </Descriptions>
                 </div>

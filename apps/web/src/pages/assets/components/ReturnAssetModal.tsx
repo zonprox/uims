@@ -243,13 +243,13 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
           <Flex vertical gap={14}>
             <AppDrawer.Section title="Asset & Custody Summary">
               <Descriptions size="small" column={1}>
-                <Descriptions.Item label="Asset Tag">
+                <Descriptions.Item label="Asset Details">
                   <Tag icon={<LaptopOutlined />} color="blue">
                     {asset.tag}
                   </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Asset Name">
-                  <Text strong>{asset.name}</Text>
+                  <Text strong style={{ marginLeft: 8 }}>
+                    {asset.name}
+                  </Text>
                   {(asset.manufacturer || asset.model) && (
                     <Text type="secondary">
                       {' '}

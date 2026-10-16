@@ -1088,7 +1088,7 @@ const ActivityStreamCard: React.FC<{
       title: 'Actor',
       dataIndex: 'user',
       key: 'user',
-      width: 155,
+      width: 140,
       render: (text: string, record: RecentActivityItem) => (
         <Flex align="center" gap={7}>
           <Avatar
@@ -1121,7 +1121,7 @@ const ActivityStreamCard: React.FC<{
       title: 'Action',
       dataIndex: 'action',
       key: 'action',
-      width: 115,
+      width: 105,
       render: renderActionTag,
     },
     {
@@ -1202,7 +1202,7 @@ const ActivityStreamCard: React.FC<{
       title: 'Timestamp',
       dataIndex: 'time',
       key: 'time',
-      width: 95,
+      width: 90,
       align: 'right' as const,
       render: (time: string, record: RecentActivityItem) => (
         <Tooltip title={record.timestamp || time}>
@@ -1272,7 +1272,7 @@ const ActivityStreamCard: React.FC<{
       }
       styles={{
         header: { flexWrap: 'wrap', minHeight: 44, gap: 6, padding: '6px 12px' },
-        body: { padding: 0, overflowX: 'auto', flex: 1 },
+        body: { padding: 0, overflow: 'hidden', flex: 1 },
       }}
     >
       <Table
@@ -1282,7 +1282,6 @@ const ActivityStreamCard: React.FC<{
         pagination={false}
         size="small"
         tableLayout="fixed"
-        scroll={{ x: '100%' }}
         locale={{
           emptyText:
             deduplicatedActivities.length === 0
@@ -1562,93 +1561,77 @@ export default function DashboardPage() {
                 }}
                 columns={[
                   {
-                    title: 'Record Type',
-                    dataIndex: 'type',
-                    key: 'type',
-                    width: 130,
-                    render: (type: string, record: PendingHandoverRecordItem) => {
-                      const t = (type || record.handoverType || '').toUpperCase();
+                    title: 'Record & Asset',
+                    key: 'asset',
+                    width: 260,
+                    render: (_: unknown, record: PendingHandoverRecordItem) => {
+                      const t = (record.type || record.handoverType || '').toUpperCase();
                       const color =
                         t === 'ASSIGNMENT' ? 'blue' : t === 'RETURN' ? 'orange' : 'purple';
-                      return <Tag color={color}>{t}</Tag>;
+                      return (
+                        <Flex vertical gap={3} align="flex-start">
+                          <Flex align="center" gap={6}>
+                            <Tag color={color} style={{ margin: 0, fontSize: 10 }}>
+                              {t}
+                            </Tag>
+                            <Text
+                              strong
+                              code
+                              style={{ cursor: 'pointer', color: '#1677ff', margin: 0 }}
+                              onClick={() => navigate(`/assets?drawer=${record.assetId}`)}
+                            >
+                              {record.subcode || record.assetTag}
+                            </Text>
+                          </Flex>
+                          {record.modelName && (
+                            <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
+                              {record.modelName}
+                            </Text>
+                          )}
+                          {record.serialNumber && (
+                            <Text type="secondary" style={{ fontSize: 10.5 }}>
+                              SN: {record.serialNumber}
+                            </Text>
+                          )}
+                        </Flex>
+                      );
                     },
-                  },
-                  {
-                    title: 'Asset',
-                    key: 'asset',
-                    render: (_: unknown, record: PendingHandoverRecordItem) => (
-                      <div>
-                        <Text
-                          strong
-                          code
-                          style={{ cursor: 'pointer', color: '#1677ff' }}
-                          onClick={() => navigate(`/assets?drawer=${record.assetId}`)}
-                        >
-                          {record.subcode || record.assetTag}
-                        </Text>
-                        {record.modelName && (
-                          <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                            {record.modelName}
-                          </Text>
-                        )}
-                        {record.serialNumber && (
-                          <Text type="secondary" style={{ display: 'block', fontSize: 10.5 }}>
-                            SN: {record.serialNumber}
-                          </Text>
-                        )}
-                      </div>
-                    ),
                   },
                   {
                     title: 'Custodian',
                     key: 'custodian',
+                    width: 200,
                     render: (_: unknown, record: PendingHandoverRecordItem) => (
-                      <div>
+                      <Flex vertical gap={2} align="flex-start">
                         <Text strong style={{ fontSize: 12 }}>
                           {record.recipientName || 'Unassigned'}
                         </Text>
                         {(record.department || record.departmentName) && (
-                          <Tag
-                            color="cyan"
-                            style={{
-                              display: 'inline-block',
-                              fontSize: 10,
-                              margin: '2px 0 0 0',
-                            }}
-                          >
+                          <Tag color="cyan" style={{ fontSize: 10, margin: 0 }}>
                             {record.department || record.departmentName}
                           </Tag>
                         )}
-                      </div>
+                      </Flex>
                     ),
                   },
                   {
-                    title: 'Date Initiated',
-                    dataIndex: 'createdAt',
-                    key: 'createdAt',
-                    width: 140,
-                    render: (_: unknown, record: PendingHandoverRecordItem) => (
-                      <div>
-                        <Text style={{ fontSize: 12 }}>
-                          {record.createdAt ? record.createdAt.split('T')[0] : '—'}
-                        </Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: 11 }}>
-                          {record.timeAgo || `${record.daysPending || 0}d ago`}
-                        </Text>
-                      </div>
-                    ),
-                  },
-                  {
-                    title: 'Status',
+                    title: 'Status & Timeline',
                     key: 'status',
-                    width: 170,
+                    width: 200,
                     render: (_: unknown, record: PendingHandoverRecordItem) => (
-                      <Tag
-                        color={record.isOverdue ? 'error' : 'warning'}
-                        icon={<WarningOutlined />}
-                      >
-                        {record.isOverdue ? 'Overdue (>3d)' : 'Pending Scanned Copy'}
-                      </Tag>
+                      <Flex vertical gap={3} align="flex-start">
+                        <Tag
+                          color={record.isOverdue ? 'error' : 'warning'}
+                          icon={<WarningOutlined />}
+                          style={{ margin: 0 }}
+                        >
+                          {record.isOverdue ? 'Overdue (>3d)' : 'Pending Scanned Copy'}
+                        </Tag>
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {record.createdAt ? record.createdAt.split('T')[0] : '—'} (
+                          {record.timeAgo || `${record.daysPending || 0}d ago`})
+                        </Text>
+                      </Flex>
                     ),
                   },
                   {

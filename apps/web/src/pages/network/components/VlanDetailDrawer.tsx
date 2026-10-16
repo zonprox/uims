@@ -306,7 +306,7 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
         open={open}
         onClose={onClose}
         size="large"
-        cancelText="Close"
+        hideFooter={true}
         extra={
           <Space>
             {onFilterSubnetsByVlan && (
@@ -339,11 +339,6 @@ export const VlanDetailDrawer: React.FC<VlanDetailDrawerProps> = React.memo(
       >
         <Card size="small" styles={{ body: { padding: '16px 20px' } }} style={{ marginBottom: 16 }}>
           <Descriptions column={2} size="small" styles={{ label: { whiteSpace: 'nowrap' } }}>
-            <Descriptions.Item label="VLAN ID">
-              <Tag color="purple" style={{ fontWeight: 600, whiteSpace: 'nowrap', margin: 0 }}>
-                VLAN {vlan.vlanNumber}
-              </Tag>
-            </Descriptions.Item>
             <Descriptions.Item label="Status">
               <Badge
                 status={

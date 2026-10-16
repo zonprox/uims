@@ -402,7 +402,7 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                 <AppDrawer.Section title="Target Directory Employee">
                   <Form.Item
                     name="assignedToId"
-                    label="Target Directory Employee"
+                    style={{ marginBottom: 0 }}
                     rules={[
                       formRules.required(
                         'Target directory employee',
@@ -565,18 +565,17 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                   )}
                 </AppDrawer.Section>
               ) : (
-                <AppDrawer.Section title="Unassign Assets">
+                <AppDrawer.Section title="Unassign Hardware Assets">
                   <Alert
                     type="warning"
                     showIcon
-                    title="Unassign Hardware Assets"
                     description={`This will dissociate all ${count} selected assets from their current assignees and mark them available in storage.`}
                   />
                 </AppDrawer.Section>
               )}
 
               <AppDrawer.Section title="Asset Status Configuration">
-                <Form.Item name="status" label="Asset Status" style={{ marginBottom: 0 }}>
+                <Form.Item name="status" style={{ marginBottom: 0 }}>
                   <Select
                     options={
                       mode === 'assign'

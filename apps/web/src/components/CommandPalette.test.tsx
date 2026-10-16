@@ -73,8 +73,8 @@ describe('CommandPalette Keyboard Shortcuts & Navigation', () => {
 
     // Check commands are rendered
     expect(modal?.textContent).toContain('Dashboard');
-    expect(modal?.textContent).toContain('Hardware Assets');
-    expect(modal?.textContent).toContain('Software Licenses');
+    expect(modal?.textContent).toContain('Assets');
+    expect(modal?.textContent).toContain('Licenses');
     expect(modal?.textContent).toContain('Inventory');
 
     // Check footer legend
@@ -89,12 +89,12 @@ describe('CommandPalette Keyboard Shortcuts & Navigation', () => {
     const input = document.querySelector('.ant-modal input') as HTMLInputElement;
     expect(input).toBeDefined();
 
-    // Press ArrowDown to move to item index 1 (Hardware Assets -> /assets)
+    // Press ArrowDown to move to item index 1 (Assets -> /assets)
     await act(async () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     });
 
-    // Press Enter to activate Hardware Assets
+    // Press Enter to activate Assets
     await act(async () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     });
@@ -103,7 +103,7 @@ describe('CommandPalette Keyboard Shortcuts & Navigation', () => {
     expect(currentLocation.pathname).toBe('/assets');
   });
 
-  it('triggers direct jump with Cmd+2 / Ctrl+2 to Hardware Assets', async () => {
+  it('triggers direct jump with Cmd+2 / Ctrl+2 to Assets', async () => {
     const { onClose } = await renderPalette(true);
     const input = document.querySelector('.ant-modal input') as HTMLInputElement;
 

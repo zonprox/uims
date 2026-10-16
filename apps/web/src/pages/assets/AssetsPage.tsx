@@ -12,9 +12,10 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { Badge, Button, Card, Flex, Form, Space, Tabs, theme, Tooltip, Typography } from 'antd';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import PageContainer from '../../components/PageContainer';
+import type { Asset } from '../../services/assets.service';
 import { AssetDetailDrawer } from './components/AssetDetailDrawer';
 import { AssetFilterBar } from './components/AssetFilterBar';
 import { AssetQrModal } from './components/AssetQrModal';
@@ -22,6 +23,7 @@ import { AssetScannerModal } from './components/AssetScannerModal';
 import { AssetTable } from './components/AssetTable';
 import { BatchAssignModal } from './components/BatchAssignModal';
 import { BatchPrintModal } from './components/BatchPrintModal';
+import { DeviceModelDetailDrawer } from './components/DeviceModelDetailDrawer';
 import { DeviceModelDrawer } from './components/DeviceModelDrawer';
 import { DeviceModelTable } from './components/DeviceModelTable';
 import { PhysicalUnitModal } from './components/PhysicalUnitModal';
@@ -109,6 +111,14 @@ export default function AssetsPage() {
     handleDeleteModel,
     handleRegisterUnitUnderModel,
   } = useAssetManagement(form);
+
+  const [detailModelDrawerOpen, setDetailModelDrawerOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<Asset | null>(null);
+
+  const handleShowModelDetails = (model: Asset) => {
+    setSelectedModel(model);
+    setDetailModelDrawerOpen(true);
+  };
 
   const statsItems = useMemo(
     () => [
@@ -284,6 +294,7 @@ export default function AssetsPage() {
                   onEditModel={handleOpenEditModel}
                   onRegisterUnit={handleRegisterUnitUnderModel}
                   onDeleteModel={handleDeleteModel}
+                  onShowDetails={handleShowModelDetails}
                 />
               </Card>
             ),
@@ -305,6 +316,17 @@ export default function AssetsPage() {
         editingModel={editingModel}
         onClose={() => setDeviceModelDrawerOpen(false)}
         onSuccess={loadModels}
+      />
+
+      <DeviceModelDetailDrawer
+        open={detailModelDrawerOpen}
+        model={selectedModel}
+        onClose={() => {
+          setDetailModelDrawerOpen(false);
+          setSelectedModel(null);
+        }}
+        onEditModel={handleOpenEditModel}
+        onRegisterUnit={handleRegisterUnitUnderModel}
       />
 
       <AssetDetailDrawer

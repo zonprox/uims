@@ -23,7 +23,7 @@ export function formatErrorMessage(
     if (typeof serverData === 'string' && serverData.trim().startsWith('{')) {
       try {
         serverData = JSON.parse(serverData) as { message?: string | string[]; error?: string };
-      } catch {
+      } catch (_parseErr: unknown) {
         // Retain raw string if JSON parsing fails
       }
     }

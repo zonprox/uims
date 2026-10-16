@@ -420,42 +420,16 @@ export default function InventoryPage() {
   const columns = useMemo(
     () => [
       {
-        title: 'Model Code / SKU',
-        key: 'sku',
-        width: 170,
+        title: 'Item & SKU',
+        key: 'item',
         sorter: (a: InventoryItem, b: InventoryItem) =>
+          a.name.localeCompare(b.name) ||
           (a.sku || a.modelCode || '').localeCompare(b.sku || b.modelCode || ''),
         render: (_: unknown, record: InventoryItem) => {
           const code = record.sku || record.modelCode || 'N/A';
-          return (
-            <Text
-              copyable
-              code
-              strong
-              style={{
-                fontSize: 13,
-                color: '#1677ff',
-                cursor: 'pointer',
-                display: 'inline-block',
-              }}
-              onClick={() => {
-                setDetailItem(record);
-                setDetailDrawerOpen(true);
-              }}
-            >
-              {code}
-            </Text>
-          );
-        },
-      },
-      {
-        title: 'Device Model & Manufacturer',
-        key: 'name',
-        sorter: (a: InventoryItem, b: InventoryItem) => a.name.localeCompare(b.name),
-        render: (_: unknown, record: InventoryItem) => {
           const manufacturer = record.manufacturer || record.supplier || 'General';
           return (
-            <div>
+            <Flex vertical gap={2} style={{ minWidth: 0 }}>
               <Text
                 strong
                 style={{ fontSize: 13, cursor: 'pointer' }}
@@ -463,20 +437,41 @@ export default function InventoryPage() {
                   setDetailItem(record);
                   setDetailDrawerOpen(true);
                 }}
+                title={record.name}
+                ellipsis
               >
                 {record.name}
               </Text>
-              <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
-                {manufacturer}
-              </Text>
-            </div>
+              <Flex align="center" gap={6} wrap="wrap">
+                <Text
+                  copyable
+                  code
+                  strong
+                  style={{
+                    fontSize: 12,
+                    color: '#1677ff',
+                    cursor: 'pointer',
+                    margin: 0,
+                  }}
+                  onClick={() => {
+                    setDetailItem(record);
+                    setDetailDrawerOpen(true);
+                  }}
+                >
+                  {code}
+                </Text>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {manufacturer}
+                </Text>
+              </Flex>
+            </Flex>
           );
         },
       },
       {
-        title: 'Category',
+        title: 'Category & Bin',
         key: 'category',
-        width: 160,
+        width: 180,
         sorter: (a: InventoryItem, b: InventoryItem) => {
           const catA = typeof a.category === 'string' ? a.category : a.category?.name || '';
           const catB = typeof b.category === 'string' ? b.category : b.category?.name || '';
@@ -488,90 +483,48 @@ export default function InventoryPage() {
               ? record.category
               : record.category?.name || record.categoryName || 'General';
           const color = INVENTORY_CATEGORY_COLORS[catName] || 'blue';
-          return (
-            <Tag color={color} icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
-              {catName}
-            </Tag>
-          );
-        },
-      },
-      {
-        title: 'Storage Bin',
-        key: 'binLocation',
-        width: 130,
-        render: (_: unknown, record: InventoryItem) => {
           const bin = record.binNumber || record.binLocation || 'Unassigned';
           return (
-            <Tag color="cyan" style={{ fontFamily: 'monospace', margin: 0 }}>
-              {bin}
-            </Tag>
-          );
-        },
-      },
-      {
-        title: 'Unit Cost',
-        dataIndex: 'unitCost',
-        key: 'unitCost',
-        width: 110,
-        sorter: (a: InventoryItem, b: InventoryItem) => a.unitCost - b.unitCost,
-        render: (cost: number) => (
-          <Text strong style={{ color: '#059669', fontSize: 13 }}>
-            ${(cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </Text>
-        ),
-      },
-      {
-        title: 'Stock Level & Threshold',
-        key: 'stock',
-        width: 160,
-        render: (_: unknown, record: InventoryItem) => <StockLevelCell record={record} />,
-      },
-      {
-        title: 'Unit Distribution',
-        key: 'distribution',
-        width: 180,
-        render: (_: unknown, record: InventoryItem) => {
-          const total = record.totalUnits ?? record.quantity ?? 0;
-          const avail = record.availableUnits ?? record.quantity ?? 0;
-          const inUse = record.assignedUnits ?? record.inUseUnits ?? 0;
-          const maint = record.maintenanceUnits ?? 0;
-          return (
-            <Flex wrap="wrap" gap={4}>
-              <Tooltip title="Total units cataloged">
-                <Tag color="default" style={{ fontSize: 10, margin: 0 }}>
-                  Total: {total}
-                </Tag>
-              </Tooltip>
-              <Tooltip title="Available in warehouse">
-                <Tag color="success" style={{ fontSize: 10, margin: 0 }}>
-                  Avail: {avail}
-                </Tag>
-              </Tooltip>
-              <Tooltip title="Deployed to field employees">
-                <Tag color="processing" style={{ fontSize: 10, margin: 0 }}>
-                  In Use: {inUse}
-                </Tag>
-              </Tooltip>
-              {maint > 0 && (
-                <Tooltip title="Undergoing maintenance/repair">
-                  <Tag color="warning" style={{ fontSize: 10, margin: 0 }}>
-                    Maint: {maint}
-                  </Tag>
-                </Tooltip>
-              )}
+            <Flex vertical gap={4} align="flex-start">
+              <Tag color={color} icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
+                {catName}
+              </Tag>
+              <Tag color="cyan" style={{ fontFamily: 'monospace', fontSize: 11, margin: 0 }}>
+                {bin}
+              </Tag>
             </Flex>
           );
         },
       },
       {
+        title: 'Stock Level',
+        key: 'stock',
+        width: 175,
+        sorter: (a: InventoryItem, b: InventoryItem) =>
+          (a.availableUnits ?? a.quantity ?? 0) - (b.availableUnits ?? b.quantity ?? 0),
+        render: (_: unknown, record: InventoryItem) => <StockLevelCell record={record} />,
+      },
+      {
+        title: 'Unit Cost',
+        dataIndex: 'unitCost',
+        key: 'unitCost',
+        width: 115,
+        align: 'right' as const,
+        sorter: (a: InventoryItem, b: InventoryItem) => (a.unitCost || 0) - (b.unitCost || 0),
+        render: (cost: number) => (
+          <Text strong style={{ color: '#059669', fontSize: 13, fontFamily: 'monospace' }}>
+            ${(cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </Text>
+        ),
+      },
+      {
         title: 'Actions',
         key: 'actions',
-        width: 250,
-        fixed: 'end' as const,
+        width: 210,
         render: (_: unknown, record: InventoryItem) => {
           const availableUnits = record.availableUnits ?? record.quantity ?? 0;
           return (
-            <Space size={6}>
+            <Space size={4}>
               <Button
                 size="small"
                 icon={<ShoppingOutlined />}
@@ -579,6 +532,18 @@ export default function InventoryPage() {
               >
                 Restock
               </Button>
+              <Tooltip title="View details">
+                <Button
+                  type="text"
+                  shape="circle"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => {
+                    setDetailItem(record);
+                    setDetailDrawerOpen(true);
+                  }}
+                />
+              </Tooltip>
               <Tooltip title="Receive batch physical units (Intake)">
                 <Button
                   type="text"
@@ -604,18 +569,6 @@ export default function InventoryPage() {
                   icon={<UserSwitchOutlined />}
                   style={{ color: availableUnits > 0 ? '#10b981' : undefined }}
                   onClick={() => handleAllocateFromStock(record)}
-                />
-              </Tooltip>
-              <Tooltip title="Inspect model & stock units">
-                <Button
-                  type="text"
-                  shape="circle"
-                  size="small"
-                  icon={<EyeOutlined />}
-                  onClick={() => {
-                    setDetailItem(record);
-                    setDetailDrawerOpen(true);
-                  }}
                 />
               </Tooltip>
               <Tooltip title="Edit Item">
@@ -733,7 +686,6 @@ export default function InventoryPage() {
           dataSource={items}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,

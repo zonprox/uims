@@ -224,7 +224,7 @@ export const AppDrawer: React.FC<AppDrawerProps> & {
       >
         {footerExtra && <div style={{ marginRight: 'auto' }}>{footerExtra}</div>}
         {footerActions}
-        {handleClose && (
+        {!footerActions && handleClose && (
           <Button onClick={handleClose} {...cancelProps}>
             {cancelText || defaultCancelLabel}
           </Button>

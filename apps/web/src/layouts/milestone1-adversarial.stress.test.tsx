@@ -228,7 +228,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
         if (counts.expiringLicenses > 0) {
           expect(licenseItem.title).toContain(`${counts.expiringLicenses} Expiring`);
         } else {
-          expect(licenseItem.title).toBe('Software Licenses');
+          expect(licenseItem.title).toBe('Licenses');
         }
       }
     });

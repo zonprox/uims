@@ -106,7 +106,7 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
         open={open}
         onClose={onClose}
         size="large"
-        cancelText="Close"
+        hideFooter={true}
         extra={
           onFilterIpsBySubnet && (
             <Button
@@ -149,15 +149,6 @@ export const SubnetDetailDrawer: React.FC<SubnetDetailDrawerProps> = React.memo(
                       bordered
                       styles={{ label: { whiteSpace: 'nowrap' } }}
                     >
-                      <Descriptions.Item label="CIDR Block">
-                        <Text
-                          code
-                          strong
-                          style={{ color: '#1677ff', fontSize: 13, whiteSpace: 'nowrap' }}
-                        >
-                          {subnet.cidr}
-                        </Text>
-                      </Descriptions.Item>
                       <Descriptions.Item label="Subnet Mask">
                         <Text code style={{ whiteSpace: 'nowrap' }}>
                           {subnet.netmask || '255.255.255.0'}

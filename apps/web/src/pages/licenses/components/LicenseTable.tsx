@@ -33,6 +33,7 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
           title: 'Software & Vendor',
           dataIndex: 'name',
           key: 'name',
+          width: '28%',
           sorter: (a: License, b: License) =>
             a.name.localeCompare(b.name) || (a.licenseKey || '').localeCompare(b.licenseKey || ''),
           render: (name: string, record: License) => (
@@ -47,28 +48,22 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
               <Text type="secondary" style={{ display: 'block', fontSize: 11.5 }}>
                 {record.vendor} • {record.type}
               </Text>
+              {record.licenseKey && record.licenseKey !== 'N/A' && (
+                <Text
+                  code
+                  copyable={{ text: record.licenseKey }}
+                  style={{ fontSize: 10.5, marginTop: 2, display: 'inline-block' }}
+                >
+                  {record.licenseKey}
+                </Text>
+              )}
             </div>
-          ),
-        },
-        {
-          title: 'Status',
-          dataIndex: 'status',
-          key: 'status',
-          sorter: (a: License, b: License) => a.status.localeCompare(b.status),
-          render: (status: string) => (
-            <Tag
-              color={
-                status === 'Active' ? 'success' : status === 'Expiring' ? 'warning' : 'default'
-              }
-            >
-              {status}
-            </Tag>
           ),
         },
         {
           title: 'Seat Utilization',
           key: 'seats',
-          width: 200,
+          width: '22%',
           sorter: (a: License, b: License) => a.totalSeats - b.totalSeats,
           render: (_: unknown, record: License) => {
             const percent =
@@ -78,6 +73,7 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
             else if (percent > 75) strokeColor = '#f59e0b';
 
             const remaining = Math.max(0, record.totalSeats - record.usedSeats);
+            const isExhausted = remaining <= 0;
 
             return (
               <div>
@@ -89,7 +85,17 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
                   <Text strong>
                     {record.usedSeats} / {record.totalSeats} seats
                   </Text>
-                  <Text type="secondary">{percent}%</Text>
+                  <Space size={4}>
+                    {isExhausted && (
+                      <Tag
+                        color="error"
+                        style={{ fontSize: 10, margin: 0, padding: '0 4px', lineHeight: '16px' }}
+                      >
+                        Capacity Reached
+                      </Tag>
+                    )}
+                    <Text type="secondary">{percent}%</Text>
+                  </Space>
                 </Flex>
                 <Progress
                   percent={percent}
@@ -107,6 +113,7 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
         {
           title: 'Annual Spend',
           key: 'cost',
+          width: '18%',
           sorter: (a: License, b: License) =>
             (a.usedSeats || 0) * (a.costPerSeat || 0) - (b.usedSeats || 0) * (b.costPerSeat || 0),
           render: (_: unknown, record: License) => (
@@ -121,40 +128,57 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
           ),
         },
         {
-          title: 'Expiration Date',
-          dataIndex: 'expiryDate',
-          key: 'expiryDate',
+          title: 'Status',
+          dataIndex: 'status',
+          key: 'status',
+          width: '18%',
           sorter: (a: License, b: License) =>
+            a.status.localeCompare(b.status) ||
             (a.expiryDate || '').localeCompare(b.expiryDate || ''),
-          render: (expiryDate: string, record: License) => {
-            const diff = expiryDate ? dayjs(expiryDate).diff(dayjs(), 'day') : 999;
+          render: (status: string, record: License) => {
+            const diff = record.expiryDate ? dayjs(record.expiryDate).diff(dayjs(), 'day') : 999;
             return (
-              <div>
-                <FormattedDate date={expiryDate} style={{ fontSize: 12.5 }} />
-                <div style={{ marginTop: 2 }}>
+              <Flex vertical gap={2}>
+                <Flex align="center" gap={4} wrap="wrap">
+                  <Tag
+                    color={
+                      status === 'Active'
+                        ? 'success'
+                        : status === 'Expiring'
+                          ? 'warning'
+                          : 'default'
+                    }
+                    style={{ margin: 0 }}
+                  >
+                    {status}
+                  </Tag>
                   {diff < 30 ? (
-                    <Tag color="error" style={{ fontSize: 10 }}>
+                    <Tag
+                      color="error"
+                      style={{ fontSize: 10, margin: 0, padding: '0 4px', lineHeight: '16px' }}
+                    >
                       Expires in {diff}d
                     </Tag>
                   ) : record.autoRenew ? (
-                    <Tag color="success" style={{ fontSize: 10 }}>
+                    <Tag
+                      color="success"
+                      style={{ fontSize: 10, margin: 0, padding: '0 4px', lineHeight: '16px' }}
+                    >
                       Auto-Renew
                     </Tag>
-                  ) : (
-                    <Tag color="default" style={{ fontSize: 10 }}>
-                      Manual
-                    </Tag>
-                  )}
-                </div>
-              </div>
+                  ) : null}
+                </Flex>
+                {record.expiryDate && (
+                  <FormattedDate date={record.expiryDate} style={{ fontSize: 11.5 }} />
+                )}
+              </Flex>
             );
           },
         },
         {
           title: 'Actions',
           key: 'actions',
-          width: 160,
-          fixed: 'right' as const,
+          width: 150,
           render: (_: unknown, record: License) => (
             <Space size="small">
               <Button
@@ -214,7 +238,6 @@ export const LicenseTable: React.FC<LicenseTableProps> = React.memo(
               }
             : undefined
         }
-        scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,
           showSizeChanger: true,

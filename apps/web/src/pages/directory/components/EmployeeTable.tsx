@@ -5,11 +5,10 @@ import {
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
+  KeyOutlined,
   LaptopOutlined,
-  PhoneOutlined,
   SafetyCertificateOutlined,
   UserOutlined,
-  KeyOutlined,
 } from '@ant-design/icons';
 import type { DirectoryUser } from '@uims/shared-types';
 import {
@@ -42,6 +41,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
   ({ employees, loading, onViewDetails, onEdit, onDelete, copyToClipboard, getStatusTag }) => {
     const { token } = theme.useToken();
 
+    // Streamlined 5-Column High-Signal Layout (Fluid, Scroll-Free)
     const columns = [
       {
         title: 'Employee',
@@ -78,91 +78,80 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
                   </Tag>
                 )}
               </Flex>
-              {record.employeeCode && (
-                <Text type="secondary" style={{ fontSize: 11.5 }}>
-                  #{record.employeeCode}
-                </Text>
-              )}
-            </Flex>
-          </Flex>
-        ),
-      },
-      {
-        title: 'Email & Contact',
-        key: 'contact',
-        render: (_: unknown, record: DirectoryUser) => (
-          <Flex vertical gap={2}>
-            <Flex align="center" gap={6}>
-              <Text style={{ fontSize: 12 }}>{record.email}</Text>
-              {record.hasEmailPassword && (
-                <Tooltip title="Enterprise Email Password Configured">
-                  <KeyOutlined style={{ fontSize: 11, color: token.colorPrimary }} />
-                </Tooltip>
-              )}
-              <Tooltip title="Copy email address">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CopyOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />}
-                  onClick={() => copyToClipboard(record.email, 'Email')}
-                />
-              </Tooltip>
-            </Flex>
-            {record.phone && (
-              <Flex align="center" gap={4}>
-                <PhoneOutlined style={{ fontSize: 11, color: token.colorTextTertiary }} />
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {record.phone}
-                </Text>
+              <Flex align="center" gap={6} wrap="wrap">
+                {record.employeeCode && (
+                  <Text type="secondary" style={{ fontSize: 11.5 }}>
+                    #{record.employeeCode}
+                  </Text>
+                )}
+                {record.email && (
+                  <Flex align="center" gap={3}>
+                    <Text type="secondary" style={{ fontSize: 11.5 }}>
+                      · {record.email}
+                    </Text>
+                    {record.hasEmailPassword && (
+                      <Tooltip title="Enterprise Email Password Configured">
+                        <KeyOutlined style={{ fontSize: 10.5, color: token.colorPrimary }} />
+                      </Tooltip>
+                    )}
+                    <Tooltip title="Copy email address">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={
+                          <CopyOutlined
+                            style={{ fontSize: 10.5, color: token.colorTextTertiary }}
+                          />
+                        }
+                        onClick={() => copyToClipboard(record.email, 'Email')}
+                        style={{ padding: '0 2px', height: 16 }}
+                      />
+                    </Tooltip>
+                  </Flex>
+                )}
               </Flex>
-            )}
+            </Flex>
           </Flex>
         ),
       },
       {
-        title: 'Position & Facility',
+        title: 'Position & Department',
         key: 'position',
         sorter: (a: DirectoryUser, b: DirectoryUser) =>
           (a.position?.title || '').localeCompare(b.position?.title || ''),
         render: (_: unknown, record: DirectoryUser) => (
-          <Flex vertical gap={4}>
+          <Flex vertical gap={3}>
             <Text strong style={{ fontSize: 12.5 }}>
               {record.position?.title || 'Unassigned'}
             </Text>
             <Flex gap={4} wrap="wrap">
-              {record.organization ? (
+              {record.department ? (
+                <Tag
+                  color="blue"
+                  icon={<ApartmentOutlined />}
+                  style={{ margin: 0, fontSize: 10.5 }}
+                >
+                  {record.department.name}
+                </Tag>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  General
+                </Text>
+              )}
+              {record.organization && (
                 <Tag color="purple" icon={<BankOutlined />} style={{ margin: 0, fontSize: 10.5 }}>
                   {record.organization.name}
                 </Tag>
-              ) : null}
+              )}
             </Flex>
           </Flex>
         ),
       },
       {
-        title: 'Department',
-        key: 'department',
-        sorter: (a: DirectoryUser, b: DirectoryUser) =>
-          (a.department?.name || '').localeCompare(b.department?.name || ''),
-        render: (_: unknown, record: DirectoryUser) => (
-          <div>
-            {record.department ? (
-              <Tag color="blue" icon={<ApartmentOutlined />} style={{ fontSize: 11 }}>
-                {record.department.name}
-              </Tag>
-            ) : (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                General
-              </Text>
-            )}
-          </div>
-        ),
-      },
-      {
-        title: 'Assigned Custody',
+        title: 'Custody',
         key: 'custody',
         render: (_: unknown, record: DirectoryUser) => (
-          <Flex gap={4} align="center">
+          <Flex gap={4} align="center" wrap="wrap">
             <Tag color="blue" icon={<LaptopOutlined />}>
               {record.assignedAssetsCount ?? 0} Assets
             </Tag>
@@ -175,6 +164,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
       {
         title: 'Status',
         key: 'status',
+        width: 110,
         sorter: (a: DirectoryUser, b: DirectoryUser) => a.status.localeCompare(b.status),
         render: (_: unknown, record: DirectoryUser) => getStatusTag(record.status),
       },
@@ -182,7 +172,6 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
         title: 'Actions',
         key: 'actions',
         width: 120,
-        fixed: 'right' as const,
         render: (_: unknown, record: DirectoryUser) => (
           <Space size={2}>
             <Tooltip title="View Profile & Custody">
@@ -224,7 +213,6 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = React.memo(
         dataSource={employees}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,
           showSizeChanger: true,

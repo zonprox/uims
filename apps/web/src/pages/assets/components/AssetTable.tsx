@@ -11,7 +11,7 @@ import {
   UserSwitchOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Avatar, Button, Flex, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
 import { assetsService } from '../../../services/assets.service';
@@ -85,7 +85,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'SUB Code',
           key: 'subcode',
-          width: 170,
+          width: 250,
           sorter: (a: Asset, b: Asset) =>
             (a.subcode || a.tag || '').localeCompare(b.subcode || b.tag || '') ||
             (a.assetCode || a.parent?.assetCode || '').localeCompare(
@@ -97,55 +97,49 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             const code = record.subcode || record.tag || 'N/A';
             const sapCode = record.assetCode || record.parent?.assetCode || null;
             return (
-              <div>
-                <Text
-                  copyable
-                  code
-                  strong
-                  style={{
-                    fontSize: 13,
-                    color: '#1677ff',
-                    cursor: 'pointer',
-                    display: 'inline-block',
-                  }}
-                  onClick={() => onShowDetails(record)}
-                >
-                  {code}
-                </Text>
-                {sapCode && (
-                  <div style={{ marginTop: 2 }}>
+              <Flex vertical gap={2} style={{ maxWidth: 250 }}>
+                <Flex align="center" gap={6} wrap="wrap">
+                  <Text
+                    copyable
+                    code
+                    strong
+                    style={{
+                      fontSize: 13,
+                      color: '#1677ff',
+                      cursor: 'pointer',
+                      display: 'inline-block',
+                    }}
+                    onClick={() => onShowDetails(record)}
+                  >
+                    {code}
+                  </Text>
+                  {sapCode && (
                     <Tag
                       color="cyan"
                       style={{ fontSize: 10.5, margin: 0, padding: '0 4px', lineHeight: '18px' }}
                     >
                       SAP: {sapCode}
                     </Tag>
-                  </div>
-                )}
-              </div>
-            );
-          },
-        },
-        {
-          title: 'Device Model',
-          key: 'deviceModel',
-          sorter: (a: Asset, b: Asset) =>
-            a.name.localeCompare(b.name) || (a.model || '').localeCompare(b.model || ''),
-          render: (_: unknown, record: Asset) => {
-            return (
-              <div>
+                  )}
+                </Flex>
                 <Text
                   strong
+                  ellipsis={{ tooltip: record.name }}
                   style={{ fontSize: 13, cursor: 'pointer' }}
                   onClick={() => onShowDetails(record)}
                 >
                   {record.name}
                 </Text>
-                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
-                  {record.manufacturer ? `${record.manufacturer} ` : ''}
-                  {record.model || ''}
-                </Text>
-              </div>
+                {record.serialNumber ? (
+                  <Text
+                    type="secondary"
+                    copyable={{ text: record.serialNumber }}
+                    style={{ fontSize: 11 }}
+                  >
+                    S/N: {record.serialNumber}
+                  </Text>
+                ) : null}
+              </Flex>
             );
           },
         },
@@ -156,12 +150,25 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           width: 140,
           sorter: (a: Asset, b: Asset) =>
             (a.category || '').localeCompare(b.category || '') || a.tag.localeCompare(b.tag),
-          render: (category: string) => {
+          render: (category: string, record: Asset) => {
             if (!category) return <Text type="secondary">—</Text>;
             return (
-              <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
-                {category}
-              </Tag>
+              <Flex vertical gap={4} align="flex-start">
+                <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
+                  {category}
+                </Tag>
+                <Text
+                  type="secondary"
+                  ellipsis={{
+                    tooltip:
+                      `${record.manufacturer ? `${record.manufacturer} ` : ''}${record.model || ''}`.trim(),
+                  }}
+                  style={{ fontSize: 11, maxWidth: 130 }}
+                >
+                  {record.manufacturer ? `${record.manufacturer} ` : ''}
+                  {record.model || ''}
+                </Text>
+              </Flex>
             );
           },
         },
@@ -169,7 +176,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Status',
           dataIndex: 'status',
           key: 'status',
-          width: 140,
+          width: 130,
           sorter: (a: Asset, b: Asset) =>
             a.status.localeCompare(b.status) || a.tag.localeCompare(b.tag),
           render: (status: string, record: Asset) => {
@@ -201,17 +208,35 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Assignee',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
-          width: 150,
+          width: 170,
           sorter: (a: Asset, b: Asset) =>
             (a.assignedTo || '').localeCompare(b.assignedTo || '') || a.tag.localeCompare(b.tag),
-          render: (user: string) => {
+          render: (user: string, record: Asset) => {
             if (!user || user === 'Unassigned') {
               return <Tag color="default">Unassigned</Tag>;
             }
             return (
-              <Tag icon={<UserOutlined />} color="blue">
-                {user}
-              </Tag>
+              <Flex align="center" gap={8}>
+                <Avatar
+                  size={24}
+                  icon={<UserOutlined />}
+                  style={{ backgroundColor: '#1677ff', flexShrink: 0 }}
+                />
+                <Flex vertical gap={1} style={{ minWidth: 0 }}>
+                  <Text strong ellipsis={{ tooltip: user }} style={{ fontSize: 12 }}>
+                    {user}
+                  </Text>
+                  {record.assignedEmail ? (
+                    <Text
+                      type="secondary"
+                      ellipsis={{ tooltip: record.assignedEmail }}
+                      style={{ fontSize: 11 }}
+                    >
+                      {record.assignedEmail}
+                    </Text>
+                  ) : null}
+                </Flex>
+              </Flex>
             );
           },
         },
@@ -219,6 +244,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Organization',
           dataIndex: 'organization',
           key: 'organization',
+          width: 140,
           sorter: (a: Asset, b: Asset) =>
             (a.organization || '').localeCompare(b.organization || '') ||
             a.tag.localeCompare(b.tag),
@@ -243,7 +269,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 220,
+          width: 170,
           fixed: 'end' as const,
           render: (_: unknown, record: Asset) => {
             const s = (record.status || '').toUpperCase();
@@ -373,7 +399,6 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           rowKey="id"
           loading={loading}
           rowSelection={rowSelection}
-          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,

@@ -289,30 +289,27 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           loading={loading}
           pagination={false}
           size="middle"
-          scroll={{ x: 'max-content' }}
           columns={[
             {
               title: 'Role Name & Type',
               dataIndex: 'name',
               key: 'name',
-              width: 240,
+              width: 220,
               render: (name: string, record: Role) => (
-                <div>
-                  <Flex align="center" gap={8}>
-                    <Text strong style={{ fontSize: 13.5 }}>
-                      {name}
-                    </Text>
-                    {record.isSystem ? (
-                      <Tag color="purple" style={{ fontSize: 10, padding: '0 5px', margin: 0 }}>
-                        System
-                      </Tag>
-                    ) : (
-                      <Tag color="cyan" style={{ fontSize: 10, padding: '0 5px', margin: 0 }}>
-                        Custom
-                      </Tag>
-                    )}
-                  </Flex>
-                </div>
+                <Flex align="center" gap={8}>
+                  <Text strong style={{ fontSize: 13.5 }}>
+                    {name}
+                  </Text>
+                  {record.isSystem ? (
+                    <Tag color="purple" style={{ fontSize: 10, padding: '0 5px', margin: 0 }}>
+                      System
+                    </Tag>
+                  ) : (
+                    <Tag color="cyan" style={{ fontSize: 10, padding: '0 5px', margin: 0 }}>
+                      Custom
+                    </Tag>
+                  )}
+                </Flex>
               ),
             },
             {
@@ -326,7 +323,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
                     <Text
                       type="secondary"
                       ellipsis
-                      style={{ fontSize: 12.5, maxWidth: 320, display: 'inline-block' }}
+                      style={{ fontSize: 12.5, maxWidth: 360, display: 'inline-block' }}
                     >
                       {text}
                     </Text>
@@ -338,7 +335,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               title: 'Assigned Users',
               dataIndex: 'userCount',
               key: 'userCount',
-              width: 160,
+              width: 150,
               align: 'center',
               render: (count: number, record: Role) => (
                 <Tooltip title="Click to view assigned users list">
@@ -362,7 +359,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
               title: 'Permissions',
               dataIndex: 'permissionCount',
               key: 'permissionCount',
-              width: 180,
+              width: 170,
               align: 'center',
               render: (count: number, record: Role) => {
                 const isSuper =
@@ -386,9 +383,8 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             {
               title: 'Actions',
               key: 'actions',
-              width: 220,
+              width: 200,
               align: 'right',
-              fixed: 'right' as const,
               render: (_: unknown, record: Role) => {
                 const isSystem = record.isSystem;
                 return (

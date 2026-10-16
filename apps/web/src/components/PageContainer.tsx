@@ -42,23 +42,24 @@ export default function PageContainer({
   const screens = useBreakpoint();
   const { token } = theme.useToken();
 
-  const breadcrumbItems = breadcrumbs
-    ? [
-        {
-          key: 'home',
-          title: (
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <HomeOutlined />
-              <span>Home</span>
-            </Link>
-          ),
-        },
-        ...breadcrumbs.map((bc, idx) => ({
-          key: String(idx),
-          title: bc.path ? <Link to={bc.path}>{bc.title}</Link> : <span>{bc.title}</span>,
-        })),
-      ]
-    : undefined;
+  const breadcrumbItems =
+    breadcrumbs && breadcrumbs.length > 0
+      ? [
+          {
+            key: 'home',
+            title: (
+              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <HomeOutlined />
+                <span>Home</span>
+              </Link>
+            ),
+          },
+          ...breadcrumbs.map((bc, idx) => ({
+            key: String(idx),
+            title: bc.path ? <Link to={bc.path}>{bc.title}</Link> : <span>{bc.title}</span>,
+          })),
+        ]
+      : undefined;
 
   return (
     <Flex vertical gap={screens.xs ? 12 : 18} style={{ width: '100%' }}>
@@ -85,7 +86,7 @@ export default function PageContainer({
                   letterSpacing: '-0.01em',
                 }}
               >
-                {title}
+                {title.trim()}
               </Title>
               {tag}
             </Flex>
@@ -118,7 +119,7 @@ export default function PageContainer({
       {stats && stats.length > 0 && (
         <Row gutter={[12, 12]}>
           {stats.map((stat) => (
-            <Col xs={12} sm={12} lg={24 / Math.min(stats.length, 4)} key={stat.title}>
+            <Col xs={12} sm={12} lg={Math.floor(24 / Math.min(stats.length, 4))} key={stat.title}>
               <Card
                 size="small"
                 className="uims-stat-card"

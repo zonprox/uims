@@ -142,14 +142,11 @@ export default function LicensesPage() {
             }
           })
           .catch((error: unknown) => {
-            console.error(
-              'Failed to resolve deep-linked entity:',
-              error instanceof Error ? error.message : String(error),
-            );
+            message.error(formatErrorMessage(error, 'resolve deep-linked license'));
           });
       }
     }
-  }, [deepLinkId, licenses]);
+  }, [deepLinkId, licenses, message]);
 
   const handleOpenCreateModal = useCallback(() => {
     setEditingLicense(null);

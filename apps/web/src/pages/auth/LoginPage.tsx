@@ -193,7 +193,7 @@ export default function LoginPage() {
             </Title>
           </Flex>
           <Text type="secondary" style={{ fontSize: 13.5 }}>
-            IT Infrastructure & Asset Management Platform
+            IT Management Platform
           </Text>
         </div>
 

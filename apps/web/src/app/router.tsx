@@ -55,7 +55,7 @@ export const router = createBrowserRouter([
           {
             path: 'assets',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Hardware Assets..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Assets..." />}>
                 <AssetsPage />
               </Suspense>
             ),
@@ -64,7 +64,7 @@ export const router = createBrowserRouter([
           {
             path: 'licenses',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Software Licenses..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Licenses..." />}>
                 <LicensesPage />
               </Suspense>
             ),
@@ -82,7 +82,7 @@ export const router = createBrowserRouter([
           {
             path: 'directory',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Employee Directory..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Directory..." />}>
                 <DirectoryPage />
               </Suspense>
             ),
@@ -91,7 +91,7 @@ export const router = createBrowserRouter([
           {
             path: 'organization',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Organization Structure..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Organization..." />}>
                 <OrganizationPage />
               </Suspense>
             ),
@@ -99,6 +99,10 @@ export const router = createBrowserRouter([
           },
           {
             path: 'access-control',
+            element: <Navigate to="/users" replace />,
+          },
+          {
+            path: 'access',
             element: <Navigate to="/users" replace />,
           },
           {
@@ -122,7 +126,7 @@ export const router = createBrowserRouter([
           {
             path: 'audit',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading System Activity Logs..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Audit..." />}>
                 <AuditPage />
               </Suspense>
             ),
@@ -131,7 +135,7 @@ export const router = createBrowserRouter([
           {
             path: 'activity-logs',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading System Activity Logs..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Audit..." />}>
                 <AuditPage />
               </Suspense>
             ),
@@ -140,7 +144,7 @@ export const router = createBrowserRouter([
           {
             path: 'reports',
             element: (
-              <Suspense fallback={<PageLoader tip="Loading Reports & Analytics..." />}>
+              <Suspense fallback={<PageLoader tip="Loading Reports..." />}>
                 <ReportsPage />
               </Suspense>
             ),

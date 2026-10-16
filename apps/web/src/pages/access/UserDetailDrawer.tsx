@@ -102,7 +102,6 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
           </Button>
         )
       }
-      footerActions={<Button onClick={onClose}>Close</Button>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* User Identity Card */}

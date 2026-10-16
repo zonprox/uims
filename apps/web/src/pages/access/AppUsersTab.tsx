@@ -100,14 +100,11 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
             }
           })
           .catch((error: unknown) => {
-            console.error(
-              'Failed to resolve deep-linked entity:',
-              error instanceof Error ? error.message : String(error),
-            );
+            message.error(formatErrorMessage(error, 'resolve deep-linked user'));
           });
       }
     }
-  }, [drawerUserId, users]);
+  }, [drawerUserId, users, message]);
 
   const handleCloseDetailDrawer = () => {
     setDetailDrawerOpen(false);
@@ -384,37 +381,25 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
       title: 'Status',
       key: 'status',
       sorter: (a: AppUser, b: AppUser) => a.status.localeCompare(b.status),
-      render: (_: unknown, record: AppUser) => getStatusTag(record.status, record.isLocked),
-    },
-    {
-      title: 'Security State',
-      key: 'securityState',
       render: (_: unknown, record: AppUser) => (
-        <Space orientation="horizontal" size={4}>
-          {record.isLocked ? (
-            <Badge status="error" text="Locked Out" />
-          ) : (
-            <Badge status="success" text="Authorized" />
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: 'Last Sign In',
-      dataIndex: 'lastLoginAt',
-      key: 'lastLoginAt',
-      sorter: (a: AppUser, b: AppUser) => (a.lastLoginAt || '').localeCompare(b.lastLoginAt || ''),
-      render: (lastLoginAt: string | null) => (
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          {lastLoginAt ? <FormattedDateTime date={lastLoginAt} /> : 'Never'}
-        </Text>
+        <Flex vertical gap={4}>
+          <Flex align="center" gap={6}>
+            {getStatusTag(record.status, record.isLocked)}
+            <Badge
+              status={record.isLocked ? 'error' : 'success'}
+              text={record.isLocked ? 'Locked Out' : 'Authorized'}
+            />
+          </Flex>
+          <Text type="secondary" style={{ fontSize: 11.5 }}>
+            {record.lastLoginAt ? <FormattedDateTime date={record.lastLoginAt} /> : 'Never'}
+          </Text>
+        </Flex>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 180,
-      fixed: 'right' as const,
+      width: 170,
       render: (_: unknown, record: AppUser) => (
         <Space orientation="horizontal" size={2}>
           <Tooltip title="View Details">
@@ -544,7 +529,6 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
         columns={columns}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 'max-content' }}
         pagination={{
           pageSize: 10,
           showSizeChanger: true,
