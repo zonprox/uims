@@ -23,14 +23,11 @@ export const infrastructureDomainSchema = z
   .default(InfrastructureDomain.NETWORK);
 export const networkDomainSchema = infrastructureDomainSchema;
 export const topologyViewModeSchema = z.nativeEnum(TopologyViewMode).default(TopologyViewMode.ALL);
-export const linkMediumTypeSchema = z
-  .nativeEnum(LinkMediumType)
-  .default(LinkMediumType.COPPER);
+export const linkMediumTypeSchema = z.nativeEnum(LinkMediumType).default(LinkMediumType.COPPER);
 export const portRoleSchema = z.nativeEnum(PortRole).default(PortRole.ACCESS);
 export const topologyNodeTypeSchema = z
   .nativeEnum(TopologyNodeType)
   .default(TopologyNodeType.SWITCH);
-
 
 // Strict IPv4: rejects octets > 255 and rejects leading zeros (e.g. 01.0.0.1)
 export const ipv4Regex =
@@ -268,7 +265,6 @@ export const createSwitchPortSchema = z.object({
     .max(128, 'Port number cannot exceed 128'),
   name: z.string().trim().min(1, 'Port name is required').max(50),
   formFactor: z.nativeEnum(PortFormFactor).default(PortFormFactor.RJ45_1G).optional(),
-  poeEnabled: z.boolean().default(false).optional(),
   adminStatus: z.nativeEnum(PortAdminStatus).default(PortAdminStatus.UP).optional(),
   operStatus: z.nativeEnum(PortOperStatus).default(PortOperStatus.DOWN).optional(),
   speed: z.string().trim().max(50).nullable().optional(),
@@ -285,7 +281,6 @@ export const createSwitchPortSchema = z.object({
 export const updateSwitchPortSchema = z.object({
   name: z.string().trim().min(1).max(50).optional(),
   formFactor: z.nativeEnum(PortFormFactor).optional(),
-  poeEnabled: z.boolean().optional(),
   adminStatus: z.nativeEnum(PortAdminStatus).optional(),
   operStatus: z.nativeEnum(PortOperStatus).optional(),
   speed: z.string().trim().max(50).nullable().optional(),
@@ -374,9 +369,13 @@ export const patchCableLinkSchema = z
     mode: z.nativeEnum(PortMode).optional(),
     vlanId: uuidSchema.nullable().optional(),
     taggedVlanIds: z.array(taggedVlanItemSchema).nullable().optional(),
-    speedMbps: z.number().int().positive('Link speed must be a positive integer').nullable().optional(),
+    speedMbps: z
+      .number()
+      .int()
+      .positive('Link speed must be a positive integer')
+      .nullable()
+      .optional(),
     speed: z.string().trim().max(50).nullable().optional(),
-    poeDelivering: z.boolean().default(false).optional(),
     description: z.string().trim().max(255).nullable().optional(),
   })
   .refine((data) => Boolean(data.targetPortId || data.targetAssetId || data.targetIpAddressId), {
@@ -426,4 +425,3 @@ export type UpdateTopologyLayoutInput = UpdateCanvasLayoutInput;
 export type PatchCableLinkInput = z.infer<typeof patchCableLinkSchema>;
 export type CreateTopologyLinkInput = PatchCableLinkInput;
 export type UnpatchCableLinkInput = z.infer<typeof unpatchCableLinkSchema>;
-

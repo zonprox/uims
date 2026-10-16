@@ -190,11 +190,11 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Fronten
       expect(container.querySelector('[data-testid="rack-screw-right-1"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="rack-screw-right-2"]')).not.toBeNull();
 
-      // Left System Bezel: PWR, SYS, PoE, CONSOLE
+      // Left System Bezel: PWR, SYS, CONSOLE
       expect(container.querySelector('[data-testid="switch-system-bezel"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="led-pwr"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="led-sys"]')).not.toBeNull();
-      expect(container.querySelector('[data-testid="led-poe"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="led-poe"]')).toBeNull();
       expect(container.querySelector('[data-testid="console-port"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="console-socket"]')).not.toBeNull();
       expect(container.querySelector('[data-testid="console-label"]')).not.toBeNull();

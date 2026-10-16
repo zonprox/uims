@@ -19,7 +19,7 @@ export class UnpatchTopologyLinkDto {
 
   @ApiPropertyOptional({
     description:
-      'Reset port configuration to default (mode=ACCESS, vlanId=null, taggedVlanIds=null, poeEnabled=false)',
+      'Reset port configuration to default (mode=ACCESS, vlanId=null, taggedVlanIds=null)',
     example: true,
     default: false,
     type: Boolean,

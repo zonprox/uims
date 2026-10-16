@@ -242,6 +242,7 @@ export function useAssetManagement(form: FormInstance) {
           categoryId: isCategoryId ? categoryFilter : undefined,
           category: categoryFilter !== 'all' && !isCategoryId ? categoryFilter : undefined,
           status: statusFilter !== 'all' ? statusFilter : undefined,
+          deviceModelId: modelFilter !== 'all' ? modelFilter : undefined,
           modelId: modelFilter !== 'all' ? modelFilter : undefined,
           assignedToId: custodianFilter !== 'all' ? custodianFilter : undefined,
           departmentId: departmentFilter !== 'all' ? departmentFilter : undefined,
@@ -690,12 +691,9 @@ export function useAssetManagement(form: FormInstance) {
   const loadModels = useCallback(async () => {
     setLoadingModels(true);
     try {
-      const res = await api.get('/assets/models');
-      const modelList = Array.isArray(res.data?.data)
-        ? res.data.data
-        : Array.isArray(res.data)
-          ? res.data
-          : [];
+      const res = await api.get('/assets/models', { params: { pageSize: 100, limit: 100 } });
+      const raw = res.data?.data ?? res.data;
+      const modelList = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
       setModels(modelList);
     } catch (_err: unknown) {
       const derived = assets.filter(
@@ -739,6 +737,7 @@ export function useAssetManagement(form: FormInstance) {
       setEditingAsset(null);
       form.resetFields();
       form.setFieldsValue({
+        deviceModelId: model.id,
         parentId: model.id,
         name: model.name,
         manufacturer: model.manufacturer,

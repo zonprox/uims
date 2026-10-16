@@ -299,7 +299,6 @@ describe('Milestone 7 Challenger — Empirical Zod Schema Adversarial Suite', ()
           medium: LinkMediumType.COPPER,
           portRole: PortRole.ACCESS,
           mode: PortMode.ACCESS,
-          poeDelivering: true,
           speedMbps: 1000,
           description: 'IP Camera 4K Dome',
         };

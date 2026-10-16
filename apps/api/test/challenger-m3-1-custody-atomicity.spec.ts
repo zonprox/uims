@@ -49,16 +49,14 @@ describe('Challenger M3-1: Custody Workflows Atomicity & Invariants Suite', () =
 
     const [defaultPos, defaultOrg] = await Promise.all([
       prisma.position.findFirst({ select: { id: true } }),
-      prisma.organization
-        .findFirst({ where: { code: 'BSL' }, select: { id: true } })
-        .then(
-          (o) =>
-            o ||
-            prisma.organization.findFirst({
-              where: { code: { not: 'HOLDING' } },
-              select: { id: true },
-            }),
-        ),
+      prisma.organization.findFirst({ where: { code: 'BSL' }, select: { id: true } }).then(
+        (o) =>
+          o ||
+          prisma.organization.findFirst({
+            where: { code: { not: 'HOLDING' } },
+            select: { id: true },
+          }),
+      ),
     ]);
 
     // 3. Create dedicated directory users with diverse AccountStatuses & valid foreign keys

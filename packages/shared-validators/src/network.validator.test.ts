@@ -51,7 +51,6 @@ import {
   vlanQuerySchema,
 } from './network.validator';
 
-
 describe('network.validator', () => {
   describe('createVlanSchema', () => {
     it('validates a correct VLAN input', () => {
@@ -346,7 +345,6 @@ describe('network.validator', () => {
         portNumber: 1,
         name: 'Gi1/0/1',
         formFactor: PortFormFactor.RJ45_1G,
-        poeEnabled: true,
         adminStatus: PortAdminStatus.UP,
         operStatus: PortOperStatus.ACTIVE,
         speed: '1 Gbps',
@@ -490,22 +488,32 @@ describe('network.validator', () => {
     describe('Enum Schemas', () => {
       it('validates InfrastructureDomain values and defaults', () => {
         expect(infrastructureDomainSchema.parse(undefined)).toBe(InfrastructureDomain.NETWORK);
-        expect(infrastructureDomainSchema.parse(InfrastructureDomain.CCTV)).toBe(InfrastructureDomain.CCTV);
-        expect(infrastructureDomainSchema.parse(InfrastructureDomain.SHARED)).toBe(InfrastructureDomain.SHARED);
+        expect(infrastructureDomainSchema.parse(InfrastructureDomain.CCTV)).toBe(
+          InfrastructureDomain.CCTV,
+        );
+        expect(infrastructureDomainSchema.parse(InfrastructureDomain.SHARED)).toBe(
+          InfrastructureDomain.SHARED,
+        );
         expect(infrastructureDomainSchema.safeParse('INVALID').success).toBe(false);
       });
 
       it('validates TopologyViewMode values and defaults', () => {
         expect(topologyViewModeSchema.parse(undefined)).toBe(TopologyViewMode.ALL);
-        expect(topologyViewModeSchema.parse(TopologyViewMode.NETWORK)).toBe(TopologyViewMode.NETWORK);
+        expect(topologyViewModeSchema.parse(TopologyViewMode.NETWORK)).toBe(
+          TopologyViewMode.NETWORK,
+        );
         expect(topologyViewModeSchema.parse(TopologyViewMode.CCTV)).toBe(TopologyViewMode.CCTV);
         expect(topologyViewModeSchema.safeParse('UNKNOWN').success).toBe(false);
       });
 
       it('validates LinkMediumType values and defaults', () => {
         expect(linkMediumTypeSchema.parse(undefined)).toBe(LinkMediumType.COPPER);
-        expect(linkMediumTypeSchema.parse(LinkMediumType.FIBER_SINGLE)).toBe(LinkMediumType.FIBER_SINGLE);
-        expect(linkMediumTypeSchema.parse(LinkMediumType.FIBER_MULTI)).toBe(LinkMediumType.FIBER_MULTI);
+        expect(linkMediumTypeSchema.parse(LinkMediumType.FIBER_SINGLE)).toBe(
+          LinkMediumType.FIBER_SINGLE,
+        );
+        expect(linkMediumTypeSchema.parse(LinkMediumType.FIBER_MULTI)).toBe(
+          LinkMediumType.FIBER_MULTI,
+        );
         expect(linkMediumTypeSchema.parse(LinkMediumType.DAC)).toBe(LinkMediumType.DAC);
         expect(linkMediumTypeSchema.parse(LinkMediumType.WIRELESS)).toBe(LinkMediumType.WIRELESS);
         expect(linkMediumTypeSchema.safeParse('COAXIAL').success).toBe(false);
@@ -521,7 +529,9 @@ describe('network.validator', () => {
 
       it('validates TopologyNodeType values', () => {
         expect(topologyNodeTypeSchema.parse(undefined)).toBe(TopologyNodeType.SWITCH);
-        expect(topologyNodeTypeSchema.parse(TopologyNodeType.CORE_SWITCH)).toBe(TopologyNodeType.CORE_SWITCH);
+        expect(topologyNodeTypeSchema.parse(TopologyNodeType.CORE_SWITCH)).toBe(
+          TopologyNodeType.CORE_SWITCH,
+        );
         expect(topologyNodeTypeSchema.parse(TopologyNodeType.CAMERA)).toBe(TopologyNodeType.CAMERA);
         expect(topologyNodeTypeSchema.parse(TopologyNodeType.NVR)).toBe(TopologyNodeType.NVR);
       });
@@ -534,7 +544,6 @@ describe('network.validator', () => {
       const ipId = 'c0000000-0000-4000-8000-000000000001';
       const vlanId = 'd0000000-0000-4000-8000-000000000001';
 
-
       it('validates a valid switch-to-switch trunk link', () => {
         const payload = {
           sourcePortId: portA,
@@ -545,7 +554,6 @@ describe('network.validator', () => {
           speedMbps: 10000,
           speed: '10 Gbps',
           taggedVlanIds: [10, 20, 30, 100],
-          poeDelivering: false,
           description: '10G Core to Dist Uplink',
         };
         const result = patchCableLinkSchema.safeParse(payload);
@@ -564,7 +572,6 @@ describe('network.validator', () => {
           vlanId,
           medium: LinkMediumType.COPPER,
           portRole: PortRole.ACCESS,
-          poeDelivering: true,
           speedMbps: 1000,
           description: 'Dome 4K Camera Connection',
         };
@@ -650,7 +657,6 @@ describe('network.validator', () => {
 
     describe('unpatchCableLinkSchema', () => {
       const portId = 'a0000000-0000-4000-8000-000000000001';
-
 
       it('validates a correct unpatch request', () => {
         const payload = {
@@ -761,7 +767,6 @@ describe('network.validator', () => {
         const vlanId = 'd0000000-0000-4000-8000-000000000001';
         const subnetId = 'f0000000-0000-4000-8000-000000000001';
 
-
         const payload = {
           mode: TopologyViewMode.CCTV,
           domain: InfrastructureDomain.CCTV,
@@ -791,4 +796,3 @@ describe('network.validator', () => {
     });
   });
 });
-

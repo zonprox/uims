@@ -66,7 +66,7 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       id: 'sw-cctv-01',
       label: 'BSL-CCTV-SW01',
       type: 'SWITCH',
-      role: 'POE_ACCESS',
+      role: 'ACCESS',
       status: 'ONLINE',
       domain: 'CCTV',
       totalPorts: 24,
@@ -127,7 +127,6 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       target: 'cam-001',
       status: 'ACTIVE',
       speed: '1 Gbps',
-      poeEnabled: true,
     },
   ];
 
@@ -284,7 +283,7 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
             'svg',
             null,
             createElement(TopologyEdgeItem, {
-              edge: mockEdges[1], // PoE link
+              edge: mockEdges[1], // Endpoint link
               sourceNode: mockNodes[2],
               targetNode: mockNodes[3],
               onOpenPortConfig,
@@ -295,7 +294,7 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
 
       const edgeEl = container.querySelector('[data-testid="topology-edge-edge-cctv-cam1"]');
       expect(edgeEl).toBeTruthy();
-      expect(edgeEl?.textContent).toContain('⚡');
+      expect(edgeEl?.textContent).not.toContain('⚡');
       expect(edgeEl?.textContent).toContain('1 Gbps');
     });
 
@@ -394,7 +393,9 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       });
 
       const dimmedEdge = container.querySelector('[data-testid="topology-edge-edge-core-cctv"]');
-      const highlightedEdge = container.querySelector('[data-testid="topology-edge-edge-cctv-cam1"]');
+      const highlightedEdge = container.querySelector(
+        '[data-testid="topology-edge-edge-cctv-cam1"]',
+      );
 
       expect(dimmedEdge?.getAttribute('opacity')).toBe('0.25');
       expect((dimmedEdge as SVGElement | null)?.style.transition).toContain('opacity 0.25s ease');
@@ -484,11 +485,10 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       activeLinks: 48,
       degradedLinks: 2,
       downLinks: 2,
-      poePowerUsageWatts: 338.8,
       onlinePercentage: 92,
     };
 
-    it('renders all 4 metric cards adapting to ALL perspective', async () => {
+    it('renders all 3 metric cards adapting to ALL perspective', async () => {
       const root = createRoot(container);
       currentRoot = root;
 
@@ -523,11 +523,6 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       expect(linksCard?.textContent).toContain('48 Up');
       expect(linksCard?.textContent).toContain('2 Flapping');
       expect(linksCard?.textContent).toContain('2 Down');
-
-      // PoE Power Draw card
-      const poeCard = container.querySelector('[data-testid="summary-card-poe-power"]');
-      expect(poeCard?.textContent).toContain('338.8');
-      expect(poeCard?.textContent).toContain('W');
 
       // Health index card
       const healthCard = container.querySelector('[data-testid="summary-card-health-index"]');
@@ -698,15 +693,21 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       expect(serverNode?.getAttribute('opacity')).toBe('0.35');
 
       // Connected CCTV switch in path should NOT be dimmed (opacity 1.0)
-      const cctvSwitchNode = container.querySelector('[data-testid="topology-node-switch-sw-cctv-01"]');
+      const cctvSwitchNode = container.querySelector(
+        '[data-testid="topology-node-switch-sw-cctv-01"]',
+      );
       expect(cctvSwitchNode?.getAttribute('opacity')).toBe('1');
 
       // Upstream core switch in path should NOT be dimmed (opacity 1.0)
-      const coreSwitchNode = container.querySelector('[data-testid="topology-node-switch-sw-core-01"]');
+      const coreSwitchNode = container.querySelector(
+        '[data-testid="topology-node-switch-sw-core-01"]',
+      );
       expect(coreSwitchNode?.getAttribute('opacity')).toBe('1');
 
       // Dist switch connected via bidirectional trunk should also be traversed (opacity 1.0)
-      const distSwitchNode = container.querySelector('[data-testid="topology-node-switch-sw-dist-01"]');
+      const distSwitchNode = container.querySelector(
+        '[data-testid="topology-node-switch-sw-dist-01"]',
+      );
       expect(distSwitchNode?.getAttribute('opacity')).toBe('1');
     });
   });
@@ -775,7 +776,9 @@ describe('Network Topology Canvas & Interaction Unit Tests', () => {
       const root = createRoot(container);
       currentRoot = root;
 
-      HTMLElement.prototype.requestFullscreen = vi.fn().mockRejectedValue(new Error('Permission denied'));
+      HTMLElement.prototype.requestFullscreen = vi
+        .fn()
+        .mockRejectedValue(new Error('Permission denied'));
 
       await act(async () => {
         root.render(

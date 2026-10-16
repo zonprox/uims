@@ -4,6 +4,7 @@ import type {
   BatchAssignAssetDto,
   BatchAssignAssetResultDto,
   BatchDeleteResultDto,
+  DeviceModel,
   RegisterPhysicalUnitDto,
   ReturnAssetDto,
   TransferAssetDto,
@@ -34,6 +35,7 @@ export interface AssetCategory {
 export interface Asset {
   id: string;
   tag: string;
+  modelCode?: string | null;
   assetCode?: string | null;
   subcode?: string | null;
   parentId?: string | null;
@@ -128,6 +130,7 @@ export const assetsService = {
     categoryId?: string;
     status?: string;
     modelId?: string;
+    deviceModelId?: string;
     assignedToId?: string;
     departmentId?: string;
     hasPendingRecord?: boolean | string;
@@ -138,6 +141,19 @@ export const assetsService = {
   }): Promise<Array<Asset>> => {
     const res = await api.get('/assets', { params });
     return res.data.data;
+  },
+
+  getModels: async (params?: {
+    search?: string;
+    categoryId?: string;
+    page?: number;
+    pageSize?: number;
+    limit?: number;
+  }): Promise<
+    { items: DeviceModel[]; total: number; page: number; pageSize: number } | DeviceModel[]
+  > => {
+    const res = await api.get('/assets/models', { params: { pageSize: 100, ...params } });
+    return res.data?.data ?? res.data;
   },
 
   getAsset: async (id: string): Promise<Asset> => {

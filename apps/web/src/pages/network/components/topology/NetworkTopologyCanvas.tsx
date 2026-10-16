@@ -162,7 +162,9 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
       setZoom(Number(nextZoom.toFixed(2)));
       setPan({
         x: Math.round((containerSize.width - bounds.width * nextZoom) / 2 - bounds.minX * nextZoom),
-        y: Math.round((containerSize.height - bounds.height * nextZoom) / 2 - bounds.minY * nextZoom),
+        y: Math.round(
+          (containerSize.height - bounds.height * nextZoom) / 2 - bounds.minY * nextZoom,
+        ),
       });
     }, [nodes, containerSize]);
 
@@ -417,7 +419,6 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
             <span>
               <span style={{ color: '#f59e0b', fontWeight: 600 }}>- -</span> Degraded / Down
             </span>
-            <span>⚡ PoE Delivery</span>
             <span>● Active</span>
           </Flex>
         </div>
@@ -428,7 +429,10 @@ export const NetworkTopologyCanvas: React.FC<NetworkTopologyCanvasProps> = React
           width="100%"
           height="100%"
           onPointerDown={handleCanvasPointerDown}
-          style={{ display: 'block', cursor: isDraggingNode ? 'move' : isPanning ? 'grabbing' : 'grab' }}
+          style={{
+            display: 'block',
+            cursor: isDraggingNode ? 'move' : isPanning ? 'grabbing' : 'grab',
+          }}
           data-testid="topology-canvas"
         >
           {/* Background Grid */}

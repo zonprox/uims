@@ -78,7 +78,8 @@ export const inventoryService = {
   }): Promise<Array<InventoryItem>> => {
     try {
       const res = await api.get('/assets/models', { params });
-      const rawList = res.data?.data ?? res.data ?? [];
+      const raw = res.data?.data ?? res.data;
+      const rawList = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
       return rawList.map(
         (m: DeviceModel & { sku?: string; quantity?: number; binNumber?: string }) => ({
           ...m,
@@ -105,7 +106,8 @@ export const inventoryService = {
   }): Promise<Array<InventoryItem>> => {
     try {
       const res = await api.get('/assets/models', { params });
-      const rawList = res.data?.data ?? res.data ?? [];
+      const raw = res.data?.data ?? res.data;
+      const rawList = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
       return rawList.map(
         (m: DeviceModel & { sku?: string; quantity?: number; binNumber?: string }) => ({
           ...m,

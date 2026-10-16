@@ -276,7 +276,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
       let down = 0;
       let noSignal = 0;
       let reserved = 0;
-      let poe = 0;
 
       for (const p of ports) {
         const statusInfo = getPortStatusInfo(p);
@@ -284,8 +283,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
         else if (statusInfo.status === 'DOWN') down++;
         else if (statusInfo.status === 'CONNECTED_NO_SIGNAL') noSignal++;
         else if (statusInfo.status === 'RESERVED') reserved++;
-
-        if (p.poeEnabled) poe++;
       }
 
       return {
@@ -294,7 +291,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
         down,
         noSignal,
         reserved,
-        poe,
       };
     }, [ports, rj45Count, finalUplinkRj45Count, finalFiberCount]);
 
@@ -374,20 +370,19 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 </span>
               </div>
             )}
-            {port.poeEnabled && (
-              <Flex align="center" gap={5} style={{ color: '#fa8c16' }}>
-                <div
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    backgroundColor: '#fa8c16',
-                    boxShadow: '0 0 5px #fa8c16',
-                    flexShrink: 0,
-                  }}
-                />
-                <span>PoE Power: Active</span>
-              </Flex>
+            {Boolean(port.connectedPort || port.peerPort || port.connectedSwitch) && (
+              <div>
+                <span style={{ color: '#8c8c8c' }}>Connected Peer:</span>{' '}
+                <span style={{ color: '#b37feb' }}>
+                  {port.connectedSwitch?.name ||
+                    (port.connectedPort || port.peerPort)?.switch?.name ||
+                    'Peer Switch'}{' '}
+                  [
+                  {(port.connectedPort || port.peerPort)?.name ||
+                    `Port ${(port.connectedPort || port.peerPort)?.portNumber}`}
+                  ]
+                </span>
+              </div>
             )}
             {port.description && (
               <div style={{ fontStyle: 'italic', color: '#8c8c8c', fontSize: 10, marginTop: 2 }}>
@@ -403,7 +398,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
     const renderRJ45Jack = (portNum: number, port: SwitchPort | null, isUpperRow: boolean) => {
       const statusInfo = getPortStatusInfo(port);
       const isSelected = selectedPortId ? port?.id === selectedPortId : false;
-      const isPoe = Boolean(port?.poeEnabled);
 
       return (
         <Tooltip
@@ -426,7 +420,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   portNumber: portNum,
                   name: `Gi1/0/${portNum}`,
                   formFactor: 'RJ45_1G',
-                  poeEnabled: true,
                   adminStatus: 'UP',
                   operStatus: 'DOWN',
                   mode: 'ACCESS',
@@ -473,7 +466,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               </div>
             )}
 
-            {/* Dual Horizontal Status LEDs: Signal LED (Left) + Power/PoE LED (Right) */}
+            {/* Port Status LED: Signal LED */}
             <Flex
               align="center"
               justify="center"
@@ -500,36 +493,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   flexShrink: 0,
                 }}
               />
-
-              {/* 2. Power / PoE State LED Indicator (Orange when active, unlit dark gray when off) */}
-              {isPoe ? (
-                <div
-                  data-testid={`poe-badge-${portNum}`}
-                  title="PoE Power: Active"
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: '50%',
-                    backgroundColor: '#fa8c16',
-                    boxShadow: '0 0 5px #fa8c16',
-                    flexShrink: 0,
-                  }}
-                />
-              ) : (
-                <div
-                  data-testid={`power-led-${portNum}`}
-                  title="PoE Power: Inactive"
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: '50%',
-                    backgroundColor: '#262626',
-                    border: '1px solid #383838',
-                    boxShadow: 'none',
-                    flexShrink: 0,
-                  }}
-                />
-              )}
             </Flex>
 
             {/* RJ45 Modular Receptacle with Metallic Spring Shielding Contacts */}
@@ -661,7 +624,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   portNumber: portNum,
                   name: `Uplink${uIndex + 1}`,
                   formFactor: 'RJ45_1G',
-                  poeEnabled: false,
                   adminStatus: 'UP',
                   operStatus: 'DOWN',
                   mode: 'TRUNK',
@@ -688,7 +650,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 : 'inset 0 1px 2px rgba(0,0,0,0.6)',
             }}
           >
-            {/* Dual Horizontal Status LEDs: Signal LED + Power/PoE LED */}
+            {/* Status LED: Signal LED */}
             <Flex
               align="center"
               justify="center"
@@ -705,21 +667,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   borderRadius: '50%',
                   backgroundColor: statusInfo.color,
                   boxShadow: statusInfo.glow,
-                  flexShrink: 0,
-                }}
-              />
-              <div
-                data-testid={
-                  port?.poeEnabled ? `uplink-poe-${uIndex + 1}` : `uplink-power-led-${uIndex + 1}`
-                }
-                title={port?.poeEnabled ? 'PoE Power: Active' : 'Power: Inactive'}
-                style={{
-                  width: 5,
-                  height: 5,
-                  borderRadius: '50%',
-                  backgroundColor: port?.poeEnabled ? '#fa8c16' : '#262626',
-                  boxShadow: port?.poeEnabled ? '0 0 5px #fa8c16' : 'none',
-                  border: port?.poeEnabled ? 'none' : '1px solid #383838',
                   flexShrink: 0,
                 }}
               />
@@ -803,7 +750,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   portNumber: portNum,
                   name: `Te1/0/${portNum}`,
                   formFactor: finalFiberCount === 2 ? 'SFP_1G' : 'SFP_PLUS_10G',
-                  poeEnabled: false,
                   adminStatus: 'UP',
                   operStatus: 'DOWN',
                   mode: 'TRUNK',
@@ -1052,7 +998,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               />
             </div>
 
-            {/* Left Branding, System Status Bezel (PWR, SYS, PoE LEDs + CONSOLE Port) */}
+            {/* Left Branding, System Status Bezel (PWR, SYS LEDs + CONSOLE Port) */}
             <Flex
               vertical
               justify="space-between"
@@ -1109,7 +1055,7 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                 </Text>
               </Flex>
 
-              {/* System Status Indicators: PWR, SYS, PoE LEDs */}
+              {/* System Status Indicators: PWR, SYS LEDs */}
               <Flex
                 justify="space-between"
                 align="center"
@@ -1143,21 +1089,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
                   />
                   <span style={{ fontSize: 8, color: '#8c8c8c', fontFamily: 'monospace' }}>
                     SYS
-                  </span>
-                </Flex>
-                <Flex align="center" gap={3}>
-                  <div
-                    data-testid="led-poe"
-                    style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: '50%',
-                      backgroundColor: '#faad14',
-                      boxShadow: '0 0 5px #faad14',
-                    }}
-                  />
-                  <span style={{ fontSize: 8, color: '#faad14', fontFamily: 'monospace' }}>
-                    PoE
                   </span>
                 </Flex>
               </Flex>
@@ -1487,20 +1418,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
               />
               <Text style={{ fontSize: 11.5 }}>Down / Disabled</Text>
             </Flex>
-
-            <Flex align="center" gap={5}>
-              <div
-                data-testid="legend-led-poe"
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: '#fa8c16',
-                  boxShadow: '0 0 6px #fa8c16',
-                }}
-              />
-              <Text style={{ fontSize: 11.5 }}>PoE Power Active</Text>
-            </Flex>
           </Flex>
 
           {/* Counts */}
@@ -1510,7 +1427,6 @@ export const SwitchPortFaceplate: React.FC<SwitchPortFaceplateProps> = React.mem
             <Tag color="warning">No Signal: {telemetry.noSignal}</Tag>
             <Tag color="blue">Reserved: {telemetry.reserved}</Tag>
             <Tag color="default">Down: {telemetry.down}</Tag>
-            {telemetry.poe > 0 && <Tag color="gold">PoE: {telemetry.poe}</Tag>}
           </Flex>
         </Flex>
       </Flex>

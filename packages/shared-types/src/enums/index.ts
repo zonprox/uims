@@ -21,7 +21,6 @@ export {
   TopologyEdgeStatus,
   TopologyNodeStatus,
   TopologyNodeType,
-  TopologyPoeStatus,
   TopologyViewMode,
   VlanStatus,
 } from '../entities/network';

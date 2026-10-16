@@ -153,7 +153,6 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Backend
             expect(p.formFactor).toBe('RJ45_1G');
             expect(p.mode).toBe('ACCESS');
             expect(p.speed).toBe('1 Gbps');
-            expect(p.poeEnabled).toBe(true);
             expect(p.adminStatus).toBe('UP');
             expect(p.operStatus).toBe('DOWN');
           }
@@ -165,7 +164,6 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Backend
             formFactor: 'RJ45_1G',
             mode: 'TRUNK',
             speed: '1 Gbps',
-            poeEnabled: false,
           });
           expect(generated[ports + 1]).toMatchObject({
             portNumber: ports + 2,
@@ -173,7 +171,6 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Backend
             formFactor: 'RJ45_1G',
             mode: 'TRUNK',
             speed: '1 Gbps',
-            poeEnabled: false,
           });
 
           // Bay 3: Fiber SFP+
@@ -183,7 +180,6 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Backend
             formFactor: 'SFP_PLUS_10G',
             mode: 'TRUNK',
             speed: '10 Gbps',
-            poeEnabled: false,
           });
           expect(generated[ports + 3]).toMatchObject({
             portNumber: ports + 4,
@@ -191,7 +187,6 @@ describe('Milestone 4 Challenger: Exhaustive Monorepo Stress Test Suite (Backend
             formFactor: 'SFP_PLUS_10G',
             mode: 'TRUNK',
             speed: '10 Gbps',
-            poeEnabled: false,
           });
         });
       }

@@ -43,7 +43,7 @@ async function main() {
   assert(
     'Topology endpoint rejects unauthenticated requests with HTTP 401',
     unauthRes.status === 401,
-    `status: ${unauthRes.status}`
+    `status: ${unauthRes.status}`,
   );
 
   const loginRes = await fetch(`${BASE_URL}/auth/login`, {
@@ -74,12 +74,12 @@ async function main() {
   const canonicalRackCodes = ['RCK-MDF-01', 'RCK-MDF-02', 'RCK-IDF-F1', 'RCK-IDF-F2', 'RCK-IDF-WH'];
   const presentRacks = allData.nodes.filter((n) => n.type === 'RACK');
   const matchedRacks = canonicalRackCodes.filter((code) =>
-    presentRacks.some((r) => r.label === code || r.data?.rackCode === code)
+    presentRacks.some((r) => r.label === code || r.data?.rackCode === code),
   );
   assert(
     'All 5 canonical racks present in mode=ALL nodes',
     matchedRacks.length === canonicalRackCodes.length,
-    `Found ${matchedRacks.length}/5: ${matchedRacks.join(', ')} (Total racks in nodes: ${presentRacks.length})`
+    `Found ${matchedRacks.length}/5: ${matchedRacks.join(', ')} (Total racks in nodes: ${presentRacks.length})`,
   );
 
   // 2b. All 10 Canonical Switches
@@ -97,25 +97,27 @@ async function main() {
   ];
   const presentSwitches = allData.nodes.filter((n) => n.type === 'SWITCH');
   const matchedSwitches = canonicalSwitchNames.filter((name) =>
-    presentSwitches.some((s) => s.label === name)
+    presentSwitches.some((s) => s.label === name),
   );
   assert(
     'All 10 canonical switches present in mode=ALL nodes',
     matchedSwitches.length === canonicalSwitchNames.length,
-    `Found ${matchedSwitches.length}/10: ${matchedSwitches.join(', ')} (Total switches in nodes: ${presentSwitches.length})`
+    `Found ${matchedSwitches.length}/10: ${matchedSwitches.join(', ')} (Total switches in nodes: ${presentSwitches.length})`,
   );
 
   // 2c. Canonical Trunk Links (Uplinks)
-  const trunkEdges = allData.edges.filter((e) => e.linkType === 'UPLINK' || e.portRole === 'UPLINK');
+  const trunkEdges = allData.edges.filter(
+    (e) => e.linkType === 'UPLINK' || e.portRole === 'UPLINK',
+  );
   assert(
     'Canonical inter-switch trunk links present (>= 12 links)',
     trunkEdges.length >= 12,
-    `Found ${trunkEdges.length} inter-switch trunk edges`
+    `Found ${trunkEdges.length} inter-switch trunk edges`,
   );
 
   // 2d. Canonical Endpoints (Servers, APs, NVRs, Cameras)
   const endpointsInAll = allData.nodes.filter((n) =>
-    ['SERVER', 'ACCESS_POINT', 'AP', 'CAMERA', 'NVR', 'ASSET'].includes(n.type)
+    ['SERVER', 'ACCESS_POINT', 'AP', 'CAMERA', 'NVR', 'ASSET'].includes(n.type),
   );
   const serverCount = allData.nodes.filter((n) => n.type === 'SERVER').length;
   const apCount = allData.nodes.filter((n) => n.type === 'ACCESS_POINT' || n.type === 'AP').length;
@@ -125,7 +127,7 @@ async function main() {
   assert(
     'Endpoints present across servers, APs, NVRs, cameras in mode=ALL',
     serverCount >= 4 && apCount >= 6 && nvrCount >= 2 && cameraCount >= 15,
-    `Servers: ${serverCount}, APs: ${apCount}, NVRs: ${nvrCount}, Cameras: ${cameraCount} (Total: ${endpointsInAll.length})`
+    `Servers: ${serverCount}, APs: ${apCount}, NVRs: ${nvrCount}, Cameras: ${cameraCount} (Total: ${endpointsInAll.length})`,
   );
 
   // 2e. Zero Dangling Edges in mode=ALL
@@ -138,7 +140,7 @@ async function main() {
   assert(
     'Zero dangling edges in mode=ALL (all edge sources and targets exist in nodes)',
     danglingInAll.length === 0,
-    `Found ${danglingInAll.length} dangling edges out of ${allData.edges.length}`
+    `Found ${danglingInAll.length} dangling edges out of ${allData.edges.length}`,
   );
 
   // --------------------------------------------------------------------------
@@ -157,25 +159,25 @@ async function main() {
   assert(
     'Cameras are 100% excluded in mode=NETWORK',
     netCameras.length === 0,
-    `Camera count: ${netCameras.length}`
+    `Camera count: ${netCameras.length}`,
   );
   assert(
     'NVRs are 100% excluded in mode=NETWORK',
     netNvrs.length === 0,
-    `NVR count: ${netNvrs.length}`
+    `NVR count: ${netNvrs.length}`,
   );
 
   // 3b. Endpoints Contain Only Servers and APs
   const netEndpoints = netData.nodes.filter((n) =>
-    ['SERVER', 'ACCESS_POINT', 'AP', 'CAMERA', 'NVR', 'ASSET'].includes(n.type)
+    ['SERVER', 'ACCESS_POINT', 'AP', 'CAMERA', 'NVR', 'ASSET'].includes(n.type),
   );
   const netInvalidEndpoints = netEndpoints.filter(
-    (n) => n.type !== 'SERVER' && n.type !== 'ACCESS_POINT' && n.type !== 'AP'
+    (n) => n.type !== 'SERVER' && n.type !== 'ACCESS_POINT' && n.type !== 'AP',
   );
   assert(
     'Endpoints contain only Servers and Access Points in mode=NETWORK',
     netEndpoints.length > 0 && netInvalidEndpoints.length === 0,
-    `Total endpoints: ${netEndpoints.length} (Servers: ${netData.nodes.filter((n) => n.type === 'SERVER').length}, APs: ${netData.nodes.filter((n) => n.type === 'ACCESS_POINT').length})`
+    `Total endpoints: ${netEndpoints.length} (Servers: ${netData.nodes.filter((n) => n.type === 'SERVER').length}, APs: ${netData.nodes.filter((n) => n.type === 'ACCESS_POINT').length})`,
   );
 
   // 3c. Zero Dangling Edges in mode=NETWORK
@@ -188,7 +190,7 @@ async function main() {
   assert(
     'Zero dangling edges in mode=NETWORK',
     danglingInNet.length === 0,
-    `Found ${danglingInNet.length} dangling edges out of ${netData.edges.length}`
+    `Found ${danglingInNet.length} dangling edges out of ${netData.edges.length}`,
   );
 
   // --------------------------------------------------------------------------
@@ -207,12 +209,12 @@ async function main() {
   assert(
     'Servers are 100% excluded in mode=CCTV',
     cctvServers.length === 0,
-    `Server count: ${cctvServers.length}`
+    `Server count: ${cctvServers.length}`,
   );
   assert(
     'Access Points are 100% excluded in mode=CCTV',
     cctvAps.length === 0,
-    `AP count: ${cctvAps.length}`
+    `AP count: ${cctvAps.length}`,
   );
 
   // 4b. CCTV Cameras and NVRs Present
@@ -221,23 +223,24 @@ async function main() {
   assert(
     'CCTV Cameras are present in mode=CCTV (>= 15)',
     cctvCameras.length >= 15,
-    `Camera count: ${cctvCameras.length}`
+    `Camera count: ${cctvCameras.length}`,
   );
   assert(
     'Recording NVRs are present in mode=CCTV (>= 2)',
     cctvNvrs.length >= 2,
-    `NVR count: ${cctvNvrs.length}`
+    `NVR count: ${cctvNvrs.length}`,
   );
 
   // 4c. Upstream Trunk Switches Connected to CCTV Switches are Present
   const cctvSwitches = cctvData.nodes.filter((n) => n.type === 'SWITCH');
   const hasUpstreamDistribution = cctvSwitches.some(
-    (s) => s.label === 'SW-DIST-02' || s.subType === 'DISTRIBUTION' || s.data?.role === 'DISTRIBUTION'
+    (s) =>
+      s.label === 'SW-DIST-02' || s.subType === 'DISTRIBUTION' || s.data?.role === 'DISTRIBUTION',
   );
   assert(
     'Upstream trunk switch feeding CCTV (SW-DIST-02) is present in mode=CCTV',
     hasUpstreamDistribution,
-    `Switches present: ${cctvSwitches.map((s) => s.label).join(', ')}`
+    `Switches present: ${cctvSwitches.map((s) => s.label).join(', ')}`,
   );
 
   // 4d. Zero Dangling Edges in mode=CCTV
@@ -250,7 +253,7 @@ async function main() {
   assert(
     'Zero dangling edges in mode=CCTV',
     danglingInCctv.length === 0,
-    `Found ${danglingInCctv.length} dangling edges out of ${cctvData.edges.length}`
+    `Found ${danglingInCctv.length} dangling edges out of ${cctvData.edges.length}`,
   );
 
   // --------------------------------------------------------------------------
@@ -295,7 +298,7 @@ async function main() {
     assert(
       `Mode=${modeName}: Every node has finite coordinates (x, y) and structured position`,
       nonFinite === 0 && missingPos === 0 && mismatchPos === 0,
-      `Audited ${data.nodes.length} nodes (nonFinite: ${nonFinite}, missingPos: ${missingPos}, mismatchPos: ${mismatchPos})`
+      `Audited ${data.nodes.length} nodes (nonFinite: ${nonFinite}, missingPos: ${missingPos}, mismatchPos: ${mismatchPos})`,
     );
   }
 
@@ -335,12 +338,12 @@ async function main() {
     assert(
       `Mode=${modeName}: summaryMetrics strictly matches actual node and edge counts`,
       metricErrors === 0,
-      `All 11 metrics strictly synchronized`
+      `All 11 metrics strictly synchronized`,
     );
 
     assert(
       `Mode=${modeName}: metrics alias strictly equals summaryMetrics`,
-      JSON.stringify(metrics) === JSON.stringify(summaryMetrics)
+      JSON.stringify(metrics) === JSON.stringify(summaryMetrics),
     );
   }
 
@@ -356,7 +359,7 @@ async function main() {
   assert(
     'Invalid mode parameter defaults safely without server crash (HTTP 200 or 400)',
     invalidModeRes.status === 200 || invalidModeRes.status === 400,
-    `status: ${invalidModeRes.status}`
+    `status: ${invalidModeRes.status}`,
   );
 
   // 7b. Self-loop link rejection
@@ -379,7 +382,7 @@ async function main() {
     assert(
       'Self-loop link request (sourcePortId === targetPortId) rejected with HTTP 400',
       selfLoopRes.status === 400,
-      `status: ${selfLoopRes.status}`
+      `status: ${selfLoopRes.status}`,
     );
   }
 
@@ -403,14 +406,16 @@ async function main() {
   assert(
     'PATCH /network/topology/layout succeeds for valid coordinates',
     layoutRes.status === 200,
-    `status: ${layoutRes.status}`
+    `status: ${layoutRes.status}`,
   );
 
   // --------------------------------------------------------------------------
   // Summary
   // --------------------------------------------------------------------------
   console.log('\n========================================================================');
-  console.log(`  EMPIRICAL CHALLENGE SUMMARY: ${passedAssertions}/${totalAssertions} Assertions Passed`);
+  console.log(
+    `  EMPIRICAL CHALLENGE SUMMARY: ${passedAssertions}/${totalAssertions} Assertions Passed`,
+  );
   console.log(`  Failures: ${failedAssertions}`);
   console.log('========================================================================\n');
 

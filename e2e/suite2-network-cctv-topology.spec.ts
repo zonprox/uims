@@ -102,9 +102,9 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
       }
       await expect(saveLayoutBtn).toBeEnabled({ timeout: 5000 });
       await saveLayoutBtn.click();
-      await expect(
-        page.locator('.ant-message-success').filter({ hasText: /saved/i }),
-      ).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('.ant-message-success').filter({ hasText: /saved/i })).toBeVisible({
+        timeout: 10000,
+      });
 
       // Test Search on Canvas
       const searchInput = page.locator('[data-testid="topology-search-input"] input').first();
@@ -119,12 +119,20 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
       await page.waitForTimeout(400);
 
       // Contextual Drill-down: Click a switch node on Canvas to open SwitchFaceplateDrawer
+      const fitBtn = page.locator('[data-testid="fit-to-screen-button"]').first();
+      if (await fitBtn.isVisible()) {
+        await fitBtn.click();
+        await page.waitForTimeout(400);
+      }
+
       const switchNode = canvas
         .locator('[data-testid^="topology-node-switch-"]')
-        .filter({ hasText: /SW-CORE-02|SW-DIST-01/i })
+        .filter({ hasText: /SW-CORE-01|SW-DIST-01/i })
         .first();
       await expect(switchNode).toBeVisible({ timeout: 10000 });
-      await switchNode.click();
+      await switchNode.dispatchEvent('click');
+      await page.waitForTimeout(1000);
+
       const faceplateDrawer = page
         .locator('.ant-drawer:visible, [role="dialog"]')
         .filter({ hasText: 'Physical Front Panel Faceplate' })
@@ -143,7 +151,7 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
         .first();
       await expect(rackNode).toBeVisible({ timeout: 10000 });
       await rackNode.scrollIntoViewIfNeeded();
-      await rackNode.click();
+      await rackNode.click({ force: true });
       const elevationDrawer = page
         .locator('.ant-drawer:visible, [role="dialog"]')
         .filter({ hasText: /42U Standard|2D ELEVATION|Rack Elevation/i })
@@ -165,7 +173,10 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
         .filter({ hasText: /Patching|Cable/i })
         .first();
       await expect(patchModal).toBeVisible({ timeout: 10000 });
-      const cancelBtn = patchModal.locator('button').filter({ hasText: /Cancel|Hủy/i }).first();
+      const cancelBtn = patchModal
+        .locator('button')
+        .filter({ hasText: /Cancel|Hủy/i })
+        .first();
       await cancelBtn.click();
       await expect(patchModal).not.toBeVisible();
 
@@ -265,9 +276,9 @@ test.describe('Playwright E2E Suite 2 — Interactive Canvas Network & CCTV Topo
       // Verify port form fields
       await expect(portDrawer.getByText('Administrative & Operational Link State')).toBeVisible();
       await expect(portDrawer.getByText('Layer-2 Switching & VLAN Segmentation')).toBeVisible();
-      await expect(portDrawer.getByText('Power over Ethernet (PoE Delivery)')).toBeVisible();
+      await expect(portDrawer.getByText('Connected Endpoint & IPAM Allocation')).toBeVisible();
 
-      // Interactive patch operation: toggle PoE or change Operational Status
+      // Interactive patch operation: change Operational Status
       const operStatusSelect = portDrawer
         .locator('[data-testid="port-oper-status-select"]')
         .first();

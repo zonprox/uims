@@ -1,9 +1,4 @@
-import {
-  ApiOutlined,
-  DeploymentUnitOutlined,
-  EyeOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { ApiOutlined, DeploymentUnitOutlined, EyeOutlined } from '@ant-design/icons';
 import type { TopologyMetrics } from '@uims/shared-types';
 import { Card, Col, Progress, Row, Space, Statistic, Tag, Typography, theme } from 'antd';
 import React from 'react';
@@ -31,7 +26,6 @@ export const TopologySummaryBar: React.FC<TopologySummaryBarProps> = React.memo(
     const activeLinks = metrics?.activeLinks ?? 0;
     const degradedLinks = metrics?.degradedLinks ?? 0;
     const downLinks = metrics?.downLinks ?? 0;
-    const poeWatts = metrics?.poePowerUsageWatts ?? 0;
     const onlinePct =
       metrics?.onlinePercentage ??
       (totalEdges > 0 ? Math.round((activeLinks / totalEdges) * 100) : 100);
@@ -47,7 +41,7 @@ export const TopologySummaryBar: React.FC<TopologySummaryBarProps> = React.memo(
       <div data-testid="topology-summary-bar" style={{ marginBottom: 12 }}>
         <Row gutter={[12, 12]}>
           {/* Card 1: Fleet Nodes */}
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={8} md={8}>
             <Card
               size="small"
               styles={{ body: { padding: '12px 16px' } }}
@@ -67,7 +61,7 @@ export const TopologySummaryBar: React.FC<TopologySummaryBarProps> = React.memo(
           </Col>
 
           {/* Card 2: Link Signaling & Health */}
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={8} md={8}>
             <Card
               size="small"
               styles={{ body: { padding: '12px 16px' } }}
@@ -98,28 +92,8 @@ export const TopologySummaryBar: React.FC<TopologySummaryBarProps> = React.memo(
             </Card>
           </Col>
 
-          {/* Card 3: Active PoE Power Budget */}
-          <Col xs={24} sm={12} md={6}>
-            <Card
-              size="small"
-              styles={{ body: { padding: '12px 16px' } }}
-              data-testid="summary-card-poe-power"
-            >
-              <Statistic
-                title="PoE Power Draw"
-                value={Number(poeWatts.toFixed(1))}
-                precision={1}
-                suffix="W"
-                prefix={<ThunderboltOutlined style={{ color: token.colorWarning }} />}
-              />
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                IEEE 802.3af/at active delivery
-              </Text>
-            </Card>
-          </Col>
-
-          {/* Card 4: Perspective Health Index */}
-          <Col xs={24} sm={12} md={6}>
+          {/* Card 3: Perspective Health Index */}
+          <Col xs={24} sm={8} md={8}>
             <Card
               size="small"
               styles={{ body: { padding: '12px 16px' } }}

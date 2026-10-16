@@ -502,7 +502,6 @@ enum SwitchRole {
   DISTRIBUTION
   ACCESS
   TOR
-  POE_ACCESS
 }
 
 enum SwitchStatus {
@@ -613,7 +612,6 @@ model SwitchPort {
   name             String          // Gi1/0/1, Te1/0/49, port1
   formFactor        PortFormFactor       @default(RJ45_1G)
   domain            InfrastructureDomain @default(NETWORK)
-  poeEnabled        Boolean              @default(false)
   adminStatus      PortAdminStatus @default(UP)
   operStatus       PortOperStatus  @default(DOWN)
   speed            String?         // 1 Gbps, 10 Gbps, Auto

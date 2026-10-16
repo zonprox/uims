@@ -363,7 +363,7 @@ export const SwitchManagementTab: React.FC<SwitchManagementTabProps> = React.mem
             <Space>
               <Tag color="blue">24/48 Port Faceplates</Tag>
               <Tag color="green">Tri-State Link Status</Tag>
-              <Tag color="orange">PoE & VLAN Matrix</Tag>
+              <Tag color="geekblue">Port & VLAN Matrix</Tag>
             </Space>
           </Flex>
         </Card>

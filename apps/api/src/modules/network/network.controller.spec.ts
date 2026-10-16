@@ -507,7 +507,6 @@ describe('NetworkController', () => {
         activeLinks: 0,
         degradedLinks: 0,
         downLinks: 0,
-        poePowerUsageWatts: 0,
         onlinePercentage: 100,
       },
     };

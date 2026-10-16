@@ -96,7 +96,10 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
               propEmployees
                 ? Promise.resolve({ items: propEmployees })
                 : directoryService.getEmployees({ pageSize: 100 }),
-              api.get('/assets/models').then((res) => res?.data?.data || res?.data || []),
+              api.get('/assets/models', { params: { pageSize: 100, limit: 100 } }).then((res) => {
+                const raw = res?.data?.data ?? res?.data;
+                return Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+              }),
               assetsService.getCostCenters(),
             ]);
 

@@ -36,19 +36,9 @@ export type TopologyNodeStatus =
 
 export type TopologyNodeDomain = 'NETWORK' | 'CCTV' | 'SHARED';
 
-export type TopologyEdgeStatus =
-  | 'ACTIVE'
-  | 'DOWN'
-  | 'CONNECTED_NO_SIGNAL'
-  | 'DEGRADED';
+export type TopologyEdgeStatus = 'ACTIVE' | 'DOWN' | 'CONNECTED_NO_SIGNAL' | 'DEGRADED';
 
-export type TopologyEdgeType =
-  | 'UPLINK'
-  | 'ACCESS'
-  | 'TRUNK'
-  | 'POE'
-  | 'ENDPOINT'
-  | 'DOWNLINK';
+export type TopologyEdgeType = 'UPLINK' | 'ACCESS' | 'TRUNK' | 'ENDPOINT' | 'DOWNLINK';
 
 export function getNodeDimensions(type: string): { width: number; height: number } {
   if (type === 'RACK') return { width: 200, height: 96 };
@@ -77,9 +67,6 @@ export interface TopologyNode {
   subType?: string | null;
   totalPorts?: number;
   activePorts?: number;
-  poePorts?: number;
-  poeActivePorts?: number;
-  poePowerWatts?: number;
   floor?: string | null;
   zone?: string | null;
   vlanId?: string | null;
@@ -104,8 +91,6 @@ export interface TopologyEdge {
   mediaType?: string;
   speedMbps?: number;
   status: TopologyEdgeStatus;
-  poeEnabled?: boolean;
-  poeDelivering?: boolean;
   vlanId?: string | null;
   vlanName?: string | null;
   vlanNumber?: number | null;
@@ -124,8 +109,6 @@ export interface NetworkTopologyGraph {
     totalEdges: number;
     activeLinks: number;
     downLinks: number;
-    poePowerLinks?: number;
-    poePowerUsageWatts?: number;
     cameraCount: number;
     switchCount: number;
   };
@@ -156,7 +139,6 @@ export interface PatchTopologyLinkDto {
   targetIpAddressId?: string;
   vlanId?: string;
   mode?: PortMode | `${PortMode}`;
-  poeEnabled?: boolean;
   speed?: string;
   taggedVlanIds?: number[];
 }

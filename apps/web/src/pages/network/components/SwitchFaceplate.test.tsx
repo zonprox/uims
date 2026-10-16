@@ -52,7 +52,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       portNumber: 1,
       name: 'Gi1/0/1',
       formFactor: 'RJ45_1G',
-      poeEnabled: true,
       adminStatus: 'UP',
       operStatus: 'ACTIVE',
       speed: '1 Gbps',
@@ -95,7 +94,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       portNumber: 2,
       name: 'Gi1/0/2',
       formFactor: 'RJ45_1G',
-      poeEnabled: false,
       adminStatus: 'DOWN',
       operStatus: 'DOWN',
       speed: null,
@@ -110,7 +108,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       portNumber: 3,
       name: 'Gi1/0/3',
       formFactor: 'RJ45_1G',
-      poeEnabled: true,
       adminStatus: 'UP',
       operStatus: 'CONNECTED_NO_SIGNAL',
       speed: '1 Gbps',
@@ -126,7 +123,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       portNumber: 4,
       name: 'Gi1/0/4',
       formFactor: 'RJ45_1G',
-      poeEnabled: false,
       adminStatus: 'UP',
       operStatus: 'RESERVED',
       speed: '1 Gbps',
@@ -146,7 +142,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       portNumber: i,
       name: `Gi1/0/${i}`,
       formFactor: 'RJ45_1G',
-      poeEnabled: i % 2 === 0,
       adminStatus: 'UP',
       operStatus: i % 3 === 0 ? 'DOWN' : 'ACTIVE',
       speed: '1 Gbps',
@@ -166,7 +161,6 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       portNumber: portNum,
       name: `Te1/0/${portNum}`,
       formFactor: 'SFP_PLUS_10G',
-      poeEnabled: false,
       adminStatus: 'UP',
       operStatus: u <= 2 ? 'ACTIVE' : 'CONNECTED_NO_SIGNAL',
       speed: '10 Gbps',
@@ -518,36 +512,25 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       expect(nullInfo.status).toBe('DOWN');
     });
 
-    it('Case 2.3: renders PoE delivery active orange LED on PoE-enabled ports with horizontal dual-LED layout', async () => {
+    it('Case 2.3: renders port status signal LED without secondary PoE indicators', async () => {
       await renderWithContext(
         <SwitchPortFaceplate switchEntity={mock24PortSwitch} ports={mock24Ports} totalPorts={24} />,
       );
 
-      // Port 1 has poeEnabled: true -> orange LED rendered instead of lightning bolt
-      const poe1 = container.querySelector('[data-testid="poe-badge-1"]') as HTMLElement | null;
-      expect(poe1).not.toBeNull();
-      expect(poe1?.textContent).not.toContain('⚡');
-      expect(poe1?.style.backgroundColor).toBe('#fa8c16');
+      // Verify no poe-badge exists on ports
+      const poe1 = container.querySelector('[data-testid="poe-badge-1"]');
+      expect(poe1).toBeNull();
+      const poe2 = container.querySelector('[data-testid="poe-badge-2"]');
+      expect(poe2).toBeNull();
 
-      // Verify dual-LED horizontal group exists with both signal LED and power LED
-      const ledGroup1 = container.querySelector('[data-testid="port-led-group-1"]');
-      expect(ledGroup1).not.toBeNull();
+      // Verify clean signal LED exists
       const signalLed1 = container.querySelector(
         '[data-testid="port-led-1"]',
       ) as HTMLElement | null;
       expect(signalLed1).not.toBeNull();
-
-      // Port 2 has poeEnabled: false -> unlit power LED, no poe-badge
-      const poe2 = container.querySelector('[data-testid="poe-badge-2"]');
-      expect(poe2).toBeNull();
-      const powerLed2 = container.querySelector(
-        '[data-testid="power-led-2"]',
-      ) as HTMLElement | null;
-      expect(powerLed2).not.toBeNull();
-      expect(powerLed2?.style.backgroundColor).toBe('#262626');
     });
 
-    it('Case 2.4: renders simplified boolean PoE active status without wattage detail in port tooltip', async () => {
+    it('Case 2.4: renders clean peer connection detail in port tooltip without PoE detail', async () => {
       await renderWithContext(
         <SwitchPortFaceplate switchEntity={mock24PortSwitch} ports={mock24Ports} totalPorts={24} />,
       );
@@ -560,7 +543,8 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
         });
         const bodyText = document.body.textContent || '';
         expect(bodyText).not.toContain('30.0W');
-        expect(bodyText).not.toContain('802.3at PoE+ · 30.0W');
+        expect(bodyText).not.toContain('PoE');
+        expect(bodyText).not.toContain('802.3at');
       }
     });
   });
@@ -954,7 +938,7 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       expect(dividingBezel).not.toBeNull();
     });
 
-    it('Case 6.7: renders left system status bezel with PWR, SYS, PoE LEDs and recessed CONSOLE management port', async () => {
+    it('Case 6.7: renders left system status bezel with PWR and SYS LEDs and recessed CONSOLE management port', async () => {
       await renderWithContext(<SwitchPortFaceplate totalPorts={24} ports={[]} />);
 
       const bezel = container.querySelector('[data-testid="switch-system-bezel"]');
@@ -965,11 +949,11 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       const poe = container.querySelector('[data-testid="led-poe"]');
       expect(pwr).not.toBeNull();
       expect(sys).not.toBeNull();
-      expect(poe).not.toBeNull();
+      expect(poe).toBeNull();
 
       expect(bezel?.textContent).toContain('PWR');
       expect(bezel?.textContent).toContain('SYS');
-      expect(bezel?.textContent).toContain('PoE');
+      expect(bezel?.textContent).not.toContain('PoE');
 
       const consolePort = container.querySelector('[data-testid="console-port"]');
       const consoleSocket = container.querySelector('[data-testid="console-socket"]');

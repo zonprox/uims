@@ -230,10 +230,7 @@ describe('M3-2 Challenger: Dashboard Compliance Metrics & WebSocket Custody Stre
     }
     await prisma.department.deleteMany({
       where: {
-        OR: [
-          { code: { startsWith: 'DEPT-CHALL-' } },
-          { organizationId: 'org-holding' },
-        ],
+        OR: [{ code: { startsWith: 'DEPT-CHALL-' } }, { organizationId: 'org-holding' }],
       },
     });
     await prisma.$disconnect();

@@ -94,7 +94,6 @@ const mockTopologyResponse: NetworkTopologyData = {
       status: 'ACTIVE',
       domain: InfrastructureDomain.CCTV,
       speed: '1 Gbps',
-      poeEnabled: true,
     },
   ],
   racks: [
@@ -148,7 +147,6 @@ const mockTopologyResponse: NetworkTopologyData = {
     activeLinks: 1,
     degradedLinks: 0,
     downLinks: 0,
-    poePowerUsageWatts: 15.4,
     onlinePercentage: 100,
   },
 };
@@ -189,7 +187,9 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
       container.parentNode.removeChild(container);
     }
     document
-      .querySelectorAll('.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-select-dropdown')
+      .querySelectorAll(
+        '.ant-modal-root, .ant-modal-wrap, .ant-drawer, .ant-popover, .ant-select-dropdown',
+      )
       .forEach((el) => el.remove());
     vi.restoreAllMocks();
   });
@@ -239,9 +239,9 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
     expect(container.querySelector('[data-testid="topology-floor-filter"]')).toBeNull();
 
     // 2. Switch to NETWORK
-    const networkOption = Array.from(
-      container.querySelectorAll('.ant-segmented-item-label'),
-    ).find((el) => el.textContent?.includes('Network Only'));
+    const networkOption = Array.from(container.querySelectorAll('.ant-segmented-item-label')).find(
+      (el) => el.textContent?.includes('Network Only'),
+    );
     expect(networkOption).toBeTruthy();
 
     await act(async () => {
@@ -257,9 +257,9 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
     expect(container.querySelector('[data-testid="topology-floor-filter"]')).toBeNull();
 
     // 3. Switch to CCTV
-    const cctvOption = Array.from(
-      container.querySelectorAll('.ant-segmented-item-label'),
-    ).find((el) => el.textContent?.includes('CCTV System'));
+    const cctvOption = Array.from(container.querySelectorAll('.ant-segmented-item-label')).find(
+      (el) => el.textContent?.includes('CCTV System'),
+    );
     expect(cctvOption).toBeTruthy();
 
     await act(async () => {
@@ -279,9 +279,9 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
     await renderTopologyMapTab();
 
     // Switch to NETWORK view
-    const networkOption = Array.from(
-      container.querySelectorAll('.ant-segmented-item-label'),
-    ).find((el) => el.textContent?.includes('Network Only'));
+    const networkOption = Array.from(container.querySelectorAll('.ant-segmented-item-label')).find(
+      (el) => el.textContent?.includes('Network Only'),
+    );
 
     await act(async () => {
       (networkOption as HTMLElement)?.click();
@@ -303,9 +303,9 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
     await renderTopologyMapTab();
 
     // Switch to CCTV view
-    const cctvOption = Array.from(
-      container.querySelectorAll('.ant-segmented-item-label'),
-    ).find((el) => el.textContent?.includes('CCTV System'));
+    const cctvOption = Array.from(container.querySelectorAll('.ant-segmented-item-label')).find(
+      (el) => el.textContent?.includes('CCTV System'),
+    );
 
     await act(async () => {
       (cctvOption as HTMLElement)?.click();
@@ -370,8 +370,6 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
       expect(container.textContent).toContain('0');
       expect(container.textContent).toContain('Active Links');
       expect(container.textContent).toContain('0 / 0');
-      expect(container.textContent).toContain('PoE Power Draw');
-      expect(container.textContent).toContain('0.0');
       expect(container.textContent).toContain('Network Availability');
       expect(container.textContent).toContain('100%');
       expect(container.textContent).not.toContain('NaN');
@@ -396,7 +394,6 @@ describe('Topology Perspective & Sub-Filter Challenger Harness', () => {
                   activeLinks: 3,
                   degradedLinks: 1,
                   downLinks: 1,
-                  poePowerUsageWatts: 60,
                   onlinePercentage: 60,
                 },
                 viewMode: 'CCTV',

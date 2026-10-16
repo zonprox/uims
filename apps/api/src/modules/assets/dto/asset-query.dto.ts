@@ -42,6 +42,11 @@ export class AssetQueryDto {
   @IsOptional()
   deviceModelId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by parent DeviceModel ID (alias)' })
+  @IsString()
+  @IsOptional()
+  modelId?: string;
+
   @ApiPropertyOptional({ description: 'Filter by legacy parent asset model UUID' })
   @IsUUID('4')
   @IsOptional()

@@ -23,4 +23,3 @@ export * from './topology-query.dto';
 export * from './update-topology-layout.dto';
 export * from './create-topology-link.dto';
 export * from './unpatch-topology-link.dto';
-

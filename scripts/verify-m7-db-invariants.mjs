@@ -50,7 +50,7 @@ async function main() {
     // ------------------------------------------------------------------------
     await check('Invariant 1: Zero Self-Loops (connectedPortId <> id)', async () => {
       const res = await pool.query(
-        `SELECT count(*)::int as count FROM "SwitchPort" WHERE "connectedPortId" = id;`
+        `SELECT count(*)::int as count FROM "SwitchPort" WHERE "connectedPortId" = id;`,
       );
       const count = res.rows[0].count;
       if (count !== 0) {
@@ -64,7 +64,7 @@ async function main() {
     // ------------------------------------------------------------------------
     await check('Invariant 2a: Connected Ports Count & Pair Alignment', async () => {
       const res = await pool.query(
-        `SELECT count(*)::int as count FROM "SwitchPort" WHERE "connectedPortId" IS NOT NULL;`
+        `SELECT count(*)::int as count FROM "SwitchPort" WHERE "connectedPortId" IS NOT NULL;`,
       );
       const count = res.rows[0].count;
       if (count === 0 || count % 2 !== 0) {
@@ -152,8 +152,10 @@ async function main() {
       return `${total} records, 0 duplicate (nodeId, viewMode) pairs`;
     });
 
-    await check('Invariant 4b: CanvasNodePosition Finite Coordinates (no NaN/Inf/Null)', async () => {
-      const res = await pool.query(`
+    await check(
+      'Invariant 4b: CanvasNodePosition Finite Coordinates (no NaN/Inf/Null)',
+      async () => {
+        const res = await pool.query(`
         SELECT count(*)::int as non_finite_count
         FROM "CanvasNodePosition"
         WHERE x IS NULL 
@@ -165,12 +167,13 @@ async function main() {
            OR y = 'Infinity'::float
            OR y = '-Infinity'::float;
       `);
-      const count = res.rows[0].non_finite_count;
-      if (count > 0) {
-        throw new Error(`Found ${count} non-finite coordinates in CanvasNodePosition`);
-      }
-      return `All x, y coordinates are valid finite numbers`;
-    });
+        const count = res.rows[0].non_finite_count;
+        if (count > 0) {
+          throw new Error(`Found ${count} non-finite coordinates in CanvasNodePosition`);
+        }
+        return `All x, y coordinates are valid finite numbers`;
+      },
+    );
 
     await check('Invariant 4c: CanvasNodePosition Entity Referential Integrity', async () => {
       const res = await pool.query(`
@@ -197,7 +200,7 @@ async function main() {
         GROUP BY "viewMode"
         ORDER BY "viewMode";
       `);
-      const map = Object.fromEntries(res.rows.map(r => [r.viewMode, r.count]));
+      const map = Object.fromEntries(res.rows.map((r) => [r.viewMode, r.count]));
       if (!map.ALL || !map.NETWORK || !map.CCTV) {
         throw new Error(`Missing view modes in CanvasNodePosition: ${JSON.stringify(map)}`);
       }
@@ -207,19 +210,12 @@ async function main() {
     // ------------------------------------------------------------------------
     // Invariant 5: Domain Classification Integrity
     // ------------------------------------------------------------------------
-    const domainTables = [
-      'Asset',
-      'IPAddress',
-      'VLAN',
-      'Subnet',
-      'NetworkSwitch',
-      'SwitchPort',
-    ];
+    const domainTables = ['Asset', 'IPAddress', 'VLAN', 'Subnet', 'NetworkSwitch', 'SwitchPort'];
 
     for (const tbl of domainTables) {
       await check(`Invariant 5: Domain Non-Null & Valid Enums on "${tbl}"`, async () => {
         const nullRes = await pool.query(
-          `SELECT count(*)::int as null_count FROM "${tbl}" WHERE "domain" IS NULL;`
+          `SELECT count(*)::int as null_count FROM "${tbl}" WHERE "domain" IS NULL;`,
         );
         const nullCount = nullRes.rows[0].null_count;
         if (nullCount > 0) {
@@ -227,7 +223,7 @@ async function main() {
         }
 
         const enumRes = await pool.query(
-          `SELECT "domain"::text as domain_val, count(*)::int as count FROM "${tbl}" GROUP BY "domain";`
+          `SELECT "domain"::text as domain_val, count(*)::int as count FROM "${tbl}" GROUP BY "domain";`,
         );
         const validValues = new Set(['NETWORK', 'CCTV', 'SHARED']);
         for (const row of enumRes.rows) {
@@ -235,7 +231,7 @@ async function main() {
             throw new Error(`Invalid domain value "${row.domain_val}" in "${tbl}"`);
           }
         }
-        const summary = enumRes.rows.map(r => `${r.domain_val}:${r.count}`).join(', ');
+        const summary = enumRes.rows.map((r) => `${r.domain_val}:${r.count}`).join(', ');
         return `Total: ${enumRes.rows.reduce((s, r) => s + r.count, 0)} (${summary})`;
       });
     }
@@ -268,7 +264,9 @@ async function main() {
       `);
       const { port_set_sw_null, sw_set_port_null } = res.rows[0];
       if (port_set_sw_null > 0 || sw_set_port_null > 0) {
-        throw new Error(`Partial pointers: port_set_sw_null=${port_set_sw_null}, sw_set_port_null=${sw_set_port_null}`);
+        throw new Error(
+          `Partial pointers: port_set_sw_null=${port_set_sw_null}, sw_set_port_null=${sw_set_port_null}`,
+        );
       }
       return `0 partial pointers`;
     });
@@ -297,7 +295,9 @@ async function main() {
       `);
       const { total_trunks, active_trunks } = res.rows[0];
       if (total_trunks !== active_trunks) {
-        throw new Error(`Expected all ${total_trunks} trunk ports to be UP/ACTIVE, found ${active_trunks}`);
+        throw new Error(
+          `Expected all ${total_trunks} trunk ports to be UP/ACTIVE, found ${active_trunks}`,
+        );
       }
       return `All ${active_trunks} trunk ports configured mode=TRUNK, adminStatus=UP, operStatus=ACTIVE`;
     });
@@ -317,13 +317,17 @@ async function main() {
         HAVING (ns."totalPorts" + CASE WHEN ns."totalPorts" = 16 THEN 2 ELSE 4 END) <> count(sp.id);
       `);
       if (res.rows.length > 0) {
-        throw new Error(`Found ${res.rows.length} switches where expected ports (base + uplinks) <> actual child ports`);
+        throw new Error(
+          `Found ${res.rows.length} switches where expected ports (base + uplinks) <> actual child ports`,
+        );
       }
       return `All 16 switches have ports strictly matching base + dedicated uplinks (500 ports total)`;
     });
 
     console.log('\n================================================================');
-    console.log(`  VERIFICATION SUMMARY: ${passedTests}/${totalTests} Tests Passed (Failures: ${failedTests})`);
+    console.log(
+      `  VERIFICATION SUMMARY: ${passedTests}/${totalTests} Tests Passed (Failures: ${failedTests})`,
+    );
     console.log('================================================================\n');
 
     if (failedTests > 0) {

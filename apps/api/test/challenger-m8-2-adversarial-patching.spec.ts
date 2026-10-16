@@ -8,7 +8,7 @@
  * c. Stale reverse link eviction: port C -> port A, then connect port A -> port B (no P2002, clean eviction)
  * d. Endpoint asset collision: port A -> asset X, then port B -> asset X (port A evicted, port B attached)
  * e. Unpatch symmetry: delete link on port A, confirm port B is also disconnected
- * f. resetPortConfig: true: confirm port mode is reset to ACCESS, vlan disconnected, poeEnabled: false
+ * f. resetPortConfig: true: confirm port mode is reset to ACCESS, vlan disconnected
  * g. Layout batch > 500 items rejected via validation
  * h. Structured audit logs emitted for CABLE_PATCH_CONNECTED and CABLE_PATCH_DISCONNECTED
  */
@@ -153,9 +153,7 @@ describe('Challenger M8-2: Adversarial Patching & Transaction Integrity Suite', 
       connectedPortId: null,
     };
 
-    mockPrisma.switchPort.findUnique
-      .mockResolvedValueOnce(portA)
-      .mockResolvedValueOnce(portB);
+    mockPrisma.switchPort.findUnique.mockResolvedValueOnce(portA).mockResolvedValueOnce(portB);
 
     mockPrisma.switchPort.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.switchPort.update
@@ -261,14 +259,13 @@ describe('Challenger M8-2: Adversarial Patching & Transaction Integrity Suite', 
   });
 
   // =========================================================================
-  // f. resetPortConfig: true: confirm port mode is reset to ACCESS, vlan disconnected, poeEnabled: false
+  // f. resetPortConfig: true: confirm port mode is reset to ACCESS, vlan disconnected
   // =========================================================================
-  it('f. [CHALLENGE] deleteTopologyLink resets port mode to ACCESS, disconnects VLAN, and turns off PoE when resetPortConfig is requested', async () => {
+  it('f. [CHALLENGE] deleteTopologyLink resets port mode to ACCESS and disconnects VLAN when resetPortConfig is requested', async () => {
     const portA = {
       id: 'port-A',
       mode: 'TRUNK',
       vlanId: 'vlan-100',
-      poeEnabled: true,
       connectedPortId: 'port-B',
       switchId: 'sw-1',
       switch: { id: 'sw-1', name: 'SW-1' },
@@ -281,19 +278,21 @@ describe('Challenger M8-2: Adversarial Patching & Transaction Integrity Suite', 
     // Attempt to invoke with resetPortConfig: true
     // Note: If service does not accept or implement query/resetPortConfig, this will fail or ignore config reset
     const serviceWithQuery = service as unknown as {
-      deleteTopologyLink: (portId: string, query?: { resetPortConfig?: boolean }) => Promise<unknown>;
+      deleteTopologyLink: (
+        portId: string,
+        query?: { resetPortConfig?: boolean },
+      ) => Promise<unknown>;
     };
 
     await serviceWithQuery.deleteTopologyLink('port-A', { resetPortConfig: true });
 
-    // Assert that port A update payload contained mode: 'ACCESS', vlanId: null, poeEnabled: false
+    // Assert that port A update payload contained mode: 'ACCESS', vlanId: null
     expect(mockPrisma.switchPort.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'port-A' },
         data: expect.objectContaining({
           mode: 'ACCESS',
           vlanId: null,
-          poeEnabled: false,
         }),
       }),
     );
@@ -356,9 +355,7 @@ describe('Challenger M8-2: Adversarial Patching & Transaction Integrity Suite', 
       connectedPortId: null,
     };
 
-    mockPrisma.switchPort.findUnique
-      .mockResolvedValueOnce(portA)
-      .mockResolvedValueOnce(portB);
+    mockPrisma.switchPort.findUnique.mockResolvedValueOnce(portA).mockResolvedValueOnce(portB);
 
     mockPrisma.switchPort.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.switchPort.update

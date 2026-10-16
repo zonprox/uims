@@ -153,7 +153,6 @@ export interface PatchTopologyLinkDto {
   targetIpAddressId?: string;
   vlanId?: string;
   mode?: PortMode | `${PortMode}`;
-  poeEnabled?: boolean;
   speed?: string;
   taggedVlanIds?: number[];
 }

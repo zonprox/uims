@@ -459,6 +459,34 @@ describe('AssetsService', () => {
       expect(result).toHaveLength(1);
       expect(result[0].status).toBe('In Storage');
     });
+
+    it('should map modelId alias to deviceModelId in where clause', async () => {
+      mockPrisma.asset.findMany.mockResolvedValue([]);
+
+      await service.findAll({ modelId: 'mod-123', page: 1, pageSize: 20 });
+
+      expect(mockPrisma.asset.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            deviceModelId: 'mod-123',
+          }),
+        }),
+      );
+    });
+
+    it('should map deviceModelId in where clause', async () => {
+      mockPrisma.asset.findMany.mockResolvedValue([]);
+
+      await service.findAll({ deviceModelId: 'mod-456', page: 1, pageSize: 20 });
+
+      expect(mockPrisma.asset.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            deviceModelId: 'mod-456',
+          }),
+        }),
+      );
+    });
   });
 
   describe('getStats', () => {

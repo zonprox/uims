@@ -450,7 +450,6 @@ describe('Challenger M3-2: Network UI & Switch Faceplate Adversarial Test Suite'
         portNumber: 1,
         name: 'Gi1/0/1',
         formFactor: 'RJ45_1G',
-        poeEnabled: true,
         adminStatus: 'UP',
         operStatus: 'ACTIVE',
         mode: 'ACCESS',

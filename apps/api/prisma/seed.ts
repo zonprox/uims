@@ -36,6 +36,7 @@ async function clearDatabase(client: PrismaClient) {
   logger.log('🧹 Clearing legacy records for clean enterprise seeding...');
   await client.$transaction(
     async (tx) => {
+      await tx.setting.deleteMany();
       await tx.reportSchedule.deleteMany();
       await tx.licenseAssignment.deleteMany();
       await tx.notification.deleteMany();

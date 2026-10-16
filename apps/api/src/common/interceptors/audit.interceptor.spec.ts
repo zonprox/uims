@@ -21,9 +21,11 @@ describe('AuditInterceptor', () => {
         create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
       },
       appUser: {
-        findUnique: vi.fn().mockImplementation(({ where }: { where: { id?: string; email?: string } }) =>
-          Promise.resolve(where.id ? { id: where.id } : null),
-        ),
+        findUnique: vi
+          .fn()
+          .mockImplementation(({ where }: { where: { id?: string; email?: string } }) =>
+            Promise.resolve(where.id ? { id: where.id } : null),
+          ),
       },
     };
     interceptor = new AuditInterceptor(

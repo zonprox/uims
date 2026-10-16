@@ -47,7 +47,7 @@ CREATE TYPE "TopologyNodeType" AS ENUM ('RACK', 'SWITCH', 'ASSET', 'ENDPOINT');
 CREATE TYPE "RackStatus" AS ENUM ('ACTIVE', 'PLANNED', 'MAINTENANCE', 'RETIRED');
 
 -- CreateEnum
-CREATE TYPE "SwitchRole" AS ENUM ('CORE', 'DISTRIBUTION', 'ACCESS', 'TOR', 'POE_ACCESS');
+CREATE TYPE "SwitchRole" AS ENUM ('CORE', 'DISTRIBUTION', 'ACCESS', 'TOR');
 
 -- CreateEnum
 CREATE TYPE "SwitchStatus" AS ENUM ('ONLINE', 'OFFLINE', 'MAINTENANCE');
@@ -404,7 +404,6 @@ CREATE TABLE "SwitchPort" (
     "name" TEXT NOT NULL,
     "formFactor" "PortFormFactor" NOT NULL DEFAULT 'RJ45_1G',
     "domain" "InfrastructureDomain" NOT NULL DEFAULT 'NETWORK',
-    "poeEnabled" BOOLEAN NOT NULL DEFAULT false,
     "adminStatus" "PortAdminStatus" NOT NULL DEFAULT 'UP',
     "operStatus" "PortOperStatus" NOT NULL DEFAULT 'DOWN',
     "speed" TEXT,

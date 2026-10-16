@@ -228,8 +228,9 @@ export class AssetsService {
       where.AND = andConditions;
     }
 
-    if (query?.deviceModelId) {
-      where.deviceModelId = query.deviceModelId;
+    const effectiveModelId = query?.deviceModelId || query?.modelId || query?.parentId;
+    if (effectiveModelId) {
+      where.deviceModelId = effectiveModelId;
     }
 
     if (query?.categoryId) {
@@ -2974,7 +2975,7 @@ export class AssetsService {
       where.categoryId = query.categoryId;
     }
 
-    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 10));
+    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || query?.limit) || 20));
     const page = Math.max(1, Number(query?.page) || 1);
     const skip = (page - 1) * pageSize;
 
@@ -3047,6 +3048,7 @@ export class AssetsService {
         totalUnits: counts.total,
         availableUnits: counts.available,
         inUseUnits: counts.inUse,
+        assignedUnits: counts.inUse,
         maintenanceUnits: counts.maintenance,
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt.toISOString(),

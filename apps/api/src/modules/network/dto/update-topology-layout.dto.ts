@@ -14,7 +14,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-
 export class TopologyNodePositionItemDto {
   @ApiProperty({ description: 'Node ID (Rack ID, Switch ID, Asset ID)' })
   @IsString()
@@ -64,5 +63,4 @@ export class UpdateTopologyLayoutDto {
   @ValidateNested({ each: true })
   @Type(() => TopologyNodePositionItemDto)
   positions!: TopologyNodePositionItemDto[];
-
 }

@@ -133,7 +133,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
           portNumber: portNum,
           name: `Gi1/0/${portNum}`,
           formFactor: 'RJ45_1G',
-          poeEnabled: true,
           adminStatus: 'UP',
           operStatus: 'DOWN',
           speed: '1 Gbps',
@@ -148,7 +147,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         portNumber: 9,
         name: 'Uplink 1',
         formFactor: 'RJ45_1G',
-        poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
         speed: '1 Gbps',
@@ -162,7 +160,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         portNumber: 10,
         name: 'Uplink 2',
         formFactor: 'RJ45_1G',
-        poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
         speed: '1 Gbps',
@@ -177,7 +174,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         portNumber: 11,
         name: 'SFP 1',
         formFactor: 'SFP_PLUS_10G',
-        poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
         speed: '10 Gbps',
@@ -190,7 +186,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         portNumber: 12,
         name: 'SFP 2',
         formFactor: 'SFP_PLUS_10G',
-        poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
         speed: '10 Gbps',
@@ -215,7 +210,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
           portNumber: portNum,
           name: `Gi1/0/${portNum}`,
           formFactor: 'RJ45_1G',
-          poeEnabled: true,
           speed: '1 Gbps',
           mode: 'ACCESS',
         });
@@ -229,7 +223,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'RJ45_1G',
         speed: '1 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
 
       expect(ports[17]).toMatchObject({
@@ -239,7 +232,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'RJ45_1G',
         speed: '1 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
 
       // Verify 2 SFP fiber
@@ -250,7 +242,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'SFP_PLUS_10G',
         speed: '10 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
 
       expect(ports[19]).toMatchObject({
@@ -260,7 +251,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'SFP_PLUS_10G',
         speed: '10 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
     });
 
@@ -288,7 +278,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'RJ45_1G',
         speed: '1 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
 
       expect(ports[25]).toMatchObject({
@@ -298,7 +287,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'RJ45_1G',
         speed: '1 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
 
       // 2 SFP fiber
@@ -309,7 +297,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'SFP_PLUS_10G',
         speed: '10 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
 
       expect(ports[27]).toMatchObject({
@@ -319,7 +306,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'SFP_PLUS_10G',
         speed: '10 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
     });
 
@@ -347,7 +333,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'RJ45_1G',
         speed: '1 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
         description: 'RJ45 Uplink 1',
       });
 
@@ -359,7 +344,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'SFP_PLUS_10G',
         speed: '10 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
     });
 
@@ -379,7 +363,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'RJ45_1G',
         speed: '1 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
 
       expect(ports[2]).toMatchObject({
@@ -389,7 +372,6 @@ describe('Adversarial M2 Network Challenger Suite', () => {
         formFactor: 'SFP_PLUS_10G',
         speed: '10 Gbps',
         mode: 'TRUNK',
-        poeEnabled: false,
       });
     });
 

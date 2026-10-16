@@ -1,8 +1,9 @@
-import { ClearOutlined, SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { ClearOutlined, SaveOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
   type ButtonProps,
+  Card,
   Col,
   Divider,
   Flex,
@@ -85,7 +86,6 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
           duplex: port.duplex || 'Full',
           ipAddressId: port.ipAddressId || undefined,
           connectedAssetId: port.connectedAssetId || undefined,
-          poeEnabled: Boolean(port.poeEnabled),
           description: port.description || '',
         });
       } else if (open) {
@@ -111,7 +111,6 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
           duplex: values.duplex || null,
           ipAddressId: values.ipAddressId || null,
           connectedAssetId: values.connectedAssetId || null,
-          poeEnabled: Boolean(values.poeEnabled),
           description: values.description || null,
         };
 
@@ -196,7 +195,6 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
             formFactor: 'RJ45_1G',
             speed: '1 Gbps',
             duplex: 'Full',
-            poeEnabled: true,
           }}
         >
           {/* Administrative & Operational Status Section */}
@@ -423,30 +421,46 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
             </Col>
           </Row>
 
-          {/* Power over Ethernet (PoE) Section */}
-          <Divider
-            titlePlacement="start"
-            style={{ margin: '8px 0 16px 0', fontSize: 13, fontWeight: 600 }}
-          >
-            Power over Ethernet (PoE Delivery)
-          </Divider>
-
-          <Row gutter={16} align="middle">
-            <Col span={24}>
-              <Form.Item
-                name="poeEnabled"
-                label="PoE Power Delivery"
-                valuePropName="checked"
-                extra="Deliver 802.3af/at/bt power to endpoint"
+          {/* Peer Switch Connection (when trunk/peer connection exists) */}
+          {Boolean(port?.connectedPort || port?.peerPort || port?.connectedSwitch) && (
+            <>
+              <Divider
+                titlePlacement="start"
+                style={{ margin: '8px 0 16px 0', fontSize: 13, fontWeight: 600 }}
               >
-                <Switch
-                  checkedChildren={<ThunderboltOutlined />}
-                  unCheckedChildren="Off"
-                  data-testid="port-poe-switch"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+                Peer Connection
+              </Divider>
+              <Card
+                size="small"
+                style={{ marginBottom: 16, border: '1px solid #d9d9d9', background: '#fafafa' }}
+                data-testid="port-peer-connection-card"
+              >
+                <Flex justify="space-between" align="center">
+                  <Flex vertical gap={4}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      Connected Peer Switch & Port
+                    </Text>
+                    <Flex align="center" gap={8}>
+                      <Tag color="purple" style={{ margin: 0, fontWeight: 600 }}>
+                        {port?.connectedSwitch?.name ||
+                          (port?.connectedPort || port?.peerPort)?.switch?.name ||
+                          'Peer Switch'}
+                      </Tag>
+                      <Text strong code style={{ fontSize: 12 }}>
+                        {(port?.connectedPort || port?.peerPort)?.name ||
+                          ((port?.connectedPort || port?.peerPort)?.portNumber
+                            ? `Port ${(port?.connectedPort || port?.peerPort)?.portNumber}`
+                            : 'Peer Port')}
+                      </Text>
+                    </Flex>
+                  </Flex>
+                  <Tag color="blue" style={{ margin: 0 }}>
+                    {port?.speed || (port?.connectedPort || port?.peerPort)?.speed || '10 Gbps'}
+                  </Tag>
+                </Flex>
+              </Card>
+            </>
+          )}
 
           {/* Operational Notes / Interface Description */}
           <Divider

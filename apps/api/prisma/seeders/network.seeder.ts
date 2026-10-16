@@ -1,4 +1,5 @@
 import {
+  HandoverRecordType,
   InfrastructureDomain,
   type Prisma,
   type PrismaClient,
@@ -45,7 +46,7 @@ export const canonicalSubnetRows: string[] = [
   '10.0.30.0/24|30|Corporate Office Network|RCK-IDF-F2|10.0.30.1|Office & Floor Corporate Network|Production floor terminals, office workstations and APs',
   '192.168.40.0/24|40|Guest Wi-Fi Subnet|RCK-IDF-F2|192.168.40.1|Visitor Wireless Network|Isolated visitor and vendor guest wireless access',
   '172.16.100.0/24|105|Surveillance Management|RCK-MDF-02|172.16.100.1|CCTV Video Management|CCTV switches, video decoders and matrix controllers',
-  '172.16.110.0/23|110|IP Cameras Surveillance|RCK-IDF-F1|172.16.110.1|4K IP Camera Fleet|4K PTZ, Bullet and Dome PoE camera surveillance fleet',
+  '172.16.110.0/23|110|IP Cameras Surveillance|RCK-IDF-F1|172.16.110.1|4K IP Camera Fleet|4K PTZ, Bullet and Dome camera surveillance fleet',
   '172.16.120.0/24|120|NVR Video Storage|RCK-MDF-02|172.16.120.1|Enterprise NVR Video Arrays|Hanwha Techwin 64CH Enterprise NVR storage arrays',
 ];
 
@@ -65,25 +66,25 @@ export const legacyRackRows: string[] = [
 ];
 
 export const canonicalSwitchRows: string[] = [
-  'SW-CORE-01|Catalyst 9500-48Y4C|Cisco Systems|FOC-9500-01|70:69:79:2A:50:01|0|17.9.4a|CORE|NETWORK|48|RCK-MDF-01|40|10||loc-bsl-bc-datacenter|Enterprise Core Spine Switch 01|250|180',
-  'SW-CORE-02|Catalyst 9500-48Y4C|Cisco Systems|FOC-9500-02|70:69:79:2A:50:02|1|17.9.4a|CORE|NETWORK|48|RCK-MDF-01|38|10||loc-bsl-bc-datacenter|Enterprise Core Spine Switch 02|450|180',
-  'SW-DIST-01|Catalyst 9300-24T|Cisco Systems|FOC-9300-01|70:69:79:2A:50:03|2|17.6.5|DISTRIBUTION|NETWORK|24|RCK-MDF-02|36|10||loc-bsl-bc-datacenter|Datacenter Distribution Switch 01|600|350',
-  'SW-DIST-02|Catalyst 9300-24T|Cisco Systems|FOC-9300-02|70:69:79:2A:50:04|3|17.6.5|DISTRIBUTION|NETWORK|24|RCK-MDF-02|34|10||loc-bsl-bc-datacenter|Datacenter Distribution Switch 02|800|350',
-  'SW-ACC-F1-01|Aruba CX 6200F 24G PoE+|Aruba Networks|SG-6200-F1|70:69:79:2A:50:05|4|10.12.1000|ACCESS|NETWORK|24|RCK-IDF-F1|20|30||loc-bsl-f1|Floor 1 Factory Access Switch|1050|520',
-  'SW-ACC-F2-01|Catalyst 9200L-24P-4G|Cisco Systems|FOC-9200-F2|70:69:79:2A:50:06|5|17.6.5|ACCESS|NETWORK|24|RCK-IDF-F2|20|30||loc-bsl-bc-datacenter|Floor 2 Office Access Switch|1400|520',
-  'SW-ACC-WH-01|Aruba CX 6200F 24G PoE+|Aruba Networks|SG-6200-WH1|70:69:79:2A:50:07|6|10.12.1000|ACCESS|NETWORK|24|RCK-IDF-WH|20|30||loc-bsl-f1|Logistics Warehouse Access Switch 01|1750|520',
-  'SW-ACC-WH-02|Compact 16-Port Managed PoE|Aruba Networks|SG-6200-WH2|70:69:79:2A:50:08|7|10.12.1000|ACCESS|NETWORK|16|RCK-IDF-WH|18|30||loc-bsl-f1|Logistics Warehouse Access Switch 02|1950|520',
-  'SW-CCTV-01|Catalyst 3850-24P PoE+|Cisco Systems|FOC-3850-CCTV1|70:69:79:2A:50:09|8|16.12.5|POE_ACCESS|CCTV|24|RCK-MDF-02|22|105||loc-bsl-bc-datacenter|Datacenter CCTV Core PoE Switch|500|520',
-  'SW-CCTV-02|DS-3E2528P Managed PoE|Hikvision|HK-2528-CCTV2|70:69:79:2A:50:10|9|V4.2.1|POE_ACCESS|CCTV|24|RCK-IDF-F1|16|105||loc-bsl-f1|Floor 1 CCTV Managed PoE Switch|750|520',
+  'SW-CORE-01|Catalyst 9500-48Y4C|Cisco Systems|FOC-9500-01|70:69:79:2A:50:01|0|17.9.4a|CORE|NETWORK|48|RCK-MDF-01|40|10|AST-SW-01|loc-bsl-bc-datacenter|Enterprise Core Spine Switch 01|450|100',
+  'SW-CORE-02|Catalyst 9500-48Y4C|Cisco Systems|FOC-9500-02|70:69:79:2A:50:02|1|17.9.4a|CORE|NETWORK|48|RCK-MDF-01|38|10|AST-SW-02|loc-bsl-bc-datacenter|Enterprise Core Spine Switch 02|850|100',
+  'SW-DIST-01|Catalyst 9300-24T|Cisco Systems|FOC-9300-01|70:69:79:2A:50:03|2|17.6.5|DISTRIBUTION|NETWORK|24|RCK-MDF-02|36|10|AST-SW-03|loc-bsl-bc-datacenter|Datacenter Distribution Switch 01|450|350',
+  'SW-DIST-02|Catalyst 9300-24T|Cisco Systems|FOC-9300-02|70:69:79:2A:50:04|3|17.6.5|DISTRIBUTION|NETWORK|24|RCK-MDF-02|34|10|AST-SW-04|loc-bsl-bc-datacenter|Datacenter Distribution Switch 02|850|350',
+  'SW-ACC-F1-01|Aruba CX 6200F 24G Switch|Aruba Networks|SG-6200-F1|70:69:79:2A:50:05|4|10.12.1000|ACCESS|NETWORK|24|RCK-IDF-F1|20|30|AST-SW-05|loc-bsl-f1|Floor 1 Factory Access Switch|200|600',
+  'SW-ACC-F2-01|Catalyst 9200L-24P-4G|Cisco Systems|FOC-9200-F2|70:69:79:2A:50:06|5|17.6.5|ACCESS|NETWORK|24|RCK-IDF-F2|20|30|AST-SW-06|loc-bsl-bc-datacenter|Floor 2 Office Access Switch|500|600',
+  'SW-ACC-WH-01|Aruba CX 6200F 24G Switch|Aruba Networks|SG-6200-WH1|70:69:79:2A:50:07|6|10.12.1000|ACCESS|NETWORK|24|RCK-IDF-WH|20|30|AST-SW-07|loc-bsl-f1|Logistics Warehouse Access Switch 01|800|600',
+  'SW-ACC-WH-02|Compact 16-Port Managed Switch|Aruba Networks|SG-6200-WH2|70:69:79:2A:50:08|7|10.12.1000|ACCESS|NETWORK|16|RCK-IDF-WH|18|30|AST-SW-08|loc-bsl-f1|Logistics Warehouse Access Switch 02|1100|600',
+  'SW-CCTV-01|Catalyst 3850-24G Switch|Cisco Systems|FOC-3850-CCTV1|70:69:79:2A:50:09|8|16.12.5|DISTRIBUTION|CCTV|24|RCK-MDF-02|22|105|AST-SW-09|loc-bsl-bc-datacenter|Datacenter CCTV Core Switch|1400|600',
+  'SW-CCTV-02|DS-3E2528 Managed Switch|Hikvision|HK-2528-CCTV2|70:69:79:2A:50:10|9|V4.2.1|ACCESS|CCTV|24|RCK-IDF-F1|16|105|AST-SW-10|loc-bsl-f1|Floor 1 CCTV Managed Switch|1700|600',
 ];
 
 export const legacySwitchRows: string[] = [
-  'BSL-CORE-SW01|C9300-48P|Cisco Systems|FOC2488102|70:69:79:2A:41:01|10|17.9.4a|CORE|NETWORK|48|RACK-DC01|39|100|AST-1010|loc-bsl-bc-datacenter|BSL Datacenter Core Switch (Stack Master).|200|250',
-  'BSL-DIST-SW01|C9200L-24P-4G|Cisco Systems|FOC2533K92|70:69:79:2A:41:02|11|17.6.5|DISTRIBUTION|NETWORK|24|RACK-DC01|37|130|AST-1018|loc-bsl-bc-datacenter|Business Center & Datacenter Distribution Switch.|550|250',
-  'BSL-F1-ACC01|Aruba 6200F 24G|Aruba Networks|SG2410881|70:69:79:2A:41:03|12|10.12.1000|ACCESS|NETWORK|24|RACK-F1-IDF|20|131|AST-1019|loc-bsl-f1|Factory 1 Sewing & Production Line Access Switch.|900|250',
-  'BSL-F1-IDF01|Compact 16-Port Access Switch|Aruba Networks|SG2410992|70:69:79:2A:41:04|13|10.12.1000|ACCESS|NETWORK|16|RACK-F1-IDF|18|131||loc-bsl-f1|Factory 1 IDF Compact Access Switch.|900|380',
-  'BSL-CCTV-SW01|Catalyst 3850-24P PoE+|Cisco Systems|FOC2499CCTV1|70:69:79:2A:41:05|14|16.12.5|POE_ACCESS|CCTV|24|RACK-CCTV-01|12|97||loc-bsl-bc-datacenter|Enterprise CCTV PoE+ Surveillance Switch.|450|600',
-  'BSL-F1-CCTV01|DS-3E2528P Managed PoE|Hikvision|HK2400CCTV2|70:69:79:2A:41:06|15|V4.2.1|POE_ACCESS|CCTV|24|RACK-CCTV-01|10|98||loc-bsl-bc-datacenter|Factory 1 CCTV Managed PoE Distribution Switch.|750|600',
+  'BSL-CORE-SW01|C9300-48P|Cisco Systems|FOC2488102|70:69:79:2A:41:01|10|17.9.4a|CORE|NETWORK|48|RACK-DC01|39|100|AST-1010|loc-bsl-bc-datacenter|BSL Datacenter Core Switch (Stack Master).|1250|100',
+  'BSL-DIST-SW01|C9200L-24P-4G|Cisco Systems|FOC2533K92|70:69:79:2A:41:02|11|17.6.5|DISTRIBUTION|NETWORK|24|RACK-DC01|37|130|AST-1018|loc-bsl-bc-datacenter|Business Center & Datacenter Distribution Switch.|1250|350',
+  'BSL-F1-ACC01|Aruba 6200F 24G|Aruba Networks|SG2410881|70:69:79:2A:41:03|12|10.12.1000|ACCESS|NETWORK|24|RACK-F1-IDF|20|131|AST-1019|loc-bsl-f1|Factory 1 Sewing & Production Line Access Switch.|2000|600',
+  'BSL-F1-IDF01|Compact 16-Port Access Switch|Aruba Networks|SG2410992|70:69:79:2A:41:04|13|10.12.1000|ACCESS|NETWORK|16|RACK-F1-IDF|18|131|AST-SW-11|loc-bsl-f1|Factory 1 IDF Compact Access Switch.|2300|600',
+  'BSL-CCTV-SW01|Catalyst 3850-24G Switch|Cisco Systems|FOC2499CCTV1|70:69:79:2A:41:05|14|16.12.5|DISTRIBUTION|CCTV|24|RACK-CCTV-01|12|97|AST-SW-12|loc-bsl-bc-datacenter|Enterprise CCTV Surveillance Switch.|2600|600',
+  'BSL-F1-CCTV01|DS-3E2528 Managed Switch|Hikvision|HK2400CCTV2|70:69:79:2A:41:06|15|V4.2.1|ACCESS|CCTV|24|RACK-CCTV-01|10|98|AST-SW-13|loc-bsl-bc-datacenter|Factory 1 CCTV Managed Distribution Switch.|2900|600',
 ];
 
 interface TrunkLinkDef {
@@ -376,23 +377,103 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
 
       const allMgmtAddresses = [
         // Canonical Switches
-        { ip: '10.0.10.11', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-CORE-01' },
-        { ip: '10.0.10.12', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-CORE-02' },
-        { ip: '10.0.10.13', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-DIST-01' },
-        { ip: '10.0.10.14', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-DIST-02' },
-        { ip: '10.0.10.15', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-ACC-F1-01' },
-        { ip: '10.0.10.16', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-ACC-F2-01' },
-        { ip: '10.0.10.17', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-ACC-WH-01' },
-        { ip: '10.0.10.18', subnetId: mgmtSubnet10?.id || '', vlanId: vlanMap.get(10) || null, desc: 'Management IP for SW-ACC-WH-02' },
-        { ip: '172.16.100.11', subnetId: cctvSubnet100?.id || '', vlanId: vlanMap.get(105) || null, desc: 'Management IP for SW-CCTV-01' },
-        { ip: '172.16.100.12', subnetId: cctvSubnet100?.id || '', vlanId: vlanMap.get(105) || null, desc: 'Management IP for SW-CCTV-02' },
+        {
+          ip: '10.0.10.11',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-CORE-01',
+        },
+        {
+          ip: '10.0.10.12',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-CORE-02',
+        },
+        {
+          ip: '10.0.10.13',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-DIST-01',
+        },
+        {
+          ip: '10.0.10.14',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-DIST-02',
+        },
+        {
+          ip: '10.0.10.15',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-ACC-F1-01',
+        },
+        {
+          ip: '10.0.10.16',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-ACC-F2-01',
+        },
+        {
+          ip: '10.0.10.17',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-ACC-WH-01',
+        },
+        {
+          ip: '10.0.10.18',
+          subnetId: mgmtSubnet10?.id || '',
+          vlanId: vlanMap.get(10) || null,
+          desc: 'Management IP for SW-ACC-WH-02',
+        },
+        {
+          ip: '172.16.100.11',
+          subnetId: cctvSubnet100?.id || '',
+          vlanId: vlanMap.get(105) || null,
+          desc: 'Management IP for SW-CCTV-01',
+        },
+        {
+          ip: '172.16.100.12',
+          subnetId: cctvSubnet100?.id || '',
+          vlanId: vlanMap.get(105) || null,
+          desc: 'Management IP for SW-CCTV-02',
+        },
         // Legacy Switches
-        { ip: '10.232.129.10', subnetId: mgmtSubnet129?.id || '', vlanId: vlanMap.get(129) || null, desc: 'Management IP for BSL-CORE-SW01' },
-        { ip: '10.232.129.11', subnetId: mgmtSubnet129?.id || '', vlanId: vlanMap.get(129) || null, desc: 'Management IP for BSL-DIST-SW01' },
-        { ip: '10.232.129.12', subnetId: mgmtSubnet129?.id || '', vlanId: vlanMap.get(129) || null, desc: 'Management IP for BSL-F1-ACC01' },
-        { ip: '10.232.129.13', subnetId: mgmtSubnet129?.id || '', vlanId: vlanMap.get(129) || null, desc: 'Management IP for BSL-F1-IDF01' },
-        { ip: '10.232.129.14', subnetId: mgmtSubnet129?.id || '', vlanId: vlanMap.get(129) || null, desc: 'Management IP for BSL-CCTV-SW01' },
-        { ip: '10.232.129.15', subnetId: mgmtSubnet129?.id || '', vlanId: vlanMap.get(129) || null, desc: 'Management IP for BSL-F1-CCTV01' },
+        {
+          ip: '10.232.129.10',
+          subnetId: mgmtSubnet129?.id || '',
+          vlanId: vlanMap.get(129) || null,
+          desc: 'Management IP for BSL-CORE-SW01',
+        },
+        {
+          ip: '10.232.129.11',
+          subnetId: mgmtSubnet129?.id || '',
+          vlanId: vlanMap.get(129) || null,
+          desc: 'Management IP for BSL-DIST-SW01',
+        },
+        {
+          ip: '10.232.129.12',
+          subnetId: mgmtSubnet129?.id || '',
+          vlanId: vlanMap.get(129) || null,
+          desc: 'Management IP for BSL-F1-ACC01',
+        },
+        {
+          ip: '10.232.129.13',
+          subnetId: mgmtSubnet129?.id || '',
+          vlanId: vlanMap.get(129) || null,
+          desc: 'Management IP for BSL-F1-IDF01',
+        },
+        {
+          ip: '10.232.129.14',
+          subnetId: mgmtSubnet129?.id || '',
+          vlanId: vlanMap.get(129) || null,
+          desc: 'Management IP for BSL-CCTV-SW01',
+        },
+        {
+          ip: '10.232.129.15',
+          subnetId: mgmtSubnet129?.id || '',
+          vlanId: vlanMap.get(129) || null,
+          desc: 'Management IP for BSL-F1-CCTV01',
+        },
       ];
 
       for (const item of allMgmtAddresses) {
@@ -508,7 +589,9 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
         select: { id: true },
       });
       const fallbackDeptId =
-        defaultDept?.id || (await prisma.department.findFirst({ select: { id: true } }))?.id || null;
+        defaultDept?.id ||
+        (await prisma.department.findFirst({ select: { id: true } }))?.id ||
+        null;
 
       const serverCategory = await prisma.assetCategory.findFirst({
         where: { id: 'cat-server' },
@@ -541,23 +624,159 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
 
       const vendorCisco = await prisma.vendor.findFirst({ where: { name: { contains: 'Cisco' } } });
       const vendorDell = await prisma.vendor.findFirst({ where: { name: { contains: 'Dell' } } });
-      const vendorHik = await prisma.vendor.findFirst({ where: { name: { contains: 'Hikvision' } } });
+      const vendorHik = await prisma.vendor.findFirst({
+        where: { name: { contains: 'Hikvision' } },
+      });
+      const vendorAruba = await prisma.vendor.findFirst({ where: { name: { contains: 'Aruba' } } });
+      const vendorHanwha = await prisma.vendor.findFirst({
+        where: { name: { contains: 'Hanwha' } },
+      });
+      const vendorAxis = await prisma.vendor.findFirst({ where: { name: { contains: 'Axis' } } });
       const fallbackVendor = await prisma.vendor.findFirst({ select: { id: true } });
 
+      let switchCategory = await prisma.assetCategory.findFirst({
+        where: { OR: [{ id: 'cat-network' }, { name: { contains: 'Network' } }] },
+        select: { id: true },
+      });
+      if (!switchCategory) {
+        switchCategory = serverCategory || cctvCategory;
+      }
+
       const deviceModelDefs = [
-        { modelCode: 'MOD-DELL-R750', name: 'Dell PowerEdge R750 Enterprise Server', manufacturer: 'Dell Inc.', categoryId: serverCategory?.id || '', vendorId: vendorDell?.id || fallbackVendor?.id || '' },
-        { modelCode: 'MOD-DELL-R660', name: 'Dell PowerEdge R660 Virtualization Host', manufacturer: 'Dell Inc.', categoryId: serverCategory?.id || '', vendorId: vendorDell?.id || fallbackVendor?.id || '' },
-        { modelCode: 'MOD-CISCO-9120AX', name: 'Cisco Catalyst 9120AX Access Point', manufacturer: 'Cisco Systems', categoryId: apCategory?.id || '', vendorId: vendorCisco?.id || fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HTW-NVR64', name: 'Hanwha Techwin 64CH Enterprise NVR Video Storage', manufacturer: 'Hanwha Techwin', categoryId: storageCategory?.id || '', vendorId: fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HTW-XNO6080', name: 'Hanwha XNO-6080R 4K Bullet Camera', manufacturer: 'Hanwha Techwin', categoryId: cctvCategory?.id || '', vendorId: fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HTW-QND6082', name: 'Hanwha QND-6082R 4K Dome Camera', manufacturer: 'Hanwha Techwin', categoryId: cctvCategory?.id || '', vendorId: fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HIK-2CD2143', name: 'Hikvision DS-2CD2143G2 4K Dome Camera', manufacturer: 'Hikvision', categoryId: cctvCategory?.id || '', vendorId: vendorHik?.id || fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HIK-2CD2043', name: 'Hikvision DS-2CD2043G2 4K Bullet Camera', manufacturer: 'Hikvision', categoryId: cctvCategory?.id || '', vendorId: vendorHik?.id || fallbackVendor?.id || '' },
-        { modelCode: 'MOD-AXIS-Q6075', name: 'Axis Q6075-E 4K PTZ Camera', manufacturer: 'Axis Communications', categoryId: cctvCategory?.id || '', vendorId: fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HTW-XNP6400', name: 'Hanwha XNP-6400RW 4K PTZ Camera', manufacturer: 'Hanwha Techwin', categoryId: cctvCategory?.id || '', vendorId: fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HIK-2CD2347', name: 'Hikvision DS-2CD2347G2 Turret Camera', manufacturer: 'Hikvision', categoryId: cctvCategory?.id || '', vendorId: vendorHik?.id || fallbackVendor?.id || '' },
-        { modelCode: 'MOD-HTW-XNO8080', name: 'Hanwha XNO-8080R 4K Bullet Camera', manufacturer: 'Hanwha Techwin', categoryId: cctvCategory?.id || '', vendorId: fallbackVendor?.id || '' },
-        { modelCode: 'MOD-AXIS-P3245', name: 'Axis P3245-LVE 4K Dome Camera', manufacturer: 'Axis Communications', categoryId: cctvCategory?.id || '', vendorId: fallbackVendor?.id || '' },
+        {
+          modelCode: 'MOD-DELL-R750',
+          name: 'Dell PowerEdge R750 Enterprise Server',
+          manufacturer: 'Dell Inc.',
+          categoryId: serverCategory?.id || '',
+          vendorId: vendorDell?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-DELL-R660',
+          name: 'Dell PowerEdge R660 Virtualization Host',
+          manufacturer: 'Dell Inc.',
+          categoryId: serverCategory?.id || '',
+          vendorId: vendorDell?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-CISCO-9120AX',
+          name: 'Cisco Catalyst 9120AX Access Point',
+          manufacturer: 'Cisco Systems',
+          categoryId: apCategory?.id || '',
+          vendorId: vendorCisco?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HTW-NVR64',
+          name: 'Hanwha Techwin 64CH Enterprise NVR Video Storage',
+          manufacturer: 'Hanwha Techwin',
+          categoryId: storageCategory?.id || '',
+          vendorId: vendorHanwha?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HTW-XNO6080',
+          name: 'Hanwha XNO-6080R 4K Bullet Camera',
+          manufacturer: 'Hanwha Techwin',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorHanwha?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HTW-QND6082',
+          name: 'Hanwha QND-6082R 4K Dome Camera',
+          manufacturer: 'Hanwha Techwin',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorHanwha?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HIK-2CD2143',
+          name: 'Hikvision DS-2CD2143G2 4K Dome Camera',
+          manufacturer: 'Hikvision',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorHik?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HIK-2CD2043',
+          name: 'Hikvision DS-2CD2043G2 4K Bullet Camera',
+          manufacturer: 'Hikvision',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorHik?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-AXIS-Q6075',
+          name: 'Axis Q6075-E 4K PTZ Camera',
+          manufacturer: 'Axis Communications',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorAxis?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HTW-XNP6400',
+          name: 'Hanwha XNP-6400RW 4K PTZ Camera',
+          manufacturer: 'Hanwha Techwin',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorHanwha?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HIK-2CD2347',
+          name: 'Hikvision DS-2CD2347G2 Turret Camera',
+          manufacturer: 'Hikvision',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorHik?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HTW-XNO8080',
+          name: 'Hanwha XNO-8080R 4K Bullet Camera',
+          manufacturer: 'Hanwha Techwin',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorHanwha?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-AXIS-P3245',
+          name: 'Axis P3245-LVE 4K Dome Camera',
+          manufacturer: 'Axis Communications',
+          categoryId: cctvCategory?.id || '',
+          vendorId: vendorAxis?.id || fallbackVendor?.id || '',
+        },
+        // Network Switches
+        {
+          modelCode: 'MOD-CISCO-C9500',
+          name: 'Cisco Catalyst 9500-48Y4C Core Switch',
+          manufacturer: 'Cisco Systems',
+          categoryId: switchCategory?.id || '',
+          vendorId: vendorCisco?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-CISCO-C9300',
+          name: 'Cisco Catalyst 9300-24T Distribution Switch',
+          manufacturer: 'Cisco Systems',
+          categoryId: switchCategory?.id || '',
+          vendorId: vendorCisco?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-ARUBA-6200F',
+          name: 'Aruba CX 6200F 24G Switch',
+          manufacturer: 'Aruba Networks',
+          categoryId: switchCategory?.id || '',
+          vendorId: vendorAruba?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-CISCO-C9200',
+          name: 'Cisco Catalyst 9200L-24P-4G Access Switch',
+          manufacturer: 'Cisco Systems',
+          categoryId: switchCategory?.id || '',
+          vendorId: vendorCisco?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-CISCO-C3850',
+          name: 'Cisco Catalyst 3850-24G Switch',
+          manufacturer: 'Cisco Systems',
+          categoryId: switchCategory?.id || '',
+          vendorId: vendorCisco?.id || fallbackVendor?.id || '',
+        },
+        {
+          modelCode: 'MOD-HIK-DS3E2528',
+          name: 'Hikvision DS-3E2528 Managed Switch',
+          manufacturer: 'Hikvision',
+          categoryId: switchCategory?.id || '',
+          vendorId: vendorHik?.id || fallbackVendor?.id || '',
+        },
       ];
 
       const modelMap = new Map<string, string>();
@@ -565,52 +784,413 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
         if (dmd.categoryId && dmd.vendorId) {
           const mod = await prisma.deviceModel.upsert({
             where: { modelCode: dmd.modelCode },
-            update: { name: dmd.name, manufacturer: dmd.manufacturer, categoryId: dmd.categoryId, vendorId: dmd.vendorId },
-            create: { modelCode: dmd.modelCode, name: dmd.name, manufacturer: dmd.manufacturer, categoryId: dmd.categoryId, vendorId: dmd.vendorId },
+            update: {
+              name: dmd.name,
+              manufacturer: dmd.manufacturer,
+              categoryId: dmd.categoryId,
+              vendorId: dmd.vendorId,
+            },
+            create: {
+              modelCode: dmd.modelCode,
+              name: dmd.name,
+              manufacturer: dmd.manufacturer,
+              categoryId: dmd.categoryId,
+              vendorId: dmd.vendorId,
+            },
           });
           modelMap.set(dmd.modelCode, mod.id);
+        }
+      }
+
+      const userNam =
+        (await prisma.directoryUser.findUnique({ where: { email: 'nam.pham@youngonevn.com' } })) ||
+        (await prisma.directoryUser.findFirst());
+      const userPhong =
+        (await prisma.directoryUser.findUnique({
+          where: { email: 'phong.dang@youngonevn.com' },
+        })) || userNam;
+      const namCustodianId = userNam?.id || null;
+      const phongCustodianId = userPhong?.id || namCustodianId;
+
+      // Canonical Switch Assets (AST-SW-01 through AST-SW-13)
+      const canonicalSwitchAssets = [
+        {
+          tag: 'AST-SW-01',
+          model: 'MOD-CISCO-C9500',
+          serial: 'FOC-9500-01',
+          notes: 'SW-CORE-01 Spine Switch 01 Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-02',
+          model: 'MOD-CISCO-C9500',
+          serial: 'FOC-9500-02',
+          notes: 'SW-CORE-02 Spine Switch 02 Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-03',
+          model: 'MOD-CISCO-C9300',
+          serial: 'FOC-9300-01',
+          notes: 'SW-DIST-01 Distribution Switch 01 Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-04',
+          model: 'MOD-CISCO-C9300',
+          serial: 'FOC-9300-02',
+          notes: 'SW-DIST-02 Distribution Switch 02 Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-05',
+          model: 'MOD-ARUBA-6200F',
+          serial: 'SG-6200-F1',
+          notes: 'SW-ACC-F1-01 Floor 1 Access Switch Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-06',
+          model: 'MOD-CISCO-C9200',
+          serial: 'FOC-9200-F2',
+          notes: 'SW-ACC-F2-01 Floor 2 Access Switch Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-07',
+          model: 'MOD-ARUBA-6200F',
+          serial: 'SG-6200-WH1',
+          notes: 'SW-ACC-WH-01 Warehouse Access Switch 01 Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-08',
+          model: 'MOD-ARUBA-6200F',
+          serial: 'SG-6200-WH2',
+          notes: 'SW-ACC-WH-02 Warehouse Access Switch 02 Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-09',
+          model: 'MOD-CISCO-C3850',
+          serial: 'FOC-3850-CCTV1',
+          notes: 'SW-CCTV-01 CCTV Switch 01 Asset',
+          domain: InfrastructureDomain.CCTV,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-10',
+          model: 'MOD-HIK-DS3E2528',
+          serial: 'HK-2528-CCTV2',
+          notes: 'SW-CCTV-02 CCTV Switch 02 Asset',
+          domain: InfrastructureDomain.CCTV,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-11',
+          model: 'MOD-ARUBA-6200F',
+          serial: 'SG2410992',
+          notes: 'BSL-F1-IDF01 Compact Access Switch Asset',
+          domain: InfrastructureDomain.NETWORK,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-12',
+          model: 'MOD-CISCO-C3850',
+          serial: 'FOC2499CCTV1',
+          notes: 'BSL-CCTV-SW01 CCTV Surveillance Switch Asset',
+          domain: InfrastructureDomain.CCTV,
+          custodianId: namCustodianId,
+        },
+        {
+          tag: 'AST-SW-13',
+          model: 'MOD-HIK-DS3E2528',
+          serial: 'HK2400CCTV2',
+          notes: 'BSL-F1-CCTV01 CCTV Distribution Switch Asset',
+          domain: InfrastructureDomain.CCTV,
+          custodianId: namCustodianId,
+        },
+      ];
+
+      for (const swa of canonicalSwitchAssets) {
+        const modelId =
+          modelMap.get(swa.model) ||
+          (await prisma.deviceModel.findFirst({ select: { id: true } }))?.id;
+        if (modelId) {
+          const created = await prisma.asset.upsert({
+            where: { subcode: swa.tag },
+            update: {
+              assetTag: swa.tag,
+              serialNumber: swa.serial,
+              deviceModelId: modelId,
+              departmentId: fallbackDeptId,
+              domain: swa.domain,
+              status: 'IN_USE',
+              assignedToId: swa.custodianId,
+              hasPendingRecord: false,
+              notes: swa.notes,
+            },
+            create: {
+              assetTag: swa.tag,
+              subcode: swa.tag,
+              serialNumber: swa.serial,
+              deviceModelId: modelId,
+              departmentId: fallbackDeptId,
+              domain: swa.domain,
+              status: 'IN_USE',
+              assignedToId: swa.custodianId,
+              hasPendingRecord: false,
+              notes: swa.notes,
+            },
+          });
+          assetMap.set(swa.tag, created.id);
+          if (ctx?.assets) ctx.assets.set(swa.tag, created.id);
+
+          if (swa.custodianId) {
+            await prisma.assetHandoverRecord.upsert({
+              where: { id: `rec-handover-${swa.tag.toLowerCase()}` },
+              update: {
+                assetId: created.id,
+                type: HandoverRecordType.ASSIGNMENT,
+                recipientId: swa.custodianId,
+                signedDocUrl: '/api/v1/assets/handover-documents/file/sample-signed-handover.pdf',
+                isPending: false,
+                notes: `Switch infrastructure handover record for ${swa.notes}`,
+              },
+              create: {
+                id: `rec-handover-${swa.tag.toLowerCase()}`,
+                assetId: created.id,
+                type: HandoverRecordType.ASSIGNMENT,
+                recipientId: swa.custodianId,
+                signedDocUrl: '/api/v1/assets/handover-documents/file/sample-signed-handover.pdf',
+                isPending: false,
+                notes: `Switch infrastructure handover record for ${swa.notes}`,
+              },
+            });
+          }
         }
       }
 
       // Canonical 28 Endpoints
       const canonicalEndpoints = [
         // 4 Servers (Dual-Homed)
-        { tag: 'AST-SRV-01', model: 'MOD-DELL-R750', serial: '7N991A2-BSL', notes: 'Dell PowerEdge R750 Enterprise Server 01 (Dual-Homed)', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-SRV-02', model: 'MOD-DELL-R660', serial: '9K114B3-BSL', notes: 'Dell PowerEdge R660 Virtualization Host 02 (Dual-Homed)', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-SRV-03', model: 'MOD-DELL-R750', serial: '7N992B1-BSL', notes: 'Dell PowerEdge R750 Enterprise Server 03 (Dual-Homed)', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-SRV-04', model: 'MOD-DELL-R660', serial: '9K115C2-BSL', notes: 'Dell PowerEdge R660 Virtualization Host 04 (Dual-Homed)', domain: InfrastructureDomain.NETWORK },
+        {
+          tag: 'AST-SRV-01',
+          model: 'MOD-DELL-R750',
+          serial: '7N991A2-BSL',
+          notes: 'Dell PowerEdge R750 Enterprise Server 01 (Dual-Homed)',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-SRV-02',
+          model: 'MOD-DELL-R660',
+          serial: '9K114B3-BSL',
+          notes: 'Dell PowerEdge R660 Virtualization Host 02 (Dual-Homed)',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-SRV-03',
+          model: 'MOD-DELL-R750',
+          serial: '7N992B1-BSL',
+          notes: 'Dell PowerEdge R750 Enterprise Server 03 (Dual-Homed)',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-SRV-04',
+          model: 'MOD-DELL-R660',
+          serial: '9K115C2-BSL',
+          notes: 'Dell PowerEdge R660 Virtualization Host 04 (Dual-Homed)',
+          domain: InfrastructureDomain.NETWORK,
+        },
         // 6 Wi-Fi 6 Access Points
-        { tag: 'AST-AP-01', model: 'MOD-CISCO-9120AX', serial: 'FOC-AP9120-01', notes: 'Cisco Catalyst AP 9120AX Floor 1 Production', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-AP-02', model: 'MOD-CISCO-9120AX', serial: 'FOC-AP9120-02', notes: 'Cisco Catalyst AP 9120AX Floor 1 Assembly Lines', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-AP-03', model: 'MOD-CISCO-9120AX', serial: 'FOC-AP9120-03', notes: 'Cisco Catalyst AP 9120AX Floor 2 Executive Office', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-AP-04', model: 'MOD-CISCO-9120AX', serial: 'FOC-AP9120-04', notes: 'Cisco Catalyst AP 9120AX Floor 2 Open Workspace', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-AP-05', model: 'MOD-CISCO-9120AX', serial: 'FOC-AP9120-05', notes: 'Cisco Catalyst AP 9120AX Warehouse Intake Staging', domain: InfrastructureDomain.NETWORK },
-        { tag: 'AST-AP-06', model: 'MOD-CISCO-9120AX', serial: 'FOC-AP9120-06', notes: 'Cisco Catalyst AP 9120AX Warehouse Shipping Docks', domain: InfrastructureDomain.NETWORK },
+        {
+          tag: 'AST-AP-01',
+          model: 'MOD-CISCO-9120AX',
+          serial: 'FOC-AP9120-01',
+          notes: 'Cisco Catalyst AP 9120AX Floor 1 Production',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-AP-02',
+          model: 'MOD-CISCO-9120AX',
+          serial: 'FOC-AP9120-02',
+          notes: 'Cisco Catalyst AP 9120AX Floor 1 Assembly Lines',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-AP-03',
+          model: 'MOD-CISCO-9120AX',
+          serial: 'FOC-AP9120-03',
+          notes: 'Cisco Catalyst AP 9120AX Floor 2 Executive Office',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-AP-04',
+          model: 'MOD-CISCO-9120AX',
+          serial: 'FOC-AP9120-04',
+          notes: 'Cisco Catalyst AP 9120AX Floor 2 Open Workspace',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-AP-05',
+          model: 'MOD-CISCO-9120AX',
+          serial: 'FOC-AP9120-05',
+          notes: 'Cisco Catalyst AP 9120AX Warehouse Intake Staging',
+          domain: InfrastructureDomain.NETWORK,
+        },
+        {
+          tag: 'AST-AP-06',
+          model: 'MOD-CISCO-9120AX',
+          serial: 'FOC-AP9120-06',
+          notes: 'Cisco Catalyst AP 9120AX Warehouse Shipping Docks',
+          domain: InfrastructureDomain.NETWORK,
+        },
         // 2 NVR Storage Arrays
-        { tag: 'AST-NVR-01', model: 'MOD-HTW-NVR64', serial: 'HTW-NVR-6401', notes: 'Hanwha Techwin 64CH Enterprise NVR Primary Storage Array', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-NVR-02', model: 'MOD-HTW-NVR64', serial: 'HTW-NVR-6402', notes: 'Hanwha Techwin 64CH Enterprise NVR Secondary Storage Array', domain: InfrastructureDomain.CCTV },
+        {
+          tag: 'AST-NVR-01',
+          model: 'MOD-HTW-NVR64',
+          serial: 'HTW-NVR-6401',
+          notes: 'Hanwha Techwin 64CH Enterprise NVR Primary Storage Array',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-NVR-02',
+          model: 'MOD-HTW-NVR64',
+          serial: 'HTW-NVR-6402',
+          notes: 'Hanwha Techwin 64CH Enterprise NVR Secondary Storage Array',
+          domain: InfrastructureDomain.CCTV,
+        },
         // 16 4K IP Surveillance Cameras
-        { tag: 'AST-CAM-001', model: 'MOD-HTW-XNO6080', serial: 'HTW-CAM-001', notes: 'Hanwha XNO-6080R 4K Bullet Camera Main Gate', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-002', model: 'MOD-HTW-QND6082', serial: 'HTW-CAM-002', notes: 'Hanwha QND-6082R 4K Dome Camera MDF Server Room', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-003', model: 'MOD-HIK-2CD2143', serial: 'HK-CAM-003', notes: 'Hikvision DS-2CD2143G2 4K Dome Camera Corridor', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-004', model: 'MOD-HIK-2CD2043', serial: 'HK-CAM-004', notes: 'Hikvision DS-2CD2043G2 4K Bullet Camera Solar Yard', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-005', model: 'MOD-AXIS-Q6075', serial: 'AX-CAM-005', notes: 'Axis Q6075-E 4K PTZ Camera South Perimeter', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-006', model: 'MOD-HTW-XNP6400', serial: 'HTW-CAM-006', notes: 'Hanwha XNP-6400RW 4K PTZ Camera Quad Center', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-007', model: 'MOD-HIK-2CD2347', serial: 'HK-CAM-007', notes: 'Hikvision DS-2CD2347G2 Turret Camera North Gate', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-008', model: 'MOD-HTW-XNO8080', serial: 'HTW-CAM-008', notes: 'Hanwha XNO-8080R 4K Bullet Camera East Perimeter', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-009', model: 'MOD-HIK-2CD2143', serial: 'HK-CAM-009', notes: 'Hikvision DS-2CD2143G2 4K Dome Camera Line A', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-010', model: 'MOD-HIK-2CD2143', serial: 'HK-CAM-010', notes: 'Hikvision DS-2CD2143G2 4K Dome Camera Line B', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-011', model: 'MOD-HTW-QND6082', serial: 'HTW-CAM-011', notes: 'Hanwha QND-6082R 4K Dome Camera Cutting Room', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-012', model: 'MOD-HTW-QND6082', serial: 'HTW-CAM-012', notes: 'Hanwha QND-6082R 4K Dome Camera Finishing Area', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-013', model: 'MOD-AXIS-P3245', serial: 'AX-CAM-013', notes: 'Axis P3245-LVE 4K Dome Camera WH Staging', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-014', model: 'MOD-AXIS-P3245', serial: 'AX-CAM-014', notes: 'Axis P3245-LVE 4K Dome Camera Loading Bay 1', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-015', model: 'MOD-HTW-XNO6080', serial: 'HTW-CAM-015', notes: 'Hanwha XNO-6080R 4K Bullet Camera Loading Bay 2', domain: InfrastructureDomain.CCTV },
-        { tag: 'AST-CAM-016', model: 'MOD-HIK-2CD2043', serial: 'HK-CAM-016', notes: 'Hikvision DS-2CD2043G2 4K Bullet Camera Exit F1', domain: InfrastructureDomain.CCTV },
+        {
+          tag: 'AST-CAM-001',
+          model: 'MOD-HTW-XNO6080',
+          serial: 'HTW-CAM-001',
+          notes: 'Hanwha XNO-6080R 4K Bullet Camera Main Gate',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-002',
+          model: 'MOD-HTW-QND6082',
+          serial: 'HTW-CAM-002',
+          notes: 'Hanwha QND-6082R 4K Dome Camera MDF Server Room',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-003',
+          model: 'MOD-HIK-2CD2143',
+          serial: 'HK-CAM-003',
+          notes: 'Hikvision DS-2CD2143G2 4K Dome Camera Corridor',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-004',
+          model: 'MOD-HIK-2CD2043',
+          serial: 'HK-CAM-004',
+          notes: 'Hikvision DS-2CD2043G2 4K Bullet Camera Solar Yard',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-005',
+          model: 'MOD-AXIS-Q6075',
+          serial: 'AX-CAM-005',
+          notes: 'Axis Q6075-E 4K PTZ Camera South Perimeter',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-006',
+          model: 'MOD-HTW-XNP6400',
+          serial: 'HTW-CAM-006',
+          notes: 'Hanwha XNP-6400RW 4K PTZ Camera Quad Center',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-007',
+          model: 'MOD-HIK-2CD2347',
+          serial: 'HK-CAM-007',
+          notes: 'Hikvision DS-2CD2347G2 Turret Camera North Gate',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-008',
+          model: 'MOD-HTW-XNO8080',
+          serial: 'HTW-CAM-008',
+          notes: 'Hanwha XNO-8080R 4K Bullet Camera East Perimeter',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-009',
+          model: 'MOD-HIK-2CD2143',
+          serial: 'HK-CAM-009',
+          notes: 'Hikvision DS-2CD2143G2 4K Dome Camera Line A',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-010',
+          model: 'MOD-HIK-2CD2143',
+          serial: 'HK-CAM-010',
+          notes: 'Hikvision DS-2CD2143G2 4K Dome Camera Line B',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-011',
+          model: 'MOD-HTW-QND6082',
+          serial: 'HTW-CAM-011',
+          notes: 'Hanwha QND-6082R 4K Dome Camera Cutting Room',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-012',
+          model: 'MOD-HTW-QND6082',
+          serial: 'HTW-CAM-012',
+          notes: 'Hanwha QND-6082R 4K Dome Camera Finishing Area',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-013',
+          model: 'MOD-AXIS-P3245',
+          serial: 'AX-CAM-013',
+          notes: 'Axis P3245-LVE 4K Dome Camera WH Staging',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-014',
+          model: 'MOD-AXIS-P3245',
+          serial: 'AX-CAM-014',
+          notes: 'Axis P3245-LVE 4K Dome Camera Loading Bay 1',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-015',
+          model: 'MOD-HTW-XNO6080',
+          serial: 'HTW-CAM-015',
+          notes: 'Hanwha XNO-6080R 4K Bullet Camera Loading Bay 2',
+          domain: InfrastructureDomain.CCTV,
+        },
+        {
+          tag: 'AST-CAM-016',
+          model: 'MOD-HIK-2CD2043',
+          serial: 'HK-CAM-016',
+          notes: 'Hikvision DS-2CD2043G2 4K Bullet Camera Exit F1',
+          domain: InfrastructureDomain.CCTV,
+        },
       ];
 
       for (const ep of canonicalEndpoints) {
-        const modelId = modelMap.get(ep.model) || (await prisma.deviceModel.findFirst({ select: { id: true } }))?.id;
+        const modelId =
+          modelMap.get(ep.model) ||
+          (await prisma.deviceModel.findFirst({ select: { id: true } }))?.id;
         if (modelId) {
+          const custodianId =
+            ep.tag.includes('BSH') || ep.notes.includes('BSH') ? phongCustodianId : namCustodianId;
+
           const created = await prisma.asset.upsert({
             where: { subcode: ep.tag },
             update: {
@@ -620,6 +1200,8 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               departmentId: fallbackDeptId,
               domain: ep.domain,
               status: 'IN_USE',
+              assignedToId: custodianId,
+              hasPendingRecord: false,
               notes: ep.notes,
             },
             create: {
@@ -630,11 +1212,36 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               departmentId: fallbackDeptId,
               domain: ep.domain,
               status: 'IN_USE',
+              assignedToId: custodianId,
+              hasPendingRecord: false,
               notes: ep.notes,
             },
           });
           assetMap.set(ep.tag, created.id);
           if (ctx?.assets) ctx.assets.set(ep.tag, created.id);
+
+          if (custodianId) {
+            await prisma.assetHandoverRecord.upsert({
+              where: { id: `rec-handover-${ep.tag.toLowerCase()}` },
+              update: {
+                assetId: created.id,
+                type: HandoverRecordType.ASSIGNMENT,
+                recipientId: custodianId,
+                signedDocUrl: '/api/v1/assets/handover-documents/file/sample-signed-handover.pdf',
+                isPending: false,
+                notes: `Infrastructure deployment handover record for ${ep.notes}`,
+              },
+              create: {
+                id: `rec-handover-${ep.tag.toLowerCase()}`,
+                assetId: created.id,
+                type: HandoverRecordType.ASSIGNMENT,
+                recipientId: custodianId,
+                signedDocUrl: '/api/v1/assets/handover-documents/file/sample-signed-handover.pdf',
+                isPending: false,
+                notes: `Infrastructure deployment handover record for ${ep.notes}`,
+              },
+            });
+          }
         }
       }
 
@@ -642,8 +1249,34 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       const existingAssets = await prisma.asset.findMany({
         where: {
           OR: [
-            { assetTag: { in: ['AST-1009', 'AST-1010', 'AST-1014', 'AST-1017', 'AST-1018', 'AST-1019', 'AST-1035', 'AST-1036'] } },
-            { subcode: { in: ['AST-1009', 'AST-1010', 'AST-1014', 'AST-1017', 'AST-1018', 'AST-1019', 'AST-1035', 'AST-1036'] } },
+            {
+              assetTag: {
+                in: [
+                  'AST-1009',
+                  'AST-1010',
+                  'AST-1014',
+                  'AST-1017',
+                  'AST-1018',
+                  'AST-1019',
+                  'AST-1035',
+                  'AST-1036',
+                ],
+              },
+            },
+            {
+              subcode: {
+                in: [
+                  'AST-1009',
+                  'AST-1010',
+                  'AST-1014',
+                  'AST-1017',
+                  'AST-1018',
+                  'AST-1019',
+                  'AST-1035',
+                  'AST-1036',
+                ],
+              },
+            },
           ],
         },
         select: { id: true, assetTag: true, subcode: true },
@@ -662,20 +1295,92 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
 
       const endpointIpDefs = [
         // 4 Servers
-        { ip: '10.0.20.11', subnetId: srvSubnet?.id || '', vlanId: vlanMap.get(20) || null, tag: 'AST-SRV-01', desc: 'IP for AST-SRV-01' },
-        { ip: '10.0.20.12', subnetId: srvSubnet?.id || '', vlanId: vlanMap.get(20) || null, tag: 'AST-SRV-02', desc: 'IP for AST-SRV-02' },
-        { ip: '10.0.20.13', subnetId: srvSubnet?.id || '', vlanId: vlanMap.get(20) || null, tag: 'AST-SRV-03', desc: 'IP for AST-SRV-03' },
-        { ip: '10.0.20.14', subnetId: srvSubnet?.id || '', vlanId: vlanMap.get(20) || null, tag: 'AST-SRV-04', desc: 'IP for AST-SRV-04' },
+        {
+          ip: '10.0.20.11',
+          subnetId: srvSubnet?.id || '',
+          vlanId: vlanMap.get(20) || null,
+          tag: 'AST-SRV-01',
+          desc: 'IP for AST-SRV-01',
+        },
+        {
+          ip: '10.0.20.12',
+          subnetId: srvSubnet?.id || '',
+          vlanId: vlanMap.get(20) || null,
+          tag: 'AST-SRV-02',
+          desc: 'IP for AST-SRV-02',
+        },
+        {
+          ip: '10.0.20.13',
+          subnetId: srvSubnet?.id || '',
+          vlanId: vlanMap.get(20) || null,
+          tag: 'AST-SRV-03',
+          desc: 'IP for AST-SRV-03',
+        },
+        {
+          ip: '10.0.20.14',
+          subnetId: srvSubnet?.id || '',
+          vlanId: vlanMap.get(20) || null,
+          tag: 'AST-SRV-04',
+          desc: 'IP for AST-SRV-04',
+        },
         // 6 APs
-        { ip: '10.0.30.21', subnetId: corpSubnet?.id || '', vlanId: vlanMap.get(30) || null, tag: 'AST-AP-01', desc: 'IP for AST-AP-01' },
-        { ip: '10.0.30.22', subnetId: corpSubnet?.id || '', vlanId: vlanMap.get(30) || null, tag: 'AST-AP-02', desc: 'IP for AST-AP-02' },
-        { ip: '10.0.30.23', subnetId: corpSubnet?.id || '', vlanId: vlanMap.get(30) || null, tag: 'AST-AP-03', desc: 'IP for AST-AP-03' },
-        { ip: '10.0.30.24', subnetId: corpSubnet?.id || '', vlanId: vlanMap.get(30) || null, tag: 'AST-AP-04', desc: 'IP for AST-AP-04' },
-        { ip: '10.0.30.25', subnetId: corpSubnet?.id || '', vlanId: vlanMap.get(30) || null, tag: 'AST-AP-05', desc: 'IP for AST-AP-05' },
-        { ip: '10.0.30.26', subnetId: corpSubnet?.id || '', vlanId: vlanMap.get(30) || null, tag: 'AST-AP-06', desc: 'IP for AST-AP-06' },
+        {
+          ip: '10.0.30.21',
+          subnetId: corpSubnet?.id || '',
+          vlanId: vlanMap.get(30) || null,
+          tag: 'AST-AP-01',
+          desc: 'IP for AST-AP-01',
+        },
+        {
+          ip: '10.0.30.22',
+          subnetId: corpSubnet?.id || '',
+          vlanId: vlanMap.get(30) || null,
+          tag: 'AST-AP-02',
+          desc: 'IP for AST-AP-02',
+        },
+        {
+          ip: '10.0.30.23',
+          subnetId: corpSubnet?.id || '',
+          vlanId: vlanMap.get(30) || null,
+          tag: 'AST-AP-03',
+          desc: 'IP for AST-AP-03',
+        },
+        {
+          ip: '10.0.30.24',
+          subnetId: corpSubnet?.id || '',
+          vlanId: vlanMap.get(30) || null,
+          tag: 'AST-AP-04',
+          desc: 'IP for AST-AP-04',
+        },
+        {
+          ip: '10.0.30.25',
+          subnetId: corpSubnet?.id || '',
+          vlanId: vlanMap.get(30) || null,
+          tag: 'AST-AP-05',
+          desc: 'IP for AST-AP-05',
+        },
+        {
+          ip: '10.0.30.26',
+          subnetId: corpSubnet?.id || '',
+          vlanId: vlanMap.get(30) || null,
+          tag: 'AST-AP-06',
+          desc: 'IP for AST-AP-06',
+        },
         // 2 NVRs
-        { ip: '172.16.120.10', subnetId: nvrSubnet?.id || '', vlanId: vlanMap.get(120) || null, tag: 'AST-NVR-01', desc: 'IP for AST-NVR-01' },
-        { ip: '172.16.120.11', subnetId: nvrSubnet?.id || '', vlanId: vlanMap.get(120) || null, tag: 'AST-NVR-02', desc: 'IP for AST-NVR-02' },
+        {
+          ip: '172.16.120.10',
+          subnetId: nvrSubnet?.id || '',
+          vlanId: vlanMap.get(120) || null,
+          tag: 'AST-NVR-01',
+          desc: 'IP for AST-NVR-01',
+        },
+        {
+          ip: '172.16.120.11',
+          subnetId: nvrSubnet?.id || '',
+          vlanId: vlanMap.get(120) || null,
+          tag: 'AST-NVR-02',
+          desc: 'IP for AST-NVR-02',
+        },
       ];
 
       // 16 Cameras
@@ -701,7 +1406,13 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               vlanId: eip.vlanId,
               assetId,
               status: 'ASSIGNED',
-              deviceType: eip.tag.startsWith('AST-CAM') ? 'Camera' : eip.tag.startsWith('AST-NVR') ? 'NVR' : eip.tag.startsWith('AST-AP') ? 'Wireless AP' : 'Server',
+              deviceType: eip.tag.startsWith('AST-CAM')
+                ? 'Camera'
+                : eip.tag.startsWith('AST-NVR')
+                  ? 'NVR'
+                  : eip.tag.startsWith('AST-AP')
+                    ? 'Wireless AP'
+                    : 'Server',
               description: eip.desc,
               pingStatus: 'online',
             },
@@ -734,7 +1445,8 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           posYStr,
         ] = row.split('|');
         const role = roleStr as SwitchRole;
-        const domain = domainStr === 'CCTV' ? InfrastructureDomain.CCTV : InfrastructureDomain.NETWORK;
+        const domain =
+          domainStr === 'CCTV' ? InfrastructureDomain.CCTV : InfrastructureDomain.NETWORK;
         const totalPorts = parseInt(portsStr, 10);
         const rackPosition = parseInt(posStr, 10);
         const defaultVlanId = vlanNumStr ? vlanMap.get(parseInt(vlanNumStr, 10)) || null : null;
@@ -806,7 +1518,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
 
       let totalCreatedPorts = 0;
       for (const sw of swResults) {
-        const isPoeSwitch = sw.role === SwitchRole.POE_ACCESS;
         const swDomain = sw.domain;
 
         for (let p = 1; p <= sw.totalPorts; p++) {
@@ -814,14 +1525,12 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           let connectedAssetId: string | null = null;
           let ipAddressId: string | null = null;
           let desc = `Access Port ${p}`;
-          let poeEnabled = isPoeSwitch;
           let adminStatus = statusItem.admin;
           let operStatus = statusItem.oper;
           let speed: string | null = statusItem.oper === 'DOWN' ? null : '1 Gbps';
 
           // Canonical Switch Endpoint Attachments
           if (sw.name === 'SW-CORE-01' || sw.name === 'SW-CORE-02') {
-            poeEnabled = false;
             if (p >= 1 && p <= 4) {
               const srvTag = `AST-SRV-0${p}`;
               connectedAssetId = assetMap.get(srvTag) || null;
@@ -838,7 +1547,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               ipAddressId = mgmtIpMap.get(p === 1 ? '10.0.30.21' : '10.0.30.22') || null;
               adminStatus = 'UP';
               operStatus = 'ACTIVE';
-              poeEnabled = true;
               desc = `Access Point: ${apTag} (Floor 1)`;
             }
           } else if (sw.name === 'SW-ACC-F2-01') {
@@ -848,7 +1556,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               ipAddressId = mgmtIpMap.get(p === 1 ? '10.0.30.23' : '10.0.30.24') || null;
               adminStatus = 'UP';
               operStatus = 'ACTIVE';
-              poeEnabled = true;
               desc = `Access Point: ${apTag} (Floor 2)`;
             }
           } else if (sw.name === 'SW-ACC-WH-01') {
@@ -858,18 +1565,15 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               ipAddressId = mgmtIpMap.get(p === 1 ? '10.0.30.25' : '10.0.30.26') || null;
               adminStatus = 'UP';
               operStatus = 'ACTIVE';
-              poeEnabled = true;
               desc = `Access Point: ${apTag} (Warehouse)`;
             }
           } else if (sw.name === 'SW-CCTV-01') {
-            poeEnabled = true;
             if (p === 1 || p === 2) {
               const nvrTag = p === 1 ? 'AST-NVR-01' : 'AST-NVR-02';
               connectedAssetId = assetMap.get(nvrTag) || null;
               ipAddressId = mgmtIpMap.get(p === 1 ? '172.16.120.10' : '172.16.120.11') || null;
               adminStatus = 'UP';
               operStatus = 'ACTIVE';
-              poeEnabled = false;
               desc = `NVR Storage Array: ${nvrTag}`;
             } else if (p >= 3 && p <= 10) {
               const camIdx = p - 2;
@@ -885,7 +1589,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
                 adminStatus = 'DOWN';
                 operStatus = 'DOWN';
                 speed = null;
-                poeEnabled = false;
                 desc = `CCTV: ${camTag} (Offline)`;
               } else {
                 adminStatus = 'UP';
@@ -894,7 +1597,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               }
             }
           } else if (sw.name === 'SW-CCTV-02') {
-            poeEnabled = true;
             if (p >= 1 && p <= 8) {
               const camIdx = 8 + p;
               const camTag = `AST-CAM-0${camIdx}`;
@@ -915,7 +1617,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
 
           // Legacy Switch Endpoint Attachments
           else if (sw.name === 'BSL-CORE-SW01') {
-            poeEnabled = false;
             if (p === 1 && ast1009Id) {
               connectedAssetId = ast1009Id;
               adminStatus = 'UP';
@@ -932,22 +1633,18 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
               connectedAssetId = ast1014Id;
               adminStatus = 'UP';
               operStatus = 'ACTIVE';
-              poeEnabled = true;
               desc = 'Access Point: Cisco Catalyst AP 9130AX (AST-1014)';
             } else if (p === 2 && ast1035Id) {
               connectedAssetId = ast1035Id;
               adminStatus = 'UP';
               operStatus = 'ACTIVE';
-              poeEnabled = true;
               desc = 'Terminal: Hikvision DS-K1T671MF Face Terminal (AST-1035)';
             }
           } else if (sw.name === 'BSL-CCTV-SW01') {
-            poeEnabled = true;
             if (p === 1 && assetMap.get('AST-NVR-01')) {
               connectedAssetId = assetMap.get('AST-NVR-01') || null;
               adminStatus = 'UP';
               operStatus = 'ACTIVE';
-              poeEnabled = false;
               desc = 'NVR Storage: Hanwha Techwin 64CH Enterprise NVR';
             } else if (p === 2 && assetMap.get('AST-CAM-001')) {
               connectedAssetId = assetMap.get('AST-CAM-001') || null;
@@ -963,7 +1660,6 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
             name: `Gi1/0/${p}`,
             formFactor: 'RJ45_1G',
             domain: swDomain,
-            poeEnabled,
             adminStatus,
             operStatus,
             speed,
@@ -990,14 +1686,14 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
             name: portName,
             formFactor: uplinkFormFactor,
             domain: swDomain,
-            poeEnabled: false,
             adminStatus: 'UP',
             operStatus: 'DOWN', // Will be set to ACTIVE by inter-switch trunk links
             speed: uplinkSpeed,
             duplex: 'Full',
             vlanId: null,
             mode: 'TRUNK',
-            taggedVlanIds: swDomain === InfrastructureDomain.CCTV ? [105, 110, 120] : [10, 20, 30, 40],
+            taggedVlanIds:
+              swDomain === InfrastructureDomain.CCTV ? [105, 110, 120] : [10, 20, 30, 40],
             description: `Dedicated Uplink ${u}`,
           });
         }
@@ -1099,8 +1795,26 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
 
       // Switches in ALL view
       for (const sw of allSwitchRows) {
-        const [name, _m, _v, _s, _mac, _idx, _fw, _role, _dom, _p, _rCode, _pos, _vlan, _a, _l, _n, posXStr, posYStr] =
-          sw.split('|');
+        const [
+          name,
+          _m,
+          _v,
+          _s,
+          _mac,
+          _idx,
+          _fw,
+          _role,
+          _dom,
+          _p,
+          _rCode,
+          _pos,
+          _vlan,
+          _a,
+          _l,
+          _n,
+          posXStr,
+          posYStr,
+        ] = sw.split('|');
         const switchId = switchIdMap.get(name);
         if (switchId && posXStr && posYStr) {
           initialPositions.push({
@@ -1114,70 +1828,71 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       }
 
       // Endpoints in ALL view
-      // 4 Servers (150, 250, 350, 450; y: 40)
+      // 4 Servers (Tier 3: y: 850)
+      const serverAllCoords = [200, 450, 700, 950];
       for (let s = 1; s <= 4; s++) {
         const tag = `AST-SRV-0${s}`;
         const assetId = assetMap.get(tag);
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.SERVER,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.ALL,
-            x: 50 + s * 100,
-            y: 40,
+            x: serverAllCoords[s - 1],
+            y: 850,
           });
         }
       }
 
-      // 6 APs (1000, 1150, 1350, 1500, 1700, 1850; y: 700)
-      const apAllCoords = [1000, 1150, 1350, 1500, 1700, 1850];
+      // 6 APs (Tier 3: y: 850)
+      const apAllCoords = [1200, 1450, 1700, 1950, 2200, 2450];
       for (let a = 1; a <= 6; a++) {
         const tag = `AST-AP-0${a}`;
         const assetId = assetMap.get(tag);
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.ACCESS_POINT,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.ALL,
             x: apAllCoords[a - 1],
-            y: 700,
+            y: 850,
           });
         }
       }
 
-      // 2 NVRs (450, 550; y: 680)
+      // 2 NVRs (Tier 3: y: 850)
       const nvr1Id = assetMap.get('AST-NVR-01');
       if (nvr1Id) {
         initialPositions.push({
           nodeId: nvr1Id,
-          nodeType: TopologyNodeType.NVR,
+          nodeType: TopologyNodeType.ENDPOINT,
           viewMode: TopologyViewMode.ALL,
-          x: 450,
-          y: 680,
+          x: 2700,
+          y: 850,
         });
       }
       const nvr2Id = assetMap.get('AST-NVR-02');
       if (nvr2Id) {
         initialPositions.push({
           nodeId: nvr2Id,
-          nodeType: TopologyNodeType.NVR,
+          nodeType: TopologyNodeType.ENDPOINT,
           viewMode: TopologyViewMode.ALL,
-          x: 550,
-          y: 680,
+          x: 2950,
+          y: 850,
         });
       }
 
-      // 16 Cameras (320 + i*60, y: 720 for 1..8; 650 + i*60, y: 720 for 9..16)
+      // 16 Cameras (Tier 4: y: 1100)
       for (let c = 1; c <= 8; c++) {
         const tag = `AST-CAM-00${c}`;
         const assetId = assetMap.get(tag);
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.CAMERA,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.ALL,
-            x: 320 + c * 60,
-            y: 720,
+            x: 200 + (c - 1) * 250,
+            y: 1100,
           });
         }
       }
@@ -1187,10 +1902,10 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.CAMERA,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.ALL,
-            x: 650 + (c - 8) * 60,
-            y: 720,
+            x: 2200 + (c - 9) * 250,
+            y: 1100,
           });
         }
       }
@@ -1199,18 +1914,18 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       // View Mode: NETWORK (Enterprise Network Perspective)
       // -------------------------------------------------------------
       const networkSwitchPositions: Record<string, { x: number; y: number }> = {
-        'SW-CORE-01': { x: 400, y: 140 },
-        'SW-CORE-02': { x: 800, y: 140 },
-        'SW-DIST-01': { x: 400, y: 340 },
-        'SW-DIST-02': { x: 800, y: 340 },
-        'SW-ACC-F1-01': { x: 250, y: 540 },
-        'SW-ACC-F2-01': { x: 550, y: 540 },
-        'SW-ACC-WH-01': { x: 850, y: 540 },
-        'SW-ACC-WH-02': { x: 1150, y: 540 },
-        'BSL-CORE-SW01': { x: 300, y: 150 },
-        'BSL-DIST-SW01': { x: 600, y: 150 },
-        'BSL-F1-ACC01': { x: 900, y: 150 },
-        'BSL-F1-IDF01': { x: 900, y: 320 },
+        'SW-CORE-01': { x: 450, y: 100 },
+        'SW-CORE-02': { x: 850, y: 100 },
+        'BSL-CORE-SW01': { x: 1250, y: 100 },
+        'SW-DIST-01': { x: 450, y: 350 },
+        'SW-DIST-02': { x: 850, y: 350 },
+        'BSL-DIST-SW01': { x: 1250, y: 350 },
+        'SW-ACC-F1-01': { x: 200, y: 600 },
+        'SW-ACC-F2-01': { x: 500, y: 600 },
+        'SW-ACC-WH-01': { x: 800, y: 600 },
+        'SW-ACC-WH-02': { x: 1100, y: 600 },
+        'BSL-F1-ACC01': { x: 1400, y: 600 },
+        'BSL-F1-IDF01': { x: 1700, y: 600 },
       };
       for (const [swName, pos] of Object.entries(networkSwitchPositions)) {
         const swId = switchIdMap.get(swName);
@@ -1226,32 +1941,32 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       }
 
       // Endpoints in NETWORK view: Servers and APs
-      const serverNetCoords = [250, 450, 750, 950];
+      const serverNetCoords = [300, 550, 800, 1050];
       for (let s = 1; s <= 4; s++) {
         const tag = `AST-SRV-0${s}`;
         const assetId = assetMap.get(tag);
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.SERVER,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.NETWORK,
             x: serverNetCoords[s - 1],
-            y: 40,
+            y: 850,
           });
         }
       }
 
-      const apNetCoords = [200, 300, 500, 600, 800, 900];
+      const apNetCoords = [200, 450, 700, 950, 1200, 1450];
       for (let a = 1; a <= 6; a++) {
         const tag = `AST-AP-0${a}`;
         const assetId = assetMap.get(tag);
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.ACCESS_POINT,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.NETWORK,
             x: apNetCoords[a - 1],
-            y: 720,
+            y: 1100,
           });
         }
       }
@@ -1260,11 +1975,11 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       // View Mode: CCTV (Surveillance Subsystem Perspective)
       // -------------------------------------------------------------
       const cctvSwitchPositions: Record<string, { x: number; y: number }> = {
-        'SW-DIST-02': { x: 600, y: 120 },
-        'SW-CCTV-01': { x: 400, y: 280 },
-        'SW-CCTV-02': { x: 800, y: 280 },
-        'BSL-CCTV-SW01': { x: 400, y: 250 },
-        'BSL-F1-CCTV01': { x: 750, y: 250 },
+        'SW-DIST-02': { x: 650, y: 100 },
+        'SW-CCTV-01': { x: 300, y: 350 },
+        'SW-CCTV-02': { x: 600, y: 350 },
+        'BSL-CCTV-SW01': { x: 900, y: 350 },
+        'BSL-F1-CCTV01': { x: 1200, y: 350 },
       };
       for (const [swName, pos] of Object.entries(cctvSwitchPositions)) {
         const swId = switchIdMap.get(swName);
@@ -1283,19 +1998,19 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
       if (nvr1Id) {
         initialPositions.push({
           nodeId: nvr1Id,
-          nodeType: TopologyNodeType.NVR,
+          nodeType: TopologyNodeType.ENDPOINT,
           viewMode: TopologyViewMode.CCTV,
-          x: 320,
-          y: 460,
+          x: 450,
+          y: 600,
         });
       }
       if (nvr2Id) {
         initialPositions.push({
           nodeId: nvr2Id,
-          nodeType: TopologyNodeType.NVR,
+          nodeType: TopologyNodeType.ENDPOINT,
           viewMode: TopologyViewMode.CCTV,
-          x: 480,
-          y: 460,
+          x: 1050,
+          y: 600,
         });
       }
 
@@ -1305,10 +2020,10 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.CAMERA,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.CCTV,
-            x: 160 + c * 65,
-            y: 650,
+            x: 150 + (c - 1) * 220,
+            y: 850,
           });
         }
       }
@@ -1318,10 +2033,10 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
         if (assetId) {
           initialPositions.push({
             nodeId: assetId,
-            nodeType: TopologyNodeType.CAMERA,
+            nodeType: TopologyNodeType.ENDPOINT,
             viewMode: TopologyViewMode.CCTV,
-            x: 640 + (c - 8) * 65,
-            y: 650,
+            x: 150 + (c - 9) * 220,
+            y: 1050,
           });
         }
       }
@@ -1351,7 +2066,9 @@ export async function seedNetwork(prisma: PrismaClient, ctx?: SeederContext) {
           },
         });
       }
-      logger.log(`Seeded ${initialPositions.length} persistent multi-perspective canvas layout positions.`);
+      logger.log(
+        `Seeded ${initialPositions.length} persistent multi-perspective canvas layout positions.`,
+      );
     },
   );
 }

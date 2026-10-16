@@ -81,9 +81,7 @@ export const TopologyToolbar: React.FC<TopologyToolbarProps> = React.memo(
           {onAutoLayoutHierarchical && (
             <Button onClick={onAutoLayoutHierarchical}>Auto Layout</Button>
           )}
-          {onAutoLayoutRackGrouped && (
-            <Button onClick={onAutoLayoutRackGrouped}>Rack Group</Button>
-          )}
+          {onAutoLayoutRackGrouped && <Button onClick={onAutoLayoutRackGrouped}>Rack Group</Button>}
           {onSaveLayout && (
             <Button
               icon={<SaveOutlined />}

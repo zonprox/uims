@@ -63,13 +63,19 @@ vi.mock('../../../services/api', () => ({
       if (url === '/assets/models') {
         return Promise.resolve({
           data: {
-            data: [
-              {
-                id: 'mod-1',
-                name: 'Dell Latitude 5420',
-                assetCode: 'MOD-DELL-5420',
-              },
-            ],
+            data: {
+              items: [
+                {
+                  id: 'mod-1',
+                  name: 'Dell Latitude 5420',
+                  assetCode: 'MOD-DELL-5420',
+                  modelCode: 'MOD-DELL-5420',
+                },
+              ],
+              total: 1,
+              page: 1,
+              pageSize: 10,
+            },
           },
         });
       }

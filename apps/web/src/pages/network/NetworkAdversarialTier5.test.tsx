@@ -338,7 +338,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
           portNumber: p,
           name: `Gi1/0/${p}`,
           formFactor: 'RJ45_1G',
-          poeEnabled: p % 2 === 1,
           adminStatus: p === 4 ? 'DOWN' : 'UP',
           operStatus,
           speed: '1 Gbps',
@@ -358,7 +357,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
           portNumber: sfpNum,
           name: `Te1/0/${sfpNum}`,
           formFactor: 'SFP_PLUS_10G',
-          poeEnabled: false,
           adminStatus: 'UP',
           operStatus: s <= 2 ? 'ACTIVE' : 'CONNECTED_NO_SIGNAL',
           speed: '10 Gbps',
@@ -406,7 +404,7 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       expect(container.textContent).toContain('No Signal:');
       expect(container.textContent).toContain('Reserved:');
       expect(container.textContent).toContain('Down:');
-      expect(container.textContent).toContain('PoE: 24');
+      expect(container.textContent).not.toContain('PoE');
     });
 
     it('Case 2.2: synthesizes virtual port structure when clicking unconfigured port slot', async () => {
@@ -499,7 +497,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
         portNumber: 5,
         name: 'Gi1/0/5',
         formFactor: 'RJ45_1G',
-        poeEnabled: false,
         mode: 'ACCESS',
         adminStatus: 'UP',
         operStatus: 'ACTIVE',
@@ -589,7 +586,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
       portNumber: 48,
       name: 'Te1/0/48',
       formFactor: 'SFP_PLUS_10G',
-      poeEnabled: false,
       adminStatus: 'UP',
       operStatus: 'ACTIVE',
       speed: '10 Gbps',
@@ -642,7 +638,6 @@ describe('Tier 5 Adversarial Coverage Hardening: Network & IPAM/Asset Interconne
           portNumber: 12,
           name: 'Gi0/12',
           formFactor: 'RJ45_1G',
-          poeEnabled: false,
           adminStatus: 'UP',
           operStatus: 'ACTIVE',
           mode: 'ACCESS',

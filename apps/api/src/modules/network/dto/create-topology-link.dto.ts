@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LinkMediumType, PortMode, PortRole } from '@uims/shared-types';
 import {
   IsArray,
-  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -69,20 +68,9 @@ export class CreateTopologyLinkDto {
   @MaxLength(50)
   speed?: string;
 
-  @ApiPropertyOptional({ description: 'Enable PoE power delivery', default: false })
-  @IsOptional()
-  @IsBoolean()
-  poeEnabled?: boolean;
-
-  @ApiPropertyOptional({ description: 'Alias for PoE delivery (from shared-validators)', default: false })
-  @IsOptional()
-  @IsBoolean()
-  poeDelivering?: boolean;
-
   @ApiPropertyOptional({ description: 'Administrative patch cable label or description' })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   description?: string;
 }
-

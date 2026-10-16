@@ -73,16 +73,18 @@ async function run() {
   );
 
   test('Mode=ALL: Contains at least 5 equipment racks', racks.length >= 5, `found ${racks.length}`);
-  test('Mode=ALL: Contains at least 10 switches', switches.length >= 10, `found ${switches.length}`);
+  test(
+    'Mode=ALL: Contains at least 10 switches',
+    switches.length >= 10,
+    `found ${switches.length}`,
+  );
   test(
     'Mode=ALL: Contains at least 28 endpoints (servers, APs, NVRs, cameras)',
     endpoints.length >= 28,
     `found ${endpoints.length} (servers: ${servers.length}, aps: ${aps.length}, nvrs: ${nvrs.length}, cameras: ${cameras.length})`,
   );
 
-  const trunkEdges = allEdges.filter(
-    (e) => e.linkType === 'UPLINK' || e.portRole === 'UPLINK',
-  );
+  const trunkEdges = allEdges.filter((e) => e.linkType === 'UPLINK' || e.portRole === 'UPLINK');
   test(
     'Mode=ALL: Contains at least 12 inter-switch trunk links',
     trunkEdges.length >= 12,
@@ -103,11 +105,7 @@ async function run() {
 
   // 2c. SpeedMbps verification across 100% of edges in ALL
   const invalidSpeedAll = allEdges.filter((e) => {
-    return (
-      typeof e.speedMbps !== 'number' ||
-      !Number.isFinite(e.speedMbps) ||
-      e.speedMbps <= 0
-    );
+    return typeof e.speedMbps !== 'number' || !Number.isFinite(e.speedMbps) || e.speedMbps <= 0;
   });
   test(
     'Mode=ALL: 100% of edges have valid positive numeric speedMbps',
@@ -133,7 +131,11 @@ async function run() {
 
   const netCameras = netNodes.filter((n) => n.type === 'CAMERA');
   const netNvrs = netNodes.filter((n) => n.type === 'NVR');
-  test('Mode=NETWORK: Cameras are 100% excluded', netCameras.length === 0, `cameras: ${netCameras.length}`);
+  test(
+    'Mode=NETWORK: Cameras are 100% excluded',
+    netCameras.length === 0,
+    `cameras: ${netCameras.length}`,
+  );
   test('Mode=NETWORK: NVRs are 100% excluded', netNvrs.length === 0, `nvrs: ${netNvrs.length}`);
 
   const netEndpoints = netNodes.filter((n) =>
@@ -178,12 +180,24 @@ async function run() {
 
   const cctvServers = cctvNodes.filter((n) => n.type === 'SERVER');
   const cctvAps = cctvNodes.filter((n) => n.type === 'ACCESS_POINT' || n.type === 'AP');
-  test('Mode=CCTV: Servers are 100% excluded', cctvServers.length === 0, `servers: ${cctvServers.length}`);
-  test('Mode=CCTV: Access Points are 100% excluded', cctvAps.length === 0, `aps: ${cctvAps.length}`);
+  test(
+    'Mode=CCTV: Servers are 100% excluded',
+    cctvServers.length === 0,
+    `servers: ${cctvServers.length}`,
+  );
+  test(
+    'Mode=CCTV: Access Points are 100% excluded',
+    cctvAps.length === 0,
+    `aps: ${cctvAps.length}`,
+  );
 
   const cctvCameras = cctvNodes.filter((n) => n.type === 'CAMERA');
   const cctvNvrs = cctvNodes.filter((n) => n.type === 'NVR');
-  test('Mode=CCTV: Cameras are present (>= 15)', cctvCameras.length >= 15, `cameras: ${cctvCameras.length}`);
+  test(
+    'Mode=CCTV: Cameras are present (>= 15)',
+    cctvCameras.length >= 15,
+    `cameras: ${cctvCameras.length}`,
+  );
   test('Mode=CCTV: NVRs are present (>= 2)', cctvNvrs.length >= 2, `nvrs: ${cctvNvrs.length}`);
 
   const cctvSwitches = cctvNodes.filter((n) => n.type === 'SWITCH');
@@ -258,7 +272,8 @@ async function run() {
       totalCameras: data.nodes.filter((n) => n.type === 'CAMERA').length,
       totalNvrs: data.nodes.filter((n) => n.type === 'NVR').length,
       totalServers: data.nodes.filter((n) => n.type === 'SERVER').length,
-      totalAccessPoints: data.nodes.filter((n) => n.type === 'ACCESS_POINT' || n.type === 'AP').length,
+      totalAccessPoints: data.nodes.filter((n) => n.type === 'ACCESS_POINT' || n.type === 'AP')
+        .length,
       totalEdges: data.edges.length,
       activeLinks: data.edges.filter((e) => e.status === 'ACTIVE').length,
       degradedLinks: data.edges.filter((e) => e.status === 'CONNECTED_NO_SIGNAL').length,
@@ -277,7 +292,9 @@ async function run() {
 
   // 7. Query filtering tests
   // 7a. Filter by floor
-  const floorRes = await fetch(`${BASE_URL}/network/topology?floor=Floor%201`, { headers: authHeaders });
+  const floorRes = await fetch(`${BASE_URL}/network/topology?floor=Floor%201`, {
+    headers: authHeaders,
+  });
   test('GET /network/topology?floor=Floor 1 returns 200 OK', floorRes.status === 200);
   const floorData = (await floorRes.json()).data;
   test(
@@ -303,7 +320,9 @@ async function run() {
   // 8. Interactive Patching & Transaction Integrity Stress Tests
   // 8a. Mutual exclusivity guard in link creation: cannot link to both targetPortId and targetAssetId
   const testSwitch = switches[0];
-  const swRes = await fetch(`${BASE_URL}/network/switches/${testSwitch.id}`, { headers: authHeaders });
+  const swRes = await fetch(`${BASE_URL}/network/switches/${testSwitch.id}`, {
+    headers: authHeaders,
+  });
   const swData = (await swRes.json()).data;
   const samplePortA = swData.ports?.[0];
   const samplePortB = swData.ports?.[1];
@@ -373,7 +392,9 @@ async function run() {
   ];
 
   // Dynamically import network.service.ts
-  const { parseSpeedMbps } = await import('../apps/api/src/modules/network/network.service.js').catch(async () => {
+  const { parseSpeedMbps } = await import(
+    '../apps/api/src/modules/network/network.service.js'
+  ).catch(async () => {
     // If not transpilable directly as ESM, evaluate logic directly
     return {
       parseSpeedMbps: (speedStr) => {

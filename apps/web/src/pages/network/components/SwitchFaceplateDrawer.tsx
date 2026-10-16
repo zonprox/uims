@@ -248,23 +248,49 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
           ),
         },
         {
-          title: 'Connected Asset',
-          key: 'asset',
-          render: (_: unknown, record: SwitchPort) =>
-            record.connectedAsset ? (
-              <Flex vertical gap={1}>
-                <Text strong style={{ fontSize: 12 }}>
-                  {record.connectedAsset.name || record.connectedAsset.model}
-                </Text>
-                <Tag color="cyan" style={{ width: 'fit-content', fontSize: 10 }}>
-                  {record.connectedAsset.assetTag}
-                </Tag>
-              </Flex>
-            ) : (
+          title: 'Connected Peer / Asset',
+          key: 'connectedEntity',
+          render: (_: unknown, record: SwitchPort) => {
+            const peer = record.connectedPort || record.peerPort;
+            const peerSwitch = record.connectedSwitch || peer?.switch;
+            if (peer || peerSwitch) {
+              const switchName = peerSwitch?.name || 'Peer Switch';
+              const portName =
+                peer?.name || (peer?.portNumber ? `Port ${peer.portNumber}` : 'Uplink');
+              return (
+                <Flex vertical gap={1}>
+                  <Flex align="center" gap={4}>
+                    <Tag color="purple" style={{ margin: 0, fontSize: 10.5 }}>
+                      {switchName}
+                    </Tag>
+                    <Text strong code style={{ fontSize: 11 }}>
+                      {portName}
+                    </Text>
+                  </Flex>
+                  <Text type="secondary" style={{ fontSize: 10 }}>
+                    Inter-Switch Trunk Link
+                  </Text>
+                </Flex>
+              );
+            }
+            if (record.connectedAsset) {
+              return (
+                <Flex vertical gap={1}>
+                  <Text strong style={{ fontSize: 12 }}>
+                    {record.connectedAsset.name || record.connectedAsset.model}
+                  </Text>
+                  <Tag color="cyan" style={{ width: 'fit-content', fontSize: 10 }}>
+                    {record.connectedAsset.assetTag}
+                  </Tag>
+                </Flex>
+              );
+            }
+            return (
               <Text type="secondary" style={{ fontSize: 12 }}>
                 —
               </Text>
-            ),
+            );
+          },
         },
         {
           title: 'Linked IP',

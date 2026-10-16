@@ -383,7 +383,6 @@ describe('Challenger M1: Adversarial Switch Validation & Port Generation Suite',
         formFactor: 'RJ45_1G',
         mode: 'ACCESS',
         speed: '1 Gbps',
-        poeEnabled: true,
         adminStatus: 'UP',
         operStatus: 'DOWN',
       });
@@ -394,7 +393,6 @@ describe('Challenger M1: Adversarial Switch Validation & Port Generation Suite',
         formFactor: 'RJ45_1G',
         mode: 'ACCESS',
         speed: '1 Gbps',
-        poeEnabled: true,
       });
     });
 
@@ -411,7 +409,6 @@ describe('Challenger M1: Adversarial Switch Validation & Port Generation Suite',
           name: `Gi1/0/${i + 1}`,
           formFactor: 'RJ45_1G',
           mode: 'ACCESS',
-          poeEnabled: true,
           speed: '1 Gbps',
         });
       }
@@ -422,7 +419,6 @@ describe('Challenger M1: Adversarial Switch Validation & Port Generation Suite',
         name: 'Uplink 1',
         formFactor: 'RJ45_1G',
         mode: 'TRUNK',
-        poeEnabled: false,
         speed: '1 Gbps',
       });
       expect(ports[9]).toMatchObject({
@@ -430,7 +426,6 @@ describe('Challenger M1: Adversarial Switch Validation & Port Generation Suite',
         name: 'Uplink 2',
         formFactor: 'RJ45_1G',
         mode: 'TRUNK',
-        poeEnabled: false,
         speed: '1 Gbps',
       });
 
@@ -440,7 +435,6 @@ describe('Challenger M1: Adversarial Switch Validation & Port Generation Suite',
         name: 'SFP 1',
         formFactor: 'SFP_PLUS_10G',
         mode: 'TRUNK',
-        poeEnabled: false,
         speed: '10 Gbps',
       });
       expect(ports[11]).toMatchObject({
@@ -448,7 +442,6 @@ describe('Challenger M1: Adversarial Switch Validation & Port Generation Suite',
         name: 'SFP 2',
         formFactor: 'SFP_PLUS_10G',
         mode: 'TRUNK',
-        poeEnabled: false,
         speed: '10 Gbps',
       });
     });

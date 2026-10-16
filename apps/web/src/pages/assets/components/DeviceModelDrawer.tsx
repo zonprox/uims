@@ -47,7 +47,7 @@ export const DeviceModelDrawer: React.FC<DeviceModelDrawerProps> = React.memo(
       if (open) {
         if (editingModel) {
           form.setFieldsValue({
-            assetCode: editingModel.assetCode || editingModel.tag,
+            assetCode: editingModel.modelCode || editingModel.assetCode || editingModel.tag,
             name: editingModel.name,
             manufacturer: editingModel.manufacturer,
             model: editingModel.model,
@@ -73,8 +73,10 @@ export const DeviceModelDrawer: React.FC<DeviceModelDrawerProps> = React.memo(
         const values = await form.validateFields();
         setSubmitting(true);
 
+        const code = (values.modelCode || values.assetCode || '').trim().toUpperCase();
         const payload = {
-          assetCode: (values.assetCode || '').trim().toUpperCase(),
+          modelCode: code,
+          assetCode: code,
           name: (values.name || '').trim(),
           manufacturer: values.manufacturer ? values.manufacturer.trim() : undefined,
           model: values.model ? values.model.trim() : undefined,

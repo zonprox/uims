@@ -21,8 +21,8 @@ export const licenseRows: string[] = [
   // 3. Depleted Cloud Subscription (100% utilized: 12 of 12 seats allocated)
   `lic-figma|Figma Organization Enterprise|Figma|ven-figma|SUBSCRIPTION|12|540|${relativeDateStr(-300)}|${relativeDateStr(65)}|FIG-ORG-YON-9912-3341-ENT|Enterprise apparel UX design, pattern collaboration and brand assets.|binh.tran@youngonevn.com,nam.pham@youngonevn.com,thu.le@youngonevn.com,huy.nguyen@youngonevn.com,kim.vo@youngonevn.com,tri.doan@youngonevn.com,phong.dang@youngonevn.com,lan.nguyen@youngonevn.com,ngoc.vu@youngonevn.com,phuong.bui@youngonevn.com,kien.le@youngonevn.com,son.huynh@youngonevn.com|ACTIVE|true`,
 
-  // 4. Overallocated Cloud Subscription (112.5% utilized: 9 of 8 seats allocated - triggers overallocation warning)
-  `lic-jetbrains|JetBrains All Products Pack|JetBrains|ven-jetbrains|SUBSCRIPTION|8|680|${relativeDateStr(-200)}|${relativeDateStr(165)}|JB-APP-BSL-2024-8849-DEV|IDE developer licenses for industrial automation and systems development.|phong.dang@youngonevn.com,kien.le@youngonevn.com,nam.pham@youngonevn.com,son.huynh@youngonevn.com,bao.pham@youngonevn.com,long.vu@youngonevn.com,son.bui@youngonevn.com,minh.nguyen@youngonevn.com,admin@youngonevn.com|ACTIVE|true`,
+  // 4. Enterprise Cloud Subscription (90% utilized: 9 of 10 seats allocated)
+  `lic-jetbrains|JetBrains All Products Pack|JetBrains|ven-jetbrains|SUBSCRIPTION|10|680|${relativeDateStr(-200)}|${relativeDateStr(165)}|JB-APP-BSL-2024-8849-DEV|IDE developer licenses for industrial automation and systems development.|phong.dang@youngonevn.com,kien.le@youngonevn.com,nam.pham@youngonevn.com,son.huynh@youngonevn.com,bao.pham@youngonevn.com,long.vu@youngonevn.com,son.bui@youngonevn.com,minh.nguyen@youngonevn.com,admin@youngonevn.com|ACTIVE|true`,
 
   // 5. Expired Commercial License (status: EXPIRED, expiryDate in past, autoRenew: false)
   `lic-autodesk|Autodesk AutoCAD Commercial|Autodesk Inc|ven-autodesk|SUBSCRIPTION|10|1850|${relativeDateStr(-730)}|${relativeDateStr(-60)}|ADSK-ACAD-2023-8821-EXP|Legacy drafting seat quota. Decommissioned after migration to Lectra Modaris platform.||EXPIRED|false`,

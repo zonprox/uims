@@ -40,9 +40,11 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
     }
 
     // Strict AGENTS.md §8 cleanup: clear stray portal DOM elements
-    document.querySelectorAll('.ant-modal-root, .ant-drawer, .ant-popover, .ant-message').forEach((el) => {
-      el.remove();
-    });
+    document
+      .querySelectorAll('.ant-modal-root, .ant-drawer, .ant-popover, .ant-message')
+      .forEach((el) => {
+        el.remove();
+      });
 
     // Invariant: zero unhandled promise rejections
     expect(unhandledRejections).toEqual([]);
@@ -194,45 +196,49 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
 
       // Check active (green #10b981) vs inactive (#cbd5e1) ratio
       const activeLeds = Array.from(leds || []).filter((c) => c.getAttribute('fill') === '#10b981');
-      const inactiveLeds = Array.from(leds || []).filter((c) => c.getAttribute('fill') === '#cbd5e1');
+      const inactiveLeds = Array.from(leds || []).filter(
+        (c) => c.getAttribute('fill') === '#cbd5e1',
+      );
 
       // 24 / 48 = 0.5 * 8 = 4 active LEDs
       expect(activeLeds.length).toBe(4);
       expect(inactiveLeds.length).toBe(4);
     });
 
-    it('empirically renders PoE budget in all three modes: poePowerWatts, poeActivePorts, and PoE Ready', async () => {
-      const swWithWatts: TopologyNode = {
-        id: 'sw-poe-watts',
-        label: 'SW-POE-W',
+    it('empirically renders active ports capacity telemetry on switches and zero PoE strings', async () => {
+      const swWithPorts: TopologyNode = {
+        id: 'sw-capacity-01',
+        label: 'SW-DIST-01',
         type: 'SWITCH',
-        role: 'POE_ACCESS',
+        role: 'DISTRIBUTION',
         status: 'ONLINE',
-        domain: 'CCTV',
-        poePowerWatts: 245.6,
+        domain: 'NETWORK',
+        activePorts: 18,
+        totalPorts: 24,
         x: 0,
         y: 0,
       };
 
-      const swWithPorts: TopologyNode = {
-        id: 'sw-poe-ports',
-        label: 'SW-POE-P',
+      const swCore: TopologyNode = {
+        id: 'sw-core-01',
+        label: 'SW-CORE-01',
         type: 'SWITCH',
-        role: 'POE_ACCESS',
+        role: 'CORE',
         status: 'ONLINE',
-        domain: 'CCTV',
-        poeActivePorts: 12,
+        domain: 'NETWORK',
+        activePorts: 40,
+        totalPorts: 48,
         x: 250,
         y: 0,
       };
 
-      const swReady: TopologyNode = {
-        id: 'sw-poe-ready',
-        label: 'SW-POE-R',
+      const swDefault: TopologyNode = {
+        id: 'sw-access-01',
+        label: 'SW-ACC-01',
         type: 'SWITCH',
-        role: 'POE_ACCESS',
+        role: 'ACCESS',
         status: 'ONLINE',
-        domain: 'CCTV',
+        domain: 'NETWORK',
         x: 500,
         y: 0,
       };
@@ -246,17 +252,17 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
             'svg',
             null,
             createElement(TopologyNodeItem, {
-              node: swWithWatts,
-              onSelect: vi.fn(),
-              onDragStart: vi.fn(),
-            }),
-            createElement(TopologyNodeItem, {
               node: swWithPorts,
               onSelect: vi.fn(),
               onDragStart: vi.fn(),
             }),
             createElement(TopologyNodeItem, {
-              node: swReady,
+              node: swCore,
+              onSelect: vi.fn(),
+              onDragStart: vi.fn(),
+            }),
+            createElement(TopologyNodeItem, {
+              node: swDefault,
               onSelect: vi.fn(),
               onDragStart: vi.fn(),
             }),
@@ -264,15 +270,20 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
         );
       });
 
-      const elWatts = container.querySelector('[data-testid="topology-node-switch-sw-poe-watts"]');
-      expect(elWatts?.textContent).toContain('⚡ 246W / 370W PoE');
+      const elDist = container.querySelector('[data-testid="topology-node-switch-sw-capacity-01"]');
+      expect(elDist?.textContent).toContain('18/24 Ports Active · DISTRIBUTION');
+      expect(elDist?.textContent).not.toContain('⚡');
+      expect(elDist?.textContent).not.toContain('PoE');
 
-      const elPorts = container.querySelector('[data-testid="topology-node-switch-sw-poe-ports"]');
-      // 12 * 15.4 = 184.8 -> 185W
-      expect(elPorts?.textContent).toContain('⚡ 185W PoE');
+      const elCore = container.querySelector('[data-testid="topology-node-switch-sw-core-01"]');
+      expect(elCore?.textContent).toContain('40/48 Ports Active · CORE');
+      expect(elCore?.textContent).not.toContain('⚡');
 
-      const elReady = container.querySelector('[data-testid="topology-node-switch-sw-poe-ready"]');
-      expect(elReady?.textContent).toContain('⚡ PoE Ready (370W)');
+      const elDefault = container.querySelector(
+        '[data-testid="topology-node-switch-sw-access-01"]',
+      );
+      expect(elDefault?.textContent).toContain('0/24 Ports Active · ACCESS');
+      expect(elDefault?.textContent).not.toContain('⚡');
     });
   });
 
@@ -324,13 +335,16 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
         );
       });
 
-      const elActive = container.querySelector('[data-testid="topology-node-camera-cam-active-01"]');
+      const elActive = container.querySelector(
+        '[data-testid="topology-node-camera-cam-active-01"]',
+      );
       expect(elActive).toBeTruthy();
       expect(elActive?.textContent).toContain('CCTV · IP CAMERA');
       expect(elActive?.textContent).toContain('CAM-LOBBY-4K');
       expect(elActive?.textContent).toContain('10.10.80.101 · Uniview 4K Bullet');
       expect(elActive?.textContent).toContain('4K Ultra HD · ● Active');
-      expect(elActive?.textContent).toContain('⚡ 15.4W · Lobby Ground Floor');
+      expect(elActive?.textContent).toContain('Floor: Lobby Ground Floor');
+      expect(elActive?.textContent).not.toContain('⚡');
 
       const elDown = container.querySelector('[data-testid="topology-node-camera-cam-down-01"]');
       expect(elDown).toBeTruthy();
@@ -379,7 +393,7 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
     });
   });
 
-  describe('Invariant 5: Edge Component Gold PoE Badge (⚡) & Speed Pill', () => {
+  describe('Invariant 5: Edge Component Explicit Port-to-Port Labels & Dynamic Speed Pill', () => {
     const srcNode: TopologyNode = {
       id: 'src-sw',
       label: 'SW-SRC',
@@ -400,15 +414,15 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
       y: 300,
     };
 
-    it('renders gold PoE badge (⚡) when poeDelivering = true', async () => {
-      const edgePoeDelivering: TopologyEdge = {
-        id: 'edge-poe-delivering',
+    it('renders explicit port-to-port label for endpoint link with dynamic pill and clean white fill', async () => {
+      const edgeEndpoint: TopologyEdge = {
+        id: 'edge-cam-endpoint',
         source: 'src-sw',
         target: 'tgt-cam',
         status: 'ACTIVE',
         speed: '1 Gbps',
-        poeDelivering: true,
-        poeEnabled: false, // poeDelivering alone triggers PoE badge
+        sourcePortName: 'Gi1/0/5',
+        targetPortName: 'eth0',
       };
 
       const root = createRoot(container);
@@ -420,7 +434,7 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
             'svg',
             null,
             createElement(TopologyEdgeItem, {
-              edge: edgePoeDelivering,
+              edge: edgeEndpoint,
               sourceNode: srcNode,
               targetNode: tgtNode,
             }),
@@ -428,26 +442,42 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
         );
       });
 
-      const edgeEl = container.querySelector('[data-testid="topology-edge-edge-poe-delivering"]');
+      const edgeEl = container.querySelector('[data-testid="topology-edge-edge-cam-endpoint"]');
       expect(edgeEl).toBeTruthy();
 
-      // Text contains ⚡ prefix and speed
-      expect(edgeEl?.textContent).toContain('⚡ 1 Gbps');
+      // Text contains explicit port mapping and speed without ⚡
+      expect(edgeEl?.textContent).toContain('Gi1/0/5 → eth0 · 1 Gbps');
+      expect(edgeEl?.textContent).not.toContain('⚡');
 
-      // Verify gold pill styling: fill="#fefce8", stroke="#eab308"
-      const pillRect = edgeEl?.querySelector('rect[fill="#fefce8"]');
+      // Verify clean white pill styling: fill="#ffffff"
+      const pillRect = edgeEl?.querySelector('rect[fill="#ffffff"]');
       expect(pillRect).toBeTruthy();
-      expect(pillRect?.getAttribute('stroke')).toBe('#eab308');
+
+      // Verify SVG title tooltip
+      const titleEl = edgeEl?.querySelector('title');
+      expect(titleEl?.textContent).toContain('SW-SRC [Gi1/0/5] ↔ CAM-TGT [eth0]');
+      expect(titleEl?.textContent).toContain('Speed: 1 Gbps');
     });
 
-    it('renders gold PoE badge (⚡) when poeEnabled = true', async () => {
-      const edgePoeEnabled: TopologyEdge = {
-        id: 'edge-poe-enabled',
+    it('renders explicit port-to-port label for trunk link between switches', async () => {
+      const tgtSwitch: TopologyNode = {
+        id: 'tgt-sw',
+        label: 'SW-TGT',
+        type: 'SWITCH',
+        status: 'ONLINE',
+        domain: 'NETWORK',
+        x: 400,
+        y: 100,
+      };
+
+      const edgeTrunk: TopologyEdge = {
+        id: 'edge-sw-trunk',
         source: 'src-sw',
-        target: 'tgt-cam',
+        target: 'tgt-sw',
         status: 'ACTIVE',
-        speed: '1 Gbps',
-        poeEnabled: true,
+        speed: '10 Gbps',
+        sourcePortName: 'Te1/0/49',
+        targetPortName: 'Te1/0/1',
       };
 
       const root = createRoot(container);
@@ -459,20 +489,21 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
             'svg',
             null,
             createElement(TopologyEdgeItem, {
-              edge: edgePoeEnabled,
+              edge: edgeTrunk,
               sourceNode: srcNode,
-              targetNode: tgtNode,
+              targetNode: tgtSwitch,
             }),
           ),
         );
       });
 
-      const edgeEl = container.querySelector('[data-testid="topology-edge-edge-poe-enabled"]');
+      const edgeEl = container.querySelector('[data-testid="topology-edge-edge-sw-trunk"]');
       expect(edgeEl).toBeTruthy();
-      expect(edgeEl?.textContent).toContain('⚡ 1 Gbps');
-      const pillRect = edgeEl?.querySelector('rect[fill="#fefce8"]');
+      expect(edgeEl?.textContent).toContain('Te1/0/49 ↔ Te1/0/1 · 10 Gbps');
+      expect(edgeEl?.textContent).not.toContain('⚡');
+
+      const pillRect = edgeEl?.querySelector('rect[fill="#ffffff"]');
       expect(pillRect).toBeTruthy();
-      expect(pillRect?.getAttribute('stroke')).toBe('#eab308');
     });
 
     it('renders non-PoE standard speed pill with transparent 14px click hit target', async () => {
@@ -568,7 +599,15 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
                 null,
                 createElement(NetworkTopologyCanvas, {
                   nodes: [
-                    { id: `node-${i}`, label: `Node ${i}`, type: 'SWITCH' as const, status: 'ONLINE' as const, domain: 'NETWORK' as const, x: 0, y: 0 },
+                    {
+                      id: `node-${i}`,
+                      label: `Node ${i}`,
+                      type: 'SWITCH' as const,
+                      status: 'ONLINE' as const,
+                      domain: 'NETWORK' as const,
+                      x: 0,
+                      y: 0,
+                    },
                   ],
                   edges: [],
                   onSelectNode: vi.fn(),
@@ -625,7 +664,15 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
               null,
               createElement(NetworkTopologyCanvas, {
                 nodes: [
-                  { id: 'node-sw1', label: 'SW1', type: 'SWITCH' as const, status: 'ONLINE' as const, domain: 'NETWORK' as const, x: 0, y: 0 },
+                  {
+                    id: 'node-sw1',
+                    label: 'SW1',
+                    type: 'SWITCH' as const,
+                    status: 'ONLINE' as const,
+                    domain: 'NETWORK' as const,
+                    x: 0,
+                    y: 0,
+                  },
                 ],
                 edges: [],
                 onSelectNode: vi.fn(),
@@ -635,7 +682,9 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
         );
       });
 
-      const canvasContainer = container.querySelector('[data-testid="topology-canvas"]')?.parentElement;
+      const canvasContainer = container.querySelector(
+        '[data-testid="topology-canvas"]',
+      )?.parentElement;
       expect(canvasContainer?.style.height).toBe('calc(100vh - 320px)');
       const fsBtn = container.querySelector('.anticon-fullscreen')?.closest('button');
       expect(fsBtn).toBeTruthy();
@@ -661,7 +710,9 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
       const root = createRoot(container);
       currentRoot = root;
 
-      HTMLElement.prototype.requestFullscreen = vi.fn().mockRejectedValue(new Error('Fullscreen denied'));
+      HTMLElement.prototype.requestFullscreen = vi
+        .fn()
+        .mockRejectedValue(new Error('Fullscreen denied'));
 
       await act(async () => {
         root.render(
@@ -673,7 +724,15 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
               null,
               createElement(NetworkTopologyCanvas, {
                 nodes: [
-                  { id: 'node-sw1', label: 'SW1', type: 'SWITCH' as const, status: 'ONLINE' as const, domain: 'NETWORK' as const, x: 0, y: 0 },
+                  {
+                    id: 'node-sw1',
+                    label: 'SW1',
+                    type: 'SWITCH' as const,
+                    status: 'ONLINE' as const,
+                    domain: 'NETWORK' as const,
+                    x: 0,
+                    y: 0,
+                  },
                 ],
                 edges: [],
                 onSelectNode: vi.fn(),
@@ -683,7 +742,9 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
         );
       });
 
-      const canvasContainer = container.querySelector('[data-testid="topology-canvas"]')?.parentElement;
+      const canvasContainer = container.querySelector(
+        '[data-testid="topology-canvas"]',
+      )?.parentElement;
       const fsBtn = container.querySelector('.anticon-fullscreen')?.closest('button');
 
       await act(async () => {
@@ -697,4 +758,3 @@ describe('Adversarial Challenge: Topology Node/Edge Invariants & Teardown Rigor'
     });
   });
 });
-

@@ -289,7 +289,9 @@ vi.mock('../../services/network.service', async (importOriginal) => {
           },
         ],
         edges: [],
-        racks: [{ id: 'rack-1', name: 'RCK-MDF-01', code: 'RCK-01', status: 'ACTIVE', switchCount: 1 }],
+        racks: [
+          { id: 'rack-1', name: 'RCK-MDF-01', code: 'RCK-01', status: 'ACTIVE', switchCount: 1 },
+        ],
         vlans: [],
         subnets: [],
         metrics: {
@@ -304,7 +306,6 @@ vi.mock('../../services/network.service', async (importOriginal) => {
           activeLinks: 0,
           degradedLinks: 0,
           downLinks: 0,
-          poePowerUsageWatts: 0,
           onlinePercentage: 100,
         },
       }),

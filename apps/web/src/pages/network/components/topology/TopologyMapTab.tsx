@@ -2,6 +2,7 @@ import {
   ApartmentOutlined,
   CloudServerOutlined,
   EyeOutlined,
+  FilePdfOutlined,
   PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
@@ -20,6 +21,7 @@ import { networkService } from '../../../../services/network.service';
 import { useTopologyStore } from '../../../../stores/topology.store';
 import { formatErrorMessage } from '../../../../utils/feedback';
 import { AssetDetailDrawer } from '../../../assets/components/AssetDetailDrawer';
+import { exportTopologyPdf } from '../../utils/exportTopologyPdf';
 import { PortConfigDrawer } from '../PortConfigDrawer';
 import { RackElevationDrawer } from '../RackElevationDrawer';
 import { SwitchFaceplateDrawer } from '../SwitchFaceplateDrawer';
@@ -27,12 +29,7 @@ import { CablePatchModal } from './CablePatchModal';
 import { NetworkTopologyCanvas } from './NetworkTopologyCanvas';
 import { TopologySummaryBar } from './TopologySummaryBar';
 import { calculateHierarchicalLayout, calculateRackGroupLayout } from './topologyLayout.util';
-import type {
-  NetworkTopologyGraph,
-  TopologyEdge,
-  TopologyNode,
-  TopologyViewMode,
-} from './types';
+import type { NetworkTopologyGraph, TopologyEdge, TopologyNode, TopologyViewMode } from './types';
 import { useSaveTopologyLayoutMutation, useTopologyGraph } from './useTopologyQuery';
 
 const { Text } = Typography;
@@ -50,21 +47,18 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
     const { message } = App.useApp();
 
     // Zustand global topology store
-    const {
-      viewMode,
-      setViewMode,
-      filters,
-      setFilter,
-      searchQuery,
-      setSearchQuery,
-    } = useTopologyStore();
+    const { viewMode, setViewMode, filters, setFilter, searchQuery, setSearchQuery } =
+      useTopologyStore();
 
     // TanStack Query for authoritative backend topology data
     const {
       data: topologyData,
       isLoading,
       refetch,
-    } = useTopologyGraph(viewMode as TopologyViewMode, filters as Record<string, string | undefined>);
+    } = useTopologyGraph(
+      viewMode as TopologyViewMode,
+      filters as Record<string, string | undefined>,
+    );
 
     // Layout mutation
     const saveLayoutMutation = useSaveTopologyLayoutMutation();
@@ -96,14 +90,17 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
           domain: e.domain as TopologyEdge['domain'],
         }));
 
-        const racks: NetworkRack[] = (topologyData.racks || []).map((r) => ({
-          id: r.id,
-          name: r.name,
-          code: r.code,
-          status: r.status,
-          positionX: r.positionX,
-          positionY: r.positionY,
-        } as NetworkRack));
+        const racks: NetworkRack[] = (topologyData.racks || []).map(
+          (r) =>
+            ({
+              id: r.id,
+              name: r.name,
+              code: r.code,
+              status: r.status,
+              positionX: r.positionX,
+              positionY: r.positionY,
+            }) as NetworkRack,
+        );
 
         setGraphData({
           nodes,
@@ -116,8 +113,6 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
             totalEdges: topologyData.metrics?.totalEdges ?? edges.length,
             activeLinks: topologyData.metrics?.activeLinks ?? edges.length,
             downLinks: topologyData.metrics?.downLinks ?? 0,
-            poePowerLinks: topologyData.metrics?.poePowerUsageWatts ?? 0,
-            poePowerUsageWatts: topologyData.metrics?.poePowerUsageWatts ?? 0,
             cameraCount: topologyData.metrics?.totalCameras ?? 0,
             switchCount: topologyData.metrics?.totalSwitches ?? 0,
           },
@@ -187,11 +182,7 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
     // Auto-Layout: Rack-Grouped
     const handleAutoLayoutRackGrouped = useCallback(() => {
       if (!graphData) return;
-      const positions = calculateRackGroupLayout(
-        graphData.nodes,
-        graphData.edges,
-        graphData.racks,
-      );
+      const positions = calculateRackGroupLayout(graphData.nodes, graphData.edges, graphData.racks);
       setGraphData((prev) => {
         if (!prev) return prev;
         const nodes = prev.nodes.map((n) => (positions[n.id] ? { ...n, ...positions[n.id] } : n));
@@ -264,6 +255,21 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
       [message],
     );
 
+    const handleExportPdf = useCallback(() => {
+      if (!graphData) return;
+      try {
+        exportTopologyPdf({
+          nodes: graphData.nodes,
+          edges: graphData.edges,
+          viewMode: viewMode as TopologyViewMode,
+          metrics: topologyData?.metrics || topologyData?.summaryMetrics,
+        });
+        message.success('Network topology PDF exported successfully');
+      } catch (err: unknown) {
+        message.error(formatErrorMessage(err, 'export topology PDF'));
+      }
+    }, [graphData, viewMode, topologyData, message]);
+
     return (
       <Card
         styles={{ body: { padding: '16px' } }}
@@ -328,7 +334,6 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
                       { label: 'Core', value: 'CORE' },
                       { label: 'Distribution', value: 'DISTRIBUTION' },
                       { label: 'Access', value: 'ACCESS' },
-                      { label: 'PoE Access', value: 'POE_ACCESS' },
                     ]}
                     data-testid="topology-role-filter"
                   />
@@ -392,10 +397,7 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
               >
                 Auto Layout
               </Button>
-              <Button
-                onClick={handleAutoLayoutRackGrouped}
-                data-testid="auto-layout-rack-button"
-              >
+              <Button onClick={handleAutoLayoutRackGrouped} data-testid="auto-layout-rack-button">
                 Rack Group
               </Button>
               <Button
@@ -405,6 +407,13 @@ export const TopologyMapTab: React.FC<TopologyMapTabProps> = React.memo(
                 data-testid="patch-cable-button"
               >
                 Patch Cable
+              </Button>
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={handleExportPdf}
+                data-testid="export-topology-pdf-button"
+              >
+                Export PDF
               </Button>
               <Button
                 icon={<ReloadOutlined spin={isLoading} />}

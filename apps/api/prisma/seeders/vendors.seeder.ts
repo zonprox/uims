@@ -24,6 +24,21 @@ const vendorRows: string[] = [
   'ven-apple|Apple Inc|business@apple.com|+1-800-692-7753|https://apple.com|Executive MacBook Pro, iPad and mobile hardware ecosystem.|apple,apple inc',
   'ven-juki|Juki Corporation|sewing-support@juki.com|+81-42-357-2211|https://juki.co.jp|Industrial high-speed lockstitch, overlock sewing machines and automated sewing units.|juki,juki corporation,juki vietnam',
   'ven-brother|Brother Industries|machinery@brother.com|+81-52-824-2511|https://brother.com|Industrial automated embroidery machinery, buttonholers and garment sewing technology.|brother,brother industries',
+  'ven-hp|HP Inc|support@hp.com|+1-800-474-6836|https://hp.com|Enterprise multifunction printers, scanners, and client computing systems.|hp,hp inc,hewlett packard,hp inc.',
+  'ven-hpe|Hewlett Packard Enterprise|contact@hpe.com|+1-800-607-3567|https://hpe.com|Enterprise rackmount servers, ProLiant compute, and data center infrastructure.|hpe,hewlett packard enterprise',
+  'ven-aruba|Aruba Networks|aruba-support@hpe.com|+1-800-943-4526|https://arubanetworks.com|Enterprise edge switching, campus Wi-Fi 6, and secure network access control.|aruba,aruba networks,aruba a hewlett packard enterprise company',
+  'ven-fortinet|Fortinet Inc|support@fortinet.com|+1-866-868-3678|https://fortinet.com|Next-generation firewalls, FortiGate security appliances, and enterprise threat protection.|fortinet,fortinet inc',
+  'ven-zebra|Zebra Technologies|support@zebra.com|+1-877-275-9327|https://zebra.com|Industrial thermal barcode printers, RFID readers, and rugged handheld terminals.|zebra,zebra technologies',
+  'ven-synology|Synology Inc|support@synology.com|+1-425-818-1587|https://synology.com|Network Attached Storage (NAS), enterprise backup targets, and storage solutions.|synology,synology inc',
+  'ven-schneider|Schneider Electric / APC|support@se.com|+1-800-788-5414|https://se.com|Uninterruptible power supplies (UPS), Smart-UPS RT, and data center power distribution.|schneider,schneider electric,apc,schneider electric / apc',
+  'ven-honeywell|Honeywell International|support@honeywell.com|+1-800-582-4263|https://honeywell.com|Industrial handheld 2D barcode imagers and warehouse scanning solutions.|honeywell,honeywell international',
+  'ven-hikvision|Hikvision Digital Technology|support@hikvision.com|+86-571-8807-5998|https://hikvision.com|Enterprise CCTV surveillance, 4K dome/bullet cameras, and biometric access control.|hikvision,hikvision digital technology',
+  'ven-hanwha|Hanwha Vision|support@hanwhavision.com|+82-70-7147-8771|https://hanwhavision.com|Enterprise IP surveillance cameras, optical PTZ systems, and multi-channel NVRs.|hanwha,hanwha techwin,hanwha vision',
+  'ven-axis|Axis Communications|support@axis.com|+46-46-272-1800|https://axis.com|High-performance network video surveillance, dome cameras, and outdoor PTZ cameras.|axis,axis communications',
+  'ven-lg|LG Electronics|support@lg.com|+1-800-243-0000|https://lg.com|Commercial 4K Ultra HD IPS displays, industrial monitors, and workspace screens.|lg,lg electronics',
+  'ven-jetbrains|JetBrains s.r.o.|sales@jetbrains.com|+420-241-722-501|https://jetbrains.com|Integrated Development Environments (IDEs), developer tools, and team productivity software.|jetbrains,jetbrains s.r.o.,ven-jetbrains',
+  'ven-figma|Figma Inc|support@figma.com|+1-800-344-6201|https://figma.com|Collaborative cloud design platform, UI/UX prototyping, and design systems.|figma,figma inc,ven-figma',
+  'ven-autodesk|Autodesk Inc|support@autodesk.com|+1-844-664-8618|https://autodesk.com|Computer-aided design (CAD), architectural drafting, and technical engineering software.|autodesk,autodesk inc,ven-autodesk',
 ];
 
 export const CANONICAL_VENDORS: CanonicalVendorDefinition[] = vendorRows.map((r) => {

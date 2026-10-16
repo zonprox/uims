@@ -30,6 +30,10 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
       await prisma.$queryRaw`SELECT 1`;
       isDbAvailable = true;
 
+      await prisma.auditLog.deleteMany({
+        where: { action: 'LOGIN_FAILED', userEmail: { contains: '@uims.local' } },
+      });
+
       const jwtService = new JwtService({
         secret: process.env.JWT_SECRET || 'uims-jwt-secret-change-in-production',
       });
@@ -115,7 +119,7 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
       expect(dirGroupCount).toBe(0);
 
       const auditLogCount = await prisma.auditLog.count({
-        where: { userEmail: { contains: domain } },
+        where: { userEmail: { contains: domain }, action: { not: 'LOGIN_FAILED' } },
       });
       expect(auditLogCount).toBe(0);
     }

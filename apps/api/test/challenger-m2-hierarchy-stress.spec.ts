@@ -48,16 +48,14 @@ describe('Challenger M2-1: Backend API Constraints & Workflow Stress Suite', () 
     if (!user) {
       const [pos, org, dept] = await Promise.all([
         prisma.position.findFirst({ select: { id: true } }),
-        prisma.organization
-          .findFirst({ where: { code: 'BSL' }, select: { id: true } })
-          .then(
-            (o) =>
-              o ||
-              prisma.organization.findFirst({
-                where: { code: { not: 'HOLDING' } },
-                select: { id: true },
-              }),
-          ),
+        prisma.organization.findFirst({ where: { code: 'BSL' }, select: { id: true } }).then(
+          (o) =>
+            o ||
+            prisma.organization.findFirst({
+              where: { code: { not: 'HOLDING' } },
+              select: { id: true },
+            }),
+        ),
         prisma.department.findFirst({ select: { id: true } }),
       ]);
       user = await prisma.directoryUser.create({

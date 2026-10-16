@@ -33,7 +33,9 @@ export class TopologyQueryDto {
   @MaxLength(50)
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by Switch Role (e.g. CORE, DISTRIBUTION, ACCESS, POE_ACCESS)' })
+  @ApiPropertyOptional({
+    description: 'Filter by Switch Role (e.g. CORE, DISTRIBUTION, ACCESS, TOR)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(50)
@@ -55,4 +57,3 @@ export class TopologyQueryDto {
   @IsOptional()
   includeMetrics?: boolean;
 }
-

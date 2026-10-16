@@ -127,7 +127,7 @@ export class NetworkController {
     name: 'resetPortConfig',
     required: false,
     type: Boolean,
-    description: 'Reset port configuration to default ACCESS mode, clear VLAN, and disable PoE',
+    description: 'Reset port configuration to default ACCESS mode and clear VLAN',
   })
   @ApiResponse({ status: 200, description: 'Port connection successfully unpatched' })
   @ApiResponse({ status: 400, description: 'Invalid port UUID or request query' })
@@ -138,7 +138,6 @@ export class NetworkController {
   ) {
     return this.networkService.deleteTopologyLink(portId, query);
   }
-
 
   // ==========================================
   // VLAN ENDPOINTS

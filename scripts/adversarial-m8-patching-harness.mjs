@@ -65,7 +65,9 @@ async function main() {
 
   try {
     // Prepare test entities: Fetch two switches and their ports, an asset, and a VLAN
-    const swRes = await pool.query(`SELECT id, name FROM "NetworkSwitch" ORDER BY name ASC LIMIT 3;`);
+    const swRes = await pool.query(
+      `SELECT id, name FROM "NetworkSwitch" ORDER BY name ASC LIMIT 3;`,
+    );
     if (swRes.rows.length < 2) {
       throw new Error('Need at least 2 switches in DB for testing');
     }
@@ -101,8 +103,12 @@ async function main() {
     const portB = ports2Res.rows[3] || ports2Res.rows[0];
     const portC = ports3Res.rows[0];
 
-    console.log(`Using test ports: PortA (${portA.id} on ${sw1.name}), PortA_same (${portA_sameSw.id}), PortB (${portB.id} on ${sw2.name}), PortC (${portC.id})`);
-    console.log(`Using test asset: ${asset?.assetTag} (${asset?.id}), test vlan: ${vlan?.vlanNumber} (${vlan?.id})\n`);
+    console.log(
+      `Using test ports: PortA (${portA.id} on ${sw1.name}), PortA_same (${portA_sameSw.id}), PortB (${portB.id} on ${sw2.name}), PortC (${portC.id})`,
+    );
+    console.log(
+      `Using test asset: ${asset?.assetTag} (${asset?.id}), test vlan: ${vlan?.vlanNumber} (${vlan?.id})\n`,
+    );
 
     // =========================================================================
     // a. Self-loop payload (sourcePortId === targetPortId) throws BadRequestException (400)
@@ -132,258 +138,329 @@ async function main() {
     // =========================================================================
     // b. Same-switch trunk payload (sourcePort.switchId === targetPort.switchId) throws BadRequestException (400)
     // =========================================================================
-    await runSubtest('b. Same-switch trunk payload (sourcePort.switchId === targetPort.switchId)', async () => {
-      const res = await fetch(`${API_BASE}/network/topology/links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          sourcePortId: portA.id,
-          targetPortId: portA_sameSw.id,
-        }),
-      });
-      const data = await res.json();
-      if (res.status !== 400) {
-        throw new Error(`Expected HTTP 400, got ${res.status}: ${JSON.stringify(data)}`);
-      }
-      if (!data.message?.includes('same switch')) {
-        throw new Error(`Expected message mentioning same switch, got: ${data.message}`);
-      }
-      return `HTTP 400 rejected with "${data.message}"`;
-    });
+    await runSubtest(
+      'b. Same-switch trunk payload (sourcePort.switchId === targetPort.switchId)',
+      async () => {
+        const res = await fetch(`${API_BASE}/network/topology/links`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sourcePortId: portA.id,
+            targetPortId: portA_sameSw.id,
+          }),
+        });
+        const data = await res.json();
+        if (res.status !== 400) {
+          throw new Error(`Expected HTTP 400, got ${res.status}: ${JSON.stringify(data)}`);
+        }
+        if (!data.message?.includes('same switch')) {
+          throw new Error(`Expected message mentioning same switch, got: ${data.message}`);
+        }
+        return `HTTP 400 rejected with "${data.message}"`;
+      },
+    );
 
     // =========================================================================
     // c. Stale reverse link eviction: create deliberate reverse conflict (port C points to port A),
     //    then connect port A to port B. Confirm patch succeeds without P2002 and port C is cleanly evicted.
     // =========================================================================
-    await runSubtest('c. Stale reverse link eviction (port C -> port A, then connect port A -> port B)', async () => {
-      // Step 1: Clean any existing forward and reverse links on portA, portB, portC
-      await pool.query(
-        `UPDATE "SwitchPort" SET "connectedPortId" = NULL, "connectedSwitchId" = NULL, "connectedAssetId" = NULL 
+    await runSubtest(
+      'c. Stale reverse link eviction (port C -> port A, then connect port A -> port B)',
+      async () => {
+        // Step 1: Clean any existing forward and reverse links on portA, portB, portC
+        await pool.query(
+          `UPDATE "SwitchPort" SET "connectedPortId" = NULL, "connectedSwitchId" = NULL, "connectedAssetId" = NULL 
          WHERE id IN ($1::text, $2::text, $3::text) OR "connectedPortId" IN ($1::text, $2::text, $3::text)`,
-        [portA.id, portB.id, portC.id],
-      );
+          [portA.id, portB.id, portC.id],
+        );
 
-      // Step 2: Inject deliberate reverse conflict: Port C points to Port A
-      await pool.query(
-        `UPDATE "SwitchPort" SET "connectedPortId" = $1, "connectedSwitchId" = $2 WHERE id = $3`,
-        [portA.id, sw1.id, portC.id],
-      );
+        // Step 2: Inject deliberate reverse conflict: Port C points to Port A
+        await pool.query(
+          `UPDATE "SwitchPort" SET "connectedPortId" = $1, "connectedSwitchId" = $2 WHERE id = $3`,
+          [portA.id, sw1.id, portC.id],
+        );
 
-      // Verify deliberate conflict in DB
-      const cCheck = await pool.query(`SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`, [portC.id]);
-      if (cCheck.rows[0].connectedPortId !== portA.id) {
-        throw new Error('Failed to set up initial deliberate reverse conflict');
-      }
+        // Verify deliberate conflict in DB
+        const cCheck = await pool.query(
+          `SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`,
+          [portC.id],
+        );
+        if (cCheck.rows[0].connectedPortId !== portA.id) {
+          throw new Error('Failed to set up initial deliberate reverse conflict');
+        }
 
-      // Step 3: Now connect Port A to Port B via API
-      const res = await fetch(`${API_BASE}/network/topology/links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          sourcePortId: portA.id,
-          targetPortId: portB.id,
-          mode: 'TRUNK',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(`Link creation failed: HTTP ${res.status}: ${JSON.stringify(data)}`);
-      }
+        // Step 3: Now connect Port A to Port B via API
+        const res = await fetch(`${API_BASE}/network/topology/links`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sourcePortId: portA.id,
+            targetPortId: portB.id,
+            mode: 'TRUNK',
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(`Link creation failed: HTTP ${res.status}: ${JSON.stringify(data)}`);
+        }
 
-      // Step 4: Verify in DB that Port C was cleanly evicted (connectedPortId is NULL)
-      const cPost = await pool.query(`SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`, [portC.id]);
-      if (cPost.rows[0].connectedPortId !== null) {
-        throw new Error(`Port C was NOT cleanly evicted! connectedPortId is still ${cPost.rows[0].connectedPortId}`);
-      }
+        // Step 4: Verify in DB that Port C was cleanly evicted (connectedPortId is NULL)
+        const cPost = await pool.query(`SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`, [
+          portC.id,
+        ]);
+        if (cPost.rows[0].connectedPortId !== null) {
+          throw new Error(
+            `Port C was NOT cleanly evicted! connectedPortId is still ${cPost.rows[0].connectedPortId}`,
+          );
+        }
 
-      // Step 5: Verify Port A and Port B are mutually connected
-      const aPost = await pool.query(`SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`, [portA.id]);
-      const bPost = await pool.query(`SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`, [portB.id]);
-      if (aPost.rows[0].connectedPortId !== portB.id || bPost.rows[0].connectedPortId !== portA.id) {
-        throw new Error(`Ports A and B are not symmetrically linked: A=${aPost.rows[0].connectedPortId}, B=${bPost.rows[0].connectedPortId}`);
-      }
+        // Step 5: Verify Port A and Port B are mutually connected
+        const aPost = await pool.query(`SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`, [
+          portA.id,
+        ]);
+        const bPost = await pool.query(`SELECT "connectedPortId" FROM "SwitchPort" WHERE id = $1`, [
+          portB.id,
+        ]);
+        if (
+          aPost.rows[0].connectedPortId !== portB.id ||
+          bPost.rows[0].connectedPortId !== portA.id
+        ) {
+          throw new Error(
+            `Ports A and B are not symmetrically linked: A=${aPost.rows[0].connectedPortId}, B=${bPost.rows[0].connectedPortId}`,
+          );
+        }
 
-      return 'Clean eviction of Port C without P2002 error, Port A & B symmetrically linked';
-    });
+        return 'Clean eviction of Port C without P2002 error, Port A & B symmetrically linked';
+      },
+    );
 
     // =========================================================================
     // d. Endpoint asset collision: connect port A to asset X, then connect port B to asset X.
     //    Confirm port A is evicted and port B is connected to asset X.
     // =========================================================================
-    await runSubtest('d. Endpoint asset collision (port A -> asset X, then port B -> asset X)', async () => {
-      // Step 1: Unpatch portA and portB
-      await fetch(`${API_BASE}/network/topology/links/${portA.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      await fetch(`${API_BASE}/network/topology/links/${portB.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    await runSubtest(
+      'd. Endpoint asset collision (port A -> asset X, then port B -> asset X)',
+      async () => {
+        // Step 1: Unpatch portA and portB
+        await fetch(`${API_BASE}/network/topology/links/${portA.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        await fetch(`${API_BASE}/network/topology/links/${portB.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      // Step 2: Connect Port A to Asset X
-      const resA = await fetch(`${API_BASE}/network/topology/links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          sourcePortId: portA.id,
-          targetAssetId: asset.id,
-        }),
-      });
-      const dataA = await resA.json();
-      if (!resA.ok || !dataA.success) {
-        throw new Error(`Connecting Port A to Asset failed: HTTP ${resA.status}: ${JSON.stringify(dataA)}`);
-      }
+        // Step 2: Connect Port A to Asset X
+        const resA = await fetch(`${API_BASE}/network/topology/links`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sourcePortId: portA.id,
+            targetAssetId: asset.id,
+          }),
+        });
+        const dataA = await resA.json();
+        if (!resA.ok || !dataA.success) {
+          throw new Error(
+            `Connecting Port A to Asset failed: HTTP ${resA.status}: ${JSON.stringify(dataA)}`,
+          );
+        }
 
-      // Verify Port A has connectedAssetId = asset.id
-      const aCheck = await pool.query(`SELECT "connectedAssetId" FROM "SwitchPort" WHERE id = $1`, [portA.id]);
-      if (aCheck.rows[0].connectedAssetId !== asset.id) {
-        throw new Error(`Port A connectedAssetId is not asset.id: ${aCheck.rows[0].connectedAssetId}`);
-      }
+        // Verify Port A has connectedAssetId = asset.id
+        const aCheck = await pool.query(
+          `SELECT "connectedAssetId" FROM "SwitchPort" WHERE id = $1`,
+          [portA.id],
+        );
+        if (aCheck.rows[0].connectedAssetId !== asset.id) {
+          throw new Error(
+            `Port A connectedAssetId is not asset.id: ${aCheck.rows[0].connectedAssetId}`,
+          );
+        }
 
-      // Step 3: Connect Port B to the same Asset X
-      const resB = await fetch(`${API_BASE}/network/topology/links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          sourcePortId: portB.id,
-          targetAssetId: asset.id,
-        }),
-      });
-      const dataB = await resB.json();
-      if (!resB.ok || !dataB.success) {
-        throw new Error(`Connecting Port B to Asset failed: HTTP ${resB.status}: ${JSON.stringify(dataB)}`);
-      }
+        // Step 3: Connect Port B to the same Asset X
+        const resB = await fetch(`${API_BASE}/network/topology/links`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sourcePortId: portB.id,
+            targetAssetId: asset.id,
+          }),
+        });
+        const dataB = await resB.json();
+        if (!resB.ok || !dataB.success) {
+          throw new Error(
+            `Connecting Port B to Asset failed: HTTP ${resB.status}: ${JSON.stringify(dataB)}`,
+          );
+        }
 
-      // Step 4: Verify Port A was evicted (connectedAssetId is NULL) and Port B has asset.id
-      const aFinal = await pool.query(`SELECT "connectedAssetId" FROM "SwitchPort" WHERE id = $1`, [portA.id]);
-      const bFinal = await pool.query(`SELECT "connectedAssetId" FROM "SwitchPort" WHERE id = $1`, [portB.id]);
+        // Step 4: Verify Port A was evicted (connectedAssetId is NULL) and Port B has asset.id
+        const aFinal = await pool.query(
+          `SELECT "connectedAssetId" FROM "SwitchPort" WHERE id = $1`,
+          [portA.id],
+        );
+        const bFinal = await pool.query(
+          `SELECT "connectedAssetId" FROM "SwitchPort" WHERE id = $1`,
+          [portB.id],
+        );
 
-      if (aFinal.rows[0].connectedAssetId !== null) {
-        throw new Error(`Port A was NOT evicted! connectedAssetId = ${aFinal.rows[0].connectedAssetId}`);
-      }
-      if (bFinal.rows[0].connectedAssetId !== asset.id) {
-        throw new Error(`Port B is NOT connected to asset! connectedAssetId = ${bFinal.rows[0].connectedAssetId}`);
-      }
+        if (aFinal.rows[0].connectedAssetId !== null) {
+          throw new Error(
+            `Port A was NOT evicted! connectedAssetId = ${aFinal.rows[0].connectedAssetId}`,
+          );
+        }
+        if (bFinal.rows[0].connectedAssetId !== asset.id) {
+          throw new Error(
+            `Port B is NOT connected to asset! connectedAssetId = ${bFinal.rows[0].connectedAssetId}`,
+          );
+        }
 
-      return 'Port A evicted cleanly, Port B now connected to Asset X';
-    });
+        return 'Port A evicted cleanly, Port B now connected to Asset X';
+      },
+    );
 
     // =========================================================================
     // e. Unpatch symmetry: delete link on port A, confirm port B is also disconnected.
     // =========================================================================
-    await runSubtest('e. Unpatch symmetry (delete link on port A, confirm port B disconnected)', async () => {
-      // Step 1: Connect port A and port B
-      const linkRes = await fetch(`${API_BASE}/network/topology/links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          sourcePortId: portA.id,
-          targetPortId: portB.id,
-        }),
-      });
-      const linkData = await linkRes.json();
-      if (!linkRes.ok || !linkData.success) {
-        throw new Error(`Failed to create link between A and B: ${JSON.stringify(linkData)}`);
-      }
+    await runSubtest(
+      'e. Unpatch symmetry (delete link on port A, confirm port B disconnected)',
+      async () => {
+        // Step 1: Connect port A and port B
+        const linkRes = await fetch(`${API_BASE}/network/topology/links`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sourcePortId: portA.id,
+            targetPortId: portB.id,
+          }),
+        });
+        const linkData = await linkRes.json();
+        if (!linkRes.ok || !linkData.success) {
+          throw new Error(`Failed to create link between A and B: ${JSON.stringify(linkData)}`);
+        }
 
-      // Step 2: Delete link on Port A
-      const delRes = await fetch(`${API_BASE}/network/topology/links/${portA.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const delData = await delRes.json();
-      if (!delRes.ok || !delData.success) {
-        throw new Error(`Delete failed: HTTP ${delRes.status}: ${JSON.stringify(delData)}`);
-      }
+        // Step 2: Delete link on Port A
+        const delRes = await fetch(`${API_BASE}/network/topology/links/${portA.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const delData = await delRes.json();
+        if (!delRes.ok || !delData.success) {
+          throw new Error(`Delete failed: HTTP ${delRes.status}: ${JSON.stringify(delData)}`);
+        }
 
-      // Step 3: Check DB for both Port A and Port B
-      const aPost = await pool.query(`SELECT "connectedPortId", "operStatus" FROM "SwitchPort" WHERE id = $1`, [portA.id]);
-      const bPost = await pool.query(`SELECT "connectedPortId", "operStatus" FROM "SwitchPort" WHERE id = $1`, [portB.id]);
+        // Step 3: Check DB for both Port A and Port B
+        const aPost = await pool.query(
+          `SELECT "connectedPortId", "operStatus" FROM "SwitchPort" WHERE id = $1`,
+          [portA.id],
+        );
+        const bPost = await pool.query(
+          `SELECT "connectedPortId", "operStatus" FROM "SwitchPort" WHERE id = $1`,
+          [portB.id],
+        );
 
-      if (aPost.rows[0].connectedPortId !== null) {
-        throw new Error(`Port A still has connectedPortId: ${aPost.rows[0].connectedPortId}`);
-      }
-      if (bPost.rows[0].connectedPortId !== null) {
-        throw new Error(`Port B still has connectedPortId: ${bPost.rows[0].connectedPortId}`);
-      }
-      if (aPost.rows[0].operStatus !== 'DOWN' || bPost.rows[0].operStatus !== 'DOWN') {
-        throw new Error(`Oper status not DOWN: Port A = ${aPost.rows[0].operStatus}, Port B = ${bPost.rows[0].operStatus}`);
-      }
+        if (aPost.rows[0].connectedPortId !== null) {
+          throw new Error(`Port A still has connectedPortId: ${aPost.rows[0].connectedPortId}`);
+        }
+        if (bPost.rows[0].connectedPortId !== null) {
+          throw new Error(`Port B still has connectedPortId: ${bPost.rows[0].connectedPortId}`);
+        }
+        if (aPost.rows[0].operStatus !== 'DOWN' || bPost.rows[0].operStatus !== 'DOWN') {
+          throw new Error(
+            `Oper status not DOWN: Port A = ${aPost.rows[0].operStatus}, Port B = ${bPost.rows[0].operStatus}`,
+          );
+        }
 
-      return 'Both Port A and Port B disconnected symmetrically, operStatus DOWN';
-    });
+        return 'Both Port A and Port B disconnected symmetrically, operStatus DOWN';
+      },
+    );
 
     // =========================================================================
     // f. resetPortConfig: true: confirm port mode is reset to ACCESS, vlan disconnected, poeEnabled: false
     // =========================================================================
-    await runSubtest('f. resetPortConfig: true resets mode to ACCESS, vlan disconnected, poeEnabled: false', async () => {
-      // Step 0: Clean any existing forward and reverse links on portA, portB
-      await pool.query(
-        `UPDATE "SwitchPort" SET "connectedPortId" = NULL, "connectedSwitchId" = NULL 
+    await runSubtest(
+      'f. resetPortConfig: true resets mode to ACCESS, vlan disconnected, poeEnabled: false',
+      async () => {
+        // Step 0: Clean any existing forward and reverse links on portA, portB
+        await pool.query(
+          `UPDATE "SwitchPort" SET "connectedPortId" = NULL, "connectedSwitchId" = NULL 
          WHERE id IN ($1::text, $2::text) OR "connectedPortId" IN ($1::text, $2::text)`,
-        [portA.id, portB.id],
-      );
+          [portA.id, portB.id],
+        );
 
-      // Step 1: Configure Port A with TRUNK mode, VLAN assigned, and PoE enabled
-      await pool.query(
-        `UPDATE "SwitchPort" SET mode = 'TRUNK', "vlanId" = $1::text, "poeEnabled" = TRUE, "connectedPortId" = $2::text WHERE id = $3::text`,
-        [vlan.id, portB.id, portA.id],
-      );
-      await pool.query(
-        `UPDATE "SwitchPort" SET mode = 'TRUNK', "vlanId" = $1::text, "poeEnabled" = TRUE, "connectedPortId" = $2::text WHERE id = $3::text`,
-        [vlan.id, portA.id, portB.id],
-      );
+        // Step 1: Configure Port A with TRUNK mode, VLAN assigned, and PoE enabled
+        await pool.query(
+          `UPDATE "SwitchPort" SET mode = 'TRUNK', "vlanId" = $1::text, "poeEnabled" = TRUE, "connectedPortId" = $2::text WHERE id = $3::text`,
+          [vlan.id, portB.id, portA.id],
+        );
+        await pool.query(
+          `UPDATE "SwitchPort" SET mode = 'TRUNK', "vlanId" = $1::text, "poeEnabled" = TRUE, "connectedPortId" = $2::text WHERE id = $3::text`,
+          [vlan.id, portA.id, portB.id],
+        );
 
-      // Verify non-default state
-      const preCheck = await pool.query(`SELECT mode, "vlanId", "poeEnabled" FROM "SwitchPort" WHERE id = $1`, [portA.id]);
-      if (preCheck.rows[0].mode !== 'TRUNK' || preCheck.rows[0].vlanId !== vlan.id || preCheck.rows[0].poeEnabled !== true) {
-        throw new Error(`Failed to initialize port config before unpatch: ${JSON.stringify(preCheck.rows[0])}`);
-      }
+        // Verify non-default state
+        const preCheck = await pool.query(
+          `SELECT mode, "vlanId", "poeEnabled" FROM "SwitchPort" WHERE id = $1`,
+          [portA.id],
+        );
+        if (
+          preCheck.rows[0].mode !== 'TRUNK' ||
+          preCheck.rows[0].vlanId !== vlan.id ||
+          preCheck.rows[0].poeEnabled !== true
+        ) {
+          throw new Error(
+            `Failed to initialize port config before unpatch: ${JSON.stringify(preCheck.rows[0])}`,
+          );
+        }
 
-      // Step 2: Unpatch with resetPortConfig=true via query parameter
-      const delRes = await fetch(`${API_BASE}/network/topology/links/${portA.id}?resetPortConfig=true`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const delData = await delRes.json();
-      if (!delRes.ok || !delData.success) {
-        throw new Error(`Delete failed: HTTP ${delRes.status}: ${JSON.stringify(delData)}`);
-      }
+        // Step 2: Unpatch with resetPortConfig=true via query parameter
+        const delRes = await fetch(
+          `${API_BASE}/network/topology/links/${portA.id}?resetPortConfig=true`,
+          {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        const delData = await delRes.json();
+        if (!delRes.ok || !delData.success) {
+          throw new Error(`Delete failed: HTTP ${delRes.status}: ${JSON.stringify(delData)}`);
+        }
 
-      // Step 3: Check DB for Port A config
-      const postCheck = await pool.query(
-        `SELECT mode, "vlanId", "poeEnabled", "connectedPortId" FROM "SwitchPort" WHERE id = $1`,
-        [portA.id],
-      );
-      const row = postCheck.rows[0];
+        // Step 3: Check DB for Port A config
+        const postCheck = await pool.query(
+          `SELECT mode, "vlanId", "poeEnabled", "connectedPortId" FROM "SwitchPort" WHERE id = $1`,
+          [portA.id],
+        );
+        const row = postCheck.rows[0];
 
-      const failures = [];
-      if (row.mode !== 'ACCESS') failures.push(`mode is "${row.mode}" (expected "ACCESS")`);
-      if (row.vlanId !== null) failures.push(`vlanId is "${row.vlanId}" (expected null)`);
-      if (row.poeEnabled !== false) failures.push(`poeEnabled is ${row.poeEnabled} (expected false)`);
+        const failures = [];
+        if (row.mode !== 'ACCESS') failures.push(`mode is "${row.mode}" (expected "ACCESS")`);
+        if (row.vlanId !== null) failures.push(`vlanId is "${row.vlanId}" (expected null)`);
+        if (row.poeEnabled !== false)
+          failures.push(`poeEnabled is ${row.poeEnabled} (expected false)`);
 
-      if (failures.length > 0) {
-        throw new Error(`resetPortConfig: true was ignored! Failures: ${failures.join(', ')}`);
-      }
+        if (failures.length > 0) {
+          throw new Error(`resetPortConfig: true was ignored! Failures: ${failures.join(', ')}`);
+        }
 
-      return `Mode reset to ACCESS, vlanId set to null, poeEnabled set to false`;
-    });
+        return `Mode reset to ACCESS, vlanId set to null, poeEnabled set to false`;
+      },
+    );
 
     // =========================================================================
     // g. Layout batch > 500 items rejected
@@ -447,53 +524,55 @@ async function main() {
     // =========================================================================
     // h. Verify audit log records in AuditLog table for CABLE_PATCH_CONNECTED and CABLE_PATCH_DISCONNECTED
     // =========================================================================
-    await runSubtest('h. Verify audit log records for CABLE_PATCH_CONNECTED and CABLE_PATCH_DISCONNECTED', async () => {
-      // Connect
-      await fetch(`${API_BASE}/network/topology/links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          sourcePortId: portA.id,
-          targetPortId: portB.id,
-        }),
-      });
+    await runSubtest(
+      'h. Verify audit log records for CABLE_PATCH_CONNECTED and CABLE_PATCH_DISCONNECTED',
+      async () => {
+        // Connect
+        await fetch(`${API_BASE}/network/topology/links`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sourcePortId: portA.id,
+            targetPortId: portB.id,
+          }),
+        });
 
-      // Disconnect
-      await fetch(`${API_BASE}/network/topology/links/${portA.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+        // Disconnect
+        await fetch(`${API_BASE}/network/topology/links/${portA.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      // Query AuditLog table
-      const connectLogs = await pool.query(
-        `SELECT id, action, entity, "entityId", details, timestamp 
+        // Query AuditLog table
+        const connectLogs = await pool.query(
+          `SELECT id, action, entity, "entityId", details, timestamp 
          FROM "AuditLog" 
          WHERE action = 'CABLE_PATCH_CONNECTED' AND "entityId" = $1
          ORDER BY timestamp DESC LIMIT 1;`,
-        [portA.id],
-      );
+          [portA.id],
+        );
 
-      const disconnectLogs = await pool.query(
-        `SELECT id, action, entity, "entityId", details, timestamp 
+        const disconnectLogs = await pool.query(
+          `SELECT id, action, entity, "entityId", details, timestamp 
          FROM "AuditLog" 
          WHERE action = 'CABLE_PATCH_DISCONNECTED' AND "entityId" = $1
          ORDER BY timestamp DESC LIMIT 1;`,
-        [portA.id],
-      );
+          [portA.id],
+        );
 
-      if (connectLogs.rows.length === 0) {
-        throw new Error(`No CABLE_PATCH_CONNECTED audit log found for port ${portA.id}`);
-      }
-      if (disconnectLogs.rows.length === 0) {
-        throw new Error(`No CABLE_PATCH_DISCONNECTED audit log found for port ${portA.id}`);
-      }
+        if (connectLogs.rows.length === 0) {
+          throw new Error(`No CABLE_PATCH_CONNECTED audit log found for port ${portA.id}`);
+        }
+        if (disconnectLogs.rows.length === 0) {
+          throw new Error(`No CABLE_PATCH_DISCONNECTED audit log found for port ${portA.id}`);
+        }
 
-      return `Found CABLE_PATCH_CONNECTED (${connectLogs.rows[0].id}) and CABLE_PATCH_DISCONNECTED (${disconnectLogs.rows[0].id})`;
-    });
-
+        return `Found CABLE_PATCH_CONNECTED (${connectLogs.rows[0].id}) and CABLE_PATCH_DISCONNECTED (${disconnectLogs.rows[0].id})`;
+      },
+    );
   } finally {
     await pool.end();
   }

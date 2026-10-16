@@ -22,7 +22,7 @@ export const notificationsData: NotificationDef[] = [
     email: 'admin@youngonevn.com',
     title: 'SAP S/4HANA ERP License Audit',
     message:
-      'SAP S/4HANA ERP Enterprise User subscription is fully utilized (60 of 60 seats allocated).',
+      'SAP S/4HANA ERP Enterprise User subscription is fully utilized (6 of 6 seats allocated).',
     type: 'WARNING',
     isRead: false,
     link: '/licenses',

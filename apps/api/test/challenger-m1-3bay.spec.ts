@@ -76,7 +76,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         expect(p.formFactor).toBe('RJ45_1G');
         expect(p.mode).toBe('ACCESS');
         expect(p.speed).toBe('1 Gbps');
-        expect(p.poeEnabled).toBe(true);
         expect(p.adminStatus).toBe('UP');
         expect(p.operStatus).toBe('DOWN');
       });
@@ -121,7 +120,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
           formFactor: 'RJ45_1G',
           mode: 'ACCESS',
           speed: '1 Gbps',
-          poeEnabled: true,
           adminStatus: 'UP',
           operStatus: 'DOWN',
         });
@@ -134,7 +132,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         formFactor: 'RJ45_1G',
         mode: 'TRUNK',
         speed: '1 Gbps',
-        poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
       });
@@ -144,7 +141,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         formFactor: 'RJ45_1G',
         mode: 'TRUNK',
         speed: '1 Gbps',
-        poeEnabled: false,
       });
 
       // Bay 3: Fiber SFP 11..12
@@ -154,7 +150,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         formFactor: 'SFP_PLUS_10G',
         mode: 'TRUNK',
         speed: '10 Gbps',
-        poeEnabled: false,
       });
       expect(ports[11]).toMatchObject({
         portNumber: 12,
@@ -162,7 +157,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         formFactor: 'SFP_PLUS_10G',
         mode: 'TRUNK',
         speed: '10 Gbps',
-        poeEnabled: false,
       });
     });
 
@@ -277,7 +271,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         expect(port.mode).toBe('TRUNK');
         expect(port.formFactor).toBe('RJ45_1G');
         expect(port.speed).toBe('2.5 Gbps');
-        expect(port.poeEnabled).toBe(false);
       }
 
       // Bay 3: Fiber SFPs 29..32
@@ -288,7 +281,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         expect(port.mode).toBe('TRUNK');
         expect(port.formFactor).toBe('SFP_PLUS_10G');
         expect(port.speed).toBe('10 Gbps');
-        expect(port.poeEnabled).toBe(false);
       }
     });
 
@@ -338,7 +330,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         expect(port.mode).toBe('TRUNK');
         expect(port.formFactor).toBe('RJ45_1G');
         expect(port.speed).toBe('10 Gbps');
-        expect(port.poeEnabled).toBe(false);
       }
 
       // Bay 3: Fiber SFPs 57..64
@@ -349,7 +340,6 @@ describe('Empirical Challenger M1: 3-Bay Port Generation & Validation Stress Sui
         expect(port.mode).toBe('TRUNK');
         expect(port.formFactor).toBe('SFP_PLUS_10G');
         expect(port.speed).toBe('10 Gbps');
-        expect(port.poeEnabled).toBe(false);
       }
     });
 

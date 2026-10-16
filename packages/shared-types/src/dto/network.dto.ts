@@ -167,7 +167,6 @@ export interface CreateSwitchPortDto {
   portNumber: number;
   name: string;
   formFactor?: PortFormFactor | `${PortFormFactor}`;
-  poeEnabled?: boolean;
   adminStatus?: PortAdminStatus | `${PortAdminStatus}`;
   operStatus?: PortOperStatus | `${PortOperStatus}`;
   speed?: string | null;
@@ -183,7 +182,6 @@ export interface CreateSwitchPortDto {
 export interface UpdateSwitchPortDto {
   name?: string;
   formFactor?: PortFormFactor | `${PortFormFactor}`;
-  poeEnabled?: boolean;
   adminStatus?: PortAdminStatus | `${PortAdminStatus}`;
   operStatus?: PortOperStatus | `${PortOperStatus}`;
   speed?: string | null;
@@ -262,8 +260,6 @@ export interface PatchCableLinkDto {
   speedMbps?: number | null;
   /** Formatted speed string (e.g. '10 Gbps') */
   speed?: string | null;
-  /** Enable PoE power delivery */
-  poeDelivering?: boolean;
   /** Administrative patch cable label or description */
   description?: string | null;
 }
@@ -316,11 +312,10 @@ export interface TopologyQueryDto {
   subnetId?: string;
   /** Filter by floor (e.g. '1F', '2F', 'Server Room') */
   floor?: string;
-  /** Filter by switch role (e.g. 'CORE', 'DISTRIBUTION', 'ACCESS', 'POE_ACCESS') */
+  /** Filter by switch role (e.g. 'CORE', 'DISTRIBUTION', 'ACCESS', 'TOR') */
   switchRole?: string;
   /** Filter by operational status */
   status?: string;
   /** Include aggregated summary metrics */
   includeMetrics?: boolean;
 }
-

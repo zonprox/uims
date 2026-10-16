@@ -2,10 +2,8 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PortAdminStatus, PortFormFactor, PortMode, PortOperStatus } from '@uims/shared-types';
 import {
   IsArray,
-  IsBoolean,
   IsEnum,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -25,16 +23,6 @@ export class UpdateSwitchPortDto {
   @IsOptional()
   @IsEnum(PortFormFactor)
   formFactor?: PortFormFactor;
-
-  @ApiPropertyOptional({ description: 'PoE power sourcing equipment enabled' })
-  @IsOptional()
-  @IsBoolean()
-  poeEnabled?: boolean;
-
-  @ApiPropertyOptional({ description: 'PoE active power output in Watts' })
-  @IsOptional()
-  @IsNumber()
-  poeWatts?: number | null;
 
   @ApiPropertyOptional({ enum: PortAdminStatus })
   @IsOptional()

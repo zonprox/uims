@@ -51,16 +51,14 @@ describe('Challenger M2-1: Custody Lifecycle Workflows Stress Suite', () => {
     // 2. Create test department & fetch default position & organization (must not pollute HOLDING root)
     const [defaultPos, defaultOrg] = await Promise.all([
       prisma.position.findFirst({ select: { id: true } }),
-      prisma.organization
-        .findFirst({ where: { code: 'BSL' }, select: { id: true } })
-        .then(
-          (o) =>
-            o ||
-            prisma.organization.findFirst({
-              where: { code: { not: 'HOLDING' } },
-              select: { id: true },
-            }),
-        ),
+      prisma.organization.findFirst({ where: { code: 'BSL' }, select: { id: true } }).then(
+        (o) =>
+          o ||
+          prisma.organization.findFirst({
+            where: { code: { not: 'HOLDING' } },
+            select: { id: true },
+          }),
+      ),
     ]);
 
     const dept = await prisma.department.create({

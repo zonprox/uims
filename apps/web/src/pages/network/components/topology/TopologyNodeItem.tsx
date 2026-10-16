@@ -13,7 +13,15 @@ export interface TopologyNodeItemProps {
 }
 
 export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
-  ({ node, isSelected, isHighlighted, hasHighlightedPath, isSearchMatch, onSelect, onDragStart }) => {
+  ({
+    node,
+    isSelected,
+    isHighlighted,
+    hasHighlightedPath,
+    isSearchMatch,
+    onSelect,
+    onDragStart,
+  }) => {
     const { width, height } = getNodeDimensions(node.type);
     const startPosRef = React.useRef({ x: 0, y: 0 });
 
@@ -61,7 +69,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             ? '#722ed1'
             : nodeRole === 'DISTRIBUTION'
               ? '#1677ff'
-              : nodeRole === 'POE_ACCESS' || node.domain === 'CCTV'
+              : node.domain === 'CCTV'
                 ? '#d97706'
                 : '#0284c7'
           : node.type === 'CAMERA'
@@ -183,14 +191,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             {/* 42U Mini Vertical Elevation Gauge */}
             <rect x={8} y={28} width={12} height={58} rx={2} fill="#1e293b" />
             {/* Occupied RU fill gauge */}
-            <rect
-              x={9}
-              y={28 + 58 - 24}
-              width={10}
-              height={22}
-              rx={1}
-              fill="#a855f7"
-            />
+            <rect x={9} y={28 + 58 - 24} width={10} height={22} rx={1} fill="#a855f7" />
             {/* Gauge Tick Marks */}
             <line x1={8} y1={42} x2={12} y2={42} stroke="#64748b" strokeWidth={1} />
             <line x1={8} y1={56} x2={12} y2={56} stroke="#64748b" strokeWidth={1} />
@@ -209,13 +210,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             </text>
 
             {/* Location & RU elevation */}
-            <text
-              x={26}
-              y={57}
-              fill="#64748b"
-              fontSize={9.5}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={26} y={57} fill="#64748b" fontSize={9.5} fontFamily="system-ui, sans-serif">
               {node.floor || node.zone || (node.data?.location as string) || 'Server Room · DC-01'}
             </text>
 
@@ -232,13 +227,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             </text>
 
             {/* Power Capacity */}
-            <text
-              x={26}
-              y={86}
-              fill="#94a3b8"
-              fontSize={9}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={26} y={86} fill="#94a3b8" fontSize={9} fontFamily="system-ui, sans-serif">
               {`${(node.data?.maxPowerKw as number) ?? 2.4} kW Capacity`}
             </text>
           </g>
@@ -260,13 +249,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             </text>
 
             {/* Model & IP */}
-            <text
-              x={10}
-              y={53}
-              fill="#64748b"
-              fontSize={9.5}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={10} y={53} fill="#64748b" fontSize={9.5} fontFamily="system-ui, sans-serif">
               {`${node.model || node.subType || 'Switch Chassis'} · ${node.ipAddress || '—'}`}
             </text>
 
@@ -303,20 +286,16 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
               })}
             </g>
 
-            {/* PoE Power Budget Indicator */}
+            {/* Active Ports Telemetry */}
             <text
               x={10}
               y={84}
-              fill="#d97706"
+              fill="#64748b"
               fontSize={9.5}
               fontWeight={600}
               fontFamily="system-ui, sans-serif"
             >
-              {node.poePowerWatts
-                ? `⚡ ${node.poePowerWatts.toFixed(0)}W / 370W PoE`
-                : node.poeActivePorts
-                  ? `⚡ ${(node.poeActivePorts * 15.4).toFixed(0)}W PoE`
-                  : '⚡ PoE Ready (370W)'}
+              {`${node.activePorts ?? 0}/${node.totalPorts ?? 24} Ports Active · ${nodeRole || 'ACCESS'}`}
             </text>
           </g>
         )}
@@ -334,13 +313,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             >
               {node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}
             </text>
-            <text
-              x={10}
-              y={53}
-              fill="#64748b"
-              fontSize={9.5}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={10} y={53} fill="#64748b" fontSize={9.5} fontFamily="system-ui, sans-serif">
               {`${node.ipAddress || '10.10.80.x'} · ${node.model || '4K Dome'}`}
             </text>
             <text
@@ -363,7 +336,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
               fontWeight={500}
               fontFamily="system-ui, sans-serif"
             >
-              {`⚡ 15.4W · ${node.floor || 'Floor 1 Lobby'}`}
+              {`Floor: ${node.floor || 'Floor 1 Lobby'}${node.zone ? ' · ' + node.zone : ''}`}
             </text>
           </g>
         )}
@@ -381,13 +354,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             >
               {node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}
             </text>
-            <text
-              x={10}
-              y={53}
-              fill="#64748b"
-              fontSize={9.5}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={10} y={53} fill="#64748b" fontSize={9.5} fontFamily="system-ui, sans-serif">
               {`${node.ipAddress || '10.10.20.x'} · ${node.model || 'Dell R750'}`}
             </text>
             <text
@@ -400,13 +367,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             >
               ⇄ Dual NIC (LACP Bond)
             </text>
-            <text
-              x={10}
-              y={80}
-              fill="#64748b"
-              fontSize={9}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={10} y={80} fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">
               Enterprise Host · 2x 10G Trunk
             </text>
           </g>
@@ -425,13 +386,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             >
               {node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}
             </text>
-            <text
-              x={10}
-              y={53}
-              fill="#64748b"
-              fontSize={9.5}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={10} y={53} fill="#64748b" fontSize={9.5} fontFamily="system-ui, sans-serif">
               {`${node.ipAddress || '10.10.80.5'} · ${node.model || 'Hikvision'}`}
             </text>
             <text
@@ -444,13 +399,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             >
               32/64 Channels · RAID6 Healthy
             </text>
-            <text
-              x={10}
-              y={80}
-              fill="#64748b"
-              fontSize={9}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={10} y={80} fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">
               NVR Storage Array
             </text>
           </g>
@@ -469,13 +418,7 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             >
               {node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}
             </text>
-            <text
-              x={10}
-              y={53}
-              fill="#64748b"
-              fontSize={9.5}
-              fontFamily="system-ui, sans-serif"
-            >
+            <text x={10} y={53} fill="#64748b" fontSize={9.5} fontFamily="system-ui, sans-serif">
               {`${node.ipAddress || '10.10.30.x'} · ${node.model || 'Wi-Fi 6'}`}
             </text>
             <text
@@ -488,14 +431,8 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
             >
               SSID: Corp-Secure · VLAN 30
             </text>
-            <text
-              x={10}
-              y={80}
-              fill="#059669"
-              fontSize={9}
-              fontFamily="system-ui, sans-serif"
-            >
-              ⚡ 15.4W (PoE+ 802.3at)
+            <text x={10} y={80} fill="#059669" fontSize={9} fontFamily="system-ui, sans-serif">
+              Wi-Fi 6 · 2.4/5 GHz Dual-Band
             </text>
           </g>
         )}
@@ -519,22 +456,10 @@ export const TopologyNodeItem: React.FC<TopologyNodeItemProps> = React.memo(
               >
                 {node.label.length > 18 ? `${node.label.slice(0, 17)}…` : node.label}
               </text>
-              <text
-                x={10}
-                y={56}
-                fill="#64748b"
-                fontSize={10.5}
-                fontFamily="system-ui, sans-serif"
-              >
+              <text x={10} y={56} fill="#64748b" fontSize={10.5} fontFamily="system-ui, sans-serif">
                 {node.ipAddress || node.sublabel || node.model || '—'}
               </text>
-              <text
-                x={10}
-                y={71}
-                fill="#475569"
-                fontSize={9.5}
-                fontFamily="system-ui, sans-serif"
-              >
+              <text x={10} y={71} fill="#475569" fontSize={9.5} fontFamily="system-ui, sans-serif">
                 Endpoint
               </text>
             </g>

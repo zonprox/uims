@@ -10,7 +10,6 @@ describe('NetworkService', () => {
     logEvent: ReturnType<typeof vi.fn>;
   };
   let mockPrisma: {
-
     vLAN: {
       findMany: ReturnType<typeof vi.fn>;
       findFirst: ReturnType<typeof vi.fn>;
@@ -174,7 +173,6 @@ describe('NetworkService', () => {
       mockAuditService as unknown as import('../audit/audit.service').AuditService,
     );
   });
-
 
   // ==========================================
   // VLAN TESTS
@@ -1101,7 +1099,6 @@ describe('NetworkService', () => {
           portNumber: 1,
           name: 'Gi1/0/1',
           formFactor: 'RJ45_1G',
-          poeEnabled: true,
           adminStatus: 'UP',
           operStatus: 'ACTIVE',
           speed: '1 Gbps',
@@ -1146,7 +1143,6 @@ describe('NetworkService', () => {
         portNumber: 1,
         name: 'Gi1/0/1',
         formFactor: 'RJ45_1G',
-        poeEnabled: true,
         adminStatus: 'UP',
         operStatus: 'ACTIVE',
         speed: '1 Gbps',
@@ -1182,7 +1178,6 @@ describe('NetworkService', () => {
           portNumber: 1,
           name: 'Gi1/0/1',
           formFactor: 'RJ45_1G',
-          poeEnabled: true,
           adminStatus: 'DOWN',
           operStatus: 'DOWN',
           speed: '1 Gbps',
@@ -1446,7 +1441,6 @@ describe('NetworkService', () => {
           portNumber: 1,
           name: 'Gi1/0/1',
           operStatus: 'ACTIVE',
-          poeEnabled: false,
           speed: '1 Gbps',
           vlanId: 'vlan-1',
           vlan: { vlanNumber: 100 },
@@ -1467,7 +1461,6 @@ describe('NetworkService', () => {
           portNumber: 2,
           name: 'Gi1/0/2',
           operStatus: 'ACTIVE',
-          poeEnabled: true,
           speed: '1 Gbps',
           vlanId: 'vlan-1',
           vlan: { vlanNumber: 100 },
@@ -1488,7 +1481,6 @@ describe('NetworkService', () => {
           portNumber: 49,
           name: 'Te1/0/49',
           operStatus: 'ACTIVE',
-          poeEnabled: false,
           speed: '10 Gbps',
           formFactor: 'SFP_PLUS_10G',
           connectedPortId: 'port-peer-1',
@@ -1517,7 +1509,6 @@ describe('NetworkService', () => {
           portNumber: 25,
           name: 'Te1/0/25',
           operStatus: 'ACTIVE',
-          poeEnabled: false,
           speed: '10 Gbps',
           formFactor: 'SFP_PLUS_10G',
           connectedPortId: 'port-49',
@@ -1534,10 +1525,24 @@ describe('NetworkService', () => {
       mockPrisma.networkRack.findMany.mockResolvedValue([mockRack]);
       mockPrisma.networkSwitch.findMany.mockResolvedValue([mockSwitch, mockPeerSwitch]);
       mockPrisma.vLAN.findMany.mockResolvedValue([
-        { id: 'vlan-1', vlanNumber: 100, name: 'Servers', domain: 'NETWORK', subnets: [], switchPorts: [] },
+        {
+          id: 'vlan-1',
+          vlanNumber: 100,
+          name: 'Servers',
+          domain: 'NETWORK',
+          subnets: [],
+          switchPorts: [],
+        },
       ]);
       mockPrisma.subnet.findMany.mockResolvedValue([
-        { id: 'sub-1', cidr: '10.232.100.0/24', name: 'BSL Servers', domain: 'NETWORK', totalIps: 254, usedIps: 24 },
+        {
+          id: 'sub-1',
+          cidr: '10.232.100.0/24',
+          name: 'BSL Servers',
+          domain: 'NETWORK',
+          totalIps: 254,
+          usedIps: 24,
+        },
       ]);
       mockPrisma.canvasNodePosition.findMany.mockResolvedValue([]);
 
@@ -1574,6 +1579,25 @@ describe('NetworkService', () => {
       expect(result.summaryMetrics?.totalSwitches).toBe(2);
       expect(result.summaryMetrics?.totalServers).toBe(1);
       expect(result.summaryMetrics?.activeLinks).toBe(3);
+
+      // Verify explicit port-to-port link details on all edges
+      const trunkEdge = result.edges.find((e) => e.linkType === 'UPLINK');
+      expect(trunkEdge).toBeDefined();
+      expect(trunkEdge?.sourcePortName).toBe('Te1/0/49');
+      expect(trunkEdge?.targetPortName).toBe('Te1/0/25');
+      expect(trunkEdge?.targetPortId).toBe('port-peer-1');
+
+      const serverEdge = result.edges.find((e) => e.target === 'ast-srv-1');
+      expect(serverEdge).toBeDefined();
+      expect(serverEdge?.linkType).toBe('ENDPOINT');
+      expect(serverEdge?.sourcePortName).toBe('Gi1/0/1');
+      expect(serverEdge?.targetPortName).toBe('AST-1009');
+      expect(serverEdge?.targetPortId).toBe('ast-srv-1');
+
+      for (const edge of result.edges) {
+        expect(edge.sourcePortName).toBeTruthy();
+        expect(edge.targetPortName).toBeTruthy();
+      }
 
       // Verify aliases
       const alias1 = await service.getTopology({ mode: 'ALL' });
@@ -1634,10 +1658,16 @@ describe('NetworkService', () => {
       expect(result.updatedCount).toBe(2);
       expect(mockPrisma.canvasNodePosition.upsert).toHaveBeenCalledTimes(2);
       expect(mockPrisma.networkSwitch.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'sw-1' }, data: { positionX: 350, positionY: 220 } }),
+        expect.objectContaining({
+          where: { id: 'sw-1' },
+          data: { positionX: 350, positionY: 220 },
+        }),
       );
       expect(mockPrisma.networkRack.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'rack-1' }, data: { positionX: 210, positionY: 160 } }),
+        expect.objectContaining({
+          where: { id: 'rack-1' },
+          data: { positionX: 210, positionY: 160 },
+        }),
       );
     });
 
@@ -1797,7 +1827,12 @@ describe('NetworkService', () => {
 
     it('createTopologyLink connects endpoint IP with auto asset binding', async () => {
       const sourcePort = { id: 'port-src', switchId: 'sw-1', switch: { id: 'sw-1', name: 'SW-1' } };
-      const matchedIp = { id: 'ip-1', address: '10.232.129.50', assetId: 'ast-from-ip', vlanId: 'vlan-1' };
+      const matchedIp = {
+        id: 'ip-1',
+        address: '10.232.129.50',
+        assetId: 'ast-from-ip',
+        vlanId: 'vlan-1',
+      };
       const matchedAsset = { id: 'ast-from-ip', assetTag: 'AST-AUTO' };
 
       mockPrisma.switchPort.findUnique.mockResolvedValue(sourcePort);
@@ -1968,7 +2003,6 @@ describe('NetworkService', () => {
             mode: 'ACCESS',
             vlanId: null,
             taggedVlanIds: Prisma.JsonNull,
-            poeEnabled: false,
           }),
         }),
       );
@@ -1988,7 +2022,6 @@ describe('NetworkService', () => {
         id: 'port-src',
         mode: 'TRUNK',
         vlanId: 'vlan-100',
-        poeEnabled: true,
         connectedPortId: 'port-dst',
         switch: { id: 'sw-1', name: 'SW-1' },
       };
@@ -2047,5 +2080,4 @@ describe('NetworkService', () => {
       });
     });
   });
-
 });

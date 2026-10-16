@@ -50,6 +50,7 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
       const orgHolding = orgMap.HOLDING;
       const orgBSL = orgMap.BSL;
       const orgBSH = orgMap.BSH;
+      const orgBSD = orgMap.BSD;
 
       // 2. Physical Location system purged in Milestone 2
 
@@ -211,11 +212,11 @@ export async function seedOrganizations(prisma: PrismaClient, ctx?: SeederContex
       }
 
       logger.log(
-        `✅ Seeded 3 Group entities, ${Object.keys(seededDepartments).length} departments, and ${Object.keys(seededPositions).length} positions.`,
+        `✅ Seeded 4 Organizations, ${Object.keys(seededDepartments).length} departments, and ${Object.keys(seededPositions).length} positions.`,
       );
 
       return {
-        organizations: { orgHolding, orgBSL, orgBSH },
+        organizations: { orgHolding, orgBSL, orgBSH, orgBSD },
         departments: seededDepartments,
         positions: seededPositions,
       };

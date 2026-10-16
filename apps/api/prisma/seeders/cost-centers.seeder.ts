@@ -43,7 +43,7 @@ export const costCenterRows: CostCenterDef[] = [
 
 export async function seedCostCenters(
   prisma: PrismaClient,
-  _ctx?: SeederContext,
+  ctx?: SeederContext,
 ): Promise<Map<string, string>> {
   return runDomainSeeder('CostCentersSeeder', '💳', 'Enterprise Cost Centers', async (logger) => {
     const map = new Map<string, string>();
@@ -66,6 +66,13 @@ export async function seedCostCenters(
       map.set(item.code.toLowerCase(), record.id);
       map.set(item.name, record.id);
       map.set(`CC-${item.code}`, record.id);
+
+      if (ctx) {
+        ctx.costCenters.set(item.code, record.id);
+        ctx.costCenters.set(item.code.toLowerCase(), record.id);
+        ctx.costCenters.set(item.name, record.id);
+        ctx.costCenters.set(`CC-${item.code}`, record.id);
+      }
     }
 
     logger.log(`✅ Seeded ${costCenterRows.length} enterprise cost centers.`);

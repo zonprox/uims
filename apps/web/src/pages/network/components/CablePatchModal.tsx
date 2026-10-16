@@ -1,11 +1,7 @@
-import { App, Form, Modal, Radio, Select, Switch } from 'antd';
+import { App, Form, Modal, Radio, Select } from 'antd';
 import React, { useEffect, useState } from 'react';
 import type { Asset } from '../../../services/assets.service';
-import type {
-  NetworkSwitch,
-  SwitchPort,
-  VLAN,
-} from '../../../services/network.service';
+import type { NetworkSwitch, SwitchPort, VLAN } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
 import { formatErrorMessage } from '../../../utils/feedback';
 import type { PatchTopologyLinkDto } from './topology/types';
@@ -82,7 +78,6 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
           targetAssetId: linkCategory === 'ENDPOINT' ? values.targetAssetId : undefined,
           vlanId: values.vlanId || undefined,
           mode: values.mode || (linkCategory === 'UPLINK' ? 'TRUNK' : 'ACCESS'),
-          poeEnabled: Boolean(values.poeEnabled),
           speed: values.speed || '1 Gbps',
         };
 
@@ -114,7 +109,7 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
           form={form}
           layout="vertical"
           preserve={false}
-          initialValues={{ mode: 'ACCESS', poeEnabled: false, speed: '1 Gbps' }}
+          initialValues={{ mode: 'ACCESS', speed: '1 Gbps' }}
         >
           <Form.Item label="Link Type">
             <Radio.Group
@@ -220,14 +215,6 @@ export const CablePatchModal: React.FC<CablePatchModalProps> = React.memo(
                 value: v.id,
               }))}
             />
-          </Form.Item>
-
-          <Form.Item
-            label="Power over Ethernet (PoE Delivery)"
-            name="poeEnabled"
-            valuePropName="checked"
-          >
-            <Switch checkedChildren="⚡ PoE ON" unCheckedChildren="PoE OFF" />
           </Form.Item>
         </Form>
       </Modal>

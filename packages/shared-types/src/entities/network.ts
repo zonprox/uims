@@ -82,20 +82,11 @@ export enum TopologyEdgeStatus {
   DEGRADED = 'DEGRADED',
 }
 
-export enum TopologyPoeStatus {
-  OFF = 'OFF',
-  DELIVERING = 'DELIVERING',
-  FAULT = 'FAULT',
-  OVERLOAD = 'OVERLOAD',
-}
-
-
 export enum SwitchRole {
   CORE = 'CORE',
   DISTRIBUTION = 'DISTRIBUTION',
   ACCESS = 'ACCESS',
   TOR = 'TOR',
-  POE_ACCESS = 'POE_ACCESS',
 }
 
 export enum SwitchStatus {
@@ -248,7 +239,6 @@ export interface SwitchPort {
   portNumber: number;
   name: string;
   formFactor: PortFormFactor | `${PortFormFactor}`;
-  poeEnabled: boolean;
   adminStatus: PortAdminStatus | `${PortAdminStatus}`;
   operStatus: PortOperStatus | `${PortOperStatus}`;
   speed?: string | null;
@@ -263,6 +253,8 @@ export interface SwitchPort {
   connectedAsset?: Asset | null;
   connectedPortId?: string | null;
   connectedPort?: SwitchPort | null;
+  connectedSwitchId?: string | null;
+  connectedSwitch?: NetworkSwitch | null;
   peerPort?: SwitchPort | null;
   description?: string | null;
   createdAt: string | Date;
@@ -426,8 +418,6 @@ export interface TopologyNode {
   ipAddress?: string | null;
   /** Hardware MAC address */
   macAddress?: string | null;
-  /** PoE power delivery state */
-  poeStatus?: TopologyPoeStatus | `${TopologyPoeStatus}` | null;
   /** Primary link or uplink speed string (e.g. '10 Gbps', '1 Gbps') */
   linkSpeed?: string | null;
   /** Structured 2D coordinate container */
@@ -446,8 +436,6 @@ export interface TopologyNode {
   section?: string | null;
   totalPorts?: number;
   activePorts?: number;
-  poeActivePorts?: number;
-  poePowerWatts?: number;
   data?: Record<string, unknown>;
 }
 
@@ -472,8 +460,6 @@ export interface TopologyEdge {
   domain: InfrastructureDomain | `${InfrastructureDomain}`;
   /** Link speed in Megabits per second (e.g. 1000, 10000, 40000) */
   speedMbps?: number;
-  /** Whether PoE power delivery is active on this link */
-  poeDelivering?: boolean;
   /** Link operational signaling status */
   status: TopologyEdgeStatus | `${TopologyEdgeStatus}`;
   /** Operational port role */
@@ -489,10 +475,9 @@ export interface TopologyEdge {
   source: string;
   target: string;
   speed?: string | null;
-  linkType?: 'UPLINK' | 'DOWNLINK' | 'ENDPOINT' | 'TRUNK' | 'POE';
+  linkType?: 'UPLINK' | 'DOWNLINK' | 'ENDPOINT' | 'TRUNK';
   subType?: string | null;
   mediaType?: 'COPPER' | 'FIBER_SFP' | 'FIBER_SFP_PLUS' | 'FIBER_QSFP';
-  poeEnabled?: boolean;
 }
 
 export interface TopologyRackGroup {
@@ -536,7 +521,6 @@ export interface TopologyMetrics {
   activeLinks: number;
   degradedLinks: number;
   downLinks: number;
-  poePowerUsageWatts: number;
   onlinePercentage: number;
 }
 
@@ -553,4 +537,3 @@ export interface TopologyGraphResponse {
 }
 
 export type { TopologyGraphResponse as NetworkTopologyData };
-

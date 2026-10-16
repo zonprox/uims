@@ -20,14 +20,13 @@ export interface SeederContext {
   departments: Map<string, string>;
   positions: Map<string, string>;
   assetCategories: Map<string, string>;
-  inventoryCategories: Map<string, string>;
+  costCenters: Map<string, string>;
   roles: Map<string, string>;
   appUsers: Map<string, string>;
   directoryUsers: Map<string, string>;
   vendors: Map<string, string>;
   assets: Map<string, string>;
   licenses: Map<string, string>;
-  inventory: Map<string, string>;
   subnets: Map<string, string>;
 }
 
@@ -37,14 +36,13 @@ export function createSeederContext(): SeederContext {
     departments: new Map(),
     positions: new Map(),
     assetCategories: new Map(),
-    inventoryCategories: new Map(),
+    costCenters: new Map(),
     roles: new Map(),
     appUsers: new Map(),
     directoryUsers: new Map(),
     vendors: new Map(),
     assets: new Map(),
     licenses: new Map(),
-    inventory: new Map(),
     subnets: new Map(),
   };
 }

@@ -1135,6 +1135,8 @@ export class NetworkService {
             vlan: true,
             ipAddress: true,
             connectedAsset: { include: { deviceModel: true } },
+            connectedPort: { include: { switch: true } },
+            connectedSwitch: true,
           },
           orderBy: [{ portNumber: 'asc' }, { id: 'asc' }],
         },
@@ -1250,7 +1252,6 @@ export class NetworkService {
         portNumber: i,
         name: `Gi1/0/${i}`,
         formFactor: 'RJ45_1G',
-        poeEnabled: true,
         adminStatus: 'UP',
         operStatus: 'DOWN',
         speed: '1 Gbps',
@@ -1269,7 +1270,6 @@ export class NetworkService {
         portNumber: portNum,
         name: `Uplink ${u}`,
         formFactor: 'RJ45_1G',
-        poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
         speed: resolvedUplinkSpeed,
@@ -1290,7 +1290,6 @@ export class NetworkService {
         portNumber: portNum,
         name: `SFP ${f}`,
         formFactor: fiberFormFactor,
-        poeEnabled: false,
         adminStatus: 'UP',
         operStatus: 'DOWN',
         speed: resolvedFiberSpeed,
@@ -1458,6 +1457,8 @@ export class NetworkService {
         vlan: true,
         ipAddress: true,
         connectedAsset: { include: { deviceModel: true } },
+        connectedPort: { include: { switch: true } },
+        connectedSwitch: true,
       },
       orderBy: [{ portNumber: 'asc' }, { id: 'asc' }],
       take: pageSize,
@@ -1479,6 +1480,8 @@ export class NetworkService {
         vlan: true,
         ipAddress: true,
         connectedAsset: { include: { deviceModel: true } },
+        connectedPort: { include: { switch: true } },
+        connectedSwitch: true,
       },
     });
 
@@ -1507,7 +1510,6 @@ export class NetworkService {
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.formFactor !== undefined ? { formFactor: data.formFactor as PortFormFactor } : {}),
-        ...(data.poeEnabled !== undefined ? { poeEnabled: data.poeEnabled } : {}),
         ...(data.adminStatus !== undefined
           ? { adminStatus: data.adminStatus as PortAdminStatus }
           : {}),
@@ -1532,6 +1534,8 @@ export class NetworkService {
         vlan: true,
         ipAddress: true,
         connectedAsset: { include: { deviceModel: true } },
+        connectedPort: { include: { switch: true } },
+        connectedSwitch: true,
       },
     });
 
@@ -1552,7 +1556,6 @@ export class NetworkService {
         portNumber: data.portNumber,
         name: data.name,
         formFactor: (data.formFactor as PortFormFactor) || 'RJ45_1G',
-        poeEnabled: data.poeEnabled ?? false,
         adminStatus: (data.adminStatus as PortAdminStatus) || 'UP',
         operStatus: (data.operStatus as PortOperStatus) || 'DOWN',
         speed: data.speed || null,
@@ -1571,6 +1574,8 @@ export class NetworkService {
         vlan: true,
         ipAddress: true,
         connectedAsset: { include: { deviceModel: true } },
+        connectedPort: { include: { switch: true } },
+        connectedSwitch: true,
       },
     });
 
@@ -1919,6 +1924,12 @@ export class NetworkService {
         subcode?: string | null;
         deviceModel?: { name?: string } | null;
       } | null;
+      connectedPort?:
+        | (SwitchPort & {
+            switch?: NetworkSwitch | null;
+          })
+        | null;
+      connectedSwitch?: NetworkSwitch | null;
     },
   ) {
     return {
@@ -1930,7 +1941,6 @@ export class NetworkService {
       portNumber: port.portNumber,
       name: port.name,
       formFactor: port.formFactor,
-      poeEnabled: port.poeEnabled,
       adminStatus: port.adminStatus,
       operStatus: port.operStatus,
       speed: port.speed,
@@ -1955,6 +1965,51 @@ export class NetworkService {
             assetTag: port.connectedAsset.assetTag || port.connectedAsset.subcode || '',
           } as unknown as import('@uims/shared-types').Asset)
         : null,
+      connectedPortId: port.connectedPortId || null,
+      connectedPort: port.connectedPort
+        ? {
+            id: port.connectedPort.id,
+            name: port.connectedPort.name,
+            portNumber: port.connectedPort.portNumber,
+            switchId: port.connectedPort.switchId,
+            switch: port.connectedPort.switch
+              ? {
+                  id: port.connectedPort.switch.id,
+                  name: port.connectedPort.switch.name,
+                  model: port.connectedPort.switch.model,
+                }
+              : null,
+          }
+        : null,
+      peerPort: port.connectedPort
+        ? {
+            id: port.connectedPort.id,
+            name: port.connectedPort.name,
+            portNumber: port.connectedPort.portNumber,
+            switchId: port.connectedPort.switchId,
+            switch: port.connectedPort.switch
+              ? {
+                  id: port.connectedPort.switch.id,
+                  name: port.connectedPort.switch.name,
+                  model: port.connectedPort.switch.model,
+                }
+              : null,
+          }
+        : null,
+      connectedSwitchId: port.connectedSwitchId || port.connectedPort?.switchId || null,
+      connectedSwitch: port.connectedSwitch
+        ? {
+            id: port.connectedSwitch.id,
+            name: port.connectedSwitch.name,
+            model: port.connectedSwitch.model,
+          }
+        : port.connectedPort?.switch
+          ? {
+              id: port.connectedPort.switch.id,
+              name: port.connectedPort.switch.name,
+              model: port.connectedPort.switch.model,
+            }
+          : null,
       description: port.description,
       createdAt: port.createdAt
         ? typeof port.createdAt === 'string'
@@ -2088,7 +2143,6 @@ export class NetworkService {
     } else if (mode === 'CCTV') {
       switchesWhere.OR = [
         { domain: 'CCTV' },
-        { role: 'POE_ACCESS' },
         { ports: { some: { vlan: { domain: 'CCTV' } } } },
         { ports: { some: { connectedSwitch: { domain: 'CCTV' } } } },
         { ports: { some: { connectedPort: { switch: { domain: 'CCTV' } } } } },
@@ -2199,7 +2253,9 @@ export class NetworkService {
         type: 'RACK',
         subType: 'CABINET_42U',
         domain: isCctvRack ? 'CCTV' : 'NETWORK',
-        status: (rack.status === 'ACTIVE' ? 'ONLINE' : 'MAINTENANCE') as unknown as TopologyNode['status'],
+        status: (rack.status === 'ACTIVE'
+          ? 'ONLINE'
+          : 'MAINTENANCE') as unknown as TopologyNode['status'],
         rackId: rack.id,
         rackName: rack.name,
         x: rx,
@@ -2220,10 +2276,6 @@ export class NetworkService {
     // 4. Assemble Switch Nodes
     switches.forEach((sw, idx) => {
       const activePorts = sw.ports.filter((p) => p.operStatus === 'ACTIVE').length;
-      const poeActivePorts = sw.ports.filter(
-        (p) => p.poeEnabled && p.operStatus === 'ACTIVE',
-      ).length;
-      const estimatedPoeWatts = poeActivePorts * 15.4;
 
       // Coordinate resolution: saved override -> direct coordinate -> auto-layout tier
       let x = sw.positionX ?? 300 + (idx % 4) * 260;
@@ -2251,8 +2303,6 @@ export class NetworkService {
         rackPosition: sw.rackPosition,
         totalPorts: sw.totalPorts,
         activePorts,
-        poeActivePorts,
-        poePowerWatts: estimatedPoeWatts,
         position: { x, y, isPinned: posMap.get(sw.id)?.isPinned },
         isPinned: posMap.get(sw.id)?.isPinned,
         x,
@@ -2293,9 +2343,9 @@ export class NetworkService {
                 source: sw.id,
                 target: peerSw.id,
                 sourcePortId: port.id,
-                sourcePortName: port.name,
+                sourcePortName: port.name || 'Port',
                 targetPortId: port.connectedPort.id,
-                targetPortName: port.connectedPort.name,
+                targetPortName: port.connectedPort.name || 'Uplink',
                 linkType: 'UPLINK',
                 portRole: 'UPLINK',
                 medium: isFiber ? 'FIBER_MULTI' : 'COPPER',
@@ -2303,8 +2353,6 @@ export class NetworkService {
                 speed: speedStr,
                 speedMbps,
                 status: (port.operStatus as 'ACTIVE' | 'DOWN' | 'CONNECTED_NO_SIGNAL') || 'DOWN',
-                poeEnabled: port.poeEnabled,
-                poeDelivering: port.poeEnabled && port.operStatus === 'ACTIVE',
                 vlanId: port.vlanId,
                 vlanNumber: port.vlan?.vlanNumber,
                 taggedVlanIds: (port.taggedVlanIds as number[]) || [],
@@ -2397,13 +2445,17 @@ export class NetworkService {
                     ? `${asset.assignedTo.firstName} ${asset.assignedTo.lastName}`
                     : undefined),
                 department: asset.department?.name,
-                poeVoltage: port.poeEnabled ? '48V' : undefined,
               },
             });
           }
 
           const epSpeedStr = port.speed || '1 Gbps';
           const epSpeedMbps = parseSpeedMbps(epSpeedStr);
+          const endpointInterface =
+            port.description?.match(/\b(eth\d+|NIC\s*\d+|wlan\d+|en\w+)\b/i)?.[1] ||
+            asset.assetTag ||
+            asset.subcode ||
+            (port.ipAddress ? port.ipAddress.address : 'Endpoint');
 
           edges.push({
             id: `edge-${port.id}-${asset.id}`,
@@ -2412,16 +2464,16 @@ export class NetworkService {
             source: sw.id,
             target: asset.id,
             sourcePortId: port.id,
-            sourcePortName: port.name,
-            linkType: port.poeEnabled ? 'POE' : 'ENDPOINT',
+            sourcePortName: port.name || 'Port',
+            targetPortId: port.connectedAssetId || asset.id,
+            targetPortName: endpointInterface,
+            linkType: 'ENDPOINT',
             portRole: 'ACCESS',
             medium: 'COPPER',
             mediaType: 'COPPER',
             speed: epSpeedStr,
             speedMbps: epSpeedMbps,
             status: (port.operStatus as 'ACTIVE' | 'DOWN' | 'CONNECTED_NO_SIGNAL') || 'DOWN',
-            poeEnabled: port.poeEnabled,
-            poeDelivering: port.poeEnabled && port.operStatus === 'ACTIVE',
             vlanId: port.vlanId,
             vlanNumber: port.vlan?.vlanNumber,
             domain: endpointDomain,
@@ -2434,9 +2486,6 @@ export class NetworkService {
     const activeLinks = edges.filter((e) => e.status === 'ACTIVE').length;
     const degradedLinks = edges.filter((e) => e.status === 'CONNECTED_NO_SIGNAL').length;
     const downLinks = edges.filter((e) => e.status === 'DOWN').length;
-    const poePowerWatts = edges
-      .filter((e) => e.poeEnabled && e.status === 'ACTIVE')
-      .reduce((sum) => sum + 15.4, 0);
 
     const summaryMetrics: TopologySummaryMetrics = {
       totalNodes: nodes.length,
@@ -2451,7 +2500,6 @@ export class NetworkService {
       activeLinks,
       degradedLinks,
       downLinks,
-      poePowerUsageWatts: Math.round(poePowerWatts * 10) / 10,
       onlinePercentage: edges.length > 0 ? Math.round((activeLinks / edges.length) * 100) : 100,
     };
 
@@ -2562,9 +2610,6 @@ export class NetworkService {
       throw new NotFoundException(`Source SwitchPort with ID "${dto.sourcePortId}" not found.`);
     }
 
-    // Resolve unified PoE setting
-    const targetPoe = dto.poeEnabled ?? dto.poeDelivering;
-
     // Check mutual exclusivity: cannot link to both inter-switch targetPortId and endpoint
     if (dto.targetPortId && (dto.targetAssetId || dto.targetIpAddressId)) {
       throw new BadRequestException(
@@ -2635,7 +2680,6 @@ export class NetworkService {
             operStatus: 'ACTIVE',
             speed: linkSpeed,
             taggedVlanIds: taggedVlans,
-            poeEnabled: targetPoe !== undefined ? targetPoe : sourcePort.poeEnabled,
             description: dto.description !== undefined ? dto.description : sourcePort.description,
           },
         });
@@ -2652,7 +2696,6 @@ export class NetworkService {
             operStatus: 'ACTIVE',
             speed: linkSpeed,
             taggedVlanIds: taggedVlans,
-            poeEnabled: targetPoe !== undefined ? targetPoe : targetPort.poeEnabled,
             description: dto.description !== undefined ? dto.description : targetPort.description,
           },
         });
@@ -2715,7 +2758,9 @@ export class NetworkService {
           where: { id: dto.targetIpAddressId },
         });
         if (!targetIp) {
-          throw new NotFoundException(`Target IPAddress with ID "${dto.targetIpAddressId}" not found.`);
+          throw new NotFoundException(
+            `Target IPAddress with ID "${dto.targetIpAddressId}" not found.`,
+          );
         }
         // Auto-resolve asset from IP if targetAssetId wasn't given
         if (!targetAsset && targetIp.assetId) {
@@ -2775,7 +2820,6 @@ export class NetworkService {
             adminStatus: 'UP',
             operStatus: 'ACTIVE',
             speed: linkSpeed,
-            poeEnabled: targetPoe !== undefined ? targetPoe : sourcePort.poeEnabled,
             description: dto.description !== undefined ? dto.description : sourcePort.description,
           },
         });
@@ -2791,7 +2835,6 @@ export class NetworkService {
             speed: linkSpeed,
             operStatus: 'ACTIVE',
             vlanId: updated.vlanId,
-            poeEnabled: updated.poeEnabled,
           },
         };
       });
@@ -2820,7 +2863,9 @@ export class NetworkService {
       return result;
     }
 
-    throw new BadRequestException('At least targetPortId, targetAssetId, or targetIpAddressId must be supplied.');
+    throw new BadRequestException(
+      'At least targetPortId, targetAssetId, or targetIpAddressId must be supplied.',
+    );
   }
 
   async deleteTopologyLink(portId: string, dto?: UnpatchTopologyLinkDto) {
@@ -2870,7 +2915,6 @@ export class NetworkService {
               mode: 'ACCESS',
               vlanId: null,
               taggedVlanIds: Prisma.JsonNull,
-              poeEnabled: false,
             }
           : {}),
       };
@@ -2895,7 +2939,7 @@ export class NetworkService {
     if (this.auditService) {
       try {
         const resetDesc = shouldResetConfig
-          ? ' (configuration reset to ACCESS default, VLAN cleared, PoE disabled)'
+          ? ' (configuration reset to ACCESS default, VLAN cleared)'
           : '';
         const reasonDesc = dto?.reason ? ` Reason: "${dto.reason}".` : '';
         await this.auditService.logEvent({
@@ -2913,7 +2957,6 @@ export class NetworkService {
             ipAddressId: port.ipAddressId,
             mode: port.mode,
             vlanId: port.vlanId,
-            poeEnabled: port.poeEnabled,
             operStatus: port.operStatus,
           },
           newValue: {
@@ -2926,7 +2969,6 @@ export class NetworkService {
               ? {
                   mode: 'ACCESS',
                   vlanId: null,
-                  poeEnabled: false,
                 }
               : {}),
           },
@@ -2942,4 +2984,3 @@ export class NetworkService {
     return result;
   }
 }
-

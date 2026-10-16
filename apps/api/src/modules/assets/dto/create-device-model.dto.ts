@@ -1,10 +1,11 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 
 export class CreateDeviceModelDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
 
+  @ValidateIf((o: CreateDeviceModelDto) => !o.assetCode)
   @IsString()
   @IsNotEmpty()
   modelCode!: string;

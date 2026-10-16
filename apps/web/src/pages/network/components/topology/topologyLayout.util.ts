@@ -10,7 +10,7 @@ export function calculateHierarchicalLayout(
 
   const tier0: TopologyNode[] = []; // Racks & Core Switches
   const tier1: TopologyNode[] = []; // Distribution Switches
-  const tier2: TopologyNode[] = []; // Access/PoE Switches & NVRs
+  const tier2: TopologyNode[] = []; // Access Switches & NVRs
   const tier3: TopologyNode[] = []; // Endpoints & Cameras
 
   for (const node of nodes) {
@@ -27,24 +27,43 @@ export function calculateHierarchicalLayout(
   }
 
   const tiers = [
-    { nodes: tier0, y: 100 },
-    { nodes: tier1, y: 280 },
-    { nodes: tier2, y: 460 },
-    { nodes: tier3, y: 660 },
+    { nodes: tier0, baselineY: 100 },
+    { nodes: tier1, baselineY: 280 },
+    { nodes: tier2, baselineY: 460 },
+    { nodes: tier3, baselineY: 660 },
   ];
 
-  for (const tier of tiers) {
-    const count = tier.nodes.length;
-    if (count === 0) continue;
-    const spacing = Math.max(190, Math.min(260, (containerWidth - 100) / count));
-    const startX = Math.max(80, (containerWidth - (count - 1) * spacing) / 2);
+  let currentY = 100;
+  const intraTierRowGap = 140;
+  const interTierGap = 80;
+  const cardHeight = 98;
 
-    tier.nodes.forEach((node, index) => {
-      result[node.id] = {
-        x: Math.round(startX + index * spacing),
-        y: tier.y,
-      };
-    });
+  for (const tier of tiers) {
+    const total = tier.nodes.length;
+    if (total === 0) continue;
+
+    currentY = Math.max(tier.baselineY, currentY);
+
+    // Wrap nodes into balanced rows if tier has more than 8 nodes to prevent horizontal crowding/overlap
+    const maxPerRow = 8;
+    const numRows = Math.ceil(total / maxPerRow);
+
+    for (let r = 0; r < numRows; r++) {
+      const rowNodes = tier.nodes.slice(r * maxPerRow, (r + 1) * maxPerRow);
+      const count = rowNodes.length;
+      const spacing = Math.max(220, Math.min(260, (containerWidth - 100) / count));
+      const startX = Math.max(80, (containerWidth - (count - 1) * spacing) / 2);
+      const rowY = currentY + r * intraTierRowGap;
+
+      rowNodes.forEach((node, index) => {
+        result[node.id] = {
+          x: Math.round(startX + index * spacing),
+          y: rowY,
+        };
+      });
+    }
+
+    currentY += (numRows - 1) * intraTierRowGap + cardHeight + interTierGap;
   }
 
   return result;

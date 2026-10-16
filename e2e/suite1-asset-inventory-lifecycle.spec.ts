@@ -237,7 +237,9 @@ test.describe('Playwright E2E Suite 1 — Asset & Warehouse Inventory Lifecycle'
         .first();
       await expect(searchInput).toBeVisible({ timeout: 20000 });
       await searchInput.fill(testTagPrefix);
-      await expect(page.locator('.ant-table-wrapper .ant-spin-spinning')).not.toBeVisible({ timeout: 10000 });
+      await expect(page.locator('.ant-table-wrapper .ant-spin-spinning')).not.toBeVisible({
+        timeout: 10000,
+      });
       await page.waitForTimeout(600);
 
       const assetRow = page
@@ -263,7 +265,9 @@ test.describe('Playwright E2E Suite 1 — Asset & Warehouse Inventory Lifecycle'
       await page.waitForTimeout(600); // allow drawer slide-in animation to settle
       await toUserSelect.click();
 
-      const dropdown = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').first();
+      const dropdown = page
+        .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+        .first();
       await expect(dropdown).toBeVisible({ timeout: 10000 });
       const targetOption = dropdown.locator('.ant-select-item-option').first();
       await expect(targetOption).toBeVisible({ timeout: 10000 });
