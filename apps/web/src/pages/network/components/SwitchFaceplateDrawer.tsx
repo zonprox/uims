@@ -17,12 +17,14 @@ import {
   Space,
   Spin,
   Table,
+  Tabs,
   Tag,
   theme,
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityTimeline } from '../../../components/ActivityTimeline';
 import AppDrawer from '../../../components/AppDrawer';
 import type { Asset } from '../../../services/assets.service';
 import type {
@@ -364,165 +366,183 @@ export const SwitchFaceplateDrawer: React.FC<SwitchFaceplateDrawerProps> = React
         }
         styles={{ body: { padding: '20px 24px', backgroundColor: token.colorBgLayout } }}
       >
-        <Flex vertical gap={16}>
-          {/* Switch Hardware Metadata Summary Card */}
-          {switchEntity && (
-            <Card styles={{ body: { padding: '16px 20px' } }}>
-              <Descriptions
-                size="small"
-                column={{ xxl: 3, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}
-                styles={{ label: { whiteSpace: 'nowrap' } }}
-              >
-                <Descriptions.Item label="Vendor / Make">
-                  <Tag color="blue" style={{ whiteSpace: 'nowrap', margin: 0 }}>
-                    {switchEntity.vendor || '—'}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Hardware Model">
-                  <Text
-                    strong
-                    ellipsis={{ tooltip: switchEntity.model || '—' }}
-                    style={{ maxWidth: 220, display: 'inline-block' }}
-                  >
-                    {switchEntity.model || '—'}
-                  </Text>
-                </Descriptions.Item>
-                <Descriptions.Item label="Serial Number">
-                  <Text code style={{ whiteSpace: 'nowrap' }}>
-                    {switchEntity.serialNumber || '—'}
-                  </Text>
-                </Descriptions.Item>
-                <Descriptions.Item label="MAC Address">
-                  <Text code style={{ whiteSpace: 'nowrap' }}>
-                    {switchEntity.macAddress || '—'}
-                  </Text>
-                </Descriptions.Item>
-
-                <Descriptions.Item label="Management IP">
-                  {switchEntity.ipAddress ? (
-                    <Tag
-                      icon={<ApiOutlined />}
-                      color="geekblue"
-                      style={{ whiteSpace: 'nowrap', margin: 0 }}
-                    >
-                      {switchEntity.ipAddress.address}
-                    </Tag>
-                  ) : (
-                    <Text type="secondary">—</Text>
-                  )}
-                </Descriptions.Item>
-                <Descriptions.Item label="Firmware Version">
-                  <Text style={{ whiteSpace: 'nowrap' }}>
-                    {switchEntity.firmwareVersion || '—'}
-                  </Text>
-                </Descriptions.Item>
-                <Descriptions.Item label="Rack Enclosure">
-                  {switchEntity.rack ? (
-                    <Flex align="center" gap={6} wrap="wrap">
-                      <Tag
-                        icon={<ApartmentOutlined />}
-                        color="purple"
-                        style={{
-                          cursor: onSelectRack ? 'pointer' : 'default',
-                          whiteSpace: 'nowrap',
-                          margin: 0,
-                        }}
-                        onClick={() => {
-                          if (switchEntity.rack?.id && onSelectRack) {
-                            onSelectRack(switchEntity.rack.id);
-                          }
-                        }}
+        <Tabs
+          defaultActiveKey="faceplate"
+          items={[
+            {
+              key: 'faceplate',
+              label: 'Switch & Ports',
+              children: (
+                <Flex vertical gap={16}>
+                  {/* Switch Hardware Metadata Summary Card */}
+                  {switchEntity && (
+                    <Card styles={{ body: { padding: '16px 20px' } }}>
+                      <Descriptions
+                        size="small"
+                        column={{ xxl: 3, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}
+                        styles={{ label: { whiteSpace: 'nowrap' } }}
                       >
-                        {switchEntity.rack.code || switchEntity.rack.name}
-                      </Tag>
-                      {switchEntity.rackPosition && (
-                        <Text strong style={{ fontSize: 11.5, whiteSpace: 'nowrap' }}>
-                          U{switchEntity.rackPosition} ({switchEntity.rackHeight || 1}U)
-                        </Text>
-                      )}
-                    </Flex>
-                  ) : (
-                    <Text type="secondary">Unmounted</Text>
+                        <Descriptions.Item label="Vendor / Make">
+                          <Tag color="blue" style={{ whiteSpace: 'nowrap', margin: 0 }}>
+                            {switchEntity.vendor || '—'}
+                          </Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Hardware Model">
+                          <Text
+                            strong
+                            ellipsis={{ tooltip: switchEntity.model || '—' }}
+                            style={{ maxWidth: 220, display: 'inline-block' }}
+                          >
+                            {switchEntity.model || '—'}
+                          </Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Serial Number">
+                          <Text code style={{ whiteSpace: 'nowrap' }}>
+                            {switchEntity.serialNumber || '—'}
+                          </Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="MAC Address">
+                          <Text code style={{ whiteSpace: 'nowrap' }}>
+                            {switchEntity.macAddress || '—'}
+                          </Text>
+                        </Descriptions.Item>
+
+                        <Descriptions.Item label="Management IP">
+                          {switchEntity.ipAddress ? (
+                            <Tag
+                              icon={<ApiOutlined />}
+                              color="geekblue"
+                              style={{ whiteSpace: 'nowrap', margin: 0 }}
+                            >
+                              {switchEntity.ipAddress.address}
+                            </Tag>
+                          ) : (
+                            <Text type="secondary">—</Text>
+                          )}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Firmware Version">
+                          <Text style={{ whiteSpace: 'nowrap' }}>
+                            {switchEntity.firmwareVersion || '—'}
+                          </Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Rack Enclosure">
+                          {switchEntity.rack ? (
+                            <Flex align="center" gap={6} wrap="wrap">
+                              <Tag
+                                icon={<ApartmentOutlined />}
+                                color="purple"
+                                style={{
+                                  cursor: onSelectRack ? 'pointer' : 'default',
+                                  whiteSpace: 'nowrap',
+                                  margin: 0,
+                                }}
+                                onClick={() => {
+                                  if (switchEntity.rack?.id && onSelectRack) {
+                                    onSelectRack(switchEntity.rack.id);
+                                  }
+                                }}
+                              >
+                                {switchEntity.rack.code || switchEntity.rack.name}
+                              </Tag>
+                              {switchEntity.rackPosition && (
+                                <Text strong style={{ fontSize: 11.5, whiteSpace: 'nowrap' }}>
+                                  U{switchEntity.rackPosition} ({switchEntity.rackHeight || 1}U)
+                                </Text>
+                              )}
+                            </Flex>
+                          ) : (
+                            <Text type="secondary">Unmounted</Text>
+                          )}
+                        </Descriptions.Item>
+                      </Descriptions>
+                    </Card>
                   )}
-                </Descriptions.Item>
-              </Descriptions>
-            </Card>
-          )}
 
-          {/* Interactive Visual Faceplate Section */}
-          <Card
-            title={
-              <Flex justify="space-between" align="center" style={{ width: '100%' }}>
-                <Flex align="center" gap={8}>
-                  <Title level={5} style={{ margin: 0 }}>
-                    Physical Front Panel Faceplate
-                  </Title>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    Click any port to inspect or edit configuration
-                  </Text>
-                </Flex>
-                {loading && <Spin size="small" />}
-              </Flex>
-            }
-            styles={{ body: { padding: '16px' } }}
-          >
-            <SwitchPortFaceplate
-              switchEntity={switchEntity}
-              ports={ports}
-              selectedPortId={selectedPort?.id}
-              onSelectPort={handleSelectPort}
-              loading={loading}
-            />
-          </Card>
-
-          {/* Port Matrix & Searchable Sub-Table */}
-          <Card
-            title={
-              <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-                <Flex align="center" gap={8}>
-                  <Title level={5} style={{ margin: 0 }}>
-                    Port Matrix & Endpoint Directory
-                  </Title>
-                  <Tag color="cyan">{filteredPorts.length} Ports</Tag>
-                </Flex>
-                <Flex align="center" gap={8}>
-                  <Input.Search
-                    placeholder="Search ports, VLAN, IP, asset..."
-                    allowClear
-                    size="small"
-                    style={{ width: 220 }}
-                    value={portSearch}
-                    onChange={(e) => setPortSearch(e.target.value)}
-                  />
-                  <Radio.Group
-                    size="small"
-                    value={portFilterStatus}
-                    onChange={(e) => setPortFilterStatus(e.target.value)}
+                  {/* Interactive Visual Faceplate Section */}
+                  <Card
+                    title={
+                      <Flex justify="space-between" align="center" style={{ width: '100%' }}>
+                        <Flex align="center" gap={8}>
+                          <Title level={5} style={{ margin: 0 }}>
+                            Physical Front Panel Faceplate
+                          </Title>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Click any port to inspect or edit configuration
+                          </Text>
+                        </Flex>
+                        {loading && <Spin size="small" />}
+                      </Flex>
+                    }
+                    styles={{ body: { padding: '16px' } }}
                   >
-                    <Radio.Button value="all">All</Radio.Button>
-                    <Radio.Button value="ACTIVE">Active</Radio.Button>
-                    <Radio.Button value="DOWN">Down</Radio.Button>
-                    <Radio.Button value="CONNECTED_NO_SIGNAL">No Signal</Radio.Button>
-                  </Radio.Group>
+                    <SwitchPortFaceplate
+                      switchEntity={switchEntity}
+                      ports={ports}
+                      selectedPortId={selectedPort?.id}
+                      onSelectPort={handleSelectPort}
+                      loading={loading}
+                    />
+                  </Card>
+
+                  {/* Port Matrix & Searchable Sub-Table */}
+                  <Card
+                    title={
+                      <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+                        <Flex align="center" gap={8}>
+                          <Title level={5} style={{ margin: 0 }}>
+                            Port Matrix & Endpoint Directory
+                          </Title>
+                          <Tag color="cyan">{filteredPorts.length} Ports</Tag>
+                        </Flex>
+                        <Flex align="center" gap={8}>
+                          <Input.Search
+                            placeholder="Search ports, VLAN, IP, asset..."
+                            allowClear
+                            size="small"
+                            style={{ width: 220 }}
+                            value={portSearch}
+                            onChange={(e) => setPortSearch(e.target.value)}
+                          />
+                          <Radio.Group
+                            size="small"
+                            value={portFilterStatus}
+                            onChange={(e) => setPortFilterStatus(e.target.value)}
+                          >
+                            <Radio.Button value="all">All</Radio.Button>
+                            <Radio.Button value="ACTIVE">Active</Radio.Button>
+                            <Radio.Button value="DOWN">Down</Radio.Button>
+                            <Radio.Button value="CONNECTED_NO_SIGNAL">No Signal</Radio.Button>
+                          </Radio.Group>
+                        </Flex>
+                      </Flex>
+                    }
+                    styles={{ body: { padding: 0 } }}
+                  >
+                    <Table<SwitchPort>
+                      dataSource={filteredPorts}
+                      columns={portColumns}
+                      rowKey="id"
+                      size="small"
+                      scroll={{ x: 'max-content' }}
+                      pagination={{
+                        pageSize: 12,
+                        showSizeChanger: true,
+                        pageSizeOptions: ['12', '24', '48'],
+                      }}
+                    />
+                  </Card>
                 </Flex>
-              </Flex>
-            }
-            styles={{ body: { padding: 0 } }}
-          >
-            <Table<SwitchPort>
-              dataSource={filteredPorts}
-              columns={portColumns}
-              rowKey="id"
-              size="small"
-              scroll={{ x: 'max-content' }}
-              pagination={{
-                pageSize: 12,
-                showSizeChanger: true,
-                pageSizeOptions: ['12', '24', '48'],
-              }}
-            />
-          </Card>
-        </Flex>
+              ),
+            },
+            {
+              key: 'history',
+              label: 'Switch History',
+              children: switchEntity?.id ? (
+                <ActivityTimeline entityType="NetworkSwitch" entityId={switchEntity.id} />
+              ) : null,
+            },
+          ]}
+        />
 
         {/* Port Configuration Drawer (Nested) */}
         <PortConfigDrawer

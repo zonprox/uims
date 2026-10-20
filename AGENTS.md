@@ -39,6 +39,9 @@
    - Clean up your own mess: remove imports/variables/functions made unused by your changes.
 4. **Goal-Driven Execution**:
    - Formulate verifiable criteria and execute verification loops (`pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`) until green.
+5. **Milestone-Only Progress Reporting (Zero Continuous Status Noise)**:
+   - Do NOT emit continuous intermediate progress ticks, routine liveness heartbeats, or step-by-step subagent status chatter to the user.
+   - Report progress ONLY when a complete milestone passes verification (or when final task execution finishes, or if blocked on required user input).
 
 ---
 
@@ -423,6 +426,10 @@ Every change must satisfy the full verification cycle prior to merging or pushin
 - **Deterministic Seed Credentials in CI**: Remote CI workflows (`.github/workflows/ci.yml`), container seed scripts, and local developer environments MUST supply explicit seed credentials (`INITIAL_ADMIN_PASSWORD`, `INITIAL_DEMO_PASSWORD`) to eliminate unseeded random cryptographic fallback generation during automated verification runs.
 - **Dynamic Test Credential Fallbacks**: E2E and integration test suites validating seeded accounts must dynamically resolve expected credentials via `process.env.INITIAL_DEMO_PASSWORD || 'Youngone@2026'` and `process.env.INITIAL_ADMIN_PASSWORD || expectedPassword` rather than using rigid hardcoded strings, ensuring test portability across environments with differing seed secrets.
 - **Service Query Method Aliasing**: When introducing domain query method shortcuts or aliases (such as `findAllUsers` vs `findAll`) in test suites, services must expose standardized aliases to preserve backward compatibility across callers.
+
+### 16.22 Milestone-Only Progress Reporting & Zero Continuous Status Noise
+- **Prohibition of Continuous Progress Chatter**: Agents, orchestrators, and sentinel monitors MUST NOT send continuous periodic progress reports, liveness heartbeats, or intermediate step-by-step status notifications to the user.
+- **Milestone-Gated Notification Policy**: Progress updates may be reported ONLY upon the full completion and verification of a milestone (e.g., Milestone 1 Complete, Milestone 2 Complete, Final Verification Complete) or when an unresolvable blocker requires explicit user decision.
 
 ---
 

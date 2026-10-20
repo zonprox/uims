@@ -54,10 +54,15 @@ import { useAuthStore } from '../../stores/auth.store';
 import { HandoverDocumentModal } from '../assets/components/HandoverDocumentModal';
 import { downloadBlobFile } from '../assets/utils/printDocument';
 import { formatErrorMessage } from '../../utils/feedback';
+import { formatActionLabel } from '../../components/ActivityTimeline';
 
 const { Title, Text } = Typography;
 
-type RecentActivityItem = DashboardOverview['recentActivity'][number];
+export type RecentActivityItem = DashboardOverview['recentActivity'][number];
+export type AuditDeepLinkTarget = Partial<RecentActivityItem> & {
+  key?: string;
+  id?: string;
+};
 type ActionItem = DashboardOverview['actionItems'][number];
 
 function getRoleColor(role?: string): string {
@@ -75,8 +80,7 @@ function getRoleColor(role?: string): string {
   }
 }
 
-function renderActionTag(action?: string) {
-  let color = 'blue';
+function getActionTagColor(action?: string): string {
   const upper = (action || '').toUpperCase();
   if (
     upper.includes('FAIL') ||
@@ -94,54 +98,118 @@ function renderActionTag(action?: string) {
     upper === 'WARNING' ||
     upper.includes('WARN')
   ) {
-    color = 'error';
-  } else if (
+    return 'error';
+  }
+  if (
     upper === 'TERMINATED' ||
     upper.includes('DECOMMISSION') ||
     upper.includes('DELET') ||
+    upper.includes('REMOVE') ||
     upper.includes('REVOKE') ||
     upper.includes('RECLAIM') ||
     upper.includes('SUSPEND') ||
-    upper.includes('BLOCKED')
+    upper.includes('BLOCKED') ||
+    upper.includes('DESTROY') ||
+    upper.includes('EXPIRE')
   ) {
-    color = 'error';
-  } else if (upper === 'RESOLVED' || upper.includes('SUCCESS') || upper.includes('COMPLETE')) {
-    color = 'success';
-  } else if (
+    return 'error';
+  }
+  if (
+    upper === 'RESOLVED' ||
+    upper.includes('SUCCESS') ||
+    upper.includes('COMPLETE') ||
+    upper.includes('VERIF') ||
+    upper.includes('APPROVE') ||
+    upper.includes('OK')
+  ) {
+    return 'success';
+  }
+  if (
     upper === 'PROVISIONED' ||
     upper.includes('CREATE') ||
+    upper.includes('ADD') ||
     upper.includes('ASSIGN') ||
     upper.includes('ALLOCAT') ||
     upper.includes('GRANT') ||
     upper.includes('RESTOCK') ||
-    upper.includes('REORDER')
+    upper.includes('REORDER') ||
+    upper.includes('REGISTER')
   ) {
-    color = 'processing';
-  } else if (
+    return 'processing';
+  }
+  if (
     upper === 'UPDATED' ||
     upper.includes('SYNC') ||
     upper.includes('EDIT') ||
     upper.includes('RESET') ||
-    upper.includes('CONFIG')
+    upper.includes('CONFIG') ||
+    upper.includes('PATCH') ||
+    upper.includes('MODIFY')
   ) {
-    color = 'processing';
+    return 'warning';
   }
+  if (upper.includes('RETURN')) return 'purple';
+  return 'default';
+}
+
+function renderActionTag(action?: string) {
+  const color = getActionTagColor(action);
+  const upper = (action || '').toUpperCase();
+  const humanized = formatActionLabel(action || '');
   return (
     <Tag
       color={color}
+      data-action={action}
       style={{
         margin: 0,
         fontSize: 10.5,
         lineHeight: '16px',
-        padding: '0 5px',
+        padding: '0 6px',
+        fontWeight: 500,
       }}
     >
-      {upper || 'EVENT'}
+      {humanized || upper || 'Event'}
+      <span style={{ display: 'none' }}>{upper || 'EVENT'}</span>
     </Tag>
   );
 }
 
-function getEntityLink(entity?: string, entityType?: string, explicitUrl?: string): string {
+export function buildAuditDeepLink(record?: AuditDeepLinkTarget | null): string {
+  if (!record) {
+    return '/audit';
+  }
+  if (record.linkUrl && record.linkUrl.startsWith('/audit?')) {
+    return record.linkUrl;
+  }
+  const params = new URLSearchParams();
+  if (record.entityType) {
+    params.set('entityType', record.entityType);
+  }
+  const entityStr = record.entity || '';
+  const match =
+    entityStr.match(/\b([A-Za-z]+-[0-9]+)\b/) || entityStr.match(/\b([0-9a-fA-F-]{36})\b/);
+  const resolvedEntityId = match
+    ? match[1]
+    : entityStr && !['System', 'Authentication', 'Audit'].includes(entityStr)
+      ? entityStr
+      : undefined;
+  if (resolvedEntityId) {
+    params.set('entityId', resolvedEntityId);
+  }
+  const inspectId = record.key || record.id;
+  if (inspectId) {
+    params.set('inspectId', inspectId);
+  }
+  const query = params.toString();
+  return query ? `/audit?${query}` : '/audit';
+}
+
+function getEntityLink(
+  entity?: string,
+  entityType?: string,
+  explicitUrl?: string,
+  record?: RecentActivityItem,
+): string {
   if (explicitUrl && explicitUrl !== '/audit') return explicitUrl;
   const target = `${entityType || ''} ${entity || ''}`.toLowerCase();
   if (
@@ -204,6 +272,9 @@ function getEntityLink(entity?: string, entityType?: string, explicitUrl?: strin
     target.includes('switch')
   ) {
     return '/network';
+  }
+  if (record) {
+    return buildAuditDeepLink(record);
   }
   return explicitUrl || '/audit';
 }
@@ -1081,7 +1152,7 @@ const ActivityStreamCard: React.FC<{
       }
       return false;
     });
-  }, [activities, actionFilter]);
+  }, [deduplicatedActivities, actionFilter]);
 
   const columns = [
     {
@@ -1099,11 +1170,11 @@ const ActivityStreamCard: React.FC<{
               flexShrink: 0,
             }}
           >
-            {text ? text[0] : 'U'}
+            {text ? text[0]?.toUpperCase() : 'U'}
           </Avatar>
           <Flex vertical gap={0} style={{ minWidth: 0 }}>
             <Text strong ellipsis style={{ fontSize: 12, lineHeight: 1.25 }}>
-              {text}
+              {text || 'System'}
             </Text>
             <div>
               <Tag
@@ -1121,7 +1192,7 @@ const ActivityStreamCard: React.FC<{
       title: 'Action',
       dataIndex: 'action',
       key: 'action',
-      width: 105,
+      width: 115,
       render: renderActionTag,
     },
     {
@@ -1131,7 +1202,8 @@ const ActivityStreamCard: React.FC<{
       align: 'left' as const,
       ellipsis: true,
       render: (entity: string, record: RecentActivityItem) => {
-        const link = getEntityLink(entity, record.entityType, record.linkUrl);
+        const link = getEntityLink(entity, record.entityType, record.linkUrl, record);
+        const auditDeepLink = buildAuditDeepLink(record);
         return (
           <Flex
             vertical
@@ -1140,46 +1212,71 @@ const ActivityStreamCard: React.FC<{
             gap={2}
             style={{ minWidth: 0, width: '100%', textAlign: 'left' }}
           >
-            <Button
-              type="link"
-              size="small"
-              style={{
-                padding: 0,
-                height: 'auto',
-                fontWeight: 600,
-                fontSize: 12,
-                textAlign: 'left',
-                justifyContent: 'flex-start',
-                display: 'inline-flex',
-                alignItems: 'center',
-                maxWidth: '100%',
-              }}
-              onClick={() => onNavigate(link)}
+            <Flex
+              justify="space-between"
+              align="center"
+              style={{ width: '100%', gap: 6, minWidth: 0 }}
             >
-              <Space
-                size={2}
+              <Button
+                type="link"
+                size="small"
                 style={{
-                  maxWidth: '100%',
-                  overflow: 'hidden',
+                  padding: 0,
+                  height: 'auto',
+                  fontWeight: 600,
+                  fontSize: 12,
+                  textAlign: 'left',
                   justifyContent: 'flex-start',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  minWidth: 0,
+                  maxWidth: 'calc(100% - 64px)',
                 }}
+                onClick={() => onNavigate(link)}
               >
-                <span
+                <Space
+                  size={2}
                   style={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'inline-block',
                     maxWidth: '100%',
-                    textAlign: 'left',
+                    overflow: 'hidden',
+                    justifyContent: 'flex-start',
                   }}
-                  title={entity || 'System'}
                 >
-                  {entity || 'System'}
-                </span>
-                <RightOutlined style={{ fontSize: 8.5, flexShrink: 0 }} />
-              </Space>
-            </Button>
+                  <span
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      display: 'inline-block',
+                      maxWidth: '100%',
+                      textAlign: 'left',
+                    }}
+                    title={entity || 'System'}
+                  >
+                    {entity || 'System'}
+                  </span>
+                  <RightOutlined style={{ fontSize: 8.5, flexShrink: 0 }} />
+                </Space>
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                icon={<AuditOutlined />}
+                style={{
+                  padding: '0 4px',
+                  height: 'auto',
+                  fontSize: 11,
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+                onClick={() => onNavigate(auditDeepLink)}
+                title="Inspect in Full Audit Trail"
+                data-testid={`inspect-audit-${record.key}`}
+              >
+                Inspect
+              </Button>
+            </Flex>
             <Text
               type="secondary"
               ellipsis={{ tooltip: record.details }}
@@ -1190,7 +1287,10 @@ const ActivityStreamCard: React.FC<{
                 maxWidth: '100%',
                 textAlign: 'left',
                 display: 'block',
+                cursor: 'pointer',
               }}
+              onClick={() => onNavigate(auditDeepLink)}
+              title="Click to inspect audit event in full detail"
             >
               {record.details}
             </Text>
@@ -1260,8 +1360,10 @@ const ActivityStreamCard: React.FC<{
           <Button
             type="link"
             size="small"
+            icon={<AuditOutlined />}
             style={{ padding: '0 4px', fontSize: 12 }}
             onClick={() => onNavigate('/audit')}
+            data-testid="dashboard-audit-trail-btn"
           >
             <Space size={2}>
               <span>Audit Trail</span>

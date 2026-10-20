@@ -2,7 +2,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type DashboardOverview, dashboardService } from '../../services/dashboard.service';
-import DashboardPage from './DashboardPage';
+import DashboardPage, { buildAuditDeepLink } from './DashboardPage';
 
 const mockNavigate = vi.fn();
 const mockMessageSuccess = vi.fn();
@@ -359,7 +359,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('renders live activity stream with role badges, action tags, and deep links (R2)', async () => {
+  it('renders live activity stream with role badges, humanized action tags, and deep links (R2)', async () => {
     const root = createRoot(container);
     await act(async () => {
       root.render(createElement(DashboardPage));
@@ -367,12 +367,18 @@ describe('DashboardPage', () => {
 
     expect(container.textContent).toContain('Live Activity Stream');
     expect(container.textContent).toContain('Sarah Connor');
+    // Humanized action badges aligned with ActivityTimeline
+    expect(container.textContent).toContain('Provisioned');
+    expect(container.textContent).toContain('Resolved');
+    expect(container.textContent).toContain('Warning');
+    expect(container.textContent).toContain('Terminated');
+    // Uppercase codes preserved for accessibility and backwards compatibility
     expect(container.textContent).toContain('PROVISIONED');
     expect(container.textContent).toContain('RESOLVED');
     expect(container.textContent).toContain('WARNING');
     expect(container.textContent).toContain('TERMINATED');
 
-    // Check target entity deep link buttons
+    // Check target entity deep link buttons (navigates to domain page)
     const buttons = Array.from(container.querySelectorAll('button'));
     const entityLinkBtn = buttons.find((b) => b.textContent?.includes('Asset AST-5001'));
     expect(entityLinkBtn).toBeDefined();
@@ -382,8 +388,115 @@ describe('DashboardPage', () => {
     });
     expect(mockNavigate).toHaveBeenCalledWith('/assets');
 
+    // Check direct navigation to /audit from header "Audit Trail" button
+    const auditTrailBtn = container.querySelector(
+      '[data-testid="dashboard-audit-trail-btn"]',
+    ) as HTMLButtonElement | null;
+    expect(auditTrailBtn).toBeDefined();
+    await act(async () => {
+      auditTrailBtn?.click();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/audit');
+
+    // Check per-event "Inspect" button drill-down to /audit with entityType, entityId, and inspectId
+    const inspectBtn = container.querySelector(
+      '[data-testid="inspect-audit-log-1"]',
+    ) as HTMLButtonElement | null;
+    expect(inspectBtn).toBeDefined();
+    await act(async () => {
+      inspectBtn?.click();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/audit?entityType=Asset&entityId=AST-5001&inspectId=log-1',
+    );
+
+    // Check clicking event details summary also triggers audit drill-down
+    const detailsEl = Array.from(container.querySelectorAll('span, div')).find((el) =>
+      el.textContent?.includes('Assigned MacBook Pro to Engineering'),
+    );
+    expect(detailsEl).toBeDefined();
+    await act(async () => {
+      (detailsEl as HTMLElement)?.click();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/audit?entityType=Asset&entityId=AST-5001&inspectId=log-1',
+    );
+
     act(() => {
       root.unmount();
+    });
+  });
+
+  describe('buildAuditDeepLink helper', () => {
+    it('constructs correct audit URL with entityType, extracted entityId, and inspectId', () => {
+      const url = buildAuditDeepLink({
+        key: 'audit-log-123',
+        user: 'Jane Doe',
+        role: 'Admin',
+        avatarColor: '#1677ff',
+        action: 'PROVISIONED',
+        entity: 'Hardware AST-9002',
+        entityType: 'Hardware',
+        details: 'Provisioned laptop to staff',
+        time: '1m ago',
+      });
+      expect(url).toBe('/audit?entityType=Hardware&entityId=AST-9002&inspectId=audit-log-123');
+    });
+
+    it('handles UUID entity IDs in entity property', () => {
+      const url = buildAuditDeepLink({
+        key: 'log-uuid',
+        user: 'System',
+        role: 'System',
+        avatarColor: '#1677ff',
+        action: 'UPDATE',
+        entity: 'b7c29e12-8e14-4ce0-a373-a2daa9276101',
+        entityType: 'User',
+        details: 'Updated profile',
+        time: '2m ago',
+      });
+      expect(url).toBe(
+        '/audit?entityType=User&entityId=b7c29e12-8e14-4ce0-a373-a2daa9276101&inspectId=log-uuid',
+      );
+    });
+
+    it('preserves existing /audit? URLs without re-encoding', () => {
+      const url = buildAuditDeepLink({
+        key: 'custom-link',
+        user: 'Admin',
+        role: 'Admin',
+        avatarColor: '#1677ff',
+        action: 'CUSTOM',
+        entity: 'Custom',
+        details: 'Custom details',
+        time: 'Just now',
+        linkUrl: '/audit?entityType=Network&entityId=sub-100&inspectId=custom-link',
+      });
+      expect(url).toBe('/audit?entityType=Network&entityId=sub-100&inspectId=custom-link');
+    });
+
+    it('returns /audit when record is null, undefined, or omitted', () => {
+      expect(buildAuditDeepLink(null)).toBe('/audit');
+      expect(buildAuditDeepLink(undefined)).toBe('/audit');
+      expect(buildAuditDeepLink()).toBe('/audit');
+    });
+
+    it('resolves inspectId from id property when key is absent', () => {
+      const url = buildAuditDeepLink({
+        id: 'log-record-9988',
+        entityType: 'Asset',
+        entity: 'AST-5050',
+      });
+      expect(url).toBe('/audit?entityType=Asset&entityId=AST-5050&inspectId=log-record-9988');
+    });
+
+    it('prioritizes key over id when both are present', () => {
+      const url = buildAuditDeepLink({
+        key: 'primary-key-1',
+        id: 'fallback-id-2',
+        entityType: 'User',
+      });
+      expect(url).toBe('/audit?entityType=User&inspectId=primary-key-1');
     });
   });
 

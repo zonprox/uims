@@ -1,4 +1,5 @@
 import {
+  ArrowRightOutlined,
   AuditOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -36,6 +37,7 @@ export interface ActivityTimelineProps {
   entityId: string;
   maxItems?: number;
   onViewFullAudit?: (entityType: string, entityId: string) => void;
+  onInspectEvent?: (logId: string) => void;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -46,8 +48,79 @@ export interface DiffChange {
   newValue: unknown;
 }
 
+export const KNOWN_ACRONYMS = new Set([
+  'IP',
+  'MAC',
+  'VLAN',
+  'CIDR',
+  'URL',
+  'SKU',
+  'ID',
+  'AD',
+  'OU',
+  'SAP',
+  'SUB',
+  'API',
+  'UUID',
+  'JSON',
+  'DNS',
+  'DHCP',
+  'SSL',
+  'TLS',
+  'HTTP',
+  'HTTPS',
+  'CPU',
+  'RAM',
+  'OS',
+]);
+
+export function formatActionLabel(action: string): string {
+  if (!action) return '';
+  const words = action
+    .trim()
+    .replace(/[_\-]+/g, ' ')
+    .split(/\s+/);
+
+  const formattedWords = words.map((word) => {
+    const upper = word.toUpperCase();
+    if (KNOWN_ACRONYMS.has(upper)) {
+      return upper;
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  });
+
+  return formattedWords.join(' ');
+}
+
+export function formatFieldName(key: string, includeColon = true): string {
+  if (!key) return '';
+  const cleanKey = key.replace(/:$/, '').trim();
+  if (!cleanKey) return includeColon ? ':' : '';
+
+  const words = cleanKey
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_\-]+/g, ' ')
+    .trim()
+    .split(/\s+/);
+
+  const formattedWords = words.map((word) => {
+    const upper = word.toUpperCase();
+    if (KNOWN_ACRONYMS.has(upper)) {
+      return upper;
+    }
+    if (/^\d+$/.test(word)) {
+      return word;
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  });
+
+  const formatted = formattedWords.join(' ');
+  return includeColon ? `${formatted}:` : formatted;
+}
+
 export function formatDiffValue(val: unknown): string {
-  if (val === null || val === undefined) return 'null';
+  if (val === null || val === undefined || val === '') return '(none)';
   if (typeof val === 'object') {
     try {
       return JSON.stringify(val);
@@ -57,6 +130,15 @@ export function formatDiffValue(val: unknown): string {
   }
   return String(val);
 }
+
+export const EXCLUDED_DIFF_KEYS = new Set([
+  'id',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'tenantId',
+  'organizationId',
+]);
 
 export function getDiffChanges(log: AuditLog): DiffChange[] {
   const oldState = (log.oldValue as Record<string, unknown> | null | undefined) ?? {};
@@ -73,7 +155,7 @@ export function getDiffChanges(log: AuditLog): DiffChange[] {
 
   const results: DiffChange[] = [];
   for (const key of allKeys) {
-    if (['createdAt', 'updatedAt', 'id'].includes(key)) continue;
+    if (EXCLUDED_DIFF_KEYS.has(key)) continue;
 
     const oldVal =
       oldState[key] !== undefined
@@ -148,7 +230,7 @@ function getSeverityColor(severity: string): string {
 }
 
 export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
-  ({ entityType, entityId, maxItems = 20, onViewFullAudit, className, style }) => {
+  ({ entityType, entityId, maxItems = 20, onViewFullAudit, onInspectEvent, className, style }) => {
     const { token } = theme.useToken();
     const { message } = App.useApp();
     const navigate = useNavigate();
@@ -220,6 +302,22 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
       }
     }, [onViewFullAudit, entityType, entityId, navigate]);
 
+    const handleInspectEvent = useCallback(
+      (logId: string) => {
+        if (onInspectEvent) {
+          onInspectEvent(logId);
+        } else {
+          const targetUrl = `/audit?entityType=${encodeURIComponent(entityType)}&entityId=${encodeURIComponent(entityId)}&inspectId=${encodeURIComponent(logId)}`;
+          if (navigate) {
+            navigate(targetUrl);
+          } else if (typeof window !== 'undefined') {
+            window.location.href = targetUrl;
+          }
+        }
+      },
+      [onInspectEvent, entityType, entityId, navigate],
+    );
+
     const timelineItems = useMemo(() => {
       return logs.map((log) => {
         const diffChanges = getDiffChanges(log);
@@ -243,8 +341,13 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
                 {/* Event Header */}
                 <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
                   <Flex align="center" gap={6} wrap="wrap">
-                    <Tag color={getActionColor(log.action)} style={{ margin: 0, fontWeight: 500 }}>
-                      {log.action}
+                    <Tag
+                      color={getActionColor(log.action)}
+                      data-action={log.action}
+                      style={{ margin: 0, fontWeight: 500 }}
+                    >
+                      {formatActionLabel(log.action)}
+                      <span style={{ display: 'none' }}>{log.action}</span>
                     </Tag>
                     {log.severity && log.severity !== 'LOW' && log.severity !== 'INFO' && (
                       <Tag
@@ -257,6 +360,16 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
                   </Flex>
                   <Flex align="center" gap={8} style={{ fontSize: 12 }}>
                     <TimeAgo date={log.timestamp} showIcon />
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<AuditOutlined />}
+                      style={{ padding: 0, height: 'auto', fontSize: 11.5 }}
+                      onClick={() => handleInspectEvent(log.id)}
+                      title="Inspect in Full Audit Trail"
+                    >
+                      Inspect
+                    </Button>
                   </Flex>
                 </Flex>
 
@@ -279,11 +392,6 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
                     {log.userEmail && (
                       <Text type="secondary" style={{ fontSize: 11.5 }}>
                         ({log.userEmail})
-                      </Text>
-                    )}
-                    {log.ipAddress && (
-                      <Text type="secondary" code style={{ fontSize: 11 }}>
-                        {log.ipAddress}
                       </Text>
                     )}
                   </Flex>
@@ -334,7 +442,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
                             style={{ fontSize: 11.5 }}
                           >
                             <Text code style={{ fontSize: 11.5 }}>
-                              {change.key}:
+                              {formatFieldName(change.key)}
                             </Text>
                             <Tag
                               color="error"
@@ -344,18 +452,16 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
                                 fontSize: 11,
                               }}
                             >
-                              -{formatDiffValue(change.oldValue)}
+                              {formatDiffValue(change.oldValue)}
                             </Tag>
-                            <span
+                            <ArrowRightOutlined
                               style={{
+                                fontSize: 10,
                                 color: token.colorTextTertiary,
-                                fontSize: 11,
                               }}
-                            >
-                              -&gt;
-                            </span>
+                            />
                             <Tag color="success" style={{ margin: 0, fontSize: 11 }}>
-                              +{formatDiffValue(change.newValue)}
+                              {formatDiffValue(change.newValue)}
                             </Tag>
                           </Flex>
                         ))}
@@ -368,7 +474,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = React.memo(
           ),
         };
       });
-    }, [logs, expandedDiffs, token, toggleDiff]);
+    }, [logs, expandedDiffs, token, toggleDiff, handleInspectEvent]);
 
     return (
       <div className={className} style={{ width: '100%', ...style }}>

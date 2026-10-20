@@ -16,12 +16,15 @@ import {
   Flex,
   Input,
   Row,
+  Skeleton,
   Table,
+  Tabs,
   Tag,
   Typography,
   theme,
 } from 'antd';
 import React, { useMemo, useState } from 'react';
+import { ActivityTimeline } from '../../../components/ActivityTimeline';
 import AppDrawer from '../../../components/AppDrawer';
 
 const { Text } = Typography;
@@ -85,150 +88,183 @@ export const RoleDetailDrawer: React.FC<RoleDetailDrawerProps> = ({
         body: { padding: '16px 20px', background: token.colorBgLayout },
       }}
     >
-      {/* Role KPI Cards */}
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col span={12}>
-          <Card
-            size="small"
-            style={{ borderRadius: 8, textAlign: 'center' }}
-            styles={{ body: { padding: '10px 8px' } }}
-          >
-            <Text
-              type="secondary"
-              style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
-            >
-              Assigned Users
-            </Text>
-            <Text strong style={{ fontSize: 20, color: '#1677ff' }}>
-              {roleDetail?.userCount ?? roleDetail?.users?.length ?? 0}
-            </Text>
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card
-            size="small"
-            style={{ borderRadius: 8, textAlign: 'center' }}
-            styles={{ body: { padding: '10px 8px' } }}
-          >
-            <Text
-              type="secondary"
-              style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
-            >
-              Granted Permissions
-            </Text>
-            <Text strong style={{ fontSize: 20, color: '#059669' }}>
-              {roleDetail?.name === 'Super Admin'
-                ? 'All (*:*)'
-                : (roleDetail?.permissionCount ?? roleDetail?.permissions?.length ?? 0)}
-            </Text>
-          </Card>
-        </Col>
-      </Row>
+      <Tabs
+        defaultActiveKey="overview"
+        items={[
+          {
+            key: 'overview',
+            label: 'Role Overview',
+            children: (
+              <div>
+                {/* Role KPI Cards */}
+                <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+                  <Col span={12}>
+                    <Card
+                      size="small"
+                      style={{ borderRadius: 8, textAlign: 'center' }}
+                      styles={{ body: { padding: '10px 8px' } }}
+                    >
+                      <Text
+                        type="secondary"
+                        style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
+                      >
+                        Assigned Users
+                      </Text>
+                      <Text strong style={{ fontSize: 20, color: '#1677ff' }}>
+                        {roleDetail?.userCount ?? roleDetail?.users?.length ?? 0}
+                      </Text>
+                    </Card>
+                  </Col>
+                  <Col span={12}>
+                    <Card
+                      size="small"
+                      style={{ borderRadius: 8, textAlign: 'center' }}
+                      styles={{ body: { padding: '10px 8px' } }}
+                    >
+                      <Text
+                        type="secondary"
+                        style={{ fontSize: 11, display: 'block', textTransform: 'uppercase' }}
+                      >
+                        Granted Permissions
+                      </Text>
+                      <Text strong style={{ fontSize: 20, color: '#059669' }}>
+                        {roleDetail?.name === 'Super Admin'
+                          ? 'All (*:*)'
+                          : (roleDetail?.permissionCount ?? roleDetail?.permissions?.length ?? 0)}
+                      </Text>
+                    </Card>
+                  </Col>
+                </Row>
 
-      {/* Role Metadata */}
-      <Card
-        size="small"
-        title="Role Details"
-        style={{ borderRadius: 8, marginBottom: 16 }}
-        styles={{ body: { padding: '12px 16px' } }}
-      >
-        <Descriptions column={1} size="small">
-          <Descriptions.Item label="Description">
-            <Text type="secondary">{roleDetail?.description || 'No description provided.'}</Text>
-          </Descriptions.Item>
-        </Descriptions>
-      </Card>
+                {/* Role Metadata */}
+                <Card
+                  size="small"
+                  title="Role Details"
+                  style={{ borderRadius: 8, marginBottom: 16 }}
+                  styles={{ body: { padding: '12px 16px' } }}
+                >
+                  <Descriptions column={1} size="small">
+                    <Descriptions.Item label="Description">
+                      <Text type="secondary">
+                        {roleDetail?.description || 'No description provided.'}
+                      </Text>
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
 
-      {/* Assigned Users Section */}
-      <Card
-        size="small"
-        title={
-          <Flex align="center" justify="space-between" style={{ width: '100%' }}>
-            <Flex align="center" gap={6}>
-              <TeamOutlined style={{ color: '#1677ff' }} />
-              <span>Assigned Users ({filteredUsers.length})</span>
-            </Flex>
-            <Input
-              placeholder="Search user..."
-              size="small"
-              prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-              value={userSearch}
-              allowClear
-              onChange={(e) => setUserSearch(e.target.value)}
-              style={{ width: 180 }}
-            />
-          </Flex>
-        }
-        style={{ borderRadius: 8 }}
-        styles={{ body: { padding: 0 } }}
-      >
-        <Table
-          dataSource={filteredUsers}
-          rowKey="id"
-          size="small"
-          loading={loading}
-          pagination={{ pageSize: 8, size: 'small', showTotal: (t) => `${t} users` }}
-          columns={[
-            {
-              title: 'User',
-              dataIndex: 'name',
-              key: 'name',
-              render: (_: unknown, u: RoleAssignedUser) => (
-                <Flex align="center" gap={8}>
-                  <Avatar
-                    size={26}
-                    icon={<UserOutlined />}
-                    style={{
-                      backgroundColor: token.colorPrimaryBg,
-                      color: token.colorPrimary,
-                      fontSize: 12,
+                {/* Assigned Users Section */}
+                <Card
+                  size="small"
+                  title={
+                    <Flex align="center" justify="space-between" style={{ width: '100%' }}>
+                      <Flex align="center" gap={6}>
+                        <TeamOutlined style={{ color: '#1677ff' }} />
+                        <span>Assigned Users ({filteredUsers.length})</span>
+                      </Flex>
+                      <Input
+                        placeholder="Search user..."
+                        size="small"
+                        prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                        value={userSearch}
+                        allowClear
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        style={{ width: 180 }}
+                      />
+                    </Flex>
+                  }
+                  style={{ borderRadius: 8 }}
+                  styles={{ body: { padding: 0 } }}
+                >
+                  <Table
+                    dataSource={filteredUsers}
+                    rowKey="id"
+                    size="small"
+                    loading={loading}
+                    pagination={{ pageSize: 8, size: 'small', showTotal: (t) => `${t} users` }}
+                    columns={[
+                      {
+                        title: 'User',
+                        dataIndex: 'name',
+                        key: 'name',
+                        render: (_: unknown, u: RoleAssignedUser) => (
+                          <Flex align="center" gap={8}>
+                            <Avatar
+                              size={26}
+                              icon={<UserOutlined />}
+                              style={{
+                                backgroundColor: token.colorPrimaryBg,
+                                color: token.colorPrimary,
+                                fontSize: 12,
+                              }}
+                            />
+                            <div>
+                              <Text strong style={{ fontSize: 12.5, display: 'block' }}>
+                                {u.name}
+                              </Text>
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                {u.email}
+                              </Text>
+                            </div>
+                          </Flex>
+                        ),
+                      },
+                      {
+                        title: 'Department',
+                        dataIndex: 'department',
+                        key: 'department',
+                        render: (dept: string) => (
+                          <Text style={{ fontSize: 12 }}>{dept || 'General'}</Text>
+                        ),
+                      },
+                      {
+                        title: 'Job Title',
+                        dataIndex: 'jobTitle',
+                        key: 'jobTitle',
+                        render: (title: string) => (
+                          <Text style={{ fontSize: 12 }}>{title || 'Employee'}</Text>
+                        ),
+                      },
+                      {
+                        title: 'Status',
+                        dataIndex: 'status',
+                        key: 'status',
+                        render: (status: string) => {
+                          const color =
+                            status === 'ACTIVE'
+                              ? 'success'
+                              : status === 'SUSPENDED'
+                                ? 'error'
+                                : 'default';
+                          return (
+                            <Tag
+                              color={color}
+                              style={{ fontSize: 10, padding: '0 4px', margin: 0 }}
+                            >
+                              {status}
+                            </Tag>
+                          );
+                        },
+                      },
+                    ]}
+                    locale={{
+                      emptyText: <Empty description="No users currently assigned to this role." />,
                     }}
                   />
-                  <div>
-                    <Text strong style={{ fontSize: 12.5, display: 'block' }}>
-                      {u.name}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {u.email}
-                    </Text>
-                  </div>
-                </Flex>
-              ),
-            },
-            {
-              title: 'Department',
-              dataIndex: 'department',
-              key: 'department',
-              render: (dept: string) => <Text style={{ fontSize: 12 }}>{dept || 'General'}</Text>,
-            },
-            {
-              title: 'Job Title',
-              dataIndex: 'jobTitle',
-              key: 'jobTitle',
-              render: (title: string) => (
-                <Text style={{ fontSize: 12 }}>{title || 'Employee'}</Text>
-              ),
-            },
-            {
-              title: 'Status',
-              dataIndex: 'status',
-              key: 'status',
-              render: (status: string) => {
-                const color =
-                  status === 'ACTIVE' ? 'success' : status === 'SUSPENDED' ? 'error' : 'default';
-                return (
-                  <Tag color={color} style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
-                    {status}
-                  </Tag>
-                );
-              },
-            },
-          ]}
-          locale={{
-            emptyText: <Empty description="No users currently assigned to this role." />,
-          }}
-        />
-      </Card>
+                </Card>
+              </div>
+            ),
+          },
+          {
+            key: 'history',
+            label: 'Role History',
+            children: roleDetail?.id ? (
+              <ActivityTimeline entityType="Role" entityId={roleDetail.id} />
+            ) : (
+              <Skeleton active />
+            ),
+          },
+        ]}
+      />
     </AppDrawer>
   );
 };

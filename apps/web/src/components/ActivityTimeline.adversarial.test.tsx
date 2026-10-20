@@ -154,11 +154,11 @@ describe('ActivityTimeline Empirical Adversarial Challenge', () => {
     });
 
     it('formatDiffValue helper handles extreme nullish and edge values correctly', () => {
-      expect(formatDiffValue(null)).toBe('null');
-      expect(formatDiffValue(undefined)).toBe('null');
+      expect(formatDiffValue(null)).toBe('(none)');
+      expect(formatDiffValue(undefined)).toBe('(none)');
       expect(formatDiffValue(0)).toBe('0');
       expect(formatDiffValue(false)).toBe('false');
-      expect(formatDiffValue('')).toBe('');
+      expect(formatDiffValue('')).toBe('(none)');
       expect(formatDiffValue(12345n)).toBe('12345');
     });
   });
@@ -301,13 +301,13 @@ describe('ActivityTimeline Empirical Adversarial Challenge', () => {
         diffButton?.click();
       });
 
-      expect(container.textContent).toContain('active:');
-      expect(container.textContent).toContain('-false');
-      expect(container.textContent).toContain('+true');
-      expect(container.textContent).toContain('tags:');
+      expect(container.textContent).toContain('Active:');
+      expect(container.textContent).toContain('false');
+      expect(container.textContent).toContain('true');
+      expect(container.textContent).toContain('Tags:');
       expect(container.textContent).toContain('["hardware","legacy"]');
       expect(container.textContent).toContain('["hardware","modernized"]');
-      expect(container.textContent).toContain('config:');
+      expect(container.textContent).toContain('Config:');
       expect(container.textContent).toContain('{"timeout":10,"retries":2}');
       expect(container.textContent).toContain('{"timeout":30,"retries":5}');
     });
@@ -353,12 +353,12 @@ describe('ActivityTimeline Empirical Adversarial Challenge', () => {
         diffButton?.click();
       });
 
-      expect(container.textContent).toContain('assignedUserId:');
-      expect(container.textContent).toContain('-usr-1');
-      expect(container.textContent).toContain('+usr-2');
-      expect(container.textContent).toContain('locationName:');
-      expect(container.textContent).toContain('-Floor 1');
-      expect(container.textContent).toContain('+Floor 3');
+      expect(container.textContent).toContain('Assigned User ID:');
+      expect(container.textContent).toContain('usr-1');
+      expect(container.textContent).toContain('usr-2');
+      expect(container.textContent).toContain('Location Name:');
+      expect(container.textContent).toContain('Floor 1');
+      expect(container.textContent).toContain('Floor 3');
     });
   });
 
@@ -403,10 +403,9 @@ describe('ActivityTimeline Empirical Adversarial Challenge', () => {
         diffButton?.click();
       });
 
-      expect(container.textContent).toContain('password:');
-      expect(container.textContent).toContain('-[REDACTED]');
-      expect(container.textContent).toContain('+ [REDACTED]'.replace(' ', ''));
-      expect(container.textContent).toContain('apiToken:');
+      expect(container.textContent).toContain('Password:');
+      expect(container.textContent).toContain('[REDACTED]');
+      expect(container.textContent).toContain('API Token:');
     });
   });
 
@@ -466,9 +465,9 @@ describe('ActivityTimeline Empirical Adversarial Challenge', () => {
       });
 
       const elapsed = performance.now() - startTime;
-      expect(container.textContent).toContain('field_001:');
-      expect(container.textContent).toContain('field_100:');
-      expect(container.textContent).toContain('massiveDescription:');
+      expect(container.textContent).toContain('Field 001:');
+      expect(container.textContent).toContain('Field 100:');
+      expect(container.textContent).toContain('Massive Description:');
       // Rendering and expanding 101 changes in jsdom must complete without timeout (< 10000ms)
       expect(elapsed).toBeLessThan(10000);
     });

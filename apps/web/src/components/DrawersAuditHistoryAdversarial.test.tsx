@@ -7,7 +7,10 @@
  * 3. Consumable Inventory: InventoryDetailDrawer.tsx (Tab: Stock & Item Movement History, entityType: 'Inventory')
  * 4. Network: SubnetDetailDrawer.tsx (Tab: Configuration & IP Allocation History, entityType: 'Network')
  * 5. Users: UserDetailDrawer.tsx & EmployeesTab (Tab / Section: User History, entityType: 'User')
- * 6. Adversarial edge cases: null entity data, network failure fallback, clean React 19 unmount teardown
+ * 6. Directory Groups: GroupDetailDrawer.tsx (Tab: Group History, entityType: 'Group')
+ * 7. Roles & Access Control: RoleDetailDrawer.tsx (Tab: Role History, entityType: 'Role')
+ * 8. Network Switches: SwitchFaceplateDrawer.tsx (Tab: Switch History, entityType: 'NetworkSwitch')
+ * 9. Adversarial edge cases: null entity data, network failure fallback, clean React 19 unmount teardown
  */
 
 import { App, ConfigProvider } from 'antd';
@@ -15,11 +18,16 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type AppUser, UserStatus } from '@uims/shared-types';
+import {
+  type AppUser,
+  type DirectoryGroup,
+  type RoleDetailResponse,
+  UserStatus,
+} from '@uims/shared-types';
 import type { Asset } from '../services/assets.service';
 import type { License } from '../services/licenses.service';
 import { type InventoryItem, inventoryService } from '../services/inventory.service';
-import type { IPAddress, Subnet } from '../services/network.service';
+import type { IPAddress, NetworkSwitch, Subnet } from '../services/network.service';
 import { type AuditLog, auditService } from '../services/audit.service';
 import { AssetDetailDrawer } from '../pages/assets/components/AssetDetailDrawer';
 import { LicenseSeatsDrawer } from '../pages/licenses/components/LicenseSeatsDrawer';
@@ -27,6 +35,9 @@ import { InventoryDetailDrawer } from '../pages/inventory/components/InventoryDe
 import InventoryPage from '../pages/inventory/InventoryPage';
 import { SubnetDetailDrawer } from '../pages/network/components/SubnetDetailDrawer';
 import { UserDetailDrawer } from '../pages/access/UserDetailDrawer';
+import { GroupDetailDrawer } from '../pages/directory/components/GroupDetailDrawer';
+import { RoleDetailDrawer } from '../pages/users/components/RoleDetailDrawer';
+import { SwitchFaceplateDrawer } from '../pages/network/components/SwitchFaceplateDrawer';
 import { organizationService } from '../services/organization.service';
 import { vendorService } from '../services/vendor.service';
 
@@ -110,6 +121,19 @@ vi.mock('../services/directory.service', () => ({
     getEmployees: vi.fn().mockResolvedValue({ items: [] }),
   },
 }));
+
+vi.mock('../services/network.service', async () => {
+  const actual = await vi.importActual<typeof import('../services/network.service')>(
+    '../services/network.service',
+  );
+  return {
+    ...actual,
+    networkService: {
+      ...actual.networkService,
+      getSwitchPorts: vi.fn().mockResolvedValue([]),
+    },
+  };
+});
 
 const createMockAuditLog = (overrides: Partial<AuditLog> = {}): AuditLog => ({
   id: 'log-101',
@@ -656,6 +680,243 @@ describe('Empirical Adversarial Challenge — Detail Drawer Tab Integrations & C
       );
 
       expect(document.querySelector('.ant-drawer-open')).toBeNull();
+    });
+  });
+
+  // =========================================================================
+  // DOMAIN 6: DIRECTORY GROUPS (GroupDetailDrawer)
+  // =========================================================================
+  describe('Domain 6: Directory Groups (GroupDetailDrawer)', () => {
+    const mockGroup: DirectoryGroup = {
+      id: 'grp-sec-101',
+      name: 'IT Security Engineering',
+      type: 'Security',
+      scope: 'Global',
+      description: 'Global IT security infrastructure & operational team',
+      managedBy: 'Security Lead',
+      memberCount: 14,
+      createdAt: '2026-01-15T08:00:00Z',
+      updatedAt: '2026-01-15T08:00:00Z',
+    };
+
+    it('renders GroupDetailDrawer with Tab 2 "Group History" passing canonical entityType "Group"', async () => {
+      const getHistorySpy = vi.spyOn(auditService, 'getEntityHistory').mockResolvedValueOnce({
+        items: [
+          createMockAuditLog({
+            id: 'log-grp-1',
+            entityType: 'Group',
+            entityId: 'grp-sec-101',
+            action: 'GROUP_MEMBER_ADDED',
+          }),
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
+      });
+
+      await mountComponent(
+        createElement(GroupDetailDrawer, {
+          open: true,
+          group: mockGroup,
+          onClose: vi.fn(),
+          onEdit: vi.fn(),
+        }),
+      );
+
+      expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+      const bodyText = document.body.textContent || '';
+      expect(bodyText).toContain('IT Security Engineering');
+      expect(bodyText).toContain('Group Details');
+      expect(bodyText).toContain('Group History');
+
+      await switchToTab('Group History');
+
+      expect(getHistorySpy).toHaveBeenCalledWith('Group', 'grp-sec-101', { pageSize: 20 });
+    });
+
+    it('returns null safely when group is null', async () => {
+      await mountComponent(
+        createElement(GroupDetailDrawer, {
+          open: true,
+          group: null,
+          onClose: vi.fn(),
+        }),
+      );
+
+      expect(document.querySelector('.ant-drawer-open')).toBeNull();
+    });
+  });
+
+  // =========================================================================
+  // DOMAIN 7: ROLES & ACCESS CONTROL (RoleDetailDrawer)
+  // =========================================================================
+  describe('Domain 7: Roles & Access Control (RoleDetailDrawer)', () => {
+    const mockRole: RoleDetailResponse = {
+      id: 'role-sec-202',
+      name: 'Security Operations Auditor',
+      description: 'Audits forensic telemetry and access control lists',
+      isSystem: false,
+      userCount: 3,
+      permissionCount: 8,
+      permissions: [
+        { id: 'p1', action: 'read', subject: 'Audit', name: 'Read Audit Logs' },
+        { id: 'p2', action: 'read', subject: 'Users', name: 'Read Users' },
+      ],
+      users: [
+        {
+          id: 'u-auditor-1',
+          name: 'Jane Doe',
+          email: 'jane.doe@youngone.com',
+          username: 'jdoe',
+          department: 'Information Security',
+          jobTitle: 'Lead Auditor',
+          status: 'ACTIVE',
+        },
+      ],
+      createdAt: '2026-02-01T00:00:00Z',
+      updatedAt: '2026-02-01T00:00:00Z',
+    };
+
+    it('renders RoleDetailDrawer with Tab 2 "Role History" passing canonical entityType "Role"', async () => {
+      const getHistorySpy = vi.spyOn(auditService, 'getEntityHistory').mockResolvedValueOnce({
+        items: [
+          createMockAuditLog({
+            id: 'log-role-1',
+            entityType: 'Role',
+            entityId: 'role-sec-202',
+            action: 'ROLE_PERMISSION_UPDATED',
+          }),
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
+      });
+
+      await mountComponent(
+        createElement(RoleDetailDrawer, {
+          open: true,
+          roleDetail: mockRole,
+          loading: false,
+          onClose: vi.fn(),
+          onOpenMatrix: vi.fn(),
+        }),
+      );
+
+      expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+      const bodyText = document.body.textContent || '';
+      expect(bodyText).toContain('Security Operations Auditor');
+      expect(bodyText).toContain('Role Overview');
+      expect(bodyText).toContain('Role History');
+
+      await switchToTab('Role History');
+
+      expect(getHistorySpy).toHaveBeenCalledWith('Role', 'role-sec-202', { pageSize: 20 });
+    });
+
+    it('renders Skeleton active in Role History tab when roleDetail is null during loading', async () => {
+      await mountComponent(
+        createElement(RoleDetailDrawer, {
+          open: true,
+          roleDetail: null,
+          loading: true,
+          onClose: vi.fn(),
+          onOpenMatrix: vi.fn(),
+        }),
+      );
+
+      expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+      await switchToTab('Role History');
+
+      expect(document.querySelector('.ant-skeleton')).not.toBeNull();
+    });
+  });
+
+  // =========================================================================
+  // DOMAIN 8: NETWORK SWITCHES (SwitchFaceplateDrawer)
+  // =========================================================================
+  describe('Domain 8: Network Switches (SwitchFaceplateDrawer)', () => {
+    const mockSwitch: NetworkSwitch = {
+      id: 'sw-core-303',
+      name: 'SW-CORE-BUILDING-A',
+      model: 'Catalyst 9300-48P',
+      vendor: 'Cisco Systems',
+      serialNumber: 'FOC2440U01',
+      macAddress: '70:69:79:AA:BB:CC',
+      status: 'ONLINE',
+      role: 'DISTRIBUTION',
+      totalPorts: 48,
+      ipAddress: {
+        id: 'ip-sw-1',
+        address: '10.232.1.1',
+        status: 'ASSIGNED',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      firmwareVersion: '17.9.4a',
+      rack: {
+        id: 'rack-01',
+        name: 'Rack A01',
+        code: 'RACK-A01',
+        status: 'ACTIVE',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+      rackPosition: 20,
+      rackHeight: 1,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    };
+
+    it('renders SwitchFaceplateDrawer with Tab 2 "Switch History" passing canonical entityType "NetworkSwitch"', async () => {
+      const getHistorySpy = vi.spyOn(auditService, 'getEntityHistory').mockResolvedValueOnce({
+        items: [
+          createMockAuditLog({
+            id: 'log-sw-1',
+            entityType: 'NetworkSwitch',
+            entityId: 'sw-core-303',
+            action: 'SWITCH_PORT_STATUS_CHANGED',
+          }),
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
+      });
+
+      await mountComponent(
+        createElement(SwitchFaceplateDrawer, {
+          open: true,
+          switchEntity: mockSwitch,
+          onClose: vi.fn(),
+        }),
+      );
+
+      expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
+      const bodyText = document.body.textContent || '';
+      expect(bodyText).toContain('SW-CORE-BUILDING-A');
+      expect(bodyText).toContain('Switch & Ports');
+      expect(bodyText).toContain('Switch History');
+
+      await switchToTab('Switch History');
+
+      expect(getHistorySpy).toHaveBeenCalledWith('NetworkSwitch', 'sw-core-303', { pageSize: 20 });
+    });
+
+    it('handles null switchEntity gracefully without mounting content or throwing', async () => {
+      await mountComponent(
+        createElement(SwitchFaceplateDrawer, {
+          open: true,
+          switchEntity: null,
+          onClose: vi.fn(),
+        }),
+      );
+
+      const bodyText = document.body.textContent || '';
+      expect(bodyText).toContain('Network Switch');
+      await switchToTab('Switch History');
+      expect(document.querySelector('.ant-drawer-open')).not.toBeNull();
     });
   });
 

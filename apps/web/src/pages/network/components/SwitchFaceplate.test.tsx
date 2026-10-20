@@ -3,6 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { auditService } from '../../../services/audit.service';
 import type { NetworkRack, NetworkSwitch, SwitchPort } from '../../../services/network.service';
 import { networkService } from '../../../services/network.service';
 import { PortConfigDrawer } from './PortConfigDrawer';
@@ -762,6 +763,65 @@ describe('Milestone 5: Switch Fleet & Interactive Visual Faceplate', () => {
       const body = document.body;
       expect(body.textContent).toContain('—');
       expect(body.textContent).toContain('Unmounted');
+    });
+
+    it('Case 4.6: SwitchFaceplateDrawer renders Switch History tab and activates ActivityTimeline', async () => {
+      vi.mocked(networkService.getSwitchPorts).mockResolvedValueOnce([]);
+      const getHistorySpy = vi.spyOn(auditService, 'getEntityHistory').mockResolvedValueOnce({
+        items: [
+          {
+            id: 'log-sw-history-1',
+            timestamp: '2026-10-17T12:00:00.000Z',
+            user: 'admin',
+            userName: 'NetOps Engineer',
+            userEmail: 'netops@youngone.com',
+            action: 'SWITCH_FIRMWARE_UPGRADED',
+            severity: 'LOW',
+            entity: 'BSL-DIST-SW01',
+            entityType: 'NetworkSwitch',
+            entityId: mock24PortSwitch.id,
+            details: 'Upgraded firmware to 17.9.4a',
+            status: '200',
+            ipAddress: '10.232.129.1',
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
+      });
+
+      await renderWithContext(
+        <SwitchFaceplateDrawer open={true} switchEntity={mock24PortSwitch} onClose={vi.fn()} />,
+      );
+
+      const body = document.body;
+      expect(body.textContent).toContain('Switch & Ports');
+      expect(body.textContent).toContain('Switch History');
+
+      // Click the "Switch History" tab
+      const tabs = Array.from(
+        document.querySelectorAll<HTMLElement>('.ant-tabs-tab, [role="tab"]'),
+      );
+      const historyTab = tabs.find((t) => t.textContent?.includes('Switch History'));
+      expect(historyTab).toBeDefined();
+
+      if (historyTab) {
+        const clickable = (historyTab.querySelector('.ant-tabs-tab-btn') ||
+          historyTab) as HTMLElement;
+        await act(async () => {
+          clickable.click();
+        });
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        });
+      }
+
+      // Verify auditService.getEntityHistory was triggered with canonical entityType and entityId
+      expect(getHistorySpy).toHaveBeenCalledWith('NetworkSwitch', mock24PortSwitch.id, {
+        pageSize: 20,
+      });
+      expect(body.textContent).toContain('SWITCH_FIRMWARE_UPGRADED');
     });
 
     it('Case 4.3: SwitchManagementTab renders integrated view with filter bar, add button, and switches table', async () => {

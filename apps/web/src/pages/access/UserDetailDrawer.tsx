@@ -87,6 +87,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({
       open={open}
       onClose={onClose}
       size={560}
+      hideFooter={true}
       extra={
         onEdit && (
           <Button

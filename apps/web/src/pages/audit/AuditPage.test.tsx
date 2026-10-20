@@ -591,11 +591,31 @@ describe('AuditPage Component Tests', () => {
 
     expect(auditService.getLog).toHaveBeenCalledWith('aud-999');
     const drawer = document.querySelector('.ant-drawer');
-    expect(drawer).toBeTruthy();
     expect(drawer?.textContent).toContain('aud-999');
     expect(drawer?.textContent).toContain('Switch SW-01');
     expect(drawer?.textContent).toContain('firmware:');
     expect(drawer?.textContent).toContain('-1.0.0');
     expect(drawer?.textContent).toContain('+1.1.0');
+  });
+
+  it('scopes entity filter and opens inspector drawer with full technical details when entityType, entityId, and inspectId are present in URL params', async () => {
+    await renderComponent(['/audit?entityType=Asset&entityId=ast-900&inspectId=aud-001']);
+
+    // Active Entity Filter Banner must be rendered and scoped
+    expect(container.textContent).toContain('Filtered by Entity:');
+    expect(container.textContent).toContain('Asset');
+    expect(container.textContent).toContain('ast-900');
+
+    // Inspector Drawer should automatically open for aud-001 with full forensic details intact
+    const drawer = document.querySelector('.ant-drawer');
+    expect(drawer).toBeTruthy();
+    expect(drawer?.textContent).toContain('aud-001');
+    expect(drawer?.textContent).toContain('Alex Vance');
+    expect(drawer?.textContent).toContain('10.232.100.15'); // Origin IP preserved on /audit
+    expect(drawer?.textContent).toContain('UIMS-Console/2.4'); // User Agent preserved on /audit
+    expect(drawer?.textContent).toContain('42.50 ms'); // Execution Latency preserved on /audit
+    expect(drawer?.textContent).toContain('Field-Level Changes & Visual Diff');
+    expect(drawer?.textContent).toContain('serialNumber:');
+    expect(drawer?.textContent).toContain('SN-9941');
   });
 });
