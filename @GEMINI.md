@@ -220,7 +220,7 @@
 - **Strict Zero-Downgrade Policy**:
   - Under no circumstances may any dependency be downgraded, even if lower versions or downgrades are suggested in historical notes, bug reports, or concerns (specifically refuting TD-020).
   - TypeScript 7.x (`^7.0.2` / latest) is the authoritative monorepo standard and MUST be preserved across all manifests.
-  - React 19 (`^19.2.8`), Vite 8 (`^8.2.2`), Ant Design 6 (`^6.6.3`), NestJS 11 (`^11.2.3`), and Prisma 7 (`^7.10.0`) must be maintained at their latest stable releases without downgrades.
+  - React 19 (`^19.3.0`), Vite 8 (`^8.3.4`), Ant Design 6 (`^6.6.7`), NestJS 11 (`^11.2.7`), and Prisma 7 (`^7.10.0`) must be maintained at their latest stable releases without downgrades.
 - **Lockfile Hygiene & Deduplication**:
   - Any dependency upgrade or manifest modification must immediately update `pnpm-lock.yaml` via `pnpm install --no-frozen-lockfile && pnpm dedupe`.
   - Modifying manifests without staging updated `pnpm-lock.yaml` is strictly prohibited to prevent remote CI `--frozen-lockfile` failures.

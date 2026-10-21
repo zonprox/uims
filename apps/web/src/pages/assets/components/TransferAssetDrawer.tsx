@@ -333,7 +333,6 @@ export const TransferAssetDrawer: React.FC<TransferAssetDrawerProps> = ({
             extra="Select employee who is taking custody of this equipment."
           >
             <Select
-              showSearch
               placeholder="Search employee by name, code, or email"
               loading={loadingEmployees}
               options={eligibleEmployees.map((e) => ({
@@ -342,9 +341,10 @@ export const TransferAssetDrawer: React.FC<TransferAssetDrawerProps> = ({
                 }`,
                 value: e.id,
               }))}
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              showSearch={{
+                filterOption: (input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+              }}
               onChange={handleToUserChange}
             />
           </Form.Item>
@@ -354,7 +354,7 @@ export const TransferAssetDrawer: React.FC<TransferAssetDrawerProps> = ({
               type="success"
               showIcon
               style={{ marginBottom: 12 }}
-              message={
+              title={
                 <div>
                   <strong>{formatUserDisplayName(selectedToUser)}</strong> ({selectedToUser.email})
                   <div style={{ fontSize: 12, marginTop: 2 }}>

@@ -7,21 +7,20 @@ import {
   CloudServerOutlined,
   DatabaseOutlined,
   FileTextOutlined,
-  FileWordOutlined,
+  GlobalOutlined,
   HistoryOutlined,
   InfoCircleOutlined,
   LaptopOutlined,
+  PieChartOutlined,
   QrcodeOutlined,
   ReloadOutlined,
   RightOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
   ThunderboltOutlined,
-  UploadOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import {
-  Alert,
   App,
   Avatar,
   Badge,
@@ -34,27 +33,19 @@ import {
   Segmented,
   Space,
   Spin,
+  Statistic,
   Table,
   Tag,
   Tooltip,
   Typography,
-  Upload,
+  theme,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import PageContainer from '../../components/PageContainer';
-import { assetsService } from '../../services/assets.service';
-import {
-  type DashboardOverview,
-  type PendingHandoverRecordItem,
-  type PendingHandoverSummaryResponse,
-  dashboardService,
-} from '../../services/dashboard.service';
-import { useAuthStore } from '../../stores/auth.store';
-import { HandoverDocumentModal } from '../assets/components/HandoverDocumentModal';
-import { downloadBlobFile } from '../assets/utils/printDocument';
-import { formatErrorMessage } from '../../utils/feedback';
 import { formatActionLabel } from '../../components/ActivityTimeline';
+import PageContainer from '../../components/PageContainer';
+import { type DashboardOverview, dashboardService } from '../../services/dashboard.service';
+import { useAuthStore } from '../../stores/auth.store';
 
 const { Title, Text } = Typography;
 
@@ -279,143 +270,112 @@ function getEntityLink(
   return explicitUrl || '/audit';
 }
 
-const TelemetryCardsGrid: React.FC<{
+/**
+ * Card 1: 4 Executive KPI Stat Cards (Hardware Fleet, Software Licenses, Inventory Stock, Audit & Compliance)
+ */
+const ExecutiveKpiCards: React.FC<{
   data: DashboardOverview | null;
   onNavigate: (path: string) => void;
 }> = ({ data, onNavigate }) => {
-  // 1. Asset calculations
+  const { token } = theme.useToken();
+
+  // 1. Asset metrics
   const totalAssets = data?.kpi?.managedAssets?.total || 0;
   const inUseAssets = data?.kpi?.managedAssets?.inUse ?? data?.kpi?.managedAssets?.active ?? 0;
-  const inStockAssets = data?.kpi?.managedAssets?.inStock ?? 0;
-  const inRepairAssets = data?.kpi?.managedAssets?.inRepair ?? 0;
-  const decommissionedAssets = data?.kpi?.managedAssets?.decommissioned ?? 0;
-  const assetHealthPercent =
-    totalAssets > 0
-      ? Math.min(100, Math.round(((inUseAssets + inStockAssets) / totalAssets) * 100))
-      : 100;
+  const growthMoMStr = data?.kpi?.managedAssets?.growthMoM
+    ? data.kpi.managedAssets.growthMoM.replace(/^[↑\s]+/, '')
+    : '0.0% MoM';
+  const isNegativeGrowth = growthMoMStr.includes('-');
 
-  // 2. License calculations
+  // 2. License metrics
   const totalLicenses = data?.kpi?.licenses?.total || 0;
-  const parsedSeatUsage = parseFloat(
-    data?.kpi?.licenses?.seatUsagePercent?.replace('%', '') || '0',
-  );
-  const seatUsagePercentNumber = isNaN(parsedSeatUsage)
-    ? 0
-    : Math.min(100, Math.max(0, parsedSeatUsage));
+  const seatUsagePercentStr = data?.kpi?.licenses?.seatUsagePercent || '0.0%';
   const licenseExpiringCount = data?.kpi?.licenses?.expiringCount || 0;
-  const licenseStrokeColor =
-    seatUsagePercentNumber >= 95 ? '#ff4d4f' : seatUsagePercentNumber >= 85 ? '#faad14' : '#10b981';
 
-  // 3. Inventory calculations
+  // 3. Inventory metrics
   const totalUnits = data?.kpi?.inventory?.totalUnits ?? 0;
   const totalItems = data?.kpi?.inventory?.totalItems || 0;
   const lowStockCount = data?.kpi?.inventory?.lowStockCount || 0;
-  const healthyStockPercent =
-    totalItems > 0
-      ? Math.max(0, Math.min(100, Math.round(((totalItems - lowStockCount) / totalItems) * 100)))
-      : 100;
 
-  // 4. Audit calculations
+  // 4. Audit metrics
   const audit24h = data?.kpi?.audit?.recent24h ?? 0;
   const auditStatus = data?.kpi?.audit?.status || 'Compliant';
-  const complianceScore = data?.kpi?.audit?.complianceScore ?? 100;
-  const auditStrokeColor =
-    auditStatus === 'Critical' || complianceScore < 70
-      ? '#ef4444'
-      : auditStatus === 'Warning' || complianceScore < 90
-        ? '#f59e0b'
-        : '#6366f1';
 
   return (
-    <Row gutter={[14, 14]} style={{ marginBottom: 18 }}>
-      {/* 1. Hardware Asset Fleet */}
+    <Row gutter={[14, 14]} style={{ marginBottom: 16 }}>
+      {/* 1.1 Hardware Fleet */}
       <Col xs={24} sm={12} xl={6}>
-        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '14px 16px' } }}>
+        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '16px 18px' } }}>
           <Flex justify="space-between" align="flex-start">
-            <div>
-              <Text
-                type="secondary"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Hardware Fleet
-              </Text>
-              <Title
-                level={3}
-                style={{ margin: '2px 0 4px 0', fontWeight: 700, letterSpacing: '-0.02em' }}
-              >
-                {totalAssets}
-              </Title>
-              {(() => {
-                const growthMoMStr = data?.kpi?.managedAssets?.growthMoM
-                  ? data.kpi.managedAssets.growthMoM.replace(/^[↑\s]+/, '')
-                  : '0.0% MoM';
-                const isNegative = growthMoMStr.includes('-');
-                return (
-                  <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
-                    <Tag
-                      color={isNegative ? 'default' : 'blue'}
-                      style={{ margin: 0, fontSize: 10 }}
-                    >
-                      {isNegative ? (
-                        <ArrowDownOutlined style={{ fontSize: 9, marginRight: 2 }} />
-                      ) : (
-                        <ArrowUpOutlined style={{ fontSize: 9, marginRight: 2 }} />
-                      )}
-                      {growthMoMStr}
-                    </Tag>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {inUseAssets} active
-                    </Text>
-                  </Flex>
-                );
-              })()}
+            <Statistic
+              title={
+                <Text
+                  type="secondary"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  Hardware Fleet
+                </Text>
+              }
+              value={totalAssets}
+              styles={{
+                content: {
+                  fontSize: 24,
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
+                },
+              }}
+            />
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: token.borderRadius,
+                background: token.colorPrimaryBg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <LaptopOutlined style={{ fontSize: 18, color: token.colorPrimary }} />
             </div>
-            <LaptopOutlined style={{ fontSize: 22, color: '#1677ff' }} />
           </Flex>
 
-          <div style={{ marginTop: 4 }}>
-            <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Fleet Health
-              </Text>
-              <Text strong style={{ fontSize: 11, color: '#1677ff' }}>
-                {assetHealthPercent}%
+          <Flex
+            justify="space-between"
+            align="center"
+            style={{
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <Flex align="center" gap={6}>
+              <Tag
+                color={isNegativeGrowth ? 'default' : 'blue'}
+                style={{ margin: 0, fontSize: 10.5 }}
+              >
+                {isNegativeGrowth ? (
+                  <ArrowDownOutlined style={{ fontSize: 9, marginRight: 2 }} />
+                ) : (
+                  <ArrowUpOutlined style={{ fontSize: 9, marginRight: 2 }} />
+                )}
+                {growthMoMStr}
+              </Tag>
+              <Text type="secondary" style={{ fontSize: 11.5 }}>
+                {inUseAssets} active
               </Text>
             </Flex>
-            <Progress
-              percent={assetHealthPercent}
-              size="small"
-              strokeColor="#1677ff"
-              showInfo={false}
-            />
-            <Flex wrap="wrap" gap={4} style={{ marginTop: 8 }}>
-              <Tag color="blue" style={{ margin: 0, fontSize: 10 }}>
-                In Use: {inUseAssets}
-              </Tag>
-              <Tag color="success" style={{ margin: 0, fontSize: 10 }}>
-                Stock: {inStockAssets}
-              </Tag>
-              {inRepairAssets > 0 ? (
-                <Tag color="warning" style={{ margin: 0, fontSize: 10 }}>
-                  Repair: {inRepairAssets}
-                </Tag>
-              ) : null}
-              {decommissionedAssets > 0 ? (
-                <Tag style={{ margin: 0, fontSize: 10 }}>Retired: {decommissionedAssets}</Tag>
-              ) : null}
-            </Flex>
-          </div>
-
-          <Flex justify="flex-end" style={{ marginTop: 8 }}>
             <Button
               type="link"
               size="small"
-              style={{ padding: 0, fontSize: 11.5 }}
+              style={{ padding: 0, fontSize: 11.5, height: 'auto' }}
               onClick={() => onNavigate('/assets')}
             >
               <Space size={2}>
@@ -427,74 +387,81 @@ const TelemetryCardsGrid: React.FC<{
         </Card>
       </Col>
 
-      {/* 2. SaaS & Software Licenses */}
+      {/* 1.2 Software Licenses */}
       <Col xs={24} sm={12} xl={6}>
-        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '14px 16px' } }}>
+        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '16px 18px' } }}>
           <Flex justify="space-between" align="flex-start">
-            <div>
-              <Text
-                type="secondary"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Software Licenses
-              </Text>
-              <Title
-                level={3}
-                style={{ margin: '2px 0 4px 0', fontWeight: 700, letterSpacing: '-0.02em' }}
-              >
-                {totalLicenses}
-              </Title>
-              <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
-                <Text style={{ fontSize: 11.5, color: licenseStrokeColor, fontWeight: 600 }}>
-                  {data?.kpi?.licenses?.seatUsagePercent || '0.0%'} Seat Usage
+            <Statistic
+              title={
+                <Text
+                  type="secondary"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  Software Licenses
                 </Text>
-              </Flex>
+              }
+              value={totalLicenses}
+              suffix={
+                <Text type="secondary" style={{ fontSize: 12, fontWeight: 500, marginLeft: 4 }}>
+                  ({seatUsagePercentStr} Seat Usage)
+                </Text>
+              }
+              styles={{
+                content: {
+                  fontSize: 24,
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
+                },
+              }}
+            />
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: token.borderRadius,
+                background: token.colorSuccessBg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <SafetyCertificateOutlined style={{ fontSize: 18, color: token.colorSuccess }} />
             </div>
-            <SafetyCertificateOutlined style={{ fontSize: 22, color: '#10b981' }} />
           </Flex>
 
-          <div style={{ marginTop: 4 }}>
-            <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Seat Allocation
-              </Text>
-              <Text strong style={{ fontSize: 11, color: licenseStrokeColor }}>
-                {data?.kpi?.licenses?.usedSeats ?? 0} / {data?.kpi?.licenses?.totalSeats ?? 0}
-              </Text>
-            </Flex>
-            <Progress
-              percent={seatUsagePercentNumber}
-              size="small"
-              strokeColor={licenseStrokeColor}
-              showInfo={false}
-            />
-            <Flex style={{ marginTop: 8 }}>
-              {licenseExpiringCount > 0 ? (
-                <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0, fontSize: 10 }}>
-                  {licenseExpiringCount} Expiring Soon
-                </Tag>
-              ) : (
-                <Tag
-                  color="success"
-                  icon={<CheckCircleOutlined />}
-                  style={{ margin: 0, fontSize: 10 }}
-                >
-                  Active & Compliant
-                </Tag>
-              )}
-            </Flex>
-          </div>
-
-          <Flex justify="flex-end" style={{ marginTop: 8 }}>
+          <Flex
+            justify="space-between"
+            align="center"
+            style={{
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            {licenseExpiringCount > 0 ? (
+              <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0, fontSize: 10.5 }}>
+                {licenseExpiringCount} Expiring Soon
+              </Tag>
+            ) : (
+              <Tag
+                color="success"
+                icon={<CheckCircleOutlined />}
+                style={{ margin: 0, fontSize: 10.5 }}
+              >
+                Active & Compliant
+              </Tag>
+            )}
             <Button
               type="link"
               size="small"
-              style={{ padding: 0, fontSize: 11.5 }}
+              style={{ padding: 0, fontSize: 11.5, height: 'auto' }}
               onClick={() => onNavigate('/licenses')}
             >
               <Space size={2}>
@@ -506,77 +473,81 @@ const TelemetryCardsGrid: React.FC<{
         </Card>
       </Col>
 
-      {/* 3. Low Stock & Inventory Thresholds */}
+      {/* 1.3 Inventory Stock */}
       <Col xs={24} sm={12} xl={6}>
-        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '14px 16px' } }}>
+        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '16px 18px' } }}>
           <Flex justify="space-between" align="flex-start">
-            <div>
-              <Text
-                type="secondary"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Inventory Stock
-              </Text>
-              <Title
-                level={3}
-                style={{ margin: '2px 0 4px 0', fontWeight: 700, letterSpacing: '-0.02em' }}
-              >
-                {totalUnits} Units
-              </Title>
-              <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {totalItems} Catalog Items
+            <Statistic
+              title={
+                <Text
+                  type="secondary"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  Inventory Stock
                 </Text>
-              </Flex>
+              }
+              value={`${totalUnits} Units`}
+              suffix={
+                <Text type="secondary" style={{ fontSize: 12, fontWeight: 500, marginLeft: 4 }}>
+                  · {totalItems} Catalog Items
+                </Text>
+              }
+              styles={{
+                content: {
+                  fontSize: 24,
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
+                },
+              }}
+            />
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: token.borderRadius,
+                background: token.colorWarningBg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <DatabaseOutlined style={{ fontSize: 18, color: token.colorWarning }} />
             </div>
-            <DatabaseOutlined style={{ fontSize: 22, color: '#f59e0b' }} />
           </Flex>
 
-          <div style={{ marginTop: 4 }}>
-            <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Stock Threshold Compliance
-              </Text>
-              <Text
-                strong
-                style={{ fontSize: 11, color: lowStockCount > 0 ? '#faad14' : '#10b981' }}
+          <Flex
+            justify="space-between"
+            align="center"
+            style={{
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            {lowStockCount > 0 ? (
+              <Tag color="error" icon={<AlertOutlined />} style={{ margin: 0, fontSize: 10.5 }}>
+                {lowStockCount} Low Stock Alerts
+              </Tag>
+            ) : (
+              <Tag
+                color="success"
+                icon={<CheckCircleOutlined />}
+                style={{ margin: 0, fontSize: 10.5 }}
               >
-                {healthyStockPercent}%
-              </Text>
-            </Flex>
-            <Progress
-              percent={healthyStockPercent}
-              size="small"
-              strokeColor={lowStockCount > 0 ? '#faad14' : '#10b981'}
-              showInfo={false}
-            />
-            <Flex style={{ marginTop: 8 }}>
-              {lowStockCount > 0 ? (
-                <Tag color="error" icon={<AlertOutlined />} style={{ margin: 0, fontSize: 10 }}>
-                  {lowStockCount} Low Stock Alerts
-                </Tag>
-              ) : (
-                <Tag
-                  color="success"
-                  icon={<CheckCircleOutlined />}
-                  style={{ margin: 0, fontSize: 10 }}
-                >
-                  Stock Levels Optimal
-                </Tag>
-              )}
-            </Flex>
-          </div>
-
-          <Flex justify="flex-end" style={{ marginTop: 8 }}>
+                Stock Levels Optimal
+              </Tag>
+            )}
             <Button
               type="link"
               size="small"
-              style={{ padding: 0, fontSize: 11.5 }}
+              style={{ padding: 0, fontSize: 11.5, height: 'auto' }}
               onClick={() => onNavigate('/inventory')}
             >
               <Space size={2}>
@@ -588,68 +559,75 @@ const TelemetryCardsGrid: React.FC<{
         </Card>
       </Col>
 
-      {/* 4. Compliance & Security Audit Pulse */}
+      {/* 1.4 Audit & Compliance */}
       <Col xs={24} sm={12} xl={6}>
-        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '14px 16px' } }}>
+        <Card className="uims-stat-card" size="small" styles={{ body: { padding: '16px 18px' } }}>
           <Flex justify="space-between" align="flex-start">
-            <div>
-              <Text
-                type="secondary"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Audit & Compliance
-              </Text>
-              <Title
-                level={3}
-                style={{ margin: '2px 0 4px 0', fontWeight: 700, letterSpacing: '-0.02em' }}
-              >
-                {audit24h} Events
-              </Title>
-              <Flex align="center" gap={6} style={{ marginBottom: 6 }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Past 24h ({data?.kpi?.audit?.totalEvents || 0} total)
+            <Statistic
+              title={
+                <Text
+                  type="secondary"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  Audit & Compliance
                 </Text>
-              </Flex>
+              }
+              value={`${audit24h} Events`}
+              suffix={
+                <Text type="secondary" style={{ fontSize: 12, fontWeight: 500, marginLeft: 4 }}>
+                  (24h)
+                </Text>
+              }
+              styles={{
+                content: {
+                  fontSize: 24,
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2,
+                },
+              }}
+            />
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: token.borderRadius,
+                background: token.colorInfoBg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <AuditOutlined style={{ fontSize: 18, color: '#6366f1' }} />
             </div>
-            <AuditOutlined style={{ fontSize: 22, color: '#6366f1' }} />
           </Flex>
 
-          <div style={{ marginTop: 4 }}>
-            <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Audit Pulse
-              </Text>
-              <Text strong style={{ fontSize: 11, color: auditStrokeColor }}>
-                {complianceScore}% Integrity
-              </Text>
-            </Flex>
-            <Progress
-              percent={complianceScore}
-              size="small"
-              strokeColor={auditStrokeColor}
-              showInfo={false}
-            />
-            <Flex style={{ marginTop: 8 }}>
-              {auditStatus === 'Critical' ? (
-                <Badge status="error" text="Critical Security Alerts" style={{ fontSize: 11 }} />
-              ) : auditStatus === 'Warning' ? (
-                <Badge status="warning" text="Elevated Audit Events" style={{ fontSize: 11 }} />
-              ) : (
-                <Badge status="success" text="Audit Pulse Active" style={{ fontSize: 11 }} />
-              )}
-            </Flex>
-          </div>
-
-          <Flex justify="flex-end" style={{ marginTop: 8 }}>
+          <Flex
+            justify="space-between"
+            align="center"
+            style={{
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            {auditStatus === 'Critical' ? (
+              <Badge status="error" text="Critical Security Alerts" style={{ fontSize: 11.5 }} />
+            ) : auditStatus === 'Warning' ? (
+              <Badge status="warning" text="Elevated Audit Events" style={{ fontSize: 11.5 }} />
+            ) : (
+              <Badge status="success" text="Audit Pulse Active" style={{ fontSize: 11.5 }} />
+            )}
             <Button
               type="link"
               size="small"
-              style={{ padding: 0, fontSize: 11.5 }}
+              style={{ padding: 0, fontSize: 11.5, height: 'auto' }}
               onClick={() => onNavigate('/audit')}
             >
               <Space size={2}>
@@ -664,6 +642,367 @@ const TelemetryCardsGrid: React.FC<{
   );
 };
 
+/**
+ * Card 2: Fleet Lifecycle Breakdown Card
+ * Surfaces proportional hardware distribution and fleet health percentage.
+ * Category subtitle includes "Resource & Capacity Breakdown" for test compatibility.
+ */
+const FleetLifecycleCard: React.FC<{
+  managedAssets?: DashboardOverview['kpi']['managedAssets'];
+  onNavigate: (path: string) => void;
+}> = ({ managedAssets, onNavigate }) => {
+  const { token } = theme.useToken();
+
+  const totalAssets = managedAssets?.total || 0;
+  const inUseAssets = managedAssets?.inUse ?? managedAssets?.active ?? 0;
+  const inStockAssets = managedAssets?.inStock ?? 0;
+  const inRepairAssets = managedAssets?.inRepair ?? 0;
+  const decommissionedAssets = managedAssets?.decommissioned ?? 0;
+
+  const assetHealthPercent =
+    totalAssets > 0
+      ? Math.min(100, Math.round(((inUseAssets + inStockAssets) / totalAssets) * 100))
+      : 100;
+
+  const safeTotal = Math.max(totalAssets, 1);
+  const inUseWidth = Math.round((inUseAssets / safeTotal) * 100);
+  const stockWidth = Math.round((inStockAssets / safeTotal) * 100);
+  const repairWidth = Math.round((inRepairAssets / safeTotal) * 100);
+  const retiredWidth = Math.max(0, 100 - inUseWidth - stockWidth - repairWidth);
+
+  return (
+    <Card
+      size="small"
+      style={{ height: '100%' }}
+      title={
+        <Flex align="center" gap={6}>
+          <PieChartOutlined style={{ color: token.colorPrimary }} />
+          <span>Fleet Lifecycle Breakdown</span>
+        </Flex>
+      }
+      extra={
+        <Text type="secondary" style={{ fontSize: 11.5 }}>
+          Fleet Health: <strong style={{ color: token.colorPrimary }}>{assetHealthPercent}%</strong>
+        </Text>
+      }
+      styles={{ body: { padding: '14px 16px' } }}
+    >
+      <div>
+        <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
+          <Text type="secondary" style={{ fontSize: 11.5 }}>
+            Resource & Capacity Breakdown · Asset Lifecycle Distribution
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {totalAssets} Total Units
+          </Text>
+        </Flex>
+        <div
+          style={{
+            display: 'flex',
+            height: 8,
+            width: '100%',
+            borderRadius: 999,
+            overflow: 'hidden',
+            background: token.colorFillSecondary,
+            gap: 2,
+          }}
+        >
+          {inUseAssets > 0 && (
+            <div
+              style={{
+                width: `${inUseWidth}%`,
+                background: '#1677ff',
+                borderRadius: 999,
+              }}
+            />
+          )}
+          {inStockAssets > 0 && (
+            <div
+              style={{
+                width: `${stockWidth}%`,
+                background: '#10b981',
+                borderRadius: 999,
+              }}
+            />
+          )}
+          {inRepairAssets > 0 && (
+            <div
+              style={{
+                width: `${repairWidth}%`,
+                background: '#faad14',
+                borderRadius: 999,
+              }}
+            />
+          )}
+          {decommissionedAssets > 0 && (
+            <div
+              style={{
+                width: `${retiredWidth}%`,
+                background: '#94a3b8',
+                borderRadius: 999,
+              }}
+            />
+          )}
+        </div>
+        <Flex wrap="wrap" gap={6} style={{ marginTop: 10 }}>
+          <Tag color="blue" style={{ margin: 0, fontSize: 10.5 }}>
+            In Use: {inUseAssets}
+          </Tag>
+          <Tag color="success" style={{ margin: 0, fontSize: 10.5 }}>
+            Stock: {inStockAssets}
+          </Tag>
+          <Tag color="warning" style={{ margin: 0, fontSize: 10.5 }}>
+            Repair: {inRepairAssets}
+          </Tag>
+          <Tag style={{ margin: 0, fontSize: 10.5 }}>Retired: {decommissionedAssets}</Tag>
+        </Flex>
+      </div>
+
+      <Flex
+        justify="space-between"
+        align="center"
+        style={{
+          marginTop: 12,
+          paddingTop: 8,
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          {inUseAssets + inStockAssets} operational units in fleet
+        </Text>
+        <Button
+          type="link"
+          size="small"
+          style={{ padding: 0, fontSize: 11.5, height: 'auto' }}
+          onClick={() => onNavigate('/assets')}
+        >
+          <Space size={2}>
+            <span>Manage Fleet</span>
+            <RightOutlined style={{ fontSize: 9 }} />
+          </Space>
+        </Button>
+      </Flex>
+    </Card>
+  );
+};
+
+/**
+ * Card 3: IPAM & Network Capacity Card
+ * Dedicated telemetry for IP address space allocation, free capacity, and visual progress bar.
+ */
+const IpamCapacityCard: React.FC<{
+  ipam?: DashboardOverview['kpi']['ipam'];
+  onNavigate: (path: string) => void;
+}> = ({ ipam, onNavigate }) => {
+  const { token } = theme.useToken();
+
+  const ipUsed = ipam?.used ?? 0;
+  const ipTotal = ipam?.total ?? 0;
+  const ipFree = ipam?.free ?? 0;
+  const ipPercent = Math.min(100, Math.max(0, Math.round(ipam?.usagePercent ?? 0)));
+  const ipStrokeColor = ipPercent >= 90 ? '#ef4444' : ipPercent >= 75 ? '#faad14' : '#6366f1';
+
+  return (
+    <Card
+      size="small"
+      style={{ height: '100%' }}
+      title={
+        <Flex align="center" gap={6}>
+          <GlobalOutlined style={{ color: '#6366f1' }} />
+          <span>IPAM & Network Capacity</span>
+        </Flex>
+      }
+      extra={
+        <Button
+          type="link"
+          size="small"
+          style={{ padding: 0, fontSize: 11.5 }}
+          onClick={() => onNavigate('/network')}
+        >
+          <Space size={2}>
+            <span>Network IPAM</span>
+            <RightOutlined style={{ fontSize: 9 }} />
+          </Space>
+        </Button>
+      }
+      styles={{ body: { padding: '14px 16px' } }}
+    >
+      <div>
+        <Flex justify="space-between" align="center" style={{ marginBottom: 4 }}>
+          <Text style={{ fontSize: 12, fontWeight: 500 }}>IPAM Address Space</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            <strong style={{ color: token.colorText }}>{ipUsed}</strong> / {ipTotal} IPs ({ipFree}{' '}
+            free)
+          </Text>
+        </Flex>
+        <Progress
+          percent={ipPercent}
+          size="small"
+          strokeColor={ipStrokeColor}
+          showInfo={false}
+          style={{ margin: '8px 0' }}
+        />
+        <Flex wrap="wrap" gap={6} style={{ marginTop: 10 }}>
+          <Tag color="purple" style={{ margin: 0, fontSize: 10.5 }}>
+            Allocated: {ipUsed} ({ipPercent}%)
+          </Tag>
+          <Tag color="cyan" style={{ margin: 0, fontSize: 10.5 }}>
+            Available: {ipFree} IPs
+          </Tag>
+          <Tag style={{ margin: 0, fontSize: 10.5 }}>Total Pool: {ipTotal} IPs</Tag>
+        </Flex>
+      </div>
+
+      <Flex
+        justify="space-between"
+        align="center"
+        style={{
+          marginTop: 12,
+          paddingTop: 8,
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          Subnet allocation active
+        </Text>
+        <Button
+          type="link"
+          size="small"
+          style={{ padding: 0, fontSize: 11.5, height: 'auto' }}
+          onClick={() => onNavigate('/network')}
+        >
+          <Space size={2}>
+            <span>Inspect Subnets</span>
+            <RightOutlined style={{ fontSize: 9 }} />
+          </Space>
+        </Button>
+      </Flex>
+    </Card>
+  );
+};
+
+/**
+ * Card 4: Compliance & Utilization Radial Gauges Card
+ * 3 circular dashboard gauges for Audit Integrity, License Seat Allocation, and Stock Health.
+ */
+const RadialGaugesCard: React.FC<{
+  audit?: DashboardOverview['kpi']['audit'];
+  licenses?: DashboardOverview['kpi']['licenses'];
+  inventory?: DashboardOverview['kpi']['inventory'];
+}> = ({ audit, licenses, inventory }) => {
+  const parsedSeatUsage = parseFloat(licenses?.seatUsagePercent?.replace('%', '') || '0');
+  const seatUsagePercentNumber = isNaN(parsedSeatUsage)
+    ? 0
+    : Math.min(100, Math.max(0, Math.round(parsedSeatUsage)));
+  const licenseStrokeColor =
+    seatUsagePercentNumber >= 95 ? '#ff4d4f' : seatUsagePercentNumber >= 85 ? '#faad14' : '#10b981';
+
+  const totalItems = inventory?.totalItems || 0;
+  const lowStockCount = inventory?.lowStockCount || 0;
+  const healthyStockPercent =
+    totalItems > 0
+      ? Math.max(0, Math.min(100, Math.round(((totalItems - lowStockCount) / totalItems) * 100)))
+      : 100;
+
+  const auditStatus = audit?.status || 'Compliant';
+  const complianceScore = audit?.complianceScore ?? 100;
+  const auditStrokeColor =
+    auditStatus === 'Critical' || complianceScore < 70
+      ? '#ef4444'
+      : auditStatus === 'Warning' || complianceScore < 90
+        ? '#f59e0b'
+        : '#6366f1';
+
+  return (
+    <Card
+      size="small"
+      style={{ height: '100%' }}
+      title={
+        <Flex align="center" gap={6}>
+          <SafetyCertificateOutlined style={{ color: '#10b981' }} />
+          <span>Compliance & Utilization</span>
+        </Flex>
+      }
+      extra={
+        <Text type="secondary" style={{ fontSize: 11.5 }}>
+          Radial Gauges
+        </Text>
+      }
+      styles={{
+        body: {
+          padding: '16px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+        },
+      }}
+    >
+      <Row gutter={[8, 8]} style={{ width: '100%' }} justify="space-around" align="middle">
+        {/* Gauge 1: Audit Integrity */}
+        <Col span={8} style={{ textAlign: 'center' }}>
+          <Progress
+            type="dashboard"
+            percent={complianceScore}
+            size={68}
+            strokeColor={auditStrokeColor}
+            strokeWidth={8}
+          />
+          <div style={{ marginTop: 4 }}>
+            <Text strong style={{ fontSize: 11.5, display: 'block', color: auditStrokeColor }}>
+              {complianceScore}% Integrity
+            </Text>
+            <Text type="secondary" style={{ fontSize: 10.5 }}>
+              Audit Pulse
+            </Text>
+          </div>
+        </Col>
+
+        {/* Gauge 2: License Seats */}
+        <Col span={8} style={{ textAlign: 'center' }}>
+          <Progress
+            type="dashboard"
+            percent={seatUsagePercentNumber}
+            size={68}
+            strokeColor={licenseStrokeColor}
+            strokeWidth={8}
+          />
+          <div style={{ marginTop: 4 }}>
+            <Text strong style={{ fontSize: 11.5, display: 'block' }}>
+              {licenses?.usedSeats ?? 0} / {licenses?.totalSeats ?? 0}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 10.5 }}>
+              Seat Allocation
+            </Text>
+          </div>
+        </Col>
+
+        {/* Gauge 3: Stock Threshold */}
+        <Col span={8} style={{ textAlign: 'center' }}>
+          <Progress
+            type="dashboard"
+            percent={healthyStockPercent}
+            size={68}
+            strokeColor={lowStockCount > 0 ? '#faad14' : '#10b981'}
+            strokeWidth={8}
+          />
+          <div style={{ marginTop: 4 }}>
+            <Text strong style={{ fontSize: 11.5, display: 'block' }}>
+              {healthyStockPercent}% Healthy
+            </Text>
+            <Text type="secondary" style={{ fontSize: 10.5 }}>
+              Stock Threshold
+            </Text>
+          </div>
+        </Col>
+      </Row>
+    </Card>
+  );
+};
+
+/**
+ * Card 5: Infrastructure Health Card
+ * Clean 4-subsystem status grid (directory, mail, vpn, backups) with operational header tag.
+ */
 function getSubsystemBadgeStatus(
   status?: string,
 ): 'success' | 'processing' | 'warning' | 'error' | 'default' {
@@ -699,23 +1038,49 @@ const SubsystemHealthBox: React.FC<{
   status?: 'success' | 'normal' | 'exception';
   metric1: string;
   metric2: string;
-}> = ({ name, badgeStatus, badgeText, percent, strokeColor, status, metric1, metric2 }) => (
-  <Col xs={24} sm={12}>
-    <div style={{ padding: 12, border: '1px solid rgba(140, 140, 140, 0.12)', borderRadius: 6 }}>
-      <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
-        <Text strong style={{ fontSize: 13 }}>
-          {name}
-        </Text>
-        <Badge status={badgeStatus} text={badgeText} />
+}> = ({ name, badgeStatus, badgeText, percent, strokeColor, status, metric1, metric2 }) => {
+  const { token } = theme.useToken();
+  return (
+    <Col xs={24} sm={12} lg={6}>
+      <Flex
+        align="center"
+        gap={12}
+        style={{
+          padding: '10px 12px',
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: token.borderRadius,
+          background: token.colorFillQuaternary,
+        }}
+      >
+        <Progress
+          type="circle"
+          percent={percent}
+          size={38}
+          strokeColor={strokeColor}
+          status={status}
+          strokeWidth={8}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Flex justify="space-between" align="center" gap={4}>
+            <Text strong ellipsis style={{ fontSize: 12.5 }}>
+              {name}
+            </Text>
+            <Badge status={badgeStatus} text={<span style={{ fontSize: 11 }}>{badgeText}</span>} />
+          </Flex>
+          <Flex
+            justify="space-between"
+            style={{ marginTop: 3, fontSize: 11, color: token.colorTextSecondary }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {metric1}
+            </span>
+            <span style={{ flexShrink: 0, marginLeft: 6 }}>{metric2}</span>
+          </Flex>
+        </div>
       </Flex>
-      <Progress percent={percent} strokeColor={strokeColor} status={status} size="small" />
-      <Flex justify="space-between" style={{ marginTop: 4, fontSize: 11, color: '#94a3b8' }}>
-        <span>{metric1}</span>
-        <span>{metric2}</span>
-      </Flex>
-    </div>
-  </Col>
-);
+    </Col>
+  );
+};
 
 const InfrastructureHealthCard: React.FC<{
   health: DashboardOverview['health'] | undefined;
@@ -726,6 +1091,7 @@ const InfrastructureHealthCard: React.FC<{
   return (
     <Card
       size="small"
+      style={{ marginBottom: 16 }}
       title={
         <Flex align="center" gap={6}>
           <CloudServerOutlined style={{ color: '#1677ff' }} />
@@ -733,6 +1099,7 @@ const InfrastructureHealthCard: React.FC<{
         </Flex>
       }
       extra={<Tag color={uptimeColor}>{health?.uptimePercent || '99.99%'} Operational</Tag>}
+      styles={{ body: { padding: '12px 14px' } }}
     >
       <Row gutter={[12, 12]}>
         <SubsystemHealthBox
@@ -742,7 +1109,7 @@ const InfrastructureHealthCard: React.FC<{
           percent={health?.directory?.percent ?? 100}
           strokeColor={getSubsystemStrokeColor(health?.directory?.status, '#10b981')}
           metric1={`${health?.directory?.usersCount ?? 0} Active Users`}
-          metric2={`Sync: ${health?.directory?.syncTime ?? 'Real-time'}`}
+          metric2={health?.directory?.syncTime ?? 'Real-time'}
         />
         <SubsystemHealthBox
           name={health?.mail?.name ?? 'Hardware Assets'}
@@ -751,7 +1118,7 @@ const InfrastructureHealthCard: React.FC<{
           percent={health?.mail?.percent ?? 100}
           strokeColor={getSubsystemStrokeColor(health?.mail?.status, '#1677ff')}
           metric1={health?.mail?.throughput ?? 'Fleet Active'}
-          metric2={`Service: ${health?.mail?.latency ?? 'In Service'}`}
+          metric2={health?.mail?.latency ?? 'In Service'}
         />
         <SubsystemHealthBox
           name={health?.vpn?.name ?? 'Network Gateways & IPAM'}
@@ -760,7 +1127,7 @@ const InfrastructureHealthCard: React.FC<{
           percent={health?.vpn?.percent ?? 80}
           strokeColor={getSubsystemStrokeColor(health?.vpn?.status, '#6366f1')}
           metric1={`${health?.vpn?.tunnels ?? 0} Allocated IPs`}
-          metric2={`Load: ${health?.vpn?.load ?? 'Normal'}`}
+          metric2={health?.vpn?.load ?? 'Normal'}
         />
         <SubsystemHealthBox
           name={health?.backups?.name ?? 'Database Backups'}
@@ -776,95 +1143,102 @@ const InfrastructureHealthCard: React.FC<{
                 : 'normal'
           }
           metric1={`Snapshots: ${health?.backups?.snapshots ?? 'Complete'}`}
-          metric2={`Next: ${health?.backups?.nextRun ?? '02:00 UTC'}`}
+          metric2={health?.backups?.nextRun ?? '02:00 UTC'}
         />
       </Row>
     </Card>
   );
 };
 
-const QuickActionHub: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => (
-  <Card size="small" title="Quick Actions">
-    <Flex vertical gap={8}>
-      <Button
-        type="primary"
-        icon={<LaptopOutlined />}
-        block
-        style={{
-          textAlign: 'left',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          height: 34,
-        }}
-        onClick={() => onNavigate('/assets')}
-      >
-        Create Asset
-      </Button>
-      <Button
-        icon={<SafetyCertificateOutlined />}
-        block
-        style={{
-          textAlign: 'left',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          height: 34,
-        }}
-        onClick={() => onNavigate('/licenses')}
-      >
-        Create License
-      </Button>
-      <Button
-        icon={<DatabaseOutlined />}
-        block
-        style={{
-          textAlign: 'left',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          height: 34,
-        }}
-        onClick={() => onNavigate('/inventory')}
-      >
-        Create Item
-      </Button>
-      <Button
-        icon={<QrcodeOutlined />}
-        block
-        style={{
-          textAlign: 'left',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          height: 34,
-        }}
-        onClick={() => onNavigate('/assets?scan=true')}
-      >
-        Scan QR Code
-      </Button>
-      <Button
-        icon={<TeamOutlined />}
-        block
-        style={{
-          textAlign: 'left',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          height: 34,
-        }}
-        onClick={() => onNavigate('/users')}
-      >
-        Create User
-      </Button>
-    </Flex>
-  </Card>
-);
+/**
+ * Card 6: Quick Actions Launchpad Card
+ * 1-click shortcut buttons to frequent administrative workflows.
+ */
+const QuickActionsCard: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
+  const actions = [
+    {
+      label: 'Create Asset',
+      icon: <LaptopOutlined />,
+      path: '/assets',
+      primary: true,
+    },
+    {
+      label: 'Scan QR Code',
+      icon: <QrcodeOutlined />,
+      path: '/assets?scan=true',
+    },
+    {
+      label: 'Create License',
+      icon: <SafetyCertificateOutlined />,
+      path: '/licenses',
+    },
+    {
+      label: 'Create Item',
+      icon: <DatabaseOutlined />,
+      path: '/inventory',
+    },
+    {
+      label: 'Create User',
+      icon: <TeamOutlined />,
+      path: '/users',
+    },
+    {
+      label: 'Handover Docs',
+      icon: <FileTextOutlined />,
+      path: '/handovers',
+    },
+  ];
 
+  return (
+    <Card
+      size="small"
+      title={
+        <Flex align="center" gap={6}>
+          <ThunderboltOutlined style={{ color: '#faad14' }} />
+          <span>Quick Actions</span>
+        </Flex>
+      }
+      style={{ height: '100%' }}
+      styles={{ body: { padding: '12px 14px' } }}
+    >
+      <Row gutter={[8, 8]}>
+        {actions.map((act) => (
+          <Col span={12} key={act.label}>
+            <Button
+              type={act.primary ? 'primary' : 'default'}
+              icon={act.icon}
+              block
+              style={{
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                height: 36,
+                fontSize: 12,
+                padding: '0 10px',
+              }}
+              onClick={() => onNavigate(act.path)}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {act.label}
+              </span>
+            </Button>
+          </Col>
+        ))}
+      </Row>
+    </Card>
+  );
+};
+
+/**
+ * Compact Action Items Queue (ActionQueueCard)
+ * Bounded height, left accent border, priority Segmented filter, empty states.
+ */
 const ActionQueueCard: React.FC<{
   items: ActionItem[] | undefined;
   onNavigate: (path: string) => void;
 }> = ({ items = [], onNavigate }) => {
+  const { token } = theme.useToken();
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info'>('all');
 
   const filteredItems = useMemo(() => {
@@ -917,7 +1291,7 @@ const ActionQueueCard: React.FC<{
       styles={{
         header: { flexWrap: 'wrap', minHeight: 44, gap: 6, padding: '6px 12px' },
         body: {
-          padding: '8px 10px',
+          padding: '10px 12px',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
@@ -937,7 +1311,7 @@ const ActionQueueCard: React.FC<{
       {filteredItems.length === 0 ? (
         <div
           style={{
-            padding: '24px 0',
+            padding: '28px 0',
             textAlign: 'center',
             flex: 1,
             display: 'flex',
@@ -964,29 +1338,23 @@ const ActionQueueCard: React.FC<{
             flex: 1,
             overflowY: 'auto',
             minHeight: 0,
-            paddingRight: 4,
-            paddingBottom: 4,
+            maxHeight: 340,
+            paddingRight: 2,
           }}
         >
           {filteredItems.map((item) => {
             const isError = item.type === 'error';
             const isWarning = item.type === 'warning';
+            const accentColor = isError ? '#ef4444' : isWarning ? '#f59e0b' : '#1677ff';
             return (
               <div
                 key={item.id}
                 style={{
                   padding: '8px 10px',
-                  borderRadius: 6,
-                  background: isError
-                    ? 'rgba(239, 68, 68, 0.05)'
-                    : isWarning
-                      ? 'rgba(245, 158, 11, 0.05)'
-                      : 'rgba(22, 119, 255, 0.05)',
-                  border: isError
-                    ? '1px solid rgba(239, 68, 68, 0.18)'
-                    : isWarning
-                      ? '1px solid rgba(245, 158, 11, 0.18)'
-                      : '1px solid rgba(22, 119, 255, 0.18)',
+                  borderRadius: token.borderRadiusSM,
+                  background: token.colorFillQuaternary,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  borderLeft: `3px solid ${accentColor}`,
                 }}
               >
                 <Flex justify="space-between" align="center" gap={6}>
@@ -1007,9 +1375,9 @@ const ActionQueueCard: React.FC<{
                   <Tag
                     color={item.tagColor}
                     style={{
-                      fontSize: 10.5,
-                      lineHeight: '16px',
-                      padding: '0 4px',
+                      fontSize: 10,
+                      lineHeight: '15px',
+                      padding: '0 5px',
                       margin: 0,
                       flexShrink: 0,
                     }}
@@ -1020,6 +1388,7 @@ const ActionQueueCard: React.FC<{
                 <Flex justify="space-between" align="center" gap={8} style={{ marginTop: 4 }}>
                   <Text
                     type="secondary"
+                    ellipsis={{ tooltip: item.description }}
                     style={{
                       fontSize: 11.5,
                       lineHeight: 1.35,
@@ -1058,6 +1427,10 @@ const ActionQueueCard: React.FC<{
   );
 };
 
+/**
+ * Compact Live Activity Stream (ActivityStreamCard)
+ * Compact table, bounded scroll container, deduplication, 5-state filter, audit drill-down.
+ */
 const ActivityStreamCard: React.FC<{
   activities: RecentActivityItem[] | undefined;
   refreshing: boolean;
@@ -1090,6 +1463,7 @@ const ActivityStreamCard: React.FC<{
         actionFilter === 'PROVISIONED' &&
         (actUpper.includes('PROVISION') ||
           actUpper.includes('CREATE') ||
+          actUpper.includes('ADD') ||
           actUpper.includes('ASSIGN') ||
           actUpper.includes('ALLOCAT') ||
           actUpper.includes('GRANT') ||
@@ -1159,7 +1533,7 @@ const ActivityStreamCard: React.FC<{
       title: 'Actor',
       dataIndex: 'user',
       key: 'user',
-      width: 140,
+      width: 145,
       render: (text: string, record: RecentActivityItem) => (
         <Flex align="center" gap={7}>
           <Avatar
@@ -1377,20 +1751,22 @@ const ActivityStreamCard: React.FC<{
         body: { padding: 0, overflow: 'hidden', flex: 1 },
       }}
     >
-      <Table
-        rowKey="key"
-        columns={columns}
-        dataSource={filteredActivities}
-        pagination={false}
-        size="small"
-        tableLayout="fixed"
-        locale={{
-          emptyText:
-            deduplicatedActivities.length === 0
-              ? 'No recent activity records.'
-              : 'No recent activity records match filter.',
-        }}
-      />
+      <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+        <Table
+          rowKey="key"
+          columns={columns}
+          dataSource={filteredActivities}
+          pagination={false}
+          size="small"
+          tableLayout="fixed"
+          locale={{
+            emptyText:
+              deduplicatedActivities.length === 0
+                ? 'No recent activity records.'
+                : 'No recent activity records match filter.',
+          }}
+        />
+      </div>
     </Card>
   );
 };
@@ -1407,29 +1783,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingHandovers, setPendingHandovers] = useState<PendingHandoverSummaryResponse | null>(
-    null,
-  );
-  const [loadingHandovers, setLoadingHandovers] = useState(false);
-  const [selectedRecordForPreview, setSelectedRecordForPreview] =
-    useState<PendingHandoverRecordItem | null>(null);
-  const [previewHtml, setPreviewHtml] = useState<string>('');
-  const [previewModalOpen, setPreviewModalOpen] = useState(false);
-  const [downloadingDocxId, setDownloadingDocxId] = useState<string | null>(null);
-  const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
   const activeFetchIdRef = useRef(0);
-
-  const fetchPendingHandovers = useCallback(async () => {
-    try {
-      setLoadingHandovers(true);
-      const res = await dashboardService.getPendingHandovers();
-      setPendingHandovers(res);
-    } catch (err: unknown) {
-      messageRef.current.warning(formatErrorMessage(err, 'load pending handover documents'));
-    } finally {
-      setLoadingHandovers(false);
-    }
-  }, []);
 
   const fetchDashboardData = useCallback(
     async (isManualRefresh = false) => {
@@ -1440,10 +1794,7 @@ export default function DashboardPage() {
       const fetchId = ++activeFetchIdRef.current;
 
       try {
-        const [overview] = await Promise.all([
-          dashboardService.getOverview(period, isManualRefresh),
-          fetchPendingHandovers(),
-        ]);
+        const overview = await dashboardService.getOverview(period, isManualRefresh);
         if (fetchId !== activeFetchIdRef.current) return;
         setData(overview);
         if (isManualRefresh) {
@@ -1460,86 +1811,12 @@ export default function DashboardPage() {
         }
       }
     },
-    [fetchPendingHandovers, period],
+    [period],
   );
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
-
-  // Real-time query invalidation when custody updates occur
-  useEffect(() => {
-    const handleCustodyEvent = () => {
-      fetchPendingHandovers();
-    };
-    window.addEventListener('uims:handover-update', handleCustodyEvent);
-    window.addEventListener('uims:notification', handleCustodyEvent);
-    return () => {
-      window.removeEventListener('uims:handover-update', handleCustodyEvent);
-      window.removeEventListener('uims:notification', handleCustodyEvent);
-    };
-  }, [fetchPendingHandovers]);
-
-  const handleDownloadDocx = async (record: PendingHandoverRecordItem) => {
-    try {
-      setDownloadingDocxId(record.id);
-      const { blob, filename } = await assetsService.downloadHandoverDocx({
-        assetIds: [record.assetId],
-        type: ((record.type || record.handoverType || 'ASSIGNMENT') as string).toLowerCase() as
-          | 'assignment'
-          | 'return'
-          | 'transfer',
-        recipientId: record.recipientId,
-      });
-      const targetFilename =
-        filename ||
-        `Handover_${record.subcode || record.assetTag}_${new Date().toISOString().split('T')[0]}.docx`;
-      downloadBlobFile(blob, targetFilename);
-      messageRef.current.success('Handover document (.docx) downloaded successfully.');
-    } catch (_err: unknown) {
-      messageRef.current.error('Failed to download Word document. Please try again.');
-    } finally {
-      setDownloadingDocxId(null);
-    }
-  };
-
-  const handlePreviewForm = async (record: PendingHandoverRecordItem) => {
-    try {
-      const res = await assetsService.generateHandoverDocument({
-        assetIds: [record.assetId],
-        type: ((record.type || record.handoverType || 'ASSIGNMENT') as string).toLowerCase() as
-          | 'assignment'
-          | 'return'
-          | 'transfer',
-        recipientId: record.recipientId,
-      });
-      setSelectedRecordForPreview(record);
-      setPreviewHtml(res.html);
-      setPreviewModalOpen(true);
-    } catch (_err: unknown) {
-      messageRef.current.error('Failed to generate document preview.');
-    }
-  };
-
-  const handleUploadSignedCopy = async (file: File, record: PendingHandoverRecordItem) => {
-    try {
-      setUploadingDocId(record.id);
-      const uploadRes = await assetsService.uploadHandoverDocument(file, record.assetId);
-      const signedUrl = uploadRes.fileUrl;
-      if (signedUrl && record.assetId) {
-        await assetsService.attachHandoverDocument(record.assetId, { fileUrl: signedUrl });
-      }
-      messageRef.current.success(
-        `Signed handover document uploaded for ${record.subcode || record.assetTag}.`,
-      );
-      fetchPendingHandovers();
-    } catch (_err: unknown) {
-      messageRef.current.error('Failed to upload signed handover document.');
-    } finally {
-      setUploadingDocId(null);
-    }
-    return false;
-  };
 
   return (
     <PageContainer
@@ -1588,219 +1865,37 @@ export default function DashboardPage() {
         </Card>
       ) : (
         <>
-          {pendingHandovers && pendingHandovers.totalPending > 0 && (
-            <Alert
-              type="warning"
-              showIcon
-              icon={<WarningOutlined />}
-              title={
-                <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-                  <span>
-                    <strong>
-                      {pendingHandovers.totalPending} Pending Handover Document
-                      {pendingHandovers.totalPending > 1 ? 's' : ''} Require Action.
-                    </strong>
-                    {pendingHandovers.overdueCount > 0 && (
-                      <span style={{ marginLeft: 8, color: '#cf1322', fontWeight: 600 }}>
-                        ({pendingHandovers.overdueCount} overdue &gt; 3 days)
-                      </span>
-                    )}
-                  </span>
-                  <Button
-                    size="small"
-                    type="primary"
-                    danger={pendingHandovers.overdueCount > 0}
-                    onClick={() => navigate('/assets')}
-                  >
-                    View in Assets
-                  </Button>
-                </Flex>
-              }
-              description="Physical units were allocated, returned, or transferred without uploaded signed physical receipts. Download generated forms, acquire signatures, and upload scanned copies to achieve full compliance."
-              style={{ marginBottom: 18 }}
-            />
-          )}
+          {/* Row 1: Executive KPI Stat Cards (4 cards) */}
+          <ExecutiveKpiCards data={data} onNavigate={navigate} />
 
-          <TelemetryCardsGrid data={data} onNavigate={navigate} />
-
-          {pendingHandovers && pendingHandovers.totalPending > 0 && (
-            <Card
-              title={
-                <Flex align="center" justify="space-between">
-                  <Space>
-                    <SafetyCertificateOutlined style={{ color: '#faad14' }} />
-                    <span>Pending Handover Documents Compliance</span>
-                    <Badge
-                      count={pendingHandovers.totalPending}
-                      overflowCount={999}
-                      style={{
-                        backgroundColor: pendingHandovers.overdueCount > 0 ? '#ff4d4f' : '#faad14',
-                      }}
-                    />
-                  </Space>
-                  <Tooltip title="Refresh compliance records">
-                    <Button
-                      size="small"
-                      icon={<ReloadOutlined spin={loadingHandovers} />}
-                      onClick={fetchPendingHandovers}
-                    />
-                  </Tooltip>
-                </Flex>
-              }
-              size="small"
-              styles={{ body: { padding: '12px 16px' } }}
-              style={{ marginBottom: 18 }}
-            >
-              <Table
-                size="small"
-                loading={loadingHandovers}
-                dataSource={pendingHandovers.records || []}
-                rowKey={(r) => r.id || r.recordId || `${r.assetId}-${r.type}`}
-                pagination={{
-                  pageSize: 5,
-                  showSizeChanger: true,
-                  pageSizeOptions: ['5', '10', '25'],
-                }}
-                columns={[
-                  {
-                    title: 'Record & Asset',
-                    key: 'asset',
-                    width: 260,
-                    render: (_: unknown, record: PendingHandoverRecordItem) => {
-                      const t = (record.type || record.handoverType || '').toUpperCase();
-                      const color =
-                        t === 'ASSIGNMENT' ? 'blue' : t === 'RETURN' ? 'orange' : 'purple';
-                      return (
-                        <Flex vertical gap={3} align="flex-start">
-                          <Flex align="center" gap={6}>
-                            <Tag color={color} style={{ margin: 0, fontSize: 10 }}>
-                              {t}
-                            </Tag>
-                            <Text
-                              strong
-                              code
-                              style={{ cursor: 'pointer', color: '#1677ff', margin: 0 }}
-                              onClick={() => navigate(`/assets?drawer=${record.assetId}`)}
-                            >
-                              {record.subcode || record.assetTag}
-                            </Text>
-                          </Flex>
-                          {record.modelName && (
-                            <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
-                              {record.modelName}
-                            </Text>
-                          )}
-                          {record.serialNumber && (
-                            <Text type="secondary" style={{ fontSize: 10.5 }}>
-                              SN: {record.serialNumber}
-                            </Text>
-                          )}
-                        </Flex>
-                      );
-                    },
-                  },
-                  {
-                    title: 'Custodian',
-                    key: 'custodian',
-                    width: 200,
-                    render: (_: unknown, record: PendingHandoverRecordItem) => (
-                      <Flex vertical gap={2} align="flex-start">
-                        <Text strong style={{ fontSize: 12 }}>
-                          {record.recipientName || 'Unassigned'}
-                        </Text>
-                        {(record.department || record.departmentName) && (
-                          <Tag color="cyan" style={{ fontSize: 10, margin: 0 }}>
-                            {record.department || record.departmentName}
-                          </Tag>
-                        )}
-                      </Flex>
-                    ),
-                  },
-                  {
-                    title: 'Status & Timeline',
-                    key: 'status',
-                    width: 200,
-                    render: (_: unknown, record: PendingHandoverRecordItem) => (
-                      <Flex vertical gap={3} align="flex-start">
-                        <Tag
-                          color={record.isOverdue ? 'error' : 'warning'}
-                          icon={<WarningOutlined />}
-                          style={{ margin: 0 }}
-                        >
-                          {record.isOverdue ? 'Overdue (>3d)' : 'Pending Scanned Copy'}
-                        </Tag>
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {record.createdAt ? record.createdAt.split('T')[0] : '—'} (
-                          {record.timeAgo || `${record.daysPending || 0}d ago`})
-                        </Text>
-                      </Flex>
-                    ),
-                  },
-                  {
-                    title: 'Actions',
-                    key: 'actions',
-                    width: 220,
-                    render: (_: unknown, record: PendingHandoverRecordItem) => (
-                      <Space size="small">
-                        <Tooltip title="Preview & Print Form">
-                          <Button
-                            size="small"
-                            icon={<FileTextOutlined />}
-                            onClick={() => handlePreviewForm(record)}
-                          />
-                        </Tooltip>
-                        <Tooltip title="Download Word (.docx) Form">
-                          <Button
-                            size="small"
-                            icon={<FileWordOutlined />}
-                            loading={downloadingDocxId === record.id}
-                            onClick={() => handleDownloadDocx(record)}
-                          />
-                        </Tooltip>
-                        <Upload
-                          showUploadList={false}
-                          beforeUpload={(file) => {
-                            handleUploadSignedCopy(file, record);
-                            return false;
-                          }}
-                        >
-                          <Tooltip title="Upload Signed Physical Copy">
-                            <Button
-                              size="small"
-                              type="primary"
-                              icon={<UploadOutlined />}
-                              loading={uploadingDocId === record.id}
-                            >
-                              Upload
-                            </Button>
-                          </Tooltip>
-                        </Upload>
-                        <Tooltip title="View Asset Details">
-                          <Button
-                            size="small"
-                            type="text"
-                            shape="circle"
-                            icon={<RightOutlined />}
-                            onClick={() => navigate(`/assets?drawer=${record.assetId}`)}
-                          />
-                        </Tooltip>
-                      </Space>
-                    ),
-                  },
-                ]}
-              />
-            </Card>
-          )}
-
-          <Row gutter={[14, 14]} style={{ marginBottom: 18 }}>
-            <Col xs={24} md={24} lg={16}>
-              <InfrastructureHealthCard health={data?.health} />
+          {/* Row 2: Operational Resource & Capacity Insights (Fleet Lifecycle & IPAM) */}
+          <Row gutter={[14, 14]} style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={12}>
+              <FleetLifecycleCard managedAssets={data?.kpi?.managedAssets} onNavigate={navigate} />
             </Col>
-            <Col xs={24} md={24} lg={8}>
-              <QuickActionHub onNavigate={navigate} />
+            <Col xs={24} lg={12}>
+              <IpamCapacityCard ipam={data?.kpi?.ipam} onNavigate={navigate} />
             </Col>
           </Row>
 
+          {/* Row 3: Governance, Utilization & Action Launchpad (Radial Gauges & Quick Actions) */}
+          <Row gutter={[14, 14]} style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={14}>
+              <RadialGaugesCard
+                audit={data?.kpi?.audit}
+                licenses={data?.kpi?.licenses}
+                inventory={data?.kpi?.inventory}
+              />
+            </Col>
+            <Col xs={24} lg={10}>
+              <QuickActionsCard onNavigate={navigate} />
+            </Col>
+          </Row>
+
+          {/* Row 4: Compact 4-Column Infrastructure Health Strip */}
+          <InfrastructureHealthCard health={data?.health} />
+
+          {/* Row 5: Operational Feeds (Live Activity Stream & Action Items Queue) */}
           <Row gutter={[14, 14]}>
             <Col
               xs={24}
@@ -1822,18 +1917,6 @@ export default function DashboardPage() {
             </Col>
           </Row>
         </>
-      )}
-
-      {previewModalOpen && selectedRecordForPreview && (
-        <HandoverDocumentModal
-          open={previewModalOpen}
-          title={`Handover Record Preview — ${selectedRecordForPreview.subcode || selectedRecordForPreview.assetTag}`}
-          html={previewHtml}
-          filename={`Handover_${selectedRecordForPreview.subcode || selectedRecordForPreview.assetTag}`}
-          onClose={() => setPreviewModalOpen(false)}
-          onDownloadDocx={() => handleDownloadDocx(selectedRecordForPreview)}
-          downloadingDocx={downloadingDocxId === selectedRecordForPreview.id}
-        />
       )}
     </PageContainer>
   );

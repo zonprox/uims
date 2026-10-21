@@ -12,6 +12,38 @@ import type { Asset } from '../../../services/assets.service';
 
 const { Text } = Typography;
 
+function formatSpecifications(specifications: unknown): string {
+  if (!specifications) return '';
+  if (typeof specifications === 'string') {
+    const trimmed = specifications.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+        return formatSpecifications(parsed);
+      } catch (_err: unknown) {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+  if (typeof specifications === 'object') {
+    const entries = Object.entries(specifications as Record<string, unknown>)
+      .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+      .map(([key, value]) => `${key}: ${String(value)}`);
+    return entries.join(' • ');
+  }
+  return String(specifications);
+}
+
+function formatCategoryLabel(category: unknown): string {
+  if (typeof category === 'string') return category;
+  if (typeof category === 'object' && category !== null && 'name' in category) {
+    const name = (category as { name?: unknown }).name;
+    return typeof name === 'string' ? name : '';
+  }
+  return '';
+}
+
 export interface DeviceModelTableProps {
   models: Array<Asset>;
   loading: boolean;
@@ -40,7 +72,8 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
           title: 'Asset Code / SAP Code',
           dataIndex: 'assetCode',
           key: 'assetCode',
-          width: 160,
+          width: 140,
+          ellipsis: true,
           sorter: (a: Asset, b: Asset) =>
             (a.modelCode || a.assetCode || a.tag || '').localeCompare(
               b.modelCode || b.assetCode || b.tag || '',
@@ -51,18 +84,28 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
             const costCenterCode =
               typeof cc === 'object' && cc !== null ? cc.code : typeof cc === 'string' ? cc : null;
             return (
-              <Flex vertical gap={4} style={{ maxWidth: 160 }}>
+              <Flex vertical gap={3} style={{ minWidth: 0 }}>
                 <Text
                   copyable
                   code
                   strong
-                  style={{ fontSize: 13, color: '#1677ff', cursor: 'pointer' }}
+                  style={{ fontSize: 12.5, color: '#1677ff', cursor: 'pointer' }}
                   onClick={() => onShowDetails?.(record)}
                 >
                   {code}
                 </Text>
                 {costCenterCode && (
-                  <Tag color="geekblue" style={{ fontSize: 10, margin: 0, width: 'fit-content' }}>
+                  <Tag
+                    color="geekblue"
+                    style={{
+                      fontSize: 10,
+                      margin: 0,
+                      width: 'fit-content',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
                     {costCenterCode}
                   </Tag>
                 )}
@@ -73,57 +116,78 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
         {
           title: 'Name / Model',
           key: 'name',
-          width: 270,
+          ellipsis: true,
           sorter: (a: Asset, b: Asset) =>
-            a.name.localeCompare(b.name) || (a.model || '').localeCompare(b.model || ''),
-          render: (_: unknown, record: Asset) => (
-            <Flex vertical gap={2} style={{ maxWidth: 270 }}>
-              <Text
-                strong
-                style={{ fontSize: 13, cursor: 'pointer' }}
-                onClick={() => onShowDetails?.(record)}
-              >
-                {record.name}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {record.manufacturer ? `${record.manufacturer} ` : ''}
-                {record.model || ''}
-              </Text>
-              {record.specifications ? (
+            a.name.localeCompare(b.name) ||
+            (a.model || '').localeCompare(b.model || '') ||
+            a.id.localeCompare(b.id),
+          render: (_: unknown, record: Asset) => {
+            const specText = formatSpecifications(record.specifications);
+            const subLabel =
+              `${record.manufacturer ? `${record.manufacturer} ` : ''}${record.model || ''}`.trim();
+            return (
+              <Flex vertical gap={2} style={{ minWidth: 0 }}>
                 <Text
-                  type="secondary"
-                  ellipsis={{ tooltip: record.specifications }}
-                  style={{ fontSize: 11, maxWidth: 260 }}
+                  strong
+                  ellipsis={{ tooltip: record.name }}
+                  style={{ fontSize: 12.5, cursor: 'pointer' }}
+                  onClick={() => onShowDetails?.(record)}
                 >
-                  {record.specifications}
+                  {record.name}
                 </Text>
-              ) : (
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Standard Configuration
-                </Text>
-              )}
-            </Flex>
-          ),
+                {subLabel ? (
+                  <Text type="secondary" ellipsis={{ tooltip: subLabel }} style={{ fontSize: 11 }}>
+                    {subLabel}
+                  </Text>
+                ) : null}
+                {specText ? (
+                  <Text type="secondary" ellipsis={{ tooltip: specText }} style={{ fontSize: 11 }}>
+                    {specText}
+                  </Text>
+                ) : (
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    Standard Configuration
+                  </Text>
+                )}
+              </Flex>
+            );
+          },
         },
         {
           title: 'Category',
           dataIndex: 'category',
           key: 'category',
-          width: 140,
-          sorter: (a: Asset, b: Asset) => (a.category || '').localeCompare(b.category || ''),
-          render: (category: string) => {
-            if (!category) return <Text type="secondary">—</Text>;
+          width: 145,
+          ellipsis: true,
+          sorter: (a: Asset, b: Asset) =>
+            formatCategoryLabel(a.category).localeCompare(formatCategoryLabel(b.category)) ||
+            a.id.localeCompare(b.id),
+          render: (category: unknown) => {
+            const label = formatCategoryLabel(category);
+            if (!label) return <Text type="secondary">—</Text>;
             return (
-              <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
-                {category}
-              </Tag>
+              <Tooltip title={label}>
+                <Tag
+                  color="blue"
+                  icon={<AppstoreOutlined />}
+                  style={{
+                    fontSize: 11,
+                    margin: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {label}
+                </Tag>
+              </Tooltip>
             );
           },
         },
         {
           title: 'Unit Counts',
           key: 'unitCounts',
-          width: 200,
+          width: 185,
           sorter: (a: Asset, b: Asset) => {
             const totalA = a.totalUnits ?? a.unitCounts?.total ?? 0;
             const totalB = b.totalUnits ?? b.unitCounts?.total ?? 0;
@@ -138,8 +202,8 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
               available <= ((record as unknown as { minThreshold?: number }).minThreshold ?? 5) &&
               total > 0;
             return (
-              <Flex vertical gap={4}>
-                <Flex gap={6} align="center" wrap="wrap">
+              <Flex vertical gap={3} style={{ minWidth: 0 }}>
+                <Flex gap={4} align="center" wrap="wrap">
                   <Tooltip title="Total registered physical units">
                     <Badge count={`Total: ${total}`} style={{ backgroundColor: '#1677ff' }} />
                   </Tooltip>
@@ -154,7 +218,7 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
                   <Tag
                     color="warning"
                     icon={<WarningOutlined />}
-                    style={{ fontSize: 10.5, margin: 0 }}
+                    style={{ fontSize: 10, margin: 0, width: 'fit-content' }}
                   >
                     Low Stock
                   </Tag>
@@ -167,9 +231,10 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
           title: 'Unit Cost',
           dataIndex: 'unitCost',
           key: 'unitCost',
-          width: 110,
+          width: 100,
           align: 'right' as const,
-          sorter: (a: Asset, b: Asset) => (a.unitCost || 0) - (b.unitCost || 0),
+          sorter: (a: Asset, b: Asset) =>
+            (a.unitCost || 0) - (b.unitCost || 0) || a.id.localeCompare(b.id),
           render: (cost: number | null | undefined) => {
             if (cost == null) return <Text type="secondary">—</Text>;
             return (
@@ -186,10 +251,10 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 150,
+          width: 116,
           fixed: 'end' as const,
           render: (_: unknown, record: Asset) => (
-            <Space size="small">
+            <Space size={2}>
               {onShowDetails && (
                 <Tooltip title="View Details">
                   <Button
@@ -248,6 +313,7 @@ export const DeviceModelTable: React.FC<DeviceModelTableProps> = React.memo(
     return (
       <Table
         size="middle"
+        tableLayout="fixed"
         columns={columns}
         dataSource={models}
         rowKey="id"

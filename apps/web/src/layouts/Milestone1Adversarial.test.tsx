@@ -48,7 +48,7 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
   // 1. Menu Items Truncation Defense & renderNavLabel Invariants
   // =========================================================================
   describe('1. Navigation Menu Truncation Defense & renderNavLabel Contracts', () => {
-    it('verifies all 11 navigation menu items strictly implement truncation defense layout', () => {
+    it('verifies all 12 navigation menu items strictly implement truncation defense layout', () => {
       const items = getNavMenuItems(false, false, {
         expiringLicenses: 5,
         lowStockItems: 12,
@@ -72,13 +72,14 @@ describe('Milestone 1 Empirical Challenger Adversarial Test Suite', () => {
         }
       }
 
-      // We expect 11 primary operational routes
+      // We expect 12 primary operational routes
       const expectedKeys = [
         '/',
         '/directory',
         '/organization',
         '/users',
         '/assets',
+        '/handovers',
         '/licenses',
         '/inventory',
         '/network',

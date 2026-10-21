@@ -12,7 +12,7 @@ Part of the [UIMS](../../README.md) monorepo.
 ### Core Architecture & Tech Stack
 
 - **UI Framework:** React 19 (`react`, `react-dom`) with TypeScript 7
-- **Design System:** Ant Design 6 (`antd`, `@ant-design/icons`) with dynamic semantic tokens and dark mode support
+- **Design System:** Ant Design 6.6.7 (`antd@^6.6.7`, `@ant-design/icons@^6.3.4`) with dynamic semantic tokens and dark mode support
 - **Build Tool:** Vite 8 (`vite`, `@vitejs/plugin-react`) with manual vendor chunking and HMR
 - **Routing:** React Router v8 (`react-router`) with route-level code splitting and lazy loading
 - **State Management:**

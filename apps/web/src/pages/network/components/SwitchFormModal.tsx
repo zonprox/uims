@@ -281,8 +281,7 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
                 <Select
                   placeholder="Select hardware asset..."
                   allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  showSearch={{ optionFilterProp: 'label' }}
                   options={assets.map((ast) => ({
                     label: `${ast.name || ast.model} [${ast.tag}]`,
                     value: ast.id,
@@ -299,8 +298,7 @@ export const SwitchFormModal: React.FC<SwitchFormModalProps> = React.memo(
                 <Select
                   placeholder="Select rack cabinet"
                   allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  showSearch={{ optionFilterProp: 'label' }}
                   suffixIcon={<ApartmentOutlined style={{ color: token.colorTextQuaternary }} />}
                   options={racks.map((r) => ({
                     label: `${r.name} (${r.code})`,

@@ -215,7 +215,6 @@ export default function AssetsPage() {
                   filterState={filterState}
                   onFilterChange={handleFilterChange}
                   onReset={handleResetFilters}
-                  onScanQr={() => setScannerModalOpen(true)}
                 />
 
                 {selectedRowKeys.length > 0 && (

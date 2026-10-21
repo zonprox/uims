@@ -245,13 +245,13 @@ export const MountSwitchModal: React.FC<MountSwitchModalProps> = React.memo(
                 >
                   <Select
                     data-testid="select-switch-to-mount"
-                    showSearch
                     placeholder="Select or search switch by name / model"
                     loading={loadingSwitches}
                     options={switchOptions}
-                    filterOption={(input, option) =>
-                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                    }
+                    showSearch={{
+                      filterOption: (input, option) =>
+                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                    }}
                   />
                 </Form.Item>
 

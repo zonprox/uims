@@ -354,6 +354,9 @@ export const ReturnAssetModal: React.FC<ReturnAssetModalProps> = React.memo(
                     maxCount={1}
                     fileList={fileList}
                     accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={({ fileList: nextList }) => {
+                      setFileList(nextList.slice(-1));
+                    }}
                     beforeUpload={(file) => {
                       const isValidType =
                         ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'].includes(

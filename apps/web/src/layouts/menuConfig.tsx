@@ -5,6 +5,7 @@ import {
   BellOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  FileTextOutlined,
   GlobalOutlined,
   LaptopOutlined,
   LogoutOutlined,
@@ -246,6 +247,14 @@ export function getNavMenuItems(
       icon: <NavIconWithBadge icon={<LaptopOutlined />} isCollapsed={isCollapsedDesktop} />,
       label: renderNavLabel('Assets'),
       title: 'Assets',
+    });
+  }
+  if (allow('read', 'Asset')) {
+    assetChildren.push({
+      key: '/handovers',
+      icon: <NavIconWithBadge icon={<FileTextOutlined />} isCollapsed={isCollapsedDesktop} />,
+      label: renderNavLabel('Handover Documents'),
+      title: 'Handover Documents',
     });
   }
   if (allow('read', 'License')) {

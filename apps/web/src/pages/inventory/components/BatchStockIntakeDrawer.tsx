@@ -209,15 +209,15 @@ export const BatchStockIntakeDrawer: React.FC<BatchStockIntakeDrawerProps> = ({
             extra="Master catalog specifications and manufacturer for the incoming batch."
           >
             <Select
-              showSearch
               placeholder="Select device model"
               options={models.map((m) => ({
                 label: `${m.name} (${m.sku || m.modelCode}) — ${m.manufacturer || 'General'}`,
                 value: m.id,
               }))}
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              showSearch={{
+                filterOption: (input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+              }}
               onChange={handleModelChange}
               disabled={Boolean(model && !models.length)}
             />
@@ -229,7 +229,7 @@ export const BatchStockIntakeDrawer: React.FC<BatchStockIntakeDrawerProps> = ({
               showIcon
               icon={<InfoCircleOutlined />}
               style={{ marginBottom: 12 }}
-              message={
+              title={
                 <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
                   <span>
                     Model: <strong>{activeModel.name}</strong> (
@@ -348,16 +348,16 @@ export const BatchStockIntakeDrawer: React.FC<BatchStockIntakeDrawerProps> = ({
                 extra="Operational or capital budget unit."
               >
                 <Select
-                  showSearch
                   allowClear
                   placeholder="Select cost center"
                   options={costCenters.map((cc) => ({
                     label: `${cc.code} - ${cc.name}`,
                     value: cc.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>

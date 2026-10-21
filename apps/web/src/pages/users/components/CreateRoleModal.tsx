@@ -130,10 +130,10 @@ export const CreateRoleModal: React.FC<CreateRoleModalProps> = ({
               value={cloneSourceId || undefined}
               onChange={setCloneSourceId}
               style={{ width: '100%', marginTop: 8 }}
-              showSearch
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              showSearch={{
+                filterOption: (input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+              }}
               options={existingRoles.map((r) => ({
                 label: `${r.name} (${r.isSystem ? 'System' : 'Custom'} - ${r.permissionCount || 0} permissions)`,
                 value: r.id,

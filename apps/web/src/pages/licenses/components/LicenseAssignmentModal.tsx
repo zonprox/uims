@@ -1,5 +1,16 @@
 import { IdcardOutlined, UserOutlined } from '@ant-design/icons';
-import { Alert, Avatar, Card, Descriptions, Flex, Modal, Select, Tag, Typography } from 'antd';
+import {
+  Alert,
+  Avatar,
+  Card,
+  Descriptions,
+  Flex,
+  Modal,
+  Select,
+  Tag,
+  theme,
+  Typography,
+} from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { type DirectoryUser, directoryService } from '../../../services/directory.service';
 import type { License } from '../../../services/licenses.service';
@@ -18,6 +29,7 @@ export interface LicenseAssignmentModalProps {
 
 export const LicenseAssignmentModal: React.FC<LicenseAssignmentModalProps> = React.memo(
   ({ open, license, submitting, onAssign, onBatchAssign, onCancel, employees: propEmployees }) => {
+    const { token } = theme.useToken();
     const [employees, setEmployees] = useState<DirectoryUser[]>(propEmployees || []);
     const [loadingEmployees, setLoadingEmployees] = useState(false);
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -110,7 +122,7 @@ export const LicenseAssignmentModal: React.FC<LicenseAssignmentModalProps> = Rea
             <Alert
               type="error"
               showIcon
-              message="Seat Capacity Reached"
+              title="Seat Capacity Reached"
               description="All seats for this license are currently assigned. Revoke inactive users or expand license seat quota before assigning new users."
             />
           )}
@@ -121,7 +133,6 @@ export const LicenseAssignmentModal: React.FC<LicenseAssignmentModalProps> = Rea
             </Text>
             <Select
               mode="multiple"
-              showSearch
               allowClear
               maxCount={remainingSeats > 0 ? remainingSeats : undefined}
               disabled={isExhausted}
@@ -134,14 +145,15 @@ export const LicenseAssignmentModal: React.FC<LicenseAssignmentModalProps> = Rea
                 label: `${u.fullName || `${u.firstName} ${u.lastName}`.trim()} (${u.employeeCode || u.email})`,
                 value: u.id,
               }))}
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              showSearch={{
+                filterOption: (input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+              }}
             />
           </div>
 
           {selectedUsers.length === 1 && (
-            <Card size="small" style={{ backgroundColor: '#f8fafc' }}>
+            <Card size="small" style={{ backgroundColor: token.colorFillAlter }}>
               <Descriptions title="Employee Preview" size="small" column={1}>
                 <Descriptions.Item label="Full Name">
                   <Flex align="center" gap={6}>

@@ -223,7 +223,7 @@
     - **NestJS 11.x** (`^11.0.0`)
     - **React 19.x** (`^19.0.0`)
     - **Vite 8.x** (`^8.0.0`)
-    - **Ant Design v6+** (`^6.0.0`)
+    - **Ant Design v6+** (`^6.6.7` / latest)
     - **Prisma 7.x** (`^7.0.0`)
 - **Lockfile Hygiene, Synchronization & Deduplication**:
   - Any dependency upgrade or manifest modification must immediately update `pnpm-lock.yaml` via `pnpm install --no-frozen-lockfile && pnpm dedupe`.
@@ -354,7 +354,7 @@ Every change must satisfy the full verification cycle prior to merging or pushin
   - NestJS 11.x (`^11.0.0`)
   - React 19.x (`^19.0.0`)
   - Vite 8.x (`^8.0.0`)
-  - Ant Design v6+ (`^6.0.0`)
+  - Ant Design v6+ (`^6.6.7` / latest)
   - Prisma 7.x (`^7.0.0`)
   All workspace manifests (`package.json`, `apps/*/package.json`, `packages/*/package.json`) MUST maintain these versions.
 - **Lockfile Hygiene & Synchronization**: Any dependency upgrade, addition, or manifest modification MUST immediately synchronize `pnpm-lock.yaml` via `pnpm install --no-frozen-lockfile && pnpm dedupe`. Modifying manifests without committing the updated lockfile is strictly prohibited to prevent remote CI `--frozen-lockfile` failures.

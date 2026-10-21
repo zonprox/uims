@@ -327,13 +327,13 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
               >
                 <Select
                   placeholder="Select Subnet"
-                  showSearch
                   allowClear
                   options={subnetOptions}
                   onChange={handleSubnetSelect}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -341,12 +341,12 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
               <Form.Item label="VLAN Mapping" name="vlanId">
                 <Select
                   placeholder="Select VLAN"
-                  showSearch
                   allowClear
                   options={vlanOptions}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -386,13 +386,13 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
               <Form.Item label="Linked Hardware Asset" name="assetId">
                 <Select
                   placeholder="Select Asset tag or device"
-                  showSearch
                   allowClear
                   options={assetOptions}
                   onChange={handleAssetSelect}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -408,12 +408,12 @@ export const IpFormModal: React.FC<IpFormModalProps> = React.memo(
               >
                 <Select
                   placeholder="Search employee by name, code, or email"
-                  showSearch
                   allowClear
                   options={directoryUserOptions}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>

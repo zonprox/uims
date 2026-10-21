@@ -83,13 +83,14 @@ export const TimezoneSelector: React.FC<TimezoneSelectorProps> = React.memo(
 
     return (
       <Select
-        showSearch
         placeholder="Select IANA Timezone (e.g. Asia/Ho_Chi_Minh, America/New_York)"
-        optionFilterProp="searchValue"
-        filterOption={(input, option) => {
-          const searchVal = (option as { searchValue?: string })?.searchValue || '';
-          const terms = input.toLowerCase().trim().split(/\s+/);
-          return terms.every((t) => searchVal.includes(t));
+        showSearch={{
+          optionFilterProp: 'searchValue',
+          filterOption: (input, option) => {
+            const searchVal = (option as { searchValue?: string })?.searchValue || '';
+            const terms = input.toLowerCase().trim().split(/\s+/);
+            return terms.every((t) => searchVal.includes(t));
+          },
         }}
         options={groupedOptions as SelectProps['options']}
         style={{ width: '100%', ...style }}

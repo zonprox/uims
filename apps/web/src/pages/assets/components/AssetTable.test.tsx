@@ -197,7 +197,7 @@ describe('AssetTable Component', () => {
     expect(headerTexts).toContain('Category');
     expect(headerTexts).toContain('Status');
     expect(headerTexts).toContain('Assignee');
-    expect(headerTexts).toContain('Organization');
+    expect(headerTexts).not.toContain('Organization');
     expect(headerTexts).not.toContain('Warranty');
     expect(headerTexts).toContain('Actions');
 

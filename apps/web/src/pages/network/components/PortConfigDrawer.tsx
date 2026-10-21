@@ -14,6 +14,7 @@ import {
   Select,
   Switch,
   Tag,
+  theme,
   Typography,
 } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -61,6 +62,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
     onPortUpdated,
   }) => {
     const { message } = App.useApp();
+    const { token } = theme.useToken();
     const [form] = Form.useForm();
     const [submitting, setSubmitting] = useState(false);
     const [portMode, setPortMode] = useState<string>('ACCESS');
@@ -337,8 +339,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
                 <Select
                   placeholder="Select configured VLAN"
                   allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  showSearch={{ optionFilterProp: 'label' }}
                   data-testid="port-vlan-select"
                   options={vlans.map((v) => ({
                     label: `VLAN ${v.vlanNumber} — ${v.name} (${v.status})`,
@@ -359,8 +360,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
                     mode="multiple"
                     placeholder="Select tagged VLANs"
                     allowClear
-                    showSearch
-                    optionFilterProp="label"
+                    showSearch={{ optionFilterProp: 'label' }}
                     options={vlans.map((v) => ({
                       label: `VLAN ${v.vlanNumber} (${v.name})`,
                       value: v.vlanNumber,
@@ -389,8 +389,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
                 <Select
                   placeholder="Search assets..."
                   allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  showSearch={{ optionFilterProp: 'label' }}
                   data-testid="port-connected-asset-select"
                   options={assets.map((ast) => ({
                     label: `${ast.name || ast.model} [${ast.tag}]`,
@@ -409,8 +408,7 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
                 <Select
                   placeholder="Select IP address..."
                   allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  showSearch={{ optionFilterProp: 'label' }}
                   data-testid="port-ip-address-select"
                   options={ips.map((ip) => ({
                     label: `${ip.address} (${ip.status})`,
@@ -432,7 +430,11 @@ export const PortConfigDrawer: React.FC<PortConfigDrawerProps> = React.memo(
               </Divider>
               <Card
                 size="small"
-                style={{ marginBottom: 16, border: '1px solid #d9d9d9', background: '#fafafa' }}
+                style={{
+                  marginBottom: 16,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  background: token.colorFillAlter,
+                }}
                 data-testid="port-peer-connection-card"
               >
                 <Flex justify="space-between" align="center">

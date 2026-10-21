@@ -339,16 +339,16 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
                 extra="Catalog model under which this physical unit is cataloged."
               >
                 <Select
-                  showSearch
                   loading={loadingOptions}
                   placeholder="Select device model"
                   options={deviceModels.map((m) => ({
                     label: `${m.name} [${m.assetCode || m.tag}]`,
                     value: m.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -367,16 +367,16 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
             <Col span={12}>
               <Form.Item label="Cost Center" name="costCenterId">
                 <Select
-                  showSearch
                   allowClear
                   placeholder="Select cost center"
                   options={costCenters.map((cc) => ({
                     label: `${cc.code} - ${cc.name}`,
                     value: cc.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -413,7 +413,6 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
             <Col span={12}>
               <Form.Item label="Owner Department" name="departmentId">
                 <Select
-                  showSearch
                   allowClear
                   loading={loadingOptions}
                   placeholder="Select owner department"
@@ -421,9 +420,10 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
                     label: d.organization?.name ? `${d.name} (${d.organization.name})` : d.name,
                     value: d.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -433,7 +433,6 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
             <Col span={24}>
               <Form.Item label="Assigned Custodian" name="assignedToId">
                 <Select
-                  showSearch
                   allowClear
                   loading={loadingOptions}
                   placeholder="Search employee by name, code, or email"
@@ -441,9 +440,10 @@ export const PhysicalUnitModal: React.FC<PhysicalUnitModalProps> = React.memo(
                     label: `${u.fullName || `${u.firstName} ${u.lastName}`.trim()} (${u.employeeCode || u.email})`,
                     value: u.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>

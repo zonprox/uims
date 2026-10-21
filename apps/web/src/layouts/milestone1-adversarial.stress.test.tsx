@@ -70,6 +70,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
     const EXPECTED_NAV_KEYS = [
       '/',
       '/assets',
+      '/handovers',
       '/licenses',
       '/inventory',
       '/network',
@@ -81,7 +82,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
       '/settings',
     ];
 
-    it('generates exactly 11 navigatable menu items across all 3 groups', () => {
+    it('generates exactly 12 navigatable menu items across all 3 groups', () => {
       const items = getNavMenuItems(false, false);
       expect(items).toBeDefined();
 
@@ -98,7 +99,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
       };
       traverse(items as unknown[]);
 
-      expect(extractedKeys).toHaveLength(11);
+      expect(extractedKeys).toHaveLength(12);
       expect(extractedKeys).toEqual(EXPECTED_NAV_KEYS);
     });
 
@@ -393,7 +394,7 @@ describe('Milestone 1 Empirical Stress Test Harness', () => {
 
       // Verify all menu items rendered
       const menuItemsDom = container.querySelectorAll('.ant-menu-item');
-      expect(menuItemsDom.length).toBe(11);
+      expect(menuItemsDom.length).toBe(12);
     });
 
     it('renders SidebarContent in collapsed state (80px width) cleanly in unified mode', async () => {

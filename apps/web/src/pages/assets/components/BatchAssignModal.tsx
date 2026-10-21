@@ -322,9 +322,10 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                     label: `[${a.tag || a.subcode || a.id}] ${a.name}${a.model ? ` - ${a.model}` : ''}${a.serialNumber ? ` (S/N: ${a.serialNumber})` : ''}`,
                     value: a.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </AppDrawer.Section>
             )}
@@ -411,7 +412,6 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                     ]}
                   >
                     <Select
-                      showSearch
                       allowClear
                       loading={loadingEmployees}
                       placeholder="Search employee by name, code, or email"
@@ -422,9 +422,10 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                         label: formatUserSelectLabel(u),
                         value: u.id,
                       }))}
-                      filterOption={(input, option) =>
-                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                      }
+                      showSearch={{
+                        filterOption: (input, option) =>
+                          (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                      }}
                     />
                   </Form.Item>
 
@@ -514,6 +515,9 @@ export const BatchAssignModal: React.FC<BatchAssignModalProps> = React.memo(
                           maxCount={1}
                           fileList={fileList}
                           accept=".pdf,.png,.jpg,.jpeg"
+                          onChange={({ fileList: nextList }) => {
+                            setFileList(nextList.slice(-1));
+                          }}
                           beforeUpload={(file) => {
                             const isValidType =
                               ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'].includes(

@@ -96,7 +96,7 @@ const StockLevelCell: React.FC<{ record: InventoryItem }> = ({ record }) => {
   const percent = Math.min(100, Math.round((available / Math.max(1, threshold * 2)) * 100));
 
   return (
-    <div style={{ minWidth: 130 }}>
+    <div style={{ minWidth: 0 }}>
       <Flex justify="space-between" align="center" style={{ marginBottom: 2 }}>
         <Text strong style={{ color: isDepleted ? '#ef4444' : isLow ? '#f59e0b' : undefined }}>
           {available} in stock
@@ -384,13 +384,13 @@ export default function InventoryPage() {
   const statsItems = useMemo(
     () => [
       {
-        title: 'Total Device Models (Total SKUs)',
+        title: 'Total SKUs',
         value: stats.totalModels ?? stats.totalSkus,
         prefix: <DatabaseOutlined />,
         color: '#1677ff',
       },
       {
-        title: 'Warehouse Stock (Total Units)',
+        title: 'Total Units',
         value: stats.availableUnits ?? stats.totalUnits,
         prefix: <CheckCircleOutlined />,
         color: '#10b981',
@@ -422,6 +422,7 @@ export default function InventoryPage() {
       {
         title: 'Item & SKU',
         key: 'item',
+        ellipsis: true,
         sorter: (a: InventoryItem, b: InventoryItem) =>
           a.name.localeCompare(b.name) ||
           (a.sku || a.modelCode || '').localeCompare(b.sku || b.modelCode || ''),
@@ -471,7 +472,8 @@ export default function InventoryPage() {
       {
         title: 'Category & Bin',
         key: 'category',
-        width: 180,
+        width: 145,
+        ellipsis: true,
         sorter: (a: InventoryItem, b: InventoryItem) => {
           const catA = typeof a.category === 'string' ? a.category : a.category?.name || '';
           const catB = typeof b.category === 'string' ? b.category : b.category?.name || '';
@@ -485,11 +487,33 @@ export default function InventoryPage() {
           const color = INVENTORY_CATEGORY_COLORS[catName] || 'blue';
           const bin = record.binNumber || record.binLocation || 'Unassigned';
           return (
-            <Flex vertical gap={4} align="flex-start">
-              <Tag color={color} icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
-                {catName}
-              </Tag>
-              <Tag color="cyan" style={{ fontFamily: 'monospace', fontSize: 11, margin: 0 }}>
+            <Flex vertical gap={3} align="flex-start" style={{ minWidth: 0 }}>
+              <Tooltip title={catName}>
+                <Tag
+                  color={color}
+                  icon={<AppstoreOutlined />}
+                  style={{
+                    fontSize: 11,
+                    margin: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {catName}
+                </Tag>
+              </Tooltip>
+              <Tag
+                color="cyan"
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: 10.5,
+                  margin: 0,
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
                 {bin}
               </Tag>
             </Flex>
@@ -499,7 +523,7 @@ export default function InventoryPage() {
       {
         title: 'Stock Level',
         key: 'stock',
-        width: 175,
+        width: 140,
         sorter: (a: InventoryItem, b: InventoryItem) =>
           (a.availableUnits ?? a.quantity ?? 0) - (b.availableUnits ?? b.quantity ?? 0),
         render: (_: unknown, record: InventoryItem) => <StockLevelCell record={record} />,
@@ -508,11 +532,11 @@ export default function InventoryPage() {
         title: 'Unit Cost',
         dataIndex: 'unitCost',
         key: 'unitCost',
-        width: 115,
+        width: 95,
         align: 'right' as const,
         sorter: (a: InventoryItem, b: InventoryItem) => (a.unitCost || 0) - (b.unitCost || 0),
         render: (cost: number) => (
-          <Text strong style={{ color: '#059669', fontSize: 13, fontFamily: 'monospace' }}>
+          <Text strong style={{ color: '#059669', fontSize: 12.5, fontFamily: 'monospace' }}>
             ${(cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </Text>
         ),
@@ -520,11 +544,12 @@ export default function InventoryPage() {
       {
         title: 'Actions',
         key: 'actions',
-        width: 210,
+        width: 232,
+        fixed: 'end' as const,
         render: (_: unknown, record: InventoryItem) => {
           const availableUnits = record.availableUnits ?? record.quantity ?? 0;
           return (
-            <Space size={4}>
+            <Space size={2}>
               <Button
                 size="small"
                 icon={<ShoppingOutlined />}
@@ -682,6 +707,7 @@ export default function InventoryPage() {
 
         <Table
           size="middle"
+          tableLayout="fixed"
           columns={columns}
           dataSource={items}
           rowKey="id"

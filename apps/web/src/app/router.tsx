@@ -8,6 +8,7 @@ import MainLayout from '../layouts/MainLayout';
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
+const HandoverDocumentsPage = lazy(() => import('../pages/handovers/HandoverDocumentsPage'));
 const LicensesPage = lazy(() => import('../pages/licenses/LicensesPage'));
 const OrganizationPage = lazy(() => import('../pages/organization/OrganizationPage'));
 const AccessControlPage = lazy(() => import('../pages/access/AccessControlPage'));
@@ -60,6 +61,19 @@ export const router = createBrowserRouter([
               </Suspense>
             ),
             ErrorBoundary: RouteErrorBoundary,
+          },
+          {
+            path: 'handovers',
+            element: (
+              <Suspense fallback={<PageLoader tip="Loading Handover Documents..." />}>
+                <HandoverDocumentsPage />
+              </Suspense>
+            ),
+            ErrorBoundary: RouteErrorBoundary,
+          },
+          {
+            path: 'handover-documents',
+            element: <Navigate to="/handovers" replace />,
           },
           {
             path: 'licenses',

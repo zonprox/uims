@@ -146,8 +146,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
                 onChange={onModelChange}
                 style={{ width: 160 }}
                 placeholder="Device Model"
-                showSearch
-                optionFilterProp="label"
+                showSearch={{ optionFilterProp: 'label' }}
                 options={[{ label: 'All Models', value: 'all' }, ...modelOptions]}
               />
             )}
@@ -158,8 +157,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
                 onChange={onCustodianChange}
                 style={{ width: 160 }}
                 placeholder="Custodian"
-                showSearch
-                optionFilterProp="label"
+                showSearch={{ optionFilterProp: 'label' }}
                 options={[{ label: 'All Custodians', value: 'all' }, ...custodianOptions]}
               />
             )}
@@ -170,8 +168,7 @@ export const AssetFilterBar: React.FC<AssetFilterBarProps> = React.memo(
                 onChange={onDepartmentChange}
                 style={{ width: 150 }}
                 placeholder="Department"
-                showSearch
-                optionFilterProp="label"
+                showSearch={{ optionFilterProp: 'label' }}
                 options={[{ label: 'All Departments', value: 'all' }, ...departmentOptions]}
               />
             )}

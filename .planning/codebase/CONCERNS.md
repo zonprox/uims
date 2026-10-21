@@ -34,7 +34,7 @@ last_mapped_at: 2026-10-14
 - Resolution: Standardized on `STANDARD_RACK_HEIGHT = 42` across schema, DTOs, and `RackElevationView.tsx`, and wired empty rack slot clicks in elevation view directly to the Mount Switch modal.
 
 **Biome Formatter Normalization & Zero-Downgrade Modernization (RESOLVED):**
-- Resolution: Standardized on TypeScript 7.0.2, NestJS 11.2.7, React 19.3.0, Vite 8.3.4, Ant Design 6.6.6, Prisma 7.10.0, Vitest 5.0.3, and Biome 2.5.15 with 0 formatting discrepancies and 0 circular dependencies (`cycles_total: 0`).
+- Resolution: Standardized on TypeScript 7.0.2, NestJS 11.2.7, React 19.3.0, Vite 8.3.4, Ant Design 6.6.7, Prisma 7.10.0, Vitest 5.0.3, and Biome 2.5.15 with 0 formatting discrepancies and 0 circular dependencies (`cycles_total: 0`).
 
 ## Known Bugs
 

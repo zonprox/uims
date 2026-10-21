@@ -48,7 +48,7 @@ last_mapped_at: 2026-10-14
 │   │   ├── package.json         # API dependencies (@uims/api)
 │   │   ├── tsconfig.json        # Strict TypeScript configuration for API
 │   │   └── vitest.config.mts    # Vitest runner configuration (fileParallelism: false for DB isolation)
-│   └── web/                     # React 19.3 + Ant Design 6.6.6 + Vite 8.3 SPA
+│   └── web/                     # React 19.3 + Ant Design 6.6.7 + Vite 8.3 SPA
 │       ├── certs/               # Local TLS certificates for HTTPS development on port 5679
 │       ├── src/                 # Frontend TypeScript/React application source
 │       │   ├── app/             # App.tsx, theme.ts, router.tsx (with RouteErrorBoundary), query-client.ts
@@ -109,7 +109,7 @@ last_mapped_at: 2026-10-14
 - Key files: `apps/api/src/main.ts`, `apps/api/src/app.module.ts`, `apps/api/prisma/schema.prisma`.
 
 **`apps/web/`:**
-- Purpose: React 19 + Ant Design 6.6.6 SPA serving responsive IT management workflows over HTTPS port 5679.
+- Purpose: React 19 + Ant Design 6.6.7 SPA serving responsive IT management workflows over HTTPS port 5679.
 - Key files: `apps/web/src/main.tsx`, `apps/web/src/app/App.tsx`, `apps/web/src/app/router.tsx`, `apps/web/src/app/theme.ts`.
 
 **`packages/shared-types/`:**

@@ -1034,7 +1034,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('renders Pending Handover Documents compliance section when pending handovers exist', async () => {
+  it('does not render pending handover banner or compliance table on Dashboard (zero clutter)', async () => {
     vi.mocked(dashboardService.getPendingHandovers).mockResolvedValueOnce({
       totalPending: 3,
       overdueCount: 1,
@@ -1071,15 +1071,47 @@ describe('DashboardPage', () => {
       root.render(createElement(DashboardPage));
     });
 
-    // Check alert banner
-    expect(container.textContent).toContain('3 Pending Handover Documents Require Action');
-    expect(container.textContent).toContain('1 overdue > 3 days');
+    // Verify ZERO handover clutter on DashboardPage
+    expect(container.textContent).not.toContain('Pending Handover Documents Compliance');
+    expect(container.textContent).not.toContain('Pending Handover Documents Require Action');
+    expect(container.querySelector('.ant-alert')).toBeNull();
 
-    // Check compliance table card
-    expect(container.textContent).toContain('Pending Handover Documents Compliance');
-    expect(container.textContent).toContain('Dell Latitude 5540');
-    expect(container.textContent).toContain('Alice Cooper');
-    expect(container.textContent).toContain('Overdue (>3d)');
+    // Verify Quick Actions launchpad includes Handover Docs button linking to /handovers
+    expect(container.textContent).toContain('Handover Docs');
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const handoverBtn = buttons.find((b) => b.textContent?.includes('Handover Docs'));
+    expect(handoverBtn).toBeDefined();
+
+    await act(async () => {
+      handoverBtn?.click();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/handovers');
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('renders diverse overview cards including Resource & Capacity Breakdown, Compliance & Utilization gauges, and IPAM metrics', async () => {
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(DashboardPage));
+    });
+
+    expect(container.textContent).toContain('Resource & Capacity Breakdown');
+    expect(container.textContent).toContain('Asset Lifecycle Distribution');
+    expect(container.textContent).toContain('IPAM Address Space');
+    expect(container.textContent).toContain('240 / 512 IPs (272 free)');
+    expect(container.textContent).toContain('Compliance & Utilization');
+
+    const networkIpamBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Network IPAM'),
+    );
+    expect(networkIpamBtn).toBeDefined();
+    await act(async () => {
+      networkIpamBtn?.click();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/network');
 
     act(() => {
       root.unmount();

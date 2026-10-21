@@ -150,4 +150,37 @@ describe('DeviceModelTable Component', () => {
 
     expect(defaultProps.onEditModel).toHaveBeenCalledWith(mockModels[0]);
   });
+
+  it('safely formats object specifications without crashing React child rendering', async () => {
+    const modelsWithObjectSpecs: Asset[] = [
+      {
+        ...mockModels[0],
+        id: 'mod-obj-1',
+        specifications: { cpu: 'M3 Max', ram: '64GB' } as unknown as string,
+      },
+      {
+        ...mockModels[1],
+        id: 'mod-obj-2',
+        specifications: {} as unknown as string,
+      },
+    ];
+
+    currentRoot = createRoot(container);
+    await act(async () => {
+      currentRoot?.render(
+        createElement(
+          ConfigProvider,
+          null,
+          createElement(
+            App,
+            null,
+            createElement(DeviceModelTable, { ...defaultProps, models: modelsWithObjectSpecs }),
+          ),
+        ),
+      );
+    });
+
+    expect(container.textContent).toContain('cpu: M3 Max • ram: 64GB');
+    expect(container.textContent).toContain('Standard Configuration');
+  });
 });

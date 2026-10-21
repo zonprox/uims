@@ -21,6 +21,7 @@ minimumReleaseAgeExclude:
   - vite@8.3.0
   - zod@4.6.4
   - antd@6.6.6
+  - antd@6.6.7
 peerDependencyRules:
   allowedVersions:
     antd: "^6.0.0"

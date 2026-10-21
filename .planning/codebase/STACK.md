@@ -35,7 +35,7 @@ last_mapped_at: 2026-10-14
 **Core:**
 - NestJS 11.2.7 - Enterprise modular monolith backend framework (`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-express`, `@nestjs/platform-socket.io`, `@nestjs/websockets`, `@nestjs/config` 4.0.4, `@nestjs/schedule` 6.1.3, `@nestjs/throttler` 6.7.1)
 - React 19.3.0 - Modern UI component library with concurrent rendering and action transitions (`react`, `react-dom`)
-- Ant Design 6.6.6 - Enterprise UI component library strictly following Ant Design v6 semantic tokens (`antd` 6.6.6, `@ant-design/icons` 6.3.4, `@ant-design/pro-components` 2.8.10)
+- Ant Design 6.6.7 - Enterprise UI component library strictly following Ant Design v6 semantic tokens (`antd` 6.6.7, `@ant-design/icons` 6.3.4, `@ant-design/cli` 6.6.7)
 - React Router 8.4.0 - Declarative client-side routing with route-level code splitting and isolated leaf `RouteErrorBoundary` (`react-router`)
 - Zustand 5.0.15 - Minimalist reactive client state management (`zustand`)
 - TanStack React Query 5.104.1 - Asynchronous server state caching, background invalidation, and data synchronization (`@tanstack/react-query`, `@tanstack/react-query-devtools`)

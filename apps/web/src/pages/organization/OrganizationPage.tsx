@@ -1652,10 +1652,10 @@ export default function OrganizationPage() {
             <Select
               placeholder="None (Top-Level Holding)"
               allowClear
-              showSearch
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              showSearch={{
+                filterOption: (input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+              }}
               options={orgs
                 .filter((o) => !editingOrg || o.id !== editingOrg.id)
                 .map((o) => ({
@@ -1750,10 +1750,10 @@ export default function OrganizationPage() {
                 <Select
                   placeholder="None (Top-Level)"
                   allowClear
-                  showSearch
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                   options={departments
                     .filter((d) => !editingDept || d.id !== editingDept.id)
                     .map((d) => ({
@@ -1771,10 +1771,10 @@ export default function OrganizationPage() {
               >
                 <Select
                   placeholder="Select Organization"
-                  showSearch
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                   options={orgs.map((o) => ({
                     label: o.name,
                     value: o.id,
@@ -1873,10 +1873,10 @@ export default function OrganizationPage() {
               >
                 <Select
                   placeholder="Select Department"
-                  showSearch
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                   options={departments.map((d) => ({
                     label: d.name,
                     value: d.id,

@@ -9,7 +9,7 @@ UIMS is a monorepo containing the Unified IT Management System. It consists of a
 - **Package Manager:** pnpm 11+ (`pnpm@11.21.0`)
 - **Monorepo Tooling:** Turborepo (`^2.10.12`)
 - **Backend:** NestJS 11, Prisma 7, PostgreSQL (pg 8), Redis (ioredis 6), Pino 10, Helmet 8, Swagger / OpenAPI
-- **Frontend:** React 19, Ant Design 6, Vite 8, Zustand 5, TanStack Query 5, React Router 8, Socket.io Client 4
+- **Frontend:** React 19, Ant Design 6.6.7 (`antd@^6.6.7`), Vite 8, Zustand 5, TanStack Query 5, React Router 8, Socket.io Client 4
 - **Shared Libraries & Tooling:** Biome 2, Vitest 5, Playwright 1.63, TypeScript 7, Zod 4
 - **Infrastructure & Storage:** PostgreSQL, Redis, and potentially MeiliSearch / SeaweedFS (via Docker)
 

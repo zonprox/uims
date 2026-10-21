@@ -282,9 +282,9 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
 
   return (
     <div>
-      {/* Filter Toolbar */}
-      <Card size="small" style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
-        <Row gutter={[12, 12]} align="middle" justify="space-between">
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+        {/* Filter Toolbar */}
+        <Row gutter={[12, 12]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} sm={24} md={16} lg={16}>
             <Flex gap={8} wrap="wrap">
               <Input
@@ -334,21 +334,21 @@ export const DirectoryGroupsTab: React.FC<DirectoryGroupsTabProps> = ({
             </Flex>
           </Col>
         </Row>
-      </Card>
 
-      {/* Standard Ant Design Table */}
-      <Table<DirectoryGroup>
-        columns={columns}
-        dataSource={filteredGroups}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total) => `Total ${total} groups`,
-        }}
-      />
+        {/* Standard Ant Design Table */}
+        <Table<DirectoryGroup>
+          columns={columns}
+          dataSource={filteredGroups}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50', '100'],
+            showTotal: (total) => `Total ${total} groups`,
+          }}
+        />
+      </Card>
 
       {/* Group Detail Drawer */}
       <GroupDetailDrawer

@@ -201,7 +201,6 @@ export const BatchAssignLicensesModal: React.FC<BatchAssignLicensesModalProps> =
                 licenses.
               </Text>
               <Select
-                showSearch
                 allowClear
                 loading={loadingEmployees}
                 placeholder="Search employee by name, code, or email"
@@ -212,9 +211,10 @@ export const BatchAssignLicensesModal: React.FC<BatchAssignLicensesModalProps> =
                   label: formatUserSelectLabel(u),
                   value: u.id,
                 }))}
-                filterOption={(input, option) =>
-                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                }
+                showSearch={{
+                  filterOption: (input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                }}
               />
             </div>
 

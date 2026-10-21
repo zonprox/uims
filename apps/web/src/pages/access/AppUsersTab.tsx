@@ -477,9 +477,9 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
 
   return (
     <div>
-      {/* Search and Filters Toolbar */}
-      <Card size="small" style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
-        <Row gutter={[12, 12]} align="middle" justify="space-between">
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+        {/* Search and Filters Toolbar */}
+        <Row gutter={[12, 12]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={8}>
             <Input
               placeholder="Search by username, email, or name..."
@@ -521,38 +521,38 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
             </Flex>
           </Col>
         </Row>
-      </Card>
 
-      {/* Users Table */}
-      <Table
-        dataSource={filteredUsers}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total) => `Total ${total} accounts`,
-        }}
-        onRow={(record) => ({
-          onClick: (e) => {
-            const target = e.target as HTMLElement;
-            if (
-              target.closest('button') ||
-              target.closest('.ant-btn') ||
-              target.closest('.ant-popover') ||
-              target.closest('.ant-popconfirm')
-            ) {
-              return;
-            }
-            setDetailUser(record);
-            setDetailDrawerOpen(true);
-          },
-          style: { cursor: 'pointer' },
-        })}
-        size="middle"
-      />
+        {/* Users Table */}
+        <Table
+          dataSource={filteredUsers}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50', '100'],
+            showTotal: (total) => `Total ${total} accounts`,
+          }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('.ant-btn') ||
+                target.closest('.ant-popover') ||
+                target.closest('.ant-popconfirm')
+              ) {
+                return;
+              }
+              setDetailUser(record);
+              setDetailDrawerOpen(true);
+            },
+            style: { cursor: 'pointer' },
+          })}
+          size="middle"
+        />
+      </Card>
 
       {/* Create Account Modal */}
       <Modal
@@ -637,10 +637,10 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
               >
                 <Select
                   placeholder="Select role"
-                  showSearch
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                   options={safeRoles.map((r) => ({
                     label: r.name,
                     value: r.id,
@@ -706,11 +706,11 @@ export const AppUsersTab: React.FC<AppUsersTabProps> = ({
               <Form.Item name="roleId" label="Assigned Role">
                 <Select
                   placeholder="Select role"
-                  showSearch
                   allowClear
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                   options={safeRoles.map((r) => ({
                     label: r.name,
                     value: r.id,

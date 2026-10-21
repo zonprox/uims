@@ -85,7 +85,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'SUB Code',
           key: 'subcode',
-          width: 250,
+          ellipsis: true,
           sorter: (a: Asset, b: Asset) =>
             (a.subcode || a.tag || '').localeCompare(b.subcode || b.tag || '') ||
             (a.assetCode || a.parent?.assetCode || '').localeCompare(
@@ -97,14 +97,14 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             const code = record.subcode || record.tag || 'N/A';
             const sapCode = record.assetCode || record.parent?.assetCode || null;
             return (
-              <Flex vertical gap={2} style={{ maxWidth: 250 }}>
-                <Flex align="center" gap={6} wrap="wrap">
+              <Flex vertical gap={2} style={{ minWidth: 0 }}>
+                <Flex align="center" gap={4} wrap="wrap" style={{ minWidth: 0 }}>
                   <Text
                     copyable
                     code
                     strong
                     style={{
-                      fontSize: 13,
+                      fontSize: 12.5,
                       color: '#1677ff',
                       cursor: 'pointer',
                       display: 'inline-block',
@@ -116,7 +116,15 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                   {sapCode && (
                     <Tag
                       color="cyan"
-                      style={{ fontSize: 10.5, margin: 0, padding: '0 4px', lineHeight: '18px' }}
+                      style={{
+                        fontSize: 10,
+                        margin: 0,
+                        padding: '0 4px',
+                        lineHeight: '16px',
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
                     >
                       SAP: {sapCode}
                     </Tag>
@@ -125,7 +133,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                 <Text
                   strong
                   ellipsis={{ tooltip: record.name }}
-                  style={{ fontSize: 13, cursor: 'pointer' }}
+                  style={{ fontSize: 12.5, cursor: 'pointer' }}
                   onClick={() => onShowDetails(record)}
                 >
                   {record.name}
@@ -134,6 +142,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
                   <Text
                     type="secondary"
                     copyable={{ text: record.serialNumber }}
+                    ellipsis={{ tooltip: record.serialNumber }}
                     style={{ fontSize: 11 }}
                   >
                     S/N: {record.serialNumber}
@@ -147,27 +156,40 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Category',
           dataIndex: 'category',
           key: 'category',
-          width: 140,
+          width: 145,
+          ellipsis: true,
           sorter: (a: Asset, b: Asset) =>
             (a.category || '').localeCompare(b.category || '') || a.tag.localeCompare(b.tag),
           render: (category: string, record: Asset) => {
             if (!category) return <Text type="secondary">—</Text>;
+            const modelLabel =
+              `${record.manufacturer ? `${record.manufacturer} ` : ''}${record.model || ''}`.trim();
             return (
-              <Flex vertical gap={4} align="flex-start">
-                <Tag color="blue" icon={<AppstoreOutlined />} style={{ fontSize: 11, margin: 0 }}>
-                  {category}
-                </Tag>
-                <Text
-                  type="secondary"
-                  ellipsis={{
-                    tooltip:
-                      `${record.manufacturer ? `${record.manufacturer} ` : ''}${record.model || ''}`.trim(),
-                  }}
-                  style={{ fontSize: 11, maxWidth: 130 }}
-                >
-                  {record.manufacturer ? `${record.manufacturer} ` : ''}
-                  {record.model || ''}
-                </Text>
+              <Flex vertical gap={3} align="flex-start" style={{ minWidth: 0 }}>
+                <Tooltip title={category}>
+                  <Tag
+                    color="blue"
+                    icon={<AppstoreOutlined />}
+                    style={{
+                      fontSize: 11,
+                      margin: 0,
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {category}
+                  </Tag>
+                </Tooltip>
+                {modelLabel ? (
+                  <Text
+                    type="secondary"
+                    ellipsis={{ tooltip: modelLabel }}
+                    style={{ fontSize: 11, width: '100%' }}
+                  >
+                    {modelLabel}
+                  </Text>
+                ) : null}
               </Flex>
             );
           },
@@ -176,7 +198,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Status',
           dataIndex: 'status',
           key: 'status',
-          width: 130,
+          width: 110,
           sorter: (a: Asset, b: Asset) =>
             a.status.localeCompare(b.status) || a.tag.localeCompare(b.tag),
           render: (status: string, record: Asset) => {
@@ -189,13 +211,22 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
             else if (s === 'RETIRED') color = 'error';
             else if (s === 'LOST') color = 'default';
             return (
-              <Flex vertical gap={4} align="flex-start">
-                <Tag color={color}>{status}</Tag>
+              <Flex vertical gap={3} align="flex-start" style={{ minWidth: 0 }}>
+                <Tag color={color} style={{ margin: 0 }}>
+                  {status}
+                </Tag>
                 {record.hasPendingRecord && (
                   <Tag
                     color="warning"
                     icon={<WarningOutlined />}
-                    style={{ fontSize: 11, margin: 0 }}
+                    style={{
+                      fontSize: 10.5,
+                      margin: 0,
+                      padding: '0 4px',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
                   >
                     Pending Record
                   </Tag>
@@ -208,60 +239,86 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
           title: 'Assignee',
           dataIndex: 'assignedTo',
           key: 'assignedTo',
-          width: 170,
+          width: 190,
+          ellipsis: true,
           sorter: (a: Asset, b: Asset) =>
-            (a.assignedTo || '').localeCompare(b.assignedTo || '') || a.tag.localeCompare(b.tag),
-          render: (user: string, record: Asset) => {
-            if (!user || user === 'Unassigned') {
-              return <Tag color="default">Unassigned</Tag>;
-            }
-            return (
-              <Flex align="center" gap={8}>
-                <Avatar
-                  size={24}
-                  icon={<UserOutlined />}
-                  style={{ backgroundColor: '#1677ff', flexShrink: 0 }}
-                />
-                <Flex vertical gap={1} style={{ minWidth: 0 }}>
-                  <Text strong ellipsis={{ tooltip: user }} style={{ fontSize: 12 }}>
-                    {user}
-                  </Text>
-                  {record.assignedEmail ? (
-                    <Text
-                      type="secondary"
-                      ellipsis={{ tooltip: record.assignedEmail }}
-                      style={{ fontSize: 11 }}
-                    >
-                      {record.assignedEmail}
-                    </Text>
-                  ) : null}
-                </Flex>
-              </Flex>
-            );
-          },
-        },
-        {
-          title: 'Organization',
-          dataIndex: 'organization',
-          key: 'organization',
-          width: 140,
-          sorter: (a: Asset, b: Asset) =>
+            (a.assignedTo || '').localeCompare(b.assignedTo || '') ||
             (a.organization || '').localeCompare(b.organization || '') ||
             a.tag.localeCompare(b.tag),
-          render: (_: unknown, record: Asset) => {
+          render: (user: string, record: Asset) => {
+            const isAssignedUser = Boolean(user && user !== 'Unassigned');
             return (
-              <Flex vertical gap={4}>
-                {record.department && (
-                  <Tag color="cyan" style={{ margin: 0, fontSize: 10.5 }}>
-                    {record.department}
-                  </Tag>
+              <Flex vertical gap={3} style={{ minWidth: 0 }}>
+                {isAssignedUser ? (
+                  <Flex align="center" gap={6} style={{ minWidth: 0 }}>
+                    <Avatar
+                      size={22}
+                      icon={<UserOutlined />}
+                      style={{ backgroundColor: '#1677ff', flexShrink: 0 }}
+                    />
+                    <Flex vertical style={{ minWidth: 0 }}>
+                      <Text strong ellipsis={{ tooltip: user }} style={{ fontSize: 12 }}>
+                        {user}
+                      </Text>
+                      {record.assignedEmail ? (
+                        <Text
+                          type="secondary"
+                          ellipsis={{ tooltip: record.assignedEmail }}
+                          style={{ fontSize: 11 }}
+                        >
+                          {record.assignedEmail}
+                        </Text>
+                      ) : null}
+                    </Flex>
+                  </Flex>
+                ) : (
+                  <div>
+                    <Tag color="default" style={{ margin: 0, fontSize: 11 }}>
+                      Unassigned
+                    </Tag>
+                  </div>
                 )}
-                {record.organization && (
-                  <Tag color="purple" icon={<BankOutlined />} style={{ margin: 0, fontSize: 10.5 }}>
-                    {record.organization}
-                  </Tag>
+                {(record.department || record.organization) && (
+                  <Flex gap={4} wrap="wrap" style={{ minWidth: 0 }}>
+                    {record.department && (
+                      <Tooltip title={record.department}>
+                        <Tag
+                          color="cyan"
+                          style={{
+                            margin: 0,
+                            fontSize: 10,
+                            lineHeight: '16px',
+                            padding: '0 4px',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {record.department}
+                        </Tag>
+                      </Tooltip>
+                    )}
+                    {record.organization && (
+                      <Tooltip title={record.organization}>
+                        <Tag
+                          color="purple"
+                          icon={<BankOutlined />}
+                          style={{
+                            margin: 0,
+                            fontSize: 10,
+                            lineHeight: '16px',
+                            padding: '0 4px',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {record.organization}
+                        </Tag>
+                      </Tooltip>
+                    )}
+                  </Flex>
                 )}
-                {!record.department && !record.organization && <Text type="secondary">—</Text>}
               </Flex>
             );
           },
@@ -269,7 +326,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         {
           title: 'Actions',
           key: 'actions',
-          width: 170,
+          width: 168,
           fixed: 'end' as const,
           render: (_: unknown, record: Asset) => {
             const s = (record.status || '').toUpperCase();
@@ -285,7 +342,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
               );
 
             return (
-              <Space size="small">
+              <Space size={2}>
                 <Tooltip title="View Details">
                   <Button
                     type="text"
@@ -387,6 +444,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
         selectedRowKeys,
         onChange: onSelectionChange,
         preserveSelectedRowKeys: true,
+        columnWidth: 36,
       };
     }, [selectedRowKeys, onSelectionChange]);
 
@@ -394,6 +452,7 @@ export const AssetTable: React.FC<AssetTableProps> = React.memo(
       <>
         <Table
           size="middle"
+          tableLayout="fixed"
           columns={columns}
           dataSource={assets}
           rowKey="id"

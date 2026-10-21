@@ -11,6 +11,7 @@ import {
 } from '../../services/dashboard.service';
 import { directoryService } from '../../services/directory.service';
 import { EmployeesTab } from '../directory/EmployeesTab';
+import HandoverDocumentsPage from '../handovers/HandoverDocumentsPage';
 import DashboardPage from './DashboardPage';
 
 const mockNavigate = vi.fn();
@@ -385,15 +386,15 @@ describe('Challenger M5 Empirical Test Harness: Dashboard Compliance & Directory
             createElement(
               ConfigProvider,
               null,
-              createElement(App, null, createElement(DashboardPage)),
+              createElement(App, null, createElement(HandoverDocumentsPage)),
             ),
           ),
         );
       });
 
-      // Verify Compliance table exists
-      expect(container.textContent).toContain('Pending Handover Documents Compliance');
-      expect(container.textContent).toContain('3 Pending Handover Documents Require Action');
+      // Verify page title and pending action tag exist on HandoverDocumentsPage
+      expect(container.textContent).toContain('Handover Documents');
+      expect(container.textContent).toContain('3 Pending Action');
 
       // Verify badges for all 3 record types: ASSIGNMENT, RETURN, TRANSFER
       const tags = Array.from(container.querySelectorAll('.ant-tag'));
@@ -430,7 +431,7 @@ describe('Challenger M5 Empirical Test Harness: Dashboard Compliance & Directory
             createElement(
               ConfigProvider,
               null,
-              createElement(App, null, createElement(DashboardPage)),
+              createElement(App, null, createElement(HandoverDocumentsPage)),
             ),
           ),
         );
@@ -472,7 +473,7 @@ describe('Challenger M5 Empirical Test Harness: Dashboard Compliance & Directory
             createElement(
               ConfigProvider,
               null,
-              createElement(App, null, createElement(DashboardPage)),
+              createElement(App, null, createElement(HandoverDocumentsPage)),
             ),
           ),
         );
@@ -526,7 +527,7 @@ describe('Challenger M5 Empirical Test Harness: Dashboard Compliance & Directory
             createElement(
               ConfigProvider,
               null,
-              createElement(App, null, createElement(DashboardPage)),
+              createElement(App, null, createElement(HandoverDocumentsPage)),
             ),
           ),
         );
@@ -568,7 +569,7 @@ describe('Challenger M5 Empirical Test Harness: Dashboard Compliance & Directory
             createElement(
               ConfigProvider,
               null,
-              createElement(App, null, createElement(DashboardPage)),
+              createElement(App, null, createElement(HandoverDocumentsPage)),
             ),
           ),
         );
@@ -584,6 +585,27 @@ describe('Challenger M5 Empirical Test Harness: Dashboard Compliance & Directory
       });
 
       expect(mockNavigate).toHaveBeenCalledWith('/assets?drawer=ast-len-303');
+    });
+
+    it('verifies that DashboardPage does not render handover compliance table or banner (zero clutter)', async () => {
+      const root = createRoot(container);
+      currentRoot = root;
+      await act(async () => {
+        root.render(
+          createElement(
+            MemoryRouter,
+            null,
+            createElement(
+              ConfigProvider,
+              null,
+              createElement(App, null, createElement(DashboardPage)),
+            ),
+          ),
+        );
+      });
+
+      expect(container.textContent).not.toContain('Pending Handover Documents Compliance');
+      expect(container.textContent).not.toContain('Pending Handover Documents Require Action');
     });
   });
 

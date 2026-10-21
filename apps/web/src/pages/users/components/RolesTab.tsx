@@ -227,13 +227,9 @@ export const RolesTab: React.FC<RolesTabProps> = ({
         </Col>
       </Row>
 
-      {/* Action Toolbar */}
-      <Card
-        size="small"
-        style={{ marginBottom: 16, borderRadius: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
-        styles={{ body: { padding: '12px 16px' } }}
-      >
-        <Row gutter={[12, 12]} align="middle" justify="space-between">
+      {/* Roles Toolbar & Table */}
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+        <Row gutter={[12, 12]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} md={12}>
             <Flex gap={10} wrap="wrap">
               <Input
@@ -275,14 +271,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
             </Flex>
           </Col>
         </Row>
-      </Card>
 
-      {/* Main Roles Table */}
-      <Card
-        size="small"
-        style={{ borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}
-        styles={{ body: { padding: 0 } }}
-      >
         <Table
           dataSource={filteredRoles}
           rowKey="id"

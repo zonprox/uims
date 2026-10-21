@@ -482,14 +482,6 @@ export default function SettingsPage() {
                     />
                   )}
 
-                  <Alert
-                    type="info"
-                    showIcon
-                    title="Ant Design 6.6 Semantic Token Engine"
-                    description="Tokens are dynamically computed in real-time. Adjust mode, palette, density, and radius below."
-                    style={{ marginBottom: 20, fontSize: 12.5 }}
-                  />
-
                   {/* Mode Selector */}
                   <div style={{ marginBottom: 20 }}>
                     <Text strong style={{ display: 'block', fontSize: 13, marginBottom: 8 }}>
@@ -610,40 +602,6 @@ export default function SettingsPage() {
                     </Col>
                   </Row>
 
-                  <Divider style={{ margin: '16px 0' }}>Interactive Component Preview</Divider>
-
-                  {/* Component Preview Grid */}
-                  <Card
-                    size="small"
-                    style={{ background: 'rgba(140, 140, 140, 0.03)', marginBottom: 20 }}
-                  >
-                    <Flex gap={12} align="center" wrap style={{ marginBottom: 14 }}>
-                      <Button type="primary" size="small">
-                        Primary Button
-                      </Button>
-                      <Button size="small">Default Button</Button>
-                      <Button type="dashed" size="small">
-                        Dashed
-                      </Button>
-                      <Tag color="success">Operational</Tag>
-                      <Tag color="processing">In Progress</Tag>
-                      <Tag color="error">Critical</Tag>
-                    </Flex>
-                    <Row gutter={12}>
-                      <Col span={12}>
-                        <Input placeholder="Sample Input text" size="small" />
-                      </Col>
-                      <Col span={12}>
-                        <Select
-                          defaultValue="val1"
-                          size="small"
-                          style={{ width: '100%' }}
-                          options={[{ label: 'Ant Design 6 Select Box', value: 'val1' }]}
-                        />
-                      </Col>
-                    </Row>
-                  </Card>
-
                   {/* Actions for Theme */}
                   <Flex justify="space-between" align="center" wrap gap={8}>
                     <Space size={8}>
@@ -679,14 +637,6 @@ export default function SettingsPage() {
               label: 'Notifications',
               children: (
                 <div style={{ maxWidth: 840, padding: '8px 0' }}>
-                  <Alert
-                    type="info"
-                    showIcon
-                    title="Notification & Alert Preferences"
-                    description="Configure audio chime playback, in-app toast alerts, and category subscriptions for real-time domain events."
-                    style={{ marginBottom: 20, fontSize: 12.5 }}
-                  />
-
                   {/* Audio Alerts Card */}
                   <Card
                     size="small"

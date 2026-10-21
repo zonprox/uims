@@ -251,14 +251,14 @@ export const SubnetFormModal: React.FC<SubnetFormModalProps> = React.memo(
                 <Select
                   placeholder="Select mapped VLAN"
                   allowClear
-                  showSearch
                   options={vlans.map((vlan) => ({
                     label: `VLAN ${vlan.vlanNumber} (${vlan.name})`,
                     value: vlan.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>

@@ -1105,9 +1105,9 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   return (
     <div>
-      {/* Filter Toolbar */}
-      <Card size="small" style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
-        <Row gutter={[12, 12]} align="middle" justify="space-between">
+      <Card size="small" styles={{ body: { padding: '16px 20px' } }}>
+        {/* Filter Toolbar */}
+        <Row gutter={[12, 12]} align="middle" justify="space-between" style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={6}>
             <Input
               placeholder="Search by name, code, email..."
@@ -1161,18 +1161,18 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             </Flex>
           </Col>
         </Row>
-      </Card>
 
-      {/* Employees Table */}
-      <EmployeeTable
-        employees={filteredEmployees}
-        loading={loading}
-        onViewDetails={handleOpenDetail}
-        onEdit={handleOpenEdit}
-        onDelete={handleDeleteEmployee}
-        copyToClipboard={copyToClipboard}
-        getStatusTag={getStatusTag}
-      />
+        {/* Employees Table */}
+        <EmployeeTable
+          employees={filteredEmployees}
+          loading={loading}
+          onViewDetails={handleOpenDetail}
+          onEdit={handleOpenEdit}
+          onDelete={handleDeleteEmployee}
+          copyToClipboard={copyToClipboard}
+          getStatusTag={getStatusTag}
+        />
+      </Card>
 
       {/* Create Employee Modal (Corporate Email Autocomplete & Masked Initial Credentials) */}
       <Modal
@@ -1235,7 +1235,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               >
                 <AutoComplete
                   options={emailDomainOptions}
-                  onSearch={handleEmailSearch}
+                  showSearch={{ onSearch: handleEmailSearch }}
                   placeholder="e.g. jsmith@youngonevn.com"
                 />
               </Form.Item>
@@ -1275,15 +1275,15 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <Form.Item name="organizationId" label="Organization">
                 <Select
                   placeholder="Select Organization"
-                  showSearch
                   allowClear
                   options={orgOptions}
                   onChange={() => {
                     createForm.setFieldsValue({ departmentId: undefined, positionId: undefined });
                   }}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -1291,7 +1291,6 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <Form.Item name="departmentId" label="Department">
                 <Select
                   placeholder={createOrgId ? 'Select Department' : 'Select Organization first'}
-                  showSearch
                   allowClear
                   disabled={!createOrgId}
                   options={createFilteredDepartments.map((d) => ({
@@ -1301,9 +1300,10 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                   onChange={() => {
                     createForm.setFieldsValue({ positionId: undefined });
                   }}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -1315,16 +1315,16 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
               <Form.Item name="positionId" label="Position / Role">
                 <Select
                   placeholder={createDeptId ? 'Select Position' : 'Select Department first'}
-                  showSearch
                   allowClear
                   disabled={!createDeptId}
                   options={createFilteredPositions.map((p) => ({
                     label: `${p.title} (${p.code})`,
                     value: p.id,
                   }))}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
+                  showSearch={{
+                    filterOption: (input, option) =>
+                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -1563,7 +1563,6 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                         <Form.Item name="organizationId" label="Organization">
                           <Select
                             placeholder="Select Organization"
-                            showSearch
                             allowClear
                             options={orgOptions}
                             onChange={() => {
@@ -1572,9 +1571,10 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                                 positionId: undefined,
                               });
                             }}
-                            filterOption={(input, option) =>
-                              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                            }
+                            showSearch={{
+                              filterOption: (input, option) =>
+                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                            }}
                           />
                         </Form.Item>
 
@@ -1583,7 +1583,6 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                             placeholder={
                               editOrgId ? 'Select Department' : 'Select Organization first'
                             }
-                            showSearch
                             allowClear
                             options={editFilteredDepartments.map((d) => ({
                               label: `${d.name} (${d.code})`,
@@ -1592,24 +1591,25 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
                             onChange={() => {
                               editForm.setFieldsValue({ positionId: undefined });
                             }}
-                            filterOption={(input, option) =>
-                              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                            }
+                            showSearch={{
+                              filterOption: (input, option) =>
+                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                            }}
                           />
                         </Form.Item>
 
                         <Form.Item name="positionId" label="Position / Role">
                           <Select
                             placeholder={editDeptId ? 'Select Position' : 'Select Department first'}
-                            showSearch
                             allowClear
                             options={editFilteredPositions.map((p) => ({
                               label: `${p.title} (${p.code})`,
                               value: p.id,
                             }))}
-                            filterOption={(input, option) =>
-                              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                            }
+                            showSearch={{
+                              filterOption: (input, option) =>
+                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+                            }}
                           />
                         </Form.Item>
                       </AppDrawer.Section>
@@ -2334,12 +2334,12 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
             loading={loadingAvailableLicenses}
             value={selectedLicenseId}
             onChange={setSelectedLicenseId}
-            showSearch
             allowClear
             style={{ width: '100%' }}
-            filterOption={(input, option) =>
-              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-            }
+            showSearch={{
+              filterOption: (input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase()),
+            }}
             options={availableLicenses.map((lic) => ({
               label: `${lic.name}${lic.publisher ? ` (${lic.publisher})` : lic.vendor ? ` (${lic.vendor})` : ''} · ${lic.totalSeats - lic.usedSeats} seats left`,
               value: lic.id,

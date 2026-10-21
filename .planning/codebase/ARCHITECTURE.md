@@ -12,7 +12,7 @@ last_mapped_at: 2026-10-14
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     Client Layer (React 19.3 + Ant Design 6.6.6)                │
+│                     Client Layer (React 19.3 + Ant Design 6.6.7)                │
 │   Single Public HTTPS Port (5679) / Cloudflare Tunnel / Local TLS Dev Server    │
 ├───────────────────────┬─────────────────────────┬───────────────────────────────┤
 │   Pages & Drawers     │    Zustand 5 Stores     │     TanStack React Query 5    │
@@ -92,7 +92,7 @@ last_mapped_at: 2026-10-14
 **Presentation Layer (Frontend SPA):**
 - Purpose: Responsive enterprise IT operations interface in 100% concise Enterprise English
 - Location: `apps/web/src/`
-- Contains: React 19 pages, Ant Design 6.6.6 components, Zustand 5 stores, TanStack Query 5 hooks, QR decoder utilities
+- Contains: React 19 pages, Ant Design 6.6.7 components, Zustand 5 stores, TanStack Query 5 hooks, QR decoder utilities
 - Depends on: `@uims/shared-types`, `@uims/shared-validators`, `@uims/shared-utils`
 
 **API Transport & Security Layer:**
