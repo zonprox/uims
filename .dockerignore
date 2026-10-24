@@ -102,3 +102,15 @@ desktop.ini
 *.7z
 *.core
 *.dump
+
+# Local Uploads & Data (Mandatory Docker Exclusion)
+uploads/
+**/uploads/**
+apps/api/uploads/**
+docker/data/
+data/
+.codebase-memory/
+temp/*.xlsx
+temp/*.xls
+temp/*.csv
+temp/*.pdf

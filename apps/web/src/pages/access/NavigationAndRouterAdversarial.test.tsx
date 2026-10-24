@@ -253,6 +253,58 @@ vi.mock('../../services/directory.service', () => ({
   },
 }));
 
+vi.mock('../../services/access-control.service', () => ({
+  accessControlService: {
+    getStats: vi.fn().mockResolvedValue({
+      totalDoors: 8,
+      activeDoors: 7,
+      maintenanceDoors: 1,
+      totalNonADUsers: 5,
+      activeNonADUsers: 4,
+      totalActiveAssignments: 12,
+      directoryUserAssignments: 8,
+      nonADUserAssignments: 4,
+      expiringSoonAssignments: 1,
+      criticalDoorAssignments: 2,
+    }),
+    getDoors: vi.fn().mockResolvedValue({
+      items: [
+        {
+          id: 'door-1',
+          doorCode: 'DR-HQ-01',
+          name: 'Main Entrance Door',
+          building: 'Headquarters',
+          floor: '1',
+          zone: 'Lobby',
+          securityLevel: 'STANDARD',
+          status: 'ACTIVE',
+          activeUsersCount: 12,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+    }),
+    getUnifiedUsers: vi.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+    }),
+    getDocuments: vi.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+    }),
+  },
+}));
+
 // Helper location watcher component to observe route navigation inside MemoryRouter
 let currentLocation = { pathname: '/' };
 function LocationWatcher() {
@@ -334,14 +386,11 @@ describe('Adversarial Navigation & Router State Suite', () => {
       act(() => root.unmount());
     });
 
-    it('cleanly redirects legacy /access-control to /users without infinite loops or white screen', async () => {
+    it('renders physical AccessControlPage when navigating directly to /access-control', async () => {
       const { root, memRouter } = await renderWithRouter(['/access-control']);
 
-      // Router must replace path to /users
-      expect(memRouter.state.location.pathname).toBe('/users');
-      expect(container.textContent).toContain('Users');
-      expect(container.textContent).toContain('Manage system user accounts');
-      expect(container.textContent).not.toContain('Loading...');
+      expect(memRouter.state.location.pathname).toBe('/access-control');
+      expect(container.textContent).toContain('Access Control');
 
       act(() => root.unmount());
     });

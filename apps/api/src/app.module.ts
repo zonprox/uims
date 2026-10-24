@@ -26,6 +26,7 @@ import { SearchModule } from './modules/search/search.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { UsersModule } from './modules/users/users.module';
 import { DirectoryModule } from './modules/directory/directory.module';
+import { AccessControlModule } from './modules/access-control/access-control.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { DirectoryModule } from './modules/directory/directory.module';
     HealthModule,
     SearchModule,
     NotificationsModule,
+    AccessControlModule,
   ],
   providers: [
     {

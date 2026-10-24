@@ -5,6 +5,7 @@ import {
   BellOutlined,
   DatabaseOutlined,
   GlobalOutlined,
+  KeyOutlined,
   LaptopOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
@@ -93,6 +94,15 @@ const COMMAND_ITEMS: Array<CommandItem> = [
     icon: <UserOutlined />,
     description: 'Manage console login users, RBAC roles, security status, and permission matrix',
     shortcut: '7',
+  },
+  {
+    key: 'access-control',
+    title: 'Access Control',
+    category: 'Access',
+    path: '/access-control',
+    icon: <KeyOutlined />,
+    description:
+      'Physical door security, badge clearance, authorized users, and approval scan documents',
   },
   {
     key: 'directory',

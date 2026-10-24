@@ -11,7 +11,8 @@ const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
 const HandoverDocumentsPage = lazy(() => import('../pages/handovers/HandoverDocumentsPage'));
 const LicensesPage = lazy(() => import('../pages/licenses/LicensesPage'));
 const OrganizationPage = lazy(() => import('../pages/organization/OrganizationPage'));
-const AccessControlPage = lazy(() => import('../pages/access/AccessControlPage'));
+const UserManagementPage = lazy(() => import('../pages/access/AccessControlPage'));
+const AccessControlPage = lazy(() => import('../pages/access-control/AccessControlPage'));
 const DirectoryPage = lazy(() => import('../pages/directory/DirectoryPage'));
 const NetworkPage = lazy(() => import('../pages/network/NetworkPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
@@ -88,7 +89,7 @@ export const router = createBrowserRouter([
             path: 'users',
             element: (
               <Suspense fallback={<PageLoader tip="Loading Users..." />}>
-                <AccessControlPage />
+                <UserManagementPage />
               </Suspense>
             ),
             ErrorBoundary: RouteErrorBoundary,
@@ -113,11 +114,16 @@ export const router = createBrowserRouter([
           },
           {
             path: 'access-control',
-            element: <Navigate to="/users" replace />,
+            element: (
+              <Suspense fallback={<PageLoader tip="Loading Access Control..." />}>
+                <AccessControlPage />
+              </Suspense>
+            ),
+            ErrorBoundary: RouteErrorBoundary,
           },
           {
             path: 'access',
-            element: <Navigate to="/users" replace />,
+            element: <Navigate to="/access-control" replace />,
           },
           {
             path: 'network',

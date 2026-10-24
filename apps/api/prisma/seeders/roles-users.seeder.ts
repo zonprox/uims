@@ -72,6 +72,7 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
         'Audit',
         'Report',
         'Setting',
+        'AccessControl',
       ] as const;
       const actions = ['create', 'read', 'update', 'delete', 'export', 'manage'] as const;
 
@@ -99,6 +100,8 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
           if (['Organization', 'Network', 'Audit', 'Group'].includes(subject))
             return ['read', 'export'].includes(action);
           if (subject === 'User') return ['read', 'update', 'export'].includes(action);
+          if (subject === 'AccessControl')
+            return ['create', 'read', 'update', 'export'].includes(action);
           if (['Role', 'Setting'].includes(subject)) return action === 'read';
           return false;
         },
@@ -112,12 +115,14 @@ export async function seedRolesAndUsers(prisma: PrismaClient, ctx?: SeederContex
             'Group',
             'Organization',
             'Report',
+            'AccessControl',
           ];
           if (allowed.includes(subject) && action === 'read') return true;
           return (subject === 'User' || subject === 'Asset') && action === 'update';
         },
         Viewer: (k) => {
           const [subject, action] = k.split(':');
+          if (subject === 'AccessControl') return ['read', 'export'].includes(action);
           const allowed = [
             'Asset',
             'License',

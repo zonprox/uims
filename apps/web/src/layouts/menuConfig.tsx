@@ -7,6 +7,7 @@ import {
   DatabaseOutlined,
   FileTextOutlined,
   GlobalOutlined,
+  KeyOutlined,
   LaptopOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
@@ -369,6 +370,14 @@ export function getNavMenuItems(
       icon: <NavIconWithBadge icon={<UserOutlined />} isCollapsed={isCollapsedDesktop} />,
       label: renderNavLabel('Users'),
       title: 'Users',
+    });
+  }
+  if (allow('read', 'AccessControl') || allow('read', 'Door') || allow('read', 'User')) {
+    orgChildren.push({
+      key: '/access-control',
+      icon: <NavIconWithBadge icon={<KeyOutlined />} isCollapsed={isCollapsedDesktop} />,
+      label: renderNavLabel('Access Control'),
+      title: 'Access Control',
     });
   }
 

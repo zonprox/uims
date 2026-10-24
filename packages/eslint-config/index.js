@@ -3,7 +3,18 @@ const eslintConfigPrettier = require('eslint-config-prettier');
 
 module.exports = tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', '.turbo/**', 'coverage/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      '.turbo/**',
+      'coverage/**',
+      'uploads/**',
+      'temp/**',
+      'tmp/**',
+      'logs/**',
+      '.pids/**',
+      '.codebase-memory/**',
+    ],
   },
   ...tseslint.configs.recommended,
   {

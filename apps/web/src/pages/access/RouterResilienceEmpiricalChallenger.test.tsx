@@ -8,6 +8,7 @@ import PageLoader from '../../components/PageLoader';
 import { router } from '../../app/router';
 import { useAuthStore } from '../../stores/auth.store';
 import './AccessControlPage';
+import '../access-control/AccessControlPage';
 import '../directory/DirectoryPage';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -113,6 +114,25 @@ vi.mock('../../services/directory.service', () => ({
   },
 }));
 
+vi.mock('../../services/access-control.service', () => ({
+  accessControlService: {
+    getStats: vi.fn().mockResolvedValue({
+      totalDoors: 8,
+      activeDoors: 7,
+      maintenanceDoors: 1,
+      totalNonADUsers: 5,
+      activeNonADUsers: 4,
+      directoryUserAssignments: 6,
+      activeAssignments: 10,
+      expiringAssignments: 2,
+      totalScans: 4,
+    }),
+    getDoors: vi.fn().mockResolvedValue([]),
+    getUsersMatrix: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    getDocumentScans: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  },
+}));
+
 describe('Empirical Challenger: Router Resilience & PageLoader Spinners', () => {
   let container: HTMLDivElement;
   let currentRoot: Root | null = null;
@@ -165,7 +185,8 @@ describe('Empirical Challenger: Router Resilience & PageLoader Spinners', () => 
       if (
         container.textContent &&
         !container.textContent.includes('Loading Users...') &&
-        !container.textContent.includes('Loading Directory...')
+        !container.textContent.includes('Loading Directory...') &&
+        !container.textContent.includes('Loading Access Control...')
       ) {
         break;
       }
@@ -176,23 +197,22 @@ describe('Empirical Challenger: Router Resilience & PageLoader Spinners', () => 
     return { root, memRouter };
   };
 
-  describe('1. Router Redirect Invariants (/access -> /users)', () => {
-    it('empirically verifies navigating to /access successfully redirects to /users', async () => {
+  describe('1. Router Redirect Invariants (/access -> /access-control)', () => {
+    it('empirically verifies navigating to /access successfully redirects to /access-control', async () => {
       const { memRouter } = await renderWithRouter(['/access']);
 
-      // 1. Router state must reflect redirected canonical path /users
-      expect(memRouter.state.location.pathname).toBe('/users');
+      // 1. Router state must reflect redirected canonical path /access-control
+      expect(memRouter.state.location.pathname).toBe('/access-control');
 
-      // 2. DOM text must contain target Users view and not white screen
-      expect(container.textContent).toContain('Users');
-      expect(container.textContent).toContain('Manage system user accounts');
+      // 2. DOM text must contain target Access Control view and not white screen
+      expect(container.textContent).toContain('Access Control');
     });
 
-    it('empirically verifies navigating to /access-control successfully redirects to /users', async () => {
+    it('empirically verifies navigating to /access-control successfully mounts access-control route', async () => {
       const { memRouter } = await renderWithRouter(['/access-control']);
 
-      expect(memRouter.state.location.pathname).toBe('/users');
-      expect(container.textContent).toContain('Users');
+      expect(memRouter.state.location.pathname).toBe('/access-control');
+      expect(container.textContent).toContain('Access Control');
     });
 
     it('empirically verifies navigating to /dashboard successfully redirects to /', async () => {

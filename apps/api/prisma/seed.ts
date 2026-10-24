@@ -9,6 +9,7 @@ dotenv.config();
 import { Logger } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { seedAccessControl } from './seeders/access-control.seeder';
 import { seedAssets } from './seeders/assets.seeder';
 import { seedAudit } from './seeders/audit.seeder';
 import { seedCostCenters } from './seeders/cost-centers.seeder';
@@ -38,6 +39,10 @@ async function clearDatabase(client: PrismaClient) {
     async (tx) => {
       await tx.setting.deleteMany();
       await tx.reportSchedule.deleteMany();
+      await tx.doorAccessAssignment.deleteMany();
+      await tx.doorAccessDocumentScan.deleteMany();
+      await tx.accessDoor.deleteMany();
+      await tx.nonADUser.deleteMany();
       await tx.licenseAssignment.deleteMany();
       await tx.notification.deleteMany();
       await tx.auditLog.deleteMany();
@@ -150,6 +155,10 @@ async function main() {
   // 13. Settings and Report Schedules
   logger.log('⚙️ Seeding System Preferences & Report Schedules...');
   await seedSettingsAndReports(prisma, ctx);
+
+  // 14. Physical Door Access Management (Doors, Non-AD Personnel, Document Scans & Clearances)
+  logger.log('🚪 Seeding Physical Door Access Control...');
+  await seedAccessControl(prisma, ctx);
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   logger.log(

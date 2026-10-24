@@ -27,3 +27,4 @@ export {
 export { NotificationType } from '../entities/notification';
 export { UserStatus } from '../entities/user';
 export * from './permissions';
+export * from './access-control';

@@ -31,7 +31,13 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
       isDbAvailable = true;
 
       await prisma.auditLog.deleteMany({
-        where: { action: 'LOGIN_FAILED', userEmail: { contains: '@uims.local' } },
+        where: {
+          action: 'LOGIN_FAILED',
+          OR: [
+            { userEmail: { contains: '@uims.local' } },
+            { userEmail: { endsWith: '@youngone.com' } },
+          ],
+        },
       });
 
       const jwtService = new JwtService({
@@ -219,6 +225,7 @@ describe('Demo Accounts & Youngone Migration E2E Suite', () => {
     expect(isDbAvailable).toBe(true);
 
     const auditLogs = await prisma.auditLog.findMany({
+      where: { action: { not: 'LOGIN_FAILED' } },
       take: 20,
       orderBy: { timestamp: 'desc' },
       select: { userEmail: true },

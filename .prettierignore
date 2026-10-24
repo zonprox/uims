@@ -1,0 +1,47 @@
+# ==============================================================================
+# Prettier Ignore File (Monorepo Standards)
+# ==============================================================================
+
+# Dependencies & Package Managers
+node_modules/
+.pnpm-store/
+
+# Build outputs & caches
+dist/
+build/
+out/
+.turbo/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# Uploads & User Generated Files
+uploads/
+**/uploads/**
+
+# Temporary, Scratch & Logs
+logs/
+*.log
+.pids/
+*.pid
+temp/
+tmp/
+.temp/
+.tmp/
+scratch/
+.scratch/
+
+# Metadata & Agent Workspaces
+.agents/
+.planning/
+.codebase-memory/
+.claude/
+.gemini/
+.cursor/
+.windsurf/
+.copilot/
+.antigravity/
+
+# OS Artifacts
+.DS_Store
+Thumbs.db

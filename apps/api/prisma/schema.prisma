@@ -89,10 +89,13 @@ model AppUser {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
-  role          Role?          @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  notifications Notification[]
+  role                   Role?                    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  refreshTokens          RefreshToken[]
+  auditLogs              AuditLog[]
+  notifications          Notification[]
+  uploadedDoorScans      DoorAccessDocumentScan[] @relation("UploadedDoorScans")
+  grantedDoorAssignments DoorAccessAssignment[]   @relation("GrantedDoorAssignments")
+  revokedDoorAssignments DoorAccessAssignment[]   @relation("RevokedDoorAssignments")
 
   @@index([status])
   @@index([roleId])
@@ -142,6 +145,7 @@ model DirectoryUser {
   groupMemberships   DirectoryMembership[]
   assignedIPs        IPAddress[]
   handoverRecords    AssetHandoverRecord[]
+  doorAssignments    DoorAccessAssignment[]
 
   @@index([organizationId])
   @@index([departmentId])
@@ -777,6 +781,7 @@ model Organization {
 
   departments Department[]
   users       DirectoryUser[]
+  accessDoors AccessDoor[]
 
   @@index([parentId])
 }
@@ -836,4 +841,197 @@ model Vendor {
   deviceModels DeviceModel[]
 
   @@index([name])
+}
+
+// ==========================================
+// PHYSICAL ACCESS CONTROL ENUMS
+// ==========================================
+
+enum DoorSecurityLevel {
+  STANDARD
+  RESTRICTED
+  HIGH
+  CRITICAL
+}
+
+enum DoorStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum NonADUserStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum AccessSubjectType {
+  DIRECTORY_USER
+  NON_AD_USER
+}
+
+enum AccessValidityType {
+  PERMANENT
+  TIME_BOUND
+}
+
+enum AccessAssignmentStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum DoorDocumentType {
+  GRANT
+  REVOCATION
+}
+
+// ==========================================
+// PHYSICAL ACCESS CONTROL MODELS
+// ==========================================
+
+model AccessDoor {
+  id              String            @id @default(uuid())
+  doorCode        String            @unique
+  name            String
+  description     String?
+  building        String
+  floor           String
+  zone            String?
+  location        String?
+  organizationId  String?
+  securityLevel   DoorSecurityLevel @default(STANDARD)
+  status          DoorStatus        @default(ACTIVE)
+  controllerModel String?
+  controllerIp    String?
+  readerType      String?
+  readerId        String?
+  installedAt     DateTime?
+  metadata        Json?             @default("{}")
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization Organization?          @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  assignments  DoorAccessAssignment[]
+
+  @@index([doorCode])
+  @@index([status])
+  @@index([securityLevel])
+  @@index([organizationId])
+  @@index([building, floor])
+  @@index([status, securityLevel])
+  @@index([createdAt])
+}
+
+model NonADUser {
+  id             String          @id @default(uuid())
+  fullName       String
+  badgeNumber    String          @unique
+  identityNumber String
+  company        String
+  phone          String?
+  email          String?
+  userType       String?         @default("CONTRACTOR") // CONTRACTOR, VISITOR, VENDOR, AUDITOR
+  status         NonADUserStatus @default(ACTIVE)
+  validFrom      DateTime?
+  validTo        DateTime?
+  notes          String?
+  metadata       Json?           @default("{}")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  assignments DoorAccessAssignment[]
+
+  @@index([badgeNumber])
+  @@index([identityNumber])
+  @@index([company])
+  @@index([status])
+  @@index([email])
+  @@index([validTo])
+  @@index([createdAt])
+}
+
+model DoorAccessDocumentScan {
+  id              String           @id @default(uuid())
+  documentType    DoorDocumentType
+  fileName        String
+  originalName    String
+  filePath        String
+  fileUrl         String
+  mimeType        String
+  fileSize        Int
+  fileHash        String?          // SHA-256 tamper-evident checksum
+  approverName    String
+  approverTitle   String?
+  referenceNumber String?
+  reason          String
+  notes           String?
+  uploadedById    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  uploadedBy            AppUser?               @relation("UploadedDoorScans", fields: [uploadedById], references: [id], onDelete: SetNull)
+  grantAssignments      DoorAccessAssignment[] @relation("GrantDocument")
+  revocationAssignments DoorAccessAssignment[] @relation("RevocationDocument")
+
+  @@index([documentType])
+  @@index([approverName])
+  @@index([referenceNumber])
+  @@index([uploadedById])
+  @@index([createdAt(sort: Desc)])
+  @@index([documentType, createdAt(sort: Desc)])
+}
+
+model DoorAccessAssignment {
+  id                   String                 @id @default(uuid())
+  doorId               String
+  subjectType          AccessSubjectType
+  directoryUserId      String?
+  nonADUserId          String?
+  accessType           AccessValidityType     @default(PERMANENT)
+  validFrom            DateTime               @default(now())
+  validTo              DateTime?
+  status               AccessAssignmentStatus @default(ACTIVE)
+
+  // Grant metadata
+  grantReason          String?
+  grantedAt            DateTime               @default(now())
+  grantedById          String?
+  grantDocumentId      String?
+
+  // Revocation metadata
+  revokedAt            DateTime?
+  revokedById          String?
+  revocationReason     String?
+  revocationDocumentId String?
+
+  notes                String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  door               AccessDoor              @relation(fields: [doorId], references: [id], onDelete: Cascade)
+  directoryUser      DirectoryUser?          @relation(fields: [directoryUserId], references: [id], onDelete: SetNull)
+  nonADUser          NonADUser?              @relation(fields: [nonADUserId], references: [id], onDelete: SetNull)
+  grantedBy          AppUser?                @relation("GrantedDoorAssignments", fields: [grantedById], references: [id], onDelete: SetNull)
+  revokedBy          AppUser?                @relation("RevokedDoorAssignments", fields: [revokedById], references: [id], onDelete: SetNull)
+  grantDocument      DoorAccessDocumentScan? @relation("GrantDocument", fields: [grantDocumentId], references: [id], onDelete: SetNull)
+  revocationDocument DoorAccessDocumentScan? @relation("RevocationDocument", fields: [revocationDocumentId], references: [id], onDelete: SetNull)
+
+  @@index([doorId])
+  @@index([directoryUserId])
+  @@index([nonADUserId])
+  @@index([status])
+  @@index([subjectType])
+  @@index([grantDocumentId])
+  @@index([revocationDocumentId])
+  @@index([grantedById])
+  @@index([revokedById])
+  @@index([validTo])
+  @@index([doorId, status])
+  @@index([directoryUserId, status])
+  @@index([nonADUserId, status])
+  @@index([status, validTo])
+  @@index([createdAt(sort: Desc)])
 }

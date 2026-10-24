@@ -19,6 +19,7 @@ export enum PermissionSubject {
   AUDIT = 'Audit',
   REPORT = 'Report',
   SETTING = 'Setting',
+  ACCESS_CONTROL = 'AccessControl',
   ALL = 'all',
 }
 
